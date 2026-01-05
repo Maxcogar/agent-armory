@@ -37,9 +37,19 @@ Comprehensive Google Cloud Platform IoT development toolkit for debugging, build
 
 ## Installation
 
-The plugin is already installed at:
+### From Claude Armory Marketplace
+
 ```
-C:\Users\maxco\.claude\plugins\gcp-iot
+/plugin marketplace add Maxcogar/claude-armory
+/plugin install gcp-iot@claude-armory
+```
+
+### Manual Installation
+
+Clone and install locally:
+```
+git clone https://github.com/Maxcogar/claude-armory.git
+/plugin install ./claude-armory/gcp-iot
 ```
 
 ## Prerequisites
