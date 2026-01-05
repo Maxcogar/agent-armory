@@ -1,0 +1,22 @@
+{
+  "name": "gcp-iot",
+  "version": "1.0.0",
+  "description": "Comprehensive Google Cloud Platform IoT development toolkit for ESP32 sensors, Cloud Run backends, Pub/Sub messaging, and Firebase frontends",
+  "author": {
+    "name": "maxco",
+    "email": "maxco@local"
+  },
+  "keywords": [
+    "gcp",
+    "google-cloud",
+    "iot",
+    "esp32",
+    "cloud-run",
+    "pubsub",
+    "firebase",
+    "telemetry",
+    "sensors",
+    "websocket"
+  ],
+  "license": "MIT"
+}

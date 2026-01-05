@@ -1,0 +1,23 @@
+{
+  "SessionStart": [
+    {
+      "hooks": [
+        {
+          "type": "prompt",
+          "prompt": "Check if gcloud CLI is available and authenticated. If gcloud is not installed or not authenticated, inform the user they should run 'gcloud auth login' before using GCP IoT commands. Be brief - just one line if everything is OK."
+        }
+      ]
+    }
+  ],
+  "PreToolUse": [
+    {
+      "matcher": "Bash",
+      "hooks": [
+        {
+          "type": "prompt",
+          "prompt": "If this bash command is about to deploy to Cloud Run or Firebase (contains 'gcloud run deploy' or 'firebase deploy'), verify: 1) The user has confirmed deployment, 2) We're not deploying to production without explicit confirmation. If this is a production deployment without confirmation, add a warning. Otherwise, allow the command."
+        }
+      ]
+    }
+  ]
+}
