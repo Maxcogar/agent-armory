@@ -1,0 +1,30 @@
+{
+  "name": "claude-armory",
+  "owner": {
+    "name": "Maxcogar",
+    "email": "maxco@local"
+  },
+  "metadata": {
+    "description": "A collection of Claude Code plugins for cloud development and IoT"
+  },
+  "plugins": [
+    {
+      "name": "gcp-iot",
+      "source": "./gcp-iot",
+      "description": "Google Cloud Platform IoT development toolkit for ESP32 sensors, Cloud Run backends, Pub/Sub messaging, and Firebase frontends",
+      "version": "1.0.0",
+      "author": {
+        "name": "maxco"
+      },
+      "keywords": [
+        "gcp",
+        "google-cloud",
+        "iot",
+        "esp32",
+        "cloud-run",
+        "pubsub",
+        "firebase"
+      ]
+    }
+  ]
+}
