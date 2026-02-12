@@ -1,0 +1,104 @@
+# .review-swarm.yaml — Configuration for Code Review Swarm
+# Place this in your project root to customize behavior.
+
+# ── Agent Preferences ──────────────────────────────────────────────────────
+# Which agents to use and their priority order.
+# Available: claude, gemini, codex
+agents:
+  preferred_order:
+    - claude      # Architecture, security, complex logic
+    - gemini      # Large-scale patterns, IoT, data flow (1M+ context)
+    - codex       # Bug detection, type safety, targeted checks
+
+  # Override domain-to-agent assignments
+  # Format: domain: [preferred, fallback]
+  overrides: {}
+    # Example:
+    # security: [codex, claude]
+    # frontend: [gemini, claude]
+
+# ── Model Configuration ───────────────────────────────────────────────────
+# CLI tools use their own configured defaults (recommended — they stay current).
+# These only affect API-key curl fallbacks when the CLI isn't installed.
+models:
+  # API fallbacks (when CLI not installed, using raw API keys)
+  claude_api: "claude-sonnet-4-20250514"
+  openai_api: "o3"              # or gpt-4.1 for faster/cheaper
+  gemini_api: "gemini-2.5-pro"  # stable
+
+  # CLI model overrides (empty = use CLI's own default, which is usually best)
+  # codex_cli: "gpt-5.3-codex"       # codex defaults to this already
+  # gemini_cli: "gemini-3-flash"     # or gemini-2.5-pro for stability
+  codex_cli: ""
+  gemini_cli: ""
+
+# ── Review Scope ───────────────────────────────────────────────────────────
+scope:
+  # File patterns to include
+  include:
+    - "*.js"
+    - "*.jsx"
+    - "*.ts"
+    - "*.tsx"
+    - "*.py"
+    - "*.go"
+    - "*.rs"
+    - "*.cpp"
+    - "*.c"
+    - "*.h"
+    - "*.ino"
+    - "*.vue"
+    - "*.svelte"
+    - "*.sql"
+    - "*.prisma"
+
+  # Paths to exclude (in addition to defaults)
+  exclude:
+    - "node_modules"
+    - ".git"
+    - "dist"
+    - "build"
+    - ".next"
+    - ".pio"
+    - "__pycache__"
+    - "vendor"
+    - "coverage"
+
+  # Maximum files per agent (prevents context overflow)
+  max_files_per_agent: 50
+
+# ── IoT Configuration ─────────────────────────────────────────────────────
+iot:
+  # Platforms to look for
+  platforms:
+    - esp32
+    - esp8266
+    - arduino
+    - raspberry-pi
+
+  # MQTT topic patterns to validate
+  mqtt_topic_pattern: "{device_type}/{device_id}/{channel}"
+
+  # Expected communication protocols
+  protocols:
+    - mqtt
+    - websocket
+    - serial
+    - i2c
+
+# ── Output ─────────────────────────────────────────────────────────────────
+output:
+  directory: ".code-review"
+  # Keep this many past reviews
+  history: 5
+  # Generate individual agent reports (not just synthesis)
+  keep_agent_reports: true
+
+# ── Execution ──────────────────────────────────────────────────────────────
+execution:
+  max_parallel: 3
+  use_worktrees: true
+  # Maximum time per agent in seconds (0 = unlimited)
+  agent_timeout: 300
+  # Verbose logging
+  verbose: false
