@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "codegraph": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "node",
+        "C:\\Users\\maxco\\OneDrive\\Documents\\GitHub\\claude-code-ultimate\\mcp-servers\\custom\\codegraph-mcp-server\\dist\\index.js"
+      ],
+      "description": "Deterministic codebase dependency graph analyzer. Supports JS/TS, Python, and C++/Arduino. Call codegraph_scan first, then query the graph."
+    }
+  }
+}
