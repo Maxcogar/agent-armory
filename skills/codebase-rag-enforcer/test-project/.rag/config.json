@@ -1,0 +1,47 @@
+{
+  "projectRoot": "C:\\Users\\maxco\\OneDrive\\Documents\\GitHub\\Coding Tools\\Claude\\plugins\\agent-armory\\skills\\codebase-rag-enforcer\\test-project",
+  "frontendPath": "frontend",
+  "backendPath": "backend",
+  "lastIndexedAt": "2026-02-21T02:30:13.647999+00:00",
+  "setupAt": "2026-02-21T02:30:13.648040+00:00",
+  "includeExtensions": [
+    ".js",
+    ".jsx",
+    ".mjs",
+    ".cjs",
+    ".ts",
+    ".tsx",
+    ".py",
+    ".go",
+    ".rs",
+    ".java",
+    ".rb",
+    ".php",
+    ".yml",
+    ".yaml",
+    ".md",
+    ".json"
+  ],
+  "excludeDirs": [
+    "node_modules",
+    ".git",
+    "dist",
+    "build",
+    "__pycache__",
+    ".venv",
+    "venv",
+    ".next",
+    ".rag",
+    "coverage",
+    ".turbo",
+    ".cache"
+  ],
+  "chunkSize": 300,
+  "chunkOverlap": 50,
+  "weights": {
+    "ARCHITECTURE.yml": 10.0,
+    "CONSTRAINTS.md": 10.0,
+    "CLAUDE.md": 10.0,
+    "docs/patterns/": 8.0
+  }
+}
