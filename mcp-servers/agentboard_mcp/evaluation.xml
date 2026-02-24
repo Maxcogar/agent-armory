@@ -1,0 +1,42 @@
+<evaluation>
+   <qa_pair>
+      <question>Among all projects tracked in AgentBoard, find the one that has progressed the furthest through the phase workflow (i.e., the highest current phase number). Then examine that project's activity log and find all entries where a document was approved. Looking at the very FIRST document approval (by timestamp), retrieve the approved document and provide its exact title as stored in the database.</question>
+      <answer>Migration Codebase Survey</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>In AgentBoard, find a project of type 'migration'. That project should have phase documents, some of which have been reviewed and approved. One of those documents is still awaiting review (status is 'submitted' rather than 'approved'). Retrieve that document and provide its document_type value exactly as stored.</question>
+      <answer>test_strategy</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>Find the AgentBoard project that is currently in phase 8. Look through its complete activity log and identify every entry whose action is 'log_entry' (custom notes, not system-generated events). How many such custom log entries exist for this project? Answer with just the number.</question>
+      <answer>3</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>In AgentBoard, find a project whose idea mentions "MCP evaluation questions". That project has milestone tasks forming a dependency chain. Starting from the ONLY milestone whose status is 'done', follow the chain forward through tasks that depend on it (i.e., find the task whose depends_on includes the done task's ID, then find the task that depends on THAT one, and so on). What is the title of the milestone that is exactly 4 hops away from the completed one? Provide the full title string.</question>
+      <answer>Phase 5: Risk &amp; Impact Assessment</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>Across ALL projects in AgentBoard, find every project that has at least one phase document with status 'approved'. For each such project, count how many of its documents have been approved. Which project has the most approved documents, and how many approved documents does it have? Answer in the format "project_name: count" (e.g., "My Project: 5").</question>
+      <answer>LeafLab Genkit Migration: 6</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>In AgentBoard, there is a project whose idea mentions "verifying MCP evaluation questions" (not the one about "MCP evaluation verification"). Examine its milestone tasks and find the one linked to a phase 7 document. Retrieve that linked document using the milestone's document_id. What is the exact title of that document?</question>
+      <answer>Contracts Document</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>Find the migration-type project in AgentBoard. Its activity log contains entries for phase changes. Among these, one entry records a phase being REVERTED (moved backward) rather than advanced forward. Examine the detail fields of the phase-related log entries to find this revert. What phase number did the project revert TO? Respond with just the phase number.</question>
+      <answer>3</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>In the AgentBoard migration project, examine the activity log to find the very last document_approved event (most recent by timestamp). Use the target field from that log entry to retrieve the actual document. What is the phase number of that document? Answer with just the number.</question>
+      <answer>7</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>Find the AgentBoard project named 'MCP Test'. Look at its activity log and identify the entry that records a task being created. Use the target field from that log entry to retrieve the actual task. What is that task's acceptance_criteria field? Provide the exact string.</question>
+      <answer>Task visible in list</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>In AgentBoard, find the project with the idea about migrating AI functions to use Genkit. Examine its phase 4 document (the constraints document). Who filled that document — that is, what is the exact value of the filled_by field on that document? Provide the exact string.</question>
+      <answer>doc-fixer</answer>
+   </qa_pair>
+</evaluation>

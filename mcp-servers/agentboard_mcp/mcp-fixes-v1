@@ -1,0 +1,293 @@
+AgentBoard MCP — TODO Implementation Plan                                                                                    
+  
+ Context
+
+ The AgentBoard MCP (agentboard_mcp/server.py) wraps an Express/SQLite backend and serves as the only interface LLM agents    
+ have with AgentBoard. A comprehensive review (TODO.md, DECISIONS.md) identified 17 issues: broken agent attribution, missing 
+  task locking, vague errors that cause agents to go rogue, stale naming, and missing usability features. The implementation  
+ order was agreed upon in DECISIONS.md — later steps depend on earlier ones.
+
+ Blast radius (codegraph): 6.7% — 6 server files + 1 transitive dependent (index.js). Tightly contained.
+
+ RAG constraint check (1043 chunks indexed): CLAUDE.md documents doc_states, milestone transition map, SAFE_MODIFICATIONS     
+ checklist, and anti-patterns — all reference draft and must update. The add_api_endpoint pattern applies to Step 7.
+ taskStateMachine.js does NOT need changes (we're renaming a document status, not a task status).
+
+ ---
+ Implementation Order
+
+ Step 1: Rename draft → submitted (Issue 16)
+
+ Why: Everything builds on correct naming. "Draft" implies unfinished; agents submit complete work.
+
+ 1A. DB schema migration — server/src/db/schema.js
+
+ - Line 43: Change initial CREATE TABLE CHECK to ('template','submitted','approved','superseded','rejected')
+ - Line 116: Same change in the existing migration's CREATE TABLE
+ - Add new migration (after line 136): Follow the existing table-recreation pattern:
+   - Check if 'submitted' already in schema (idempotent guard)
+   - PRAGMA foreign_keys = OFF
+   - Create phase_documents_new with 'submitted' in CHECK (no 'draft')
+   - INSERT INTO ... SELECT with CASE WHEN status = 'draft' THEN 'submitted' ELSE status END
+   - Drop old, rename new, recreate index
+   - PRAGMA foreign_keys = ON
+
+ 1B. Document submit route — server/src/routes/documents.js
+
+ - Line 83: status: 'draft' → status: 'submitted'
+ - Line 87: 'draft' → 'submitted' in onDocumentStatusChange() call
+ - Line 111: comment update 'draft' → 'submitted'
+ - Line 138: req.body.status === 'draft' → req.body.status === 'submitted'
+
+ 1C. Milestone sync — server/src/milestoneSync.js
+
+ - Lines 14-18: All 4 transition map keys:
+   - 'template->draft' → 'template->submitted'
+   - 'rejected->draft' → 'rejected->submitted'
+   - 'draft->approved' → 'submitted->approved'
+   - 'draft->rejected' → 'submitted->rejected'
+
+ 1D. Frontend (4 files)
+
+ - client/src/components/common/StatusBadge.jsx line 10: draft: → submitted:
+ - client/src/components/kanban/MilestoneCard.jsx line 5: case 'draft': → case 'submitted':
+ - client/src/components/layout/PhaseBar.jsx line 163: === 'draft' → === 'submitted'
+ - client/src/components/documents/DocumentViewer.jsx:
+   - Line 41: 'draft' → 'submitted' (save handler default status)
+   - Line 122: Button text Save Draft → Save
+   - Line 125: === 'draft' → === 'submitted' (approve/reject buttons visibility)
+   - Line 141: === 'draft' → === 'submitted' (supersede button visibility)
+
+ 1E. MCP server.py (7 occurrences)
+
+ - Line 42: DOCUMENT_STATUSES array
+ - Line 415: Literal[...] type for UpdateDocumentInput.status
+ - Lines 1114, 1131, 1219, 1286, 1318: Docstring references
+
+ 1F. Template content (~20 files in server/src/templates/)
+
+ - Cosmetic markdown text (- **Status:** draft). Bulk find-replace across template files.
+ - server/src/templates/milestoneTasks.js line 13: acceptance_criteria text
+
+ 1G. Verification scripts (RAG-surfaced)
+
+ - scripts/verification/verify-step2.js lines 160-163: 4 transition map strings ('template->draft', etc.)
+ - scripts/verification/verify-step4.js lines 319, 371, 374, 376, 379: draft references in DocumentViewer checks
+
+ 1H. Documentation
+
+ - CLAUDE.md: doc_states array + MILESTONE_SYSTEM auto_transitions section + PHASE_SYSTEM doc_states
+ - agentboard_mcp/SPEC.md: all draft references
+ - Planning/SPEC_milestone-lifecycle.md: all draft references
+ - docs/contracts/database-schema.md
+
+ ---
+ Step 2: AgentID Required on Mutating Tools (Issue 1)
+
+ Why: Every mutating action must identify WHO is acting. Static "mcp-agent" makes attribution impossible.
+
+ 2A. Remove global AGENT_ID — agentboard_mcp/server.py
+
+ - Delete line 25: AGENT_ID = os.environ.get("AGENTBOARD_AGENT_ID", "mcp-agent")
+ - Modify _api_request() (line 60): Add agent_id: Optional[str] = None param → sets X-Agent-Id header when provided
+ - Modify _check_server_running() (line 516): Remove X-Agent-Id from health check
+
+ 2B. Add agent_id field to mutating input models — server.py
+
+ Create MutatingProjectIdInput(ProjectIdInput) with required agent_id: str = Field(...).
+
+ Add required agent_id field to:
+ - CreateProjectInput
+ - CreateTaskInput
+ - UpdateTaskInput
+ - SubmitDocumentInput (also use as default filled_by)
+ - UpdateDocumentInput
+ - AddLogEntryInput
+
+ Switch agentboard_advance_phase and agentboard_revert_phase to use MutatingProjectIdInput.
+
+ 2C. Create GetNextTaskInput — server.py
+
+ Separate model with required agent_id (needed for assignee filtering in Step 3).
+ class GetNextTaskInput(BaseModel):
+     project_id: str = Field(..., description="Project UUID", min_length=1)
+     agent_id: str = Field(..., description="Your agent identifier", min_length=1)
+
+ 2D. Update all mutating tool functions
+
+ Pass agent_id=params.agent_id to _api_request() in all 8 mutating tools + getNextTask.
+
+ ---
+ Step 3: getNextTask Fixes (Issues 3, 5, 9)
+
+ Why: Without these, agents get other agents' claimed tasks (#5), have no idea their doc is in review (#3), and see confusing 
+  internal priority details (#9).
+
+ 3A. Assignee filtering — server/src/db/tasks.js
+
+ - Modify getNextTask() (line 102): Add agentId parameter
+ - In the eligible filter (line 117-120): Skip in-progress tasks assigned to a different agent:
+ if (t.status === 'in-progress' && t.assignee && t.assignee !== agentId) return false;
+
+ 3B. Review-state check — server/src/db/tasks.js
+
+ - Add function getReviewMilestoneForAgent(projectId, agentId):
+   - Query: milestones in review status assigned to calling agent
+   - JOIN with phase_documents to get document title
+   - Return first match or null
+
+ 3C. Route update — server/src/routes/tasks.js
+
+ - Line 17-18: Before calling getNextTask, check getReviewMilestoneForAgent()
+ - If found: return { task: null, document: null, pending_review: { milestone_id, document_id, message } }
+ - Pass req.agentId to getNextTask(req.params.id, req.agentId)
+
+ 3D. MCP docstring — server.py
+
+ - Lines 912-917: Strip 4-tier priority list
+ - Replace with: "Returns the next task you should work on. The server determines priority automatically."
+ - Document the pending_review response shape
+
+ 3E. MCP handler — server.py
+
+ - Check for pending_review in response and return the message string directly
+
+ ---
+ Step 4: Actionable Errors + Notes Policy (Issues 4, 6)
+
+ Why: Vague errors like INVALID_DOCUMENT_STATUS cause agents to go rogue searching the filesystem.
+
+ 4A. Status-specific errors — server/src/routes/documents.js
+
+ - Lines 54-59: Replace generic error with status-specific messages:
+   - submitted → "This document has already been submitted and is awaiting review. Call agentboard_get_next_task to get your  
+ next available work."
+   - approved → "This document has already been approved. Call agentboard_get_next_task to get your next task."
+   - superseded → "This document has been superseded. Call agentboard_get_next_task to get your next task."
+ - Lines 68-73: Milestone conflict → "The linked milestone is in '{status}' status. This usually means the review cycle has   
+ already progressed. Call agentboard_get_next_task to get your current work."
+ - Add next_step: 'agentboard_get_next_task' field to all error responses
+
+ 4B. Notes policy — agentboard_mcp/server.py
+
+ - SubmitDocumentInput.notes field description: Add explicit good/bad examples from DECISIONS.md
+ - Good: decisions, tradeoffs, rejection feedback addressed, "No additional notes"
+ - Bad: "Document submitted", restating task title, copy-pasting content
+
+ ---
+ Step 5: outputSchema + response_format (Issues 10, 11)
+
+ Why: JSON blobs confuse agents. When agents can't parse responses, they assume the tool is broken.
+
+ 5A. response_format parameter — server.py
+
+ - Add ResponseFormat enum (json | markdown)
+ - Add optional response_format field to all read-only input models (default: json)
+ - For tools with no input (health_check, list_projects, server_status): create ResponseFormatInput
+
+ 5B. Markdown formatters — server.py
+
+ - Add _format_*_markdown() helpers for each read-only tool
+ - Branch on params.response_format in each tool function
+
+ 5C. outputSchema — server.py
+
+ - Check if FastMCP version supports output_schema in @mcp.tool() decorator
+ - If supported: add JSON schema definitions for all tools
+ - If not (known issue python-sdk#1262): document output shapes in docstring Returns sections
+
+ ---
+ Step 6: Full Docstring Review (Issue 14)
+
+ Why: Tool descriptions must serve the AGENT, not mirror server internals.
+
+ - Review all 20+ tool docstrings in server.py
+ - Remove implementation details (sort orders, internal state machines, SQL details)
+ - Rewrite from agent's perspective: WHAT to do, WHAT to expect, WHAT to do on error
+ - Add "Next step" guidance where appropriate
+ - Verify no draft remnants remain
+
+ ---
+ Step 7: Add agentboard_get_task Tool (Issue 17)
+
+ Why: No way to read a single task by ID — agents must list-and-filter.
+
+ 7A. Express route — server/src/routes/tasks.js
+
+ - Add router.get('/api/tasks/:id', ...) before the PATCH route (line 88)
+ - Uses existing getTaskById() import (line 2)
+ - Pure read, no side effects, no WS events needed
+
+ 7B. MCP tool — server.py
+
+ - Add TaskIdInput model with task_id: str
+ - Add agentboard_get_task tool: GET /tasks/{task_id}, read-only annotations
+
+ 7C. Documentation (per CLAUDE.md add_api_endpoint pattern)
+
+ - docs/contracts/api-endpoints.md: Add GET /api/tasks/:id endpoint
+ - CLAUDE.md API_ENDPOINTS section: Add task endpoint
+ - agentboard_mcp/SPEC.md: Add tool to spec
+
+ ---
+ Step 8: Review Workflow Spec (Issue 15) — SPEC ONLY
+
+ - Write Planning/SPEC_review-workflow.md
+ - Cover: access key design, review tool design, UI for triggering review, guard on update_document (human-only
+ approve/reject), reviewer correction tracking, multi-reviewer policy
+ - No code changes — spec must be approved before implementation
+
+ ---
+ Step 9: Audit + Evaluation (Issues 2, 7, 8)
+
+ - Fresh audit cross-referencing SPEC.md + lifecycle spec + server.py + Express routes
+ - Update agentboard_mcp/evaluation.xml for new behavior
+ - Run evaluation harness against finished product
+ - Update SPEC.md, AUDIT.md, CLAUDE.md with final state
+
+ ---
+ Critical Files
+
+ ┌────────────────────────────────────────────────────┬─────────┬──────────────────────────────────────────────────────┐      
+ │                        File                        │  Steps  │                       Changes                        │      
+ ├────────────────────────────────────────────────────┼─────────┼──────────────────────────────────────────────────────┤      
+ │ agentboard_mcp/server.py                           │ 1-7     │ Input models, docstrings, tool functions, formatters │      
+ ├────────────────────────────────────────────────────┼─────────┼──────────────────────────────────────────────────────┤      
+ │ server/src/db/schema.js                            │ 1       │ CHECK constraint migration (draft→submitted)         │      
+ ├────────────────────────────────────────────────────┼─────────┼──────────────────────────────────────────────────────┤      
+ │ server/src/milestoneSync.js                        │ 1       │ 4 transition map keys                                │      
+ ├────────────────────────────────────────────────────┼─────────┼──────────────────────────────────────────────────────┤      
+ │ server/src/routes/documents.js                     │ 1, 4    │ Status rename + actionable errors                    │      
+ ├────────────────────────────────────────────────────┼─────────┼──────────────────────────────────────────────────────┤      
+ │ server/src/db/tasks.js                             │ 3       │ getNextTask assignee filter + review check           │      
+ ├────────────────────────────────────────────────────┼─────────┼──────────────────────────────────────────────────────┤      
+ │ server/src/routes/tasks.js                         │ 3, 7    │ Pass agentId, review-state check, GET task route     │      
+ ├────────────────────────────────────────────────────┼─────────┼──────────────────────────────────────────────────────┤      
+ │ client/src/components/documents/DocumentViewer.jsx │ 1       │ 4 draft→submitted references                         │      
+ ├────────────────────────────────────────────────────┼─────────┼──────────────────────────────────────────────────────┤      
+ │ client/src/components/common/StatusBadge.jsx       │ 1       │ 1 key rename                                         │      
+ ├────────────────────────────────────────────────────┼─────────┼──────────────────────────────────────────────────────┤      
+ │ client/src/components/kanban/MilestoneCard.jsx     │ 1       │ 1 case rename                                        │      
+ ├────────────────────────────────────────────────────┼─────────┼──────────────────────────────────────────────────────┤      
+ │ client/src/components/layout/PhaseBar.jsx          │ 1       │ 1 comparison rename                                  │      
+ ├────────────────────────────────────────────────────┼─────────┼──────────────────────────────────────────────────────┤      
+ │ scripts/verification/verify-step2.js               │ 1       │ 4 transition map strings                             │      
+ ├────────────────────────────────────────────────────┼─────────┼──────────────────────────────────────────────────────┤      
+ │ scripts/verification/verify-step4.js               │ 1       │ 5 draft references in checks                         │      
+ ├────────────────────────────────────────────────────┼─────────┼──────────────────────────────────────────────────────┤      
+ │ server/src/templates/*.js (~20 files)              │ 1       │ Cosmetic markdown text                               │      
+ ├────────────────────────────────────────────────────┼─────────┼──────────────────────────────────────────────────────┤      
+ │ CLAUDE.md                                          │ 1, 7, 9 │ doc_states, milestone transitions, file map          │      
+ └────────────────────────────────────────────────────┴─────────┴──────────────────────────────────────────────────────┘      
+
+ Verification
+
+ After each step:
+ 1. npm run dev — server starts without errors
+ 2. npm run lint --prefix client — no lint errors
+ 3. python -m py_compile agentboard_mcp/server.py — MCP compiles
+ 4. Create a project → submit a document → approve → verify full lifecycle works
+ 5. After Step 1: verify existing DBs migrate (draft rows become submitted)
+ 6. After Step 2: verify mutating tools reject calls without agent_id
+ 7. After Step 3: verify getNextTask returns pending_review when applicable, skips other agents' tasks
+ 8. After Step 7: verify agentboard_get_task returns single task by ID
