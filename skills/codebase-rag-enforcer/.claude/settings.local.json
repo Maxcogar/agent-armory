@@ -1,0 +1,17 @@
+{
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "core-memory",
+    "sequential-thinking",
+    "octocode",
+    "memory-bank",
+    "consult7",
+    "claude-context",
+    "chrome-devtools"
+  ],
+  "permissions": {
+    "allow": [
+      "Bash(python test_e2e.py:*)"
+    ]
+  }
+}
