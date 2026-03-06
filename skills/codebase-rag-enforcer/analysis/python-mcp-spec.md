@@ -20,7 +20,7 @@ The TypeScript MCP server is broken because the JS `chromadb` package (`ChromaCl
 ## 2. File Structure
 
 ```
-mcp-server/
+mcp-server-python/
   server.py              # Main entry point: FastMCP init, tool registration, lifespan, run()
   config.py              # ProjectContext, ProjectConfig, PersistedConfig, defaults, read/write config.json
   setup.py               # Project detection (frontend/backend), pattern scanning, ARCHITECTURE.yml generation
@@ -28,7 +28,6 @@ mcp-server/
   query.py               # check_constraints and query_impact implementations
   health.py              # health_check and status implementations
   utils/
-    __init__.py
     paths.py             # normalize_path, safe_relative_path, directory_exists, file_exists, ensure_dir
     chunker.py           # chunk_content with function-boundary detection, SHA-256 IDs
     metadata.py          # extract_imports, extract_exports, extract_api_endpoints, extract_ws_events, detect_language
@@ -61,7 +60,7 @@ from contextlib import asynccontextmanager
 from mcp.server.fastmcp import FastMCP
 
 @asynccontextmanager
-async def app_lifespan():
+async def app_lifespan(server: FastMCP):
     """Manage server-wide state."""
     state = {"current_project": None}
     yield state
@@ -71,7 +70,7 @@ mcp = FastMCP("codebase_rag_mcp", lifespan=app_lifespan)
 
 ### Server State
 
-A single `current_project: ProjectContext | None` held in lifespan state. Tools access it via `ctx.request_context.lifespan_state["current_project"]`.
+A single `current_project: ProjectContext | None` held in lifespan state. Tools access it via helper functions that read/write `ctx.request_context.lifespan_context["current_project"]`.
 
 ### Response Helpers
 
@@ -162,6 +161,8 @@ DEFAULT_CONFIG = ProjectConfig(
 
 Config is stored at `{project_root}/.rag/config.json` as a JSON file (NOT as generated Python code). The `read_config()` and `write_config()` functions handle serialization.
 
+**Note:** `write_config()` does not persist `default_results` or `max_results` to JSON. These always use hardcoded defaults from `DEFAULT_CONFIG` when restoring context.
+
 ```python
 import json, os
 
@@ -231,7 +232,13 @@ class RagSetupInput(BaseModel):
         "openWorldHint": False,
     },
 )
-async def rag_setup(params: RagSetupInput, ctx: Context) -> str:
+async def rag_setup(
+    project_root: str,
+    frontend_path: Optional[str] = None,
+    backend_path: Optional[str] = None,
+    force: bool = False,
+    ctx: Context = None,
+) -> str:
     """Initializes a project for RAG-based constraint enforcement. This MUST be called first before using any other rag_ tools.
 
     Scans the project directory to auto-detect frontend and backend paths, analyzes code patterns, and generates:
@@ -241,18 +248,20 @@ async def rag_setup(params: RagSetupInput, ctx: Context) -> str:
 
     Auto-detection logic:
       - Frontend: looks for package.json with react/vue/angular/svelte/vite in frontend/, src/, client/ directories
-      - Backend: looks for package.json with express/fastify/koa, requirements.txt, or go.mod in backend/, server/, api/ directories
+      - Backend: looks for package.json with express/fastify/koa, requirements.txt, go.mod, or Cargo.toml in backend/, server/, api/ directories
 
     You can override auto-detection by providing explicit frontend_path and backend_path arguments.
 
     After setup, call rag_index to populate the search collections.
 
+    Parameters are validated internally via the RagSetupInput Pydantic model. FastMCP exposes them as
+    individual tool parameters rather than a single model object.
+
     Args:
-        params (RagSetupInput): Validated input parameters containing:
-            - project_root (str): Absolute path to the project root directory
-            - frontend_path (Optional[str]): Override auto-detected frontend directory
-            - backend_path (Optional[str]): Override auto-detected backend directory
-            - force (bool): If true, overwrite existing generated files
+        project_root (str): Absolute path to the project root directory
+        frontend_path (Optional[str]): Override auto-detected frontend directory
+        backend_path (Optional[str]): Override auto-detected backend directory
+        force (bool): If true, overwrite existing generated files
 
     Returns:
         str: JSON containing:
@@ -305,7 +314,10 @@ class RagIndexInput(BaseModel):
         "openWorldHint": False,
     },
 )
-async def rag_index(params: RagIndexInput, ctx: Context) -> str:
+async def rag_index(
+    project_root: Optional[str] = None,
+    ctx: Context = None,
+) -> str:
     """Indexes (or re-indexes) the project codebase into ChromaDB collections for semantic search. Scans all matching files, chunks them, computes embeddings, and stores them in three collections:
 
       - "codebase": Code files chunked with metadata (imports, exports, endpoints)
@@ -319,8 +331,7 @@ async def rag_index(params: RagIndexInput, ctx: Context) -> str:
     This performs a FULL re-index (drops and recreates collections). Incremental indexing is not currently supported.
 
     Args:
-        params (RagIndexInput): Validated input parameters containing:
-            - project_root (Optional[str]): Absolute path to project root. Uses current context if omitted.
+        project_root (Optional[str]): Absolute path to project root. Uses current context if omitted.
 
     Returns:
         str: JSON containing:
@@ -383,7 +394,11 @@ class RagCheckConstraintsInput(BaseModel):
         "openWorldHint": False,
     },
 )
-async def rag_check_constraints(params: RagCheckConstraintsInput, ctx: Context) -> str:
+async def rag_check_constraints(
+    change_description: str,
+    num_results: int = 5,
+    ctx: Context = None,
+) -> str:
     """The PRIMARY tool for agents. Queries the RAG system to find all architectural constraints, patterns, and code examples relevant to a planned change.
 
     Returns results from three collections, ordered by relevance:
@@ -396,11 +411,10 @@ async def rag_check_constraints(params: RagCheckConstraintsInput, ctx: Context) 
     Use this BEFORE making any change to understand what rules apply.
 
     Args:
-        params (RagCheckConstraintsInput): Validated input parameters containing:
-            - change_description (str): Natural language description of the planned change.
-              Good: "Add a new POST /api/users/profile endpoint with auth middleware"
-              Bad: "change something"
-            - num_results (int): Max results per collection (1-20, default: 5)
+        change_description (str): Natural language description of the planned change.
+            Good: "Add a new POST /api/users/profile endpoint with auth middleware"
+            Bad: "change something"
+        num_results (int): Max results per collection (1-20, default: 5)
 
     Returns:
         str: JSON containing:
@@ -460,7 +474,11 @@ class RagQueryImpactInput(BaseModel):
         "openWorldHint": False,
     },
 )
-async def rag_query_impact(params: RagQueryImpactInput, ctx: Context) -> str:
+async def rag_query_impact(
+    file_path: str,
+    num_similar: int = 5,
+    ctx: Context = None,
+) -> str:
     """Analyzes the blast radius of changing a specific file. Shows what the file exports, what other files depend on it, and semantically similar files that might need coordinated changes.
 
     Returns three categories:
@@ -471,9 +489,8 @@ async def rag_query_impact(params: RagQueryImpactInput, ctx: Context) -> str:
     Uses both metadata-based import tracking AND semantic similarity to find related files.
 
     Args:
-        params (RagQueryImpactInput): Validated input parameters containing:
-            - file_path (str): File path relative to project root (e.g., "backend/routes/auth.js"). Must use forward slashes.
-            - num_similar (int): Max similar files to return (1-20, default: 5)
+        file_path (str): File path relative to project root (e.g., "backend/routes/auth.js"). Must use forward slashes.
+        num_similar (int): Max similar files to return (1-20, default: 5)
 
     Returns:
         str: JSON containing:
