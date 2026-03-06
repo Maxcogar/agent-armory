@@ -59,8 +59,8 @@ Initializes a project. Auto-detects frontend/backend, scans code for patterns, g
 
 ### rag_index (call after setup)
 Indexes the codebase into three weighted ChromaDB collections:
-- **constraints** (10x weight): ARCHITECTURE.yml, CONSTRAINTS.md, CLAUDE.md
-- **patterns** (8x weight): docs/patterns/*.md
+- **constraints** (10x weight): ARCHITECTURE.yml, CONSTRAINTS.md, CLAUDE.md + custom constraint sources
+- **patterns** (8x weight): docs/patterns/*.md + custom doc sources
 - **codebase** (1x weight): all code files
 
 Uses ChromaDB's default embedding function. No sentence-transformers or PyTorch needed.
@@ -70,6 +70,12 @@ The main tool. Query before making any change. Returns:
 - **Constraints** that apply to the planned change (highest weight, appear first)
 - **Patterns** showing how to implement correctly
 - **Code examples** from similar existing implementations
+
+Supports a `source_type` filter to control which collections are searched:
+- `"all"` (default): Search everything
+- `"docs"`: Search only documentation (constraints + patterns). Best for planning and understanding architecture.
+- `"code"`: Search only source code. Best when you need actual implementations.
+- `"constraints"`: Search only constraint files. Best for focused rules checks.
 
 ### rag_query_impact (blast radius analysis)
 Shows what breaks if you change a file:
@@ -83,12 +89,50 @@ Runs full diagnostics: collection health, constraint files on disk, test query, 
 ### rag_status (quick check)
 Lightweight status: initialized, indexed, chunk counts, last indexed timestamp.
 
+## Custom Document Sources
+
+By default, the tool indexes 3 hardcoded constraint files and `docs/patterns/`. You can add your own document sources (ADRs, OpenAPI specs, style guides, RFCs, etc.) by editing `.rag/config.json`:
+
+```json
+{
+  "customSources": [
+    {
+      "pattern": "docs/adr/*.md",
+      "sourceType": "docs",
+      "weight": 9.0
+    },
+    {
+      "pattern": "openapi.yaml",
+      "sourceType": "constraints",
+      "weight": 10.0
+    },
+    {
+      "pattern": "docs/guides/**/*.md",
+      "sourceType": "docs",
+      "weight": 8.0
+    }
+  ]
+}
+```
+
+**Fields:**
+- `pattern`: Glob pattern relative to project root
+- `sourceType`: One of `"constraints"`, `"docs"`, or `"code"` — determines which collection the files are indexed into and how they're filtered
+- `weight`: Retrieval weight (higher = appears earlier in results). Built-in constraints use 10.0, patterns use 8.0, code uses 1.0.
+
+After editing, run `rag_index` to re-index with the new sources.
+
 ## Workflow for Agents
 
 **Before any change:**
 1. `rag_check_constraints("description of planned change")`
 2. Read the returned constraints and patterns
 3. Follow them when implementing
+
+**Docs-first workflow (recommended):**
+1. `rag_check_constraints("description of planned change", source_type="docs")` — read architecture docs and patterns first
+2. `rag_check_constraints("description of planned change", source_type="code")` — then look at actual code when ready to implement
+3. Follow constraints when implementing
 
 **Before modifying a specific file:**
 1. `rag_query_impact(file_path="path/to/file.js")`
@@ -118,10 +162,12 @@ python <path-to>/mcp-server-python/server.py --index > /dev/null 2>&1 &
 2. **Auto-generated patterns:** Documents YOUR actual code, not generic templates
 3. **Metadata extraction:** Tracks imports, exports, API endpoints, WebSocket events
 4. **Impact analysis:** Shows blast radius before breaking things
-5. **Health checks:** Catches degradation proactively
-6. **Embedded ChromaDB:** PersistentClient runs in-process, no server needed
-7. **No heavy deps:** ChromaDB default embeddings, no sentence-transformers/PyTorch
-8. **Windows compatible:** Forward-slash path normalization, UTF-8 encoding
+5. **Source type filtering:** Agents can search docs vs. code separately, enabling a docs-first workflow
+6. **Custom sources:** Index your ADRs, OpenAPI specs, style guides — any docs your team already has
+7. **Health checks:** Catches degradation proactively
+8. **Embedded ChromaDB:** PersistentClient runs in-process, no server needed
+9. **No heavy deps:** ChromaDB default embeddings, no sentence-transformers/PyTorch
+10. **Windows compatible:** Forward-slash path normalization, UTF-8 encoding
 
 ## Troubleshooting
 

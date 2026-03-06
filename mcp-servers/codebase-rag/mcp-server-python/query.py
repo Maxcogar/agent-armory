@@ -13,6 +13,9 @@ from config import (
     COLLECTION_CODEBASE,
     COLLECTION_CONSTRAINTS,
     COLLECTION_PATTERNS,
+    SOURCE_TYPE_CONSTRAINTS,
+    SOURCE_TYPE_DOCS,
+    SOURCE_TYPE_CODE,
 )
 
 
@@ -61,101 +64,125 @@ def check_constraints(
     ctx: ProjectContext,
     change_description: str,
     num_results: int,
+    source_type: str = "all",
 ) -> Dict[str, Any]:
-    """Query all three collections for constraints, patterns, and examples."""
+    """Query collections for constraints, patterns, and examples.
+
+    Args:
+        source_type: Filter results by source type.
+            "all" (default) - search all collections
+            "docs" - search constraints + patterns collections only (documentation)
+            "code" - search codebase collection only (source code)
+            "constraints" - search constraints collection only
+    """
     client = _get_client(ctx)
 
     constraints: List[Dict[str, Any]] = []
     patterns: List[Dict[str, Any]] = []
     examples: List[Dict[str, Any]] = []
 
+    # Determine which collections to query based on source_type
+    search_constraints = source_type in ("all", SOURCE_TYPE_CONSTRAINTS, SOURCE_TYPE_DOCS)
+    search_patterns = source_type in ("all", SOURCE_TYPE_DOCS)
+    search_codebase = source_type in ("all", SOURCE_TYPE_CODE)
+
     # Query constraints collection
-    try:
-        constraint_col = client.get_collection(name=COLLECTION_CONSTRAINTS)
-        col_count = constraint_col.count()
-        n = min(num_results, col_count) if col_count > 0 else 0
-        if n > 0:
-            c_results = constraint_col.query(
-                query_texts=[change_description],
-                n_results=n,
-            )
-            if c_results["documents"] and c_results["documents"][0]:
-                for i, doc in enumerate(c_results["documents"][0]):
-                    meta = c_results["metadatas"][0][i] if c_results["metadatas"] else {}
-                    dist = (
-                        c_results["distances"][0][i]
-                        if c_results.get("distances") and c_results["distances"][0]
-                        else 1.0
-                    )
-                    if doc:
-                        constraints.append({
-                            "content": doc,
-                            "filePath": meta.get("filePath", "unknown") if meta else "unknown",
-                            "type": "constraint",
-                            "relevance": round(chroma_distance_to_relevance(dist), 4),
-                            "keyRules": extract_key_rules(doc),
-                        })
-    except Exception as e:
-        sys.stderr.write(f"[codebase_rag_mcp] Warning: constraints query failed: {e}\n")
+    if not search_constraints:
+        pass
+    else:
+        try:
+            constraint_col = client.get_collection(name=COLLECTION_CONSTRAINTS)
+            col_count = constraint_col.count()
+            n = min(num_results, col_count) if col_count > 0 else 0
+            if n > 0:
+                c_results = constraint_col.query(
+                    query_texts=[change_description],
+                    n_results=n,
+                )
+                if c_results["documents"] and c_results["documents"][0]:
+                    for i, doc in enumerate(c_results["documents"][0]):
+                        meta = c_results["metadatas"][0][i] if c_results["metadatas"] else {}
+                        dist = (
+                            c_results["distances"][0][i]
+                            if c_results.get("distances") and c_results["distances"][0]
+                            else 1.0
+                        )
+                        if doc:
+                            constraints.append({
+                                "content": doc,
+                                "filePath": meta.get("filePath", "unknown") if meta else "unknown",
+                                "type": "constraint",
+                                "relevance": round(chroma_distance_to_relevance(dist), 4),
+                                "keyRules": extract_key_rules(doc),
+                            })
+        except Exception as e:
+            sys.stderr.write(f"[codebase_rag_mcp] Warning: constraints query failed: {e}\n")
 
     # Query patterns collection
-    try:
-        pattern_col = client.get_collection(name=COLLECTION_PATTERNS)
-        col_count = pattern_col.count()
-        n = min(num_results, col_count) if col_count > 0 else 0
-        if n > 0:
-            p_results = pattern_col.query(
-                query_texts=[change_description],
-                n_results=n,
-            )
-            if p_results["documents"] and p_results["documents"][0]:
-                for i, doc in enumerate(p_results["documents"][0]):
-                    meta = p_results["metadatas"][0][i] if p_results["metadatas"] else {}
-                    dist = (
-                        p_results["distances"][0][i]
-                        if p_results.get("distances") and p_results["distances"][0]
-                        else 1.0
-                    )
-                    if doc:
-                        patterns.append({
-                            "content": doc,
-                            "filePath": meta.get("filePath", "unknown") if meta else "unknown",
-                            "type": "pattern",
-                            "relevance": round(chroma_distance_to_relevance(dist), 4),
-                        })
-    except Exception as e:
-        sys.stderr.write(f"[codebase_rag_mcp] Warning: patterns query failed: {e}\n")
+    if not search_patterns:
+        pass
+    else:
+        try:
+            pattern_col = client.get_collection(name=COLLECTION_PATTERNS)
+            col_count = pattern_col.count()
+            n = min(num_results, col_count) if col_count > 0 else 0
+            if n > 0:
+                p_results = pattern_col.query(
+                    query_texts=[change_description],
+                    n_results=n,
+                )
+                if p_results["documents"] and p_results["documents"][0]:
+                    for i, doc in enumerate(p_results["documents"][0]):
+                        meta = p_results["metadatas"][0][i] if p_results["metadatas"] else {}
+                        dist = (
+                            p_results["distances"][0][i]
+                            if p_results.get("distances") and p_results["distances"][0]
+                            else 1.0
+                        )
+                        if doc:
+                            patterns.append({
+                                "content": doc,
+                                "filePath": meta.get("filePath", "unknown") if meta else "unknown",
+                                "type": "pattern",
+                                "relevance": round(chroma_distance_to_relevance(dist), 4),
+                            })
+        except Exception as e:
+            sys.stderr.write(f"[codebase_rag_mcp] Warning: patterns query failed: {e}\n")
 
     # Query codebase collection
-    try:
-        codebase_col = client.get_collection(name=COLLECTION_CODEBASE)
-        col_count = codebase_col.count()
-        n = min(num_results, col_count) if col_count > 0 else 0
-        if n > 0:
-            e_results = codebase_col.query(
-                query_texts=[change_description],
-                n_results=n,
-            )
-            if e_results["documents"] and e_results["documents"][0]:
-                for i, doc in enumerate(e_results["documents"][0]):
-                    meta = e_results["metadatas"][0][i] if e_results["metadatas"] else {}
-                    dist = (
-                        e_results["distances"][0][i]
-                        if e_results.get("distances") and e_results["distances"][0]
-                        else 1.0
-                    )
-                    if doc:
-                        examples.append({
-                            "content": doc,
-                            "filePath": meta.get("filePath", "unknown") if meta else "unknown",
-                            "type": "code",
-                            "relevance": round(chroma_distance_to_relevance(dist), 4),
-                        })
-    except Exception as e:
-        sys.stderr.write(f"[codebase_rag_mcp] Warning: codebase query failed: {e}\n")
+    if not search_codebase:
+        pass
+    else:
+        try:
+            codebase_col = client.get_collection(name=COLLECTION_CODEBASE)
+            col_count = codebase_col.count()
+            n = min(num_results, col_count) if col_count > 0 else 0
+            if n > 0:
+                e_results = codebase_col.query(
+                    query_texts=[change_description],
+                    n_results=n,
+                )
+                if e_results["documents"] and e_results["documents"][0]:
+                    for i, doc in enumerate(e_results["documents"][0]):
+                        meta = e_results["metadatas"][0][i] if e_results["metadatas"] else {}
+                        dist = (
+                            e_results["distances"][0][i]
+                            if e_results.get("distances") and e_results["distances"][0]
+                            else 1.0
+                        )
+                        if doc:
+                            examples.append({
+                                "content": doc,
+                                "filePath": meta.get("filePath", "unknown") if meta else "unknown",
+                                "type": "code",
+                                "relevance": round(chroma_distance_to_relevance(dist), 4),
+                            })
+        except Exception as e:
+            sys.stderr.write(f"[codebase_rag_mcp] Warning: codebase query failed: {e}\n")
 
     return {
         "query": change_description,
+        "sourceFilter": source_type,
         "constraints": constraints,
         "patterns": patterns,
         "examples": examples,
@@ -163,6 +190,7 @@ def check_constraints(
             f"Found {len(constraints)} constraints, "
             f"{len(patterns)} patterns, "
             f"{len(examples)} examples for this change."
+            + (f" (filtered by source_type={source_type!r})" if source_type != "all" else "")
         ),
     }
 
