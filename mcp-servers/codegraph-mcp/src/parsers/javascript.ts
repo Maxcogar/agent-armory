@@ -8,6 +8,7 @@ import * as path from "path";
 interface TsConfig {
   baseUrl: string | null;
   paths: Record<string, string[]>;
+  hasPaths: boolean;
 }
 
 const tsConfigCache = new Map<string, TsConfig | null>();
@@ -21,23 +22,24 @@ function loadTsConfig(rootDir: string): TsConfig | null {
   if (tsConfigCache.has(rootDir)) return tsConfigCache.get(rootDir)!;
 
   const tsConfigPath = path.join(rootDir, "tsconfig.json");
-  if (!fs.existsSync(tsConfigPath)) {
-    tsConfigCache.set(rootDir, null);
-    return null;
-  }
 
   try {
     const raw = fs.readFileSync(tsConfigPath, "utf-8");
-    // Strip single-line comments (tsconfig allows them)
-    const stripped = raw.replace(/\/\/.*$/gm, "");
+    // Strip single-line comments while preserving strings containing //
+    const stripped = raw.replace(
+      /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|(\/\/.*$)/gm,
+      (match, comment) => (comment ? "" : match)
+    );
     const parsed = JSON.parse(stripped);
     const compilerOptions = parsed?.compilerOptions ?? {};
 
+    const paths = compilerOptions.paths ?? {};
     const config: TsConfig = {
       baseUrl: compilerOptions.baseUrl
         ? path.resolve(rootDir, compilerOptions.baseUrl)
         : null,
-      paths: compilerOptions.paths ?? {},
+      paths,
+      hasPaths: Object.keys(paths).length > 0,
     };
 
     tsConfigCache.set(rootDir, config);
@@ -68,7 +70,7 @@ function resolveWithTsPaths(
         for (const mapping of mappings) {
           const mappingBase = mapping.endsWith("/*") ? mapping.slice(0, -2) : mapping;
           const candidate = path.resolve(baseDir, mappingBase, rest);
-          const resolved = resolveJsImport(candidate, path.dirname(candidate));
+          const resolved = resolveAbsoluteCandidate(candidate);
           if (resolved) return resolved;
         }
       }
@@ -76,7 +78,7 @@ function resolveWithTsPaths(
       // Exact match
       for (const mapping of mappings) {
         const candidate = path.resolve(baseDir, mapping);
-        const resolved = resolveJsImport(candidate, path.dirname(candidate));
+        const resolved = resolveAbsoluteCandidate(candidate);
         if (resolved) return resolved;
       }
     }
@@ -94,6 +96,13 @@ function resolveWithBaseUrl(
   baseUrl: string
 ): string | null {
   const candidate = path.resolve(baseUrl, importPath);
+  return resolveAbsoluteCandidate(candidate);
+}
+
+/**
+ * Resolve an already-absolute candidate path, trying extensions and index files.
+ */
+function resolveAbsoluteCandidate(candidate: string): string | null {
   return resolveJsImport(candidate, path.dirname(candidate));
 }
 
@@ -125,29 +134,18 @@ export function parseJavaScriptDependencies(filePath: string, rootDir?: string):
   const dir = path.dirname(filePath);
   const tsConfig = rootDir ? loadTsConfig(rootDir) : null;
 
-  // Static import: import ... from '...' or import '...'
-  const staticImport = /import\s+(?:[\w*{},\s]+\s+from\s+)?['"]([^'"]+)['"]/g;
-  let match: RegExpExecArray | null;
-  while ((match = staticImport.exec(content)) !== null) {
-    resolveImport(match[1], dir, filePath, rootDir, tsConfig, importPaths);
-  }
+  const importPatterns = [
+    /import\s+(?:[\w*{},\s]+\s+from\s+)?['"]([^'"]+)['"]/g,  // static import
+    /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g,                   // require()
+    /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g,                    // dynamic import()
+    /export\s+(?:[\w*{},\s]+\s+from\s+)?['"]([^'"]+)['"]/g,   // re-export
+  ];
 
-  // require('...')
-  const requirePattern = /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
-  while ((match = requirePattern.exec(content)) !== null) {
-    resolveImport(match[1], dir, filePath, rootDir, tsConfig, importPaths);
-  }
-
-  // Dynamic import('...')
-  const dynamicImport = /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
-  while ((match = dynamicImport.exec(content)) !== null) {
-    resolveImport(match[1], dir, filePath, rootDir, tsConfig, importPaths);
-  }
-
-  // export ... from '...'
-  const reExport = /export\s+(?:[\w*{},\s]+\s+from\s+)?['"]([^'"]+)['"]/g;
-  while ((match = reExport.exec(content)) !== null) {
-    resolveImport(match[1], dir, filePath, rootDir, tsConfig, importPaths);
+  for (const pattern of importPatterns) {
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(content)) !== null) {
+      resolveImport(match[1], dir, filePath, rootDir, tsConfig, importPaths);
+    }
   }
 
   return Array.from(importPaths);
@@ -181,36 +179,6 @@ export function resolveJsImport(importPath: string, fromDir: string): string | n
   return null;
 }
 
-/**
- * Checks if an import path looks like a bare package specifier
- * (e.g. "express", "fs", "lodash/merge") rather than a project file.
- */
-function isBarePackageSpecifier(importPath: string): boolean {
-  // Relative paths are never bare specifiers
-  if (importPath.startsWith(".") || importPath.startsWith("..")) return false;
-  // URLs are not bare specifiers
-  if (importPath.startsWith("http://") || importPath.startsWith("https://")) return false;
-  // Scoped packages like @types/node are bare specifiers (but @/ aliases are not)
-  if (importPath.startsWith("@") && importPath.includes("/")) {
-    const parts = importPath.split("/");
-    // @scope/package is a bare specifier; we can't know for sure without
-    // checking node_modules, but if the scope part has no wildcard-like chars
-    // and the second part doesn't look like a path, treat it as bare.
-    // This heuristic works because tsconfig aliases like @/* will have been
-    // resolved by resolveWithTsPaths before we get here.
-    if (parts.length >= 2 && !parts[0].includes("*")) {
-      return true;
-    }
-  }
-  // Node built-ins and packages: no slashes at start, no dots at start
-  if (!importPath.includes("/") && !importPath.includes("\\")) return true;
-  // Things like "lodash/merge" — first segment has no dots or special chars
-  const firstSegment = importPath.split("/")[0];
-  if (!firstSegment.startsWith(".") && !firstSegment.includes(":")) return true;
-
-  return false;
-}
-
 function resolveImport(
   importPath: string,
   dir: string,
@@ -232,7 +200,7 @@ function resolveImport(
   }
 
   // 2. Try TypeScript path aliases (e.g. @/models/User, @components/Button)
-  if (tsConfig && Object.keys(tsConfig.paths).length > 0) {
+  if (tsConfig?.hasPaths) {
     const resolved = resolveWithTsPaths(importPath, rootDir!, tsConfig);
     if (resolved && resolved !== sourceFile) {
       result.add(resolved);

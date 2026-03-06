@@ -36,14 +36,8 @@ export function detectLanguage(filePath: string): Language {
 // File Discovery
 // ============================================================
 
-const SUPPORTED_EXTENSIONS = [
-  "**/*.ts", "**/*.tsx",
-  "**/*.js", "**/*.jsx", "**/*.mjs", "**/*.cjs",
-  "**/*.py",
-  "**/*.cpp", "**/*.cc", "**/*.cxx", "**/*.c",
-  "**/*.h", "**/*.hpp",
-  "**/*.ino",
-];
+const SUPPORTED_EXTENSIONS_GLOB =
+  "**/*.{ts,tsx,js,jsx,mjs,cjs,py,cpp,cc,cxx,c,h,hpp,ino}";
 
 export const DEFAULT_IGNORE_PATTERNS = [
   "**/node_modules/**",
@@ -60,19 +54,12 @@ export const DEFAULT_IGNORE_PATTERNS = [
 ];
 
 async function discoverFiles(rootDir: string, ignorePatterns?: string[]): Promise<string[]> {
-  const patterns = ignorePatterns ?? DEFAULT_IGNORE_PATTERNS;
-  const allFiles: string[] = [];
-  for (const pattern of SUPPORTED_EXTENSIONS) {
-    const matches = await glob(pattern, {
-      cwd: rootDir,
-      absolute: true,
-      ignore: patterns,
-      nodir: true,
-    });
-    allFiles.push(...matches);
-  }
-  // Deduplicate
-  return [...new Set(allFiles)];
+  return glob(SUPPORTED_EXTENSIONS_GLOB, {
+    cwd: rootDir,
+    absolute: true,
+    ignore: ignorePatterns ?? DEFAULT_IGNORE_PATTERNS,
+    nodir: true,
+  });
 }
 
 // ============================================================
