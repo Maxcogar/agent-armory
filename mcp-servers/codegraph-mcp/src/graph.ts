@@ -7,7 +7,7 @@ import {
   Language,
   ParseError,
 } from "./types.js";
-import { parseJavaScriptDependencies, resolveJsImport } from "./parsers/javascript.js";
+import { parseJavaScriptDependencies, resolveJsImport, clearTsConfigCache } from "./parsers/javascript.js";
 import { parsePythonDependencies } from "./parsers/python.js";
 import { parseCppDependencies, collectCppSearchDirs } from "./parsers/cpp.js";
 
@@ -45,7 +45,7 @@ const SUPPORTED_EXTENSIONS = [
   "**/*.ino",
 ];
 
-const IGNORE_PATTERNS = [
+export const DEFAULT_IGNORE_PATTERNS = [
   "**/node_modules/**",
   "**/.git/**",
   "**/dist/**",
@@ -59,13 +59,14 @@ const IGNORE_PATTERNS = [
   "**/*.bundle.js",
 ];
 
-async function discoverFiles(rootDir: string): Promise<string[]> {
+async function discoverFiles(rootDir: string, ignorePatterns?: string[]): Promise<string[]> {
+  const patterns = ignorePatterns ?? DEFAULT_IGNORE_PATTERNS;
   const allFiles: string[] = [];
   for (const pattern of SUPPORTED_EXTENSIONS) {
     const matches = await glob(pattern, {
       cwd: rootDir,
       absolute: true,
-      ignore: IGNORE_PATTERNS,
+      ignore: patterns,
       nodir: true,
     });
     allFiles.push(...matches);
@@ -78,12 +79,33 @@ async function discoverFiles(rootDir: string): Promise<string[]> {
 // Graph Builder
 // ============================================================
 
-export async function buildDependencyGraph(rootDir: string): Promise<DependencyGraph> {
+export interface BuildGraphOptions {
+  /** Custom ignore patterns. If provided, replaces the defaults entirely. */
+  ignorePatterns?: string[];
+  /** Additional ignore patterns to append to the defaults. */
+  additionalIgnorePatterns?: string[];
+}
+
+export async function buildDependencyGraph(
+  rootDir: string,
+  options?: BuildGraphOptions
+): Promise<DependencyGraph> {
   const normalizedRoot = path.resolve(rootDir);
   const parseErrors: ParseError[] = [];
 
+  // Clear tsconfig cache on each scan to pick up config changes
+  clearTsConfigCache();
+
+  // Merge ignore patterns
+  let ignorePatterns: string[] | undefined;
+  if (options?.ignorePatterns) {
+    ignorePatterns = options.ignorePatterns;
+  } else if (options?.additionalIgnorePatterns?.length) {
+    ignorePatterns = [...DEFAULT_IGNORE_PATTERNS, ...options.additionalIgnorePatterns];
+  }
+
   // Discover all files
-  const files = await discoverFiles(normalizedRoot);
+  const files = await discoverFiles(normalizedRoot, ignorePatterns);
 
   // Collect C++ search directories once
   const cppSearchDirs = collectCppSearchDirs(normalizedRoot);
@@ -118,7 +140,7 @@ export async function buildDependencyGraph(rootDir: string): Promise<DependencyG
       switch (node.language) {
         case "typescript":
         case "javascript":
-          rawDeps = parseJavaScriptDependencies(filePath);
+          rawDeps = parseJavaScriptDependencies(filePath, normalizedRoot);
           break;
         case "python":
           rawDeps = parsePythonDependencies(filePath, normalizedRoot);

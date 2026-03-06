@@ -4,7 +4,7 @@ import { z } from "zod";
 import * as path from "path";
 
 import { DependencyGraph, Language } from "./types.js";
-import { buildDependencyGraph } from "./graph.js";
+import { buildDependencyGraph, DEFAULT_IGNORE_PATTERNS } from "./graph.js";
 import {
   toolGetDependencies,
   toolGetDependents,
@@ -89,10 +89,14 @@ Supported languages:
 - Python (.py): import/from import (absolute and relative)
 - C++/Arduino (.cpp, .c, .h, .hpp, .ino): local #include "file.h"
 
-Automatically ignores: node_modules, .git, dist, build, __pycache__, .venv, .pio, *.min.js
+Default ignores: node_modules, .git, dist, build, __pycache__, .venv, .pio, *.min.js
+
+Now supports TypeScript path aliases (from tsconfig.json) and baseUrl resolution for non-relative imports.
 
 Args:
   - root_dir (string): Absolute path to the project root directory to scan
+  - ignore_patterns (string[], optional): Custom ignore glob patterns. Replaces the defaults entirely.
+  - additional_ignore_patterns (string[], optional): Extra ignore patterns appended to the defaults.
 
 Returns:
   Summary of the scan including file counts by language and any parse errors.`,
@@ -100,6 +104,19 @@ Returns:
       root_dir: z
         .string()
         .describe("Absolute path to the project root directory to scan"),
+      ignore_patterns: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "Custom ignore glob patterns that replace the defaults entirely. " +
+          "Default ignores: " + DEFAULT_IGNORE_PATTERNS.join(", ")
+        ),
+      additional_ignore_patterns: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "Extra ignore glob patterns appended to the defaults (e.g. ['**/test/**', '**/fixtures/**'])"
+        ),
     },
     annotations: {
       readOnlyHint: true,
@@ -108,12 +125,15 @@ Returns:
       openWorldHint: false,
     },
   },
-  async ({ root_dir }) => {
+  async ({ root_dir, ignore_patterns, additional_ignore_patterns }) => {
     const normalizedRoot = path.resolve(root_dir);
     process.stderr.write(`[codegraph] Scanning: ${normalizedRoot}\n`);
 
     try {
-      currentGraph = await buildDependencyGraph(normalizedRoot);
+      currentGraph = await buildDependencyGraph(normalizedRoot, {
+        ignorePatterns: ignore_patterns,
+        additionalIgnorePatterns: additional_ignore_patterns,
+      });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       return errResponse(`Error scanning directory: ${msg}`);
