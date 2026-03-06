@@ -6,6 +6,7 @@ constraints, patterns, and code examples via ChromaDB-backed semantic search.
 Uses chromadb.PersistentClient for embedded vector storage (no server needed).
 """
 
+import argparse
 import json
 import os
 import sys
@@ -30,14 +31,51 @@ CHARACTER_LIMIT = 25_000
 
 
 # ============================================================
+# CLI Argument Parsing
+# ============================================================
+
+
+def parse_args() -> argparse.Namespace:
+    """Parse CLI arguments for server configuration."""
+    parser = argparse.ArgumentParser(description="Codebase RAG MCP Server")
+    parser.add_argument(
+        "--project-root",
+        type=str,
+        default=os.environ.get("RAG_PROJECT_ROOT"),
+        help="Absolute path to project root. Auto-restores context if .rag/config.json exists. "
+             "Can also be set via RAG_PROJECT_ROOT env var.",
+    )
+    return parser.parse_args()
+
+
+_cli_args = parse_args()
+
+
+# ============================================================
 # Lifespan
 # ============================================================
 
 
 @asynccontextmanager
 async def app_lifespan(server: FastMCP):
-    """Manage server-wide state."""
+    """Manage server-wide state. Auto-restores project context if --project-root is provided."""
     state = {"current_project": None}
+
+    project_root = _cli_args.project_root
+    if project_root:
+        resolved = os.path.abspath(project_root)
+        ctx = restore_context(resolved)
+        if ctx:
+            sys.stderr.write(
+                f"[codebase_rag_mcp] Auto-restored project context: {resolved}\n"
+            )
+            state["current_project"] = ctx
+        else:
+            sys.stderr.write(
+                f"[codebase_rag_mcp] --project-root provided but no .rag/config.json found at {resolved}. "
+                "Run rag_setup to initialize.\n"
+            )
+
     yield state
 
 
@@ -72,7 +110,8 @@ def err_response(message: str) -> str:
 def no_project_error() -> str:
     """Standard error when no project is initialized."""
     return err_response(
-        "No project initialized. Call rag_setup first with the project root directory."
+        "No project initialized. Either start the server with --project-root to auto-restore, "
+        "or call rag_setup with the project root directory."
     )
 
 
@@ -187,7 +226,10 @@ async def rag_setup(
     force: bool = False,
     ctx: Context = None,
 ) -> str:
-    """Initializes a project for RAG-based constraint enforcement. This MUST be called first before using any other rag_ tools.
+    """Initializes a project for RAG-based constraint enforcement. Only needed for FIRST-TIME setup of a new project.
+
+    If the server was started with --project-root and the project was previously set up, the context is
+    auto-restored on boot and you can skip this tool entirely. Use rag_status to check.
 
     Scans the project directory to auto-detect frontend and backend paths, analyzes code patterns, and generates:
       - ARCHITECTURE.yml with detected constraints and patterns
@@ -196,7 +238,7 @@ async def rag_setup(
 
     Auto-detection logic:
       - Frontend: looks for package.json with react/vue/angular/svelte/vite in frontend/, src/, client/ directories
-      - Backend: looks for package.json with express/fastify/koa, requirements.txt, or go.mod in backend/, server/, api/ directories
+      - Backend: looks for package.json with express/fastify/koa, requirements.txt, go.mod, or Cargo.toml in backend/, server/, api/ directories
 
     You can override auto-detection by providing explicit frontend_path and backend_path arguments.
 
@@ -212,9 +254,9 @@ async def rag_setup(
         str: JSON containing status, detected paths, generated files, and patterns.
 
     Examples:
-        - Use when: "Set up RAG for my project" -> project_root="/path/to/project"
-        - Use when: "Re-initialize with custom paths" -> project_root="/path", frontend_path="web", force=true
-        - Don't use when: Project is already set up and you just need to re-index (use rag_index instead)
+        - Use when: First-time setup -> project_root="/path/to/project"
+        - Use when: Re-initialize with custom paths -> project_root="/path", frontend_path="web", force=true
+        - Don't use when: Project is already set up (check rag_status first)
     """
     params = RagSetupInput(project_root=project_root, frontend_path=frontend_path, backend_path=backend_path, force=force)
     resolved_root = os.path.abspath(params.project_root)
@@ -271,11 +313,11 @@ async def rag_index(
         str: JSON containing indexing stats, collection counts, errors, and duration.
 
     Examples:
-        - Use when: "Index my codebase" -> (no args, uses current project)
-        - Use when: "Index a different project" -> project_root="/other/project"
-        - Don't use when: You haven't run rag_setup yet (run that first)
+        - Use when: First-time setup after rag_setup -> (no args, uses current project)
+        - Use when: Codebase has changed significantly -> (no args, re-indexes)
+        - Don't use when: Index already exists and is fresh (check rag_status first)
 
-    Prerequisite: rag_setup must be called first.
+    Prerequisite: rag_setup must have been called at least once (or --project-root auto-restore).
     """
     project = _get_current_project(ctx)
 
@@ -363,7 +405,7 @@ async def rag_check_constraints(
         - Use when: "Constraints for modifying auth?" -> change_description="modify authentication middleware"
         - Don't use when: You need to analyze impact on a specific file (use rag_query_impact instead)
 
-    Prerequisite: rag_setup and rag_index must be called first.
+    Prerequisite: Project must be set up and indexed (auto-restored via --project-root, or via rag_setup + rag_index).
     """
     project = _get_current_project(ctx)
     if not project:
@@ -421,7 +463,7 @@ async def rag_query_impact(
         - Use when: "Impact of modifying the user model?" -> file_path="backend/models/user.js"
         - Don't use when: You need to check architectural rules (use rag_check_constraints instead)
 
-    Prerequisite: rag_setup and rag_index must be called first.
+    Prerequisite: Project must be set up and indexed (auto-restored via --project-root, or via rag_setup + rag_index).
     """
     project = _get_current_project(ctx)
     if not project:
@@ -483,7 +525,7 @@ async def rag_health_check(ctx: Context) -> str:
     Error Handling:
         - Returns error if no project context (not initialized)
 
-    Prerequisite: rag_setup must have been called at some point.
+    Prerequisite: Project must be set up (auto-restored via --project-root, or via rag_setup).
     """
     project = _get_current_project(ctx)
     if not project:

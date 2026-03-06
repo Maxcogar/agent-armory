@@ -55,14 +55,45 @@ pydantic>=2.0
 
 ## 4. Server Initialization (server.py)
 
+### CLI Arguments & Auto-Restore
+
+The server accepts `--project-root` (or `RAG_PROJECT_ROOT` env var) to auto-restore project context on startup. This eliminates the need for agents to call `rag_setup` and `rag_index` in every session.
+
+```python
+import argparse
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Codebase RAG MCP Server")
+    parser.add_argument(
+        "--project-root",
+        type=str,
+        default=os.environ.get("RAG_PROJECT_ROOT"),
+        help="Absolute path to project root. Auto-restores context if .rag/config.json exists.",
+    )
+    return parser.parse_args()
+
+_cli_args = parse_args()
+```
+
+### Lifespan & Auto-Restore
+
 ```python
 from contextlib import asynccontextmanager
 from mcp.server.fastmcp import FastMCP
 
 @asynccontextmanager
 async def app_lifespan(server: FastMCP):
-    """Manage server-wide state."""
+    """Manage server-wide state. Auto-restores project context if --project-root is provided."""
     state = {"current_project": None}
+
+    project_root = _cli_args.project_root
+    if project_root:
+        resolved = os.path.abspath(project_root)
+        ctx = restore_context(resolved)
+        if ctx:
+            state["current_project"] = ctx
+            # Server boots ready to query — no agent setup needed
+
     yield state
 
 mcp = FastMCP("codebase_rag_mcp", lifespan=app_lifespan)
@@ -71,6 +102,8 @@ mcp = FastMCP("codebase_rag_mcp", lifespan=app_lifespan)
 ### Server State
 
 A single `current_project: ProjectContext | None` held in lifespan state. Tools access it via helper functions that read/write `ctx.request_context.lifespan_context["current_project"]`.
+
+When `--project-root` is provided and `.rag/config.json` exists at that path, the context is auto-restored during lifespan startup. The persisted ChromaDB index at `.rag/collections/` is immediately available for queries — no `rag_setup` or `rag_index` calls needed.
 
 ### Response Helpers
 
@@ -981,19 +1014,39 @@ python -m py_compile server.py
 
 # Run via stdio (for Claude Code integration)
 python server.py
+
+# Run with auto-restore (recommended for repeat sessions)
+python server.py --project-root /path/to/project
+
+# Or via environment variable
+RAG_PROJECT_ROOT=/path/to/project python server.py
 ```
 
 ### Claude Code Configuration
 
-Add to `~/.claude/claude_desktop_config.json` or `.claude/settings.json`:
+Add to `~/.claude/claude_desktop_config.json` or `.claude/settings.json`.
+
+**With auto-restore (recommended)** — agents can query immediately, no setup calls needed:
 
 ```json
 {
   "mcpServers": {
     "codebase-rag": {
       "command": "python",
-      "args": ["C:/path/to/mcp-server/server.py"],
-      "env": {}
+      "args": ["/path/to/mcp-server-python/server.py", "--project-root", "/path/to/project"]
+    }
+  }
+}
+```
+
+**Without auto-restore** — agents must call `rag_setup` + `rag_index` each session:
+
+```json
+{
+  "mcpServers": {
+    "codebase-rag": {
+      "command": "python",
+      "args": ["/path/to/mcp-server-python/server.py"]
     }
   }
 }
@@ -1002,19 +1055,25 @@ Add to `~/.claude/claude_desktop_config.json` or `.claude/settings.json`:
 ### Testing with MCP Inspector
 
 ```bash
-npx @modelcontextprotocol/inspector python server.py
+npx @modelcontextprotocol/inspector python server.py --project-root /path/to/project
 ```
 
 ### Manual Test Sequence
+
+**First-time setup:**
 
 1. Call `rag_setup` with a test project directory
 2. Verify `.rag/config.json` and `ARCHITECTURE.yml` were created
 3. Call `rag_index` (no args, uses current context)
 4. Verify collections are populated via `rag_status`
-5. Call `rag_check_constraints` with a change description
-6. Verify results include constraints, patterns, and examples
-7. Call `rag_query_impact` with a file path from the indexed project
-8. Run `rag_health_check` and verify all checks pass
+
+**Auto-restore (subsequent sessions with --project-root):**
+
+5. Restart server with `--project-root` pointing to the same project
+6. Call `rag_status` — verify `initialized: true` and `indexed: true` without any setup calls
+7. Call `rag_check_constraints` with a change description — verify results returned immediately
+8. Call `rag_query_impact` with a file path from the indexed project
+9. Run `rag_health_check` and verify all checks pass
 
 ---
 
@@ -1035,3 +1094,4 @@ npx @modelcontextprotocol/inspector python server.py
 | Weight matching | First match wins | Longest (most specific) match wins |
 | Import search | `collection.get()` (loads all) | `where_document` + metadata filter |
 | API compat | Broken `list_collections` | `get_collection` with try/except |
+| Session startup | Manual setup + index every session | `--project-root` auto-restores from disk |
