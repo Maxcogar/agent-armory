@@ -24,46 +24,63 @@ cd skills/codebase-rag-enforcer/mcp-server-python
 pip install -r requirements.txt
 ```
 
-### 2. Add to Claude Code Config
+### 2. First-Time Project Initialization
 
-Add to your Claude Code MCP settings (`.claude/settings.local.json` or global settings):
+Run `rag_setup` and `rag_index` once to create the index:
+
+```
+Agent: rag_setup(project_root="/path/to/your/project")
+Agent: rag_index()
+```
+
+This creates a `.rag/` directory with the config and ChromaDB collections. These persist on disk.
+
+### 3. Add to Claude Code Config
+
+Add to your Claude Code MCP settings (`.claude/settings.local.json` or global settings). Use `--project-root` so agents in future sessions skip setup entirely:
 
 ```json
 {
   "mcpServers": {
     "codebase-rag": {
       "command": "python",
-      "args": ["<path-to>/mcp-server-python/server.py"]
+      "args": ["<path-to>/mcp-server-python/server.py", "--project-root", "/path/to/your/project"]
     }
   }
 }
 ```
 
-### 3. Use It
+Alternatively, set the `RAG_PROJECT_ROOT` environment variable instead of using `--project-root`.
 
-The agent calls the MCP tools directly. No scripts to copy, no manual commands.
+### 4. Use It
+
+With `--project-root` configured, agents can query immediately — no setup, no waiting:
 
 ```
-Agent: rag_setup(project_root="/path/to/your/project")
-Agent: rag_index()
 Agent: rag_check_constraints(change_description="add user profile endpoint")
 ```
 
+The server auto-restores the project context and index from disk on boot.
+
 ## Tools
 
-### rag_setup (call first)
+### rag_setup (first-time only)
 Initializes a project. Auto-detects frontend/backend, scans code for patterns, generates:
 - `ARCHITECTURE.yml` with detected constraints
 - `docs/patterns/*.md` with documented patterns from your actual code
 - `.rag/` directory with config and ChromaDB collections
 
-### rag_index (call after setup)
+Only needed once per project. After that, `--project-root` auto-restores on boot.
+
+### rag_index (first-time or re-index)
 Indexes the codebase into three weighted ChromaDB collections:
 - **constraints** (10x weight): ARCHITECTURE.yml, CONSTRAINTS.md, CLAUDE.md
 - **patterns** (8x weight): docs/patterns/*.md
 - **codebase** (1x weight): all code files
 
 Uses ChromaDB's default embedding function. No sentence-transformers or PyTorch needed.
+
+Only needed once after `rag_setup`, or when the codebase has changed significantly. The index persists on disk between sessions.
 
 ### rag_check_constraints (primary tool for agents)
 The main tool. Query before making any change. Returns:
@@ -85,12 +102,18 @@ Lightweight status: initialized, indexed, chunk counts, last indexed timestamp.
 
 ## Workflow for Agents
 
-**Before any change:**
+**Step 1: Check readiness (always do this first)**
+Call `rag_status()` and read the response:
+- `initialized: true` + `indexed: true` + `totalChunks > 0` → **Ready.** Skip to step 2.
+- `initialized: true` + `indexed: false` (or `totalChunks: 0`) → Run `rag_index()`, then proceed.
+- `initialized: false` → Run `rag_setup(project_root="...")` then `rag_index()`, then proceed.
+
+**Step 2: Before any change**
 1. `rag_check_constraints("description of planned change")`
 2. Read the returned constraints and patterns
 3. Follow them when implementing
 
-**Before modifying a specific file:**
+**Step 3: Before modifying a specific file**
 1. `rag_query_impact(file_path="path/to/file.js")`
 2. Check dependents and similar files
 3. Update related files if needed
@@ -126,7 +149,7 @@ python <path-to>/mcp-server-python/server.py --index > /dev/null 2>&1 &
 ## Troubleshooting
 
 **"No project initialized"**
-Run `rag_setup` first with the project root path.
+Either add `--project-root /path/to/project` to the server args in your MCP config, or run `rag_setup` with the project root path. After first-time setup, `--project-root` auto-restores on every future session.
 
 **"Collection not found" / "Query returns no results"**
 Run `rag_index` to build or rebuild the collections.

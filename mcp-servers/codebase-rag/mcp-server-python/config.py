@@ -14,8 +14,27 @@ from utils.paths import ensure_dir
 
 
 # ============================================================
+# Source Type Constants
+# ============================================================
+
+SOURCE_TYPE_CONSTRAINTS = "constraints"
+SOURCE_TYPE_DOCS = "docs"
+SOURCE_TYPE_CODE = "code"
+
+VALID_SOURCE_TYPES = [SOURCE_TYPE_CONSTRAINTS, SOURCE_TYPE_DOCS, SOURCE_TYPE_CODE]
+
+
+# ============================================================
 # Types
 # ============================================================
+
+
+@dataclass
+class CustomSource:
+    """A user-configured document source (ADRs, OpenAPI specs, style guides, etc.)."""
+    pattern: str           # Glob pattern relative to project root (e.g., "docs/adr/*.md")
+    source_type: str       # One of: "constraints", "docs", "code"
+    weight: float = 8.0    # Retrieval weight (default 8.0, same as built-in patterns)
 
 
 @dataclass
@@ -27,6 +46,7 @@ class ProjectConfig:
     default_results: int
     max_results: int
     weights: Dict[str, float]
+    custom_sources: List[CustomSource] = field(default_factory=list)
 
 
 @dataclass
@@ -125,6 +145,10 @@ def write_config(ctx: ProjectContext) -> None:
         "chunkSize": ctx.config.chunk_size,
         "chunkOverlap": ctx.config.chunk_overlap,
         "weights": ctx.config.weights,
+        "customSources": [
+            {"pattern": s.pattern, "sourceType": s.source_type, "weight": s.weight}
+            for s in ctx.config.custom_sources
+        ],
     }
 
     from datetime import datetime, timezone
@@ -142,6 +166,17 @@ def restore_context(project_root: str) -> Optional[ProjectContext]:
     if cfg is None:
         return None
 
+    raw_sources = cfg.get("customSources", [])
+    custom_sources = [
+        CustomSource(
+            pattern=s.get("pattern", ""),
+            source_type=s.get("sourceType", SOURCE_TYPE_DOCS),
+            weight=s.get("weight", 8.0),
+        )
+        for s in raw_sources
+        if s.get("pattern")
+    ]
+
     config = ProjectConfig(
         include_extensions=cfg.get("includeExtensions", DEFAULT_CONFIG.include_extensions),
         exclude_dirs=cfg.get("excludeDirs", DEFAULT_CONFIG.exclude_dirs),
@@ -150,6 +185,7 @@ def restore_context(project_root: str) -> Optional[ProjectContext]:
         default_results=DEFAULT_CONFIG.default_results,
         max_results=DEFAULT_CONFIG.max_results,
         weights=cfg.get("weights", DEFAULT_CONFIG.weights),
+        custom_sources=custom_sources,
     )
 
     return ProjectContext(

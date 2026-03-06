@@ -1,5 +1,6 @@
 """Health check and status implementations."""
 
+import glob as globmod
 import os
 import sys
 from datetime import datetime, timezone
@@ -62,6 +63,21 @@ def health_check(ctx: ProjectContext) -> Dict[str, Any]:
         if not exists:
             warnings.append(f"Missing constraint file: {name}")
 
+    # Check custom source patterns
+    custom_sources_status: Dict[str, Dict[str, Any]] = {}
+    if ctx.config.custom_sources:
+        for source in ctx.config.custom_sources:
+            pattern = os.path.join(ctx.project_root, source.pattern)
+            matches = globmod.glob(pattern, recursive=True)
+            file_count = len([m for m in matches if os.path.isfile(m)])
+            custom_sources_status[source.pattern] = {
+                "sourceType": source.source_type,
+                "weight": source.weight,
+                "filesFound": file_count,
+            }
+            if file_count == 0:
+                warnings.append(f"Custom source pattern '{source.pattern}' matched 0 files.")
+
     # Test query
     query_test = "skipped"
     codebase_health = collections.get("codebase", {})
@@ -98,7 +114,7 @@ def health_check(ctx: ProjectContext) -> Dict[str, Any]:
     else:
         issues.append("Index has never been built. Run rag_index.")
 
-    return {
+    result: Dict[str, Any] = {
         "healthy": len(issues) == 0,
         "collections": collections,
         "constraintFiles": constraint_files,
@@ -107,6 +123,10 @@ def health_check(ctx: ProjectContext) -> Dict[str, Any]:
         "issues": issues,
         "warnings": warnings,
     }
+    if custom_sources_status:
+        result["customSources"] = custom_sources_status
+
+    return result
 
 
 # ============================================================

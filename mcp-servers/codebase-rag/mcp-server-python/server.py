@@ -145,6 +145,16 @@ class RagCheckConstraintsInput(BaseModel):
         ge=1,
         le=20,
     )
+    source_type: str = Field(
+        default="all",
+        description=(
+            'Filter results by source type. Options: '
+            '"all" (default, search everything), '
+            '"docs" (constraints + patterns/documentation only), '
+            '"code" (source code only), '
+            '"constraints" (constraint files only)'
+        ),
+    )
 
 
 class RagQueryImpactInput(BaseModel):
@@ -255,8 +265,8 @@ async def rag_index(
     """Indexes (or re-indexes) the project codebase into ChromaDB collections for semantic search. Scans all matching files, chunks them, computes embeddings, and stores them in three collections:
 
       - "codebase": Code files chunked with metadata (imports, exports, endpoints)
-      - "constraints": ARCHITECTURE.yml, CONSTRAINTS.md, CLAUDE.md (high weight)
-      - "patterns": docs/patterns/*.md files (high weight)
+      - "constraints": ARCHITECTURE.yml, CONSTRAINTS.md, CLAUDE.md (high weight) + custom constraint sources
+      - "patterns": docs/patterns/*.md files (high weight) + custom doc sources
 
     Constraint and pattern documents are given higher weight multipliers so they appear first in search results, ensuring agents see architectural rules before random code examples.
 
@@ -336,16 +346,23 @@ async def rag_index(
 async def rag_check_constraints(
     change_description: str,
     num_results: int = 5,
+    source_type: str = "all",
     ctx: Context = None,
 ) -> str:
-    """The PRIMARY tool for agents. Queries the RAG system to find all architectural constraints, patterns, and code examples relevant to a planned change.
+    """The PRIMARY tool for agents. Queries the RAG system to find architectural constraints, patterns, and code examples relevant to a planned change.
 
-    Returns results from three collections, ordered by relevance:
-      1. CONSTRAINTS: Rules from ARCHITECTURE.yml, CONSTRAINTS.md, CLAUDE.md that the change MUST follow. These have 10x weight and appear first.
-      2. PATTERNS: Documented patterns from docs/patterns/ showing HOW to implement correctly. These have 8x weight.
+    Returns results from up to three collections, ordered by relevance:
+      1. CONSTRAINTS: Rules from ARCHITECTURE.yml, CONSTRAINTS.md, CLAUDE.md and any custom constraint sources. These have 10x weight and appear first.
+      2. PATTERNS: Documented patterns from docs/patterns/ and custom doc sources showing HOW to implement correctly. These have 8x weight.
       3. EXAMPLES: Actual code from the codebase showing existing implementations of similar functionality.
 
     Each result includes a relevance score (0-1, higher is better) and the source file path.
+
+    Use the source_type parameter to control which collections are searched:
+      - "all" (default): Search everything — constraints, patterns, and code
+      - "docs": Search only documentation (constraints + patterns). Use this when planning, understanding architecture, or reading docs before diving into code.
+      - "code": Search only source code. Use this when you need actual implementations, not documentation.
+      - "constraints": Search only constraint files. Use this for a focused rules check.
 
     Use this BEFORE making any change to understand what rules apply.
 
@@ -354,13 +371,15 @@ async def rag_check_constraints(
             Good: "Add a new POST /api/users/profile endpoint with auth middleware"
             Bad: "change something"
         num_results (int): Max results per collection (1-20, default: 5)
+        source_type (str): Filter by source type — "all", "docs", "code", or "constraints" (default: "all")
 
     Returns:
-        str: JSON containing constraints, patterns, examples with relevance scores.
+        str: JSON containing constraints, patterns, examples with relevance scores and the applied source filter.
 
     Examples:
         - Use when: "What rules apply to adding a new API endpoint?" -> change_description="add new REST API endpoint"
-        - Use when: "Constraints for modifying auth?" -> change_description="modify authentication middleware"
+        - Use when: "Read docs about auth first" -> change_description="authentication flow", source_type="docs"
+        - Use when: "Show me existing auth code" -> change_description="authentication middleware", source_type="code"
         - Don't use when: You need to analyze impact on a specific file (use rag_query_impact instead)
 
     Prerequisite: rag_setup and rag_index must be called first.
@@ -369,11 +388,19 @@ async def rag_check_constraints(
     if not project:
         return no_project_error()
 
+    # Validate source_type
+    valid_types = ("all", "docs", "code", "constraints")
+    if source_type not in valid_types:
+        return err_response(
+            f"Invalid source_type '{source_type}'. Must be one of: {', '.join(valid_types)}"
+        )
+
     try:
         result = check_constraints(
             project,
             change_description,
             num_results,
+            source_type=source_type,
         )
         return ok_response({"status": "success", **result})
     except Exception as e:

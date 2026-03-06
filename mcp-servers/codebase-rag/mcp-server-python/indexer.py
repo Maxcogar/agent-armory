@@ -12,9 +12,13 @@ from chromadb.config import Settings
 
 from config import (
     ProjectContext,
+    CustomSource,
     COLLECTION_CODEBASE,
     COLLECTION_CONSTRAINTS,
     COLLECTION_PATTERNS,
+    SOURCE_TYPE_CONSTRAINTS,
+    SOURCE_TYPE_DOCS,
+    SOURCE_TYPE_CODE,
     write_config,
 )
 from utils.paths import safe_relative_path, ensure_dir
@@ -91,6 +95,31 @@ def find_pattern_files(project_root: str) -> List[str]:
 
     results = globmod.glob(os.path.join(patterns_dir, "**", "*.md"), recursive=True)
     return [os.path.abspath(f) for f in results]
+
+
+def find_custom_source_files(project_root: str, custom_sources: List[CustomSource]) -> List[Dict[str, Any]]:
+    """Discover files matching custom source patterns.
+
+    Returns a list of dicts with keys: file_path, source_type, weight, pattern.
+    """
+    results: List[Dict[str, Any]] = []
+    seen: set[str] = set()
+
+    for source in custom_sources:
+        pattern = os.path.join(project_root, source.pattern)
+        matches = globmod.glob(pattern, recursive=True)
+        for match in matches:
+            abs_path = os.path.abspath(match)
+            if abs_path not in seen and os.path.isfile(abs_path):
+                seen.add(abs_path)
+                results.append({
+                    "file_path": abs_path,
+                    "source_type": source.source_type,
+                    "weight": source.weight,
+                    "pattern": source.pattern,
+                })
+
+    return results
 
 
 # ============================================================
@@ -191,6 +220,7 @@ def index_project(ctx: ProjectContext) -> Dict[str, Any]:
                     "wsEvents": ",".join(ws_events),
                     "weight": weight,
                     "type": "code",
+                    "source_type": SOURCE_TYPE_CODE,
                 })
 
             if ids:
@@ -242,6 +272,7 @@ def index_project(ctx: ProjectContext) -> Dict[str, Any]:
                     "wsEvents": "",
                     "weight": compute_weight(relative_path, ctx.config.weights),
                     "type": "constraint",
+                    "source_type": SOURCE_TYPE_CONSTRAINTS,
                 })
 
             if ids:
@@ -286,6 +317,7 @@ def index_project(ctx: ProjectContext) -> Dict[str, Any]:
                     "wsEvents": "",
                     "weight": compute_weight(relative_path, ctx.config.weights),
                     "type": "pattern",
+                    "source_type": SOURCE_TYPE_DOCS,
                 })
 
             if ids:
@@ -298,6 +330,84 @@ def index_project(ctx: ProjectContext) -> Dict[str, Any]:
             rel = safe_relative_path(ctx.project_root, file_path)
             sys.stderr.write(f"[codebase_rag_mcp] Warning: failed to index pattern {rel}: {e}\n")
             errors.append({"file": rel, "error": str(e)})
+
+    # ---- Index custom source files ----
+    if ctx.config.custom_sources:
+        # Map source_type to target collection
+        collection_map = {
+            SOURCE_TYPE_CONSTRAINTS: constraint_col,
+            SOURCE_TYPE_DOCS: pattern_col,
+            SOURCE_TYPE_CODE: codebase_col,
+        }
+        collection_stat_map = {
+            SOURCE_TYPE_CONSTRAINTS: "constraints",
+            SOURCE_TYPE_DOCS: "patterns",
+            SOURCE_TYPE_CODE: "codebase",
+        }
+
+        custom_files = find_custom_source_files(ctx.project_root, ctx.config.custom_sources)
+        for entry in custom_files:
+            file_path = entry["file_path"]
+            source_type = entry["source_type"]
+            weight = entry["weight"]
+            target_col = collection_map.get(source_type, pattern_col)
+            stat_key = collection_stat_map.get(source_type, "patterns")
+
+            try:
+                with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+                    content = f.read()
+
+                if not content.strip():
+                    continue
+
+                relative_path = safe_relative_path(ctx.project_root, file_path)
+
+                # Skip if already indexed as a built-in constraint or pattern
+                if relative_path in [safe_relative_path(ctx.project_root, cf) for cf in constraint_files]:
+                    continue
+                if relative_path in [safe_relative_path(ctx.project_root, pf) for pf in pattern_files]:
+                    continue
+
+                chunks = chunk_content(relative_path, content)
+                language = detect_language(relative_path)
+
+                ids: List[str] = []
+                documents: List[str] = []
+                metadatas: List[Dict[str, Any]] = []
+
+                for chunk in chunks:
+                    ids.append(chunk.id)
+                    documents.append(chunk.content)
+                    metadatas.append({
+                        "filePath": relative_path,
+                        "chunkIndex": chunk.index,
+                        "totalChunks": chunk.total_chunks,
+                        "language": language,
+                        "imports": "",
+                        "exports": "",
+                        "apiEndpoints": "",
+                        "wsEvents": "",
+                        "weight": weight,
+                        "type": "custom",
+                        "source_type": source_type,
+                    })
+
+                if ids:
+                    batch_size = 100
+                    for i in range(0, len(ids), batch_size):
+                        target_col.add(
+                            ids=ids[i:i + batch_size],
+                            documents=documents[i:i + batch_size],
+                            metadatas=metadatas[i:i + batch_size],
+                        )
+                    stats["collectionStats"][stat_key] += len(ids)
+                    stats["chunksCreated"] += len(ids)
+
+                stats["filesIndexed"] += 1
+            except Exception as e:
+                rel = safe_relative_path(ctx.project_root, file_path)
+                sys.stderr.write(f"[codebase_rag_mcp] Warning: failed to index custom source {rel}: {e}\n")
+                errors.append({"file": rel, "error": str(e)})
 
     # Update context
     ctx.last_indexed_at = datetime.now(timezone.utc).isoformat()
