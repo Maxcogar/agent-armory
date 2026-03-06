@@ -102,20 +102,21 @@ Lightweight status: initialized, indexed, chunk counts, last indexed timestamp.
 
 ## Workflow for Agents
 
-With `--project-root` configured, agents start querying immediately. No setup calls needed.
+**Step 1: Check readiness (always do this first)**
+Call `rag_status()` and read the response:
+- `initialized: true` + `indexed: true` + `totalChunks > 0` → **Ready.** Skip to step 2.
+- `initialized: true` + `indexed: false` (or `totalChunks: 0`) → Run `rag_index()`, then proceed.
+- `initialized: false` → Run `rag_setup(project_root="...")` then `rag_index()`, then proceed.
 
-**Before any change:**
+**Step 2: Before any change**
 1. `rag_check_constraints("description of planned change")`
 2. Read the returned constraints and patterns
 3. Follow them when implementing
 
-**Before modifying a specific file:**
+**Step 3: Before modifying a specific file**
 1. `rag_query_impact(file_path="path/to/file.js")`
 2. Check dependents and similar files
 3. Update related files if needed
-
-**If the server reports "No project initialized":**
-This means first-time setup is needed. Run `rag_setup` + `rag_index` once, then future sessions auto-restore.
 
 ## Migrating from Old Script-Based Setup
 
