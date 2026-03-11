@@ -14,33 +14,71 @@ No AI guessing — pure AST/regex parsing to map actual import/include relations
 | C++ | `.cpp`, `.c`, `.h`, `.hpp` | `#include "local.h"` |
 | Arduino | `.ino` | `#include "local.h"` |
 
-Automatically ignores: `node_modules`, `.git`, `dist`, `build`, `__pycache__`, `.venv`, `.pio`
+Automatically ignores: `node_modules`, `.git`, `dist`, `build`, `__pycache__`, `.venv`, `.pio`, `*.min.js`
 
 ## Tools
 
 | Tool | Description |
 |---|---|
-| `codegraph_scan` | **Call first.** Scans a directory and builds the graph in memory |
+| `codegraph_scan` | **Call first.** Scans a directory and builds the graph in memory. Also scans doc files (`.md`, `.mdx`, `.rst`, `.txt`) for code references. |
 | `codegraph_get_dependencies` | What does file X import? |
 | `codegraph_get_dependents` | What files import file X? |
-| `codegraph_get_change_impact` | Full blast radius if file(s) change |
+| `codegraph_get_change_impact` | Full blast radius if file(s) change (direct + transitive) |
 | `codegraph_get_subgraph` | Local neighborhood around a file (configurable depth) |
 | `codegraph_find_entry_points` | Files at the top of the tree (nothing imports them) |
 | `codegraph_list_files` | All files in the graph, with language filter + pagination |
 | `codegraph_get_stats` | Codebase overview: most connected, most depended-on, etc. |
+| `codegraph_find_related_docs` | Find all documentation files affected by code changes |
+
+### codegraph_find_related_docs
+
+Given a set of changed code files, finds **all** documentation that needs to be reviewed and potentially updated. This is deterministic — it does not guess. It works by:
+
+1. Computing the full blast radius of the changed files (direct + transitive dependents via the import graph)
+2. Finding every documentation file (`.md`, `.mdx`, `.rst`, `.txt`) that references ANY code file in that blast radius
+3. Returning an exhaustive list with the exact reason each doc matched
+
+This is designed for enforcing documentation sync — the output is the complete set of docs that **must** be reviewed after a code change. No judgment calls, no optional updates.
+
+```
+codegraph_find_related_docs({ files: ["src/utils/api.ts"] })
+→ {
+    affected_docs: [
+      { doc: "docs/api-guide.md", reason: "references src/utils/api.ts" },
+      { doc: "README.md", reason: "references src/utils/api.ts" }
+    ],
+    blast_radius: ["src/utils/api.ts", "src/pages/Dashboard.tsx", ...]
+  }
+```
 
 ## Installation
 
 ```bash
-# Clone or copy this folder
 cd codegraph-mcp-server
 npm install
 npm run build
 ```
 
-## Claude Code Configuration (Windows)
+Requires Node.js >= 18.0.0.
 
-Add to your `claude_desktop_config.json` or `.claude/mcp.json`:
+## Configuration
+
+Add to your `.claude/mcp.json` (or `claude_desktop_config.json`):
+
+**macOS / Linux:**
+
+```json
+{
+  "mcpServers": {
+    "codegraph": {
+      "command": "node",
+      "args": ["/path/to/codegraph-mcp-server/dist/index.js"]
+    }
+  }
+}
+```
+
+**Windows:**
 
 ```json
 {
@@ -50,7 +88,7 @@ Add to your `claude_desktop_config.json` or `.claude/mcp.json`:
       "args": [
         "/c",
         "node",
-        "C:\\Users\\maxco\\path\\to\\codegraph-mcp-server\\dist\\index.js"
+        "C:\\Users\\you\\path\\to\\codegraph-mcp-server\\dist\\index.js"
       ]
     }
   }
@@ -60,7 +98,7 @@ Add to your `claude_desktop_config.json` or `.claude/mcp.json`:
 ## Usage Workflow
 
 ```
-1. codegraph_scan({ root_dir: "C:\\Users\\maxco\\projects\\my-app" })
+1. codegraph_scan({ root_dir: "/path/to/my-app" })
    → Scans all files and builds the graph
 
 2. codegraph_get_stats()
@@ -71,7 +109,17 @@ Add to your `claude_desktop_config.json` or `.claude/mcp.json`:
 
 4. codegraph_get_subgraph({ file: "api.ts", depth: 2 })
    → Full local context before making changes
+
+5. codegraph_find_related_docs({ files: ["src/utils/api.ts"] })
+   → Docs that reference changed or affected files and need review
 ```
+
+## Features
+
+- **TypeScript path aliases**: Resolves paths from `tsconfig.json` (`baseUrl` and `paths`)
+- **Doc scanning**: Scans `.md`, `.mdx`, `.rst`, `.txt` files for references to code files
+- **Fuzzy file resolution**: Query by filename, relative path, or absolute path
+- **Pagination**: `codegraph_list_files` supports `offset` and `limit` for large codebases
 
 ## Quality Hook Integration
 
@@ -84,6 +132,14 @@ codegraph_get_change_impact({ files: ["X"] })
 
 ...and verify the agent's claim against the actual dependency graph before
 accepting task completion.
+
+Similarly, enforce doc-sync after any code change:
+
+```
+codegraph_find_related_docs({ files: ["X"] })
+```
+
+...to get the complete list of docs that must be reviewed.
 
 ## Graph Lifecycle
 

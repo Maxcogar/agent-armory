@@ -32,6 +32,8 @@ export interface DependencyGraph {
   totalFiles: number;
   /** Files that had parse errors */
   parseErrors: ParseError[];
+  /** Documentation files with their code references */
+  docNodes: Map<string, DocNode>;
 }
 
 export interface ParseError {
@@ -122,4 +124,41 @@ export interface ConnectedFile {
   relativePath: string;
   language: Language;
   count: number;
+}
+
+// ============================================================
+// Documentation Graph Types
+// ============================================================
+
+export interface DocNode {
+  /** Absolute path to the documentation file */
+  path: string;
+  /** Path relative to the scanned root */
+  relativePath: string;
+  /** Absolute paths of code files referenced in this doc's content */
+  referencedCodeFiles: string[];
+}
+
+export interface DocRef {
+  [key: string]: unknown;
+  path: string;
+  relativePath: string;
+  /** Which code files in the blast radius this doc references */
+  matchedCodeFiles: FileRef[];
+  /** Why this doc was matched (e.g. "references auth/login.ts, utils/helpers.ts") */
+  reason: string;
+}
+
+export interface RelatedDocsResult {
+  [key: string]: unknown;
+  /** The changed files that were analyzed */
+  changedFiles: FileRef[];
+  /** Full blast radius: changed + all transitively affected code files */
+  blastRadius: FileRef[];
+  /** All documentation files that reference any file in the blast radius */
+  relatedDocs: DocRef[];
+  /** Total doc files found that need review */
+  totalDocsToReview: number;
+  /** Total doc files in the project (for context) */
+  totalDocsInProject: number;
 }
