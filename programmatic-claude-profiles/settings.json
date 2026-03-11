@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(**)",
+      "Glob(**)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git status:*)",
+      "Write(claude-review-report.md)"
+    ],
+    "deny": [
+      "Edit(**)",
+      "Bash(rm:*)",
+      "Bash(del:*)",
+      "Bash(npm:*)",
+      "Bash(pip:*)",
+      "Bash(python:*)",
+      "Bash(node:*)",
+      "WebFetch(*)",
+      "WebSearch(*)"
+    ]
+  }
+}
