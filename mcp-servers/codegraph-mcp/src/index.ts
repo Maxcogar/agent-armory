@@ -4,7 +4,7 @@ import { z } from "zod";
 import * as path from "path";
 
 import { DependencyGraph, Language } from "./types.js";
-import { buildDependencyGraph } from "./graph.js";
+import { buildDependencyGraph, DEFAULT_IGNORE_PATTERNS } from "./graph.js";
 import {
   toolGetDependencies,
   toolGetDependents,
@@ -13,6 +13,7 @@ import {
   toolFindEntryPoints,
   toolListFiles,
   toolGetStats,
+  toolFindRelatedDocs,
 } from "./tools/query.js";
 
 // ============================================================
@@ -89,10 +90,14 @@ Supported languages:
 - Python (.py): import/from import (absolute and relative)
 - C++/Arduino (.cpp, .c, .h, .hpp, .ino): local #include "file.h"
 
-Automatically ignores: node_modules, .git, dist, build, __pycache__, .venv, .pio, *.min.js
+Default ignores: node_modules, .git, dist, build, __pycache__, .venv, .pio, *.min.js
+
+Now supports TypeScript path aliases (from tsconfig.json) and baseUrl resolution for non-relative imports.
 
 Args:
   - root_dir (string): Absolute path to the project root directory to scan
+  - ignore_patterns (string[], optional): Custom ignore glob patterns. Replaces the defaults entirely.
+  - additional_ignore_patterns (string[], optional): Extra ignore patterns appended to the defaults.
 
 Returns:
   Summary of the scan including file counts by language and any parse errors.`,
@@ -100,6 +105,19 @@ Returns:
       root_dir: z
         .string()
         .describe("Absolute path to the project root directory to scan"),
+      ignore_patterns: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "Custom ignore glob patterns that replace the defaults entirely. " +
+          "Default ignores: " + DEFAULT_IGNORE_PATTERNS.join(", ")
+        ),
+      additional_ignore_patterns: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "Extra ignore glob patterns appended to the defaults (e.g. ['**/test/**', '**/fixtures/**'])"
+        ),
     },
     annotations: {
       readOnlyHint: true,
@@ -108,12 +126,15 @@ Returns:
       openWorldHint: false,
     },
   },
-  async ({ root_dir }) => {
+  async ({ root_dir, ignore_patterns, additional_ignore_patterns }) => {
     const normalizedRoot = path.resolve(root_dir);
     process.stderr.write(`[codegraph] Scanning: ${normalizedRoot}\n`);
 
     try {
-      currentGraph = await buildDependencyGraph(normalizedRoot);
+      currentGraph = await buildDependencyGraph(normalizedRoot, {
+        ignorePatterns: ignore_patterns,
+        additionalIgnorePatterns: additional_ignore_patterns,
+      });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       return errResponse(`Error scanning directory: ${msg}`);
@@ -124,13 +145,14 @@ Returns:
       status: "success",
       rootDir: currentGraph.rootDir,
       totalFiles: currentGraph.totalFiles,
+      totalDocFiles: currentGraph.docNodes.size,
       byLanguage: stats.byLanguage,
       parseErrors: currentGraph.parseErrors.length,
       parseErrorDetails:
         currentGraph.parseErrors.length > 0
           ? currentGraph.parseErrors.slice(0, 5)
           : undefined,
-      message: `Graph built. ${currentGraph.totalFiles} files scanned. Use codegraph_get_stats for full overview.`,
+      message: `Graph built. ${currentGraph.totalFiles} code files and ${currentGraph.docNodes.size} doc files scanned. Use codegraph_get_stats for full overview, or codegraph_find_related_docs to find docs affected by code changes.`,
     });
   }
 );
@@ -477,6 +499,65 @@ Prerequisite: codegraph_scan must be called first.`,
   async () => {
     if (!currentGraph) return noGraphError();
     return okResponse(toolGetStats(currentGraph));
+  }
+);
+
+// ============================================================
+// Tool: codegraph_find_related_docs
+// ============================================================
+
+server.registerTool(
+  "codegraph_find_related_docs",
+  {
+    title: "Find Documentation Affected by Code Changes",
+    description: `Given a set of changed code files, finds ALL documentation files that need to be reviewed and potentially updated.
+
+This tool is deterministic — it does not guess. It works by:
+1. Computing the full blast radius of the changed files (direct + transitive dependents via the import graph)
+2. Finding every documentation file (.md, .mdx, .rst, .txt) that references ANY code file in that blast radius
+3. Returning an exhaustive list with the exact reason each doc matched
+
+Documentation files are matched by scanning their content for references to code file paths, filenames, and directory paths. If a doc mentions a file that was changed or is affected by a change, it will be returned.
+
+This is designed for enforcing documentation sync — the output is the complete set of docs that MUST be reviewed after a code change. No judgment calls, no optional updates.
+
+Args:
+  - files (string[]): Array of changed file paths (from a diff, git status, etc.)
+
+Returns:
+  - changedFiles: The input files
+  - blastRadius: All code files affected (changed + transitive dependents)
+  - relatedDocs: Every doc file that references any file in the blast radius, with:
+    - matchedCodeFiles: Which code files this doc references
+    - reason: Human-readable explanation of why this doc matched
+  - totalDocsToReview: Count of docs that need review
+  - totalDocsInProject: Total docs found (for coverage context)
+
+Example use cases:
+  - Post-commit hook: "What docs need updating after this commit?" → files from git diff
+  - PR review: "Are all affected docs updated?" → files from PR diff
+  - Pre-merge check: "What documentation was missed?" → compare relatedDocs against PR file list
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {
+      files: z
+        .array(z.string())
+        .min(1)
+        .max(50)
+        .describe("Array of changed file paths to find related documentation for"),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ files }) => {
+    if (!currentGraph) return noGraphError();
+    const result = toolFindRelatedDocs(currentGraph, files);
+    if (isToolError(result)) return errResponse(result.error);
+    return okResponse(result);
   }
 );
 

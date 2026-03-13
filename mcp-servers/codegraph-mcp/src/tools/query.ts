@@ -11,6 +11,8 @@ import {
   GraphStats,
   ConnectedFile,
   Language,
+  DocRef,
+  RelatedDocsResult,
 } from "../types.js";
 import {
   findFileInGraph,
@@ -261,6 +263,59 @@ export function toolListFiles(
     returned: page.length,
     offset,
     has_more: offset + page.length < total,
+  };
+}
+
+/** codegraph_find_related_docs */
+export function toolFindRelatedDocs(
+  graph: DependencyGraph,
+  fileQueries: string[]
+): RelatedDocsResult | { error: string } {
+  // Resolve all changed files
+  const changedFilePaths: string[] = [];
+  for (const query of fileQueries) {
+    const { resolved, error } = resolveSingleFile(graph, query);
+    if (error || !resolved) return { error: error! };
+    changedFilePaths.push(resolved);
+  }
+
+  const changedSet = new Set(changedFilePaths);
+
+  // Compute full blast radius: changed files + all transitive dependents
+  const transitivelyAffected = getTransitiveDependents(graph, changedSet);
+  const blastRadiusSet = new Set([...changedSet, ...transitivelyAffected]);
+
+  // Find all doc files that reference ANY file in the blast radius
+  const relatedDocs: DocRef[] = [];
+
+  for (const [, docNode] of graph.docNodes) {
+    const matchedCodeFiles: FileRef[] = [];
+    for (const codeRef of docNode.referencedCodeFiles) {
+      if (blastRadiusSet.has(codeRef)) {
+        matchedCodeFiles.push(toFileRef(codeRef, graph));
+      }
+    }
+
+    if (matchedCodeFiles.length > 0) {
+      const matchedPaths = matchedCodeFiles.map((f) => f.relativePath);
+      relatedDocs.push({
+        path: docNode.path,
+        relativePath: docNode.relativePath,
+        matchedCodeFiles,
+        reason: `references ${matchedPaths.join(", ")}`,
+      });
+    }
+  }
+
+  // Sort by number of matched references (most connected docs first)
+  relatedDocs.sort((a, b) => b.matchedCodeFiles.length - a.matchedCodeFiles.length);
+
+  return {
+    changedFiles: changedFilePaths.map((f) => toFileRef(f, graph)),
+    blastRadius: [...blastRadiusSet].map((f) => toFileRef(f, graph)),
+    relatedDocs,
+    totalDocsToReview: relatedDocs.length,
+    totalDocsInProject: graph.docNodes.size,
   };
 }
 

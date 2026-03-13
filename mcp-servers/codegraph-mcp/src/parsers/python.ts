@@ -29,7 +29,7 @@ export function parsePythonDependencies(filePath: string, rootDir: string): stri
   }
 
   // from package.module import x (absolute)
-  const absoluteFromImport = /^from\s+([\w][[\w.]*)\s+import\s+/gm;
+  const absoluteFromImport = /^from\s+([\w][\w.]*)\s+import\s+/gm;
   while ((match = absoluteFromImport.exec(content)) !== null) {
     const modulePath = match[1];
     if (!modulePath.startsWith(".")) {
@@ -39,7 +39,7 @@ export function parsePythonDependencies(filePath: string, rootDir: string): stri
   }
 
   // import module (absolute)
-  const directImport = /^import\s+([\w][[\w.,\s]*)/gm;
+  const directImport = /^import\s+([\w][\w.,\s]*)/gm;
   while ((match = directImport.exec(content)) !== null) {
     // Handle "import a, b, c"
     const modules = match[1].split(",").map((m) => m.trim().split(" ")[0]);
