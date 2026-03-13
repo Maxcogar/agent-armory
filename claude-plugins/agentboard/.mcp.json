@@ -1,0 +1,26 @@
+{
+  "mcpServers": {
+    "agentboard": {
+      "command": "python",
+      "args": [
+        "C:\\Users\\maxco\\Documents\\Project-Manager\\Project-Manager-Latest\\Project-Manager\\agentboard_mcp\\server.py"
+      ]
+    },
+    "codegraph": {
+      "type": "stdio",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "node",
+        "C:\\Users\\maxco\\Documents\\agent-armory\\mcp-servers\\codegraph-mcp\\dist\\index.js"
+      ],
+      "env": {}
+    },
+    "codebase-rag": {
+      "command": "python",
+      "args": [
+        "C:\\Users\\maxco\\Documents\\agent-armory\\mcp-servers\\codebase-rag\\mcp-server-python\\server.py"
+      ]
+    }
+  }
+}

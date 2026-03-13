@@ -1,0 +1,53 @@
+{
+  "SessionStart": [
+    {
+      "matcher": "",
+      "hooks": [
+        {
+          "type": "prompt",
+          "prompt": "Check if the AgentBoard server is reachable by calling agentboard_health_check. If it responds healthy, continue silently. If it fails or times out, inform the user: 'AgentBoard server is not running. Start it with /kickoff or manually with npm run dev in the AgentBoard project directory.'"
+        }
+      ]
+    }
+  ],
+  "PreToolUse": [
+    {
+      "matcher": "mcp__agentboard__agentboard_submit_workspace_artifact",
+      "hooks": [
+        {
+          "type": "prompt",
+          "prompt": "SUBMISSION QUALITY GATE — Before submitting this artifact, verify ALL of the following:\n\n- No open questions or unanswered items\n- No TODO/TBD/FIXME/placeholder text\n- No 'need to investigate' or 'look into' language\n- Every step references specific files and line numbers\n- You used codegraph, codebase-rag, grep, and read tools to validate your work\n- The artifact is immediately actionable by another agent without further research\n\nIf ANY check fails, DO NOT submit. Go back and fix the gaps using your tools first."
+        },
+        {
+          "type": "command",
+          "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/artifact-quality-gate.sh",
+          "timeout": 5000
+        }
+      ]
+    }
+  ],
+  "PostToolUse": [
+    {
+      "matcher": "mcp__agentboard__agentboard_get_next_card|mcp__agentboard__agentboard_get_card|mcp__agentboard__agentboard_update_workspace_card",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/workspace-card-guidance.sh",
+          "timeout": 5000
+        }
+      ]
+    }
+  ],
+  "Stop": [
+    {
+      "matcher": "",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "bash ${CLAUDE_PLUGIN_ROOT}/skills/codebase-rag-enforcer/hooks/post-session.sh",
+          "async": true
+        }
+      ]
+    }
+  ]
+}
