@@ -1,0 +1,35 @@
+project:
+  name: test-project
+  description: Auto-detected project architecture
+architecture:
+  layers:
+  - name: routes
+    path: backend/routes/
+    description: HTTP request handlers
+    rules:
+    - All route handlers must validate input
+    - All responses must use consistent format
+    - 'Response format: { success: true/false, data/error: ... }'
+  - name: middleware
+    path: backend/middleware/
+    description: 'Middleware: auth, rateLimit, validate'
+    rules:
+    - Middleware must call next() or send a response
+  - name: services
+    path: backend/services/
+    description: Business logic layer
+    rules:
+    - Services must not access req/res directly
+    - No business logic in route handlers
+  - name: components
+    path: frontend/src/components/
+    description: UI components
+    rules:
+    - Components must use custom hooks for API calls
+    - No direct fetch/axios in components
+  - name: hooks
+    path: frontend/src/hooks/
+    description: Custom hooks for shared logic
+    rules:
+    - Hooks must handle loading, error, and data states
+constraints: {}

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "codebase-rag": {
+      "command": "python",
+      "args": ["C:\\Users\\maxco\\OneDrive\\Documents\\GitHub\\Coding Tools\\Claude\\plugins\\agent-armory\\skills\\codebase-rag-enforcer\\mcp-server-python\\server.py"]
+    }
+  }
+}

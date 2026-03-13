@@ -1,27 +1,11 @@
 ---
 name: codebase-rag-enforcer
-description: Build and maintain a RAG system that enforces architectural constraints and prevents AI agents from breaking codebases. Use when setting up RAG for code search, when agents ignore API contracts or architectural patterns, when your existing RAG is unreliable, or when you need constraint enforcement (not just code search). Triggers on "set up RAG", "agents keep breaking my architecture", "build constraint enforcement", "my RAG keeps breaking", or "prevent agents from guessing".
+description: MCP server that enforces architectural constraints and prevents AI agents from breaking codebases via RAG-powered semantic search. Use when setting up RAG for code search, when agents ignore API contracts or architectural patterns, when your existing RAG is unreliable, or when you need constraint enforcement (not just code search). Triggers on "set up RAG", "agents keep breaking my architecture", "build constraint enforcement", "my RAG keeps breaking", or "prevent agents from guessing".
 ---
 
 # Codebase RAG Enforcer
 
-Build a production-grade RAG system that forces AI agents to respect architectural constraints before making changes.
-
-## One-Command Setup
-
-```bash
-# Copy scripts from this skill to rag/scripts/ in your project
-# Then run:
-python rag/scripts/setup_rag.py
-```
-
-The setup script will:
-1. Auto-detect your project structure (frontend/backend paths)
-2. Scan your existing code for actual patterns
-3. Generate ARCHITECTURE.yml documenting your real constraints
-4. Generate pattern docs (docs/patterns/) from your actual code
-5. Create rag_config.py with correct paths
-6. Ready to index
+MCP server that forces AI agents to respect architectural constraints before making changes. Uses ChromaDB with weighted semantic search so constraints always appear first.
 
 ## What This Solves
 
@@ -31,155 +15,125 @@ The setup script will:
 
 **Solution:** Weighted collections force constraints to appear FIRST. Auto-generated patterns from YOUR code, not templates.
 
-## Setup Workflow
+## Setup
 
-### 1. Copy Scripts
-
-Copy all files from this skill's `scripts/` directory to `rag/scripts/` in your project:
-- setup_rag.py (interactive setup)
-- index_codebase.py (indexer with Windows/ChromaDB fixes)
-- check_constraints.py (constraint checker)
-- query_impact.py (impact analysis)
-- health_check.py (system verification)
-
-### 2. Run Setup
+### 1. Install Dependencies
 
 ```bash
-cd rag/scripts
-python setup_rag.py
+cd skills/codebase-rag-enforcer/mcp-server-python
+pip install -r requirements.txt
 ```
 
-**Interactive prompts:**
+### 2. First-Time Project Initialization
+
+Run `rag_setup` and `rag_index` once to create the index:
+
 ```
-Found frontend at frontend/ with package.json (React+Vite). Use this? [Y/n]: y
-✅ Frontend: frontend
-
-Found backend at backend/ with package.json (Node.js). Use this? [Y/n]: y
-✅ Backend: backend
-
-📊 Scanning codebase for patterns...
-  Scanning backend/routes/...
-    Found middleware: auth, validate, rateLimit
-    Response format: success_data_error
-  Scanning frontend/components/...
-    Common imports: @/, ../hooks, react
-
-📝 Generating constraint files...
-  Created: ARCHITECTURE.yml
-  Created: docs/patterns/api-endpoints.md
-
-⚙️  Creating rag_config.py...
-  Created: rag/scripts/rag_config.py
-
-✅ Setup complete!
+Agent: rag_setup(project_root="/path/to/your/project")
+Agent: rag_index()
 ```
 
-### 3. Install Dependencies
+This creates a `.rag/` directory with the config and ChromaDB collections. These persist on disk.
 
-```bash
-pip install chromadb sentence-transformers
+### 3. Add to Claude Code Config
+
+Add to your Claude Code MCP settings (`.claude/settings.local.json` or global settings). Use `--project-root` so agents in future sessions skip setup entirely:
+
+```json
+{
+  "mcpServers": {
+    "codebase-rag": {
+      "command": "python",
+      "args": ["<path-to>/mcp-server-python/server.py", "--project-root", "/path/to/your/project"]
+    }
+  }
+}
 ```
 
-### 4. Index Codebase
+Alternatively, set the `RAG_PROJECT_ROOT` environment variable instead of using `--project-root`.
 
-```bash
-python rag/scripts/index_codebase.py
+### 4. Use It
+
+With `--project-root` configured, agents can query immediately — no setup, no waiting:
+
+```
+Agent: rag_check_constraints(change_description="add user profile endpoint")
 ```
 
-### 5. Test
+The server auto-restores the project context and index from disk on boot.
 
-```bash
-python rag/scripts/check_constraints.py "add user profile endpoint"
-```
+## Tools
 
-You should see:
-- Constraints from ARCHITECTURE.yml (your actual patterns)
-- Pattern docs generated from your code
-- Code examples from similar endpoints
+### rag_setup (first-time only)
+Initializes a project. Auto-detects frontend/backend, scans code for patterns, generates:
+- `ARCHITECTURE.yml` with detected constraints
+- `docs/patterns/*.md` with documented patterns from your actual code
+- `.rag/` directory with config and ChromaDB collections
 
-## Orchestrator Integration
+Only needed once per project. After that, `--project-root` auto-restores on boot.
 
-Add to your orchestration workflow:
+### rag_index (first-time or re-index)
+Indexes the codebase into three weighted ChromaDB collections:
+- **constraints** (10x weight): ARCHITECTURE.yml, CONSTRAINTS.md, CLAUDE.md
+- **patterns** (8x weight): docs/patterns/*.md
+- **codebase** (1x weight): all code files
 
-**Before delegating any task:**
+Uses ChromaDB's default embedding function. No sentence-transformers or PyTorch needed.
 
-```bash
-cd rag/scripts
-python check_constraints.py "task description"
-```
+Only needed once after `rag_setup`, or when the codebase has changed significantly. The index persists on disk between sessions.
 
-**Task template:**
-```
-Task: [Agent]: Read these constraints before proceeding:
+### rag_check_constraints (primary tool for agents)
+The main tool. Query before making any change. Returns:
+- **Constraints** that apply to the planned change (highest weight, appear first)
+- **Patterns** showing how to implement correctly
+- **Code examples** from similar existing implementations
 
-CONSTRAINTS:
-[paste output from check_constraints.py]
+### rag_query_impact (blast radius analysis)
+Shows what breaks if you change a file:
+- Exports (functions, classes, endpoints, WebSocket events)
+- Dependents (files that import from the target)
+- Similar files (semantically related, may need coordinated changes)
 
-Then: [actual work]
+### rag_health_check (diagnostics)
+Runs full diagnostics: collection health, constraint files on disk, test query, index staleness.
 
-Verify you followed ALL constraints after completion.
-```
+### rag_status (quick check)
+Lightweight status: initialized, indexed, chunk counts, last indexed timestamp.
 
-See `references/orchestration-integration.md` for complete guide.
+## Workflow for Agents
+
+**Step 1: Check readiness (always do this first)**
+Call `rag_status()` and read the response:
+- `initialized: true` + `indexed: true` + `totalChunks > 0` → **Ready.** Skip to step 2.
+- `initialized: true` + `indexed: false` (or `totalChunks: 0`) → Run `rag_index()`, then proceed.
+- `initialized: false` → Run `rag_setup(project_root="...")` then `rag_index()`, then proceed.
+
+**Step 2: Before any change**
+1. `rag_check_constraints("description of planned change")`
+2. Read the returned constraints and patterns
+3. Follow them when implementing
+
+**Step 3: Before modifying a specific file**
+1. `rag_query_impact(file_path="path/to/file.js")`
+2. Check dependents and similar files
+3. Update related files if needed
+
+## Migrating from Old Script-Based Setup
+
+If you had the old version set up in a project:
+1. Delete `rag_config.py` from the project (old generated config)
+2. Delete the `.rag/` folder (old collections use different embeddings, incompatible)
+3. Run `rag_setup` and `rag_index` through the MCP server to recreate everything
 
 ## Auto-Indexing
 
-Add to your post-session hook:
+Add to your post-session hook to keep the index fresh:
 
 ```bash
 #!/bin/bash
 # .claude/hooks/post-session.sh
-
-echo "📦 Updating RAG index..."
-cd rag/scripts
-python index_codebase.py > /dev/null 2>&1 &
+python <path-to>/mcp-server-python/server.py --index > /dev/null 2>&1 &
 ```
-
-Runs in background after every session. Index stays fresh automatically.
-
-## Scripts Reference
-
-**setup_rag.py** - Interactive setup (run once)  
-Auto-detects structure, scans patterns, generates files.
-
-**index_codebase.py** - Index codebase into ChromaDB  
-Fixed: Windows encoding, ChromaDB metadata, robust paths.  
-Run after setup, then weekly or after major changes.
-
-**check_constraints.py** - Query constraints (PRIMARY tool for agents)  
-Returns relevant constraints, patterns, code examples.  
-Usage: `python check_constraints.py "change description"`
-
-**query_impact.py** - Show dependency blast radius  
-Shows exports, imports, similar files.  
-Usage: `python query_impact.py path/to/file.js`
-
-**health_check.py** - Verify system health  
-Run daily (automate via cron).  
-Usage: `python health_check.py`
-
-## Key Fixes from Feedback
-
-1. **Windows Encoding:** All files read with `encoding='utf-8'`
-2. **ChromaDB Metadata:** Lists converted to comma-separated strings
-3. **Path Detection:** Robust auto-detection instead of assuming flat structure
-4. **Pattern Generation:** Scans YOUR code, documents YOUR patterns (not templates)
-5. **One-Command Setup:** `setup_rag.py` does everything interactively
-
-## Troubleshooting
-
-**"Collection not found"**  
-Run `python index_codebase.py`
-
-**"Query returns no results"**  
-Run `python health_check.py` then `python index_codebase.py`
-
-**"Agent ignored constraints"**  
-Verify orchestrator ran `check_constraints.py` BEFORE delegation.  
-Ensure Task included actual constraint text.
-
-**"Setup failed to detect structure"**  
-Manually specify paths when prompted.
 
 ## Why This Works
 
@@ -188,5 +142,20 @@ Manually specify paths when prompted.
 3. **Metadata extraction:** Tracks imports, exports, API endpoints, WebSocket events
 4. **Impact analysis:** Shows blast radius before breaking things
 5. **Health checks:** Catches degradation proactively
-6. **Simple stack:** ChromaDB + sentence-transformers (no flaky external deps)
-7. **Windows compatible:** Fixed encoding and metadata issues
+6. **Embedded ChromaDB:** PersistentClient runs in-process, no server needed
+7. **No heavy deps:** ChromaDB default embeddings, no sentence-transformers/PyTorch
+8. **Windows compatible:** Forward-slash path normalization, UTF-8 encoding
+
+## Troubleshooting
+
+**"No project initialized"**
+Either add `--project-root /path/to/project` to the server args in your MCP config, or run `rag_setup` with the project root path. After first-time setup, `--project-root` auto-restores on every future session.
+
+**"Collection not found" / "Query returns no results"**
+Run `rag_index` to build or rebuild the collections.
+
+**"Agent ignored constraints"**
+Ensure the agent called `rag_check_constraints` BEFORE making changes and that the returned constraints were included in the task context.
+
+**"Index is stale"**
+Run `rag_index` again. The health check warns if the index is older than 7 days.
