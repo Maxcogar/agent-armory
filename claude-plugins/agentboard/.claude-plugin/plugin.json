@@ -4,5 +4,6 @@
   "description": "AgentBoard AI project management toolkit — structured phase-based workflow with codegraph and RAG companion tools",
   "author": {
     "name": "Maxcogar"
-  }
+  },
+  "hooks": "./hooks/hooks.json"
 }
