@@ -7,13 +7,13 @@ from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 
 import chromadb
-from chromadb.config import Settings
 
 from config import (
     ProjectContext,
     ALL_COLLECTIONS,
 )
 from utils.paths import file_exists
+from utils.chroma import get_client
 
 
 # ============================================================
@@ -22,11 +22,8 @@ from utils.paths import file_exists
 
 
 def _get_client(ctx: ProjectContext) -> chromadb.ClientAPI:
-    """Create a fresh PersistentClient for each operation."""
-    return chromadb.PersistentClient(
-        path=ctx.chroma_db_path,
-        settings=Settings(anonymized_telemetry=False),
-    )
+    """Return the cached PersistentClient for this project."""
+    return get_client(ctx.chroma_db_path)
 
 
 # ============================================================

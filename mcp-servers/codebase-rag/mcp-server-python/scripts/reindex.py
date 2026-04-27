@@ -17,6 +17,7 @@ because they fired in a directory that isn't a project.
 import argparse
 import os
 import sys
+from typing import Optional
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -29,7 +30,7 @@ from setup import setup_project  # noqa: E402
 from utils.paths import find_project_root, index_exists_for  # noqa: E402
 
 
-def _resolve_root(explicit: str | None) -> str | None:
+def _resolve_root(explicit: Optional[str]) -> Optional[str]:
     if explicit:
         return os.path.abspath(explicit)
     env = os.environ.get("CLAUDE_PROJECT_DIR")

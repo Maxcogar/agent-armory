@@ -70,19 +70,31 @@ files modified between sessions. Add to `~/.claude/settings.json`:
 `pip install` command from step 1. The server prints the exact command
 it needs in the same line.
 
-**Stale results**: the watcher is running, but if you suspect drift,
-delete the cache for that project:
+**Stale results for one project**: each project's cache lives at
+`<cache-base>/codebase-rag/<sha1[:16]>/` (Linux: `~/.cache/...`,
+macOS: `~/Library/Caches/...`, Windows: `%LOCALAPPDATA%\...`). To find
+the directory for a single project without leaking through every cache:
 
 ```bash
-rm -rf ~/.cache/codebase-rag
+python -c "import hashlib, os; print(hashlib.sha1(os.path.abspath('PATH/TO/PROJECT').encode()).hexdigest()[:16])"
 ```
 
-The next query rebuilds the index from scratch. (You can target a
-single project by computing its hash, but `rm -rf` of the whole cache
-is fine — projects rebuild on demand.)
+Delete that one subdirectory; the next query rebuilds. Nuking the whole
+`codebase-rag/` directory is also safe — every project rebuilds on
+demand — it's just heavier.
 
 **First query in a project is slow**: expected. The first call builds
 the index. Subsequent queries are instant.
+
+**First-run network failure**: ChromaDB's default embedding model
+(`all-MiniLM-L6-v2`) is downloaded the first time the server starts.
+The server warms it up at startup and prints an actionable message if
+the download fails (offline, corporate proxy, transient network). To
+pre-cache it manually:
+
+```bash
+python -c "from chromadb.utils.embedding_functions import DefaultEmbeddingFunction; DefaultEmbeddingFunction()(['warmup'])"
+```
 
 ## Migrating from the legacy `.rag/` layout
 

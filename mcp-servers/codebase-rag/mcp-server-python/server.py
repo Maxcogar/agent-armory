@@ -6,11 +6,51 @@ dir, and watches the filesystem so the index stays current as files change.
 Agents see two tools: rag_search and rag_query_impact.
 """
 
-import json
+import importlib
 import os
 import sys
+
+
+# ============================================================
+# Dependency check — must run BEFORE any heavy imports below.
+# Otherwise a missing chromadb/watchdog/pathspec surfaces as a raw
+# ModuleNotFoundError stack trace, defeating the purpose of the check.
+# ============================================================
+
+
+_REQUIRED = ("chromadb", "watchdog", "pathspec", "mcp", "pydantic", "yaml")
+
+
+def _check_dependencies() -> None:
+    missing = []
+    for module_name in _REQUIRED:
+        try:
+            importlib.import_module(module_name)
+        except ImportError:
+            missing.append(module_name)
+    if missing:
+        try:
+            req_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "requirements.txt")
+        except NameError:
+            req_path = "requirements.txt"
+        sys.stderr.write(
+            "[codebase_rag_mcp] Missing dependencies: " + ", ".join(missing) + ".\n"
+            "[codebase_rag_mcp] Run: pip install -r " + req_path + "\n"
+        )
+        sys.exit(2)
+
+
+_check_dependencies()
+
+
+# ============================================================
+# Heavy imports — safe now that dependencies are verified.
+# ============================================================
+
+import json
+import os
 from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 from pydantic import BaseModel, Field, ConfigDict
@@ -21,6 +61,7 @@ from setup import setup_project
 from indexer import index_project, index_file
 from query import check_constraints, query_impact
 from utils.paths import find_project_root, index_exists_for
+from utils.chroma import get_client, warmup_embedding_model
 
 
 CHARACTER_LIMIT = 25_000
@@ -34,7 +75,7 @@ CHARACTER_LIMIT = 25_000
 @dataclass
 class ServerState:
     project: Optional[ProjectContext] = None
-    watcher: Optional[object] = None  # ProjectWatcher; loaded lazily to keep import cycle safe
+    watcher: Optional[object] = None  # ProjectWatcher; lazy import keeps cycle clean
 
 
 def _ensure_project_for(root: str) -> Optional[ProjectContext]:
@@ -45,7 +86,10 @@ def _ensure_project_for(root: str) -> Optional[ProjectContext]:
         if ctx is not None:
             return ctx
 
-    sys.stderr.write(f"[codebase_rag_mcp] No index for {abs_root}; building (one-time)...\n")
+    sys.stderr.write(
+        f"[codebase_rag_mcp] No index for {abs_root}; building one (this may take "
+        "up to a minute on first run for medium projects)...\n"
+    )
     try:
         output = setup_project(abs_root, force=False, generate_files=False)
         ctx = output["context"]
@@ -59,6 +103,13 @@ def _ensure_project_for(root: str) -> Optional[ProjectContext]:
 @asynccontextmanager
 async def app_lifespan(server: FastMCP):
     state = ServerState()
+
+    # Warm the embedding model up front so first-query latency doesn't hide a
+    # download that may take tens of seconds (or fail in air-gapped environs).
+    warmup_error = warmup_embedding_model()
+    if warmup_error:
+        sys.stderr.write(f"[codebase_rag_mcp] {warmup_error}\n")
+
     project_root = os.environ.get("RAG_PROJECT_ROOT") or find_project_root()
     if project_root:
         state.project = _ensure_project_for(project_root)
@@ -117,7 +168,18 @@ def err_response(message: str) -> str:
 
 
 def _state(ctx: Context) -> ServerState:
-    return ctx.request_context.lifespan_context
+    state = ctx.request_context.lifespan_context
+    if not isinstance(state, ServerState):
+        # Defensive: a future MCP version that wraps lifespan_context would land here.
+        raise RuntimeError("Lifespan context is not a ServerState")
+    return state
+
+
+_NO_PROJECT_HINT = (
+    "No project root detected. Open Claude Code in a directory that contains "
+    ".git, package.json, pyproject.toml, Cargo.toml, or go.mod (or set "
+    "RAG_PROJECT_ROOT)."
+)
 
 
 # ============================================================
@@ -186,22 +248,12 @@ async def rag_search(
     source_type: str = "all",
     ctx: Context = None,
 ) -> str:
-    """Semantic search over the current project. Use this before editing
-    unfamiliar code, when looking for callers/callees, or when checking how
-    similar features are already implemented.
+    """Semantic search over the current project. Use before editing unfamiliar
+    code, when looking for callers/callees, or when checking how similar
+    features are already implemented.
 
     The first call in a brand-new project takes a few seconds while the index
     builds; after that everything is instant and stays fresh as files change.
-
-    Args:
-        query: Natural-language description of what you're looking for.
-            Good: "how is auth middleware applied to API routes?"
-            Bad: "auth"
-        num_results: Max results per collection (1-20, default: 5).
-        source_type: "all", "docs", "code", or "constraints" (default: "all").
-
-    Returns:
-        JSON with constraints, patterns, and code examples ranked by relevance.
     """
     params = RagSearchInput(query=query, num_results=num_results, source_type=source_type)
 
@@ -219,11 +271,7 @@ async def rag_search(
             "constraints": [],
             "patterns": [],
             "examples": [],
-            "summary": (
-                "No project root detected. Open Claude Code in a directory "
-                "that contains a .git, package.json, pyproject.toml, Cargo.toml, "
-                "or go.mod (or set RAG_PROJECT_ROOT)."
-            ),
+            "summary": _NO_PROJECT_HINT,
         })
 
     try:
@@ -259,13 +307,6 @@ async def rag_query_impact(
 ) -> str:
     """Show what depends on a file before you change it: exports, importers,
     and semantically similar files that may need coordinated edits.
-
-    Args:
-        file_path: Relative path from the project root (forward slashes).
-        num_similar: Max similar files to return (1-20, default: 5).
-
-    Returns:
-        JSON with exports, dependents, and similar files.
     """
     params = RagQueryImpactInput(file_path=file_path, num_similar=num_similar)
 
@@ -275,20 +316,16 @@ async def rag_query_impact(
             "status": "no_project",
             "filePath": params.file_path,
             "exports": [],
+            "apiEndpoints": [],
+            "websocketEvents": [],
             "dependents": [],
             "similarFiles": [],
-            "summary": (
-                "No project root detected. Open Claude Code in a directory "
-                "that contains a .git, package.json, pyproject.toml, Cargo.toml, "
-                "or go.mod (or set RAG_PROJECT_ROOT)."
-            ),
+            "summary": _NO_PROJECT_HINT,
         })
 
     try:
         result = query_impact(state.project, params.file_path, params.num_similar)
         return ok_response({"status": "success", **result})
-    except ValueError as e:
-        return err_response(f"Impact analysis failed: {e}")
     except Exception as e:
         return err_response(f"Impact analysis failed: {e}")
 
@@ -298,25 +335,6 @@ async def rag_query_impact(
 # ============================================================
 
 
-def _check_dependencies() -> None:
-    missing = []
-    try:
-        import chromadb  # noqa: F401
-    except ImportError:
-        missing.append("chromadb")
-    try:
-        import watchdog  # noqa: F401
-    except ImportError:
-        missing.append("watchdog")
-    if missing:
-        sys.stderr.write(
-            f"[codebase_rag_mcp] Missing dependencies: {', '.join(missing)}. "
-            "Run: pip install -r requirements.txt\n"
-        )
-        sys.exit(1)
-
-
 if __name__ == "__main__":
-    _check_dependencies()
     sys.stderr.write("[codebase_rag_mcp] Starting server...\n")
     mcp.run()

@@ -26,6 +26,7 @@ from setup import setup_project
 from indexer import index_project, index_file
 from query import check_constraints, query_impact
 from health import health_check, get_status
+from utils.chroma import reset_cache as reset_chroma_cache
 
 TEST_PROJECT = os.path.abspath(
     os.path.join(SERVER_DIR, "..", "test-project")
@@ -60,6 +61,7 @@ cache_dir = cache_dir_for_project(TEST_PROJECT)
 if os.path.isdir(cache_dir):
     print(f"[cleanup] Removing cache dir: {cache_dir}")
     shutil.rmtree(cache_dir, ignore_errors=True)
+    reset_chroma_cache()
 
 # Also clean up any legacy .rag dir inside the project (left over from old layout)
 legacy_rag = os.path.join(TEST_PROJECT, ".rag")
@@ -392,7 +394,7 @@ else:
             print(f"  any chunk contains marker: {has_marker}")
 
             t7 = all([
-                check("index_file returned indexed", outcome.get("indexed") is True),
+                check("index_file status is 'indexed'", outcome.get("status") == "indexed"),
                 check("collection is codebase", outcome.get("collection") == "codebase"),
                 check("re-embedded chunks contain marker", has_marker),
             ])
@@ -406,6 +408,112 @@ else:
         print(f"  [FAIL] Exception: {e}")
         traceback.print_exc()
         results["index_file"] = FAIL
+
+# ============================================================
+# 8. ProjectWatcher (filesystem watcher integration test)
+# ============================================================
+
+section("8. ProjectWatcher")
+if context is None:
+    print("  [SKIP] No context")
+    results["watcher"] = FAIL
+else:
+    try:
+        # Use a short debounce so the test stays fast.
+        os.environ["RAG_WATCHER_DEBOUNCE_MS"] = "100"
+        from watcher import ProjectWatcher
+        import time as _time
+
+        target = os.path.join(TEST_PROJECT, "backend", "routes", "users.js")
+        marker = "watcherIntegrationQuokka"
+        with open(target, "r", encoding="utf-8") as f:
+            original = f.read()
+
+        seen_paths = []
+        def _on_change(path):
+            seen_paths.append(path)
+            index_file(context, path)
+
+        watcher = ProjectWatcher(context, on_change=_on_change)
+        watcher.start()
+        try:
+            _time.sleep(0.2)  # let observer settle
+            with open(target, "a", encoding="utf-8") as f:
+                f.write(f"\nfunction {marker}() {{ return 1; }}\n")
+            _time.sleep(0.8)  # debounce + reindex slack
+
+            # Verify chunk made it into the collection.
+            import chromadb
+            from chromadb.config import Settings
+            client = chromadb.PersistentClient(
+                path=context.chroma_db_path,
+                settings=Settings(anonymized_telemetry=False),
+            )
+            col = client.get_collection("codebase")
+            chunks = col.get(
+                where={"filePath": "backend/routes/users.js"},
+                include=["documents"],
+            )
+            has_marker = any(marker in (d or "") for d in chunks["documents"])
+            print(f"  watcher saw {len(seen_paths)} change(s)")
+            print(f"  any chunk contains marker: {has_marker}")
+
+            t8 = all([
+                check("watcher fired at least once", len(seen_paths) >= 1),
+                check("watcher reindexed the touched file", has_marker),
+            ])
+            results["watcher"] = PASS if t8 else FAIL
+        finally:
+            watcher.stop()
+            with open(target, "w", encoding="utf-8") as f:
+                f.write(original)
+            index_file(context, target)
+            os.environ.pop("RAG_WATCHER_DEBOUNCE_MS", None)
+    except Exception as e:
+        print(f"  [FAIL] Exception: {e}")
+        traceback.print_exc()
+        results["watcher"] = FAIL
+
+# ============================================================
+# 9. scope.is_in_scope honors .gitignore
+# ============================================================
+
+section("9. .gitignore is respected")
+if context is None:
+    print("  [SKIP] No context")
+    results["gitignore"] = FAIL
+else:
+    try:
+        import scope
+        gitignore_path = os.path.join(TEST_PROJECT, ".gitignore")
+        gen_dir = os.path.join(TEST_PROJECT, "generated")
+        os.makedirs(gen_dir, exist_ok=True)
+        gen_file = os.path.join(gen_dir, "build.js")
+        with open(gen_file, "w", encoding="utf-8") as f:
+            f.write("export const X = 1;\n")
+        with open(gitignore_path, "w", encoding="utf-8") as f:
+            f.write("generated/\n")
+        try:
+            gi = scope._load_gitignore(TEST_PROJECT)
+            in_scope_with = scope.is_in_scope(gen_file, context, gitignore=gi)
+            in_scope_without = scope.is_in_scope(gen_file, context, gitignore=None)
+            print(f"  in_scope (with gitignore): {in_scope_with}")
+            print(f"  in_scope (without gitignore): {in_scope_without}")
+            t9 = all([
+                check("gitignored file excluded when gitignore is honored", in_scope_with is False),
+                check("same file would be in scope without gitignore", in_scope_without is True),
+            ])
+            results["gitignore"] = PASS if t9 else FAIL
+        finally:
+            shutil.rmtree(gen_dir, ignore_errors=True)
+            try:
+                os.remove(gitignore_path)
+            except OSError:
+                pass
+    except Exception as e:
+        print(f"  [FAIL] Exception: {e}")
+        traceback.print_exc()
+        results["gitignore"] = FAIL
 
 # ============================================================
 # Summary

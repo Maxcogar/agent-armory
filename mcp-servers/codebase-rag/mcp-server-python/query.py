@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import List, Dict, Any
 
 import chromadb
-from chromadb.config import Settings
 
 from config import (
     ProjectContext,
@@ -17,6 +16,7 @@ from config import (
     SOURCE_TYPE_DOCS,
     SOURCE_TYPE_CODE,
 )
+from utils.chroma import get_client
 
 
 # ============================================================
@@ -25,11 +25,8 @@ from config import (
 
 
 def _get_client(ctx: ProjectContext) -> chromadb.ClientAPI:
-    """Create a fresh PersistentClient for each operation."""
-    return chromadb.PersistentClient(
-        path=ctx.chroma_db_path,
-        settings=Settings(anonymized_telemetry=False),
-    )
+    """Return the cached PersistentClient for this project."""
+    return get_client(ctx.chroma_db_path)
 
 
 def chroma_distance_to_relevance(distance: float) -> float:

@@ -1,29 +1,26 @@
-"""Codebase indexing into ChromaDB collections."""
+"""Codebase indexing into ChromaDB collections.
 
-import fnmatch
+Routing and scoping decisions live in `scope.py`. ChromaDB client lifecycle
+lives in `utils.chroma.get_client`. This module owns the chunk-and-embed
+loop and per-file incremental updates.
+"""
+
 import os
 import sys
 import threading
 import time
-import glob as globmod
 from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional
-
-import chromadb
-from chromadb.config import Settings
+from typing import Dict, Any, List, Optional
 
 from config import (
     ProjectContext,
-    CustomSource,
     COLLECTION_CODEBASE,
     COLLECTION_CONSTRAINTS,
     COLLECTION_PATTERNS,
-    SOURCE_TYPE_CONSTRAINTS,
-    SOURCE_TYPE_DOCS,
-    SOURCE_TYPE_CODE,
     write_config,
 )
 from utils.paths import safe_relative_path, ensure_dir
+from utils.chroma import get_client
 from utils.chunker import chunk_content
 from utils.metadata import (
     extract_imports,
@@ -32,9 +29,13 @@ from utils.metadata import (
     extract_ws_events,
     detect_language,
 )
+import scope
 
 
-# Per-file lock so two near-simultaneous edits of the same file don't race.
+# ============================================================
+# Concurrency primitives
+# ============================================================
+
 _file_index_locks: Dict[str, threading.Lock] = {}
 _file_index_locks_mutex = threading.Lock()
 
@@ -48,82 +49,28 @@ def _lock_for(abs_path: str) -> threading.Lock:
         return lock
 
 
-def should_index(abs_path: str, ctx: ProjectContext) -> bool:
-    """True iff a file is in scope for indexing (right ext, not excluded)."""
-    if not abs_path.startswith(os.path.abspath(ctx.project_root)):
-        return False
-    parts = abs_path.replace("\\", "/").split("/")
-    for excl in ctx.config.exclude_dirs:
-        if excl in parts:
-            return False
-    _, ext = os.path.splitext(abs_path)
-    if not ext:
-        # Allow extensionless files only if they match a constraint name.
-        rel = safe_relative_path(ctx.project_root, abs_path)
-        return rel in ("ARCHITECTURE.yml", "ARCHITECTURE.yaml", "CONSTRAINTS.md", "CLAUDE.md")
-    return ext in ctx.config.include_extensions
+# ============================================================
+# Throttled config persistence
+#
+# write_config rewrites the entire config.json. The watcher fires on every
+# save, so naively persisting on every index_file call disk-storms. We
+# update ctx.last_indexed_at in memory immediately, but flush to disk at
+# most once per 5 seconds.
+# ============================================================
+
+_LAST_FLUSH_INTERVAL_S = 5.0
+_last_flush: Dict[str, float] = {}
+_flush_mutex = threading.Lock()
 
 
-def _classify(abs_path: str, ctx: ProjectContext) -> Optional[Dict[str, Any]]:
-    """Decide which collection a file belongs in. Returns None if out of scope.
-
-    Mirrors the routing baked into index_project: constraint names at the
-    root → constraints, files under docs/patterns/ → patterns, custom-source
-    matches → their declared collection, anything else with a code ext →
-    codebase.
-    """
-    if not should_index(abs_path, ctx):
-        return None
-
-    rel = safe_relative_path(ctx.project_root, abs_path)
-    weights = ctx.config.weights
-
-    if rel in ("ARCHITECTURE.yml", "ARCHITECTURE.yaml", "CONSTRAINTS.md", "CLAUDE.md"):
-        return {
-            "collection": COLLECTION_CONSTRAINTS,
-            "type": "constraint",
-            "source_type": SOURCE_TYPE_CONSTRAINTS,
-            "weight": compute_weight(rel, weights),
-        }
-
-    norm_rel = rel.replace("\\", "/")
-    if norm_rel.startswith("docs/patterns/") and rel.endswith(".md"):
-        return {
-            "collection": COLLECTION_PATTERNS,
-            "type": "pattern",
-            "source_type": SOURCE_TYPE_DOCS,
-            "weight": compute_weight(rel, weights),
-        }
-
-    for source in ctx.config.custom_sources:
-        if fnmatch.fnmatch(norm_rel, source.pattern.replace("\\", "/")):
-            collection = {
-                SOURCE_TYPE_CONSTRAINTS: COLLECTION_CONSTRAINTS,
-                SOURCE_TYPE_DOCS: COLLECTION_PATTERNS,
-                SOURCE_TYPE_CODE: COLLECTION_CODEBASE,
-            }.get(source.source_type, COLLECTION_PATTERNS)
-            return {
-                "collection": collection,
-                "type": "custom",
-                "source_type": source.source_type,
-                "weight": source.weight,
-            }
-
-    _, ext = os.path.splitext(rel)
-    if ext in (".yml", ".yaml", ".md", ".json"):
-        # Non-code extensions that aren't constraints/patterns aren't in the codebase collection.
-        return None
-
-    return {
-        "collection": COLLECTION_CODEBASE,
-        "type": "code",
-        "source_type": SOURCE_TYPE_CODE,
-        "weight": compute_weight(rel, weights),
-    }
-
-
-def _bump_last_indexed_at(ctx: ProjectContext) -> None:
+def _bump_last_indexed_at(ctx: ProjectContext, force_flush: bool = False) -> None:
     ctx.last_indexed_at = datetime.now(timezone.utc).isoformat()
+    now = time.monotonic()
+    with _flush_mutex:
+        last = _last_flush.get(ctx.project_root, 0.0)
+        if not force_flush and (now - last) < _LAST_FLUSH_INTERVAL_S:
+            return
+        _last_flush[ctx.project_root] = now
     try:
         write_config(ctx)
     except OSError as e:
@@ -131,121 +78,166 @@ def _bump_last_indexed_at(ctx: ProjectContext) -> None:
 
 
 # ============================================================
-# Weight Computation
+# File discovery
 # ============================================================
 
 
-def compute_weight(relative_path: str, weights: Dict[str, float]) -> float:
-    """Compute weight for a file, using longest (most specific) pattern match first."""
-    sorted_patterns = sorted(weights.items(), key=lambda x: len(x[0]), reverse=True)
-    for pattern, weight in sorted_patterns:
-        if pattern in relative_path:
-            return weight
-    return 1.0
+def discover_indexable_files(ctx: ProjectContext) -> List[Dict[str, Any]]:
+    """Walk the project tree and return one entry per indexable file.
 
-
-# ============================================================
-# File Discovery
-# ============================================================
-
-
-def discover_files(
-    project_root: str,
-    extensions: List[str],
-    exclude_dirs: List[str],
-) -> List[str]:
-    """Discover all matching files, excluding specified directories."""
-    all_files: set[str] = set()
-
-    for ext in extensions:
-        pattern = os.path.join(project_root, "**", f"*{ext}")
-        matches = globmod.glob(pattern, recursive=True)
-        for match in matches:
-            # Check if any excluded dir is in the path
-            norm_match = match.replace("\\", "/")
-            parts = norm_match.split("/")
-            if not any(excl in parts for excl in exclude_dirs):
-                all_files.add(os.path.abspath(match))
-
-    return list(all_files)
-
-
-def find_constraint_files(project_root: str) -> List[str]:
-    """Find constraint files (ARCHITECTURE.yml, CONSTRAINTS.md, CLAUDE.md)."""
-    candidates = [
-        "ARCHITECTURE.yml",
-        "ARCHITECTURE.yaml",
-        "CONSTRAINTS.md",
-        "CLAUDE.md",
-    ]
-    return [
-        os.path.join(project_root, f)
-        for f in candidates
-        if os.path.isfile(os.path.join(project_root, f))
-    ]
-
-
-def find_pattern_files(project_root: str) -> List[str]:
-    """Find pattern documentation files in docs/patterns/."""
-    patterns_dir = os.path.join(project_root, "docs", "patterns")
-    if not os.path.isdir(patterns_dir):
-        return []
-
-    results = globmod.glob(os.path.join(patterns_dir, "**", "*.md"), recursive=True)
-    return [os.path.abspath(f) for f in results]
-
-
-def find_custom_source_files(project_root: str, custom_sources: List[CustomSource]) -> List[Dict[str, Any]]:
-    """Discover files matching custom source patterns.
-
-    Returns a list of dicts with keys: file_path, source_type, weight, pattern.
+    Each entry: {"abs_path": str, "category": scope.Category}.
+    Honors exclude_dirs, .gitignore, and extension/constraint rules.
     """
+    project_root = os.path.abspath(ctx.project_root)
+    gitignore = scope._load_gitignore(project_root)
     results: List[Dict[str, Any]] = []
-    seen: set[str] = set()
 
-    for source in custom_sources:
-        pattern = os.path.join(project_root, source.pattern)
-        matches = globmod.glob(pattern, recursive=True)
-        for match in matches:
-            abs_path = os.path.abspath(match)
-            if abs_path not in seen and os.path.isfile(abs_path):
-                seen.add(abs_path)
-                results.append({
-                    "file_path": abs_path,
-                    "source_type": source.source_type,
-                    "weight": source.weight,
-                    "pattern": source.pattern,
-                })
+    for dirpath, dirnames, filenames in os.walk(project_root):
+        # Prune excluded directories in-place so os.walk doesn't descend.
+        dirnames[:] = [
+            d for d in dirnames
+            if d not in ctx.config.exclude_dirs
+        ]
+
+        for fname in filenames:
+            abs_path = os.path.join(dirpath, fname)
+            if not scope.is_in_scope(abs_path, ctx, gitignore=gitignore):
+                continue
+            category = scope.categorize(abs_path, ctx)
+            if category is None:
+                continue
+            results.append({"abs_path": abs_path, "category": category})
 
     return results
 
 
 # ============================================================
-# Main Index Function
+# Chunk + embed helpers
 # ============================================================
 
 
-def index_project(ctx: ProjectContext) -> Dict[str, Any]:
-    """Index the project codebase into ChromaDB collections.
+def _build_chunk_metadata(
+    rel_path: str,
+    chunk,
+    language: str,
+    imports: List[str],
+    exports: List[str],
+    api_endpoints: List[str],
+    ws_events: List[str],
+    weight: float,
+    type_label: str,
+    source_type: str,
+) -> Dict[str, Any]:
+    return {
+        "filePath": rel_path,
+        "chunkIndex": chunk.index,
+        "totalChunks": chunk.total_chunks,
+        "language": language,
+        "imports": ",".join(imports),
+        "exports": ",".join(exports),
+        "apiEndpoints": ",".join(api_endpoints),
+        "wsEvents": ",".join(ws_events),
+        "weight": weight,
+        "type": type_label,
+        "source_type": source_type,
+    }
 
-    Performs a full re-index: drops and recreates all collections.
 
-    Returns:
-        Dict with indexing stats.
+def _read_text(abs_path: str) -> Optional[str]:
+    try:
+        with open(abs_path, "r", encoding="utf-8", errors="replace") as f:
+            return f.read()
+    except OSError as e:
+        sys.stderr.write(f"[codebase_rag_mcp] Warning: failed to read {abs_path}: {e}\n")
+        return None
+
+
+def _embed_one_file(
+    ctx: ProjectContext,
+    abs_path: str,
+    category: scope.Category,
+    collection,
+    stat_key: Optional[str] = None,
+    stats: Optional[Dict[str, Any]] = None,
+) -> int:
+    """Read, chunk, and embed a file into the given collection.
+
+    Returns the number of chunks added (0 on empty/unreadable file).
     """
+    content = _read_text(abs_path)
+    if content is None or not content.strip():
+        return 0
+
+    rel_path = safe_relative_path(ctx.project_root, abs_path)
+    language = detect_language(rel_path)
+    if category.collection == COLLECTION_CODEBASE:
+        imports = extract_imports(content, language)
+        exports = extract_exports(content, language)
+        api_endpoints = extract_api_endpoints(content)
+        ws_events = extract_ws_events(content)
+    else:
+        imports = exports = api_endpoints = ws_events = []
+
+    chunks = chunk_content(rel_path, content)
+    if not chunks:
+        return 0
+
+    ids: List[str] = []
+    documents: List[str] = []
+    metadatas: List[Dict[str, Any]] = []
+    for chunk in chunks:
+        ids.append(chunk.id)
+        documents.append(chunk.content)
+        metadatas.append(_build_chunk_metadata(
+            rel_path=rel_path,
+            chunk=chunk,
+            language=language,
+            imports=imports,
+            exports=exports,
+            api_endpoints=api_endpoints,
+            ws_events=ws_events,
+            weight=category.weight,
+            type_label=category.type_label,
+            source_type=category.source_type,
+        ))
+
+    batch_size = 100
+    for i in range(0, len(ids), batch_size):
+        collection.add(
+            ids=ids[i:i + batch_size],
+            documents=documents[i:i + batch_size],
+            metadatas=metadatas[i:i + batch_size],
+        )
+
+    if stats is not None and stat_key is not None:
+        stats["collectionStats"][stat_key] += len(ids)
+        stats["chunksCreated"] += len(ids)
+
+    return len(ids)
+
+
+# ============================================================
+# Full project index
+# ============================================================
+
+
+_COLLECTION_TO_STAT_KEY = {
+    COLLECTION_CODEBASE: "codebase",
+    COLLECTION_CONSTRAINTS: "constraints",
+    COLLECTION_PATTERNS: "patterns",
+}
+
+
+def index_project(ctx: ProjectContext) -> Dict[str, Any]:
+    """Full re-index: drops and recreates collections, embeds every file in scope."""
     start_time = time.time()
     errors: List[Dict[str, str]] = []
 
     ensure_dir(ctx.chroma_db_path)
+    client = get_client(ctx.chroma_db_path)
 
-    # Create PersistentClient (embedded, no server needed)
-    client = chromadb.PersistentClient(
-        path=ctx.chroma_db_path,
-        settings=Settings(anonymized_telemetry=False),
-    )
-
-    # Reset all collections for full re-index
-    for name in [COLLECTION_CODEBASE, COLLECTION_CONSTRAINTS, COLLECTION_PATTERNS]:
+    # Drop and recreate the three named collections.
+    for name in (COLLECTION_CODEBASE, COLLECTION_CONSTRAINTS, COLLECTION_PATTERNS):
         try:
             client.delete_collection(name=name)
         except Exception as e:
@@ -253,19 +245,13 @@ def index_project(ctx: ProjectContext) -> Dict[str, Any]:
                 f'[codebase_rag_mcp] Note: collection "{name}" did not exist ({e})\n'
             )
 
-    # Create collections with cosine distance
-    codebase_col = client.get_or_create_collection(
-        name=COLLECTION_CODEBASE,
-        metadata={"hnsw:space": "cosine"},
-    )
-    constraint_col = client.get_or_create_collection(
-        name=COLLECTION_CONSTRAINTS,
-        metadata={"hnsw:space": "cosine"},
-    )
-    pattern_col = client.get_or_create_collection(
-        name=COLLECTION_PATTERNS,
-        metadata={"hnsw:space": "cosine"},
-    )
+    collections = {
+        name: client.get_or_create_collection(
+            name=name,
+            metadata={"hnsw:space": "cosine"},
+        )
+        for name in (COLLECTION_CODEBASE, COLLECTION_CONSTRAINTS, COLLECTION_PATTERNS)
+    }
 
     stats: Dict[str, Any] = {
         "filesIndexed": 0,
@@ -275,278 +261,67 @@ def index_project(ctx: ProjectContext) -> Dict[str, Any]:
         "duration": 0,
     }
 
-    # ---- Index code files ----
-    code_extensions = [
-        ext for ext in ctx.config.include_extensions
-        if ext not in (".yml", ".yaml", ".md")
-    ]
-    code_files = discover_files(ctx.project_root, code_extensions, ctx.config.exclude_dirs)
-
-    for file_path in code_files:
+    entries = discover_indexable_files(ctx)
+    for entry in entries:
+        abs_path = entry["abs_path"]
+        category: scope.Category = entry["category"]
+        target_collection = collections[category.collection]
+        stat_key = _COLLECTION_TO_STAT_KEY[category.collection]
         try:
-            with open(file_path, "r", encoding="utf-8", errors="replace") as f:
-                content = f.read()
-
-            if not content.strip():
-                continue
-
-            relative_path = safe_relative_path(ctx.project_root, file_path)
-            language = detect_language(relative_path)
-            imports = extract_imports(content, language)
-            exports = extract_exports(content, language)
-            api_endpoints = extract_api_endpoints(content)
-            ws_events = extract_ws_events(content)
-            weight = compute_weight(relative_path, ctx.config.weights)
-
-            chunks = chunk_content(relative_path, content)
-
-            ids: List[str] = []
-            documents: List[str] = []
-            metadatas: List[Dict[str, Any]] = []
-
-            for chunk in chunks:
-                ids.append(chunk.id)
-                documents.append(chunk.content)
-                metadatas.append({
-                    "filePath": relative_path,
-                    "chunkIndex": chunk.index,
-                    "totalChunks": chunk.total_chunks,
-                    "language": language,
-                    "imports": ",".join(imports),
-                    "exports": ",".join(exports),
-                    "apiEndpoints": ",".join(api_endpoints),
-                    "wsEvents": ",".join(ws_events),
-                    "weight": weight,
-                    "type": "code",
-                    "source_type": SOURCE_TYPE_CODE,
-                })
-
-            if ids:
-                # ChromaDB has batch size limits; add in batches
-                batch_size = 100
-                for i in range(0, len(ids), batch_size):
-                    codebase_col.add(
-                        ids=ids[i:i + batch_size],
-                        documents=documents[i:i + batch_size],
-                        metadatas=metadatas[i:i + batch_size],
-                    )
-                stats["collectionStats"]["codebase"] += len(ids)
-                stats["chunksCreated"] += len(ids)
-
-            stats["filesIndexed"] += 1
+            added = _embed_one_file(
+                ctx=ctx,
+                abs_path=abs_path,
+                category=category,
+                collection=target_collection,
+                stat_key=stat_key,
+                stats=stats,
+            )
+            if added > 0 or os.path.getsize(abs_path) == 0:
+                stats["filesIndexed"] += 1
         except Exception as e:
-            rel = safe_relative_path(ctx.project_root, file_path)
+            rel = safe_relative_path(ctx.project_root, abs_path)
             sys.stderr.write(f"[codebase_rag_mcp] Warning: failed to index {rel}: {e}\n")
             errors.append({"file": rel, "error": str(e)})
 
-    # ---- Index constraint files ----
-    constraint_files = find_constraint_files(ctx.project_root)
-    for file_path in constraint_files:
-        try:
-            with open(file_path, "r", encoding="utf-8", errors="replace") as f:
-                content = f.read()
-
-            if not content.strip():
-                continue
-
-            relative_path = safe_relative_path(ctx.project_root, file_path)
-            chunks = chunk_content(relative_path, content)
-
-            ids: List[str] = []
-            documents: List[str] = []
-            metadatas: List[Dict[str, Any]] = []
-
-            for chunk in chunks:
-                ids.append(chunk.id)
-                documents.append(chunk.content)
-                metadatas.append({
-                    "filePath": relative_path,
-                    "chunkIndex": chunk.index,
-                    "totalChunks": chunk.total_chunks,
-                    "language": detect_language(relative_path),
-                    "imports": "",
-                    "exports": "",
-                    "apiEndpoints": "",
-                    "wsEvents": "",
-                    "weight": compute_weight(relative_path, ctx.config.weights),
-                    "type": "constraint",
-                    "source_type": SOURCE_TYPE_CONSTRAINTS,
-                })
-
-            if ids:
-                constraint_col.add(ids=ids, documents=documents, metadatas=metadatas)
-                stats["collectionStats"]["constraints"] += len(ids)
-                stats["chunksCreated"] += len(ids)
-
-            stats["filesIndexed"] += 1
-        except Exception as e:
-            rel = safe_relative_path(ctx.project_root, file_path)
-            sys.stderr.write(f"[codebase_rag_mcp] Warning: failed to index constraint {rel}: {e}\n")
-            errors.append({"file": rel, "error": str(e)})
-
-    # ---- Index pattern files ----
-    pattern_files = find_pattern_files(ctx.project_root)
-    for file_path in pattern_files:
-        try:
-            with open(file_path, "r", encoding="utf-8", errors="replace") as f:
-                content = f.read()
-
-            if not content.strip():
-                continue
-
-            relative_path = safe_relative_path(ctx.project_root, file_path)
-            chunks = chunk_content(relative_path, content)
-
-            ids: List[str] = []
-            documents: List[str] = []
-            metadatas: List[Dict[str, Any]] = []
-
-            for chunk in chunks:
-                ids.append(chunk.id)
-                documents.append(chunk.content)
-                metadatas.append({
-                    "filePath": relative_path,
-                    "chunkIndex": chunk.index,
-                    "totalChunks": chunk.total_chunks,
-                    "language": detect_language(relative_path),
-                    "imports": "",
-                    "exports": "",
-                    "apiEndpoints": "",
-                    "wsEvents": "",
-                    "weight": compute_weight(relative_path, ctx.config.weights),
-                    "type": "pattern",
-                    "source_type": SOURCE_TYPE_DOCS,
-                })
-
-            if ids:
-                pattern_col.add(ids=ids, documents=documents, metadatas=metadatas)
-                stats["collectionStats"]["patterns"] += len(ids)
-                stats["chunksCreated"] += len(ids)
-
-            stats["filesIndexed"] += 1
-        except Exception as e:
-            rel = safe_relative_path(ctx.project_root, file_path)
-            sys.stderr.write(f"[codebase_rag_mcp] Warning: failed to index pattern {rel}: {e}\n")
-            errors.append({"file": rel, "error": str(e)})
-
-    # ---- Index custom source files ----
-    if ctx.config.custom_sources:
-        # Map source_type to target collection
-        collection_map = {
-            SOURCE_TYPE_CONSTRAINTS: constraint_col,
-            SOURCE_TYPE_DOCS: pattern_col,
-            SOURCE_TYPE_CODE: codebase_col,
-        }
-        collection_stat_map = {
-            SOURCE_TYPE_CONSTRAINTS: "constraints",
-            SOURCE_TYPE_DOCS: "patterns",
-            SOURCE_TYPE_CODE: "codebase",
-        }
-
-        custom_files = find_custom_source_files(ctx.project_root, ctx.config.custom_sources)
-        for entry in custom_files:
-            file_path = entry["file_path"]
-            source_type = entry["source_type"]
-            weight = entry["weight"]
-            target_col = collection_map.get(source_type, pattern_col)
-            stat_key = collection_stat_map.get(source_type, "patterns")
-
-            try:
-                with open(file_path, "r", encoding="utf-8", errors="replace") as f:
-                    content = f.read()
-
-                if not content.strip():
-                    continue
-
-                relative_path = safe_relative_path(ctx.project_root, file_path)
-
-                # Skip if already indexed as a built-in constraint or pattern
-                if relative_path in [safe_relative_path(ctx.project_root, cf) for cf in constraint_files]:
-                    continue
-                if relative_path in [safe_relative_path(ctx.project_root, pf) for pf in pattern_files]:
-                    continue
-
-                chunks = chunk_content(relative_path, content)
-                language = detect_language(relative_path)
-
-                ids: List[str] = []
-                documents: List[str] = []
-                metadatas: List[Dict[str, Any]] = []
-
-                for chunk in chunks:
-                    ids.append(chunk.id)
-                    documents.append(chunk.content)
-                    metadatas.append({
-                        "filePath": relative_path,
-                        "chunkIndex": chunk.index,
-                        "totalChunks": chunk.total_chunks,
-                        "language": language,
-                        "imports": "",
-                        "exports": "",
-                        "apiEndpoints": "",
-                        "wsEvents": "",
-                        "weight": weight,
-                        "type": "custom",
-                        "source_type": source_type,
-                    })
-
-                if ids:
-                    batch_size = 100
-                    for i in range(0, len(ids), batch_size):
-                        target_col.add(
-                            ids=ids[i:i + batch_size],
-                            documents=documents[i:i + batch_size],
-                            metadatas=metadatas[i:i + batch_size],
-                        )
-                    stats["collectionStats"][stat_key] += len(ids)
-                    stats["chunksCreated"] += len(ids)
-
-                stats["filesIndexed"] += 1
-            except Exception as e:
-                rel = safe_relative_path(ctx.project_root, file_path)
-                sys.stderr.write(f"[codebase_rag_mcp] Warning: failed to index custom source {rel}: {e}\n")
-                errors.append({"file": rel, "error": str(e)})
-
-    # Update context
-    ctx.last_indexed_at = datetime.now(timezone.utc).isoformat()
-    write_config(ctx)
-
+    _bump_last_indexed_at(ctx, force_flush=True)
     stats["duration"] = round(time.time() - start_time, 2)
     return stats
 
 
 # ============================================================
-# Per-file Incremental Index
+# Per-file incremental index
 # ============================================================
 
 
 def index_file(ctx: ProjectContext, file_path: str) -> Dict[str, Any]:
-    """Re-embed a single file. Idempotent. Used by the watcher and post-edit hooks.
+    """Re-embed a single file. Idempotent.
 
-    Deletes any existing chunks for `file_path` (matched by relative filePath
-    metadata), then re-adds chunks if the file still exists and is in scope.
-    Returns a small dict describing what happened.
+    Returns a dict with a stable shape:
+      {"status": "indexed" | "deleted" | "skipped" | "empty" | "error",
+       "filePath": str,
+       "collection": Optional[str],
+       "chunks": int,
+       "reason": Optional[str]}
     """
     abs_path = os.path.abspath(file_path)
-    classification = _classify(abs_path, ctx)
-    if classification is None:
-        return {"skipped": True, "reason": "out of scope or filtered", "filePath": abs_path}
-
     rel_path = safe_relative_path(ctx.project_root, abs_path)
-    collection_name = classification["collection"]
-    type_label = classification["type"]
-    source_type = classification["source_type"]
-    weight = classification["weight"]
+
+    category = scope.categorize(abs_path, ctx)
+    if category is None:
+        return {
+            "status": "skipped",
+            "filePath": rel_path,
+            "collection": None,
+            "chunks": 0,
+            "reason": "out of scope",
+        }
 
     lock = _lock_for(abs_path)
     with lock:
         ensure_dir(ctx.chroma_db_path)
-        client = chromadb.PersistentClient(
-            path=ctx.chroma_db_path,
-            settings=Settings(anonymized_telemetry=False),
-        )
+        client = get_client(ctx.chroma_db_path)
         collection = client.get_or_create_collection(
-            name=collection_name,
+            name=category.collection,
             metadata={"hnsw:space": "cosine"},
         )
 
@@ -559,61 +334,34 @@ def index_file(ctx: ProjectContext, file_path: str) -> Dict[str, Any]:
 
         if not os.path.isfile(abs_path):
             _bump_last_indexed_at(ctx)
-            return {"deleted": True, "filePath": rel_path}
-
-        try:
-            with open(abs_path, "r", encoding="utf-8", errors="replace") as f:
-                content = f.read()
-        except OSError as e:
-            return {"error": str(e), "filePath": rel_path}
-
-        if not content.strip():
-            _bump_last_indexed_at(ctx)
-            return {"empty": True, "filePath": rel_path}
-
-        language = detect_language(rel_path)
-        if collection_name == COLLECTION_CODEBASE:
-            imports = extract_imports(content, language)
-            exports = extract_exports(content, language)
-            api_endpoints = extract_api_endpoints(content)
-            ws_events = extract_ws_events(content)
-        else:
-            imports = exports = api_endpoints = ws_events = []
-
-        chunks = chunk_content(rel_path, content)
-        ids: List[str] = []
-        documents: List[str] = []
-        metadatas: List[Dict[str, Any]] = []
-        for chunk in chunks:
-            ids.append(chunk.id)
-            documents.append(chunk.content)
-            metadatas.append({
+            return {
+                "status": "deleted",
                 "filePath": rel_path,
-                "chunkIndex": chunk.index,
-                "totalChunks": chunk.total_chunks,
-                "language": language,
-                "imports": ",".join(imports),
-                "exports": ",".join(exports),
-                "apiEndpoints": ",".join(api_endpoints),
-                "wsEvents": ",".join(ws_events),
-                "weight": weight,
-                "type": type_label,
-                "source_type": source_type,
-            })
+                "collection": category.collection,
+                "chunks": 0,
+                "reason": None,
+            }
 
-        if ids:
-            batch_size = 100
-            for i in range(0, len(ids), batch_size):
-                collection.add(
-                    ids=ids[i:i + batch_size],
-                    documents=documents[i:i + batch_size],
-                    metadatas=metadatas[i:i + batch_size],
-                )
+        added = _embed_one_file(
+            ctx=ctx,
+            abs_path=abs_path,
+            category=category,
+            collection=collection,
+        )
 
         _bump_last_indexed_at(ctx)
+        if added == 0:
+            return {
+                "status": "empty",
+                "filePath": rel_path,
+                "collection": category.collection,
+                "chunks": 0,
+                "reason": "file empty or unreadable",
+            }
         return {
-            "indexed": True,
+            "status": "indexed",
             "filePath": rel_path,
-            "collection": collection_name,
-            "chunks": len(ids),
+            "collection": category.collection,
+            "chunks": added,
+            "reason": None,
         }

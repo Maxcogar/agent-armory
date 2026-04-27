@@ -12,6 +12,7 @@ import os
 import shutil
 import sys
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Optional, Dict, List, Any
 
 from utils.paths import cache_dir_for, ensure_dir
@@ -132,23 +133,47 @@ def legacy_rag_dir(project_root: str) -> str:
 
 
 def _migrate_legacy(project_root: str) -> None:
-    """One-shot: copy <project>/.rag/config.json into the cache dir.
+    """One-shot migration from <project>/.rag/ into the user cache dir.
 
-    Collections from the old location are not copied — embeddings can be
-    rebuilt cheaply, and the file copy could otherwise be huge. The user
-    is left to delete the legacy directory at their leisure (per README).
+    Copies both `config.json` and (best-effort) `collections/` so users with
+    existing indexes don't pay a full rebuild after upgrade. If the
+    collections copy fails — different chromadb on-disk format, partial
+    write, etc. — we log a clear warning so the user knows the next query
+    will trigger a rebuild rather than appearing to hang silently.
+    Legacy directory is left in place for the user to remove.
     """
-    legacy_cfg = os.path.join(legacy_rag_dir(project_root), "config.json")
+    legacy_root = legacy_rag_dir(project_root)
+    legacy_cfg = os.path.join(legacy_root, "config.json")
     new_cfg = config_file_path(project_root)
-    if os.path.isfile(legacy_cfg) and not os.path.isfile(new_cfg):
+    if not os.path.isfile(legacy_cfg) or os.path.isfile(new_cfg):
+        return
+
+    try:
+        ensure_dir(rag_dir(project_root))
+        shutil.copy2(legacy_cfg, new_cfg)
+    except OSError as e:
+        sys.stderr.write(f"[codebase_rag_mcp] Migration warning (config): {e}\n")
+        return
+
+    legacy_collections = os.path.join(legacy_root, "collections")
+    new_collections = chroma_db_path(project_root)
+    if os.path.isdir(legacy_collections) and not os.path.isdir(new_collections):
         try:
-            ensure_dir(rag_dir(project_root))
-            shutil.copy2(legacy_cfg, new_cfg)
+            shutil.copytree(legacy_collections, new_collections)
             sys.stderr.write(
-                f"[codebase_rag_mcp] Migrated config from {legacy_cfg} to {new_cfg}\n"
+                f"[codebase_rag_mcp] Migrated index from {legacy_root} to "
+                f"{rag_dir(project_root)}\n"
             )
         except OSError as e:
-            sys.stderr.write(f"[codebase_rag_mcp] Migration warning: {e}\n")
+            sys.stderr.write(
+                f"[codebase_rag_mcp] Could not migrate legacy collections "
+                f"({e}); the index will be rebuilt on next query (this may "
+                "take up to a minute for medium projects).\n"
+            )
+    else:
+        sys.stderr.write(
+            f"[codebase_rag_mcp] Migrated config from {legacy_cfg} to {new_cfg}\n"
+        )
 
 
 def read_config(project_root: str) -> Optional[Dict[str, Any]]:
@@ -184,7 +209,6 @@ def write_config(ctx: ProjectContext) -> None:
         ],
     }
 
-    from datetime import datetime, timezone
     cfg["setupAt"] = datetime.now(timezone.utc).isoformat()
 
     ensure_dir(rag_dir(ctx.project_root))

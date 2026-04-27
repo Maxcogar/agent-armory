@@ -1,8 +1,8 @@
 """File-system watcher that keeps the index live during a session.
 
-Uses watchdog to observe the project tree. Changes are debounced (one batch
-per 500ms) and dispatched to a callback which is responsible for re-indexing.
-The callback runs in the watcher's own thread, so it must be reasonably fast.
+Listens for write-class events (created / modified / deleted / moved) and
+debounces them per-path. Filtering routes through `scope.is_in_scope`, the
+single source of truth shared with the full and per-file indexers.
 """
 
 import os
@@ -10,53 +10,75 @@ import sys
 import threading
 from typing import Callable, Optional, Set
 
-from watchdog.events import FileSystemEvent, FileSystemEventHandler
+from watchdog.events import (
+    FileSystemEvent,
+    FileSystemEventHandler,
+    FileMovedEvent,
+    DirMovedEvent,
+)
 from watchdog.observers import Observer
 
 from config import ProjectContext
-from indexer import should_index
+import scope
 
 
-DEBOUNCE_SECONDS = 0.5
+def _debounce_seconds() -> float:
+    raw = os.environ.get("RAG_WATCHER_DEBOUNCE_MS")
+    if not raw:
+        return 0.5
+    try:
+        return max(0.05, float(raw) / 1000.0)
+    except ValueError:
+        return 0.5
 
 
 class _Handler(FileSystemEventHandler):
+    """Routes write-class events through a per-path debounce."""
+
     def __init__(self, on_paths: Callable[[Set[str]], None], ctx: ProjectContext):
         super().__init__()
         self._on_paths = on_paths
         self._ctx = ctx
+        self._gitignore = scope._load_gitignore(ctx.project_root)
         self._buffer: Set[str] = set()
         self._timer: Optional[threading.Timer] = None
         self._lock = threading.Lock()
+        self._debounce_s = _debounce_seconds()
 
-    def on_any_event(self, event: FileSystemEvent) -> None:
-        if event.is_directory:
-            return
-        # `dest_path` is set on move events; treat moves as a touch of the destination.
-        path = getattr(event, "dest_path", None) or event.src_path
-        if not path:
+    # --- watchdog write-class hooks ---
+
+    def on_created(self, event: FileSystemEvent) -> None:
+        self._enqueue(event.src_path, event.is_directory)
+
+    def on_modified(self, event: FileSystemEvent) -> None:
+        self._enqueue(event.src_path, event.is_directory)
+
+    def on_deleted(self, event: FileSystemEvent) -> None:
+        self._enqueue(event.src_path, event.is_directory)
+
+    def on_moved(self, event: FileSystemEvent) -> None:
+        # A move is a delete-of-src + create-of-dest; queue both.
+        is_dir = isinstance(event, (FileMovedEvent, DirMovedEvent)) and event.is_directory
+        self._enqueue(event.src_path, is_dir)
+        dest = getattr(event, "dest_path", None)
+        if dest:
+            self._enqueue(dest, is_dir)
+
+    # --- internal ---
+
+    def _enqueue(self, path: str, is_directory: bool) -> None:
+        if is_directory or not path:
             return
         abs_path = os.path.abspath(path)
-        # Skip cache dir and anything we wouldn't index. (For deletes, should_index
-        # returns False since the file is gone — we still want to fire on delete,
-        # so we don't filter on existence here, only on path/extension.)
-        parts = abs_path.replace("\\", "/").split("/")
-        for excl in self._ctx.config.exclude_dirs:
-            if excl in parts:
-                return
-        _, ext = os.path.splitext(abs_path)
-        rel_basename = os.path.basename(abs_path)
-        constraint_names = ("ARCHITECTURE.yml", "ARCHITECTURE.yaml", "CONSTRAINTS.md", "CLAUDE.md")
-        if not ext and rel_basename not in constraint_names:
+        # For deletes, the file may not exist; is_in_scope still works as long
+        # as the path is under the project root and matches an include rule.
+        if not scope.is_in_scope(abs_path, self._ctx, gitignore=self._gitignore):
             return
-        if ext and ext not in self._ctx.config.include_extensions:
-            return
-
         with self._lock:
             self._buffer.add(abs_path)
             if self._timer is not None:
                 self._timer.cancel()
-            self._timer = threading.Timer(DEBOUNCE_SECONDS, self._flush)
+            self._timer = threading.Timer(self._debounce_s, self._flush)
             self._timer.daemon = True
             self._timer.start()
 
@@ -92,8 +114,8 @@ class ProjectWatcher:
             return
         self._handler = _Handler(self._dispatch, self._ctx)
         self._observer = Observer()
-        self._observer.schedule(self._handler, self._ctx.project_root, recursive=True)
         self._observer.daemon = True
+        self._observer.schedule(self._handler, self._ctx.project_root, recursive=True)
         self._observer.start()
 
     def stop(self) -> None:
