@@ -22,7 +22,7 @@ SERVER_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SERVER_DIR)
 
 from config import ProjectContext, restore_context, rag_dir as cache_dir_for_project
-from setup import setup_project
+from bootstrap import setup_project
 from indexer import index_project, index_file
 from query import check_constraints, query_impact
 from health import health_check, get_status
@@ -430,9 +430,9 @@ else:
             original = f.read()
 
         seen_paths = []
-        def _on_change(path):
+        def _on_change(path, gitignore):
             seen_paths.append(path)
-            index_file(context, path)
+            index_file(context, path, gitignore=gitignore)
 
         watcher = ProjectWatcher(context, on_change=_on_change)
         watcher.start()
@@ -494,7 +494,7 @@ else:
         with open(gitignore_path, "w", encoding="utf-8") as f:
             f.write("generated/\n")
         try:
-            gi = scope._load_gitignore(TEST_PROJECT)
+            gi = scope.load_gitignore(TEST_PROJECT)
             in_scope_with = scope.is_in_scope(gen_file, context, gitignore=gi)
             in_scope_without = scope.is_in_scope(gen_file, context, gitignore=None)
             print(f"  in_scope (with gitignore): {in_scope_with}")
@@ -514,6 +514,100 @@ else:
         print(f"  [FAIL] Exception: {e}")
         traceback.print_exc()
         results["gitignore"] = FAIL
+
+# ============================================================
+# 10. Path-containment + excluded-dir on relative path
+# ============================================================
+
+section("10. scope path-containment regressions")
+if context is None:
+    print("  [SKIP] No context")
+    results["scope_containment"] = FAIL
+else:
+    try:
+        import scope
+        # Sibling with shared prefix must NOT be in scope.
+        # project_root = .../test-project
+        # poison_root  = .../test-project-evil
+        evil_dir = TEST_PROJECT + "-evil"
+        os.makedirs(evil_dir, exist_ok=True)
+        poison_file = os.path.join(evil_dir, "evil.js")
+        with open(poison_file, "w", encoding="utf-8") as f:
+            f.write("// poisoned\nexport const X = 1;\n")
+        try:
+            in_scope_sibling = scope.is_in_scope(poison_file, context)
+        finally:
+            shutil.rmtree(evil_dir, ignore_errors=True)
+
+        # A project hosted under a path containing an excluded-dir name
+        # (e.g., somewhere under a `.cache` directory) must still index.
+        # Simulate by checking that the abs-path containing ".venv" anywhere
+        # doesn't bork a relative path that itself doesn't have ".venv".
+        # We can't easily move TEST_PROJECT, so just unit-test the helper.
+        from scope import _matches_excluded_dir
+        rel_ok = _matches_excluded_dir("backend/routes/auth.js", [".venv"])
+        rel_excluded = _matches_excluded_dir("frontend/.venv/foo.js", [".venv"])
+
+        t10 = all([
+            check("sibling-prefix path NOT in scope", in_scope_sibling is False),
+            check("relative path without excluded segment is allowed", rel_ok is False),
+            check("relative path with excluded segment is rejected", rel_excluded is True),
+        ])
+        results["scope_containment"] = PASS if t10 else FAIL
+    except Exception as e:
+        print(f"  [FAIL] Exception: {e}")
+        traceback.print_exc()
+        results["scope_containment"] = FAIL
+
+# ============================================================
+# 11. write_config atomic + max-size cap on index_file
+# ============================================================
+
+section("11. atomic config write + max file size cap")
+if context is None:
+    print("  [SKIP] No context")
+    results["robustness"] = FAIL
+else:
+    try:
+        from config import config_file_path
+        from indexer import index_file as _index_file
+
+        cfg_path = config_file_path(TEST_PROJECT)
+        # The atomic-write should never leave a partial file behind. After a
+        # call, there must be no leftover .tmp file in the cache dir.
+        cache_root = os.path.dirname(cfg_path)
+        leftovers_before = [f for f in os.listdir(cache_root) if f.endswith(".json.tmp")]
+
+        # Force a file to exceed the cap and verify it's reported as empty.
+        target = os.path.join(TEST_PROJECT, "backend", "routes", "projects.js")
+        with open(target, "r", encoding="utf-8") as f:
+            original = f.read()
+        try:
+            os.environ["RAG_MAX_FILE_BYTES"] = "10"  # tiny cap
+            # Re-import indexer to pick up new env var? No — env is read at
+            # import time. Instead, monkeypatch the constant.
+            import indexer as _indexer
+            saved_cap = _indexer._MAX_FILE_BYTES
+            _indexer._MAX_FILE_BYTES = 10
+            outcome = _indexer.index_file(context, target)
+            _indexer._MAX_FILE_BYTES = saved_cap
+        finally:
+            with open(target, "w", encoding="utf-8") as f:
+                f.write(original)
+
+        leftovers_after = [f for f in os.listdir(cache_root) if f.endswith(".json.tmp")]
+
+        t11 = all([
+            check("no leftover .tmp from atomic write", leftovers_before == leftovers_after),
+            check("oversized file reported as empty",
+                  outcome.get("status") == "empty" and outcome.get("chunks") == 0,
+                  str(outcome)),
+        ])
+        results["robustness"] = PASS if t11 else FAIL
+    except Exception as e:
+        print(f"  [FAIL] Exception: {e}")
+        traceback.print_exc()
+        results["robustness"] = FAIL
 
 # ============================================================
 # Summary

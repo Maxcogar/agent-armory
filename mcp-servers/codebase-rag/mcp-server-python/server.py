@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """MCP Server for Codebase RAG.
 
-Auto-detects the project root, opens or builds the index in a per-machine cache
-dir, and watches the filesystem so the index stays current as files change.
-Agents see two tools: rag_search and rag_query_impact.
+Auto-detects the project root, opens or builds the index in a per-machine
+cache dir, and watches the filesystem so the index stays current. Agents
+see two tools: rag_search and rag_query_impact.
 """
 
 import importlib
@@ -13,8 +13,8 @@ import sys
 
 # ============================================================
 # Dependency check — must run BEFORE any heavy imports below.
-# Otherwise a missing chromadb/watchdog/pathspec surfaces as a raw
-# ModuleNotFoundError stack trace, defeating the purpose of the check.
+# Otherwise a missing chromadb/watchdog/pathspec/mcp/pydantic/pyyaml
+# surfaces as a raw ModuleNotFoundError, defeating the diagnostic.
 # ============================================================
 
 
@@ -44,24 +44,50 @@ _check_dependencies()
 
 
 # ============================================================
+# Logging setup — once, before anything imports `logging.getLogger`
+# expecting a configured handler.
+# ============================================================
+
+import logging
+
+
+def _setup_logging() -> None:
+    root = logging.getLogger()
+    if any(getattr(h, "_codebase_rag_mcp", False) for h in root.handlers):
+        return
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(logging.Formatter(
+        "[codebase_rag_mcp] %(levelname)s %(name)s: %(message)s"
+    ))
+    handler._codebase_rag_mcp = True  # type: ignore[attr-defined]
+    root.addHandler(handler)
+    level_name = os.environ.get("RAG_LOG_LEVEL", "INFO").upper()
+    root.setLevel(getattr(logging, level_name, logging.INFO))
+
+
+_setup_logging()
+log = logging.getLogger(__name__)
+
+
+# ============================================================
 # Heavy imports — safe now that dependencies are verified.
 # ============================================================
 
+import asyncio
 import json
-import os
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, ConfigDict
 from mcp.server.fastmcp import FastMCP, Context
 
 from config import ProjectContext, restore_context
-from setup import setup_project
+from bootstrap import setup_project
 from indexer import index_project, index_file
 from query import check_constraints, query_impact
 from utils.paths import find_project_root, index_exists_for
-from utils.chroma import get_client, warmup_embedding_model
+from utils.chroma import warmup_embedding_model
 
 
 CHARACTER_LIMIT = 25_000
@@ -75,66 +101,79 @@ CHARACTER_LIMIT = 25_000
 @dataclass
 class ServerState:
     project: Optional[ProjectContext] = None
-    watcher: Optional[object] = None  # ProjectWatcher; lazy import keeps cycle clean
+    watcher: Optional[object] = None  # ProjectWatcher
+    ready: asyncio.Event = field(default_factory=asyncio.Event)
+    bootstrap_error: Optional[str] = None
 
 
 def _ensure_project_for(root: str) -> Optional[ProjectContext]:
-    """Open the cached index for `root`, or build it if absent."""
+    """Open the cached index for `root`, or build it if absent. Sync — call from a worker thread."""
     abs_root = os.path.abspath(root)
     if index_exists_for(abs_root):
         ctx = restore_context(abs_root)
         if ctx is not None:
             return ctx
 
-    sys.stderr.write(
-        f"[codebase_rag_mcp] No index for {abs_root}; building one (this may take "
-        "up to a minute on first run for medium projects)...\n"
-    )
+    log.info("no index for %s; building (may take up to a minute)", abs_root)
+    output = setup_project(abs_root, force=False, generate_files=False)
+    ctx = output["context"]
+    index_project(ctx)
+    return ctx
+
+
+async def _bootstrap(state: ServerState) -> None:
+    """Warm the embedding model, open or build the index, start the watcher.
+
+    Runs as a background task so the lifespan yields immediately and tools
+    can return an actionable "indexing" response while this is in flight.
+    """
     try:
-        output = setup_project(abs_root, force=False, generate_files=False)
-        ctx = output["context"]
-        index_project(ctx)
-        return ctx
-    except (ValueError, OSError) as e:
-        sys.stderr.write(f"[codebase_rag_mcp] Failed to bootstrap index: {e}\n")
-        return None
+        warmup_error = await asyncio.to_thread(warmup_embedding_model)
+        if warmup_error:
+            log.error("%s", warmup_error)
+            state.bootstrap_error = warmup_error
+            return
+
+        project_root = os.environ.get("RAG_PROJECT_ROOT") or find_project_root()
+        if not project_root:
+            log.info(
+                "no project root detected from cwd; rag_search will say so "
+                "until run inside a project"
+            )
+            return
+
+        try:
+            project = await asyncio.to_thread(_ensure_project_for, project_root)
+        except Exception as e:
+            log.error("failed to bootstrap index: %s", e)
+            state.bootstrap_error = f"Index bootstrap failed: {e}"
+            return
+
+        if project is None:
+            state.bootstrap_error = "Index bootstrap returned no project."
+            return
+
+        state.project = project
+
+        from watcher import ProjectWatcher
+
+        def _on_change(path: str, gitignore) -> None:
+            try:
+                index_file(project, path, gitignore=gitignore)
+            except Exception as e:
+                log.warning("reindex failed for %s: %s", path, e)
+
+        state.watcher = ProjectWatcher(project, on_change=_on_change)
+        state.watcher.start()
+        log.info("watching %s", project.project_root)
+    finally:
+        state.ready.set()
 
 
 @asynccontextmanager
 async def app_lifespan(server: FastMCP):
     state = ServerState()
-
-    # Warm the embedding model up front so first-query latency doesn't hide a
-    # download that may take tens of seconds (or fail in air-gapped environs).
-    warmup_error = warmup_embedding_model()
-    if warmup_error:
-        sys.stderr.write(f"[codebase_rag_mcp] {warmup_error}\n")
-
-    project_root = os.environ.get("RAG_PROJECT_ROOT") or find_project_root()
-    if project_root:
-        state.project = _ensure_project_for(project_root)
-        if state.project is not None:
-            from watcher import ProjectWatcher
-
-            project = state.project
-
-            def _on_change(path: str) -> None:
-                try:
-                    index_file(project, path)
-                except Exception as e:
-                    sys.stderr.write(
-                        f"[codebase_rag_mcp] reindex failed for {path}: {e}\n"
-                    )
-
-            state.watcher = ProjectWatcher(project, on_change=_on_change)
-            state.watcher.start()
-            sys.stderr.write(f"[codebase_rag_mcp] watching {project.project_root}\n")
-    else:
-        sys.stderr.write(
-            "[codebase_rag_mcp] No project root detected from cwd; "
-            "rag_search will return an empty hint until run inside a project.\n"
-        )
-
+    bootstrap_task = asyncio.create_task(_bootstrap(state))
     try:
         yield state
     finally:
@@ -142,7 +181,13 @@ async def app_lifespan(server: FastMCP):
             try:
                 state.watcher.stop()
             except Exception as e:
-                sys.stderr.write(f"[codebase_rag_mcp] watcher stop error: {e}\n")
+                log.warning("watcher stop error: %s", e)
+        if not bootstrap_task.done():
+            bootstrap_task.cancel()
+            try:
+                await bootstrap_task
+            except (asyncio.CancelledError, Exception):
+                pass
 
 
 mcp = FastMCP("codebase_rag_mcp", lifespan=app_lifespan)
@@ -163,14 +208,9 @@ def ok_response(data: dict) -> str:
     return text
 
 
-def err_response(message: str) -> str:
-    return f"Error: {message}"
-
-
 def _state(ctx: Context) -> ServerState:
     state = ctx.request_context.lifespan_context
     if not isinstance(state, ServerState):
-        # Defensive: a future MCP version that wraps lifespan_context would land here.
         raise RuntimeError("Lifespan context is not a ServerState")
     return state
 
@@ -182,9 +222,23 @@ _NO_PROJECT_HINT = (
 )
 
 
+async def _await_ready_or_status(state: ServerState, timeout: float = 5.0) -> Optional[str]:
+    """Wait briefly for bootstrap to finish; return a status string if not ready."""
+    if state.ready.is_set():
+        return None
+    try:
+        await asyncio.wait_for(state.ready.wait(), timeout=timeout)
+    except asyncio.TimeoutError:
+        return "indexing"
+    return None
+
+
 # ============================================================
 # Inputs
 # ============================================================
+
+
+SourceType = Literal["all", "docs", "code", "constraints"]
 
 
 class RagSearchInput(BaseModel):
@@ -202,7 +256,7 @@ class RagSearchInput(BaseModel):
         ge=1,
         le=20,
     )
-    source_type: str = Field(
+    source_type: SourceType = Field(
         default="all",
         description=(
             'Filter results by source type. "all" (default), '
@@ -245,25 +299,38 @@ class RagQueryImpactInput(BaseModel):
 async def rag_search(
     query: str,
     num_results: int = 5,
-    source_type: str = "all",
+    source_type: SourceType = "all",
     ctx: Context = None,
 ) -> str:
-    """Semantic search over the current project. Use before editing unfamiliar
-    code, when looking for callers/callees, or when checking how similar
-    features are already implemented.
-
-    The first call in a brand-new project takes a few seconds while the index
-    builds; after that everything is instant and stays fresh as files change.
+    """Semantic search over the current project. Use before editing
+    unfamiliar code, when looking for callers/callees, or when checking
+    how similar features are already implemented.
     """
     params = RagSearchInput(query=query, num_results=num_results, source_type=source_type)
 
-    valid_types = ("all", "docs", "code", "constraints")
-    if params.source_type not in valid_types:
-        return err_response(
-            f"Invalid source_type '{params.source_type}'. Must be one of: {', '.join(valid_types)}"
-        )
-
     state = _state(ctx)
+
+    not_ready = await _await_ready_or_status(state)
+    if not_ready == "indexing":
+        return ok_response({
+            "status": "indexing",
+            "query": params.query,
+            "constraints": [],
+            "patterns": [],
+            "examples": [],
+            "summary": "First-run index is still building. Try again in a few seconds.",
+        })
+
+    if state.bootstrap_error:
+        return ok_response({
+            "status": "index_failed",
+            "query": params.query,
+            "constraints": [],
+            "patterns": [],
+            "examples": [],
+            "summary": state.bootstrap_error,
+        })
+
     if state.project is None:
         return ok_response({
             "status": "no_project",
@@ -275,15 +342,17 @@ async def rag_search(
         })
 
     try:
-        result = check_constraints(
+        result = await asyncio.to_thread(
+            check_constraints,
             state.project,
             params.query,
             params.num_results,
-            source_type=params.source_type,
+            params.source_type,
         )
         return ok_response({"status": "success", **result})
     except Exception as e:
-        return err_response(f"Search failed: {e}")
+        log.warning("search failed: %s", e)
+        raise
 
 
 # ============================================================
@@ -305,12 +374,38 @@ async def rag_query_impact(
     num_similar: int = 5,
     ctx: Context = None,
 ) -> str:
-    """Show what depends on a file before you change it: exports, importers,
-    and semantically similar files that may need coordinated edits.
+    """Show what depends on a file before you change it: exports,
+    importers, and semantically similar files that may need coordinated edits.
     """
     params = RagQueryImpactInput(file_path=file_path, num_similar=num_similar)
 
     state = _state(ctx)
+
+    not_ready = await _await_ready_or_status(state)
+    if not_ready == "indexing":
+        return ok_response({
+            "status": "indexing",
+            "filePath": params.file_path,
+            "exports": [],
+            "apiEndpoints": [],
+            "websocketEvents": [],
+            "dependents": [],
+            "similarFiles": [],
+            "summary": "First-run index is still building. Try again in a few seconds.",
+        })
+
+    if state.bootstrap_error:
+        return ok_response({
+            "status": "index_failed",
+            "filePath": params.file_path,
+            "exports": [],
+            "apiEndpoints": [],
+            "websocketEvents": [],
+            "dependents": [],
+            "similarFiles": [],
+            "summary": state.bootstrap_error,
+        })
+
     if state.project is None:
         return ok_response({
             "status": "no_project",
@@ -324,10 +419,16 @@ async def rag_query_impact(
         })
 
     try:
-        result = query_impact(state.project, params.file_path, params.num_similar)
+        result = await asyncio.to_thread(
+            query_impact,
+            state.project,
+            params.file_path,
+            params.num_similar,
+        )
         return ok_response({"status": "success", **result})
     except Exception as e:
-        return err_response(f"Impact analysis failed: {e}")
+        log.warning("impact analysis failed: %s", e)
+        raise
 
 
 # ============================================================
@@ -336,5 +437,5 @@ async def rag_query_impact(
 
 
 if __name__ == "__main__":
-    sys.stderr.write("[codebase_rag_mcp] Starting server...\n")
+    log.info("starting server")
     mcp.run()

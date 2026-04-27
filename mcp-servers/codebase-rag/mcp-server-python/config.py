@@ -1,21 +1,25 @@
 """Project configuration management.
 
 State (config.json + ChromaDB collections) lives in a per-machine cache
-directory under ~/.cache/codebase-rag/<hash>/, NOT inside the project tree.
-A one-shot migration reads any legacy <project>/.rag/config.json on first
-access and copies it into the cache dir; the legacy folder is left in place
-for the user to remove.
+directory under <platform-cache>/codebase-rag/<hash>/, NOT inside the
+project tree. A one-shot migration copies any legacy <project>/.rag/
+contents (config + collections, best-effort) into the cache dir; the
+legacy folder is left in place for the user to remove.
 """
 
 import json
+import logging
 import os
 import shutil
-import sys
+import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Optional, Dict, List, Any
 
 from utils.paths import cache_dir_for, ensure_dir
+
+
+log = logging.getLogger(__name__)
 
 
 # ============================================================
@@ -44,13 +48,13 @@ class CustomSource:
 
 @dataclass
 class ProjectConfig:
-    include_extensions: List[str]
-    exclude_dirs: List[str]
-    chunk_size: int
-    chunk_overlap: int
-    default_results: int
-    max_results: int
-    weights: Dict[str, float]
+    include_extensions: List[str] = field(default_factory=lambda: _default_include_extensions())
+    exclude_dirs: List[str] = field(default_factory=lambda: _default_exclude_dirs())
+    chunk_size: int = 300
+    chunk_overlap: int = 50
+    default_results: int = 5
+    max_results: int = 20
+    weights: Dict[str, float] = field(default_factory=lambda: _default_weights())
     custom_sources: List[CustomSource] = field(default_factory=list)
 
 
@@ -68,29 +72,43 @@ class ProjectContext:
 # Defaults
 # ============================================================
 
-DEFAULT_CONFIG = ProjectConfig(
-    include_extensions=[
+def _default_include_extensions() -> List[str]:
+    return [
         ".js", ".jsx", ".mjs", ".cjs",
         ".ts", ".tsx",
+        ".svelte",
         ".py",
         ".go", ".rs", ".java", ".rb", ".php",
         ".yml", ".yaml", ".md", ".json",
-    ],
-    exclude_dirs=[
+    ]
+
+
+def _default_exclude_dirs() -> List[str]:
+    return [
         "node_modules", ".git", "dist", "build", "__pycache__",
         ".venv", "venv", ".next", ".rag", "coverage",
         ".turbo", ".cache",
-    ],
+    ]
+
+
+def _default_weights() -> Dict[str, float]:
+    return {
+        "ARCHITECTURE.yml": 10.0,
+        "ARCHITECTURE.yaml": 10.0,
+        "CONSTRAINTS.md": 10.0,
+        "CLAUDE.md": 10.0,
+        "docs/patterns/": 8.0,
+    }
+
+
+DEFAULT_CONFIG = ProjectConfig(
+    include_extensions=_default_include_extensions(),
+    exclude_dirs=_default_exclude_dirs(),
     chunk_size=300,
     chunk_overlap=50,
     default_results=5,
     max_results=20,
-    weights={
-        "ARCHITECTURE.yml": 10.0,
-        "CONSTRAINTS.md": 10.0,
-        "CLAUDE.md": 10.0,
-        "docs/patterns/": 8.0,
-    },
+    weights=_default_weights(),
 )
 
 # ============================================================
@@ -135,12 +153,11 @@ def legacy_rag_dir(project_root: str) -> str:
 def _migrate_legacy(project_root: str) -> None:
     """One-shot migration from <project>/.rag/ into the user cache dir.
 
-    Copies both `config.json` and (best-effort) `collections/` so users with
-    existing indexes don't pay a full rebuild after upgrade. If the
+    Copies both `config.json` and (best-effort) `collections/`. If the
     collections copy fails — different chromadb on-disk format, partial
-    write, etc. — we log a clear warning so the user knows the next query
-    will trigger a rebuild rather than appearing to hang silently.
-    Legacy directory is left in place for the user to remove.
+    write, etc. — log a clear warning so the next query is known to
+    trigger a rebuild rather than appearing to hang silently. The legacy
+    directory is left in place for the user to remove.
     """
     legacy_root = legacy_rag_dir(project_root)
     legacy_cfg = os.path.join(legacy_root, "config.json")
@@ -152,7 +169,7 @@ def _migrate_legacy(project_root: str) -> None:
         ensure_dir(rag_dir(project_root))
         shutil.copy2(legacy_cfg, new_cfg)
     except OSError as e:
-        sys.stderr.write(f"[codebase_rag_mcp] Migration warning (config): {e}\n")
+        log.warning("migration warning (config): %s", e)
         return
 
     legacy_collections = os.path.join(legacy_root, "collections")
@@ -160,20 +177,15 @@ def _migrate_legacy(project_root: str) -> None:
     if os.path.isdir(legacy_collections) and not os.path.isdir(new_collections):
         try:
             shutil.copytree(legacy_collections, new_collections)
-            sys.stderr.write(
-                f"[codebase_rag_mcp] Migrated index from {legacy_root} to "
-                f"{rag_dir(project_root)}\n"
-            )
+            log.info("migrated index from %s to %s", legacy_root, rag_dir(project_root))
         except OSError as e:
-            sys.stderr.write(
-                f"[codebase_rag_mcp] Could not migrate legacy collections "
-                f"({e}); the index will be rebuilt on next query (this may "
-                "take up to a minute for medium projects).\n"
+            log.warning(
+                "could not migrate legacy collections (%s); the index will be "
+                "rebuilt on next query (this may take up to a minute for medium projects)",
+                e,
             )
     else:
-        sys.stderr.write(
-            f"[codebase_rag_mcp] Migrated config from {legacy_cfg} to {new_cfg}\n"
-        )
+        log.info("migrated config from %s to %s", legacy_cfg, new_cfg)
 
 
 def read_config(project_root: str) -> Optional[Dict[str, Any]]:
@@ -186,18 +198,37 @@ def read_config(project_root: str) -> Optional[Dict[str, Any]]:
     except FileNotFoundError:
         return None
     except json.JSONDecodeError as e:
-        sys.stderr.write(f"[codebase_rag_mcp] Note: Could not read config: {e}\n")
+        log.warning("could not read config: %s", e)
         return None
 
 
+def _atomic_write_json(target: str, data: Dict[str, Any]) -> None:
+    """Write JSON to `target` via tmpfile + os.replace for atomicity."""
+    target_dir = os.path.dirname(target) or "."
+    ensure_dir(target_dir)
+    fd, tmp_path = tempfile.mkstemp(prefix=".config-", suffix=".json.tmp", dir=target_dir)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, target)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
+
+
 def write_config(ctx: ProjectContext) -> None:
-    """Serialize ProjectContext to the project's cache dir."""
+    """Atomically serialize ProjectContext to the project's cache dir."""
     cfg = {
         "projectRoot": ctx.project_root,
         "frontendPath": ctx.frontend_path,
         "backendPath": ctx.backend_path,
         "lastIndexedAt": ctx.last_indexed_at,
-        "setupAt": None,  # Will be set below
+        "lastWrittenAt": datetime.now(timezone.utc).isoformat(),
         "includeExtensions": ctx.config.include_extensions,
         "excludeDirs": ctx.config.exclude_dirs,
         "chunkSize": ctx.config.chunk_size,
@@ -208,16 +239,18 @@ def write_config(ctx: ProjectContext) -> None:
             for s in ctx.config.custom_sources
         ],
     }
-
-    cfg["setupAt"] = datetime.now(timezone.utc).isoformat()
-
-    ensure_dir(rag_dir(ctx.project_root))
-    with open(config_file_path(ctx.project_root), "w", encoding="utf-8") as f:
-        json.dump(cfg, f, indent=2)
+    _atomic_write_json(config_file_path(ctx.project_root), cfg)
 
 
 def restore_context(project_root: str) -> Optional[ProjectContext]:
-    """Rebuild ProjectContext from persisted config on disk."""
+    """Rebuild ProjectContext from persisted config on disk.
+
+    The function argument is the canonical project root. If the persisted
+    config records a different `projectRoot` (e.g., the project was renamed
+    or moved on disk), we trust the live argument over the stale recorded
+    value so all derived paths stay consistent.
+    """
+    project_root = os.path.abspath(project_root)
     cfg = read_config(project_root)
     if cfg is None:
         return None
@@ -234,21 +267,21 @@ def restore_context(project_root: str) -> Optional[ProjectContext]:
     ]
 
     config = ProjectConfig(
-        include_extensions=cfg.get("includeExtensions", DEFAULT_CONFIG.include_extensions),
-        exclude_dirs=cfg.get("excludeDirs", DEFAULT_CONFIG.exclude_dirs),
+        include_extensions=cfg.get("includeExtensions", _default_include_extensions()),
+        exclude_dirs=cfg.get("excludeDirs", _default_exclude_dirs()),
         chunk_size=cfg.get("chunkSize", DEFAULT_CONFIG.chunk_size),
         chunk_overlap=cfg.get("chunkOverlap", DEFAULT_CONFIG.chunk_overlap),
         default_results=DEFAULT_CONFIG.default_results,
         max_results=DEFAULT_CONFIG.max_results,
-        weights=cfg.get("weights", DEFAULT_CONFIG.weights),
+        weights=cfg.get("weights", _default_weights()),
         custom_sources=custom_sources,
     )
 
     return ProjectContext(
-        project_root=cfg.get("projectRoot", project_root),
+        project_root=project_root,
         frontend_path=cfg.get("frontendPath"),
         backend_path=cfg.get("backendPath"),
-        chroma_db_path=chroma_db_path(cfg.get("projectRoot", project_root)),
+        chroma_db_path=chroma_db_path(project_root),
         last_indexed_at=cfg.get("lastIndexedAt"),
         config=config,
     )

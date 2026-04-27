@@ -2,8 +2,8 @@
 """Reindex helper for hooks and one-off diagnostics.
 
 Two modes:
-  --file <path>   Re-index just that file (used by post-edit hooks).
-  (no flag)       Full project reindex (used by Stop / SessionStart hooks).
+  --file <path>   Re-index just that file.
+  (no flag)       Full project reindex.
 
 Project root resolution:
   --project-root <path>     Explicit override.
@@ -15,6 +15,7 @@ because they fired in a directory that isn't a project.
 """
 
 import argparse
+import logging
 import os
 import sys
 from typing import Optional
@@ -24,10 +25,27 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SERVER_DIR = os.path.dirname(SCRIPT_DIR)
 sys.path.insert(0, SERVER_DIR)
 
+
+def _setup_logging() -> None:
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(logging.Formatter(
+        "[codebase_rag_mcp] %(levelname)s %(name)s: %(message)s"
+    ))
+    root = logging.getLogger()
+    root.addHandler(handler)
+    root.setLevel(getattr(logging, os.environ.get("RAG_LOG_LEVEL", "WARNING").upper(), logging.WARNING))
+
+
+_setup_logging()
+
+
 from config import restore_context  # noqa: E402
 from indexer import index_project, index_file  # noqa: E402
-from setup import setup_project  # noqa: E402
+from bootstrap import setup_project  # noqa: E402
 from utils.paths import find_project_root, index_exists_for  # noqa: E402
+
+
+log = logging.getLogger(__name__)
 
 
 def _resolve_root(explicit: Optional[str]) -> Optional[str]:
@@ -62,14 +80,14 @@ def main() -> int:
         try:
             project = _load_or_build(root)
         except Exception as e:
-            sys.stderr.write(f"[codebase_rag_mcp] reindex.py: load failed: {e}\n")
+            log.warning("load failed: %s", e)
             return 0
         if project is None:
             return 0
         try:
             index_file(project, target)
         except Exception as e:
-            sys.stderr.write(f"[codebase_rag_mcp] reindex.py: index_file failed: {e}\n")
+            log.warning("index_file failed: %s", e)
         return 0
 
     root = _resolve_root(args.project_root)
@@ -78,14 +96,14 @@ def main() -> int:
     try:
         project = _load_or_build(root)
     except Exception as e:
-        sys.stderr.write(f"[codebase_rag_mcp] reindex.py: load failed: {e}\n")
+        log.warning("load failed: %s", e)
         return 0
     if project is None:
         return 0
     try:
         index_project(project)
     except Exception as e:
-        sys.stderr.write(f"[codebase_rag_mcp] reindex.py: index_project failed: {e}\n")
+        log.warning("index_project failed: %s", e)
     return 0
 
 

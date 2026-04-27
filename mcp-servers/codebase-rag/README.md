@@ -62,7 +62,10 @@ files modified between sessions. Add to `~/.claude/settings.json`:
 | Environment variable | Effect |
 |---|---|
 | `RAG_PROJECT_ROOT` | Skip auto-detection; treat this path as the project root. |
-| `XDG_CACHE_HOME` | Override the cache base (defaults to `~/.cache`). |
+| `RAG_WATCHER_DEBOUNCE_MS` | Watcher debounce window (default `500`; min `50`). Increase on high-latency network FS. |
+| `RAG_MAX_FILE_BYTES` | Skip files larger than this (default `1048576` = 1 MB). |
+| `RAG_LOG_LEVEL` | `DEBUG` / `INFO` / `WARNING` / `ERROR` (default `INFO`). |
+| `XDG_CACHE_HOME` | Override the Linux cache base. macOS uses `~/Library/Caches`; Windows uses `%LOCALAPPDATA%`. |
 
 ## Troubleshooting
 
@@ -103,10 +106,11 @@ collection inside each project. The current version:
 
 1. Reads any legacy `.rag/config.json` it finds and copies it into the
    cache dir on the first call.
-2. Builds a fresh ChromaDB in the cache dir (legacy collections are not
-   migrated — they were stored with the old chromadb version's format
-   and rebuild quickly).
-3. Leaves the legacy `.rag/` directory in place.
+2. Best-effort copies the legacy `.rag/collections/` directory into the
+   cache dir alongside it. If the copy fails (different ChromaDB on-disk
+   format, partial write, etc.) the server logs a clear warning and the
+   index is rebuilt on the next query.
+3. Leaves the legacy `.rag/` directory in place — nothing is deleted.
 
 Once your projects have been touched at least once with the new server,
 you can remove the legacy directories at your leisure:

@@ -1,8 +1,8 @@
 """Health check and status implementations."""
 
 import glob as globmod
+import logging
 import os
-import sys
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 
@@ -14,15 +14,13 @@ from config import (
 )
 from utils.paths import file_exists
 from utils.chroma import get_client
+from scope import CONSTRAINT_FILE_NAMES
 
 
-# ============================================================
-# Helpers
-# ============================================================
+log = logging.getLogger(__name__)
 
 
-def _get_client(ctx: ProjectContext) -> chromadb.ClientAPI:
-    """Return the cached PersistentClient for this project."""
+def _client(ctx: ProjectContext) -> "chromadb.ClientAPI":
     return get_client(ctx.chroma_db_path)
 
 
@@ -37,9 +35,8 @@ def health_check(ctx: ProjectContext) -> Dict[str, Any]:
     warnings: list[str] = []
     collections: Dict[str, Dict[str, Any]] = {}
 
-    client = _get_client(ctx)
+    client = _client(ctx)
 
-    # Check collections
     for name in ALL_COLLECTIONS:
         try:
             col = client.get_collection(name=name)
@@ -51,16 +48,16 @@ def health_check(ctx: ProjectContext) -> Dict[str, Any]:
             collections[name] = {"exists": False, "chunks": 0}
             issues.append(f'Collection "{name}" does not exist. Run rag_index.')
 
-    # Check constraint files on disk
-    constraint_file_names = ["ARCHITECTURE.yml", "CONSTRAINTS.md", "CLAUDE.md"]
+    # Constraint files on disk — uses the single source of truth.
     constraint_files: Dict[str, bool] = {}
-    for name in constraint_file_names:
+    for name in CONSTRAINT_FILE_NAMES:
         exists = file_exists(os.path.join(ctx.project_root, name))
         constraint_files[name] = exists
-        if not exists:
-            warnings.append(f"Missing constraint file: {name}")
+        # Don't warn about every name; just warn if NONE exist.
+    if not any(constraint_files.values()):
+        warnings.append("No constraint file present (ARCHITECTURE.yml, CONSTRAINTS.md, or CLAUDE.md).")
 
-    # Check custom source patterns
+    # Custom source patterns
     custom_sources_status: Dict[str, Dict[str, Any]] = {}
     if ctx.config.custom_sources:
         for source in ctx.config.custom_sources:
@@ -81,10 +78,7 @@ def health_check(ctx: ProjectContext) -> Dict[str, Any]:
     if codebase_health.get("exists") and codebase_health.get("chunks", 0) > 0:
         try:
             col = client.get_collection(name="codebase")
-            result = col.query(
-                query_texts=["test query"],
-                n_results=1,
-            )
+            result = col.query(query_texts=["test query"], n_results=1)
             if result["documents"] and result["documents"][0]:
                 query_test = "passed"
             else:
@@ -97,7 +91,7 @@ def health_check(ctx: ProjectContext) -> Dict[str, Any]:
         if not any("codebase" in i for i in issues):
             warnings.append("Skipped test query: codebase collection not available.")
 
-    # Check staleness
+    # Staleness
     if ctx.last_indexed_at:
         try:
             last_indexed = datetime.fromisoformat(ctx.last_indexed_at.replace("Z", "+00:00"))
@@ -143,7 +137,7 @@ def get_status(ctx: Optional[ProjectContext]) -> Dict[str, Any]:
             "collectionCounts": {},
         }
 
-    client = _get_client(ctx)
+    client = _client(ctx)
     collection_counts: Dict[str, int] = {}
     total_chunks = 0
 

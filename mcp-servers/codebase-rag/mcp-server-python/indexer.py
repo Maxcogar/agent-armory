@@ -5,12 +5,14 @@ lives in `utils.chroma.get_client`. This module owns the chunk-and-embed
 loop and per-file incremental updates.
 """
 
+import logging
 import os
-import sys
 import threading
 import time
+import weakref
 from datetime import datetime, timezone
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, OrderedDict
+from collections import OrderedDict as _OrderedDict
 
 from config import (
     ProjectContext,
@@ -32,21 +34,38 @@ from utils.metadata import (
 import scope
 
 
+log = logging.getLogger(__name__)
+
+
+# Files larger than this are skipped (default 1 MB; overridable via env).
+_MAX_FILE_BYTES = int(os.environ.get("RAG_MAX_FILE_BYTES", str(1_048_576)))
+
+
 # ============================================================
 # Concurrency primitives
+#
+# WeakValueDictionary so per-path locks vanish once no one holds them; a
+# long-running server otherwise leaks one Lock object per file ever touched.
 # ============================================================
 
-_file_index_locks: Dict[str, threading.Lock] = {}
+class _LockHolder:
+    __slots__ = ("lock", "__weakref__")
+
+    def __init__(self) -> None:
+        self.lock = threading.Lock()
+
+
+_file_index_locks: "weakref.WeakValueDictionary[str, _LockHolder]" = weakref.WeakValueDictionary()
 _file_index_locks_mutex = threading.Lock()
 
 
-def _lock_for(abs_path: str) -> threading.Lock:
+def _lock_for(abs_path: str) -> _LockHolder:
     with _file_index_locks_mutex:
-        lock = _file_index_locks.get(abs_path)
-        if lock is None:
-            lock = threading.Lock()
-            _file_index_locks[abs_path] = lock
-        return lock
+        holder = _file_index_locks.get(abs_path)
+        if holder is None:
+            holder = _LockHolder()
+            _file_index_locks[abs_path] = holder
+        return holder
 
 
 # ============================================================
@@ -55,11 +74,12 @@ def _lock_for(abs_path: str) -> threading.Lock:
 # write_config rewrites the entire config.json. The watcher fires on every
 # save, so naively persisting on every index_file call disk-storms. We
 # update ctx.last_indexed_at in memory immediately, but flush to disk at
-# most once per 5 seconds.
+# most once per 5 seconds. Bounded LRU prevents unbounded growth.
 # ============================================================
 
 _LAST_FLUSH_INTERVAL_S = 5.0
-_last_flush: Dict[str, float] = {}
+_LAST_FLUSH_MAX_ENTRIES = 256
+_last_flush: "_OrderedDict[str, float]" = _OrderedDict()
 _flush_mutex = threading.Lock()
 
 
@@ -71,10 +91,13 @@ def _bump_last_indexed_at(ctx: ProjectContext, force_flush: bool = False) -> Non
         if not force_flush and (now - last) < _LAST_FLUSH_INTERVAL_S:
             return
         _last_flush[ctx.project_root] = now
+        _last_flush.move_to_end(ctx.project_root)
+        while len(_last_flush) > _LAST_FLUSH_MAX_ENTRIES:
+            _last_flush.popitem(last=False)
     try:
         write_config(ctx)
     except OSError as e:
-        sys.stderr.write(f"[codebase_rag_mcp] Warning: failed to persist config: {e}\n")
+        log.warning("failed to persist config: %s", e)
 
 
 # ============================================================
@@ -83,27 +106,17 @@ def _bump_last_indexed_at(ctx: ProjectContext, force_flush: bool = False) -> Non
 
 
 def discover_indexable_files(ctx: ProjectContext) -> List[Dict[str, Any]]:
-    """Walk the project tree and return one entry per indexable file.
-
-    Each entry: {"abs_path": str, "category": scope.Category}.
-    Honors exclude_dirs, .gitignore, and extension/constraint rules.
-    """
+    """Walk the project tree and return one entry per indexable file."""
     project_root = os.path.abspath(ctx.project_root)
-    gitignore = scope._load_gitignore(project_root)
+    gitignore = scope.load_gitignore(project_root)
     results: List[Dict[str, Any]] = []
 
     for dirpath, dirnames, filenames in os.walk(project_root):
-        # Prune excluded directories in-place so os.walk doesn't descend.
-        dirnames[:] = [
-            d for d in dirnames
-            if d not in ctx.config.exclude_dirs
-        ]
+        dirnames[:] = [d for d in dirnames if d not in ctx.config.exclude_dirs]
 
         for fname in filenames:
             abs_path = os.path.join(dirpath, fname)
-            if not scope.is_in_scope(abs_path, ctx, gitignore=gitignore):
-                continue
-            category = scope.categorize(abs_path, ctx)
+            category = scope.categorize(abs_path, ctx, gitignore=gitignore)
             if category is None:
                 continue
             results.append({"abs_path": abs_path, "category": category})
@@ -145,10 +158,21 @@ def _build_chunk_metadata(
 
 def _read_text(abs_path: str) -> Optional[str]:
     try:
+        size = os.path.getsize(abs_path)
+    except OSError as e:
+        log.warning("failed to stat %s: %s", abs_path, e)
+        return None
+    if size > _MAX_FILE_BYTES:
+        log.info(
+            "skipping %s (%d bytes > RAG_MAX_FILE_BYTES=%d)",
+            abs_path, size, _MAX_FILE_BYTES,
+        )
+        return None
+    try:
         with open(abs_path, "r", encoding="utf-8", errors="replace") as f:
             return f.read()
     except OSError as e:
-        sys.stderr.write(f"[codebase_rag_mcp] Warning: failed to read {abs_path}: {e}\n")
+        log.warning("failed to read %s: %s", abs_path, e)
         return None
 
 
@@ -160,10 +184,7 @@ def _embed_one_file(
     stat_key: Optional[str] = None,
     stats: Optional[Dict[str, Any]] = None,
 ) -> int:
-    """Read, chunk, and embed a file into the given collection.
-
-    Returns the number of chunks added (0 on empty/unreadable file).
-    """
+    """Read, chunk, and embed a file into the given collection."""
     content = _read_text(abs_path)
     if content is None or not content.strip():
         return 0
@@ -236,14 +257,11 @@ def index_project(ctx: ProjectContext) -> Dict[str, Any]:
     ensure_dir(ctx.chroma_db_path)
     client = get_client(ctx.chroma_db_path)
 
-    # Drop and recreate the three named collections.
     for name in (COLLECTION_CODEBASE, COLLECTION_CONSTRAINTS, COLLECTION_PATTERNS):
         try:
             client.delete_collection(name=name)
         except Exception as e:
-            sys.stderr.write(
-                f'[codebase_rag_mcp] Note: collection "{name}" did not exist ({e})\n'
-            )
+            log.debug('collection "%s" did not exist (%s)', name, e)
 
     collections = {
         name: client.get_or_create_collection(
@@ -280,7 +298,7 @@ def index_project(ctx: ProjectContext) -> Dict[str, Any]:
                 stats["filesIndexed"] += 1
         except Exception as e:
             rel = safe_relative_path(ctx.project_root, abs_path)
-            sys.stderr.write(f"[codebase_rag_mcp] Warning: failed to index {rel}: {e}\n")
+            log.warning("failed to index %s: %s", rel, e)
             errors.append({"file": rel, "error": str(e)})
 
     _bump_last_indexed_at(ctx, force_flush=True)
@@ -293,20 +311,26 @@ def index_project(ctx: ProjectContext) -> Dict[str, Any]:
 # ============================================================
 
 
-def index_file(ctx: ProjectContext, file_path: str) -> Dict[str, Any]:
+def index_file(
+    ctx: ProjectContext,
+    file_path: str,
+    gitignore: Optional[scope.GitIgnore] = None,
+) -> Dict[str, Any]:
     """Re-embed a single file. Idempotent.
 
-    Returns a dict with a stable shape:
-      {"status": "indexed" | "deleted" | "skipped" | "empty" | "error",
-       "filePath": str,
-       "collection": Optional[str],
-       "chunks": int,
-       "reason": Optional[str]}
+    `gitignore` may be passed by callers that have already loaded one (e.g.,
+    the watcher). When None, the function loads the project's matcher itself
+    so direct callers (scripts/reindex.py --file ...) honor .gitignore too.
+
+    Returns: {"status", "filePath", "collection", "chunks", "reason"}.
     """
     abs_path = os.path.abspath(file_path)
     rel_path = safe_relative_path(ctx.project_root, abs_path)
 
-    category = scope.categorize(abs_path, ctx)
+    if gitignore is None:
+        gitignore = scope.load_gitignore(ctx.project_root)
+
+    category = scope.categorize(abs_path, ctx, gitignore=gitignore)
     if category is None:
         return {
             "status": "skipped",
@@ -316,8 +340,8 @@ def index_file(ctx: ProjectContext, file_path: str) -> Dict[str, Any]:
             "reason": "out of scope",
         }
 
-    lock = _lock_for(abs_path)
-    with lock:
+    holder = _lock_for(abs_path)
+    with holder.lock:
         ensure_dir(ctx.chroma_db_path)
         client = get_client(ctx.chroma_db_path)
         collection = client.get_or_create_collection(
@@ -328,9 +352,7 @@ def index_file(ctx: ProjectContext, file_path: str) -> Dict[str, Any]:
         try:
             collection.delete(where={"filePath": rel_path})
         except Exception as e:
-            sys.stderr.write(
-                f"[codebase_rag_mcp] Warning: failed to clear prior chunks for {rel_path}: {e}\n"
-            )
+            log.warning("failed to clear prior chunks for %s: %s", rel_path, e)
 
         if not os.path.isfile(abs_path):
             _bump_last_indexed_at(ctx)
@@ -356,7 +378,7 @@ def index_file(ctx: ProjectContext, file_path: str) -> Dict[str, Any]:
                 "filePath": rel_path,
                 "collection": category.collection,
                 "chunks": 0,
-                "reason": "file empty or unreadable",
+                "reason": "file empty, oversized, or unreadable",
             }
         return {
             "status": "indexed",

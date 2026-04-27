@@ -1,9 +1,9 @@
 """Query logic for check_constraints and query_impact."""
 
+import logging
 import re
-import sys
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Iterable, List, Dict, Any, Optional
 
 import chromadb
 
@@ -19,18 +19,20 @@ from config import (
 from utils.chroma import get_client
 
 
+log = logging.getLogger(__name__)
+
+
 # ============================================================
 # Helpers
 # ============================================================
 
 
-def _get_client(ctx: ProjectContext) -> chromadb.ClientAPI:
-    """Return the cached PersistentClient for this project."""
+def _client(ctx: ProjectContext) -> "chromadb.ClientAPI":
     return get_client(ctx.chroma_db_path)
 
 
 def chroma_distance_to_relevance(distance: float) -> float:
-    """Convert ChromaDB cosine distance to 0-1 relevance score."""
+    """Convert ChromaDB cosine distance to 0–1 relevance score."""
     return max(0.0, 1.0 - distance / 2.0)
 
 
@@ -42,19 +44,73 @@ def extract_key_rules(content: str) -> List[str]:
         r"(?:All\s+\w+\s+must)[^.;\n]*",
         r"(?:No\s+\w+\s+(?:in|should|may))[^.;\n]*",
     ]
-
     for pattern in patterns:
         for match in re.finditer(pattern, content, re.IGNORECASE):
             rule = match.group(0).strip()
             if len(rule) > 10 and rule not in rules:
                 rules.append(rule)
-
     return rules[:10]
+
+
+def _query_collection(
+    client: "chromadb.ClientAPI",
+    name: str,
+    query_text: str,
+    num_results: int,
+    type_label: str,
+    extract_rules: bool = False,
+) -> List[Dict[str, Any]]:
+    """Query a single collection. Returns a list of result dicts; [] on miss."""
+    try:
+        col = client.get_collection(name=name)
+    except Exception as e:
+        log.warning("collection %s unavailable: %s", name, e)
+        return []
+
+    count = col.count()
+    n = min(num_results, count) if count > 0 else 0
+    if n == 0:
+        return []
+
+    try:
+        raw = col.query(query_texts=[query_text], n_results=n)
+    except Exception as e:
+        log.warning("%s query failed: %s", name, e)
+        return []
+
+    docs = (raw.get("documents") or [[]])[0] or []
+    metas = (raw.get("metadatas") or [[]])[0] or []
+    dists = (raw.get("distances") or [[]])[0] or []
+
+    out: List[Dict[str, Any]] = []
+    for i, doc in enumerate(docs):
+        if not doc:
+            continue
+        meta = metas[i] if i < len(metas) else {}
+        dist = dists[i] if i < len(dists) else 1.0
+        item: Dict[str, Any] = {
+            "content": doc,
+            "filePath": (meta or {}).get("filePath", "unknown"),
+            "type": type_label,
+            "relevance": round(chroma_distance_to_relevance(dist), 4),
+        }
+        if extract_rules:
+            item["keyRules"] = extract_key_rules(doc)
+        out.append(item)
+    return out
 
 
 # ============================================================
 # check_constraints
 # ============================================================
+
+
+_SOURCE_TO_COLLECTIONS = {
+    "all": (COLLECTION_CONSTRAINTS, COLLECTION_PATTERNS, COLLECTION_CODEBASE),
+    SOURCE_TYPE_CONSTRAINTS: (COLLECTION_CONSTRAINTS,),
+    SOURCE_TYPE_DOCS: (COLLECTION_CONSTRAINTS, COLLECTION_PATTERNS),
+    SOURCE_TYPE_CODE: (COLLECTION_CODEBASE,),
+}
 
 
 def check_constraints(
@@ -63,119 +119,25 @@ def check_constraints(
     num_results: int,
     source_type: str = "all",
 ) -> Dict[str, Any]:
-    """Query collections for constraints, patterns, and examples.
+    """Query collections for constraints, patterns, and code examples."""
+    client = _client(ctx)
+    targets = _SOURCE_TO_COLLECTIONS.get(source_type, _SOURCE_TO_COLLECTIONS["all"])
 
-    Args:
-        source_type: Filter results by source type.
-            "all" (default) - search all collections
-            "docs" - search constraints + patterns collections only (documentation)
-            "code" - search codebase collection only (source code)
-            "constraints" - search constraints collection only
-    """
-    client = _get_client(ctx)
-
-    constraints: List[Dict[str, Any]] = []
-    patterns: List[Dict[str, Any]] = []
-    examples: List[Dict[str, Any]] = []
-
-    # Determine which collections to query based on source_type
-    search_constraints = source_type in ("all", SOURCE_TYPE_CONSTRAINTS, SOURCE_TYPE_DOCS)
-    search_patterns = source_type in ("all", SOURCE_TYPE_DOCS)
-    search_codebase = source_type in ("all", SOURCE_TYPE_CODE)
-
-    # Query constraints collection
-    if not search_constraints:
-        pass
-    else:
-        try:
-            constraint_col = client.get_collection(name=COLLECTION_CONSTRAINTS)
-            col_count = constraint_col.count()
-            n = min(num_results, col_count) if col_count > 0 else 0
-            if n > 0:
-                c_results = constraint_col.query(
-                    query_texts=[change_description],
-                    n_results=n,
-                )
-                if c_results["documents"] and c_results["documents"][0]:
-                    for i, doc in enumerate(c_results["documents"][0]):
-                        meta = c_results["metadatas"][0][i] if c_results["metadatas"] else {}
-                        dist = (
-                            c_results["distances"][0][i]
-                            if c_results.get("distances") and c_results["distances"][0]
-                            else 1.0
-                        )
-                        if doc:
-                            constraints.append({
-                                "content": doc,
-                                "filePath": meta.get("filePath", "unknown") if meta else "unknown",
-                                "type": "constraint",
-                                "relevance": round(chroma_distance_to_relevance(dist), 4),
-                                "keyRules": extract_key_rules(doc),
-                            })
-        except Exception as e:
-            sys.stderr.write(f"[codebase_rag_mcp] Warning: constraints query failed: {e}\n")
-
-    # Query patterns collection
-    if not search_patterns:
-        pass
-    else:
-        try:
-            pattern_col = client.get_collection(name=COLLECTION_PATTERNS)
-            col_count = pattern_col.count()
-            n = min(num_results, col_count) if col_count > 0 else 0
-            if n > 0:
-                p_results = pattern_col.query(
-                    query_texts=[change_description],
-                    n_results=n,
-                )
-                if p_results["documents"] and p_results["documents"][0]:
-                    for i, doc in enumerate(p_results["documents"][0]):
-                        meta = p_results["metadatas"][0][i] if p_results["metadatas"] else {}
-                        dist = (
-                            p_results["distances"][0][i]
-                            if p_results.get("distances") and p_results["distances"][0]
-                            else 1.0
-                        )
-                        if doc:
-                            patterns.append({
-                                "content": doc,
-                                "filePath": meta.get("filePath", "unknown") if meta else "unknown",
-                                "type": "pattern",
-                                "relevance": round(chroma_distance_to_relevance(dist), 4),
-                            })
-        except Exception as e:
-            sys.stderr.write(f"[codebase_rag_mcp] Warning: patterns query failed: {e}\n")
-
-    # Query codebase collection
-    if not search_codebase:
-        pass
-    else:
-        try:
-            codebase_col = client.get_collection(name=COLLECTION_CODEBASE)
-            col_count = codebase_col.count()
-            n = min(num_results, col_count) if col_count > 0 else 0
-            if n > 0:
-                e_results = codebase_col.query(
-                    query_texts=[change_description],
-                    n_results=n,
-                )
-                if e_results["documents"] and e_results["documents"][0]:
-                    for i, doc in enumerate(e_results["documents"][0]):
-                        meta = e_results["metadatas"][0][i] if e_results["metadatas"] else {}
-                        dist = (
-                            e_results["distances"][0][i]
-                            if e_results.get("distances") and e_results["distances"][0]
-                            else 1.0
-                        )
-                        if doc:
-                            examples.append({
-                                "content": doc,
-                                "filePath": meta.get("filePath", "unknown") if meta else "unknown",
-                                "type": "code",
-                                "relevance": round(chroma_distance_to_relevance(dist), 4),
-                            })
-        except Exception as e:
-            sys.stderr.write(f"[codebase_rag_mcp] Warning: codebase query failed: {e}\n")
+    constraints = (
+        _query_collection(client, COLLECTION_CONSTRAINTS, change_description,
+                          num_results, "constraint", extract_rules=True)
+        if COLLECTION_CONSTRAINTS in targets else []
+    )
+    patterns = (
+        _query_collection(client, COLLECTION_PATTERNS, change_description,
+                          num_results, "pattern")
+        if COLLECTION_PATTERNS in targets else []
+    )
+    examples = (
+        _query_collection(client, COLLECTION_CODEBASE, change_description,
+                          num_results, "code")
+        if COLLECTION_CODEBASE in targets else []
+    )
 
     return {
         "query": change_description,
@@ -197,23 +159,47 @@ def check_constraints(
 # ============================================================
 
 
+def _split_csv(value: Any) -> Iterable[str]:
+    if not value:
+        return ()
+    return (s for s in str(value).split(",") if s)
+
+
+def _imports_reference(imports_str: Any, target_rel: str, target_stem: str) -> bool:
+    """True iff this importer's imports list references our target file.
+
+    Avoids false positives like "auth.js" matching `oauth`/`authority` by
+    requiring exact stem match between path components or a relative-path
+    suffix that ends in target_rel.
+    """
+    target_rel_norm = target_rel.replace("\\", "/")
+    for imp in _split_csv(imports_str):
+        imp_norm = imp.replace("\\", "/")
+        # Whole-stem match somewhere in the path components.
+        components = re.split(r"[/.\s]", imp_norm)
+        if target_stem in components:
+            return True
+        # Or a relative path that resolves to the same file.
+        if imp_norm.endswith(target_rel_norm) or imp_norm.endswith("/" + target_rel_norm):
+            return True
+    return False
+
+
 def query_impact(
     ctx: ProjectContext,
     file_path: str,
     num_similar: int,
 ) -> Dict[str, Any]:
     """Analyze the blast radius of changing a specific file."""
-    client = _get_client(ctx)
+    client = _client(ctx)
+    try:
+        codebase_col = client.get_collection(name=COLLECTION_CODEBASE)
+    except Exception as e:
+        raise ValueError(
+            "Codebase collection not available — run rag_index or wait for "
+            f"first-run indexing to finish. ({e})"
+        )
 
-    file_exports: List[str] = []
-    api_endpoints: List[str] = []
-    websocket_events: List[str] = []
-    dependents: List[Dict[str, Any]] = []
-    similar_files: List[Dict[str, Any]] = []
-
-    codebase_col = client.get_collection(name=COLLECTION_CODEBASE)
-
-    # Get the file's own metadata
     file_chunks = codebase_col.get(
         where={"filePath": file_path},
         include=["metadatas"],
@@ -224,116 +210,87 @@ def query_impact(
             f'File "{file_path}" not found in index. Check the path or run rag_index.'
         )
 
-    # Aggregate metadata across chunks
-    export_set: set[str] = set()
-    endpoint_set: set[str] = set()
-    ws_set: set[str] = set()
-
+    export_set: set = set()
+    endpoint_set: set = set()
+    ws_set: set = set()
     for meta in file_chunks["metadatas"]:
-        if meta:
-            exp = meta.get("exports", "")
-            if exp:
-                for e in str(exp).split(","):
-                    if e:
-                        export_set.add(e)
+        if not meta:
+            continue
+        export_set.update(_split_csv(meta.get("exports")))
+        endpoint_set.update(_split_csv(meta.get("apiEndpoints")))
+        ws_set.update(_split_csv(meta.get("wsEvents")))
 
-            ep = meta.get("apiEndpoints", "")
-            if ep:
-                for e in str(ep).split(","):
-                    if e:
-                        endpoint_set.add(e)
-
-            ws = meta.get("wsEvents", "")
-            if ws:
-                for e in str(ws).split(","):
-                    if e:
-                        ws_set.add(e)
-
-    file_exports = list(export_set)
-    api_endpoints = list(endpoint_set)
-    websocket_events = list(ws_set)
-
-    # Find dependents using whereDocument $contains
     file_stem = Path(file_path).stem
 
+    dependents: List[Dict[str, Any]] = []
     try:
         importers = codebase_col.get(
             where_document={"$contains": file_stem},
             include=["metadatas"],
         )
-
-        seen: set[str] = set()
+        seen: set = set()
         for meta in importers["metadatas"]:
-            if meta:
-                fp = meta.get("filePath", "")
-                imports_str = meta.get("imports", "")
-                if (
-                    fp
-                    and fp != file_path
-                    and fp not in seen
-                    and imports_str
-                    and file_stem in str(imports_str)
-                ):
-                    seen.add(str(fp))
-                    imps = [
-                        imp
-                        for imp in str(imports_str).split(",")
-                        if file_stem in imp
-                    ]
-                    dependents.append({"filePath": str(fp), "imports": imps})
+            if not meta:
+                continue
+            fp = meta.get("filePath", "")
+            if not fp or fp == file_path or fp in seen:
+                continue
+            imports_str = meta.get("imports", "")
+            if not imports_str:
+                continue
+            if not _imports_reference(imports_str, file_path, file_stem):
+                continue
+            seen.add(str(fp))
+            imps = [
+                imp for imp in _split_csv(imports_str)
+                if file_stem in re.split(r"[/.\s]", imp.replace("\\", "/"))
+            ]
+            dependents.append({"filePath": str(fp), "imports": imps})
     except Exception as e:
-        sys.stderr.write(f"[codebase_rag_mcp] Warning: dependent search failed: {e}\n")
+        log.warning("dependent search failed: %s", e)
 
-    # Find similar files using semantic search
+    similar_files: List[Dict[str, Any]] = []
     try:
         file_content = codebase_col.get(
             where={"filePath": file_path},
             include=["documents"],
         )
-
         if file_content["documents"] and file_content["documents"][0]:
             query_text = file_content["documents"][0]
-            total_count = codebase_col.count()
-            n = min(num_similar + 5, total_count) if total_count > 0 else 0
+            total = codebase_col.count()
+            n = min(num_similar + 5, total) if total > 0 else 0
             if n > 0:
-                sim_results = codebase_col.query(
-                    query_texts=[query_text],
-                    n_results=n,
-                )
-
-                if sim_results["metadatas"] and sim_results["metadatas"][0]:
-                    sim_seen: set[str] = set()
-                    for i, meta in enumerate(sim_results["metadatas"][0]):
-                        dist = (
-                            sim_results["distances"][0][i]
-                            if sim_results.get("distances") and sim_results["distances"][0]
-                            else 1.0
-                        )
-                        if meta:
-                            fp = meta.get("filePath", "")
-                            if fp and fp != file_path and fp not in sim_seen:
-                                sim_seen.add(str(fp))
-                                similar_files.append({
-                                    "filePath": str(fp),
-                                    "similarity": round(
-                                        chroma_distance_to_relevance(dist), 4
-                                    ),
-                                })
-                                if len(similar_files) >= num_similar:
-                                    break
+                sim = codebase_col.query(query_texts=[query_text], n_results=n)
+                metas = (sim.get("metadatas") or [[]])[0] or []
+                dists = (sim.get("distances") or [[]])[0] or []
+                seen2: set = set()
+                for i, meta in enumerate(metas):
+                    if not meta:
+                        continue
+                    fp = meta.get("filePath", "")
+                    if not fp or fp == file_path or fp in seen2:
+                        continue
+                    seen2.add(str(fp))
+                    dist = dists[i] if i < len(dists) else 1.0
+                    similar_files.append({
+                        "filePath": str(fp),
+                        "similarity": round(chroma_distance_to_relevance(dist), 4),
+                    })
+                    if len(similar_files) >= num_similar:
+                        break
     except Exception as e:
-        sys.stderr.write(f"[codebase_rag_mcp] Warning: similarity search failed: {e}\n")
+        log.warning("similarity search failed: %s", e)
 
     return {
         "filePath": file_path,
-        "exports": file_exports,
-        "apiEndpoints": api_endpoints,
-        "websocketEvents": websocket_events,
+        "exports": list(export_set),
+        "apiEndpoints": list(endpoint_set),
+        "websocketEvents": list(ws_set),
         "dependents": dependents,
         "similarFiles": similar_files,
         "summary": (
-            f"{len(file_exports)} exports, "
-            f"{len(api_endpoints)} API endpoints, "
+            f"{len(export_set)} exports, "
+            f"{len(endpoint_set)} API endpoints, "
             f"{len(dependents)} dependents, "
             f"{len(similar_files)} similar files."
         ),

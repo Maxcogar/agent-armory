@@ -1,8 +1,12 @@
-"""Project setup: detection, pattern scanning, and file generation."""
+"""Project bootstrap: framework detection, pattern scanning, file generation.
+
+Renamed from `setup.py` to avoid colliding with the setuptools convention
+for distribution metadata.
+"""
 
 import json
+import logging
 import os
-import sys
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Any
 
@@ -21,6 +25,9 @@ from utils.paths import (
     ensure_dir,
     normalize_path,
 )
+
+
+log = logging.getLogger(__name__)
 
 
 # ============================================================
@@ -47,7 +54,7 @@ def _has_frontend_package_json(dir_path: str) -> bool:
             for dep_name in all_deps
         )
     except Exception as e:
-        sys.stderr.write(f"[codebase_rag_mcp] Warning: failed to read {pkg_path}: {e}\n")
+        log.warning("failed to read %s: %s", pkg_path, e)
         return False
 
 
@@ -66,7 +73,7 @@ def _has_backend_markers(dir_path: str) -> bool:
             ):
                 return True
         except Exception as e:
-            sys.stderr.write(f"[codebase_rag_mcp] Warning: failed to read {pkg_path}: {e}\n")
+            log.warning("failed to read %s: %s", pkg_path, e)
 
     # Check for Python or Go markers
     if file_exists(os.path.join(dir_path, "requirements.txt")):
@@ -128,7 +135,7 @@ def scan_backend_patterns(project_root: str, backend_path: Optional[str]) -> Dic
                 if f.endswith((".js", ".ts"))
             ]
         except Exception as e:
-            sys.stderr.write(f"[codebase_rag_mcp] Warning: failed to read middleware dir: {e}\n")
+            log.warning("failed to read middleware dir: %s", e)
 
     # Detect response format from first route file
     if directory_exists(routes_dir):
@@ -142,7 +149,7 @@ def scan_backend_patterns(project_root: str, backend_path: Optional[str]) -> Dic
                 elif "status:" in content and "data:" in content:
                     result["responseFormat"] = "status_data"
         except Exception as e:
-            sys.stderr.write(f"[codebase_rag_mcp] Warning: failed to scan route files: {e}\n")
+            log.warning("failed to scan route files: %s", e)
 
     return result
 
@@ -176,7 +183,7 @@ def scan_frontend_patterns(project_root: str, frontend_path: Optional[str]) -> D
                         import_paths.add("./")
             result["frontendImports"] = list(import_paths)
         except Exception as e:
-            sys.stderr.write(f"[codebase_rag_mcp] Warning: failed to scan frontend components: {e}\n")
+            log.warning("failed to scan frontend components: %s", e)
 
     return result
 
@@ -418,7 +425,7 @@ def setup_project(
                         f.write(_generate_component_pattern(frontend_path, patterns))
                     files_generated.append("docs/patterns/react-components.md")
 
-    # Create .rag directory
+    # Create the per-project cache directory (NOT inside the project tree).
     db_path = chroma_db_path(project_root)
     ensure_dir(db_path)
 

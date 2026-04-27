@@ -10,6 +10,6 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../mcp-server-python" && pwd)"
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
-python "$SCRIPT_DIR/scripts/reindex.py" --project-root "$PROJECT_DIR" >/dev/null 2>&1 &
+python3 "$SCRIPT_DIR/scripts/reindex.py" --project-root "$PROJECT_DIR" >/dev/null 2>&1 &
 
 exit 0
