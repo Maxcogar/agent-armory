@@ -1,11 +1,13 @@
 """Codebase indexing into ChromaDB collections."""
 
+import fnmatch
 import os
 import sys
+import threading
 import time
 import glob as globmod
 from datetime import datetime, timezone
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 import chromadb
 from chromadb.config import Settings
@@ -30,6 +32,102 @@ from utils.metadata import (
     extract_ws_events,
     detect_language,
 )
+
+
+# Per-file lock so two near-simultaneous edits of the same file don't race.
+_file_index_locks: Dict[str, threading.Lock] = {}
+_file_index_locks_mutex = threading.Lock()
+
+
+def _lock_for(abs_path: str) -> threading.Lock:
+    with _file_index_locks_mutex:
+        lock = _file_index_locks.get(abs_path)
+        if lock is None:
+            lock = threading.Lock()
+            _file_index_locks[abs_path] = lock
+        return lock
+
+
+def should_index(abs_path: str, ctx: ProjectContext) -> bool:
+    """True iff a file is in scope for indexing (right ext, not excluded)."""
+    if not abs_path.startswith(os.path.abspath(ctx.project_root)):
+        return False
+    parts = abs_path.replace("\\", "/").split("/")
+    for excl in ctx.config.exclude_dirs:
+        if excl in parts:
+            return False
+    _, ext = os.path.splitext(abs_path)
+    if not ext:
+        # Allow extensionless files only if they match a constraint name.
+        rel = safe_relative_path(ctx.project_root, abs_path)
+        return rel in ("ARCHITECTURE.yml", "ARCHITECTURE.yaml", "CONSTRAINTS.md", "CLAUDE.md")
+    return ext in ctx.config.include_extensions
+
+
+def _classify(abs_path: str, ctx: ProjectContext) -> Optional[Dict[str, Any]]:
+    """Decide which collection a file belongs in. Returns None if out of scope.
+
+    Mirrors the routing baked into index_project: constraint names at the
+    root → constraints, files under docs/patterns/ → patterns, custom-source
+    matches → their declared collection, anything else with a code ext →
+    codebase.
+    """
+    if not should_index(abs_path, ctx):
+        return None
+
+    rel = safe_relative_path(ctx.project_root, abs_path)
+    weights = ctx.config.weights
+
+    if rel in ("ARCHITECTURE.yml", "ARCHITECTURE.yaml", "CONSTRAINTS.md", "CLAUDE.md"):
+        return {
+            "collection": COLLECTION_CONSTRAINTS,
+            "type": "constraint",
+            "source_type": SOURCE_TYPE_CONSTRAINTS,
+            "weight": compute_weight(rel, weights),
+        }
+
+    norm_rel = rel.replace("\\", "/")
+    if norm_rel.startswith("docs/patterns/") and rel.endswith(".md"):
+        return {
+            "collection": COLLECTION_PATTERNS,
+            "type": "pattern",
+            "source_type": SOURCE_TYPE_DOCS,
+            "weight": compute_weight(rel, weights),
+        }
+
+    for source in ctx.config.custom_sources:
+        if fnmatch.fnmatch(norm_rel, source.pattern.replace("\\", "/")):
+            collection = {
+                SOURCE_TYPE_CONSTRAINTS: COLLECTION_CONSTRAINTS,
+                SOURCE_TYPE_DOCS: COLLECTION_PATTERNS,
+                SOURCE_TYPE_CODE: COLLECTION_CODEBASE,
+            }.get(source.source_type, COLLECTION_PATTERNS)
+            return {
+                "collection": collection,
+                "type": "custom",
+                "source_type": source.source_type,
+                "weight": source.weight,
+            }
+
+    _, ext = os.path.splitext(rel)
+    if ext in (".yml", ".yaml", ".md", ".json"):
+        # Non-code extensions that aren't constraints/patterns aren't in the codebase collection.
+        return None
+
+    return {
+        "collection": COLLECTION_CODEBASE,
+        "type": "code",
+        "source_type": SOURCE_TYPE_CODE,
+        "weight": compute_weight(rel, weights),
+    }
+
+
+def _bump_last_indexed_at(ctx: ProjectContext) -> None:
+    ctx.last_indexed_at = datetime.now(timezone.utc).isoformat()
+    try:
+        write_config(ctx)
+    except OSError as e:
+        sys.stderr.write(f"[codebase_rag_mcp] Warning: failed to persist config: {e}\n")
 
 
 # ============================================================
@@ -415,3 +513,107 @@ def index_project(ctx: ProjectContext) -> Dict[str, Any]:
 
     stats["duration"] = round(time.time() - start_time, 2)
     return stats
+
+
+# ============================================================
+# Per-file Incremental Index
+# ============================================================
+
+
+def index_file(ctx: ProjectContext, file_path: str) -> Dict[str, Any]:
+    """Re-embed a single file. Idempotent. Used by the watcher and post-edit hooks.
+
+    Deletes any existing chunks for `file_path` (matched by relative filePath
+    metadata), then re-adds chunks if the file still exists and is in scope.
+    Returns a small dict describing what happened.
+    """
+    abs_path = os.path.abspath(file_path)
+    classification = _classify(abs_path, ctx)
+    if classification is None:
+        return {"skipped": True, "reason": "out of scope or filtered", "filePath": abs_path}
+
+    rel_path = safe_relative_path(ctx.project_root, abs_path)
+    collection_name = classification["collection"]
+    type_label = classification["type"]
+    source_type = classification["source_type"]
+    weight = classification["weight"]
+
+    lock = _lock_for(abs_path)
+    with lock:
+        ensure_dir(ctx.chroma_db_path)
+        client = chromadb.PersistentClient(
+            path=ctx.chroma_db_path,
+            settings=Settings(anonymized_telemetry=False),
+        )
+        collection = client.get_or_create_collection(
+            name=collection_name,
+            metadata={"hnsw:space": "cosine"},
+        )
+
+        try:
+            collection.delete(where={"filePath": rel_path})
+        except Exception as e:
+            sys.stderr.write(
+                f"[codebase_rag_mcp] Warning: failed to clear prior chunks for {rel_path}: {e}\n"
+            )
+
+        if not os.path.isfile(abs_path):
+            _bump_last_indexed_at(ctx)
+            return {"deleted": True, "filePath": rel_path}
+
+        try:
+            with open(abs_path, "r", encoding="utf-8", errors="replace") as f:
+                content = f.read()
+        except OSError as e:
+            return {"error": str(e), "filePath": rel_path}
+
+        if not content.strip():
+            _bump_last_indexed_at(ctx)
+            return {"empty": True, "filePath": rel_path}
+
+        language = detect_language(rel_path)
+        if collection_name == COLLECTION_CODEBASE:
+            imports = extract_imports(content, language)
+            exports = extract_exports(content, language)
+            api_endpoints = extract_api_endpoints(content)
+            ws_events = extract_ws_events(content)
+        else:
+            imports = exports = api_endpoints = ws_events = []
+
+        chunks = chunk_content(rel_path, content)
+        ids: List[str] = []
+        documents: List[str] = []
+        metadatas: List[Dict[str, Any]] = []
+        for chunk in chunks:
+            ids.append(chunk.id)
+            documents.append(chunk.content)
+            metadatas.append({
+                "filePath": rel_path,
+                "chunkIndex": chunk.index,
+                "totalChunks": chunk.total_chunks,
+                "language": language,
+                "imports": ",".join(imports),
+                "exports": ",".join(exports),
+                "apiEndpoints": ",".join(api_endpoints),
+                "wsEvents": ",".join(ws_events),
+                "weight": weight,
+                "type": type_label,
+                "source_type": source_type,
+            })
+
+        if ids:
+            batch_size = 100
+            for i in range(0, len(ids), batch_size):
+                collection.add(
+                    ids=ids[i:i + batch_size],
+                    documents=documents[i:i + batch_size],
+                    metadatas=metadatas[i:i + batch_size],
+                )
+
+        _bump_last_indexed_at(ctx)
+        return {
+            "indexed": True,
+            "filePath": rel_path,
+            "collection": collection_name,
+            "chunks": len(ids),
+        }

@@ -340,8 +340,14 @@ def setup_project(
     frontend_path_override: Optional[str] = None,
     backend_path_override: Optional[str] = None,
     force: bool = False,
+    generate_files: bool = True,
 ) -> Dict[str, Any]:
     """Set up a project for RAG indexing.
+
+    When generate_files is True (default), writes ARCHITECTURE.yml and
+    docs/patterns/*.md into the project tree if they don't already exist.
+    Auto-bootstrap (called by the running MCP server) passes False — the
+    tool should not silently create template files in the user's repo.
 
     Returns dict with 'result' and 'context' keys.
     Raises ValueError on validation errors.
@@ -382,34 +388,35 @@ def setup_project(
         frontend_imports=frontend_patterns.get("frontendImports", []),
     )
 
-    # Generate files
+    # Generate files (only when explicitly requested — auto-bootstrap passes False)
     files_generated: List[str] = []
-    arch_path = os.path.join(project_root, "ARCHITECTURE.yml")
+    if generate_files:
+        arch_path = os.path.join(project_root, "ARCHITECTURE.yml")
 
-    if not file_exists(arch_path) or force:
-        yml_content = _generate_architecture_yml(project_root, frontend_path, backend_path, patterns)
-        with open(arch_path, "w", encoding="utf-8") as f:
-            f.write(yml_content)
-        files_generated.append("ARCHITECTURE.yml")
+        if not file_exists(arch_path) or force:
+            yml_content = _generate_architecture_yml(project_root, frontend_path, backend_path, patterns)
+            with open(arch_path, "w", encoding="utf-8") as f:
+                f.write(yml_content)
+            files_generated.append("ARCHITECTURE.yml")
 
-    # Generate pattern docs
-    patterns_dir = os.path.join(project_root, "docs", "patterns")
-    if not directory_exists(patterns_dir) or force:
-        ensure_dir(patterns_dir)
+        # Generate pattern docs
+        patterns_dir = os.path.join(project_root, "docs", "patterns")
+        if not directory_exists(patterns_dir) or force:
+            ensure_dir(patterns_dir)
 
-        if backend_path:
-            api_pattern_path = os.path.join(patterns_dir, "api-endpoints.md")
-            if not file_exists(api_pattern_path) or force:
-                with open(api_pattern_path, "w", encoding="utf-8") as f:
-                    f.write(_generate_api_endpoint_pattern(backend_path, patterns))
-                files_generated.append("docs/patterns/api-endpoints.md")
+            if backend_path:
+                api_pattern_path = os.path.join(patterns_dir, "api-endpoints.md")
+                if not file_exists(api_pattern_path) or force:
+                    with open(api_pattern_path, "w", encoding="utf-8") as f:
+                        f.write(_generate_api_endpoint_pattern(backend_path, patterns))
+                    files_generated.append("docs/patterns/api-endpoints.md")
 
-        if frontend_path:
-            comp_pattern_path = os.path.join(patterns_dir, "react-components.md")
-            if not file_exists(comp_pattern_path) or force:
-                with open(comp_pattern_path, "w", encoding="utf-8") as f:
-                    f.write(_generate_component_pattern(frontend_path, patterns))
-                files_generated.append("docs/patterns/react-components.md")
+            if frontend_path:
+                comp_pattern_path = os.path.join(patterns_dir, "react-components.md")
+                if not file_exists(comp_pattern_path) or force:
+                    with open(comp_pattern_path, "w", encoding="utf-8") as f:
+                        f.write(_generate_component_pattern(frontend_path, patterns))
+                    files_generated.append("docs/patterns/react-components.md")
 
     # Create .rag directory
     db_path = chroma_db_path(project_root)

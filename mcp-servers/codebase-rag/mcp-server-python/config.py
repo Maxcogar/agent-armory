@@ -1,16 +1,20 @@
 """Project configuration management.
 
-Handles default config, persistence to .rag/config.json,
-and restoring ProjectContext from disk.
+State (config.json + ChromaDB collections) lives in a per-machine cache
+directory under ~/.cache/codebase-rag/<hash>/, NOT inside the project tree.
+A one-shot migration reads any legacy <project>/.rag/config.json on first
+access and copies it into the cache dir; the legacy folder is left in place
+for the user to remove.
 """
 
 import json
 import os
+import shutil
 import sys
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from typing import Optional, Dict, List, Any
 
-from utils.paths import ensure_dir
+from utils.paths import cache_dir_for, ensure_dir
 
 
 # ============================================================
@@ -105,7 +109,8 @@ ALL_COLLECTIONS = [COLLECTION_CODEBASE, COLLECTION_CONSTRAINTS, COLLECTION_PATTE
 
 
 def rag_dir(project_root: str) -> str:
-    return os.path.join(project_root, ".rag")
+    """Cache directory for this project. NOT inside the project tree."""
+    return str(cache_dir_for(project_root))
 
 
 def config_file_path(project_root: str) -> str:
@@ -116,24 +121,52 @@ def chroma_db_path(project_root: str) -> str:
     return os.path.join(rag_dir(project_root), "collections")
 
 
+def legacy_rag_dir(project_root: str) -> str:
+    """Where the index used to live before it moved to the user cache."""
+    return os.path.join(project_root, ".rag")
+
+
 # ============================================================
 # Read / Write
 # ============================================================
 
 
+def _migrate_legacy(project_root: str) -> None:
+    """One-shot: copy <project>/.rag/config.json into the cache dir.
+
+    Collections from the old location are not copied — embeddings can be
+    rebuilt cheaply, and the file copy could otherwise be huge. The user
+    is left to delete the legacy directory at their leisure (per README).
+    """
+    legacy_cfg = os.path.join(legacy_rag_dir(project_root), "config.json")
+    new_cfg = config_file_path(project_root)
+    if os.path.isfile(legacy_cfg) and not os.path.isfile(new_cfg):
+        try:
+            ensure_dir(rag_dir(project_root))
+            shutil.copy2(legacy_cfg, new_cfg)
+            sys.stderr.write(
+                f"[codebase_rag_mcp] Migrated config from {legacy_cfg} to {new_cfg}\n"
+            )
+        except OSError as e:
+            sys.stderr.write(f"[codebase_rag_mcp] Migration warning: {e}\n")
+
+
 def read_config(project_root: str) -> Optional[Dict[str, Any]]:
-    """Read persisted config from .rag/config.json. Returns None if not found."""
+    """Read persisted config from the project's cache dir. Returns None if not found."""
+    _migrate_legacy(project_root)
     cfg_path = config_file_path(project_root)
     try:
         with open(cfg_path, "r", encoding="utf-8") as f:
             return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError) as e:
+    except FileNotFoundError:
+        return None
+    except json.JSONDecodeError as e:
         sys.stderr.write(f"[codebase_rag_mcp] Note: Could not read config: {e}\n")
         return None
 
 
 def write_config(ctx: ProjectContext) -> None:
-    """Serialize ProjectContext to .rag/config.json."""
+    """Serialize ProjectContext to the project's cache dir."""
     cfg = {
         "projectRoot": ctx.project_root,
         "frontendPath": ctx.frontend_path,
@@ -154,8 +187,7 @@ def write_config(ctx: ProjectContext) -> None:
     from datetime import datetime, timezone
     cfg["setupAt"] = datetime.now(timezone.utc).isoformat()
 
-    directory = rag_dir(ctx.project_root)
-    ensure_dir(directory)
+    ensure_dir(rag_dir(ctx.project_root))
     with open(config_file_path(ctx.project_root), "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=2)
 

@@ -1,184 +1,45 @@
 ---
-name: codebase-rag-enforcer
-description: MCP server that enforces architectural constraints and prevents AI agents from breaking codebases via RAG-powered semantic search. Use when setting up RAG for code search, when agents ignore API contracts or architectural patterns, when your existing RAG is unreliable, or when you need constraint enforcement (not just code search). Triggers on "set up RAG", "agents keep breaking my architecture", "build constraint enforcement", "my RAG keeps breaking", or "prevent agents from guessing".
+name: codebase-rag
+description: Always-on semantic search over the current project. Use it before editing unfamiliar code, when looking for callers/callees, when checking how a similar feature is already implemented, or when you need to know what depends on a file before changing it.
 ---
 
-# Codebase RAG Enforcer
+# Codebase RAG
 
-MCP server that forces AI agents to respect architectural constraints before making changes. Uses ChromaDB with weighted semantic search so constraints always appear first.
+Semantic search over whatever project you're currently working in. The
+server detects the project root, keeps an index in a per-machine cache,
+and watches the filesystem so the index stays current as files change.
 
-## What This Solves
+## When to use it
 
-**Problem:** Agents ignore your API map, break architectural patterns, reinvent things badly.
-
-**Root cause:** Your RAG treats all files equally. Constraints get buried. Agents see random code first.
-
-**Solution:** Weighted collections force constraints to appear FIRST. Auto-generated patterns from YOUR code, not templates.
-
-## Setup
-
-### 1. Install Dependencies
-
-```bash
-cd skills/codebase-rag-enforcer/mcp-server-python
-pip install -r requirements.txt
-```
-
-### 2. Add to Claude Code Config
-
-Add to your Claude Code MCP settings (`.claude/settings.local.json` or global settings):
-
-```json
-{
-  "mcpServers": {
-    "codebase-rag": {
-      "command": "python",
-      "args": ["<path-to>/mcp-server-python/server.py"]
-    }
-  }
-}
-```
-
-### 3. Use It
-
-The agent calls the MCP tools directly. No scripts to copy, no manual commands.
-
-```
-Agent: rag_setup(project_root="/path/to/your/project")
-Agent: rag_index()
-Agent: rag_check_constraints(change_description="add user profile endpoint")
-```
+- Before editing unfamiliar code: search for related implementations.
+- When looking for callers, callees, or similar patterns.
+- When the user's instruction doesn't say which file to touch.
+- Before modifying a file: check what depends on it.
 
 ## Tools
 
-### rag_setup (call first)
-Initializes a project. Auto-detects frontend/backend, scans code for patterns, generates:
-- `ARCHITECTURE.yml` with detected constraints
-- `docs/patterns/*.md` with documented patterns from your actual code
-- `.rag/` directory with config and ChromaDB collections
+### `rag_search(query, num_results=5, source_type="all")`
 
-### rag_index (call after setup)
-Indexes the codebase into three weighted ChromaDB collections:
-- **constraints** (10x weight): ARCHITECTURE.yml, CONSTRAINTS.md, CLAUDE.md + custom constraint sources
-- **patterns** (8x weight): docs/patterns/*.md + custom doc sources
-- **codebase** (1x weight): all code files
+Semantic search across constraints, patterns, and code. Returns ranked
+results with file paths and relevance scores.
 
-Uses ChromaDB's default embedding function. No sentence-transformers or PyTorch needed.
+`source_type` is one of `"all"` (default), `"docs"` (constraints +
+patterns), `"code"` (source only), or `"constraints"` (rules only).
 
-### rag_check_constraints (primary tool for agents)
-The main tool. Query before making any change. Returns:
-- **Constraints** that apply to the planned change (highest weight, appear first)
-- **Patterns** showing how to implement correctly
-- **Code examples** from similar existing implementations
+### `rag_query_impact(file_path, num_similar=5)`
 
-Supports a `source_type` filter to control which collections are searched:
-- `"all"` (default): Search everything
-- `"docs"`: Search only documentation (constraints + patterns). Best for planning and understanding architecture.
-- `"code"`: Search only source code. Best when you need actual implementations.
-- `"constraints"`: Search only constraint files. Best for focused rules checks.
+Show what depends on a file: its exports, the files that import it, and
+semantically similar files that may need coordinated changes. Pass the
+path relative to the project root, with forward slashes.
 
-### rag_query_impact (blast radius analysis)
-Shows what breaks if you change a file:
-- Exports (functions, classes, endpoints, WebSocket events)
-- Dependents (files that import from the target)
-- Similar files (semantically related, may need coordinated changes)
+## Workflow
 
-### rag_health_check (diagnostics)
-Runs full diagnostics: collection health, constraint files on disk, test query, index staleness.
+1. `rag_search("what you're about to do")` — read the top hits.
+2. If you're going to modify a specific file, `rag_query_impact("path/to/file")`.
+3. Make the change.
 
-### rag_status (quick check)
-Lightweight status: initialized, indexed, chunk counts, last indexed timestamp.
+## First call in a brand-new project
 
-## Custom Document Sources
-
-By default, the tool indexes 3 hardcoded constraint files and `docs/patterns/`. You can add your own document sources (ADRs, OpenAPI specs, style guides, RFCs, etc.) by editing `.rag/config.json`:
-
-```json
-{
-  "customSources": [
-    {
-      "pattern": "docs/adr/*.md",
-      "sourceType": "docs",
-      "weight": 9.0
-    },
-    {
-      "pattern": "openapi.yaml",
-      "sourceType": "constraints",
-      "weight": 10.0
-    },
-    {
-      "pattern": "docs/guides/**/*.md",
-      "sourceType": "docs",
-      "weight": 8.0
-    }
-  ]
-}
-```
-
-**Fields:**
-- `pattern`: Glob pattern relative to project root
-- `sourceType`: One of `"constraints"`, `"docs"`, or `"code"` — determines which collection the files are indexed into and how they're filtered
-- `weight`: Retrieval weight (higher = appears earlier in results). Built-in constraints use 10.0, patterns use 8.0, code uses 1.0.
-
-After editing, run `rag_index` to re-index with the new sources.
-
-## Workflow for Agents
-
-**Before any change:**
-1. `rag_check_constraints("description of planned change")`
-2. Read the returned constraints and patterns
-3. Follow them when implementing
-
-**Docs-first workflow (recommended):**
-1. `rag_check_constraints("description of planned change", source_type="docs")` — read architecture docs and patterns first
-2. `rag_check_constraints("description of planned change", source_type="code")` — then look at actual code when ready to implement
-3. Follow constraints when implementing
-
-**Before modifying a specific file:**
-1. `rag_query_impact(file_path="path/to/file.js")`
-2. Check dependents and similar files
-3. Update related files if needed
-
-## Migrating from Old Script-Based Setup
-
-If you had the old version set up in a project:
-1. Delete `rag_config.py` from the project (old generated config)
-2. Delete the `.rag/` folder (old collections use different embeddings, incompatible)
-3. Run `rag_setup` and `rag_index` through the MCP server to recreate everything
-
-## Auto-Indexing
-
-Add to your post-session hook to keep the index fresh:
-
-```bash
-#!/bin/bash
-# .claude/hooks/post-session.sh
-python <path-to>/mcp-server-python/server.py --index > /dev/null 2>&1 &
-```
-
-## Why This Works
-
-1. **Weighted collections:** Constraints (10x) appear before random code (1x)
-2. **Auto-generated patterns:** Documents YOUR actual code, not generic templates
-3. **Metadata extraction:** Tracks imports, exports, API endpoints, WebSocket events
-4. **Impact analysis:** Shows blast radius before breaking things
-5. **Source type filtering:** Agents can search docs vs. code separately, enabling a docs-first workflow
-6. **Custom sources:** Index your ADRs, OpenAPI specs, style guides — any docs your team already has
-7. **Health checks:** Catches degradation proactively
-8. **Embedded ChromaDB:** PersistentClient runs in-process, no server needed
-9. **No heavy deps:** ChromaDB default embeddings, no sentence-transformers/PyTorch
-10. **Windows compatible:** Forward-slash path normalization, UTF-8 encoding
-
-## Troubleshooting
-
-**"No project initialized"**
-Run `rag_setup` first with the project root path.
-
-**"Collection not found" / "Query returns no results"**
-Run `rag_index` to build or rebuild the collections.
-
-**"Agent ignored constraints"**
-Ensure the agent called `rag_check_constraints` BEFORE making changes and that the returned constraints were included in the task context.
-
-**"Index is stale"**
-Run `rag_index` again. The health check warns if the index is older than 7 days.
+The very first query in a project that's never been indexed takes a few
+seconds while the index builds. After that, queries are sub-second and
+the index stays fresh on its own.
