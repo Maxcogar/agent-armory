@@ -9,8 +9,8 @@ Quick situational awareness. Read-only — no mutations.
 
 ## Instructions
 
-1. **Check server health** by calling `agentboard_health_check`:
-   - If the server is not running, tell the user: "AgentBoard server is not running. Use `/kickoff` to start it."
+1. **Authenticate if needed, then verify connectivity.** If only `agentboard_authenticate` and `agentboard_complete_authentication` are visible, run the OAuth bootstrap from `skills/agentboard/SKILL.md` §1.3 first. Then call `agentboard_health_check`.
+   - If `health_check` fails post-auth, tell the user: "AgentBoard cloud service is unreachable. Check your network connection or service status at agent-board.app."
    - Stop here if unhealthy.
 
 2. **List projects** by calling `agentboard_list_projects`:

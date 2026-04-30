@@ -5,7 +5,7 @@
       "hooks": [
         {
           "type": "prompt",
-          "prompt": "Check if the AgentBoard server is reachable by calling agentboard_health_check. If it responds healthy, continue silently. If it fails or times out, inform the user: 'AgentBoard server is not running. Start it with /kickoff or manually with npm run dev in the AgentBoard project directory.'"
+          "prompt": "Bootstrap the agentboard MCP. First, check whether only `agentboard_authenticate` and `agentboard_complete_authentication` are visible in the agentboard tool surface — if so, the user has not authenticated yet. Run the OAuth bootstrap from `skills/agentboard/SKILL.md` §1.3: call `agentboard_authenticate`, share the returned URL with the user, ask them to authorize in their browser and paste the full callback URL from their browser's address bar, then call `agentboard_complete_authentication` with that URL. Treat the callback URL as a secret — do not log it, echo it, write it to any artifact, or include it in any commit. After authenticating (or if already authenticated), call `agentboard_health_check`. If it responds healthy, continue silently. If it fails post-auth, inform the user: 'AgentBoard cloud service is unreachable. Check your network connection or service status at agent-board.app.'"
         }
       ]
     }
@@ -34,18 +34,6 @@
           "type": "command",
           "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/workspace-card-guidance.sh",
           "timeout": 5000
-        }
-      ]
-    }
-  ],
-  "Stop": [
-    {
-      "matcher": "",
-      "hooks": [
-        {
-          "type": "command",
-          "command": "bash ${CLAUDE_PLUGIN_ROOT}/skills/codebase-rag-enforcer/hooks/post-session.sh",
-          "async": true
         }
       ]
     }

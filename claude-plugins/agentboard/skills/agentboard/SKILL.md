@@ -1,6 +1,6 @@
 ---
 name: agentboard
-description: Skill for using the AgentBoard AI project management app and its MCP server. Use when the user wants to manage projects through AgentBoard, start the AgentBoard servers, interact with the AgentBoard MCP tools, or needs guidance on the AgentBoard workflow (phases, milestones, documents, tasks). Triggers on "start agentboard", "manage project", "use agentboard", "agentboard workflow", "create a project in agentboard", or "set up agentboard".
+description: Skill for using the AgentBoard AI project management app and its cloud-hosted MCP server. Use when the user wants to manage phase-based projects (phases, milestones, documents, tasks), work with workspace boards (apps, boards, cards, artifacts) for ad-hoc orchestration, authenticate the AgentBoard MCP, interact with any AgentBoard MCP tool, or needs guidance on either workflow. Triggers on "manage project", "use agentboard", "agentboard workflow", "create a project in agentboard", "set up agentboard", "authenticate agentboard", "create a workspace card", "create a board", "orchestrate cards", "submit artifact", "workspace board", or "fetch a card".
 ---
 
 # AgentBoard Skill
@@ -9,78 +9,94 @@ Use the AgentBoard AI project management system to create, track, and manage sof
 
 ---
 
-## 1. Setup and Server Startup
+## 1. Setup
 
-### 1.1 Prerequisites
+### 1.1 Cloud-Hosted Service
 
-AgentBoard requires **Node.js** (with npm) and **Python 3.10+**.
+AgentBoard is fully cloud-hosted. There is **no local installation, no Node.js, no Python, no `npm` commands, and no servers to start**.
 
-**Install Node.js dependencies** (one-time, from the AgentBoard project root):
+| Component | URL |
+|---|---|
+| AgentBoard app (UI + REST API) | `https://agent-board.app` |
+| MCP server (HTTP transport) | `https://mcp.agent-board.app/mcp` |
 
-```bash
-cd /path/to/AgentBoard
-npm install
-npm install --prefix server
-npm install --prefix client
+The MCP server is always available — agents talk to it directly through the configured MCP client. Just call the tools.
+
+### 1.2 Configure the MCP Server
+
+The MCP servers are configured in `.mcp.json` at the project root:
+
+```json
+{
+  "mcpServers": {
+    "agentboard": {
+      "type": "http",
+      "url": "https://mcp.agent-board.app/mcp"
+    },
+    "codegraph": {
+      "type": "stdio",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "node",
+        "C:\\Users\\maxco\\Documents\\agent-armory\\mcp-servers\\codegraph-mcp\\dist\\index.js"
+      ],
+      "env": {}
+    },
+    "codebase-rag": {
+      "command": "python",
+      "args": [
+        "C:\\Users\\maxco\\Documents\\agent-armory\\mcp-servers\\codebase-rag\\mcp-server-python\\server.py"
+      ]
+    }
+  }
+}
 ```
 
-**Install MCP server dependencies** (one-time):
+Enable all three in `.claude/settings.local.json`:
 
-```bash
-pip install -r agentboard_mcp/requirements.txt
+```json
+{
+  "enabledMcpjsonServers": ["agentboard", "codebase-rag", "codegraph"]
+}
 ```
 
-This installs: `httpx`, `mcp[cli]`, `pydantic`.
+### 1.3 Authenticate
 
-### 1.2 Start the AgentBoard Server
+The AgentBoard MCP requires OAuth-style authentication before any tool other than the two auth tools is callable. On a fresh session — or any time tokens have expired — only `agentboard_authenticate` and `agentboard_complete_authentication` are visible. The full tool surface (health_check, projects, tasks, documents, workspace, etc.) appears only after the bootstrap completes.
 
-The AgentBoard server **must be running** before using any MCP tools. There are two ways to start it:
+**Bootstrap flow:**
 
-**Option A -- Via MCP tool (recommended when MCP server is already configured):**
+1. **Start the OAuth flow** — call `agentboard_authenticate` (no parameters). It returns an authorization URL.
+2. **Share the URL with the user** and ask them to open it in their browser and authorize.
+3. The user authorizes; their browser is redirected to `http://localhost:<port>/callback?code=...&state=...`. On remote sessions the page itself may fail to load, but the URL in the browser's address bar is the value you need.
+4. **Ask the user to copy the full URL from the browser's address bar.**
+5. **Complete the flow** — call `agentboard_complete_authentication` with that URL as the `callback_url` argument. The remaining tools become available immediately.
 
-Call the `agentboard_start_server` MCP tool. It checks health first and won't restart a healthy server.
+**Detecting auth state:** if you see only `agentboard_authenticate` and `agentboard_complete_authentication` in the agentboard tool surface, run the bootstrap. If the rest of the tools are visible, you're authenticated.
 
-**Option B -- Via command line:**
+**Security — handle the callback URL as a secret:**
 
-```bash
-# Development mode (hot reload, server :3000 + client :5173)
-npm run dev
+The callback URL contains a short-lived authorization code that converts to an access token. Treat it the same way you'd treat a password:
 
-# Production mode (server only :3000, serves pre-built client)
-npm run build   # build client first
-npm start
-```
+- Use it ONLY as the `callback_url` argument to `agentboard_complete_authentication`.
+- Do NOT log it, echo it back to the user, write it into a card note, an artifact, the activity log, a commit message, or any file.
+- Discard it from your working memory immediately after the auth call.
 
-**Verify the server is running:**
+### 1.4 Verify Connectivity
 
-```bash
-curl http://localhost:3000/api/health
-# Expected: {"status":"ok","timestamp":"..."}
-```
+After authenticating, call `agentboard_health_check` to confirm the cloud service is reachable. If the call fails *post-auth*, the cloud service itself is unreachable — check status at `agent-board.app`.
 
-### 1.3 MCP Server Configuration
-
-The plugin's `.mcp.json` configures three MCP servers: agentboard, codegraph, and codebase-rag. These are pre-configured and should work out of the box if the servers are installed at the expected locations.
-
-If you need to customize server paths, see the plugin's README for configuration details.
-
-**Environment variables** (optional):
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `AGENTBOARD_URL` | `http://localhost:3000/api` | API base URL |
-| `AGENTBOARD_PROJECT_DIR` | Parent of `agentboard_mcp/` | Project root for `npm` commands |
-
-### 1.4 Agent ID
+### 1.5 Agent ID
 
 Many tools require an `agent_id` parameter. Use your model identifier -- e.g., `"claude-opus-4-6"`, `"claude-sonnet-4-5"`, `"gemini-3.1-pro"`. This is mandatory for traceability in the activity log.
 
-### 1.5 Session Startup Checklist
+### 1.6 Session Startup Checklist
 
 At the start of every session, run these steps in order:
 
-1. **Start the AgentBoard server** -- call `agentboard_start_server` (or run `npm run dev` manually)
-2. **Health check** -- call `agentboard_health_check` to confirm the server is responding
+1. **Authenticate if needed** — if only `agentboard_authenticate` and `agentboard_complete_authentication` are visible, run the bootstrap from §1.3
+2. **Health check** -- call `agentboard_health_check` to confirm the cloud service is reachable
 3. **List projects** -- call `agentboard_list_projects` to see existing projects
 4. **Get next task** -- call `agentboard_get_next_task` with your project ID and agent ID to pick up work
 
@@ -88,38 +104,27 @@ At the start of every session, run these steps in order:
 
 ## 2. MCP Tools Reference
 
-### 2.1 Server Management
+### 2.1 Authentication & Connectivity
 
 | Tool | Purpose | Notes |
 |---|---|---|
-| `agentboard_health_check` | Verify server is reachable | Call first every session |
-| `agentboard_start_server` | Start the AgentBoard server | Modes: `dev` (default) or `production`. Safe to call if already running. |
-| `agentboard_server_status` | Check if server is running | Returns `{running: true/false}` |
-| `agentboard_stop_server` | Stop the server | Destructive -- disconnects all clients |
+| `agentboard_authenticate` | Start the OAuth flow. Returns an authorization URL for the user to open. | No parameters. See §1.3 for the full bootstrap. Available pre-auth. |
+| `agentboard_complete_authentication` | Complete the OAuth flow with the callback URL from the user's browser. | Required: `callback_url`. Treat the URL as a secret — see §1.3. Available pre-auth. |
+| `agentboard_health_check` | Verify the cloud service is reachable | Call first after authenticating. Not visible pre-auth. |
 
-### 2.2 Apps
-
-Apps are the top-level organizational container in AgentBoard. Every project belongs to an app. Use `list_apps` to discover existing apps, or `create_app` to make a new one before creating projects.
-
-| Tool | Purpose | Key Parameters |
-|---|---|---|
-| `agentboard_list_apps` | List all apps | Supports `response_format` |
-| `agentboard_create_app` | Create a new app | `name` (required), `description?`, `target_project_path?` |
-| `agentboard_get_app` | Get single app by ID | `app_id`. Supports `response_format` |
-
-### 2.3 Projects
+### 2.2 Projects
 
 | Tool | Purpose | Key Parameters |
 |---|---|---|
 | `agentboard_list_projects` | List all projects | None |
 | `agentboard_get_project` | Get project details | `project_id` |
-| `agentboard_create_project` | Create a new project | `app_id`, `agent_id`, `name`, `project_type`, `idea`, `target_project_path?` |
+| `agentboard_create_project` | Create a new project | `agent_id`, `name`, `project_type`, `idea`, `target_project_path?` |
 | `agentboard_advance_phase` | Move to next phase | `project_id`, `agent_id`. **Agents only call this during implementation phases (10-12).** During doc phases (2-9), the human advances the phase after approving the document. |
 | `agentboard_revert_phase` | Go back one phase | `project_id`, `agent_id`. Destructive. |
 
 **Project types:** `new_feature`, `refactor`, `bug_fix`, `migration`, `integration`
 
-### 2.4 Tasks
+### 2.3 Tasks
 
 | Tool | Purpose | Key Parameters |
 |---|---|---|
@@ -127,11 +132,11 @@ Apps are the top-level organizational container in AgentBoard. Every project bel
 | `agentboard_get_task` | Get single task details | `task_id` |
 | `agentboard_get_next_task` | Auto-claim next actionable task | `project_id`, `agent_id`. Returns one of 4 response patterns: **(1) New task claimed** (200): a `ready` task was auto-claimed to `in-progress`, returns `{task, document}`. **(2) Existing task resumed** (200): an `in-progress` task already assigned to you, same shape. **(3) Pending review** (200): your submitted document is awaiting human review, returns `{task: null, document: null, pending_review: {...}}` -- wait. **(4) No tasks available** (404): returns `{error: "No tasks available"}`. |
 | `agentboard_create_task` | Create a new task | `project_id`, `agent_id`, `title`, and optional fields |
-| `agentboard_update_task` | Update task / transition status | `task_id`, `agent_id`, and fields to update. **Privileged tool** -- intended for Review Agents making corrections, NOT for worker agents managing their own task status. Never use on milestone tasks (`task_type: 'milestone'`) -- their status is managed automatically by `milestoneSync.js`. |
+| `agentboard_update_task` | Update task / transition status | `task_id`, `agent_id`, and fields to update. **Privileged tool** -- intended for Review Agents making corrections, NOT for worker agents managing their own task status. Never use on milestone tasks (`task_type: 'milestone'`) -- their status is managed automatically by the server's milestone-sync logic. |
 
 **Task types:** `milestone` (auto-created, linked to phase documents) and `implementation` (created by agents or humans during phase 10+).
 
-### 2.5 Documents
+### 2.4 Documents
 
 | Tool | Purpose | Key Parameters |
 |---|---|---|
@@ -146,9 +151,9 @@ Apps are the top-level organizational container in AgentBoard. Every project bel
 - **Review agents** (privileged) use `agentboard_update_document` to correct locked (submitted) documents without changing status. Review agents NEVER approve or reject -- they only fix content.
 - **Humans** are the sole authority for approval and rejection, acting through the UI (`PUT /documents/:id` with `status: "approved"` or `status: "rejected"`).
 
-This separation is a design convention, not enforced by server code. It depends on agents following this skill correctly.
+This separation is a design convention; the server does not enforce it today, so it depends on agents following this skill correctly.
 
-### 2.6 Activity Log
+### 2.5 Activity Log
 
 | Tool | Purpose | Key Parameters |
 |---|---|---|
@@ -157,21 +162,56 @@ This separation is a design convention, not enforced by server code. It depends 
 
 **Valid `action` values:** `project_created`, `phase_approved`, `task_created`, `task_started`, `task_completed`, `task_updated`, `note_added`, `document_filled`, `document_approved`, `document_superseded`, `document_rejected`, `log_entry`.
 
-**`response_format` parameter:** 13 read-only tools accept `response_format` (`"markdown"` or `"json"`, default `"markdown"`): `health_check`, `list_apps`, `get_app`, `list_projects`, `get_project`, `list_tasks`, `get_task`, `list_documents`, `get_document`, `get_activity_log`, `get_card`, `list_boards`, `list_workspace_cards`. The other mutating tools do NOT accept it.
+**`response_format` parameter:** Read-only tools accept `response_format` (`"markdown"` or `"json"`, default `"markdown"`): in the core surface — `health_check`, `list_projects`, `get_project`, `list_tasks`, `get_task`, `list_documents`, `get_document`, `get_activity_log`; in the workspace surface — `list_apps`, `list_boards`, `get_board`, `list_workspace_cards`, `get_card`, `list_workspace_artifacts`, `get_workspace_artifact`. Mutating tools (creates, updates, submits) do NOT accept it.
 
-### 2.7 Workspace
+---
 
-Workspace boards are a lightweight kanban system under apps. Cards flow through: `backlog` -> `planning` -> `review` -> `implementation` -> `audit` -> `finished`. Artifacts are submitted at each stage to record plans, review notes, implementation notes, and audit reports.
+### 2.6 Workspace Boards
+
+Workspace boards are a separate, ad-hoc pipeline alongside the phase system — for everyday work that doesn't go through the 13-phase document workflow. Cards move through columns: `backlog → planning → review → implementation → audit → finished`. For the orchestration pipeline (parallel agents per wave, checkpoint logic, blocking toggles) see the `workspace-orchestration` skill.
+
+**Apps** group boards (typically one app per codebase or product).
 
 | Tool | Purpose | Key Parameters |
 |---|---|---|
-| `agentboard_list_boards` | List boards for an app | `app_id`. Supports `response_format` |
-| `agentboard_create_board` | Create a board under an app | `app_id`, `agent_id`, `name`, `description?` |
-| `agentboard_get_card` | Fetch a specific card + artifacts | `card_id`. Read-only. Supports `response_format` |
-| `agentboard_get_next_card` | Auto-claim next available card | `board_id`, `agent_id`. Returns card + artifacts |
-| `agentboard_submit_workspace_artifact` | Submit artifact to a card | `card_id`, `agent_id`, `content`, `type?` |
-| `agentboard_list_workspace_cards` | List all cards on a board | `board_id`. Supports `response_format` |
-| `agentboard_update_workspace_card` | Update card status/fields | `card_id`, `agent_id`, plus fields to update |
+| `agentboard_list_apps` | List all apps | None |
+| `agentboard_create_app` | Create an app | `name`, optional `target_project_path` |
+
+**Boards** are kanban-style column sets that hold cards. Each board has an `auto_transitions` setting (`{review_blocking, audit_blocking}`) that controls whether the orchestration pipeline pauses at review and audit checkpoints.
+
+| Tool | Purpose | Key Parameters |
+|---|---|---|
+| `agentboard_list_boards` | List boards in an app | `app_id` |
+| `agentboard_get_board` | Fetch a single board's config (`auto_transitions`, description). Use this before orchestrating to read the checkpoint settings. | `board_id` |
+| `agentboard_create_board` | Create a board | `app_id`, `name`, optional `auto_transitions` |
+
+**Cards** are the unit of agent work. Each card moves through the orchestration pipeline column-by-column. **Cards do NOT use the phase task state machine** — their lifecycle is governed entirely by board column transitions and the orchestration pipeline. Never reach for `agentboard_update_task` on a card.
+
+| Tool | Purpose | Key Parameters |
+|---|---|---|
+| `agentboard_list_workspace_cards` | List cards on a board (filter by status/column) | `board_id`, `status?` |
+| `agentboard_get_card` | Fetch a card by ID. Returns artifacts bundled. | `card_id`, `response_format?` |
+| `agentboard_get_next_card` | Auto-claim the next actionable card from a column. Triggers the workspace-card-guidance hook. | `board_id`, `agent_id`, `column?` |
+| `agentboard_create_workspace_card` | Create a card on a board. Use when an agent needs to spawn follow-up work from the card it's currently on (e.g. a planning agent splits a card into smaller implementation cards). Don't pollute one card with multiple distinct units of work. | `board_id`, `title`, `description?`, `priority?`, `depends_on?` |
+| `agentboard_update_workspace_card` | Update card fields (title, description, notes, status/column). Triggers the workspace-card-guidance hook. | `card_id`, `agent_id`, fields to update |
+
+**Artifacts** are the outputs an agent produces for a card — typed records like `plan`, `review_note`, `implementation_note`, `audit_report`. They are **append-only**: there is no edit or delete, and `column_at_creation` is captured for audit context. To correct a prior artifact, submit a new one.
+
+| Tool | Purpose | Key Parameters |
+|---|---|---|
+| `agentboard_submit_workspace_artifact` | Append an artifact to a card. Triggers the SUBMISSION QUALITY GATE hook — the artifact must be free of TODO/TBD/placeholder text and reference specific files/line numbers. | `card_id`, `agent_id`, `artifact_type`, `content` |
+| `agentboard_list_workspace_artifacts` | List artifacts on a card without pulling the full card. Use this for cross-card lookups (e.g. an implementation agent reading the planning card's plan artifact). | `card_id` |
+| `agentboard_get_workspace_artifact` | Fetch a single artifact by ID. Cheaper than `get_card` when only one artifact body is needed. | `artifact_id` |
+
+**Workspace pipeline at a glance:**
+
+```
+backlog → planning → review → implementation → audit → finished
+           ↑           ↓ (rejection)
+           └───────────┘
+```
+
+Agents are spawned per-card per-wave by the `/orchestrate` command. Each agent fetches the card, performs its wave's work, and submits an artifact + updates the card's column. The `workspace-orchestration` skill has the per-wave prompt templates and full pipeline logic.
 
 ---
 
@@ -201,21 +241,21 @@ Every project progresses through 13 phases:
 
 ### 3.2 Milestone Workflow (Phases 1-8)
 
-Milestone task status is a **reflection** of document status, managed automatically by `milestoneSync.js`. Agents should NEVER use `agentboard_update_task` on milestone tasks. The agent's only direct interaction is submitting the document via `submit_document` -- all milestone state transitions flow automatically from that.
+Milestone task status is a **reflection** of document status, managed automatically by the server's milestone-sync logic. Agents should NEVER use `agentboard_update_task` on milestone tasks. The agent's only direct interaction is submitting the document via `submit_document` -- all milestone state transitions flow automatically from that.
 
 Milestone tasks are auto-created for phases 1-8 and linked to phase documents. The workflow:
 
 1. **Claim milestone** -- `agentboard_get_next_task` auto-claims the next `ready` milestone
 2. **Read the template** -- the response includes the linked document; study it carefully
-3. **Research using companion tools** -- use codegraph and RAG to gather the data the template asks for (see Section 7 for which tools to use per phase)
+3. **Research using companion tools** -- use codegraph and RAG to gather the data the template asks for (see Section 6 for which tools to use per phase)
 4. **Fill and submit** -- `agentboard_submit_document` with your content and notes
 5. **Wait for review** -- the call blocks until a human approves or rejects
 6. **If approved** -- milestone auto-transitions to `done`, next milestone becomes `ready`
 7. **If rejected** -- read feedback, revise, and resubmit
 
-**About the templates:** Each document template contains `<!-- Agent: ... -->` inline instructions that tell you exactly what to write in each section. The templates have pre-structured tables, fields, and prompts -- follow them. Templates vary by project type (`new_feature`, `refactor`, `bug_fix`, `migration`, `integration`). You don't need to find them yourself -- `get_next_task` returns the template content in the response.
+**About the templates:** Each document template contains `<!-- Agent: ... -->` inline instructions that tell you exactly what to write in each section. The templates have pre-structured tables, fields, and prompts -- follow them. Templates vary by project type (`new_feature`, `refactor`, `bug_fix`, `migration`, `integration`); you don't need to find them yourself -- `get_next_task` returns the appropriate template content in the response.
 
-The `ready->in-progress` guard requires only `assignee` (set automatically by `get_next_task`). Milestone tasks have `acceptance_criteria` pre-seeded, which satisfies the `in-progress->review` guard when milestoneSync submits notes.
+The `ready->in-progress` guard requires only `assignee` (set automatically by `get_next_task`). Milestone tasks have `acceptance_criteria` pre-seeded by the server, which satisfies the `in-progress->review` guard when the server submits notes during milestone-sync.
 
 **Phase 9 exception:** Phase 9 (Task Breakdown) has a document but no milestone task. Submit the document manually via `agentboard_submit_document`. The human advances the phase after approval.
 
@@ -245,18 +285,17 @@ backlog -----> ready -----> in-progress -----> review -----> done (FINAL)
 ### 3.4 Typical Agent Session
 
 ```
-1. agentboard_start_server          -- start if not running
-2. agentboard_health_check          -- verify server is responding
-3. agentboard_list_projects         -- find or create project
-4. agentboard_get_next_task         -- claim work
-5. (do the work: read template, fill document, or implement code)
-6. agentboard_submit_document       -- for milestones: submit and wait for review
+1. agentboard_health_check          -- verify cloud service is reachable
+2. agentboard_list_projects         -- find or create project
+3. agentboard_get_next_task         -- claim work
+4. (do the work: read template, fill document, or implement code)
+5. agentboard_submit_document       -- for milestones: submit and wait for review
    OR submit for review with notes  -- for implementation: see Section 4.3
-7. agentboard_get_next_task         -- claim next work item
-8. (repeat 5-7 until phase complete)
-9. (human advances phase during doc phases 2-9)
+6. agentboard_get_next_task         -- claim next work item
+7. (repeat 4-6 until phase complete)
+8. (human advances phase during doc phases 2-9)
    agentboard_advance_phase         -- agents call this ONLY during implementation phases 10-12
-10. (repeat 4-9 until project complete)
+9. (repeat 3-8 until project complete)
 ```
 
 ---
@@ -267,7 +306,6 @@ backlog -----> ready -----> in-progress -----> review -----> done (FINAL)
 
 ```
 agentboard_create_project(
-  app_id="<app-id>",
   agent_id="my-agent",
   name="Website Redesign",
   project_type="new_feature",
@@ -338,7 +376,7 @@ agentboard_update_task(
 **Good notes** (context not in the document/code):
 - "Chose SQLite over PostgreSQL because the project is single-node and persistence requirements are simple"
 - "Skipped unit tests for the WebSocket relay because it's a thin pass-through with no logic"
-- "Found that milestoneSync.js already handles the cascade -- no new code needed"
+- "Found that the server's milestone-sync logic already handles the cascade -- no new code needed"
 
 **Bad notes** (prohibited -- summaries of the action):
 - "Document submitted"
@@ -397,24 +435,13 @@ The resource's state changed between when you last read it and when you tried to
 
 ---
 
-## 6. WebSocket Events
-
-The AgentBoard UI uses WebSocket for real-time updates. If you're building a client:
-
-- Connect to `ws://localhost:3000/ws`
-- Events: `connected`, `project_created`, `task_updated`, `phase_advanced`, `document_updated`
-- `connected` -- sent immediately on new connection. Payload: `{ event: 'connected', data: { timestamp: '<ISO8601>' } }`. Confirms the WebSocket link is live.
-- **Always refetch from API** after receiving events -- never update state directly from payloads
-
----
-
-## 7. Companion MCP Servers
+## 6. Companion MCP Servers
 
 AgentBoard works alongside two other MCP servers. These are not optional extras -- they provide the data you need to fill document templates properly instead of guessing.
 
 **Load tools via `ToolSearch` before first use** (search for `codegraph` or `rag`).
 
-### 7.1 Codegraph (dependency analysis)
+### 6.1 Codegraph (dependency analysis)
 
 | Tool | Purpose |
 |---|---|
@@ -431,49 +458,44 @@ AgentBoard works alongside two other MCP servers. These are not optional extras 
 
 | Phase | Template Sections It Feeds | What To Do |
 |---|---|---|
-| **2 -- Codebase Survey** | Directory Structure, Entry Points, Module Inventory, Dependency Analysis, Integration Points | Run `codegraph_scan` on the target project first. Use `get_stats` for the overview, `find_entry_points` for entry points, `list_files` + `get_dependencies` for module inventory. This is your primary research tool for this phase. |
+| **2 -- Codebase Survey** | §2 Directory Structure, §3 Entry Points, §4 Module Inventory, §8 Dependency Analysis, §13 Integration Points | Run `codegraph_scan` on the target project first. Use `get_stats` for the overview, `find_entry_points` for §3, `list_files` + `get_dependencies` for §4, `get_stats` for §8. This is your primary research tool for this phase. |
 | **5 -- Risk Assessment** | Complexity hotspots, change-risk areas | Use `get_stats` to find most-connected files (high coupling = high risk). Use `get_dependents` on files you plan to modify to understand blast radius. |
-| **6 -- Architecture** | Component Architecture, File Structure | Use `get_subgraph` to understand how proposed components relate to existing modules. Use `get_dependencies`/`get_dependents` to validate your component boundaries aren't creating circular deps. |
+| **6 -- Architecture** | §3 Component Architecture, §10 File Structure | Use `get_subgraph` to understand how proposed components relate to existing modules. Use `get_dependencies`/`get_dependents` to validate your component boundaries aren't creating circular deps. |
 | **9 -- Task Breakdown** | Task ordering, dependency chains | Use `get_change_impact` to understand which files a task will touch and what else might break. This informs task dependencies (`depends_on`). |
 | **10+ -- Implementation** | Before writing code | Use `get_change_impact` before modifying files to check what tests/modules you might break. |
 
-### 7.2 Codebase RAG (constraint enforcement)
+### 6.2 Codebase RAG (semantic search)
+
+The codebase-rag MCP exposes two tools. The server auto-detects the project root (looking for `.git`, `package.json`, `pyproject.toml`, `Cargo.toml`, or `go.mod`, or honoring `RAG_PROJECT_ROOT`), auto-builds the index in a per-machine cache on first call, and runs a filesystem watcher to keep it current. There is no setup, init, status, or health-check tool — just call the search tools directly.
 
 | Tool | Purpose |
 |---|---|
-| `rag_setup` | Initialize project for RAG constraint enforcement. **Must call first.** |
-| `rag_index` | Index/re-index codebase into ChromaDB collections |
-| `rag_check_constraints` | **Primary tool.** Find constraints and patterns relevant to a planned change |
-| `rag_query_impact` | Blast radius analysis for changing a specific file |
-| `rag_health_check` | Full diagnostic (ChromaDB connection, collection sizes, missing files) |
-| `rag_status` | Quick lightweight summary (init status, last index time) |
+| `rag_search` | Semantic search across the project. Inputs: `query` (3–2000 chars), `num_results` (1–20, default 5), `source_type` (`"all"` (default) / `"docs"` (constraints + patterns) / `"code"` / `"constraints"`). Returns ranked results with file paths and relevance scores. |
+| `rag_query_impact` | Show what depends on a file before you change it: exports, importers, and semantically similar files that may need coordinated edits. Inputs: `file_path` (relative to project root, forward slashes), `num_similar` (1–20, default 5). |
+
+**First-call note:** if the project has never been indexed, the first call may return `status: "indexing"` while the index builds (a few seconds). Try again. If the server can't find a project root, it returns `status: "no_project"` with a hint.
 
 **When to use RAG in the workflow:**
 
 | Phase | What To Do |
 |---|---|
-| **2 -- Codebase Survey** | Run `rag_setup` + `rag_index` at the start to index the target project. Use `rag_check_constraints` to discover existing architectural patterns, coding conventions, and API contracts. |
-| **4 -- Constraints** | **Critical phase for RAG.** Use `rag_check_constraints` with queries like "database access patterns", "API conventions", "error handling", "module boundaries" to discover constraints that already exist in the codebase. The constraints doc should reflect reality, not invent rules. |
-| **6 -- Architecture** | Before submitting, run `rag_check_constraints` with your proposed architectural changes to verify they don't violate existing patterns. |
-| **7 -- Contracts** | Use `rag_check_constraints` to find existing API contracts and interface patterns. Your contracts doc must be consistent with what already exists. |
-| **10+ -- Implementation** | Before writing code, run `rag_check_constraints` describing your planned change. It will surface patterns and contracts you need to follow. After implementation, run `rag_query_impact` on modified files to catch constraint violations. |
+| **2 -- Codebase Survey** | Use `rag_search` with `source_type="docs"` to surface existing architectural patterns and conventions for §7 Architectural Patterns and §10 Code Conventions. |
+| **4 -- Constraints** | **Critical phase for RAG.** Use `rag_search` with `source_type="constraints"` and queries like "database access patterns", "API conventions", "error handling", "module boundaries" to discover constraints that already exist in the codebase. The constraints doc should reflect reality, not invent rules. |
+| **6 -- Architecture** | Before submitting, use `rag_search` with your proposed architectural changes to verify they don't violate existing patterns. |
+| **7 -- Contracts** | Use `rag_search` (`source_type="docs"` or `"all"`) to find existing API contracts and interface patterns. Your contracts doc must be consistent with what already exists. |
+| **10+ -- Implementation** | Before writing code, use `rag_search` describing your planned change to surface relevant patterns and constraints. Use `rag_query_impact` on files you plan to modify to understand blast radius. |
 
-### 7.3 Setup Sequence
+### 6.3 Setup Sequence
 
-At the start of a session, after the AgentBoard server is running:
+At the start of a session, after authenticating to AgentBoard:
 
 ```
-1. ToolSearch("codegraph")            -- load codegraph tools
-2. ToolSearch("rag")                  -- load RAG tools
-3. codegraph_scan(path="<target>")    -- REQUIRED every session (graph is in-memory only, lost when MCP server restarts)
-4. rag_status()                       -- check if already initialized and indexed
-5. IF rag_status shows initialized=false:
-     rag_setup(project_root="<target>")  -- first-time only (creates .rag/config.json on disk)
-     rag_index()                         -- full re-index (drops and recreates all collections)
-   IF initialized=true but index is stale (files changed significantly):
-     rag_index()                         -- full re-index (no incremental mode)
-   IF initialized=true and index is fresh:
-     skip -- ChromaDB collections persist on disk, ready to query
+1. ToolSearch("codegraph")             -- load codegraph tools
+2. ToolSearch("rag")                   -- load RAG tools (rag_search, rag_query_impact)
+3. codegraph_scan(path="<target>")     -- REQUIRED every session (graph is in-memory only, lost when MCP server restarts)
+4. rag_search("<first query>")         -- RAG auto-bootstraps; first call in a never-indexed project takes a few seconds
 ```
 
-**Codegraph** rebuilds from scratch every session -- its graph lives in memory only. **RAG** persists to disk via ChromaDB (`.rag/` directory with `chroma.sqlite3` and collection data). `rag_setup` runs full project initialization (auto-detection, config generation). `rag_index` always performs a full re-index -- there is no incremental mode.
+**Codegraph** rebuilds from scratch every session — its graph lives in memory only. **Codebase RAG** auto-detects the project root, builds an index in a per-machine cache directory on first run, and watches the filesystem to keep it current. No setup, init, or status calls are needed — call `rag_search` or `rag_query_impact` directly. If the first query returns `status: "indexing"`, retry after a few seconds.
+
+Both servers are configured in `.mcp.json` and enabled in `.claude/settings.local.json`.

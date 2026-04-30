@@ -21,7 +21,7 @@ Verify the implementation matches the plan and follows all codebase constraints.
    - Verify blast radius is reasonable and no unexpected dependencies are affected
 
 4. **Run RAG constraint check:**
-   - `mcp__codebase-rag__rag_check_constraints` describing the changes made
+   - `mcp__codebase-rag__rag_search` (with `source_type="constraints"`) describing the changes made
    - Verify no architectural constraints were violated
 
 5. **Submit an audit_report artifact** using `mcp__agentboard__agentboard_submit_workspace_artifact`:

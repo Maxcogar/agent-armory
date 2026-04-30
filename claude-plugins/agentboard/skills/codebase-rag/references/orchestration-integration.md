@@ -7,8 +7,10 @@
 Before delegating ANY task to an agent:
 
 ```
-rag_check_constraints(change_description="task description")
+rag_search(query="task description", source_type="constraints")
 ```
+
+For broader context (constraints + patterns), use `source_type="docs"`. For full-codebase semantic search, use the default `"all"`.
 
 ### Impact Analysis
 
@@ -24,7 +26,7 @@ rag_query_impact(file_path="path/to/file.ts")
 Task: [Agent]: Read these constraints before proceeding:
 
 CONSTRAINTS:
-[paste relevant constraints from rag_check_constraints]
+[paste relevant constraints from rag_search]
 
 IMPACT RADIUS:
 [paste from rag_query_impact if modifying files]
@@ -34,13 +36,9 @@ Then: [actual work]
 Verify you followed ALL constraints after completion.
 ```
 
-### Auto-Indexing
+### Indexing
 
-The Stop hook automatically re-indexes the codebase after each session. You can also manually re-index via:
-
-```
-rag_index()
-```
+The MCP server auto-detects the project root, builds the index in a per-machine cache on first run, and runs a filesystem watcher to keep the index current as files change. The Stop hook also re-indexes after each session as a safety net for any final edits made after the watcher tears down. There is no manual index command — just call `rag_search` or `rag_query_impact` directly.
 
 ### Success Metrics
 
@@ -51,5 +49,4 @@ rag_index()
 
 **After 1 month:**
 - Impact analysis prevents 5+ breaking changes
-- Auto-indexing keeps system fresh
-- RAG health check passes daily
+- Auto-indexing keeps the system fresh
