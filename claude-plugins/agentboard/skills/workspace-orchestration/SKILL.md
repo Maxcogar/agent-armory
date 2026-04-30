@@ -9,7 +9,7 @@ Orchestrate parallel subagents through workspace board columns: planning → rev
 
 ## Prerequisites
 
-- AgentBoard server running (call `agentboard_health_check`)
+- AgentBoard cloud service reachable (call `agentboard_health_check` — the MCP server is hosted at `mcp.agent-board.app`)
 - A workspace board with cards in `backlog` (created via `/foundation`)
 - MCP tools loaded: `agentboard`, `codegraph`, `codebase-rag`
 

@@ -13,9 +13,7 @@ Follow these steps in order.
 
 1. **Load the AgentBoard skill** — it provides the full workflow reference and tool documentation. Also read the project's `CLAUDE.md` for codebase constraints and the state machine rules.
 
-2. **Check server health** by calling `agentboard_health_check`:
-   - If the server is not running, start it by calling `agentboard_start_server`
-   - Then re-check health with `agentboard_health_check`
+2. **Authenticate if needed, then verify connectivity.** If only `agentboard_authenticate` and `agentboard_complete_authentication` are visible, run the OAuth bootstrap from `skills/agentboard/SKILL.md` §1.3 first. Then call `agentboard_health_check`. If it fails post-auth, the cloud service is unreachable — show the error to the user and stop.
 
 3. **List projects** by calling `agentboard_list_projects`.
 

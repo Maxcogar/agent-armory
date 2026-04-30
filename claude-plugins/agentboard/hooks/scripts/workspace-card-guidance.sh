@@ -29,7 +29,7 @@ case "$STATUS" in
   planning)
     cat <<'EOF'
 PLANNING PHASE STANDARDS:
-1. REQUIRED TOOLS: You MUST use codegraph (scan then dependencies/dependents for every relevant file), codebase-rag (rag_check_constraints), Grep, and Read to investigate BEFORE drafting your plan.
+1. REQUIRED TOOLS: You MUST use codegraph (scan then dependencies/dependents for every relevant file), codebase-rag (rag_search with source_type="constraints" for rules and "docs" for patterns), Grep, and Read to investigate BEFORE drafting your plan.
 2. COMPLETENESS: Your plan must be FULLY ACTIONABLE — zero open questions, zero TODOs, zero "need to investigate further." If you don't know something, use your tools to find out NOW before writing anything.
 3. SPECIFICITY: Every step must reference specific files, functions, and line numbers. Vague steps like "update the component" will be rejected.
 4. If you cannot produce a complete plan after investigation, do NOT submit an artifact. Update the card notes explaining what blocked you.

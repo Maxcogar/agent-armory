@@ -14,7 +14,7 @@ Run parallel subagents through the workspace board pipeline. Requires cards in `
 1. **Load skills and tools:**
    - Invoke the `workspace-orchestration` skill to load the orchestration logic
    - Call `ToolSearch` for `agentboard`, `codegraph`, and `rag` tools
-   - Call `agentboard_health_check` — start server if needed
+   - If only `agentboard_authenticate` and `agentboard_complete_authentication` are visible, run the OAuth bootstrap from `skills/agentboard/SKILL.md` §1.3 first. Then call `agentboard_health_check` to verify connectivity. If it fails post-auth, stop and report the error.
 
 2. **Select the board:**
    - Call `agentboard_list_apps`, then `agentboard_list_boards` for the target app

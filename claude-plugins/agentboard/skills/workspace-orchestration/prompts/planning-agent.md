@@ -16,7 +16,7 @@ Produce a detailed implementation plan for this card and submit it as an artifac
    - Run `mcp__codegraph__codegraph_scan` on the project root
    - Use `mcp__codegraph__codegraph_get_dependencies` and `mcp__codegraph__codegraph_get_dependents` on files likely to be affected
    - Use `mcp__codegraph__codegraph_get_change_impact` to understand blast radius of planned changes
-   - Run `mcp__codebase-rag__rag_check_constraints` describing the planned changes to find constraints and patterns that must be followed
+   - Run `mcp__codebase-rag__rag_search` (with `source_type="constraints"` for rules and `"docs"` for patterns) describing the planned changes to find constraints and patterns that must be followed
 
 4. **Read the relevant source files** you identified in step 3. Understand the existing code before planning changes.
 

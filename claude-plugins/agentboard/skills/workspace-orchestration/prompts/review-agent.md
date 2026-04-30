@@ -16,7 +16,7 @@ Validate the plan artifact on this card. Check that it's correct, complete, and 
    - Run `mcp__codegraph__codegraph_scan` on the project root
    - Read every file the plan says to modify — verify the plan's assumptions are correct (line numbers, existing code structure, function signatures)
    - Run `mcp__codegraph__codegraph_get_change_impact` on the files listed in the plan — verify the blast radius is acknowledged
-   - Run `mcp__codebase-rag__rag_check_constraints` describing the planned changes — verify no constraints are violated
+   - Run `mcp__codebase-rag__rag_search` (with `source_type="constraints"`) describing the planned changes — verify no constraints are violated
 
 4. **Check plan quality:**
    - Are implementation steps specific enough to follow without guessing?
