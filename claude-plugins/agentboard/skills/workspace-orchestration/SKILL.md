@@ -51,12 +51,32 @@ Use `mcp__agentboard__agentboard_list_workspace_cards` filtered by status.
 
 ### 2. Spawn Parallel Subagents
 
-Launch one Agent per card using `run_in_background: true`. Use the prompt template from `prompts/{wave}-agent.md`, substituting:
-- `{{card_id}}` — the card's UUID
-- `{{board_id}}` — the board UUID
-- `{{agent_id}}` — use the orchestrator's agent_id (e.g., `claude-opus-4-6`)
-- `{{spec_path}}` — path to the spec document (for planning/review agents)
-- `{{card_title}}` — the card's title (for artifact headers)
+Launch one Agent per card using `run_in_background: true`. Use the dedicated subagent for the wave by setting `subagent_type`:
+
+| Wave | `subagent_type` |
+|------|-----------------|
+| 1 — Planning | `planning-agent` |
+| 2 — Review | `review-agent` |
+| 3 — Implementation | `implementation-agent` |
+| 4 — Audit | `audit-agent` |
+
+The subagents carry their own system prompts, tool allowlists, and model assignments. The Agent `prompt` only needs to pass the per-card variables — the agent's instructions cover the rest. Pass:
+
+- `card_id` — the card's UUID
+- `board_id` — the board UUID
+- `agent_id` — the orchestrator's agent_id (e.g., `claude-opus-4-6`)
+- `spec_path` — path to the spec document (planning and review agents only)
+- `card_title` — the card's title (planning, implementation, audit — used in artifact headers)
+
+Example prompt body:
+
+```
+card_id: 7f3c...
+board_id: a91e...
+agent_id: claude-opus-4-6
+spec_path: /repo/docs/spec.md
+card_title: Add chat tool registry
+```
 
 ### 3. Wait for All Agents
 
@@ -102,14 +122,14 @@ Wait for user confirmation before starting the next wave.
 
 ## Build Verification
 
-After Wave 3 (Implementation), before Wave 4 (Audit):
+After Wave 3 (Implementation), before Wave 4 (Audit). Pipe through a filter so only errors/warnings land in context — successful build/lint output is 5–10k tokens of compiler chatter that has no value once you know it passed:
 
 ```bash
-npm run build
-npm run lint --prefix client
+npm run build 2>&1 | grep -E -i 'error|warning|fail|✘' || echo 'BUILD OK'
+npm run lint --prefix client 2>&1 | grep -E -i 'error|warning|fail|✘' || echo 'LINT OK'
 ```
 
-Both must pass. If either fails, stop and report.
+Both must pass. If either fails, stop and report. On success the only token cost is `BUILD OK` / `LINT OK`.
 
 ## Retry Policy
 
@@ -139,10 +159,12 @@ Between waves (and at checkpoints), show:
 Progress: 5/10 cards finished (50%)
 ```
 
-## Prompt Templates
+## Subagents
 
-Located in `prompts/` directory within this skill:
-- `planning-agent.md` — produces implementation plans
-- `review-agent.md` — validates plans against constraints
-- `implementation-agent.md` — executes plans, writes code
-- `audit-agent.md` — read-only verification of implementation
+Wave workers are dedicated subagents defined in `agents/` at the plugin root:
+- `planning-agent` (opus) — produces implementation plans
+- `review-agent` (opus) — validates plans against constraints
+- `implementation-agent` (sonnet) — executes plans, writes code
+- `audit-agent` (opus) — read-only verification of implementation
+
+Each ships with a scoped tool allowlist matching its role. Update those files to change wave behavior.

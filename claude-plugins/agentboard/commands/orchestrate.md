@@ -17,12 +17,12 @@ Run parallel subagents through the workspace board pipeline. Requires cards in `
    - If only `agentboard_authenticate` and `agentboard_complete_authentication` are visible, run the OAuth bootstrap from `skills/agentboard/SKILL.md` §1.3 first. Then call `agentboard_health_check` to verify connectivity. If it fails post-auth, stop and report the error.
 
 2. **Select the board:**
-   - Call `agentboard_list_apps`, then `agentboard_list_boards` for the target app
+   - Call `agentboard_list_apps`, then `agentboard_list_boards` for the target app — use `response_format: markdown` (default; ~7× smaller than json for these list responses).
    - If multiple boards, ask the user which one
-   - Call `agentboard_list_workspace_cards` to see current card distribution
+   - Call `agentboard_list_workspace_cards` (also markdown) to see current card distribution
 
 3. **Read board settings:**
-   - Fetch the board via the boards API to read `auto_transitions`
+   - Fetch the board via the boards API (markdown) to read `auto_transitions`
    - Determine checkpoint behavior:
      - `review_blocking: true` → must pause after Wave 1
      - `audit_blocking: true` → must pause after Wave 3
@@ -31,38 +31,45 @@ Run parallel subagents through the workspace board pipeline. Requires cards in `
 
 4. **Locate the spec document:**
    - Check `docs/specs/` for the most recent spec, or ask the user for the path
-   - This gets passed to planning and review agents as `{{spec_path}}`
+   - This gets passed to planning and review agents as `spec_path`
 
-5. **Run Wave 1: Planning**
+5. **Prime the codegraph (once for the whole run):**
+   - Call `mcp__codegraph__codegraph_scan` on the project root.
+   - The graph is in-memory in the codegraph MCP server and is shared across every subagent in this Claude Code session. Subagents have been instructed NOT to call `codegraph_scan` themselves; they go straight to `codegraph_get_dependencies`, `codegraph_get_dependents`, and `codegraph_get_change_impact` against the cached graph.
+   - This eliminates ~2N redundant full-project scans per run (one per planning agent + one per audit agent).
+
+6. **Run Wave 1: Planning**
    - Collect all cards in `backlog`
-   - Spawn parallel subagents using the `planning-agent.md` prompt template
+   - Spawn parallel subagents with `subagent_type: planning-agent`, passing `card_id`, `board_id`, `agent_id`, `spec_path`, `card_title` in the prompt
    - Wait for all agents to complete
    - Report results
    - **Checkpoint** if required (see checkpoint logic in skill)
 
-6. **Run Wave 2: Review**
+7. **Run Wave 2: Review**
    - Collect all cards in `review`
-   - Spawn parallel subagents using the `review-agent.md` prompt template
+   - Spawn parallel subagents with `subagent_type: review-agent`
    - Wait for all agents to complete
    - Handle rejections: re-run Wave 1 for rejected cards (max 2 retries)
    - Report results
 
-7. **Run Wave 3: Implementation**
+8. **Run Wave 3: Implementation**
    - Collect all cards in `implementation`
-   - Spawn parallel subagents using the `implementation-agent.md` prompt template
+   - Spawn parallel subagents with `subagent_type: implementation-agent`
    - Wait for all agents to complete
-   - Run build verification: `npm run build` and `npm run lint --prefix client`
+   - Run build verification, filtering output to drop noise so only errors/warnings land in context:
+     - `npm run build 2>&1 | grep -E -i 'error|warning|fail|✘' || echo 'BUILD OK'`
+     - `npm run lint --prefix client 2>&1 | grep -E -i 'error|warning|fail|✘' || echo 'LINT OK'`
    - If build fails: STOP, report, wait for user
    - Report results
    - **Checkpoint** if required
 
-8. **Run Wave 4: Audit**
+9. **Run Wave 4: Audit**
    - Collect all cards in `audit`
-   - Spawn parallel subagents using the `audit-agent.md` prompt template
+   - Spawn parallel subagents with `subagent_type: audit-agent`
    - Wait for all agents to complete
    - Report final results
 
-9. **Final report:**
+10. **Final report:**
    ```
    ## Orchestration Complete
 
