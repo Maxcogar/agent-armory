@@ -11,7 +11,7 @@ Build a spec for a body of work and break it into workspace board cards.
 
 Follow these steps in order.
 
-1. **Load AgentBoard tools** by calling `ToolSearch` for `agentboard`. Then call `agentboard_health_check`. If the server is not running, call `agentboard_start_server`.
+1. **Load AgentBoard tools** by calling `ToolSearch` for `agentboard`. If only `agentboard_authenticate` and `agentboard_complete_authentication` are visible, the MCP is unauthenticated — run the OAuth bootstrap from `skills/agentboard/SKILL.md` §1.3 before continuing. Once authenticated, call `agentboard_health_check` to confirm connectivity.
 
 2. **Select or create an app:**
    - Call `agentboard_list_apps`
@@ -39,7 +39,7 @@ Follow these steps in order.
    - Show the spec to the user for approval before creating cards
 
 6. **Create workspace cards:**
-   - For each major section in the spec, call `agentboard_create_card` on the board:
+   - For each major section in the spec, call `agentboard_create_workspace_card` on the board:
      - title: Clear, actionable title
      - description: Relevant section from the spec
      - priority: Ask user or infer from context

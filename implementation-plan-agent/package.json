@@ -1,0 +1,27 @@
+{
+  "name": "implementation-plan-agent",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "tsx src/index.ts --serve"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2"
+  },
+  "dependencies": {
+    "@genkit-ai/express": "^1.31.0",
+    "@genkit-ai/google-genai": "^1.31.0",
+    "@genkit-ai/mcp": "^1.31.0",
+    "dotenv": "^17.4.0",
+    "genkit": "^1.31.0",
+    "zod": "^4.3.6"
+  }
+}

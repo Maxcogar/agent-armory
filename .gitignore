@@ -32,3 +32,18 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# Genkit / RAG runtime artifacts
+.genkit/
+.rag/
+
+# Genkit debug snapshots
+genkit-*-snapshot.txt
+genkit-traces-*.txt
+genkit-ui-*.txt
+genkit-ui-screenshot.png
+genkit-flow-snapshot.txt
+
+# Auto-bootstrap docs (per CLAUDE.md: never commit passive-bootstrap output)
+implementation-plan-agent/ARCHITECTURE.yml
+implementation-plan-agent/docs/patterns/

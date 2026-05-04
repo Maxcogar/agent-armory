@@ -1,0 +1,1 @@
+Audit the codebase in this directory. Use codegraph to build the dependency graph and codebase RAG to index constraints and patterns. Find dead code, duplicated logic, broken references, API mismatches, constraint violations, and dependency tangles. Write the full audit report to codebase-audit-report.md.

@@ -1,10 +1,8 @@
 {
   "mcpServers": {
     "agentboard": {
-      "command": "python",
-      "args": [
-        "C:\\Users\\maxco\\Documents\\Project-Manager\\Project-Manager-Latest\\Project-Manager\\agentboard_mcp\\server.py"
-      ]
+      "type": "http",
+      "url": "https://mcp.agent-board.app/mcp"
     },
     "codegraph": {
       "type": "stdio",

@@ -28,13 +28,25 @@ def chunk_id(file_path: str, index: int) -> str:
 
 # Patterns that indicate top-level block boundaries
 BOUNDARY_PATTERNS = [
-    re.compile(r"^(?:export\s+)?(?:async\s+)?function\s+"),
-    re.compile(r"^(?:export\s+)?(?:default\s+)?class\s+"),
-    re.compile(r"^(?:export\s+)?const\s+\w+\s*=\s*(?:async\s+)?\("),
-    re.compile(r"^(?:export\s+)?const\s+\w+\s*=\s*(?:async\s+)?function"),
+    # JS/TS function declarations
+    re.compile(r"^(?:export\s+)?(?:async\s+)?function\s*\*?\s+"),
+    # JS/TS classes
+    re.compile(r"^(?:export\s+)?(?:default\s+)?(?:abstract\s+)?class\s+"),
+    # const/let arrow functions and function expressions
+    re.compile(r"^(?:export\s+)?(?:const|let)\s+\w+\s*(?::\s*[^=]+)?\s*=\s*(?:async\s+)?\("),
+    re.compile(r"^(?:export\s+)?(?:const|let)\s+\w+\s*(?::\s*[^=]+)?\s*=\s*(?:async\s+)?function"),
+    re.compile(r"^(?:export\s+)?(?:const|let)\s+\w+\s*(?::\s*[^=]+)?\s*=\s*(?:async\s+)?\(.*\)\s*=>"),
     re.compile(r"^(?:export\s+default\s+)?function\s+"),
+    # TypeScript-specific top-level declarations
+    re.compile(r"^(?:export\s+)?(?:default\s+)?interface\s+\w+"),
+    re.compile(r"^(?:export\s+)?type\s+\w+\s*="),
+    re.compile(r"^(?:export\s+)?enum\s+\w+"),
+    re.compile(r"^(?:export\s+)?namespace\s+\w+"),
+    # CommonJS exports
     re.compile(r"^(?:module\.exports|exports)\s*[=.]"),
-    re.compile(r"^(?:router|app)\.(?:get|post|put|patch|delete|use)\s*\("),
+    # Express-style routes
+    re.compile(r"^(?:router|app)\.(?:get|post|put|patch|delete|use|options|head)\s*\("),
+    # Python
     re.compile(r"^def\s+\w+\s*\("),
     re.compile(r"^class\s+\w+"),
     re.compile(r"^async\s+def\s+\w+"),

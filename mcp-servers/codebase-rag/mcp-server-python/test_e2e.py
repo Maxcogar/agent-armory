@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """End-to-end test for the Python MCP RAG server.
 
-Tests all 6 tools by calling the underlying functions directly:
-  1. rag_setup (setup_project)
-  2. rag_index (index_project)
-  3. rag_check_constraints (check_constraints)
-  4. rag_query_impact (query_impact)
-  5. rag_health_check (health_check)
-  6. rag_status (get_status)
+Tests the underlying functions directly:
+  1. setup_project
+  2. index_project
+  3. check_constraints (wired behind rag_search)
+  4. query_impact (wired behind rag_query_impact)
+  5. health_check
+  6. get_status
+  7. index_file (per-file incremental update)
 """
 
 import json
@@ -20,11 +21,12 @@ import traceback
 SERVER_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SERVER_DIR)
 
-from config import ProjectContext, restore_context
-from setup import setup_project
-from indexer import index_project
+from config import ProjectContext, restore_context, rag_dir as cache_dir_for_project
+from bootstrap import setup_project
+from indexer import index_project, index_file
 from query import check_constraints, query_impact
 from health import health_check, get_status
+from utils.chroma import reset_cache as reset_chroma_cache
 
 TEST_PROJECT = os.path.abspath(
     os.path.join(SERVER_DIR, "..", "test-project")
@@ -52,18 +54,20 @@ def check(label: str, condition: bool, detail: str = ""):
 
 
 # ============================================================
-# Clean up any prior .rag directory to start fresh
+# Clean up cache for this test project to start fresh
 # ============================================================
 
-rag_dir = os.path.join(TEST_PROJECT, ".rag")
-if os.path.isdir(rag_dir):
-    print(f"[cleanup] Removing existing .rag directory: {rag_dir}")
-    def on_rm_error(func, path, exc_info):
-        """Handle read-only files on Windows."""
-        import stat
-        os.chmod(path, stat.S_IWRITE)
-        func(path)
-    shutil.rmtree(rag_dir, onexc=on_rm_error)
+cache_dir = cache_dir_for_project(TEST_PROJECT)
+if os.path.isdir(cache_dir):
+    print(f"[cleanup] Removing cache dir: {cache_dir}")
+    shutil.rmtree(cache_dir, ignore_errors=True)
+    reset_chroma_cache()
+
+# Also clean up any legacy .rag dir inside the project (left over from old layout)
+legacy_rag = os.path.join(TEST_PROJECT, ".rag")
+if os.path.isdir(legacy_rag):
+    print(f"[cleanup] Removing legacy .rag dir: {legacy_rag}")
+    shutil.rmtree(legacy_rag, ignore_errors=True)
 
 # ============================================================
 # 1. rag_setup
@@ -88,8 +92,9 @@ try:
         check("frontend detected", result.get("frontendDetected") is not None, result.get("frontendDetected", "")),
         check("backend detected", result.get("backendDetected") is not None, result.get("backendDetected", "")),
         check("chromaDbPath set", result.get("chromaDbPath") is not None),
-        check(".rag directory created", os.path.isdir(rag_dir)),
-        check(".rag/config.json exists", os.path.isfile(os.path.join(rag_dir, "config.json"))),
+        check("cache dir created", os.path.isdir(cache_dir)),
+        check("config.json exists in cache", os.path.isfile(os.path.join(cache_dir, "config.json"))),
+        check("no .rag/ created in project tree", not os.path.isdir(legacy_rag)),
         check("ARCHITECTURE.yml generated or exists",
               os.path.isfile(os.path.join(TEST_PROJECT, "ARCHITECTURE.yml"))),
         check("docs/patterns/ exists",
@@ -345,6 +350,264 @@ try:
 except Exception as e:
     print(f"  [FAIL] Exception: {e}")
     results["rag_status_no_ctx"] = FAIL
+
+# ============================================================
+# 7. index_file (per-file incremental update)
+# ============================================================
+
+section("7. index_file (per-file)")
+if context is None:
+    print("  [SKIP] No context")
+    results["index_file"] = FAIL
+else:
+    try:
+        # Append a unique marker function to a tracked file, re-index just that
+        # file, and verify the new chunk is in the collection.
+        target = os.path.join(TEST_PROJECT, "backend", "routes", "auth.js")
+        marker = "checkConstraintsQuokkaSignature"
+
+        with open(target, "r", encoding="utf-8") as f:
+            original = f.read()
+        try:
+            with open(target, "a", encoding="utf-8") as f:
+                f.write(f"\n\nfunction {marker}() {{ return 'unique'; }}\n")
+
+            outcome = index_file(context, target)
+            print(f"  index_file outcome: {outcome}")
+
+            # Verify directly against the collection: are there chunks for this
+            # file, and does the new marker appear in any of them?
+            import chromadb
+            from chromadb.config import Settings
+
+            client = chromadb.PersistentClient(
+                path=context.chroma_db_path,
+                settings=Settings(anonymized_telemetry=False),
+            )
+            col = client.get_collection("codebase")
+            chunks = col.get(
+                where={"filePath": "backend/routes/auth.js"},
+                include=["documents"],
+            )
+            has_marker = any(marker in (d or "") for d in chunks["documents"])
+            print(f"  chunks for auth.js after index_file: {len(chunks['documents'])}")
+            print(f"  any chunk contains marker: {has_marker}")
+
+            t7 = all([
+                check("index_file status is 'indexed'", outcome.get("status") == "indexed"),
+                check("collection is codebase", outcome.get("collection") == "codebase"),
+                check("re-embedded chunks contain marker", has_marker),
+            ])
+            results["index_file"] = PASS if t7 else FAIL
+        finally:
+            with open(target, "w", encoding="utf-8") as f:
+                f.write(original)
+            # Re-index again so subsequent runs see a clean tree
+            index_file(context, target)
+    except Exception as e:
+        print(f"  [FAIL] Exception: {e}")
+        traceback.print_exc()
+        results["index_file"] = FAIL
+
+# ============================================================
+# 8. ProjectWatcher (filesystem watcher integration test)
+# ============================================================
+
+section("8. ProjectWatcher")
+if context is None:
+    print("  [SKIP] No context")
+    results["watcher"] = FAIL
+else:
+    try:
+        # Use a short debounce so the test stays fast.
+        os.environ["RAG_WATCHER_DEBOUNCE_MS"] = "100"
+        from watcher import ProjectWatcher
+        import time as _time
+
+        target = os.path.join(TEST_PROJECT, "backend", "routes", "users.js")
+        marker = "watcherIntegrationQuokka"
+        with open(target, "r", encoding="utf-8") as f:
+            original = f.read()
+
+        seen_paths = []
+        def _on_change(path, gitignore):
+            seen_paths.append(path)
+            index_file(context, path, gitignore=gitignore)
+
+        watcher = ProjectWatcher(context, on_change=_on_change)
+        watcher.start()
+        try:
+            _time.sleep(0.2)  # let observer settle
+            with open(target, "a", encoding="utf-8") as f:
+                f.write(f"\nfunction {marker}() {{ return 1; }}\n")
+            _time.sleep(0.8)  # debounce + reindex slack
+
+            # Verify chunk made it into the collection.
+            import chromadb
+            from chromadb.config import Settings
+            client = chromadb.PersistentClient(
+                path=context.chroma_db_path,
+                settings=Settings(anonymized_telemetry=False),
+            )
+            col = client.get_collection("codebase")
+            chunks = col.get(
+                where={"filePath": "backend/routes/users.js"},
+                include=["documents"],
+            )
+            has_marker = any(marker in (d or "") for d in chunks["documents"])
+            print(f"  watcher saw {len(seen_paths)} change(s)")
+            print(f"  any chunk contains marker: {has_marker}")
+
+            t8 = all([
+                check("watcher fired at least once", len(seen_paths) >= 1),
+                check("watcher reindexed the touched file", has_marker),
+            ])
+            results["watcher"] = PASS if t8 else FAIL
+        finally:
+            watcher.stop()
+            with open(target, "w", encoding="utf-8") as f:
+                f.write(original)
+            index_file(context, target)
+            os.environ.pop("RAG_WATCHER_DEBOUNCE_MS", None)
+    except Exception as e:
+        print(f"  [FAIL] Exception: {e}")
+        traceback.print_exc()
+        results["watcher"] = FAIL
+
+# ============================================================
+# 9. scope.is_in_scope honors .gitignore
+# ============================================================
+
+section("9. .gitignore is respected")
+if context is None:
+    print("  [SKIP] No context")
+    results["gitignore"] = FAIL
+else:
+    try:
+        import scope
+        gitignore_path = os.path.join(TEST_PROJECT, ".gitignore")
+        gen_dir = os.path.join(TEST_PROJECT, "generated")
+        os.makedirs(gen_dir, exist_ok=True)
+        gen_file = os.path.join(gen_dir, "build.js")
+        with open(gen_file, "w", encoding="utf-8") as f:
+            f.write("export const X = 1;\n")
+        with open(gitignore_path, "w", encoding="utf-8") as f:
+            f.write("generated/\n")
+        try:
+            gi = scope.load_gitignore(TEST_PROJECT)
+            in_scope_with = scope.is_in_scope(gen_file, context, gitignore=gi)
+            in_scope_without = scope.is_in_scope(gen_file, context, gitignore=None)
+            print(f"  in_scope (with gitignore): {in_scope_with}")
+            print(f"  in_scope (without gitignore): {in_scope_without}")
+            t9 = all([
+                check("gitignored file excluded when gitignore is honored", in_scope_with is False),
+                check("same file would be in scope without gitignore", in_scope_without is True),
+            ])
+            results["gitignore"] = PASS if t9 else FAIL
+        finally:
+            shutil.rmtree(gen_dir, ignore_errors=True)
+            try:
+                os.remove(gitignore_path)
+            except OSError:
+                pass
+    except Exception as e:
+        print(f"  [FAIL] Exception: {e}")
+        traceback.print_exc()
+        results["gitignore"] = FAIL
+
+# ============================================================
+# 10. Path-containment + excluded-dir on relative path
+# ============================================================
+
+section("10. scope path-containment regressions")
+if context is None:
+    print("  [SKIP] No context")
+    results["scope_containment"] = FAIL
+else:
+    try:
+        import scope
+        # Sibling with shared prefix must NOT be in scope.
+        # project_root = .../test-project
+        # poison_root  = .../test-project-evil
+        evil_dir = TEST_PROJECT + "-evil"
+        os.makedirs(evil_dir, exist_ok=True)
+        poison_file = os.path.join(evil_dir, "evil.js")
+        with open(poison_file, "w", encoding="utf-8") as f:
+            f.write("// poisoned\nexport const X = 1;\n")
+        try:
+            in_scope_sibling = scope.is_in_scope(poison_file, context)
+        finally:
+            shutil.rmtree(evil_dir, ignore_errors=True)
+
+        # A project hosted under a path containing an excluded-dir name
+        # (e.g., somewhere under a `.cache` directory) must still index.
+        # Simulate by checking that the abs-path containing ".venv" anywhere
+        # doesn't bork a relative path that itself doesn't have ".venv".
+        # We can't easily move TEST_PROJECT, so just unit-test the helper.
+        from scope import _matches_excluded_dir
+        rel_ok = _matches_excluded_dir("backend/routes/auth.js", [".venv"])
+        rel_excluded = _matches_excluded_dir("frontend/.venv/foo.js", [".venv"])
+
+        t10 = all([
+            check("sibling-prefix path NOT in scope", in_scope_sibling is False),
+            check("relative path without excluded segment is allowed", rel_ok is False),
+            check("relative path with excluded segment is rejected", rel_excluded is True),
+        ])
+        results["scope_containment"] = PASS if t10 else FAIL
+    except Exception as e:
+        print(f"  [FAIL] Exception: {e}")
+        traceback.print_exc()
+        results["scope_containment"] = FAIL
+
+# ============================================================
+# 11. write_config atomic + max-size cap on index_file
+# ============================================================
+
+section("11. atomic config write + max file size cap")
+if context is None:
+    print("  [SKIP] No context")
+    results["robustness"] = FAIL
+else:
+    try:
+        from config import config_file_path
+        from indexer import index_file as _index_file
+
+        cfg_path = config_file_path(TEST_PROJECT)
+        # The atomic-write should never leave a partial file behind. After a
+        # call, there must be no leftover .tmp file in the cache dir.
+        cache_root = os.path.dirname(cfg_path)
+        leftovers_before = [f for f in os.listdir(cache_root) if f.endswith(".json.tmp")]
+
+        # Force a file to exceed the cap and verify it's reported as empty.
+        target = os.path.join(TEST_PROJECT, "backend", "routes", "projects.js")
+        with open(target, "r", encoding="utf-8") as f:
+            original = f.read()
+        try:
+            os.environ["RAG_MAX_FILE_BYTES"] = "10"  # tiny cap
+            # Re-import indexer to pick up new env var? No — env is read at
+            # import time. Instead, monkeypatch the constant.
+            import indexer as _indexer
+            saved_cap = _indexer._MAX_FILE_BYTES
+            _indexer._MAX_FILE_BYTES = 10
+            outcome = _indexer.index_file(context, target)
+            _indexer._MAX_FILE_BYTES = saved_cap
+        finally:
+            with open(target, "w", encoding="utf-8") as f:
+                f.write(original)
+
+        leftovers_after = [f for f in os.listdir(cache_root) if f.endswith(".json.tmp")]
+
+        t11 = all([
+            check("no leftover .tmp from atomic write", leftovers_before == leftovers_after),
+            check("oversized file reported as empty",
+                  outcome.get("status") == "empty" and outcome.get("chunks") == 0,
+                  str(outcome)),
+        ])
+        results["robustness"] = PASS if t11 else FAIL
+    except Exception as e:
+        print(f"  [FAIL] Exception: {e}")
+        traceback.print_exc()
+        results["robustness"] = FAIL
 
 # ============================================================
 # Summary

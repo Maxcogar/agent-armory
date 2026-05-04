@@ -1,0 +1,23 @@
+{
+  "enableAllProjectMcpServers": false,
+  "permissions": {
+    "allow": [
+      "Read(**)",
+      "Glob(**)",
+      "Bash(git log *)",
+      "Bash(git diff *)",
+      "Bash(git show *)",
+      "Bash(git status)",
+      "Write(codebase-audit-report.md)",
+      "mcp__codegraph",
+      "mcp__codebase-rag"
+    ],
+    "deny": [
+      "Edit",
+      "Bash",
+      "WebFetch",
+      "WebSearch",
+      "Agent"
+    ]
+  }
+}

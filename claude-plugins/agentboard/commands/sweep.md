@@ -19,7 +19,7 @@ Follow these steps in order.
 
 2. **Load tools** by calling `ToolSearch` for `agentboard`, `codegraph`, and `rag`.
 
-3. **Check AgentBoard server** — call `agentboard_health_check`. If not running, call `agentboard_start_server`.
+3. **Authenticate if needed, then verify connectivity.** If only `agentboard_authenticate` and `agentboard_complete_authentication` are visible, run the OAuth bootstrap from `skills/agentboard/SKILL.md` §1.3 first. Then call `agentboard_health_check`. If it fails post-auth, the cloud service is unreachable — show the error and stop.
 
 4. **Select or create an app:**
    - Call `agentboard_list_apps`
@@ -45,10 +45,7 @@ Build a structural map before reading any code.
    - `codegraph_get_stats` — note total files, most-connected files, most-depended-on files
    - `codegraph_find_entry_points` — identify application entry points
 
-2. **Initialize RAG** (if not already):
-   - `rag_status` to check
-   - If not initialized: `rag_setup` + `rag_index`
-   - If stale: `rag_index`
+2. **Codebase RAG is auto-bootstrapped** — no init needed. The first `rag_search` call in a never-indexed project may return `status: "indexing"`; retry after a few seconds.
 
 3. **Read config files** — `package.json`, `tsconfig.json`, build configs, etc. Understand the stack, dependencies, and tooling.
 
@@ -96,7 +93,7 @@ After the sweep is complete:
 5. **Identify dependencies** between groups — what must be fixed before what? Set `depends_on` accordingly.
 
 6. **Create workspace cards** — one per group:
-   - Call `agentboard_create_card` for each group
+   - Call `agentboard_create_workspace_card` for each group
    - `title`: Clear, actionable (e.g., "Standardize error handling across API routes")
    - `description`: Summarize the findings in this group — which files, what's wrong, severity
    - `priority`: From step 4
