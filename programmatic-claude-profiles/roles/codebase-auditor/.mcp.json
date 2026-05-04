@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "codegraph": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "node",
+        "C:\\Users\\maxco\\Documents\\agent-armory\\mcp-servers\\codegraph-mcp\\dist\\index.js"
+      ]
+    },
+    "codebase-rag": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "python",
+        "C:\\Users\\maxco\\Documents\\agent-armory\\mcp-servers\\codebase-rag\\mcp-server-python\\server.py"
+      ]
+    }
+  }
+}

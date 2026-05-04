@@ -1,0 +1,1 @@
+Review all code in this directory. Evaluate against established engineering standards, not against patterns in the existing codebase. Produce a complete review report per your instructions and write it to claude-review-report.md.
