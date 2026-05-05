@@ -19,6 +19,19 @@
       "args": [
         "C:\\Users\\maxco\\Documents\\agent-armory\\mcp-servers\\codebase-rag\\mcp-server-python\\server.py"
       ]
+    },
+    "clear-thought": {
+      "type": "stdio",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "-p",
+        "@waldzellai/clear-thought",
+        "mcp-server-clear-thought"
+      ],
+      "env": {}
     }
   }
 }
