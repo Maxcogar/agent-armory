@@ -51,12 +51,22 @@ Use `mcp__agentboard__agentboard_list_workspace_cards` filtered by status. Alway
 
 ### 2. Spawn Parallel Subagents
 
-Launch one Agent per card using `run_in_background: true`. Use the prompt template from `prompts/{wave}-agent.md`, substituting:
-- `{{card_id}}` — the card's UUID
-- `{{board_id}}` — the board UUID
-- `{{agent_id}}` — use the orchestrator's agent_id (e.g., `claude-opus-4-6`)
-- `{{spec_path}}` — path to the spec document (for planning/review agents)
-- `{{card_title}}` — the card's title (for artifact headers)
+Launch one Agent per card using `run_in_background: true` with the appropriate `subagent_type` from the table below. Pass per-card variables in the prompt:
+- `card_id` — the card's UUID
+- `board_id` — the board UUID
+- `agent_id` — use the orchestrator's agent_id (e.g., `claude-opus-4-6`)
+- `spec_excerpt` — relevant spec section (planning Phase A only)
+- `card_title` — the card's title (for artifact headers)
+- `repo_root` — absolute repo path (audit Phase A only)
+
+| Wave | Phase | `subagent_type` |
+|------|-------|-----------------|
+| 1 — Planning | A (haiku) | `planning-research-agent` |
+| 1 — Planning | B (opus) | `plan-compose-agent` |
+| 2 — Review | — | `review-agent` |
+| 3 — Implementation | — | `implementation-agent` |
+| 4 — Audit | A (haiku) | `audit-research-agent` |
+| 4 — Audit | B (opus) | `audit-compose-agent` |
 
 ### 3. Wait for All Agents
 
@@ -138,26 +148,27 @@ Between waves (and at checkpoints), show:
 Progress: 5/10 cards finished (50%)
 ```
 
-## Prompt Templates
+## Agents
 
-Located in `prompts/` directory within this skill:
-- `planning-agent.md` — **Phase A dispatch only** (see two-phase note below)
-- `review-agent.md` — validates plans against constraints
-- `implementation-agent.md` — executes plans, writes code
-- `audit-agent.md` — **Phase A dispatch only** (see two-phase note below)
+All wave workers are dedicated agents defined in `agents/` at the plugin root:
 
-### Two-Phase Planning and Audit
+| Agent | Model | Role |
+|-------|-------|------|
+| `planning-research-agent` | haiku | Wave 1 Phase A — codegraph/RAG discovery, emits `FACTS_BUNDLE_V1` |
+| `plan-compose-agent` | opus | Wave 1 Phase B — reads bundle, writes plan artifact with full Expert Standard rigor |
+| `review-agent` | opus | Wave 2 — validates plans against constraints |
+| `implementation-agent` | sonnet | Wave 3 — executes plans, writes code |
+| `audit-research-agent` | haiku | Wave 4 Phase A — git diff + blast radius, emits `AUDIT_FACTS_BUNDLE_V1` |
+| `audit-compose-agent` | opus | Wave 4 Phase B — reads bundle, writes audit report, moves card |
 
-Wave 1 (Planning) and Wave 4 (Audit) each use a two-phase subagent pipeline instead of a single agent. The agent definitions live in `agents/` at the plugin root:
+### Two-Phase Pipeline (Waves 1 and 4)
 
 **Wave 1:**
-1. Spawn `planning-research-agent` (haiku) per card — runs codegraph/RAG discovery, emits a `FACTS_BUNDLE_V1` artifact on the card
+1. Spawn `planning-research-agent` per card in parallel — runs RAG discovery then codegraph structural analysis, emits `FACTS_BUNDLE_V1` artifact
 2. Wait for ALL Phase A agents to complete
-3. Spawn `plan-compose-agent` (opus) per card — reads the facts bundle, writes the `plan` artifact. No discovery calls.
+3. Spawn `plan-compose-agent` per card in parallel — reads the bundle, writes the `plan` artifact (no discovery calls)
 
 **Wave 4:**
-1. Spawn `audit-research-agent` (haiku) per card — gathers git diff, blast radius, cross-references the plan, emits an `AUDIT_FACTS_BUNDLE_V1` artifact
+1. Spawn `audit-research-agent` per card in parallel — gathers git diff, blast radius, cross-references the plan artifact, emits `AUDIT_FACTS_BUNDLE_V1`
 2. Wait for ALL Phase A agents to complete
-3. Spawn `audit-compose-agent` (opus) per card — reads the audit bundle, writes the `audit_report` artifact with PASS/PASS WITH NOTES/FAIL verdict
-
-The `prompts/planning-agent.md` and `prompts/audit-agent.md` files in this directory describe the old single-agent approach — **do not use them**. Use the `agents/` definitions instead.
+3. Spawn `audit-compose-agent` per card in parallel — reads the bundle, writes `audit_report` artifact, moves card to `finished` (PASS) or back to `implementation` (FAIL)
