@@ -1,6 +1,6 @@
 ---
 name: pickup
-description: Resume AgentBoard work — check server health, find active project, and claim next task
+description: Resume AgentBoard work — read the skill, check server health, find active project, and claim next task
 ---
 
 # AgentBoard Pickup
@@ -11,9 +11,13 @@ For agents joining an existing session or resuming after a break. Assumes initia
 
 Follow these steps in order.
 
-1. **Load the AgentBoard skill** — it provides the full workflow reference and tool documentation. Also read the project's `CLAUDE.md` for codebase constraints and the state machine rules.
+1. **Read the AgentBoard skill** to understand the workflow and tools:
+   - Read `skills/agentboard/SKILL.md`
+   - Read `CLAUDE.md` for codebase constraints and the state machine rules
 
-2. **Authenticate if needed, then verify connectivity.** If only `agentboard_authenticate` and `agentboard_complete_authentication` are visible, run the OAuth bootstrap from `skills/agentboard/SKILL.md` §1.3 first. Then call `agentboard_health_check`. If it fails post-auth, the cloud service is unreachable — show the error to the user and stop.
+2. **Check server health** by calling `agentboard_health_check`:
+   - If the server is not running, start it by calling `agentboard_start_server`
+   - Then re-check health with `agentboard_health_check`
 
 3. **List projects** by calling `agentboard_list_projects`.
 
@@ -30,7 +34,7 @@ Follow these steps in order.
 
 7. **If the task is a milestone**, also read the linked document by calling `agentboard_get_document`.
 
-8. **Check the activity log** by calling `agentboard_get_activity_log` (last 10 entries) to understand recent work:
+8. **Check the activity log** by calling `agentboard_get_activity_log` with `limit=10` to understand recent work:
    - What the previous agent accomplished
    - Any rejection feedback or blockers
 

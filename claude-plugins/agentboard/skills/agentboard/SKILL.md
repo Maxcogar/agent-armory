@@ -128,7 +128,7 @@ At the start of every session, run these steps in order:
 
 | Tool | Purpose | Key Parameters |
 |---|---|---|
-| `agentboard_list_tasks` | List tasks (with filters) | `project_id`, `status?`, `phase?` |
+| `agentboard_list_tasks` | List tasks (with filters) | `project_id`, `status?`, `phase?`, `limit?`, `offset?` |
 | `agentboard_get_task` | Get single task details | `task_id` |
 | `agentboard_get_next_task` | Auto-claim next actionable task | `project_id`, `agent_id`. Returns one of 4 response patterns: **(1) New task claimed** (200): a `ready` task was auto-claimed to `in-progress`, returns `{task, document}`. **(2) Existing task resumed** (200): an `in-progress` task already assigned to you, same shape. **(3) Pending review** (200): your submitted document is awaiting human review, returns `{task: null, document: null, pending_review: {...}}` -- wait. **(4) No tasks available** (404): returns `{error: "No tasks available"}`. |
 | `agentboard_create_task` | Create a new task | `project_id`, `agent_id`, `title`, and optional fields |
@@ -157,7 +157,7 @@ This separation is a design convention; the server does not enforce it today, so
 
 | Tool | Purpose | Key Parameters |
 |---|---|---|
-| `agentboard_get_activity_log` | Get audit trail | `project_id`, `actor?`, `action?`. NOT part of the standard worker agent work loop -- primarily for debugging and project oversight. |
+| `agentboard_get_activity_log` | Get audit trail | `project_id`, `actor?`, `action?`, `limit?` (default 50, max 1000), `offset?`. NOT part of the standard worker agent work loop -- primarily for debugging and project oversight. |
 | `agentboard_add_log_entry` | Record significant project-wide events | `project_id`, `agent_id`, `action`, `target?`, `detail?`. Records events NOT captured by automatic status changes. Distinct from task `notes`. NOT part of the standard worker agent work loop. |
 
 **Valid `action` values:** `project_created`, `phase_approved`, `task_created`, `task_started`, `task_completed`, `task_updated`, `note_added`, `document_filled`, `document_approved`, `document_superseded`, `document_rejected`, `log_entry`.
@@ -189,8 +189,8 @@ Workspace boards are a separate, ad-hoc pipeline alongside the phase system — 
 
 | Tool | Purpose | Key Parameters |
 |---|---|---|
-| `agentboard_list_workspace_cards` | List cards on a board (filter by status/column) | `board_id`, `status?` |
-| `agentboard_get_card` | Fetch a card by ID. Returns artifacts bundled. | `card_id`, `response_format?` |
+| `agentboard_list_workspace_cards` | List cards on a board (filter by status/column) | `board_id`, `status?`, `fields?` (default slim set — omits description/notes bodies), `include_notes?` (`count` default / `latest` / `all`), `limit?`, `offset?`. **Default returns `notes_count` int, not full notes array — use `get_card` or `include_notes="all"` for note bodies.** |
+| `agentboard_get_card` | Fetch a card by ID. Returns artifacts bundled. | `card_id`, `include_notes?` (`all` default / `latest` / `count`), `response_format?` |
 | `agentboard_get_next_card` | Auto-claim the next actionable card from a column. Triggers the workspace-card-guidance hook. | `board_id`, `agent_id`, `column?` |
 | `agentboard_create_workspace_card` | Create a card on a board. Use when an agent needs to spawn follow-up work from the card it's currently on (e.g. a planning agent splits a card into smaller implementation cards). Don't pollute one card with multiple distinct units of work. | `board_id`, `title`, `description?`, `priority?`, `depends_on?` |
 | `agentboard_update_workspace_card` | Update card fields (title, description, notes, status/column). Triggers the workspace-card-guidance hook. | `card_id`, `agent_id`, fields to update |
