@@ -51,13 +51,7 @@ Use `mcp__agentboard__agentboard_list_workspace_cards` filtered by status. Alway
 
 ### 2. Spawn Parallel Subagents
 
-Launch one Agent per card using `run_in_background: true` with the appropriate `subagent_type` from the table below. Pass per-card variables in the prompt:
-- `card_id` — the card's UUID
-- `board_id` — the board UUID
-- `agent_id` — use the orchestrator's agent_id (e.g., `claude-opus-4-6`)
-- `spec_excerpt` — relevant spec section (planning Phase A only)
-- `card_title` — the card's title (for artifact headers)
-- `repo_root` — absolute repo path (audit Phase A only)
+Launch one Agent per card using `run_in_background: true`. Set `subagent_type` to the agent name for the wave. The agents carry their own system prompts, tool allowlists, and model assignments — the prompt only needs to pass the per-card variables.
 
 | Wave | Phase | `subagent_type` |
 |------|-------|-----------------|
@@ -67,6 +61,48 @@ Launch one Agent per card using `run_in_background: true` with the appropriate `
 | 3 — Implementation | — | `implementation-agent` |
 | 4 — Audit | A (haiku) | `audit-research-agent` |
 | 4 — Audit | B (opus) | `audit-compose-agent` |
+
+**Phase A prompt (Waves 1 and 4):**
+
+```
+card_id: 7f3c...
+board_id: a91e...
+agent_id: claude-opus-4-6
+card_title: Add pagination to workspace cards endpoint
+spec_excerpt: <paste the relevant spec section for this card>   ← Wave 1 only
+repo_root: /absolute/path/to/repo                              ← Wave 4 only
+```
+
+**Phase B prompt (Waves 1 and 4):**
+
+Before spawning Phase B agents, fetch the Phase A bundle from each card:
+- Call `agentboard_list_workspace_artifacts` for the card
+- Find the artifact starting with `FACTS_BUNDLE_V1` (Wave 1) or `AUDIT_FACTS_BUNDLE_V1` (Wave 4)
+- Call `agentboard_get_workspace_artifact` to fetch the full content
+
+Pass the bundle inline so the compose agent does not need to fetch it again:
+
+```
+card_id: 7f3c...
+board_id: a91e...
+agent_id: claude-opus-4-6
+card_title: Add pagination to workspace cards endpoint
+facts_bundle:
+FACTS_BUNDLE_V1
+{ ...full JSON bundle content... }
+```
+
+If a Phase A artifact is missing for a card, skip Phase B for that card and report the failure — do not spawn a compose agent without a bundle.
+
+**Waves 2 and 3 prompt:**
+
+```
+card_id: 7f3c...
+board_id: a91e...
+agent_id: claude-opus-4-6
+card_title: Add pagination to workspace cards endpoint
+spec_path: /repo/docs/spec.md    ← review-agent only
+```
 
 ### 3. Wait for All Agents
 
