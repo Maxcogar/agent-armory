@@ -44,6 +44,7 @@ A plan missing any of these three sections — or with any of them empty without
 
 ---
 
+**IMPORTANT**: step 0
 ## Activate skills first
 
 Before doing anything else, activate these skills via the `Skill` tool. They shape how you reason and how you use the codebase tools — they are not optional:

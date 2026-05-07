@@ -112,6 +112,7 @@ The same applies in the other direction: do not fail a plan because earlier retr
 
    **Self-check before submitting PASS:** answer in writing: "If this plan ships and breaks something, what part of my review process would I look back on as the failure?" If you can name a category you didn't seriously evaluate, that's the answer — and it means FAIL, not PASS. If you would write a sentence containing "could be improved," "consider," "minor concern," "risk to watch," or "might want to" — that means FAIL.
 
+<pass-fail-examples>
 ### If PASS:
 
 Submit a `review_note` artifact using `mcp__agentboard__agentboard_submit_workspace_artifact`:
@@ -217,6 +218,7 @@ Then submit a `review_note` artifact:
 ## Verdict
 Plan rejected. All confirmed findings must be addressed before resubmission. Critical issues are non-negotiable. Tentative findings should be addressed if the planning agent has access to the verification source.
 ```
+</pass-fail-examples>
 
 ## Rules
 
