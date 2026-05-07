@@ -1,0 +1,43 @@
+{
+  "name": "agentboard",
+  "version": "0.1.0",
+  "description": "Codex plugin for AgentBoard project and workspace orchestration workflows.",
+  "author": {
+    "name": "Maxcogar",
+    "url": "https://github.com/Maxcogar"
+  },
+  "homepage": "https://agent-board.app",
+  "repository": "https://github.com/Maxcogar/agent-armory",
+  "license": "MIT",
+  "keywords": [
+    "agentboard",
+    "codex",
+    "project-management",
+    "workflow",
+    "orchestration"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "AgentBoard",
+    "shortDescription": "Structured project and workspace orchestration for Codex",
+    "longDescription": "Use AgentBoard from Codex to run phase-based projects, manage workspace boards, build specs, sweep codebases, and orchestrate planning, review, implementation, and audit work.",
+    "developerName": "Maxcogar",
+    "category": "Engineering",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://agent-board.app",
+    "privacyPolicyURL": "https://agent-board.app",
+    "termsOfServiceURL": "https://agent-board.app",
+    "defaultPrompt": [
+      "Use AgentBoard to start or resume a structured project workflow",
+      "Create a spec and workspace board for this codebase",
+      "Sweep this repo and turn findings into AgentBoard cards"
+    ],
+    "brandColor": "#1F6FEB",
+    "screenshots": []
+  }
+}
