@@ -9,10 +9,12 @@
 
 ### Recommendation: Python with FastMCP
 
+**Prerequisite:** Requires **Python 3.10+** (the MCP server uses type syntax from PEP 604, e.g. `dict | None`).
+
 **Note:** SKILL.md recommends TypeScript as the default. We override this recommendation for the following project-specific reasons:
 
 **Why NOT TypeScript for this project:**
-- TypeScript requires a build step (`tsc`), `tsconfig.json`, `package.json`, and a `dist/` directory -- overhead for 17 tools wrapping a local REST API
+- TypeScript requires a build step (`tsc`), `tsconfig.json`, `package.json`, and a `dist/` directory -- overhead for 20 tools wrapping a local REST API
 - The AgentBoard Express server already occupies the Node.js ecosystem. A Python MCP server creates a clean separation of concerns with zero risk of dependency conflicts
 - The TypeScript SDK's `registerTool` requires manual Zod schema definitions that are more verbose than Pydantic's decorator-based auto-schema generation
 - The `submit-and-wait` endpoint holds HTTP connections open for minutes -- Python's `httpx` supports per-request timeout overrides trivially without creating a persistent client
@@ -51,7 +53,7 @@ agentboard_mcp/
   example_evaluation.xml  # Example eval format
 ```
 
-**Single-file rationale:** The MCP server has 17 tools with shared constants and one API client function. Splitting into multiple files adds complexity without benefit. If the file exceeds ~800 lines, extract `models.py` and `api.py`.
+**Single-file rationale:** The MCP server has 26 tools (20 core + 6 workspace) with shared constants and one API client function. Splitting into multiple files adds complexity without benefit. If the file exceeds ~800 lines, extract `models.py` and `api.py`.
 
 ---
 
@@ -212,6 +214,7 @@ def is_error(result) -> bool:
 
 ```python
 class CreateProjectInput(BaseModel):
+    agent_id: str = Field(..., description="Identifier of the agent performing this action (e.g. 'claude-opus-4-6'). Sent as X-Agent-Id header for attribution.")
     name: str = Field(..., description="Project name", min_length=1, max_length=200)
     project_type: Literal["new_feature", "refactor", "bug_fix", "migration", "integration"] = Field(
         ..., description="Type of project. Determines which document templates are generated."
@@ -235,7 +238,7 @@ class CreateProjectInput(BaseModel):
 |-------|-------|
 | **Description** | Advance a project to the next phase. For phases 2-9, the phase document must have status 'approved' before advancing. Fails if already at phase 13. Logs a 'phase_approved' activity entry. |
 | **HTTP** | `POST /api/projects/:id/advance` |
-| **Input Schema** | `project_id: str` (required, UUID) |
+| **Input Schema** | `project_id: str` (required, UUID), `agent_id: str` (required, sent as X-Agent-Id header) |
 | **Output** | Updated project object with incremented `current_phase` |
 | **Annotations** | `readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False` |
 | **Errors** | 404: project not found, 400: `{"error": "Already at final phase"}`, 400: `{"error": "Phase N document must be approved before advancing"}` |
@@ -246,7 +249,7 @@ class CreateProjectInput(BaseModel):
 |-------|-------|
 | **Description** | Revert a project to the previous phase. Fails if already at phase 1. Logs a 'phase_approved' activity entry (note: the action name is reused). |
 | **HTTP** | `POST /api/projects/:id/revert` |
-| **Input Schema** | `project_id: str` (required, UUID) |
+| **Input Schema** | `project_id: str` (required, UUID), `agent_id: str` (required, sent as X-Agent-Id header) |
 | **Output** | Updated project object with decremented `current_phase` |
 | **Annotations** | `readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False` |
 | **Errors** | 404: project not found, 400: `{"error": "Already at phase 1"}` |
@@ -295,7 +298,7 @@ class ListTasksInput(BaseModel):
 |-------|-------|
 | **Description** | Get the next actionable task for a project. Auto-claims 'ready' tasks by transitioning to 'in-progress' and setting the assignee. Returns both the task and linked document (if milestone). Priority order: (1) in-progress milestones, (2) in-progress implementation tasks, (3) ready milestones, (4) ready implementation tasks. Tasks with unsatisfied dependencies are excluded. |
 | **HTTP** | `GET /api/projects/:id/tasks/next` |
-| **Input Schema** | `project_id: str` (required, UUID) |
+| **Input Schema** | `project_id: str` (required, UUID), `agent_id: str` (required, sent as X-Agent-Id header for auto-claim attribution) |
 | **Output** | `{"task": <task_object>, "document": <document_object_or_null>}` |
 | **Annotations** | `readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False` |
 | **Errors** | 404: `{"error": "No tasks available"}` |
@@ -312,6 +315,7 @@ class ListTasksInput(BaseModel):
 ```python
 class CreateTaskInput(BaseModel):
     project_id: str = Field(..., description="Project UUID")
+    agent_id: str = Field(..., description="Identifier of the agent performing this action (sent as X-Agent-Id header)")
     title: str = Field(..., description="Task title", min_length=1)
     description: Optional[str] = Field(default=None, description="Detailed task description")
     acceptance_criteria: Optional[str] = Field(default=None, description="Criteria that must be met for task completion")
@@ -351,6 +355,7 @@ class NoteInput(BaseModel):
 
 class UpdateTaskInput(BaseModel):
     task_id: str = Field(..., description="Task UUID to update")
+    agent_id: str = Field(..., description="Identifier of the agent performing this action (sent as X-Agent-Id header)")
     title: Optional[str] = Field(default=None, description="New title")
     description: Optional[str] = Field(default=None, description="New description")
     acceptance_criteria: Optional[str] = Field(default=None, description="New acceptance criteria")
@@ -359,7 +364,7 @@ class UpdateTaskInput(BaseModel):
     test_expectations: Optional[str] = Field(default=None, description="New test expectations")
     status: Optional[Literal["backlog", "ready", "in-progress", "review", "done", "blocked"]] = Field(
         default=None,
-        description="New status. Must follow state machine transitions: backlog->[ready,blocked], ready->[backlog,in-progress,blocked], in-progress->[ready,review,blocked], review->[in-progress,done,blocked], done->[] (final), blocked->[previous_status only]. Guards: ready->in-progress requires assignee+acceptance_criteria, in-progress->review requires notes, review->done requires notes."
+        description="New status. Must follow state machine transitions: backlog->[ready,blocked], ready->[backlog,in-progress,blocked], in-progress->[ready,review,blocked], review->[in-progress,done,blocked], done->[] (final), blocked->[previous_status only]. Guards: ready->in-progress requires assignee, in-progress->review requires notes+acceptance_criteria, review->done requires notes."
     )
     phase: Optional[int] = Field(default=None, description="Phase number (1-13)", ge=1, le=13)
     assignee: Optional[str] = Field(default=None, description="Assignee name/id")
@@ -386,8 +391,8 @@ Transitions:
   blocked    -> [previous_status only]
 
 Guards:
-  ready -> in-progress: requires 'assignee' and 'acceptance_criteria' to be non-empty
-  in-progress -> review: requires 'notes' array to have at least one entry
+  ready -> in-progress: requires 'assignee' to be non-empty
+  in-progress -> review: requires 'notes' array to have at least one entry AND 'acceptance_criteria' to be non-empty
   review -> done: requires 'notes' array to have at least one entry
 
 Blocked behavior:
@@ -432,6 +437,7 @@ Blocked behavior:
 ```python
 class SubmitDocumentInput(BaseModel):
     document_id: str = Field(..., description="Document UUID to submit")
+    agent_id: str = Field(..., description="Identifier of the agent submitting (sent as X-Agent-Id header)")
     content: Optional[str] = Field(
         default=None,
         description="Updated document content (markdown). If omitted, existing content is preserved."
@@ -459,13 +465,14 @@ class SubmitDocumentInput(BaseModel):
 
 | Field | Value |
 |-------|-------|
-| **Description** | Update a document's content, status, or metadata. This is the human/admin tool for approving, rejecting, or editing documents. When changing status to 'approved' or 'rejected', milestoneSync auto-transitions the linked milestone. Rejection requires rejection_feedback. If an agent is waiting on submit-and-wait, the response is sent to them. |
+| **Description** | Update a document's content, status, or metadata. This is the privileged agent tool for making corrections to locked (submitted) documents, and the human tool for approving or rejecting documents. When changing status to 'approved' or 'rejected', milestoneSync auto-transitions the linked milestone. Rejection requires rejection_feedback. If an agent is waiting on submit-and-wait, the response is sent to them. |
 | **HTTP** | `PUT /api/documents/:id` |
 | **Input Schema** | |
 
 ```python
 class UpdateDocumentInput(BaseModel):
     document_id: str = Field(..., description="Document UUID to update")
+    agent_id: str = Field(..., description="Identifier of the agent performing this action (sent as X-Agent-Id header)")
     content: Optional[str] = Field(default=None, description="Updated document content (markdown)")
     status: Optional[Literal["template", "submitted", "approved", "superseded", "rejected"]] = Field(
         default=None, description="New document status"
@@ -525,6 +532,7 @@ class GetActivityLogInput(BaseModel):
 ```python
 class AddLogEntryInput(BaseModel):
     project_id: str = Field(..., description="Project UUID")
+    agent_id: str = Field(..., description="Identifier of the agent performing this action (sent as X-Agent-Id header)")
     action: Literal[
         "project_created", "phase_approved", "task_created", "task_started",
         "task_completed", "task_updated", "note_added", "document_filled",
@@ -588,6 +596,98 @@ npm start    → npm start --prefix server
              → node src/index.js (port 3000 only)
 ```
 
+#### `agentboard_server_status`
+
+| Field | Value |
+|-------|-------|
+| **Description** | Check if the AgentBoard server is running. Always returns a structured response (never errors). Use this to decide whether to call `agentboard_start_server`. |
+| **HTTP** | N/A (subprocess management, not an API call) |
+| **Input Schema** | (none) |
+| **Output** | If running: `{"running": true, "health": {"status": "ok", "timestamp": "..."}, "api_url": "...", "project_dir": "..."}`. If not running: `{"running": false, "api_url": "...", "project_dir": "...", "suggestion": "Server is not responding. Use agentboard_start_server to launch it."}` |
+| **Annotations** | `readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False` |
+| **Errors** | None (always returns a structured response) |
+
+#### `agentboard_stop_server`
+
+| Field | Value |
+|-------|-------|
+| **Description** | Stop the AgentBoard server. Destructive — disconnects all clients and drops pending reviews. Only use this if the server is in a bad state or you need to restart with different settings. Do NOT use this if the server is healthy and working. |
+| **HTTP** | N/A (subprocess management, not an API call) |
+| **Input Schema** | (none) |
+| **Output** | `{"status": "stopped", "killed_pids": [<int>], "message": "..."}` on success. `{"status": "not_running", "message": "Server is not running. Nothing to stop."}` if already stopped. `{"status": "error", "error": "..."}` on failure. |
+| **Annotations** | `readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False` |
+| **Errors** | `not_running`: server was already stopped. `error`: process termination failed. |
+
+---
+
+### 5.7 Workspace
+
+#### `agentboard_list_boards`
+
+| Field | Value |
+|-------|-------|
+| **Description** | List all workspace boards for a project. Workspace boards are lightweight kanban boards for everyday work, separate from the main phase-driven workflow. |
+| **HTTP** | `GET /api/projects/:id/boards` |
+| **Input Schema** | `project_id: str` (required, UUID), `response_format: Optional[Literal["json","markdown"]]` |
+| **Output** | Array of board objects: `[{id, project_id, name, description, auto_transitions, created_at, updated_at}]` |
+| **Annotations** | `readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False` |
+| **Errors** | None (returns empty array if no boards) |
+
+#### `agentboard_create_board`
+
+| Field | Value |
+|-------|-------|
+| **Description** | Create a new workspace board for a project. Boards start with both blocking toggles ON (review and audit require human approval). |
+| **HTTP** | `POST /api/projects/:id/boards` |
+| **Input Schema** | `project_id: str` (required), `agent_id: str` (required), `name: str` (required), `description: Optional[str]` |
+| **Output** | Created board object |
+| **Annotations** | `readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False` |
+| **Errors** | 400: `{"error": "name is required"}` |
+
+#### `agentboard_get_workspace_task`
+
+| Field | Value |
+|-------|-------|
+| **Description** | Auto-claim the next available workspace card from a board. Returns a card with all existing artifacts for full context. If you already have a card assigned, it returns that card instead. No submit-and-wait blocking. No milestone coupling. Board-scoped. |
+| **HTTP** | `GET /api/boards/:id/cards/next` + `GET /api/cards/:id/artifacts` |
+| **Input Schema** | `board_id: str` (required, UUID), `agent_id: str` (required) |
+| **Output** | `{"card": <card_object>, "artifacts": [<artifact_objects>]}` |
+| **Annotations** | `readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False` |
+| **Errors** | 404: `{"error": "No cards available"}` |
+
+#### `agentboard_submit_workspace_artifact`
+
+| Field | Value |
+|-------|-------|
+| **Description** | Submit an artifact (plan, review, implementation notes, audit report) to a workspace card. Type is auto-detected from the card's current column. After submission, the card may auto-advance (planning -> review, implementation -> audit). Unlike agentboard_submit_document, this returns IMMEDIATELY -- no held response. |
+| **HTTP** | `POST /api/cards/:id/artifacts` |
+| **Input Schema** | `card_id: str` (required), `agent_id: str` (required), `content: str` (required), `type: Optional[Literal["plan","review_note","implementation_note","audit_report","general"]]` |
+| **Output** | `{"success": true, "artifact_id": "uuid", "type": "plan", "card_status": "review"}` |
+| **Annotations** | `readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False` |
+| **Errors** | 400: `{"error": "content is required"}`, 404: card not found, 422: card is finished |
+
+#### `agentboard_list_workspace_cards`
+
+| Field | Value |
+|-------|-------|
+| **Description** | List all cards on a workspace board, optionally filtered by status. |
+| **HTTP** | `GET /api/boards/:id/cards?status=X` |
+| **Input Schema** | `board_id: str` (required), `status: Optional[Literal["backlog","planning","review","implementation","audit","finished"]]`, `response_format: Optional[Literal["json","markdown"]]` |
+| **Output** | Array of card objects: `[{id, board_id, project_id, title, description, status, priority, assignee, depends_on[], files_touched[], notes[], created_at, updated_at}]` |
+| **Annotations** | `readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False` |
+| **Errors** | None (returns empty array) |
+
+#### `agentboard_update_workspace_card`
+
+| Field | Value |
+|-------|-------|
+| **Description** | Update a workspace card's fields or status. Workspace cards have flexible transitions -- any non-finished column can move to any other. Finished is terminal (card becomes read-only). notes and files_touched use APPEND semantics. |
+| **HTTP** | `PATCH /api/cards/:id` |
+| **Input Schema** | `card_id: str` (required), `agent_id: str` (required), `title: Optional[str]`, `description: Optional[str]`, `status: Optional[Literal["backlog","planning","review","implementation","audit","finished"]]`, `priority: Optional[Literal["critical","high","medium","low"]]`, `assignee: Optional[str]`, `notes: Optional[List[NoteInput]]`, `files_touched: Optional[List[str]]` |
+| **Output** | Updated card object |
+| **Annotations** | `readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False` |
+| **Errors** | 404: card not found, 422: `{"error": "Finished cards cannot be modified"}`, 400: depends_on same-board violation |
+
 ---
 
 ## 6. State Machine Rules
@@ -608,10 +708,10 @@ blocked      -> [<previous_status>]             # can ONLY return to previous_st
 ```
 ready -> in-progress:
   - assignee must be non-empty string
-  - acceptance_criteria must be non-empty string
 
 in-progress -> review:
   - notes must be a non-empty array (at least one note)
+  - acceptance_criteria must be non-empty string
 
 review -> done:
   - notes must be a non-empty array (at least one note)
@@ -690,7 +790,7 @@ All tools return `str` (JSON-serialized). The format is always JSON for maximum 
 - [ ] Environment variable support: `AGENTBOARD_URL`, `AGENTBOARD_AGENT_ID`
 - [ ] Shared `api_request()` function with configurable timeout
 - [ ] Shared `format_error()` and `is_error()` helpers
-- [ ] All 17 tools implemented with proper Pydantic models
+- [ ] All 20 tools implemented with proper Pydantic models
 - [ ] All tools have annotations (readOnlyHint, destructiveHint, idempotentHint, openWorldHint)
 - [ ] All tools have comprehensive docstrings (these become the tool descriptions in MCP)
 - [ ] `agentboard_submit_document` uses extended timeout (600s)
@@ -705,7 +805,7 @@ All tools return `str` (JSON-serialized). The format is always JSON for maximum 
 - [ ] Clear, descriptive tool names and descriptions
 - [ ] Verify syntax: `python -m py_compile server.py`
 - [ ] Test with MCP Inspector: `npx @modelcontextprotocol/inspector`
-- [ ] Verify all 17 tools appear in tool list
+- [ ] Verify all 20 tools appear in tool list
 - [ ] Test at least one read tool and one write tool end-to-end
 
 ---
@@ -734,6 +834,14 @@ All tools return `str` (JSON-serialized). The format is always JSON for maximum 
 | 16 | `agentboard_get_activity_log` | GET | /api/projects/:id/log | Yes | No |
 | 17 | `agentboard_add_log_entry` | POST | /api/projects/:id/log | No | No |
 | 18 | `agentboard_start_server` | N/A | subprocess | No | No |
+| 19 | `agentboard_server_status` | N/A | subprocess | Yes | No |
+| 20 | `agentboard_stop_server` | N/A | subprocess | No | Yes |
+| 21 | `agentboard_list_boards` | GET | /api/projects/:id/boards | Yes | No |
+| 22 | `agentboard_create_board` | POST | /api/projects/:id/boards | No | No |
+| 23 | `agentboard_get_workspace_task` | GET | /api/boards/:id/cards/next | No | No |
+| 24 | `agentboard_submit_workspace_artifact` | POST | /api/cards/:id/artifacts | No | No |
+| 25 | `agentboard_list_workspace_cards` | GET | /api/boards/:id/cards | Yes | No |
+| 26 | `agentboard_update_workspace_card` | PATCH | /api/cards/:id | No | No |
 
 ---
 
