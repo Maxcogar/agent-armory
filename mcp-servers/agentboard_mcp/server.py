@@ -198,11 +198,16 @@ class MutatingProjectIdInput(BaseModel):
 
 
 class CreateProjectInput(BaseModel):
-    """Input for creating a new project."""
+    """Input for creating a new project under an app."""
     model_config = ConfigDict(
         str_strip_whitespace=True,
         validate_assignment=True,
         extra="forbid",
+    )
+    app_id: str = Field(
+        ...,
+        description="App UUID — the app this project belongs to.",
+        min_length=1,
     )
     agent_id: str = Field(
         ...,
@@ -613,6 +618,167 @@ class GetNextTaskInput(BaseModel):
     )
 
 
+class ListBoardsInput(BaseModel):
+    """Input for listing workspace boards."""
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        validate_assignment=True,
+        extra="forbid",
+    )
+    app_id: str = Field(..., description="App UUID", min_length=1)
+    response_format: Literal["json", "markdown"] = Field(
+        default="markdown",
+        description="Response format: 'markdown' (default) or 'json'.",
+    )
+
+
+class CreateBoardInput(BaseModel):
+    """Input for creating a workspace board."""
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        validate_assignment=True,
+        extra="forbid",
+    )
+    app_id: str = Field(..., description="App UUID", min_length=1)
+    agent_id: str = Field(..., description="Your agent identifier", min_length=1)
+    name: str = Field(..., description="Board name", min_length=1, max_length=200)
+    description: Optional[str] = Field(default=None, description="Board description")
+
+
+class GetWorkspaceTaskInput(BaseModel):
+    """Input for getting the next workspace card to work on."""
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        validate_assignment=True,
+        extra="forbid",
+    )
+    board_id: str = Field(..., description="Workspace board UUID", min_length=1)
+    agent_id: str = Field(..., description="Your agent identifier", min_length=1)
+
+
+class SubmitWorkspaceArtifactInput(BaseModel):
+    """Input for submitting an artifact to a workspace card."""
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        validate_assignment=True,
+        extra="forbid",
+    )
+    card_id: str = Field(..., description="Workspace card UUID", min_length=1)
+    agent_id: str = Field(..., description="Your agent identifier", min_length=1)
+    content: str = Field(..., description="Artifact content (markdown)", min_length=1)
+    type: Optional[Literal["plan", "review_note", "implementation_note", "audit_report", "general"]] = Field(
+        default=None,
+        description="Artifact type. Auto-detected from card column if omitted.",
+    )
+
+
+class ListWorkspaceCardsInput(BaseModel):
+    """Input for listing cards on a workspace board."""
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        validate_assignment=True,
+        extra="forbid",
+    )
+    board_id: str = Field(..., description="Workspace board UUID", min_length=1)
+    status: Optional[Literal["backlog", "planning", "review", "implementation", "audit", "finished"]] = Field(
+        default=None, description="Filter by status",
+    )
+    response_format: Literal["json", "markdown"] = Field(
+        default="markdown",
+        description="Response format: 'markdown' (default) or 'json'.",
+    )
+
+
+class UpdateWorkspaceCardInput(BaseModel):
+    """Input for updating a workspace card."""
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        validate_assignment=True,
+        extra="forbid",
+    )
+    card_id: str = Field(..., description="Workspace card UUID", min_length=1)
+    agent_id: str = Field(..., description="Your agent identifier", min_length=1)
+    title: Optional[str] = Field(default=None, description="New title")
+    description: Optional[str] = Field(default=None, description="New description")
+    status: Optional[Literal["backlog", "planning", "review", "implementation", "audit", "finished"]] = Field(
+        default=None, description="New status (any non-finished column can move to any other; finished is terminal)",
+    )
+    priority: Optional[Literal["critical", "high", "medium", "low"]] = Field(default=None, description="Priority")
+    assignee: Optional[str] = Field(default=None, description="Assignee")
+    notes: Optional[List[NoteInput]] = Field(default=None, description="Notes to append")
+    files_touched: Optional[List[str]] = Field(default=None, description="File paths to append")
+
+
+class ListAppsInput(BaseModel):
+    """Input for listing all apps."""
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        validate_assignment=True,
+        extra="forbid",
+    )
+    response_format: Literal["json", "markdown"] = Field(
+        default="markdown",
+        description="Response format: 'markdown' (default, human-readable) or 'json' for structured data.",
+    )
+
+
+class CreateAppInput(BaseModel):
+    """Input for creating a new app."""
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        validate_assignment=True,
+        extra="forbid",
+    )
+    agent_id: str = Field(
+        ...,
+        description="Your agent identifier (e.g., 'claude-agent-1'). Used for attribution in activity logs.",
+        min_length=1,
+    )
+    name: str = Field(
+        ...,
+        description="App name (e.g., 'My Application')",
+        min_length=1,
+        max_length=200,
+    )
+    target_project_path: Optional[str] = Field(
+        default=None,
+        description="Optional filesystem path to the target project being managed",
+    )
+    description: Optional[str] = Field(
+        default=None,
+        description="Optional app description",
+    )
+
+
+class AppIdInput(BaseModel):
+    """Input requiring only an app ID."""
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        validate_assignment=True,
+        extra="forbid",
+    )
+    app_id: str = Field(
+        ...,
+        description="App UUID (e.g., '550e8400-e29b-41d4-a716-446655440000')",
+        min_length=1,
+    )
+    response_format: Literal["json", "markdown"] = Field(
+        default="markdown",
+        description="Response format: 'markdown' (default, human-readable) or 'json' for structured data.",
+    )
+
+
+class GetNextCardInput(BaseModel):
+    """Input for getting the next workspace card to auto-claim."""
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        validate_assignment=True,
+        extra="forbid",
+    )
+    board_id: str = Field(..., description="Workspace board UUID", min_length=1)
+    agent_id: str = Field(..., description="Your agent identifier", min_length=1)
+
+
 class StartServerInput(BaseModel):
     """Input for starting the AgentBoard server."""
     model_config = ConfigDict(
@@ -739,6 +905,71 @@ def _format_activity_markdown(entries: list) -> str:
     return "\n".join(lines)
 
 
+def _format_app_markdown(a: dict) -> str:
+    """Format an app as markdown."""
+    return (
+        f"## {a.get('name', 'Untitled')}\n"
+        f"- **ID:** `{a.get('id', '?')}`\n"
+        f"- **Description:** {a.get('description') or 'not set'}\n"
+        f"- **Path:** {a.get('target_project_path') or 'not set'}\n"
+    )
+
+
+def _format_apps_markdown(apps: list) -> str:
+    if not apps:
+        return "No apps found."
+    return "\n---\n".join(_format_app_markdown(a) for a in apps)
+
+
+def _format_board_markdown(b: dict) -> str:
+    auto = b.get("auto_transitions", "{}")
+    if isinstance(auto, str):
+        try:
+            auto = json.loads(auto)
+        except Exception:
+            auto = {}
+    return (
+        f"## {b.get('name', 'Untitled')}\n"
+        f"- **ID:** `{b.get('id', '?')}`\n"
+        f"- **Project:** `{b.get('project_id', '?')}`\n"
+        f"- **Review Blocking:** {'ON' if auto.get('review_blocking', True) else 'OFF'}\n"
+        f"- **Audit Blocking:** {'ON' if auto.get('audit_blocking', True) else 'OFF'}\n"
+    )
+
+
+def _format_boards_markdown(boards: list) -> str:
+    if not boards:
+        return "No workspace boards found."
+    return "\n---\n".join(_format_board_markdown(b) for b in boards)
+
+
+def _format_workspace_card_markdown(c: dict) -> str:
+    parts = [
+        f"### {c.get('title', 'Untitled')}",
+        f"- **ID:** `{c.get('id', '?')}`",
+        f"- **Status:** {c.get('status', '?')} | **Priority:** {c.get('priority', '?')}",
+    ]
+    if c.get("assignee"):
+        parts.append(f"- **Assignee:** {c['assignee']}")
+    if c.get("description"):
+        parts.append(f"- **Description:** {c['description'][:200]}")
+    notes = c.get("notes", [])
+    if isinstance(notes, str):
+        try:
+            notes = json.loads(notes)
+        except Exception:
+            notes = []
+    if notes:
+        parts.append(f"- **Notes:** {len(notes)} note(s)")
+    return "\n".join(parts)
+
+
+def _format_workspace_cards_markdown(cards: list) -> str:
+    if not cards:
+        return "No workspace cards found."
+    return "\n\n".join(_format_workspace_card_markdown(c) for c in cards)
+
+
 # ─── Tool Definitions ───────────────────────────────────────────────────────
 
 # ── 1. Health ────────────────────────────────────────────────────────────────
@@ -779,7 +1010,118 @@ async def agentboard_health_check(params: ResponseFormatInput = ResponseFormatIn
         return f"Error: Unexpected error: {type(e).__name__}: {e}"
 
 
-# ── 2. Projects ──────────────────────────────────────────────────────────────
+# ── 2. Apps ──────────────────────────────────────────────────────────────────
+
+@mcp.tool(
+    name="agentboard_list_apps",
+    annotations={
+        "title": "List All Apps",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
+)
+async def agentboard_list_apps(params: ListAppsInput = ListAppsInput()) -> str:
+    """List all apps to find app IDs and see what exists.
+
+    Apps are the top-level container. Projects and workspace boards live under apps.
+
+    Returns:
+        JSON array of apps: [{id, name, description, target_project_path, created_at, updated_at}]
+        Empty array if no apps exist.
+
+    Next step: Use an app's id with agentboard_get_app, agentboard_list_boards, or agentboard_create_project.
+    """
+    try:
+        result = await _api_request("GET", "/apps")
+        if _is_error(result):
+            return _format_error(result)
+        if params.response_format == "markdown":
+            return _truncate(_format_apps_markdown(result))
+        return _json_response(
+            result,
+            "Use agentboard_get_app with a specific app ID to see full details.",
+        )
+    except Exception as e:
+        return f"Error: {type(e).__name__}: {e}"
+
+
+@mcp.tool(
+    name="agentboard_create_app",
+    annotations={
+        "title": "Create New App",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": False,
+    },
+)
+async def agentboard_create_app(params: CreateAppInput) -> str:
+    """Create a new app. Apps are the top-level container for projects and workspace boards.
+
+    Args:
+        agent_id: Your agent identifier for attribution.
+        name: App name (1-200 chars).
+        target_project_path: (optional) Filesystem path to the codebase being managed.
+        description: (optional) App description.
+
+    Returns:
+        JSON app object.
+
+    Next step: Use the app's id to create projects or boards under it.
+
+    On error:
+        - 400: missing required field (name).
+    """
+    try:
+        body: dict = {"name": params.name}
+        if params.target_project_path is not None:
+            body["target_project_path"] = params.target_project_path
+        if params.description is not None:
+            body["description"] = params.description
+        result = await _api_request("POST", "/apps", json_body=body, agent_id=params.agent_id)
+        if _is_error(result):
+            return _format_error(result)
+        return _json_response(result)
+    except Exception as e:
+        return f"Error: {type(e).__name__}: {e}"
+
+
+@mcp.tool(
+    name="agentboard_get_app",
+    annotations={
+        "title": "Get App Details",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
+)
+async def agentboard_get_app(params: AppIdInput) -> str:
+    """Get full details for a single app.
+
+    Args:
+        app_id: App UUID.
+
+    Returns:
+        JSON app object: {id, name, description, target_project_path, created_at, updated_at}
+
+    On error:
+        - 404: app_id not found. Verify the ID with agentboard_list_apps.
+    """
+    try:
+        result = await _api_request("GET", f"/apps/{params.app_id}")
+        if _is_error(result):
+            return _format_error(result)
+        if params.response_format == "markdown":
+            return _truncate(_format_app_markdown(result))
+        return _json_response(result)
+    except Exception as e:
+        return f"Error: {type(e).__name__}: {e}"
+
+
+# ── 3. Projects ──────────────────────────────────────────────────────────────
 
 @mcp.tool(
     name="agentboard_list_projects",
@@ -863,11 +1205,12 @@ async def agentboard_get_project(params: ProjectIdInput) -> str:
     },
 )
 async def agentboard_create_project(params: CreateProjectInput) -> str:
-    """Create a new project. This sets up the full workflow: phase documents, milestone tasks, and activity log.
+    """Create a new project under an app. This sets up the full workflow: phase documents, milestone tasks, and activity log.
 
     After creation, the project starts at phase 1 with the first milestone ready to claim.
 
     Args:
+        app_id: App UUID — the app this project belongs to.
         agent_id: Your agent identifier for attribution.
         name: Project name (1-200 chars).
         project_type: One of: new_feature, refactor, bug_fix, migration, integration.
@@ -881,12 +1224,13 @@ async def agentboard_create_project(params: CreateProjectInput) -> str:
 
     On error:
         - 400: missing required field (name, project_type, or idea) or invalid project_type.
+        - 404: app not found.
     """
     try:
         body: dict = {"name": params.name, "project_type": params.project_type, "idea": params.idea}
         if params.target_project_path is not None:
             body["target_project_path"] = params.target_project_path
-        result = await _api_request("POST", "/projects", json_body=body, agent_id=params.agent_id)
+        result = await _api_request("POST", f"/apps/{params.app_id}/projects", json_body=body, agent_id=params.agent_id)
         if _is_error(result):
             return _format_error(result)
         return _json_response(result)
@@ -1513,6 +1857,295 @@ async def agentboard_add_log_entry(params: AddLogEntryInput) -> str:
             json_body=body,
             agent_id=params.agent_id,
         )
+        if _is_error(result):
+            return _format_error(result)
+        return _json_response(result)
+    except Exception as e:
+        return f"Error: {type(e).__name__}: {e}"
+
+
+# ── 6. Workspace Tools ─────────────────────────────────────────────────────
+
+@mcp.tool(
+    name="agentboard_list_boards",
+    annotations={
+        "title": "List Workspace Boards",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
+)
+async def agentboard_list_boards(params: ListBoardsInput) -> str:
+    """List all workspace boards for an app.
+
+    Workspace boards are lightweight kanban boards for everyday work — separate
+    from the main phase-driven workflow.
+
+    Args:
+        app_id: App UUID.
+
+    Returns:
+        List of boards with IDs, names, and blocking toggle status.
+    """
+    try:
+        result = await _api_request("GET", f"/apps/{params.app_id}/boards")
+        if _is_error(result):
+            return _format_error(result)
+        if params.response_format == "markdown":
+            return _truncate(_format_boards_markdown(result))
+        return _json_response(result)
+    except Exception as e:
+        return f"Error: {type(e).__name__}: {e}"
+
+
+@mcp.tool(
+    name="agentboard_create_board",
+    annotations={
+        "title": "Create Workspace Board",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": False,
+    },
+)
+async def agentboard_create_board(params: CreateBoardInput) -> str:
+    """Create a new workspace board for an app.
+
+    Boards start with both blocking toggles ON (review and audit require human approval).
+
+    Args:
+        app_id: App UUID.
+        agent_id: Your agent identifier.
+        name: Board name.
+        description: Optional board description.
+
+    Returns:
+        JSON board object.
+    """
+    try:
+        body: dict = {"name": params.name}
+        if params.description is not None:
+            body["description"] = params.description
+        result = await _api_request("POST", f"/apps/{params.app_id}/boards", json_body=body, agent_id=params.agent_id)
+        if _is_error(result):
+            return _format_error(result)
+        return _json_response(result)
+    except Exception as e:
+        return f"Error: {type(e).__name__}: {e}"
+
+
+@mcp.tool(
+    name="agentboard_get_workspace_task",
+    annotations={
+        "title": "Get Next Workspace Card",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": False,
+    },
+)
+async def agentboard_get_workspace_task(params: GetWorkspaceTaskInput) -> str:
+    """Auto-claim the next available workspace card from a board.
+
+    Returns a card with all existing artifacts so you have full context.
+    If you already have a card assigned, it returns that card instead.
+
+    No submit-and-wait blocking. No milestone coupling. Board-scoped.
+
+    Args:
+        board_id: Workspace board UUID.
+        agent_id: Your agent identifier.
+
+    Returns:
+        JSON: {"card": <card_object>} with card.notes and all artifacts.
+
+    On error:
+        - 404: no cards available on this board.
+    """
+    try:
+        result = await _api_request("GET", f"/boards/{params.board_id}/cards/next", agent_id=params.agent_id)
+        if _is_error(result):
+            return _format_error(result)
+        # Fetch artifacts for context
+        card = result.get("card", {})
+        if card and card.get("id"):
+            artifacts = await _api_request("GET", f"/cards/{card['id']}/artifacts")
+            if not _is_error(artifacts):
+                result["artifacts"] = artifacts
+        return _json_response(result)
+    except Exception as e:
+        return f"Error: {type(e).__name__}: {e}"
+
+
+@mcp.tool(
+    name="agentboard_submit_workspace_artifact",
+    annotations={
+        "title": "Submit Workspace Artifact",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": False,
+    },
+)
+async def agentboard_submit_workspace_artifact(params: SubmitWorkspaceArtifactInput) -> str:
+    """Submit an artifact (plan, review, implementation notes, audit report) to a workspace card.
+
+    Type is auto-detected from the card's current column:
+    - planning -> plan
+    - review -> review_note
+    - implementation -> implementation_note
+    - audit -> audit_report
+    - backlog/finished -> general
+
+    After submission, the card may auto-advance:
+    - planning -> review (always)
+    - implementation -> audit (always)
+    - review/audit: depends on board blocking toggles
+
+    Unlike agentboard_submit_document, this returns IMMEDIATELY — no held response.
+
+    Args:
+        card_id: Workspace card UUID.
+        agent_id: Your agent identifier.
+        content: Artifact content (markdown).
+        type: Optional override for artifact type.
+
+    Returns:
+        JSON: {"success": true, "artifact_id": "uuid", "type": "plan", "card_status": "review"}
+    """
+    try:
+        body: dict = {"content": params.content}
+        if params.type is not None:
+            body["type"] = params.type
+        result = await _api_request("POST", f"/cards/{params.card_id}/artifacts", json_body=body, agent_id=params.agent_id)
+        if _is_error(result):
+            return _format_error(result)
+        return _json_response(result)
+    except Exception as e:
+        return f"Error: {type(e).__name__}: {e}"
+
+
+@mcp.tool(
+    name="agentboard_list_workspace_cards",
+    annotations={
+        "title": "List Workspace Cards",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
+)
+async def agentboard_list_workspace_cards(params: ListWorkspaceCardsInput) -> str:
+    """List all cards on a workspace board, optionally filtered by status.
+
+    Args:
+        board_id: Workspace board UUID.
+        status: Optional filter (backlog, planning, review, implementation, audit, finished).
+
+    Returns:
+        List of cards.
+    """
+    try:
+        query_params: dict = {}
+        if params.status is not None:
+            query_params["status"] = params.status
+        result = await _api_request(
+            "GET",
+            f"/boards/{params.board_id}/cards",
+            params=query_params if query_params else None,
+        )
+        if _is_error(result):
+            return _format_error(result)
+        if params.response_format == "markdown":
+            return _truncate(_format_workspace_cards_markdown(result))
+        return _json_response(result)
+    except Exception as e:
+        return f"Error: {type(e).__name__}: {e}"
+
+
+@mcp.tool(
+    name="agentboard_get_next_card",
+    annotations={
+        "title": "Get Next Workspace Card",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": False,
+    },
+)
+async def agentboard_get_next_card(params: GetNextCardInput) -> str:
+    """Auto-claim the next available workspace card from a board.
+
+    Returns a card with all existing artifacts so you have full context.
+    If you already have a card assigned, it returns that card instead.
+
+    No submit-and-wait blocking. No milestone coupling. Board-scoped.
+
+    Args:
+        board_id: Workspace board UUID.
+        agent_id: Your agent identifier.
+
+    Returns:
+        JSON: {"card": <card_object>, "artifacts": [<artifact_objects>]} with card.notes and all artifacts.
+
+    On error:
+        - 404: no cards available on this board.
+    """
+    try:
+        result = await _api_request("GET", f"/boards/{params.board_id}/cards/next", agent_id=params.agent_id)
+        if _is_error(result):
+            return _format_error(result)
+        # Fetch artifacts for context
+        card = result.get("card", {})
+        if card and card.get("id"):
+            artifacts = await _api_request("GET", f"/cards/{card['id']}/artifacts")
+            if not _is_error(artifacts):
+                result["artifacts"] = artifacts
+        return _json_response(result)
+    except Exception as e:
+        return f"Error: {type(e).__name__}: {e}"
+
+
+@mcp.tool(
+    name="agentboard_update_workspace_card",
+    annotations={
+        "title": "Update Workspace Card",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": False,
+    },
+)
+async def agentboard_update_workspace_card(params: UpdateWorkspaceCardInput) -> str:
+    """Update a workspace card's fields or status.
+
+    Workspace cards have flexible transitions — any non-finished column can move to any other.
+    Finished is terminal (card becomes read-only).
+
+    notes and files_touched use APPEND semantics.
+
+    Args:
+        card_id: Workspace card UUID.
+        agent_id: Your agent identifier.
+        title, description, status, priority, assignee: Optional field updates.
+        notes: Optional notes to append.
+        files_touched: Optional file paths to append.
+
+    Returns:
+        JSON updated card object.
+    """
+    try:
+        body: dict = {}
+        for field in ["title", "description", "status", "priority", "assignee"]:
+            value = getattr(params, field)
+            if value is not None:
+                body[field] = value
+        if params.notes is not None:
+            body["notes"] = [note.model_dump() for note in params.notes]
+        if params.files_touched is not None:
+            body["files_touched"] = params.files_touched
+        result = await _api_request("PATCH", f"/cards/{params.card_id}", json_body=body, agent_id=params.agent_id)
         if _is_error(result):
             return _format_error(result)
         return _json_response(result)

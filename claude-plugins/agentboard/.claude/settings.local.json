@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__agentboard__agentboard_create_workspace_card"
+    ]
+  }
+}

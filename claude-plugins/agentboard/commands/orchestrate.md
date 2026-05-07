@@ -14,15 +14,15 @@ Run parallel subagents through the workspace board pipeline. Requires cards in `
 1. **Load skills and tools:**
    - Invoke the `workspace-orchestration` skill to load the orchestration logic
    - Call `ToolSearch` for `agentboard`, `codegraph`, and `rag` tools
-   - If only `agentboard_authenticate` and `agentboard_complete_authentication` are visible, run the OAuth bootstrap from `skills/agentboard/SKILL.md` §1.3 first. Then call `agentboard_health_check` to verify connectivity. If it fails post-auth, stop and report the error.
+   - Call `agentboard_health_check` — start server if needed
 
 2. **Select the board:**
-   - Call `agentboard_list_apps`, then `agentboard_list_boards` for the target app — use `response_format: markdown` (default; ~7× smaller than json for these list responses).
+   - Call `agentboard_list_apps`, then `agentboard_list_boards` for the target app
    - If multiple boards, ask the user which one
-   - Call `agentboard_list_workspace_cards` (also markdown) to see current card distribution
+   - Call `agentboard_list_workspace_cards` to see current card distribution
 
 3. **Read board settings:**
-   - Fetch the board via the boards API (markdown) to read `auto_transitions`
+   - Fetch the board via the boards API to read `auto_transitions`
    - Determine checkpoint behavior:
      - `review_blocking: true` → must pause after Wave 1
      - `audit_blocking: true` → must pause after Wave 3
@@ -31,45 +31,73 @@ Run parallel subagents through the workspace board pipeline. Requires cards in `
 
 4. **Locate the spec document:**
    - Check `docs/specs/` for the most recent spec, or ask the user for the path
-   - This gets passed to planning and review agents as `spec_path`
+   - This gets passed to planning and review agents as `{{spec_path}}`
 
-5. **Prime the codegraph (once for the whole run):**
-   - Call `mcp__codegraph__codegraph_scan` on the project root.
-   - The graph is in-memory in the codegraph MCP server and is shared across every subagent in this Claude Code session. Subagents have been instructed NOT to call `codegraph_scan` themselves; they go straight to `codegraph_get_dependencies`, `codegraph_get_dependents`, and `codegraph_get_change_impact` against the cached graph.
-   - This eliminates ~2N redundant full-project scans per run (one per planning agent + one per audit agent).
+5. **Run Wave 1: Planning (two-phase per card)**
 
-6. **Run Wave 1: Planning**
-   - Collect all cards in `backlog`
-   - Spawn parallel subagents with `subagent_type: planning-agent`, passing `card_id`, `board_id`, `agent_id`, `spec_path`, `card_title` in the prompt
-   - Wait for all agents to complete
-   - Report results
+   Wave 1 uses a haiku research agent followed by an opus compose agent to avoid burning opus
+   tokens on mechanical tool calls.
+
+   For each card in `backlog`:
+
+   **Phase A — Research (haiku, parallel across cards):**
+   - Spawn one `planning-research-agent` per card with `card_id` and `spec_excerpt`
+     (extract the relevant spec section for this card's title/description)
+   - Each agent runs codegraph + RAG discovery and submits a `FACTS_BUNDLE_V1` artifact on the card
+   - Wait for ALL Phase A agents to complete before starting Phase B
+
+   **Phase B — Compose (opus, parallel across cards):**
+   - For each card whose Phase A artifact succeeded, spawn one `plan-compose-agent`
+   - Pass `card_id` and the facts bundle JSON inline in the prompt (read from the artifact)
+   - Each agent writes the implementation plan artifact (`type: "plan"`) on the card and moves
+     the card to `review`
+   - If Phase A failed for a card (no facts bundle artifact), skip Phase B for that card and
+     report the failure
+
+   - Wait for all Phase B agents to complete
+   - Report results per card: research OK/FAIL, plan OK/FAIL
    - **Checkpoint** if required (see checkpoint logic in skill)
 
-7. **Run Wave 2: Review**
+6. **Run Wave 2: Review**
    - Collect all cards in `review`
-   - Spawn parallel subagents with `subagent_type: review-agent`
+   - Spawn parallel subagents using the `review-agent.md` prompt template
    - Wait for all agents to complete
    - Handle rejections: re-run Wave 1 for rejected cards (max 2 retries)
    - Report results
 
-8. **Run Wave 3: Implementation**
+7. **Run Wave 3: Implementation**
    - Collect all cards in `implementation`
-   - Spawn parallel subagents with `subagent_type: implementation-agent`
+   - Spawn parallel subagents using the `implementation-agent.md` prompt template
    - Wait for all agents to complete
-   - Run build verification, filtering output to drop noise so only errors/warnings land in context:
-     - `npm run build 2>&1 | grep -E -i 'error|warning|fail|✘' || echo 'BUILD OK'`
-     - `npm run lint --prefix client 2>&1 | grep -E -i 'error|warning|fail|✘' || echo 'LINT OK'`
+   - Run build verification: `npm run build` and `npm run lint --prefix client`
    - If build fails: STOP, report, wait for user
    - Report results
    - **Checkpoint** if required
 
-9. **Run Wave 4: Audit**
-   - Collect all cards in `audit`
-   - Spawn parallel subagents with `subagent_type: audit-agent`
-   - Wait for all agents to complete
-   - Report final results
+8. **Run Wave 4: Audit (two-phase per card)**
 
-10. **Final report:**
+   Wave 4 mirrors the Wave 1 split: haiku gathers diff/blast-radius facts, opus reasons about them.
+
+   For each card in `audit`:
+
+   **Phase A — Research (haiku, parallel across cards):**
+   - Spawn one `audit-research-agent` per card with `card_id` and `repo_root`
+   - Each agent gathers git diff, blast radius facts, and cross-references the plan artifact,
+     then submits an `AUDIT_FACTS_BUNDLE_V1` artifact on the card
+   - Wait for ALL Phase A agents to complete before starting Phase B
+
+   **Phase B — Compose (opus, parallel across cards):**
+   - For each card whose Phase A artifact succeeded, spawn one `audit-compose-agent`
+   - Pass `card_id` and the audit facts bundle JSON inline in the prompt
+   - Each agent writes an `audit_report` artifact and assigns a PASS / PASS WITH NOTES / FAIL verdict
+   - If PASS or PASS WITH NOTES: move card to `finished`
+   - If FAIL: move card back to `implementation` with notes on what must be fixed
+   - If Phase A failed: report, leave card in `audit`
+
+   - Wait for all Phase B agents to complete
+   - Report final results per card: research OK/FAIL, audit verdict
+
+9. **Final report:**
    ```
    ## Orchestration Complete
 

@@ -257,5 +257,39 @@ python .claude/skills/mcp-builder/scripts/evaluation.py \
 
 ---
 
-**Date**: 2026-02-22
+## Decision: Workspace Boards Use Separate Tables (Not Extending Tasks)
+
+**Rationale**: The existing task state machine enforces strict guards (assignee required for in-progress, notes required for review, acceptance_criteria for review, etc.). Workspace cards need free-form movement between columns with no guards. Mixing workspace cards into the `tasks` table would require conditional bypass of the state machine based on some flag, which would create fragile branching logic in `taskStateMachine.js` and risk accidental bypass of guards for phase tasks.
+
+**Trade-off**: Some field duplication is accepted (`title`, `description`, `status`, `priority`, `assignee`, `depends_on`, `files_touched`, `notes`, `created_at`, `updated_at` appear in both `tasks` and `workspace_cards`). The behavioral differences outweigh the structural similarity -- workspace cards have fundamentally different lifecycle rules than phase tasks.
+
+**Decision**: Three new tables (`workspace_boards`, `workspace_cards`, `workspace_artifacts`) with separate DB modules, route files, and frontend components.
+
+---
+
+## Decision: Blocking Toggles Live on the Board, Not Per-Card
+
+**Rationale**: Blocking toggles define the workflow policy for an entire board -- "does this board require human approval at review/audit gates?" Making this per-card would create inconsistent behavior where some cards auto-advance and others don't within the same board, confusing both humans and agents.
+
+**Implementation**: `auto_transitions` is a JSON column on `workspace_boards` with two boolean keys: `review_blocking` and `audit_blocking`. Both default to `true` (human approval required). Stored as JSON for extensibility -- additional blocking points can be added without schema migration.
+
+---
+
+## Decision: Artifacts Are Append-Only
+
+**Rationale**: Artifacts serve as an audit trail of agent work. The `column_at_creation` field captures what column the card was in when the artifact was submitted, providing temporal context. Editing or deleting artifacts would destroy this audit trail. If an agent needs to correct a previous artifact, it submits a new one -- the correction is itself part of the record.
+
+**Implementation**: No UPDATE or DELETE endpoints for artifacts. `workspace_artifacts` has no `updated_at` column. Corrections are done by submitting a new artifact with corrected content.
+
+---
+
+## Decision: No Interaction With Existing Phase/Milestone System
+
+**Rationale**: The workspace system is designed for ad-hoc, everyday work that runs alongside the phase workflow. Coupling workspace boards to `taskStateMachine.js`, `milestoneSync.js`, or `WebSocketContext.jsx` would risk breaking the phase system's invariants (done is final, blocked returns to previous_status, phase advancement requires document approval).
+
+**Implementation**: No changes to `taskStateMachine.js`, `milestoneSync.js`, `ws.js`, or `WebSocketContext.jsx`. Workspace routes emit events through the same `bus.emit('mutation', ...)` pattern but use new event names (`board_created`, `card_updated`, `artifact_added`). The existing `ws.js` relay broadcasts them without modification because it forwards all `mutation` bus events.
+
+---
+
+**Date**: 2026-02-22 (original), 2026-03-04 (workspace additions)
 **Participants**: User (project owner), Claude Opus 4.6

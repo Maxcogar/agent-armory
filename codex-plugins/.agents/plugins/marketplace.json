@@ -1,0 +1,20 @@
+{
+  "name": "maxco-local",
+  "interface": {
+    "displayName": "Maxco Local"
+  },
+  "plugins": [
+    {
+      "name": "agentboard",
+      "source": {
+        "source": "local",
+        "path": "./agentboard"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Engineering"
+    }
+  ]
+}
