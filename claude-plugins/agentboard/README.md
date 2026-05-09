@@ -208,12 +208,12 @@ The plugin supports two workflows. Pick based on the shape of the work, not pref
 
 | | Phase-based projects | Workspace boards |
 |---|---|---|
-| **Best for** | A new project or a substantial change with real architectural risk — anything you want documented before code is written | Ad-hoc work, refactors, cleanup sweeps, anything that's a list of independent tasks |
+| **Best for** | A new project or a substantial change with real architectural risk — anything you want documented before code is written | Cleanup sweeps and lists of independent tasks (via `/sweep`); or work that needs an architecture pass but not the full 13-phase project ceremony (via `/foundation` → `/architecture`) |
 | **Structure** | Fixed 13 phases with required documents (codebase survey, requirements, constraints, risk, architecture, contracts, test strategy, task breakdown, then implementation phases) | Apps → boards → cards. Each card moves through `backlog → planning → review → implementation → audit → finished` |
 | **State enforcement** | Strict task state machine. Documents are reviewed and approved by a human before the project advances | Column transitions, plus optional checkpoints at review and audit |
 | **Human role** | Approves or rejects each phase document. Advances doc phases (2–9). Agents only call `advance_phase` during implementation phases (10–12) | Optional. Boards have `auto_transitions` toggles for `review_blocking` and `audit_blocking` — when a toggle is on, the orchestration pipeline pauses for human input at that wave |
 | **Parallelism** | Single agent at a time, working sequentially through tasks | One agent per card per wave, in parallel, via `/orchestrate` |
-| **Commands** | `/kickoff`, `/pickup`, `/wrap-up`, `/status` | `/foundation`, `/sweep`, `/orchestrate`, `/board-status` |
+| **Commands** | `/kickoff`, `/pickup`, `/wrap-up`, `/status` | `/foundation`, `/architecture`, `/sweep`, `/orchestrate`, `/board-status` |
 
 You can use both in the same AgentBoard account — they're independent. A phase-based project for a major build, a workspace board for the cleanup tickets that come out of it.
 
@@ -245,7 +245,11 @@ Read-only situational awareness for a phase project. Shows the current phase (N/
 
 #### `/foundation`
 
-Interactive spec-building session. Asks you what you want to build, asks clarifying questions one at a time, optionally researches the codebase with codegraph and RAG, then writes a spec to `docs/specs/YYYY-MM-DD-<topic>.md`. After you approve the spec, it creates one workspace card per major chunk of work in `backlog` on a board you select (or creates a new app and board if needed). Commits the spec to git on the current branch. Plan to spend a full session on this — the command is explicit that you should not try to orchestrate in the same session.
+Interactive spec-building session. Loads codegraph and RAG for codebase research, then activates the `spec-writing` skill — the plugin's canonical spec-writing process. The skill enforces grounded requirements (every non-trivial requirement traces to a named standard, a confirmed user need, or a genuine constraint), the three-test discipline (source / abstraction / downstream) on each requirement, threat-model-first security when applicable, and auditable derivation. The result is an architecturally-silent spec at `docs/specs/YYYY-MM-DD-<topic>.md` covering problem, scope, functional and quality requirements, constraints, governing standards, decisions made during specification, acceptance criteria, and unresolved questions. After you approve the spec, the command commits it to git and hands off to `/architecture`. Foundation does NOT create cards — that's `/architecture`'s job. The spec deliberately contains no architecture decisions: no file paths, no module names, no card slicing, no contracts. Plan to spend a full session on this — the command is explicit that you should not try to architect or orchestrate in the same session.
+
+#### `/architecture`
+
+Reads an approved spec from `/foundation` and produces the architecture document at `docs/arch/YYYY-MM-DD-<topic>.md` — ownership map, contract truth (single owner per cross-component contract), card dependency graph, per-card scope (allowed-touch list, forbidden-touch list, produces, consumes, verification scope), and verification ownership. After you approve the architecture, the command creates one workspace card per Card Slice on a board you select (or creates a new app and board if needed). Each card's description carries its slice. Commits the architecture document to git. Cards do not exist before this command runs; planning agents in `/orchestrate` consume the per-card slice as the boundary truth. Plan to spend a full session on this.
 
 #### `/sweep`
 
@@ -253,7 +257,7 @@ Systematic codebase quality discovery. Uses the `codebase-sweep` skill: scans wi
 
 #### `/orchestrate`
 
-Run the four-wave pipeline against a workspace board: planning → review → implementation → audit. For each wave, `/orchestrate` collects cards in the wave's input column, spawns one parallel subagent per card using a prompt template from the `workspace-orchestration` skill, waits for all agents to finish, and reports results. Between waves, it consults the board's `auto_transitions` setting (`review_blocking`, `audit_blocking`) to decide whether to pause for your confirmation. The `--auto` flag skips pauses where blocking is OFF — but if a blocking toggle is ON, the checkpoint is enforced regardless. Review rejections send a card back to planning with feedback (max 2 retries per card). See [Troubleshooting](#troubleshooting) below for one important caveat about Wave 3's build-verification step.
+Run the four-wave pipeline against a workspace board: planning → review → implementation → audit. Requires cards created by `/architecture` (or `/sweep` for cleanup-style work where each card is independent). For each wave, `/orchestrate` collects cards in the wave's input column, spawns one parallel subagent per card using a prompt template from the `workspace-orchestration` skill, waits for all agents to finish, and reports results. Wave 1 planning agents receive each card's architecture slice as the boundary truth; Wave 2 review agents check the plan against the full architecture document. Between waves, the orchestrator consults the board's `auto_transitions` setting (`review_blocking`, `audit_blocking`) to decide whether to pause for your confirmation. The `--auto` flag skips pauses where blocking is OFF — but if a blocking toggle is ON, the checkpoint is enforced regardless. Review rejections send a card back to planning with feedback (max 2 retries per card). See [Troubleshooting](#troubleshooting) below for one important caveat about Wave 3's build-verification step.
 
 #### `/board-status`
 
