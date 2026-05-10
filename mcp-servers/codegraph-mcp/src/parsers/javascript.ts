@@ -164,6 +164,27 @@ export function resolveJsImport(importPath: string, fromDir: string): string | n
     return resolved;
   }
 
+  // TypeScript Node16/NodeNext module resolution requires writing
+  // relative imports with a .js (or .mjs/.cjs/.jsx) extension even when
+  // the actual source file is .ts (or .mts/.cts/.tsx). If the literal
+  // path doesn't exist, try swapping the JS extension for its TS counterpart.
+  const jsToTsExt: Record<string, string[]> = {
+    ".js": [".ts", ".tsx"],
+    ".jsx": [".tsx"],
+    ".mjs": [".mts"],
+    ".cjs": [".cts"],
+  };
+  const ext = path.extname(resolved);
+  if (ext && jsToTsExt[ext]) {
+    const base = resolved.slice(0, -ext.length);
+    for (const tsExt of jsToTsExt[ext]) {
+      const candidate = base + tsExt;
+      if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+        return candidate;
+      }
+    }
+  }
+
   // Try with extensions
   for (const ext of extensions) {
     const withExt = resolved + ext;

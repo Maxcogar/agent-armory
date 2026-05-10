@@ -29,11 +29,18 @@
     {
       "name": "agentboard",
       "source": "./agentboard",
-      "description": "Agentboard plugin",
-      "version": "1.0.0",
+      "description": "AgentBoard AI project management toolkit — structured phase-based workflow with codegraph and RAG companion tools",
+      "version": "0.1.0",
       "author": {
-        "name": "maxco"
-      }
+        "name": "Maxcogar"
+      },
+      "keywords": [
+        "agentboard",
+        "project-management",
+        "codegraph",
+        "rag",
+        "workflow"
+      ]
     }
   ]
 }
