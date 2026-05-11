@@ -199,7 +199,7 @@ ARCH_FACTS_BUNDLE_V1
       "value": 0,
       "evidence": [
         {
-          "keyword": "credential | token | secret | auth | PII | encryption",
+          "keyword": "credential | token | secret | auth | PII | encryption | hash | salt | certificate | key",
           "spec_quote": "<quote with surrounding context>"
         }
       ]
@@ -303,7 +303,7 @@ This schema is **consistent across L1, L2, L3.** Downstream agents do not branch
   - ... (or "None")
 - **Verification scope** — `local-only` | `contributes to <verification card title>` | `owns end-to-end verification`.
 - **Depends on** — other card titles this card depends on (or "None").
-- **Source decisions** — D# references from the architecture document's Design decisions section that justify this slice (or "Direct from spec — no design decisions required at this level" for L1).
+- **Source decisions** — D# references from the architecture document's Design decisions section that justify this slice. At L1 (where no design decisions section exists), substitute the form "Direct from spec — R# and/or Q# (no design decisions at this level)" naming the specific spec requirements this slice implements. Bare "Direct from spec" without R#/Q# attribution is non-compliant: it loses the traceability path downstream planning agents read to know which spec requirement each card satisfies.
 ```
 
 At L1, the per-card content is brief: most fields are short or "None"; the slice IS the architecture's substance.
@@ -369,7 +369,7 @@ The asymmetric cost rule applies to tuning: when in doubt about whether a thresh
 - `name: architecture-research-agent`
 - `description: Phase A of the architecture pipeline — mechanical fact-gathering against the spec and codebase, fills ARCH_FACTS_BUNDLE_V1 with countable fields and evidence, applies the v1.0 classification rules to compute level. Does not reason about architecture; produces facts that determine which compose agent runs in Phase B. Invoke from /architecture — the orchestrator passes spec_path, scaffold_card_id, and agent_id.`
 - `model: claude-haiku-4-5-20251001`
-- `tools`: Read, Glob, Grep, Bash, Skill, agentboard MCP (`get_card`, `update_workspace_card`, `add_log_entry`, `submit_workspace_artifact`), codegraph (full set), codebase-rag (`rag_search`, `rag_query_impact`)
+- `tools`: Read, Glob, Grep, Bash, Skill, agentboard MCP (`get_card`, `list_workspace_artifacts`, `get_workspace_artifact`, `update_workspace_card`, `add_log_entry`, `submit_workspace_artifact`), codegraph (full set), codebase-rag (`rag_search`, `rag_query_impact`). `list_workspace_artifacts` + `get_workspace_artifact` are needed so the agent can mirror the `planning-research-agent` pattern of checking for a recent prior bundle and reusing it if `gathered_at` is within the last hour (avoids redundant work when `/architecture` is re-invoked).
 
 **Body sections:**
 
@@ -379,11 +379,10 @@ The asymmetric cost rule applies to tuning: when in doubt about whether a thresh
    1. **Fetch the scaffold card** via `agentboard_get_card` to confirm card exists.
    2. **Read the spec at `spec_path`.**
    3. **Scan the codebase** via `codegraph_scan`. Required even if the project has no scanned languages — empty scan is a recorded finding.
-   4. **Run RAG discovery.** For each spec capability/outcome/constraint, run `rag_search` with `source_type` ∈ {`code`, `constraints`, `docs`}. Capture matches and counts.
-   5. **Measure each bundle field.** Each field has a specific measurement procedure (detailed below); execute every procedure, record evidence, never skip.
-   6. **Apply the v1.0 classification rules.** L3 triggers checked first (any fire → L3). If no L3 trigger, L2 triggers checked. If neither, L1.
-   7. **Validate the bundle** against the schema (every field present, evidence counts match, rule_evaluation populated).
-   8. **Submit the bundle** as a workspace artifact (`type: "general"`) via `agentboard_submit_workspace_artifact` to the scaffold card.
+   4. **Measure each bundle field.** Each field has a specific measurement procedure (detailed below); execute every procedure, record evidence, never skip. Every `rag_search` / `rag_query_impact` invocation is run as part of a specific field's measurement and is recorded in that field's evidence slot (e.g., `new_contracts_count.evidence[].rag_query_run`). There is no separate "RAG discovery" step — searches happen because a field is being measured. A query whose result doesn't feed an evidence slot is a query the auditor cannot reproduce identically, which would produce false discrepancies.
+   5. **Apply the v1.0 classification rules.** L3 triggers checked first (any fire → L3). If no L3 trigger, L2 triggers checked. If neither, L1.
+   6. **Validate the bundle** against the schema (every field present, evidence counts match, rule_evaluation populated).
+   7. **Submit the bundle** as a workspace artifact (`type: "general"`) via `agentboard_submit_workspace_artifact` to the scaffold card.
 
 3. **Field measurement procedures** — per-field instructions:
    - `new_contracts_count`: for each interface/type/protocol the spec implies introducing, search the codebase via `rag_search` (`source_type="code"`) for existing implementations. If none found, count it as new. Evidence: spec quote + RAG query + match count. Threshold for "implied introducing": the spec uses language like "introduce," "new," "create," "define" applied to an interface, protocol, contract, or type.
@@ -407,6 +406,11 @@ The asymmetric cost rule applies to tuning: when in doubt about whether a thresh
    - No editorial commentary; the agent doesn't reason about architecture, only about facts
    - On any tool failure: stop, report via card note + activity log, do not produce a partial bundle
 
+7. **Worked examples (required in the profile body):** the profile must include one worked example per field-type so the agent has a concrete reference for evidence shape and the evidence-count-equals-value invariant. Minimum three examples:
+   - One numeric field example (e.g., `new_contracts_count: 2` with two evidence entries, each with spec_quote + rag_query_run + rag_match_count)
+   - One boolean field example (e.g., `trust_boundaries_introduced: true` with one evidence entry showing boundary_kind + spec_quote)
+   - One band field example (`expected_card_count_band` with lower/upper/reasoning, showing the "bias toward wider when uncertain" discipline)
+
 ### 8.2 `agents/architecture-classification-auditor.md` (NEW, haiku)
 
 **Frontmatter:**
@@ -417,7 +421,10 @@ The asymmetric cost rule applies to tuning: when in doubt about whether a thresh
 
 **Body sections:**
 
-1. **How to read this profile** — mandatory anti-skip language. Key rebuttal: "I'll just check the fields that look unusual" → no, every field is independently re-measured; "the bundle looks right at a glance, I'll PASS everything" → no, the audit is mechanical re-measurement, not pattern recognition.
+1. **How to read this profile** — mandatory anti-skip language. Key rebuttals:
+   - "I'll just check the fields that look unusual" → no, every field is independently re-measured.
+   - "The bundle looks right at a glance, I'll PASS everything" → no, the audit is mechanical re-measurement, not pattern recognition.
+   - "I'll just glance at the bundle to know which fields to focus on" → no, the audit is independent re-measurement of every field BEFORE any comparison; glancing at the bundle first creates anchoring bias toward agreement, which is precisely the failure mode this agent exists to prevent. The ordering discipline in §2 is load-bearing.
 
 2. **Audit ordering discipline (CRITICAL):** The auditor MUST measure every field from the spec independently BEFORE looking at the research agent's bundle. Looking at the bundle first creates anchoring bias toward agreement. Process:
    - Step 1: Fetch the scaffold card; do NOT fetch the bundle yet.
@@ -479,7 +486,7 @@ The asymmetric cost rule applies to tuning: when in doubt about whether a thresh
 | Phase 11 (Write the architecture document) | Keep substantively. Path changes from `docs/architectures/` to `docs/arch/<file>.md` (matches `/foundation`'s convention and the review-agent's `arch_path`). Output template adds a "## Card Slices" section between the Traceability matrix and Limitations sections. |
 | **Phase 12 (Slice the architecture into implementation cards) — NEW** | Add this phase. Process: (a) for each coherent unit of work in the architecture document's Components and Design decisions sections, define a card; (b) for each card, derive the slice schema (allowed-touch from Components/decisions premise verifications; forbidden-touch from contracts owned by other cards; produces/consumes from Design decisions where contracts are introduced; verification scope from Phase 10a quality decisions; depends_on from Design decisions' implementation ordering); (c) record D# decision references that justify each slice; (d) write the slices into the document's "## Card Slices" section. Slices are part of the output contract. |
 | Output template (in Phase 11) | Add "## Card Slices" section per §6.3 of this plan, between Traceability matrix and Limitations. |
-| "Before delivering" gates | Keep all three (A, B, C) and the trap audit. Extend Gate C structural checklist with: "Every card slice in the Card Slices section has all six required fields (allowed-touch, forbidden-touch, produces, consumes, verification scope, depends_on)" and "No two slices have overlapping allowed-touch lists unless explicitly justified in the slice descriptions." |
+| "Before delivering" gates | Keep all three (A, B, C) and the trap audit. Extend Gate C structural checklist with: "Every card slice in the Card Slices section has all eight §6.3 schema fields populated (description, allowed-touch, forbidden-touch, produces, consumes, verification scope, depends on, source decisions) — fields whose value is genuinely 'None' for this slice still appear with that value, not omitted" and "No two slices have overlapping allowed-touch lists unless explicitly justified in the slice descriptions." |
 | Submission instructions | REPLACE. Currently says "write the architecture file at the chosen path... Do not commit the file to git. Do not modify any other file." Replace with: (a) write the file at `docs/arch/<file>.md`; (b) submit the document content as an `architecture_document` workspace artifact to the scaffold card via `agentboard_submit_workspace_artifact`; (c) write a card note via `agentboard_update_workspace_card` summarizing the document's goal, level, decision count, and slice count; (d) log via `agentboard_add_log_entry`. The orchestrator (`/architecture` command) handles user approval, git commit, and card creation from the slices. |
 | "What comes after" section | REPLACE. Currently references `/expert-plan`. Replace with: "After user approval and git commit (handled by `/architecture`), the orchestrator creates one workspace card per slice. `/orchestrate` then runs the planning → review → implementation → audit waves on those cards. Planning agents receive each card's slice as boundary truth via `arch_slice`; review agents receive the full architecture document via `arch_path`." |
 
@@ -513,8 +520,9 @@ The asymmetric cost rule applies to tuning: when in doubt about whether a thresh
    - **Phase 4: Structural survey via codegraph.** Kept; bounded scope. `codegraph_scan`, `get_stats`, `find_entry_points`, plus per-file `get_dependencies` / `get_dependents` / `get_change_impact` on the L2-relevant file set.
    - **Phase 5: Identify governing standards.** Kept; named standards primary. First-principles articulation when no standard applies — but produced inline (no `mentalmodel` MCP invocation), with the same three-part structure (goal / local-optimum shortcut / why chosen path serves goal).
    - **Phase 6: Detect and surface spec problems.** Kept. For hard contradictions, surface with thesis-antithesis-synthesis structure inline (no `structuredargumentation` MCP). Soft ambiguities resolved in design decisions, recorded.
-   - **Phase 7: Design decisions in five-part format.** Kept. All five parts: decision, authoritative standard or first-principles anchor, why standard applies here, what this is NOT and why, premise verification. The five-part discipline IS the audit core; do not simplify. For 3+ alternatives, use a multi-criteria comparison inline (no `decisionframework` MCP) — table with alternatives × criteria, weighted as the agent reasons through.
-   - **Phase 8: Slice the architecture into implementation cards.** Same as L3 Phase 12. The slice schema is identical.
+   - **Phase 7: Design decisions in five-part format.** Kept. All five parts: decision, authoritative standard or first-principles anchor, why standard applies here, what this is NOT and why, premise verification. The five-part discipline IS the audit core; do not simplify. For 3+ alternatives, use a multi-criteria comparison inline (no `decisionframework` MCP) — table with alternatives × criteria, weighted as the agent reasons through. **Each non-trivial decision must additionally name its verification approach inline** — i.e., for the quality characteristic the decision advances (correctness, security, performance, maintainability, etc.), state how the decision is verified and at what scope (within the implementing card's files, against another card's output, end-to-end across multiple cards). This replaces L3's Phase 10a ISO 25010 mapping and is the source Phase 8 reads when deriving each slice's verification scope.
+   - **Phase 7.5: Write the architecture document body.** Write `docs/arch/<file>.md` using the §8.4 item 8 output template populated from Phases 1–7. The `## Card Slices` section is written with a placeholder line (e.g., "_To be derived in Phase 8._") — the header is present, the content is empty. This pass exists for the same reason L3 splits Phases 11 and 12: slices are derived from the written document, not the agent's working memory. Phase 8 reads back the Components, Design decisions, and Traceability content from the document this step writes.
+   - **Phase 8: Slice the architecture into implementation cards.** Same as L3 Phase 12. The slice schema is identical. Read the document written in Phase 7.5 as the source of truth for slice derivation; write the derived slices into the document's `## Card Slices` section, replacing the placeholder. Field sources at L2: allowed-touch / forbidden-touch / produces / consumes / depends_on derive from the Components and Design decisions sections (same as L3). **Verification scope** derives from each D# decision's inline verification approach (added to the five-part decision format per Phase 7 above) — a slice that implements decisions whose verification fits within its own allowed-touch is `local-only`; a slice whose decisions name verification that exercises another slice's produced contract is `contributes to <card>`; a slice whose decisions name verification that integrates across multiple cards' outputs is `owns end-to-end verification`. Delivery gates run on the populated document.
 
 7. **Phases dropped from L3 (and why each):**
    - **Phase 6 (Context7 verification)** — L2 doesn't introduce external libraries by classification (R-L3-EXT would have triggered L3). If the L2 process discovers a need for an external library, that's a classification error → halt, report to scaffold card, escalate.
@@ -542,7 +550,7 @@ The asymmetric cost rule applies to tuning: when in doubt about whether a thresh
 9. **Three delivery gates — inline checklist version.**
    - **Gate A (downstream enablement)** — answer in writing: can a planner produce concrete file-level steps without making architectural decisions? Can a reviewer verify the build? Can a stakeholder understand the trade-offs? "No" to any → fix the document.
    - **Gate B (auditability)** — every question in L3's Gate B that applies at L2 is answerable from the document alone (with section pointers). At L2, the questions about ASVS / threat model / Quality characteristics drop because those sections don't exist.
-   - **Gate C (structural checklist)** — adapted from L3 Gate C: every required section present; every non-trivial decision has all five parts; every slice has all six fields; file paths confirmed; no scratchpad content remains.
+   - **Gate C (structural checklist)** — adapted from L3 Gate C: every required section present; every non-trivial decision has all five parts; every slice has all eight §6.3 schema fields populated (description, allowed-touch, forbidden-touch, produces, consumes, verification scope, depends on, source decisions — fields whose value is genuinely "None" still appear with that value, not omitted); file paths confirmed; no scratchpad content remains. **Plus the discipline-coverage check** — every conditional inline discipline either appears in the document where its trigger fired, OR an explicit attestation states the trigger condition did not hold. The conditional disciplines and their triggers: (a) first-principles articulation in the three-part structure (goal / local-optimum shortcut / why chosen path serves goal) appears for every Phase 5 decision that used the first-principles anchor instead of a named standard; (b) thesis-antithesis-synthesis structure appears for every Phase 6 hard contradiction that was surfaced; (c) multi-criteria comparison table appears for every Phase 7 decision that had three or more plausible alternatives; (d) verification approach is named in every non-trivial Phase 7 decision's five-part format (non-conditional — always required at L2). An attestation suffices when the trigger condition did not hold for this architecture (e.g., "no Phase 5 decision used the first-principles anchor — every decision was governed by a named standard"); silent omission is non-compliance.
    - **Trap audit** — all five traps checked.
 
 10. **Submission** — same pattern as L3: write document, submit as `architecture_document` artifact, card note, activity log entry. Orchestrator handles approval / commit / card creation.
@@ -574,7 +582,8 @@ The asymmetric cost rule applies to tuning: when in doubt about whether a thresh
    - **Phase 2: Understand the goal.** Brief.
    - **Phase 3: Codebase survey — narrow.** `codegraph_scan` mandatory (no skip even at L1). `rag_search` only against the spec's specific outcomes — narrow scope. `get_dependencies` / `get_dependents` only on files the spec implies modifying.
    - **Phase 4: Identify governing standards.** Inherit from spec. L1 rarely adds new standards.
-   - **Phase 5: Slice the cards.** For each card (1–3 by classification), derive the six-field slice. Cards are typically independent at L1, so produces/consumes/depends_on are usually empty or minimal. Allowed-touch lists must still be precise (this is the boundary truth).
+   - **Phase 5: Slice the cards.** For each card (1–3 by classification), derive all eight §6.3 schema fields per slice (description, allowed-touch, forbidden-touch, produces, consumes, verification scope, depends on, source decisions). Cards are typically independent at L1, so produces/consumes/depends_on are usually "None" or minimal — fields with no content for this slice still appear with the value "None", not omitted. Allowed-touch lists must still be precise (this is the boundary truth). **Source decisions** field at L1 uses the form "Direct from spec — R# and/or Q# (no design decisions at this level)" per §6.3 — every slice names the specific spec requirement(s) it implements. Bare "Direct from spec" is non-compliant and the delivery gate catches it.
+   - **Phase 6: Write the architecture document.** Single-pass write. Produce the entire document per item 8's output template in one pass — Goal, Scope, Card Slices (populated with the Phase 5 slices), Limitations, Standards, Status. **L1 uses single-pass while L2 (§8.4 Phase 7.5 + Phase 8) and L3 (Phase 11 + Phase 12) use two-pass.** The asymmetry is structural, not stylistic: the two-pass principle at L2/L3 forces slices to derive from committed intermediate design content (Components, D# decisions, verification approach) that lives in the document body. At L1 that intermediate layer does not exist — slices trace directly to R#/Q# in the spec per §6.3, which is independently auditable against the spec without needing the L1 document as intermediary. Forcing two-pass at L1 would be ceremony without an audit function. Delivery gate runs on the written file.
 
 7. **Phases dropped from L3 (with reason):**
    - Phase 5 (governing standards) — collapsed into Phase 4 above; standards usually just inherited
@@ -590,14 +599,17 @@ The asymmetric cost rule applies to tuning: when in doubt about whether a thresh
    # Architecture — [Name]
    ## Goal — what this architecture serves
    ## Scope (in / out)
+
+   _At L1, the slice Descriptions and Allowed-touch lists in the Card Slices section below carry the component-level content; no separate "Components and structure" or "Design decisions" section is produced. The slicing IS the architecture at this level._
+
    ## Card Slices (per §6.3)
    ## Limitations
    ## Standards governing this architecture (typically: "inherited from spec; no additions at L1")
    ## Status of this architecture
    ```
-   Very thin. ~50–150 lines typical output.
+   Very thin. ~50–150 lines typical output. The italic attestation between Scope and Card Slices is mandatory — it self-documents the absence of Components and Design decisions sections so an auditor familiar with L2/L3 documents reads the absence as deliberate, not as an oversight.
 
-9. **Single delivery gate (collapses A/B/C):** "Is the slice list complete (every R# and Q# from the spec maps to a slice's source decisions or is recorded as out-of-scope), and is each card buildable from its slice (allowed-touch list precise, no missing files, no overlapping allowed-touch with another slice)?" If yes, deliver. If no, fix.
+9. **Single delivery gate (collapses A/B/C):** Mechanical checks the gate must verify before deliver: (a) every R# and Q# from the spec maps to at least one slice's Source decisions field or is recorded in the document's Scope as out-of-scope with reasoning; (b) every slice's Source decisions field uses the L1 form "Direct from spec — R# and/or Q# (no design decisions at this level)" with at least one R# or Q# attribution (bare "Direct from spec" fails the gate); (c) every slice has all eight §6.3 schema fields populated (description, allowed-touch, forbidden-touch, produces, consumes, verification scope, depends on, source decisions — fields whose value is genuinely "None" still appear with that value, not omitted); (d) every slice's allowed-touch list is precise (specific file paths, not directories or globs unless the card legitimately owns every file under that path); (e) no two slices have overlapping allowed-touch lists unless explicitly justified in the slice descriptions. If yes to all, deliver. If no to any, fix.
 
 10. **Trap audit** — keep all five.
 
@@ -670,7 +682,7 @@ Update the prerequisites section to reflect the new architecture flow. Currently
 > A workspace board with cards in `backlog` (created via `/architecture`, which itself depends on a spec from `/foundation`)
 > An approved architecture document at `docs/arch/<topic>.md` whose Card Slices section corresponds to the cards on this board
 
-The text is already accurate. No changes likely needed unless the prerequisite needs to mention level transparency. Possibly add a note that the architecture document carries a level metadata field (level: L1/L2/L3) for the user's reference.
+The text is already accurate. **No changes required.** Architecture documents do not carry a level metadata field — level is captured in the ARCH_FACTS_BUNDLE_V1 / ARCH_BUNDLE_AUDIT_V1 artifacts on the scaffold card and is displayed transparently by `/architecture` (per §8.6 step 9). The architecture document itself communicates architecture substance; pipeline meta-properties live with the pipeline artifacts. SKILL.md does not need a level-transparency note.
 
 ### 8.8 `README.md` (UPDATE)
 
