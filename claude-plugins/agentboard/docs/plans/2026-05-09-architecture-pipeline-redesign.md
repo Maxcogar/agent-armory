@@ -682,7 +682,7 @@ Update the prerequisites section to reflect the new architecture flow. Currently
 > A workspace board with cards in `backlog` (created via `/architecture`, which itself depends on a spec from `/foundation`)
 > An approved architecture document at `docs/arch/<topic>.md` whose Card Slices section corresponds to the cards on this board
 
-The text is already accurate. No changes likely needed unless the prerequisite needs to mention level transparency. Possibly add a note that the architecture document carries a level metadata field (level: L1/L2/L3) for the user's reference.
+The text is already accurate. **No changes required.** Architecture documents do not carry a level metadata field — level is captured in the ARCH_FACTS_BUNDLE_V1 / ARCH_BUNDLE_AUDIT_V1 artifacts on the scaffold card and is displayed transparently by `/architecture` (per §8.6 step 9). The architecture document itself communicates architecture substance; pipeline meta-properties live with the pipeline artifacts. SKILL.md does not need a level-transparency note.
 
 ### 8.8 `README.md` (UPDATE)
 
