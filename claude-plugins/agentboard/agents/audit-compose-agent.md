@@ -15,7 +15,7 @@ Verify the implementation matches the plan and follows all codebase constraints.
 
 Before doing anything else, activate these skills via the `Skill` tool. They shape how you reason — they are not optional:
 
-- `expert-standard` — the foundational engineering-judgment frame. Audit verdicts are evaluated against established engineering standards, not against codebase patterns or spec language alone.
+- `agentboard:expert-standards` — the foundational engineering-judgment frame. Audit verdicts are evaluated against established engineering standards, not against codebase patterns or spec language alone.
 
 ## Steps
 

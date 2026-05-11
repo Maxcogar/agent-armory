@@ -19,7 +19,7 @@ Validate the plan artifact on this card. Check that it's correct, complete, and 
 
 Before doing anything else, activate these skills via the `Skill` tool. They shape how you reason and how you use the codebase tools — they are not optional:
 
-- `expert-standard` — the foundational engineering-judgment frame. The Expert Evaluation Pass below is grounded in this skill; without it activated, you will pattern-match instead of evaluate against engineering standards.
+- `agentboard:expert-standards` — the foundational engineering-judgment frame. The Expert Evaluation Pass below is grounded in this skill; without it activated, you will pattern-match instead of evaluate against engineering standards.
 - `codebase-rag` — guidance on `rag_search` and `rag_query_impact`. Tells you when to use each, what `source_type` to pass, and the search-then-impact workflow.
 
 ## How to Think During This Review
@@ -48,7 +48,7 @@ The same applies in the other direction: do not fail a plan because earlier retr
 
 1. **Fetch the card** using `mcp__agentboard__agentboard_get_card` with card_id `{{card_id}}` and response_format `markdown`. Read the plan artifact (use the most recent one if multiple exist). Only switch to `json` for a specific call if you need to programmatically parse a field.
 
-2. **Read the architecture document** at `{{arch_path}}`. Locate this card's slice under `## 4. Card Slices` — the slice declares the allowed-touch list, forbidden-touch list, contracts produced and consumed, verification scope, and dependencies. The slice is the boundary truth this review checks against. The arch document's other sections (Ownership Map, Contract Truth, Dependency Graph, Verification Ownership, Decisions) are the cross-card context for evaluating whether the plan respects the broader architecture.
+2. **Read the architecture document** at `{{arch_path}}`. Locate this card's slice under `## Card Slices` — the slice conforms to the eight-field §6.3 schema (Description, Allowed-touch list, Forbidden-touch list, Produces, Consumes, Verification scope, Depends on, Source decisions). The slice is the boundary truth this review checks against. The arch document's other sections vary by level: at L2 and L3 they include Components and structure plus Design decisions in five-part format; at L3 they additionally include Quality characteristics (ISO/IEC 25010), Threat model and ASVS verification mapping when security is in scope, and Inheritance from precedents when this architecture is a sibling. At L1 the document is intentionally slim — the slices ARE the architecture and there is no separate Components or Design decisions section. The non-slice sections (where present) plus the Traceability matrix, Limitations, and Standards governing this architecture are the cross-card context for evaluating whether the plan respects the broader architecture.
 
 3. **Validate the plan against the codebase.** Use the right tool for each kind of claim:
 

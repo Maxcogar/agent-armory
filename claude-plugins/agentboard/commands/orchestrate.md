@@ -32,7 +32,7 @@ Run parallel subagents through the workspace board pipeline. Requires cards in `
 4. **Locate the architecture document:**
    - Check `docs/arch/` for the architecture matching the cards on this board, or ask the user for the path
    - The full arch doc path is passed to review agents as `{{arch_path}}`
-   - Each card's slice (the per-card section under "## 4. Card Slices") is extracted and passed to that card's planning agents as `{{arch_slice}}` — never the whole arch doc, never the spec
+   - Each card's slice (the per-card section under `## Card Slices` in the arch doc) is extracted and passed to that card's planning agents as `{{arch_slice}}` — never the whole arch doc, never the spec
 
 5. **Run Wave 1: Planning (two-phase per card)**
 
@@ -43,7 +43,7 @@ Run parallel subagents through the workspace board pipeline. Requires cards in `
 
    **Phase A — Research (haiku, parallel across cards):**
    - Spawn one `planning-research-agent` per card with `card_id` and `arch_slice`
-     (extract the per-card section under "## 4. Card Slices" in the arch doc, including the allowed-touch list, forbidden-touch list, produces, consumes, verification scope, and depends_on)
+     (extract the per-card section under `## Card Slices` in the arch doc, including all eight §6.3 schema fields: Description, Allowed-touch list, Forbidden-touch list, Produces, Consumes, Verification scope, Depends on, Source decisions)
    - Each agent runs codegraph + RAG discovery and submits a `FACTS_BUNDLE_V1` artifact on the card
    - Wait for ALL Phase A agents to complete before starting Phase B
 

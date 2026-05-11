@@ -40,10 +40,17 @@ Follow these steps in order.
    **Spec:** docs/specs/YYYY-MM-DD-<kebab-name>.md
    **Status:** approved, committed
 
-   **Next step:** Start a new session and run `/architecture <spec-path>` to
-   design boundaries and create workspace cards. The architecture pass produces
-   the document every planning agent will work from. Cards do not exist until
-   /architecture creates them.
+   **Next step:** Start a new session and run `/architecture <spec-path>`.
+   The command runs a level-aware pipeline: a haiku research agent measures
+   eight bundle fields from your spec and the codebase and applies the v1.0
+   classification rules to compute an L1, L2, or L3 level; a haiku auditor
+   independently re-measures every field; the bundle, audit, and level are
+   shown to you as transparency (you do NOT approve the level — classification
+   is deterministic); then the level-appropriate opus compose agent produces
+   the architecture document at `docs/arch/<file>.md`. You approve the
+   DOCUMENT (not the level); after approval, the orchestrator commits the
+   document and creates one workspace card per Card Slice. Cards do not exist
+   until `/architecture` creates them.
    ```
 
 ## Key Principles

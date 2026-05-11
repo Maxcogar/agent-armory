@@ -70,7 +70,7 @@ card_id: 7f3c...
 board_id: a91e...
 agent_id: claude-opus-4-6
 card_title: Add pagination to workspace cards endpoint
-arch_slice: <paste the card's section from "## 4. Card Slices" in the arch doc — full slice, including allowed-touch/forbidden-touch/produces/consumes/verification scope/depends_on>   ← Wave 1 only
+arch_slice: <paste the card's section from `## Card Slices` in the arch doc — full slice with all eight §6.3 fields: Description / Allowed-touch / Forbidden-touch / Produces / Consumes / Verification scope / Depends on / Source decisions>   ← Wave 1 only
 repo_root: /absolute/path/to/repo                                                                                                                                                            ← Wave 4 only
 ```
 
@@ -88,7 +88,7 @@ card_id: 7f3c...
 board_id: a91e...
 agent_id: claude-opus-4-6
 card_title: Add pagination to workspace cards endpoint
-arch_slice: <the same per-card slice passed to Phase A — full slice including allowed-touch/forbidden-touch/produces/consumes/verification scope/depends_on>   ← Wave 1 only
+arch_slice: <the same per-card slice passed to Phase A — full slice with all eight §6.3 fields: Description / Allowed-touch / Forbidden-touch / Produces / Consumes / Verification scope / Depends on / Source decisions>   ← Wave 1 only
 facts_bundle:
 FACTS_BUNDLE_V1
 { ...full JSON bundle content... }

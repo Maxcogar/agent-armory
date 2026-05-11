@@ -1,5 +1,5 @@
 ---
-name: expert-standard
+name: expert-standards
 description: "The foundational evaluation frame for all engineering work. Activates whenever Claude is making an engineering judgment of any kind — writing code, reviewing code, debugging, making architecture decisions, assessing quality, evaluating completeness, refactoring, choosing between approaches. Especially activates when Claude is about to approve or praise something: 'looks good', 'well-structured', 'correctly implemented', 'this is fine', or any positive quality judgment. If Claude is producing or evaluating engineering work, this skill applies — even for small tasks like writing a helper function or fixing a bug. This skill changes how Claude thinks, not what it delivers. For a structured deep review with findings and classifications, use the /expert-review command instead."
 ---
 

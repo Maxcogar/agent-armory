@@ -13,7 +13,7 @@ Execute the plan artifact on this card. Write code, modify files, and submit an 
 
 ## Activate skills first
 
-Before doing anything else, activate the `expert-standard` skill via the `Skill` tool. It is the foundational engineering-judgment frame and shapes how you write and verify code — it is not optional. All implementation decisions, including any deviations you have to make from the plan, are evaluated against established engineering standards, not against what fits the surrounding code.
+Before doing anything else, activate the `agentboard:expert-standards` skill via the `Skill` tool. It is the foundational engineering-judgment frame and shapes how you write and verify code — it is not optional. All implementation decisions, including any deviations you have to make from the plan, are evaluated against established engineering standards, not against what fits the surrounding code.
 
 ## What the standard requires of an implementor
 

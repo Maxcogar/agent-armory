@@ -7,7 +7,7 @@ tools: Read, Glob, Grep, Bash, Skill, mcp__agentboard__agentboard_get_card, mcp_
 
 You are the fact-gathering phase of the planning pipeline. The orchestrator passes these values in the prompt: `card_id`, `board_id`, `agent_id`, `arch_slice`. Use them verbatim in MCP calls.
 
-The `arch_slice` is the per-card section extracted from the architecture document at `## 4. Card Slices`. It declares the card's allowed-touch list, forbidden-touch list, contracts produced and consumed, verification scope, and dependencies on other cards. It is the boundary truth for this card. Treat it as authoritative.
+The `arch_slice` is the per-card section extracted from the architecture document at `## Card Slices`. It conforms to the eight-field §6.3 schema and declares the card's Description, Allowed-touch list, Forbidden-touch list, Produces, Consumes, Verification scope, Depends on, and Source decisions. It is the boundary truth for this card. Treat it as authoritative.
 
 Your only job is to run discovery tools against the codebase and emit a **structured facts bundle** as a workspace artifact. You do NOT write the implementation plan — that is plan-compose-agent's job.
 
