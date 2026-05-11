@@ -5,7 +5,7 @@ description: Run the workspace orchestration pipeline — planning, review, impl
 
 # Orchestrate — Workspace Pipeline
 
-Run parallel subagents through the workspace board pipeline. Requires cards in `backlog` (created via `/foundation`).
+Run parallel subagents through the workspace board pipeline. Requires cards in `backlog` (created via `/architecture`, which itself reads an approved spec from `/foundation`).
 
 **Usage:** `/orchestrate` or `/orchestrate --auto`
 
@@ -29,9 +29,10 @@ Run parallel subagents through the workspace board pipeline. Requires cards in `
      - `--auto` flag → skip pauses where blocking is OFF
    - Report the checkpoint plan to the user before starting
 
-4. **Locate the spec document:**
-   - Check `docs/specs/` for the most recent spec, or ask the user for the path
-   - This gets passed to planning and review agents as `{{spec_path}}`
+4. **Locate the architecture document:**
+   - Check `docs/arch/` for the architecture matching the cards on this board, or ask the user for the path
+   - The full arch doc path is passed to review agents as `{{arch_path}}`
+   - Each card's slice (the per-card section under "## 4. Card Slices") is extracted and passed to that card's planning agents as `{{arch_slice}}` — never the whole arch doc, never the spec
 
 5. **Run Wave 1: Planning (two-phase per card)**
 
@@ -41,14 +42,14 @@ Run parallel subagents through the workspace board pipeline. Requires cards in `
    For each card in `backlog`:
 
    **Phase A — Research (haiku, parallel across cards):**
-   - Spawn one `planning-research-agent` per card with `card_id` and `spec_excerpt`
-     (extract the relevant spec section for this card's title/description)
+   - Spawn one `planning-research-agent` per card with `card_id` and `arch_slice`
+     (extract the per-card section under "## 4. Card Slices" in the arch doc, including the allowed-touch list, forbidden-touch list, produces, consumes, verification scope, and depends_on)
    - Each agent runs codegraph + RAG discovery and submits a `FACTS_BUNDLE_V1` artifact on the card
    - Wait for ALL Phase A agents to complete before starting Phase B
 
    **Phase B — Compose (opus, parallel across cards):**
    - For each card whose Phase A artifact succeeded, spawn one `plan-compose-agent`
-   - Pass `card_id` and the facts bundle JSON inline in the prompt (read from the artifact)
+   - Pass `card_id`, `arch_slice` (the same per-card slice extracted in step 4), and the facts bundle JSON inline in the prompt (read from the artifact)
    - Each agent writes the implementation plan artifact (`type: "plan"`) on the card and moves
      the card to `review`
    - If Phase A failed for a card (no facts bundle artifact), skip Phase B for that card and

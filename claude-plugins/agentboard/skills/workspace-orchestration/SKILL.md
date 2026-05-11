@@ -10,7 +10,8 @@ Orchestrate parallel subagents through workspace board columns: planning → rev
 ## Prerequisites
 
 - AgentBoard server running (call `agentboard_health_check`)
-- A workspace board with cards in `backlog` (created via `/foundation`)
+- A workspace board with cards in `backlog` (created via `/architecture`, which itself depends on a spec from `/foundation`)
+- An approved architecture document at `docs/arch/<topic>.md` whose Card Slices section corresponds to the cards on this board
 - MCP tools loaded: `agentboard`, `codegraph`, `codebase-rag`
 
 ## Pipeline Overview
@@ -69,8 +70,8 @@ card_id: 7f3c...
 board_id: a91e...
 agent_id: claude-opus-4-6
 card_title: Add pagination to workspace cards endpoint
-spec_excerpt: <paste the relevant spec section for this card>   ← Wave 1 only
-repo_root: /absolute/path/to/repo                              ← Wave 4 only
+arch_slice: <paste the card's section from "## 4. Card Slices" in the arch doc — full slice, including allowed-touch/forbidden-touch/produces/consumes/verification scope/depends_on>   ← Wave 1 only
+repo_root: /absolute/path/to/repo                                                                                                                                                            ← Wave 4 only
 ```
 
 **Phase B prompt (Waves 1 and 4):**
@@ -80,13 +81,14 @@ Before spawning Phase B agents, fetch the Phase A bundle from each card:
 - Find the artifact starting with `FACTS_BUNDLE_V1` (Wave 1) or `AUDIT_FACTS_BUNDLE_V1` (Wave 4)
 - Call `agentboard_get_workspace_artifact` to fetch the full content
 
-Pass the bundle inline so the compose agent does not need to fetch it again:
+Pass the bundle inline so the compose agent does not need to fetch it again. For Wave 1, also pass the `arch_slice` so the compose agent does not need to re-extract it:
 
 ```
 card_id: 7f3c...
 board_id: a91e...
 agent_id: claude-opus-4-6
 card_title: Add pagination to workspace cards endpoint
+arch_slice: <the same per-card slice passed to Phase A — full slice including allowed-touch/forbidden-touch/produces/consumes/verification scope/depends_on>   ← Wave 1 only
 facts_bundle:
 FACTS_BUNDLE_V1
 { ...full JSON bundle content... }
@@ -101,7 +103,7 @@ card_id: 7f3c...
 board_id: a91e...
 agent_id: claude-opus-4-6
 card_title: Add pagination to workspace cards endpoint
-spec_path: /repo/docs/spec.md    ← review-agent only
+arch_path: /repo/docs/arch/2026-05-08-<topic>.md    ← review-agent only — full architecture doc, not just the slice
 ```
 
 ### 3. Wait for All Agents
