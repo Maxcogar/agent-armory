@@ -30,7 +30,7 @@
       "name": "agentboard",
       "source": "./claude-plugins/agentboard",
       "description": "AgentBoard AI project management toolkit — structured phase-based workflow with codegraph and RAG companion tools",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "author": {
         "name": "Maxcogar"
       },
