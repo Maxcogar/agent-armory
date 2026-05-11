@@ -199,7 +199,7 @@ ARCH_FACTS_BUNDLE_V1
       "value": 0,
       "evidence": [
         {
-          "keyword": "credential | token | secret | auth | PII | encryption",
+          "keyword": "credential | token | secret | auth | PII | encryption | hash | salt | certificate | key",
           "spec_quote": "<quote with surrounding context>"
         }
       ]
@@ -369,7 +369,7 @@ The asymmetric cost rule applies to tuning: when in doubt about whether a thresh
 - `name: architecture-research-agent`
 - `description: Phase A of the architecture pipeline — mechanical fact-gathering against the spec and codebase, fills ARCH_FACTS_BUNDLE_V1 with countable fields and evidence, applies the v1.0 classification rules to compute level. Does not reason about architecture; produces facts that determine which compose agent runs in Phase B. Invoke from /architecture — the orchestrator passes spec_path, scaffold_card_id, and agent_id.`
 - `model: claude-haiku-4-5-20251001`
-- `tools`: Read, Glob, Grep, Bash, Skill, agentboard MCP (`get_card`, `update_workspace_card`, `add_log_entry`, `submit_workspace_artifact`), codegraph (full set), codebase-rag (`rag_search`, `rag_query_impact`)
+- `tools`: Read, Glob, Grep, Bash, Skill, agentboard MCP (`get_card`, `list_workspace_artifacts`, `get_workspace_artifact`, `update_workspace_card`, `add_log_entry`, `submit_workspace_artifact`), codegraph (full set), codebase-rag (`rag_search`, `rag_query_impact`). `list_workspace_artifacts` + `get_workspace_artifact` are needed so the agent can mirror the `planning-research-agent` pattern of checking for a recent prior bundle and reusing it if `gathered_at` is within the last hour (avoids redundant work when `/architecture` is re-invoked).
 
 **Body sections:**
 
@@ -379,11 +379,10 @@ The asymmetric cost rule applies to tuning: when in doubt about whether a thresh
    1. **Fetch the scaffold card** via `agentboard_get_card` to confirm card exists.
    2. **Read the spec at `spec_path`.**
    3. **Scan the codebase** via `codegraph_scan`. Required even if the project has no scanned languages — empty scan is a recorded finding.
-   4. **Run RAG discovery.** For each spec capability/outcome/constraint, run `rag_search` with `source_type` ∈ {`code`, `constraints`, `docs`}. Capture matches and counts.
-   5. **Measure each bundle field.** Each field has a specific measurement procedure (detailed below); execute every procedure, record evidence, never skip.
-   6. **Apply the v1.0 classification rules.** L3 triggers checked first (any fire → L3). If no L3 trigger, L2 triggers checked. If neither, L1.
-   7. **Validate the bundle** against the schema (every field present, evidence counts match, rule_evaluation populated).
-   8. **Submit the bundle** as a workspace artifact (`type: "general"`) via `agentboard_submit_workspace_artifact` to the scaffold card.
+   4. **Measure each bundle field.** Each field has a specific measurement procedure (detailed below); execute every procedure, record evidence, never skip. Every `rag_search` / `rag_query_impact` invocation is run as part of a specific field's measurement and is recorded in that field's evidence slot (e.g., `new_contracts_count.evidence[].rag_query_run`). There is no separate "RAG discovery" step — searches happen because a field is being measured. A query whose result doesn't feed an evidence slot is a query the auditor cannot reproduce identically, which would produce false discrepancies.
+   5. **Apply the v1.0 classification rules.** L3 triggers checked first (any fire → L3). If no L3 trigger, L2 triggers checked. If neither, L1.
+   6. **Validate the bundle** against the schema (every field present, evidence counts match, rule_evaluation populated).
+   7. **Submit the bundle** as a workspace artifact (`type: "general"`) via `agentboard_submit_workspace_artifact` to the scaffold card.
 
 3. **Field measurement procedures** — per-field instructions:
    - `new_contracts_count`: for each interface/type/protocol the spec implies introducing, search the codebase via `rag_search` (`source_type="code"`) for existing implementations. If none found, count it as new. Evidence: spec quote + RAG query + match count. Threshold for "implied introducing": the spec uses language like "introduce," "new," "create," "define" applied to an interface, protocol, contract, or type.
@@ -407,6 +406,11 @@ The asymmetric cost rule applies to tuning: when in doubt about whether a thresh
    - No editorial commentary; the agent doesn't reason about architecture, only about facts
    - On any tool failure: stop, report via card note + activity log, do not produce a partial bundle
 
+7. **Worked examples (required in the profile body):** the profile must include one worked example per field-type so the agent has a concrete reference for evidence shape and the evidence-count-equals-value invariant. Minimum three examples:
+   - One numeric field example (e.g., `new_contracts_count: 2` with two evidence entries, each with spec_quote + rag_query_run + rag_match_count)
+   - One boolean field example (e.g., `trust_boundaries_introduced: true` with one evidence entry showing boundary_kind + spec_quote)
+   - One band field example (`expected_card_count_band` with lower/upper/reasoning, showing the "bias toward wider when uncertain" discipline)
+
 ### 8.2 `agents/architecture-classification-auditor.md` (NEW, haiku)
 
 **Frontmatter:**
@@ -417,7 +421,10 @@ The asymmetric cost rule applies to tuning: when in doubt about whether a thresh
 
 **Body sections:**
 
-1. **How to read this profile** — mandatory anti-skip language. Key rebuttal: "I'll just check the fields that look unusual" → no, every field is independently re-measured; "the bundle looks right at a glance, I'll PASS everything" → no, the audit is mechanical re-measurement, not pattern recognition.
+1. **How to read this profile** — mandatory anti-skip language. Key rebuttals:
+   - "I'll just check the fields that look unusual" → no, every field is independently re-measured.
+   - "The bundle looks right at a glance, I'll PASS everything" → no, the audit is mechanical re-measurement, not pattern recognition.
+   - "I'll just glance at the bundle to know which fields to focus on" → no, the audit is independent re-measurement of every field BEFORE any comparison; glancing at the bundle first creates anchoring bias toward agreement, which is precisely the failure mode this agent exists to prevent. The ordering discipline in §2 is load-bearing.
 
 2. **Audit ordering discipline (CRITICAL):** The auditor MUST measure every field from the spec independently BEFORE looking at the research agent's bundle. Looking at the bundle first creates anchoring bias toward agreement. Process:
    - Step 1: Fetch the scaffold card; do NOT fetch the bundle yet.
