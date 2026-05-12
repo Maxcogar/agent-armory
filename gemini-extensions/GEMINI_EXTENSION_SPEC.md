@@ -664,23 +664,30 @@ This is the part that silently breaks if you get it wrong:
 
 ### Configuration schema
 
+The top level of `hooks/hooks.json` is an object with a single `"hooks"` key.
+Event names (`BeforeTool`, `AfterTool`, etc.) live **inside** that wrapper —
+not at the root of the file. The loader rejects files where the event names
+appear directly at the top level.
+
 ```json
 {
-  "BeforeTool": [
-    {
-      "matcher": "run_shell_command|write_file",
-      "sequential": true,
-      "hooks": [
-        {
-          "type": "command",
-          "command": "node ${extensionPath}${/}hooks${/}validate.js",
-          "name": "validate-shell",
-          "timeout": 60000,
-          "description": "Block destructive operations"
-        }
-      ]
-    }
-  ]
+  "hooks": {
+    "BeforeTool": [
+      {
+        "matcher": "run_shell_command|write_file",
+        "sequential": true,
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${extensionPath}${/}hooks${/}validate.js",
+            "name": "validate-shell",
+            "timeout": 60000,
+            "description": "Block destructive operations"
+          }
+        ]
+      }
+    ]
+  }
 }
 ```
 
