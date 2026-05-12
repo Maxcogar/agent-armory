@@ -1,0 +1,9 @@
+description = "Quick progress snapshot of a workspace board — card counts, blocked items, recent activity"
+prompt = """
+Invoke the `board-status-agent` subagent to show the current state of a workspace board.
+
+If the user passed arguments, treat them as a board ID or app/board selector:
+{{args}}
+
+If no arguments were provided, follow the subagent's instructions for interactive selection.
+"""

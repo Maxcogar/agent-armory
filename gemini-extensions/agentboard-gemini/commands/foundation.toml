@@ -1,0 +1,7 @@
+description = "Interactive spec-building session — brainstorm work, produce a spec document, and create workspace board cards"
+prompt = """
+Invoke the `foundation-agent` subagent to run an interactive spec-building session: brainstorm the work with the user, produce a spec document under `docs/specs/`, and create workspace board cards.
+
+User context for the session:
+{{args}}
+"""

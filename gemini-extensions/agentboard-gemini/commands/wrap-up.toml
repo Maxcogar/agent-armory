@@ -1,0 +1,7 @@
+description = "End-of-session handoff — add progress notes, log activity, and summarize state for the next agent"
+prompt = """
+Invoke the `wrap-up-agent` subagent to close out this session cleanly: add progress notes to any in-progress tasks, transition any completed work, log a session summary, and produce a handoff for the next agent.
+
+User context (optional final notes to include in the handoff):
+{{args}}
+"""

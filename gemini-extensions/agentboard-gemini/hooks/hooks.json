@@ -1,0 +1,30 @@
+{
+  "BeforeTool": [
+    {
+      "matcher": "mcp_agentboard_agentboard_submit_workspace_artifact",
+      "hooks": [
+        {
+          "type": "command",
+          "name": "artifact-quality-gate",
+          "description": "Block artifact submission if content contains markers of incomplete work (TODO, FIXME, open question, etc.)",
+          "command": "python ${extensionPath}${/}hooks${/}scripts${/}artifact-quality-gate.py",
+          "timeout": 5000
+        }
+      ]
+    }
+  ],
+  "AfterTool": [
+    {
+      "matcher": "mcp_agentboard_agentboard_get_next_card|mcp_agentboard_agentboard_get_card|mcp_agentboard_agentboard_update_workspace_card",
+      "hooks": [
+        {
+          "type": "command",
+          "name": "workspace-card-guidance",
+          "description": "Inject phase-specific guidance after a workspace card is fetched or claimed",
+          "command": "python ${extensionPath}${/}hooks${/}scripts${/}workspace-card-guidance.py",
+          "timeout": 5000
+        }
+      ]
+    }
+  ]
+}

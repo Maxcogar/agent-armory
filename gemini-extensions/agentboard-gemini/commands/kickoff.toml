@@ -1,0 +1,7 @@
+description = "Onboard an agent to AgentBoard — verify connectivity and create or select a project"
+prompt = """
+Invoke the `kickoff-agent` subagent to onboard this session to AgentBoard: authenticate the MCP if needed, verify connectivity, then create or select a project and claim the first task.
+
+User context (project name, type, idea, or target codebase path):
+{{args}}
+"""
