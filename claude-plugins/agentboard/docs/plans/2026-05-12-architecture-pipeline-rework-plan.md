@@ -276,7 +276,7 @@ Required fields are all top-level fields. Evidence arrays may be empty only when
 
   "any_discrepancy": <bool>,
 
-  "corrected_bundle": <full ARCH_FACTS_BUNDLE_V2 or null>,
+  "corrected_bundle": <full ARCH_FACTS_BUNDLE_V2 or null — when non-null, corrected_bundle.rule_evaluation.computed_level equals recomputed_level (the auditor substitutes the recomputed level into the corrected bundle's rule_evaluation field so compose can rely on a single field for the level)>,
   "recomputed_level": <1 | 2 | 3 | null>,
 
   "verified_level": <1 | 2 | 3>,
@@ -441,7 +441,7 @@ tools: Read, Glob, Grep, Bash, Skill, mcp__agentboard__agentboard_get_card, mcp_
 ```yaml
 ---
 name: architecture-compose-l3
-description: Phase B of the architecture pipeline at level L3. Produces a comprehensive architecture document and per-card slices for substantial work — anything triggering R-L3-EXT, R-L3-MIG, R-L3-SEC, R-L3-CONTRACTS, or R-L3-CARDS. Twelve-phase process reasoning from the verified bundle. Three delivery gates plus parallel trap audit. Clear Thought as framework throughout. Invoke from /architecture only when verified_level == 3.
+description: Phase B of the architecture pipeline at level L3. Produces a comprehensive architecture document and per-card slices for substantial work — anything triggering R-L3-EXT, R-L3-MIG, R-L3-SEC, R-L3-CONTRACTS, or R-L3-CARDS. Seventeen-step process reasoning from the verified bundle (no codebase discovery — codebase facts come from the bundle). Three delivery gates plus parallel trap audit. Clear Thought as framework throughout. Invoke from /architecture only when verified_level == 3.
 model: claude-opus-4-7
 tools: Read, Edit, Write, Glob, Grep, Skill, mcp__agentboard__agentboard_get_card, mcp__agentboard__agentboard_update_workspace_card, mcp__agentboard__agentboard_add_log_entry, mcp__agentboard__agentboard_submit_workspace_artifact, mcp__agentboard__agentboard_list_workspace_artifacts, mcp__agentboard__agentboard_get_workspace_artifact, mcp__claude_ai_Context7__resolve-library-id, mcp__claude_ai_Context7__query-docs, mcp__clear-thought__metacognitivemonitoring, mcp__clear-thought__mentalmodel, mcp__clear-thought__debuggingapproach, mcp__clear-thought__structuredargumentation, mcp__clear-thought__sequentialthinking, mcp__clear-thought__scientificmethod, mcp__clear-thought__decisionframework, mcp__clear-thought__collaborativereasoning
 ---
@@ -450,8 +450,13 @@ tools: Read, Edit, Write, Glob, Grep, Skill, mcp__agentboard__agentboard_get_car
 **Body structure (in order):**
 
 1. Subagent boundary contract (per §1.3) — names the input bundle as authoritative ground truth for codebase facts.
-2. Halt condition — if `verified_level != 3`, halt with structured error to scaffold card.
-3. Process steps:
+2. Anti-skip discipline / reasoning patterns to foreclose.
+3. Where architecture work goes wrong (the five-trap audit framing).
+4. Workflow context — names the upstream pipeline stages whose output the agent consumes.
+5. Reasoning support — the Clear Thought tool ↔ step mapping table.
+6. Output contract — the two-axis evidence structure the document carries.
+7. Halt condition — if `verified_level != 3` or `bundle.rule_evaluation.computed_level != 3` or they disagree, halt with structured error to scaffold card.
+8. Process steps:
    - **Step 1**: cross-cutting expert-standards activation (verbatim text per Preamble rule 2).
    - **Step 2**: Ingest the verified `ARCH_FACTS_BUNDLE_V2` passed inline. Read it as authoritative. Specifically: `files_relevant` is the file set the architecture addresses; `dependency_edges` describe coupling; `blast_radius` informs scope decisions; `existing_patterns_hits` informs pattern adherence/divergence decisions; `constraint_hits` are constraints the architecture must respect; `external_libraries` lists library IDs available for Context7 query-docs; `open_questions` enumerates ambiguities to resolve in design. Snippet existence is authoritative (auditor verified); snippet relevance to a specific decision is the agent's judgment.
    - **Step 3**: Read spec at `spec_path` in full; read any documents the spec references locally.
@@ -474,8 +479,8 @@ tools: Read, Edit, Write, Glob, Grep, Skill, mcp__agentboard__agentboard_get_car
      ## Design decisions
      ## Threat model (if security in scope)
      ## ASVS verification mapping (if security in scope)
+     ## Card Slices (per §5 — placeholder, populated in Step 13)
      ## Traceability matrix
-     ## Card Slices (per §6.3 of the 2026-05-09 plan — placeholder, populated in Step 13)
      ## Limitations and trade-offs
      ## Standards governing this architecture
      ## Status of this architecture
@@ -487,8 +492,7 @@ tools: Read, Edit, Write, Glob, Grep, Skill, mcp__agentboard__agentboard_get_car
    - **Step 15**: Edit the architecture document at `docs/arch/<file>.md` to incorporate the Step 14 collaborativereasoning synthesis into the Design decisions section. If no perspective-specific gaps surfaced, write an explicit attestation in that section ("All three perspectives (planner, reviewer, stakeholder) were checked at Gate A; no perspective-specific gaps surfaced"). The document on disk must reflect the synthesis before gates run, because gates evaluate the document, not the agent's working memory.
    - **Step 16**: Gates A/B/C + trap audit per 2026-05-09 plan's "Before delivering" section. Run against the updated document on disk. Fail → fix the document and re-run gates; do not deliver with failing gates.
    - **Step 17**: Submit architecture document content as `architecture_document` workspace artifact. Card note + activity log.
-4. Anti-skip rebuttals per the 2026-05-09 plan's six rebuttals (preserved).
-5. Failure modes — Context7 unavailable for a library compose needs to verify → halt with structured error.
+9. Failure modes — Context7 unavailable for a library compose needs to verify → halt with structured error; tool unavailability or malformed bundle → halt; Step 13 placeholder unreplaced → halt before submit. The anti-skip rebuttals listed in item 2 carry the discipline previously held under a separate "anti-skip rebuttals" body-structure element in earlier drafts; they remain a required section (now folded into the Anti-skip discipline section).
 
 ### 6.4 `agents/architecture-compose-l2.md`
 
@@ -661,12 +665,12 @@ Detection note: `grep -q "^# Architecture —"` matches the heading anywhere it 
 ```
 R-DOC-1: grep -qE "^\\*\\*Level:\\*\\* L[123]$" matches in the Status section.
          Parse level: L = the digit matched.
-R-DOC-2: Required sections present per level L.
+R-DOC-2: Required sections present per level L. The check is a subsequence check — the required section names must appear in the specified relative order, but optional sections (e.g., `## Inheritance from existing precedents` at any level, `## Threat model` / `## ASVS verification mapping` at L3) may appear between them without failing the rule.
          L1 required sections (in order): # Architecture — , ## Goal, ## Scope, italic-attestation line, ## Card Slices, ## Limitations, ## Standards governing this architecture, ## Status
          L2 required: # Architecture — , ## Goal, ## Scope, ## Components and structure, ## Design decisions, ## Card Slices, ## Traceability matrix, ## Limitations, ## Standards, ## Status
          L3 required: # Architecture — , ## Goal, ## Scope, ## Components and structure, ## Quality characteristics, ## Design decisions, ## Card Slices, ## Traceability matrix, ## Limitations, ## Standards, ## Status
-         Additionally for L3: if ## Threat model present, then ## ASVS verification mapping must also be present.
-         Implementation: grep -nE "^## " on content, extract heading sequence, check against per-level expected list.
+         Additionally for L3: if ## Threat model present, then ## ASVS verification mapping must also be present (both are optional but co-occur).
+         Implementation: grep -nE "^## " on content, extract heading sequence; for each required heading in the per-level list, verify it appears in the sequence at a position later than the prior required heading. Headings not in the required list (optional sections) are ignored for the order check.
 R-DOC-3: ## Card Slices section non-empty (contains at least one ### sub-heading representing a slice title).
 R-DOC-4: Every slice (### sub-heading under ## Card Slices) contains all 8 §6.3 field labels as bullets (Description, Allowed-touch, Forbidden-touch, Produces, Consumes, Verification scope, Depends on, Source decisions). Implementation: parse slice section into bullets, check label presence against the 8-field list.
 R-DOC-5: For every R# and Q# appearing in the spec at spec_path, the architecture document references it either in the ## Traceability matrix section OR in at least one slice's Source decisions field. (Spec path passed as an env var or derived from the artifact's card_id.) If spec_path is not available to the hook, downgrade to: ## Traceability matrix section (where required) is non-empty.
