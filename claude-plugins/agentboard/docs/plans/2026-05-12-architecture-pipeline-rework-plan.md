@@ -211,7 +211,9 @@ Required fields are all top-level fields. Evidence arrays may be empty only when
 
   "version_validation": {
     "schema_version_match": <bool>,
-    "rules_version_match": <bool>
+    "rules_version_match": <bool>,
+    "spec_path_match": <bool>,
+    "spec_hash_match": <bool>
   },
 
   "field_verdicts": {
@@ -266,8 +268,9 @@ Required fields are all top-level fields. Evidence arrays may be empty only when
     },
     "open_questions": {
       "verdict": "PASS" | "DISCREPANCY",
-      "method": "auditor-flagged-additional-ambiguities",
-      "auditor_additional_questions": [/* ... */]
+      "method": "bidirectional-open-question-comparison",
+      "auditor_additional_questions": [/* questions auditor flagged that research missed */],
+      "research_only_questions": [/* questions research flagged that auditor did not surface, each with auditor_assessment ∈ {"confirmed_genuine", "unsubstantiated"} */]
     }
   },
 
