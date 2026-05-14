@@ -15,12 +15,18 @@
       "matcher": "mcp__agentboard__agentboard_submit_workspace_artifact",
       "hooks": [
         {
-          "type": "prompt",
-          "prompt": "SUBMISSION QUALITY GATE — Before submitting this artifact, verify ALL of the following:\n\n- No open questions or unanswered items\n- No TODO/TBD/FIXME/placeholder text\n- No 'need to investigate' or 'look into' language\n- Every step references specific files and line numbers\n- You used codegraph, codebase-rag, grep, and read tools to validate your work\n- The artifact is immediately actionable by another agent without further research\n\nIf ANY check fails, DO NOT submit. Go back and fix the gaps using your tools first."
+          "type": "command",
+          "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/artifact-quality-gate.sh",
+          "timeout": 5000
         },
         {
           "type": "command",
-          "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/artifact-quality-gate.sh",
+          "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/validate-architecture-artifact.sh",
+          "timeout": 10000
+        },
+        {
+          "type": "command",
+          "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/inject-quality-gate-prompt.sh",
           "timeout": 5000
         }
       ]
