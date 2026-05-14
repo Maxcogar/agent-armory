@@ -340,7 +340,7 @@ The Card Slices section is included at this step as a header with a placeholder 
 **Level:** L3
 ```
 
-The `**Level:** L3` marker is the human-readable form of the numeric `verified_level: 3` per the level representation split. It is mandatory; the validation hook parses this marker to confirm the document was produced at L3. Write the marker on its own line within the Status section — do not embed it in a sentence or after any other text on the same line. The hook matches the pattern `^\*\*Level:\*\* L3$` exactly (start of line, no leading or trailing content); any deviation from this layout fails the hook.
+The `**Level:** L3` marker is the human-readable form of the numeric `verified_level: 3` per the level representation split. It is mandatory; the validation hook parses this marker to confirm the document was produced at L3. Write the marker on its own line within the Status section — do not embed it in a sentence or after any other text on the same line. The hook matches the pattern `^\*\*Level:\*\* L3\r?$` exactly (start of line, no leading or trailing content); any deviation from this layout fails the hook.
 
 ### 13. Slice the architecture into implementation cards
 
