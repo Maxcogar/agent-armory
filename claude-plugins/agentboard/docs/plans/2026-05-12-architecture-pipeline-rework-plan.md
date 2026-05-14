@@ -585,27 +585,30 @@ tools: Read, Edit, Write, Glob, Grep, Skill, mcp__agentboard__agentboard_get_car
 ```yaml
 ---
 name: architecture-design-reviewer
-description: Phase B review of the architecture pipeline. Reads the architecture document, spec, and verified bundle; surfaces defects in the design — missing decisions, unjustified slices, contract mismatches between produces/consumes pairs, standards-decoration, decision-hiding, deferred-decision. Advisory; user sees findings alongside document and decides. Invoke from /architecture after the validation hook passes compose's artifact and before user approval.
+description: Phase B review of the architecture pipeline. Reads the architecture document, spec, and verified bundle; surfaces defects in the design — missing decisions, unjustified slices, contract mismatches between produces/consumes pairs, standards-decoration, decision-hiding, deferred-decision — plus an `other` catch-all for defects that fit none of the six named categories. Emits one ARCH_DESIGN_REVIEW_V1 artifact with severity-tagged findings; the list may be empty. Advisory; user sees findings alongside document and decides. Invoke from /architecture after the validation hook passes compose's artifact and before user approval.
 model: claude-sonnet-4-6
 extended_thinking: true
 tools: Read, Glob, Grep, Skill, mcp__agentboard__agentboard_get_card, mcp__agentboard__agentboard_list_workspace_artifacts, mcp__agentboard__agentboard_get_workspace_artifact, mcp__agentboard__agentboard_add_log_entry, mcp__agentboard__agentboard_submit_workspace_artifact
 ---
 ```
 
+(Description text updated 2026-05-14: added `other` catch-all clause and ARCH_DESIGN_REVIEW_V1 emit note to match what Session 7's final committed profile actually does. The original spec described six categories; the implemented Step 8.5 adds the `other` catch-all, and the description must reflect this for orchestrator routing accuracy.)
+
 **Body structure (in order):**
 
 1. Subagent boundary contract (per §1.6).
 2. Process steps:
    - **Step 1**: cross-cutting expert-standards activation (verbatim text per Preamble rule 2).
-   - **Step 2**: Read inputs — spec at `spec_path`; architecture document via Read at `architecture_document_path` (or fall back to `get_workspace_artifact` on `architecture_document_artifact_id` if disk read fails); verified bundle via `get_workspace_artifact` on `verified_bundle_artifact_id`.
+   - **Step 2**: Read inputs — spec at `spec_path`; architecture document via Read at `architecture_document_path` (or fall back to `get_workspace_artifact` on `architecture_document_artifact_id` if disk read fails); verified bundle via `get_workspace_artifact` on `verified_bundle_artifact_id` (the audit artifact, from which the bundle is derived per the `any_discrepancy` branch — see §3 audit schema). Apply BOM/CR normalization and sentinel-line verification to all fetched artifact content before JSON parse.
    - **Step 3**: Build a coverage matrix — every R# and Q# in the spec → which D# (or Source decision attribution at L1) addresses it. Missing entries are `missing-decision` findings.
    - **Step 4**: For each slice — check that its allowed-touch is justified by the decisions in its `source_decisions` (or by the R#/Q# at L1). Unjustified files → `unjustified-slice` finding.
    - **Step 5**: For each produces/consumes pair across slices — verify the consumer's consumed contract is produced by some other slice. Orphan produces (no consumer) is a finding; orphan consumes (no producer) is a finding.
    - **Step 6**: For each standard cited in the Standards table — verify at least one decision actually uses it. Unused standards are `standards-decoration` findings.
    - **Step 7**: For each non-trivial decision — verify the reasoning is in the document (not hidden as conclusion-only). Conclusion-without-reasoning → `decision-hiding` finding.
    - **Step 8**: For each deferred item — verify it's truly out-of-scope (e.g., legitimately implementer's call), not architecture-relevant-but-pushed-down. Deferred-architecture → `deferred-decision` finding.
+   - **Step 8.5**: `other`-category catch-all sweep. Re-read the architecture document for design defects not surfaced in Steps 3 through 8 (cross-section consistency, cross-reference integrity, structural incoherence). Apply a priority-ordering rule for category selection: when a defect fits a named category under that Step's literal definition, classify under the named category, NOT under `other`. Use `other` only for defects fitting none of the six named categories.
    - **Step 9**: Construct `ARCH_DESIGN_REVIEW_V1` per §4 schema. Findings list with severity, category, document citation, suggested resolution. Submit artifact via `submit_workspace_artifact`. Add activity log entry via `add_log_entry`. (No card note update — `update_workspace_card` is intentionally NOT in this agent's tools list; the activity log is the reviewer's write surface.)
-3. Failure modes — if document is malformed (validation hook should have blocked), halt with structured error noting the document didn't conform.
+3. Failure modes — every halt path has a mirrored entry naming step (with sub-step suffix), failing condition, log content, and terminal "Stop." This includes: input retrieval failures (spec, architecture document, audit, bundle); wrong-sentinel halts; schema/version mismatch halts; structural conformance halts; level-disagreement halts; Step 9 pre-submission validation halts; MCP transport halts.
 
 ---
 
@@ -658,19 +661,25 @@ tools: Read, Glob, Grep, Skill, mcp__agentboard__agentboard_get_card, mcp__agent
 
 Detection note: `grep -q "^# Architecture —"` matches the heading anywhere it appears at start-of-line. This accommodates documents with YAML frontmatter, leading whitespace, or other preamble before the heading — the contract says "top-level heading," not "first character of file."
 
+**Sentinel-bearing artifacts (BUNDLE, AUDIT, REVIEW):** all three sentinel-bearing artifact types have content in the form `<SENTINEL>\n<JSON>` where `<SENTINEL>` is the literal sentinel line (`ARCH_FACTS_BUNDLE_V2`, `ARCH_BUNDLE_AUDIT_V2`, or `ARCH_DESIGN_REVIEW_V1`). The hook MUST normalize and strip the sentinel before applying JSON validity checks — `jq .` on the full content fails because the sentinel line is not valid JSON. Normalization steps: (1) strip a leading UTF-8 BOM (`\xEF\xBB\xBF`) if present; (2) treat both `\n` and `\r\n` as line terminators; (3) strip the first line (and any trailing `\r` on that line); (4) verify the stripped first line equals the expected sentinel string exactly; (5) apply subsequent rules (`jq .` etc.) to the remainder. If the first line is not the expected sentinel after normalization, fail the rule set with a wrong-sentinel error (artifact_type and observed first-line text both reported).
+
+**Cross-platform end-of-line discipline:** every rule whose pattern ends with `$` MUST be written as `<base>\r?$` rather than `<base>$` to handle CRLF-stored documents. Windows-hosted MCP servers and Git autocrlf are common sources of CRLF; the `\r?$` form accepts both LF and CRLF endings.
+
 **Rule sets, enumerated:**
 
 **`architecture_document` rule set (7 rules):**
 
 ```
-R-DOC-1: grep -qE "^\\*\\*Level:\\*\\* L[123]$" matches in the Status section.
+R-DOC-1: grep -qE "^\\*\\*Level:\\*\\* L[123]\r?$" matches in the Status section.
          Parse level: L = the digit matched.
 R-DOC-2: Required sections present per level L. The check is a subsequence check — the required section names must appear in the specified relative order, but optional sections (e.g., `## Inheritance from existing precedents` at any level, `## Threat model` / `## ASVS verification mapping` at L3) may appear between them without failing the rule.
-         L1 required sections (in order): # Architecture — , ## Goal, ## Scope, italic-attestation line, ## Card Slices, ## Limitations, ## Standards governing this architecture, ## Status
-         L2 required: # Architecture — , ## Goal, ## Scope, ## Components and structure, ## Design decisions, ## Card Slices, ## Traceability matrix, ## Limitations, ## Standards, ## Status
-         L3 required: # Architecture — , ## Goal, ## Scope, ## Components and structure, ## Quality characteristics, ## Design decisions, ## Card Slices, ## Traceability matrix, ## Limitations, ## Standards, ## Status
+         Heading strings (updated 2026-05-14 to match compose-l1/l2/l3 template output verbatim — earlier short forms `## Scope`, `## Limitations`, `## Standards`, `## Status`, `## Quality characteristics` did not match what compose actually produces and would have caused R-DOC-2 to false-fail on every valid document):
+         L1 required sections (in order): # Architecture — , ## Goal, ## Scope (in / out), italic-attestation line, ## Card Slices, ## Limitations, ## Standards governing this architecture, ## Status of this architecture
+         L2 required: # Architecture — , ## Goal, ## Scope (in / deferred / out), ## Components and structure, ## Design decisions, ## Card Slices, ## Traceability matrix, ## Limitations and trade-offs, ## Standards governing this architecture, ## Status of this architecture
+         L3 required: # Architecture — , ## Goal, ## Scope, ## Components and structure, ## Quality characteristics addressed (ISO/IEC 25010:2023), ## Design decisions, ## Card Slices, ## Traceability matrix, ## Limitations and trade-offs, ## Standards governing this architecture, ## Status of this architecture
+         (All three Goal headings are longer than `## Goal` in compose output — typically `## Goal — what this architecture serves`. Match by delimited-prefix where the required entry text is a prefix of the actual heading AND the character immediately after the entry text is one of: end-of-line, CR (for CRLF-stored files), single space, em-dash, colon, or space-hyphen-space. This admits `## Goal — ...` while rejecting `## Goalkeeper` and similar compound-word false positives.)
          Additionally for L3: if ## Threat model present, then ## ASVS verification mapping must also be present (both are optional but co-occur).
-         Implementation: grep -nE "^## " on content, extract heading sequence; for each required heading in the per-level list, verify it appears in the sequence at a position later than the prior required heading. Headings not in the required list (optional sections) are ignored for the order check.
+         Implementation: grep -nE "^## " on content (with `\r` stripped from line ends), extract heading sequence; for each required heading in the per-level list, verify it appears in the sequence at a position later than the prior required heading via delimited-prefix matching. Headings not in the required list (optional sections) are ignored for the order check.
 R-DOC-3: ## Card Slices section non-empty (contains at least one ### sub-heading representing a slice title).
 R-DOC-4: Every slice (### sub-heading under ## Card Slices) contains all 8 §6.3 field labels as bullets (Description, Allowed-touch, Forbidden-touch, Produces, Consumes, Verification scope, Depends on, Source decisions). Implementation: parse slice section into bullets, check label presence against the 8-field list.
 R-DOC-5: For every R# and Q# appearing in the spec at spec_path, the architecture document references it either in the ## Traceability matrix section OR in at least one slice's Source decisions field. (Spec path passed as an env var or derived from the artifact's card_id.) If spec_path is not available to the hook, downgrade to: ## Traceability matrix section (where required) is non-empty.
@@ -681,7 +690,7 @@ R-DOC-7: No two slices have allowed-touch lists with overlapping file paths unle
 **`ARCH_FACTS_BUNDLE_V2` rule set (5 rules):**
 
 ```
-R-BUNDLE-1: Content is valid JSON (jq . > /dev/null).
+R-BUNDLE-1: After BOM/CR normalization, content's first line equals the literal sentinel `ARCH_FACTS_BUNDLE_V2`; the remainder after stripping the sentinel line is valid JSON (jq . > /dev/null on the stripped content).
 R-BUNDLE-2: .schema_version == "2.0" AND .rules_version == "1.0".
 R-BUNDLE-3: All required top-level fields present: classification_fields, design_fields, rule_evaluation, spec_path, spec_hash, agent_metadata.
             classification_fields contains all 8 sub-fields per §2 with .value and .evidence.
@@ -693,18 +702,18 @@ R-BUNDLE-5: .rule_evaluation.computed_level matches what v1.0 rules would derive
 **`ARCH_BUNDLE_AUDIT_V2` rule set (4 rules):**
 
 ```
-R-AUDIT-1: Content is valid JSON.
+R-AUDIT-1: After BOM/CR normalization, content's first line equals the literal sentinel `ARCH_BUNDLE_AUDIT_V2`; the remainder is valid JSON.
 R-AUDIT-2: .schema_version == "2.0" AND .rules_version == "1.0".
 R-AUDIT-3: .field_verdicts contains an entry for every required bundle field (8 classification + 7 design = 15 entries minimum). Each entry has .verdict in {"PASS", "DISCREPANCY"} and .method.
-R-AUDIT-4: .verified_level is numeric integer in {1, 2, 3}. If .any_discrepancy == true, .corrected_bundle and .recomputed_level (numeric) are present and non-null.
+R-AUDIT-4: .verified_level is numeric integer in {1, 2, 3}. .any_discrepancy is present and is a JSON boolean (true or false — not null, not a string). If .any_discrepancy == true, .corrected_bundle is a JSON object (not null, not a scalar) and .recomputed_level is a numeric integer in {1, 2, 3}.
 ```
 
 **`ARCH_DESIGN_REVIEW_V1` rule set (3 rules):**
 
 ```
-R-REVIEW-1: Content is valid JSON.
-R-REVIEW-2: .findings is an array (may be empty). For every finding: .id, .severity in {"blocker", "serious", "minor"}, .category, .summary, .document_citation present.
-R-REVIEW-3: .summary.{blocker_count, serious_count, minor_count} match the actual counts in .findings.
+R-REVIEW-1: After BOM/CR normalization, content's first line equals the literal sentinel `ARCH_DESIGN_REVIEW_V1`; the remainder is valid JSON.
+R-REVIEW-2: .findings is an array (may be empty). For every finding: .id matches `^F[1-9][0-9]*$` (1-indexed, no zero-padding) and is unique within .findings; .severity in {"blocker", "serious", "minor"}; .category in {"missing-decision", "unjustified-slice", "contract-mismatch", "standards-decoration", "decision-hiding", "deferred-decision", "other"}; .summary, .details, .document_citation.section, .document_citation.quoted_text, .suggested_resolution are each non-empty strings; .document_citation.decision_id_or_slice_name is a string or null.
+R-REVIEW-3: .summary.{blocker_count, serious_count, minor_count} are non-negative integers, each equals the actual count of findings with that severity in .findings, and their sum equals len(findings). The findings IDs are contiguous and ascending: when .findings is non-empty, findings[i].id == "F" + str(i+1) for every index i.
 ```
 
 **Synthetic test fixtures** for the rework's Session-N test step (per the plan author discipline acceptance criterion): one valid + one invalid synthetic for each of the four artifact types; valid architecture document tested at each level (L1, L2, L3).

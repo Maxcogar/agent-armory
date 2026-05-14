@@ -148,7 +148,7 @@ Hold the auditor's `computed_level` and the set of fired rules in working memory
 
 ### 9. Now fetch the research agent's bundle
 
-Call `agentboard_get_workspace_artifact` with `audited_bundle_artifact_id`. Parse the JSON.
+Call `agentboard_get_workspace_artifact` with `audited_bundle_artifact_id`. Before any sentinel comparison or JSON parse, normalize the fetched content defensively: strip a leading UTF-8 BOM (`\xEF\xBB\xBF`) if present, and treat both `\n` and `\r\n` as line terminators (the first line of content is the bytes up to either the first `\n` or the first `\r\n`, with any trailing `\r` removed before comparison). Windows-hosted MCP servers and BOM-prefixed file writes are common causes of sentinel and end-of-line mismatches and must not be treated as wrong-sentinel halts. Verify the normalized first line is exactly the sentinel string `ARCH_FACTS_BUNDLE_V2`; if it is anything else, stop and report via card note + activity log naming the wrong-sentinel condition, the actual first-line text observed after normalization, and whether a BOM or CR was stripped during normalization. Then strip the sentinel line and parse the remainder as JSON.
 
 This is the first step in which the research bundle enters your context. Everything you have measured to this point was derived independently from the spec and codebase.
 
@@ -476,7 +476,7 @@ When `any_discrepancy == true`, populate `corrected_bundle` as a full `ARCH_FACT
 - **RAG returns no results for a source type the spec implies should hit.** Continue with an empty set for that source type; the resulting set difference against the research bundle's set is the audit signal.
 - **`resolve-library-id` returns no match for a library the research bundle claims has a Context7 ID.** Mark that library's entry in the `external_libraries` verdict as DISCREPANCY with the mismatch recorded in `id_mismatches`.
 - **A snippet in the research bundle's `existing_patterns_hits` or `constraint_hits` cannot be located in its cited file (the file does not exist, the line range is out of bounds, or the exact text does not match).** Record `exact_match_found: false` for that snippet entry; the field verdict is DISCREPANCY.
-- **The research bundle's JSON fails to parse, the bundle artifact cannot be retrieved, or the bundle is missing required top-level fields.** Stop. Report via card note + activity log. Do not produce a partial audit.
+- **The research bundle's JSON fails to parse, the bundle artifact cannot be retrieved, the bundle's normalized first line is not exactly the sentinel `ARCH_FACTS_BUNDLE_V2`, or the bundle is missing required top-level fields.** Stop. Report via card note + activity log. For wrong-sentinel, name the actual first-line text observed after BOM/CR normalization and whether a BOM or CR was stripped. Do not produce a partial audit.
 - **`schema_version`, `rules_version`, `spec_path`, or `spec_hash` mismatch.** Stop at Step 10. Report via card note + activity log naming which check failed.
 - **An MCP tool is unavailable (the call itself fails with a transport error, not just an empty result).** Stop. Report via card note + activity log. Do not produce a partial audit.
 - **The audit fails the Step 14 validation.** Stop. Do not submit. Report via card note + activity log naming the failed validation check.
