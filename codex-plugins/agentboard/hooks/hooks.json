@@ -1,0 +1,47 @@
+{
+  "SessionStart": [
+    {
+      "matcher": "",
+      "hooks": [
+        {
+          "type": "prompt",
+          "prompt": "Bootstrap the agentboard MCP. First, check whether only `agentboard_authenticate` and `agentboard_complete_authentication` are visible in the agentboard tool surface — if so, the user has not authenticated yet. Run the OAuth bootstrap from `skills/agentboard/SKILL.md` §1.3: call `agentboard_authenticate`, share the returned URL with the user, ask them to authorize in their browser and paste the full callback URL from their browser's address bar, then call `agentboard_complete_authentication` with that URL. Treat the callback URL as a secret — do not log it, echo it, write it to any artifact, or include it in any commit. After authenticating (or if already authenticated), call `agentboard_health_check`. If it responds healthy, continue silently. If it fails post-auth, inform the user: 'AgentBoard cloud service is unreachable. Check your network connection or service status at agent-board.app.'"
+        }
+      ]
+    }
+  ],
+  "PreToolUse": [
+    {
+      "matcher": "mcp__agentboard__agentboard_submit_workspace_artifact",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/artifact-quality-gate.sh",
+          "timeout": 5000
+        },
+        {
+          "type": "command",
+          "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/validate-architecture-artifact.sh",
+          "timeout": 10000
+        },
+        {
+          "type": "command",
+          "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/inject-quality-gate-prompt.sh",
+          "timeout": 5000
+        }
+      ]
+    }
+  ],
+  "PostToolUse": [
+    {
+      "matcher": "mcp__agentboard__agentboard_get_next_card|mcp__agentboard__agentboard_get_card|mcp__agentboard__agentboard_update_workspace_card",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/workspace-card-guidance.sh",
+          "timeout": 5000
+        }
+      ]
+    }
+  ]
+}
