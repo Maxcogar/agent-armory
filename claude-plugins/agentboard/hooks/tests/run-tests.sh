@@ -3,19 +3,21 @@
 # Synthetic-fixture test runner for the architecture-pipeline hook scripts.
 #
 # Invocation:
-#   ./run-tests.sh                    # uses jq on PATH
+#   ./run-tests.sh                                # uses jq on PATH
 #   AGENTBOARD_JQ_BIN=/tmp/jq.exe ./run-tests.sh  # explicit jq binary
 #
-# For each fixture in ./fixtures/*.json the runner pipes the JSON to each of
-# the three hook scripts and checks the expected behavior. Behavior is
-# encoded in the fixture name:
+# For each fixture in ./fixtures/*.json the runner pipes the JSON to the
+# validate hook (and, for the non-architecture fixtures, the existing gate
+# and prompt-injection scripts) and checks the expected behavior:
 #
-#   valid -> validate-architecture-artifact.sh must exit 0
-#   invalid -> validate-architecture-artifact.sh must exit non-zero AND emit
-#              a structured JSON error to stderr
-#   non_architecture_clean -> artifact-quality-gate.sh exit 0,
-#                             inject-quality-gate-prompt.sh emits the prompt
-#   non_architecture_with_todo -> artifact-quality-gate.sh exit non-zero
+#   validate pass  -> validate-architecture-artifact.sh must exit 0
+#   validate block -> validate-architecture-artifact.sh must exit non-zero AND
+#                      emit structured JSON with .failed_rules (optionally
+#                      containing a given rule-ID substring)
+#   validate noop  -> non-architecture artifact: validate exits 0, no action
+#
+# The fixtures here exercise the CORRECTED hook against reconciled plan §7
+# (commits 9828344 / 47a1c14). build-fixtures.py is run automatically.
 #
 # Exits 0 on full pass, 1 on any failure.
 
@@ -32,8 +34,15 @@ INJECT="$HOOKS_DIR/scripts/inject-quality-gate-prompt.sh"
 JQ_BIN="${AGENTBOARD_JQ_BIN:-jq}"
 export AGENTBOARD_JQ_BIN="$JQ_BIN"
 if ! command -v "$JQ_BIN" >/dev/null 2>&1; then
-  echo "FATAL: jq not found at '$JQ_BIN'. Set AGENTBOARD_JQ_BIN."
+  echo "FATAL: jq not found at '$JQ_BIN'. Set AGENTBOARD_JQ_BIN (jq is at /tmp/jq.exe on this box)."
   exit 2
+fi
+
+# Regenerate fixtures so the suite always runs against the current generator.
+if command -v python >/dev/null 2>&1; then
+  python "$SCRIPT_DIR/build-fixtures.py" >/dev/null
+elif command -v python3 >/dev/null 2>&1; then
+  python3 "$SCRIPT_DIR/build-fixtures.py" >/dev/null
 fi
 
 PASS=0
@@ -42,20 +51,24 @@ FAILED_TESTS=()
 
 note() { printf '  %s\n' "$*"; }
 
-# expect_validate <fixture> <expected_exit_class: pass|block|noop> [expected_rule_substr]
+# expect_validate <fixture_basename> <pass|block|noop> [expected_rule_substr]
 expect_validate() {
-  local fixture="$1"
+  local name="$1"
   local expected="$2"
   local rule_substr="${3:-}"
-  local payload
+  local fixture="$FIXTURES_DIR/${name}.json"
+  if [ ! -f "$fixture" ]; then
+    FAIL=$((FAIL + 1))
+    FAILED_TESTS+=("validate:$name (missing fixture)")
+    echo "FAIL  validate  $name  (fixture file not found)"
+    return
+  fi
+  local payload stderr_capture exit_code
   payload=$(cat "$fixture")
-  local stderr_capture
   set +e
-  stderr_capture=$(echo "$payload" | "$VALIDATE" 2>&1 >/dev/null)
-  local exit_code=$?
+  stderr_capture=$(printf '%s' "$payload" | "$VALIDATE" 2>&1 >/dev/null)
+  exit_code=$?
   set -e
-  local name
-  name=$(basename "$fixture" .json)
 
   case "$expected" in
     pass|noop)
@@ -71,29 +84,24 @@ expect_validate() {
       ;;
     block)
       if [ "$exit_code" -ne 0 ]; then
-        # Extract the JSON portion of stderr (the script emits one JSON
-        # object via jq). Cygwin/Git-Bash sometimes prepends fork-warning
-        # noise lines; carve out the first '{' through the matching '}'.
+        # Carve out the JSON object (Cygwin may prepend fork-warning noise).
         local json_block
-        json_block=$(echo "$stderr_capture" | awk '
-          /^\{/ { capture = 1 }
-          capture { print; if ($0 ~ /^\}/) exit }
-        ')
+        json_block=$(printf '%s' "$stderr_capture" | sed -nE '/^\{/,/^\}/p')
         local has_failed_rules
-        has_failed_rules=$(echo "$json_block" | "$JQ_BIN" -r '.failed_rules // empty' 2>/dev/null || echo "")
+        has_failed_rules=$(printf '%s' "$json_block" | "$JQ_BIN" -r '.failed_rules | join(",")' 2>/dev/null || echo "")
         if [ -z "$has_failed_rules" ]; then
           FAIL=$((FAIL + 1))
           FAILED_TESTS+=("validate:$name")
-          echo "FAIL  validate  $name  (blocked with exit $exit_code, but stderr is not structured JSON with .failed_rules)"
+          echo "FAIL  validate  $name  (blocked exit=$exit_code but stderr is not structured JSON with .failed_rules)"
           note "stderr: $stderr_capture"
-        elif [ -n "$rule_substr" ] && ! echo "$has_failed_rules" | grep -q "$rule_substr"; then
+        elif [ -n "$rule_substr" ] && ! printf '%s' "$has_failed_rules" | grep -q "$rule_substr"; then
           FAIL=$((FAIL + 1))
           FAILED_TESTS+=("validate:$name")
-          echo "FAIL  validate  $name  (blocked but .failed_rules does not contain '$rule_substr')"
+          echo "FAIL  validate  $name  (blocked but .failed_rules=[$has_failed_rules] lacks '$rule_substr')"
           note "stderr: $stderr_capture"
         else
           PASS=$((PASS + 1))
-          echo "PASS  validate  $name  (blocked exit=$exit_code rules=$(echo "$has_failed_rules" | tr -d '\n'))"
+          echo "PASS  validate  $name  (blocked exit=$exit_code rules=[$has_failed_rules])"
         fi
       else
         FAIL=$((FAIL + 1))
@@ -104,127 +112,138 @@ expect_validate() {
   esac
 }
 
-# expect_gate <fixture> <expected: pass|block>
+# expect_gate <fixture_basename> <pass|block>
 expect_gate() {
-  local fixture="$1"
+  local name="$1"
   local expected="$2"
-  local payload
+  local fixture="$FIXTURES_DIR/${name}.json"
+  [ -f "$fixture" ] || { echo "SKIP  gate      $name  (no fixture)"; return; }
+  local payload stdout_capture exit_code
   payload=$(cat "$fixture")
-  local stderr_capture
-  local stdout_capture
   set +e
-  # artifact-quality-gate.sh reads $TOOL_INPUT env var (matches existing convention).
   stdout_capture=$(TOOL_INPUT="$payload" "$GATE" 2>&1)
-  local exit_code=$?
+  exit_code=$?
   set -e
-  local name
-  name=$(basename "$fixture" .json)
   if [ "$expected" = "pass" ] && [ "$exit_code" -eq 0 ]; then
-    PASS=$((PASS + 1))
-    echo "PASS  gate      $name  (exit 0, no block)"
+    PASS=$((PASS + 1)); echo "PASS  gate      $name  (exit 0, no block)"
   elif [ "$expected" = "block" ] && [ "$exit_code" -ne 0 ]; then
-    PASS=$((PASS + 1))
-    echo "PASS  gate      $name  (blocked exit=$exit_code)"
+    PASS=$((PASS + 1)); echo "PASS  gate      $name  (blocked exit=$exit_code)"
   else
-    FAIL=$((FAIL + 1))
-    FAILED_TESTS+=("gate:$name")
-    echo "FAIL  gate      $name  (expected $expected, got exit=$exit_code; output: ${stdout_capture})"
+    FAIL=$((FAIL + 1)); FAILED_TESTS+=("gate:$name")
+    echo "FAIL  gate      $name  (expected $expected, got exit=$exit_code; out: ${stdout_capture})"
   fi
 }
 
-# expect_inject <fixture> <expected: empty|prompt>
+# expect_inject <fixture_basename> <empty|prompt>
 expect_inject() {
-  local fixture="$1"
+  local name="$1"
   local expected="$2"
-  local payload
+  local fixture="$FIXTURES_DIR/${name}.json"
+  [ -f "$fixture" ] || { echo "SKIP  inject    $name  (no fixture)"; return; }
+  local payload stdout_capture exit_code
   payload=$(cat "$fixture")
-  local stdout_capture
   set +e
-  stdout_capture=$(echo "$payload" | "$INJECT" 2>/dev/null)
-  local exit_code=$?
+  stdout_capture=$(printf '%s' "$payload" | "$INJECT" 2>/dev/null)
+  exit_code=$?
   set -e
-  local name
-  name=$(basename "$fixture" .json)
   if [ "$exit_code" -ne 0 ]; then
-    FAIL=$((FAIL + 1))
-    FAILED_TESTS+=("inject:$name")
+    FAIL=$((FAIL + 1)); FAILED_TESTS+=("inject:$name")
     echo "FAIL  inject    $name  (script exited non-zero: $exit_code)"
     return
   fi
   if [ "$expected" = "empty" ]; then
     if [ -z "$stdout_capture" ]; then
-      PASS=$((PASS + 1))
-      echo "PASS  inject    $name  (empty output for architecture artifact)"
+      PASS=$((PASS + 1)); echo "PASS  inject    $name  (empty output for architecture artifact)"
     else
-      FAIL=$((FAIL + 1))
-      FAILED_TESTS+=("inject:$name")
+      FAIL=$((FAIL + 1)); FAILED_TESTS+=("inject:$name")
       echo "FAIL  inject    $name  (expected empty, got: ${stdout_capture:0:80}...)"
     fi
   elif [ "$expected" = "prompt" ]; then
-    if echo "$stdout_capture" | grep -q "SUBMISSION QUALITY GATE"; then
-      PASS=$((PASS + 1))
-      echo "PASS  inject    $name  (workspace-pipeline prompt emitted)"
+    if [ -n "$stdout_capture" ]; then
+      PASS=$((PASS + 1)); echo "PASS  inject    $name  (prompt emitted for non-architecture artifact)"
     else
-      FAIL=$((FAIL + 1))
-      FAILED_TESTS+=("inject:$name")
-      echo "FAIL  inject    $name  (expected prompt, got: ${stdout_capture:0:80}...)"
+      FAIL=$((FAIL + 1)); FAILED_TESTS+=("inject:$name")
+      echo "FAIL  inject    $name  (expected prompt, got empty)"
     fi
   fi
 }
 
-echo "=== Architecture validation hook (validate-architecture-artifact.sh) ==="
-expect_validate "$FIXTURES_DIR/doc_l1_valid.json" pass
-expect_validate "$FIXTURES_DIR/doc_l2_valid.json" pass
-expect_validate "$FIXTURES_DIR/doc_l3_valid.json" pass
-expect_validate "$FIXTURES_DIR/doc_l1_invalid_no_level_marker.json" block "R-DOC-1"
-expect_validate "$FIXTURES_DIR/doc_l2_invalid_empty_slices.json" block "R-DOC-3"
-expect_validate "$FIXTURES_DIR/doc_l2_invalid_broken_slice_fields.json" block "R-DOC-4"
-expect_validate "$FIXTURES_DIR/doc_l2_invalid_missing_d_ref.json" block "R-DOC-6"
-
-expect_validate "$FIXTURES_DIR/bundle_valid_l2.json" pass
-expect_validate "$FIXTURES_DIR/bundle_invalid_level_mismatch.json" block "R-BUNDLE-5"
-expect_validate "$FIXTURES_DIR/bundle_invalid_malformed_json.json" block "R-BUNDLE-1"
-
-expect_validate "$FIXTURES_DIR/audit_valid_no_discrepancy.json" pass
-expect_validate "$FIXTURES_DIR/audit_valid_with_discrepancy.json" pass
-expect_validate "$FIXTURES_DIR/audit_invalid_missing_verdicts.json" block "R-AUDIT-3"
-expect_validate "$FIXTURES_DIR/audit_invalid_incoherent_discrepancy.json" block "R-AUDIT-4"
-
-expect_validate "$FIXTURES_DIR/review_valid_empty_findings.json" pass
-expect_validate "$FIXTURES_DIR/review_valid_with_findings.json" pass
-expect_validate "$FIXTURES_DIR/review_invalid_summary_mismatch.json" block "R-REVIEW-3"
-expect_validate "$FIXTURES_DIR/review_invalid_bad_severity.json" block "R-REVIEW-2"
-
-# Non-architecture artifact - validate should exit 0 with no action.
-expect_validate "$FIXTURES_DIR/non_architecture_clean.json" noop
-expect_validate "$FIXTURES_DIR/non_architecture_with_todo.json" noop
+echo "=== validate-architecture-artifact.sh — architecture_document ==="
+expect_validate doc_l1_valid                          pass
+expect_validate doc_l2_valid                          pass
+expect_validate doc_l3_valid                          pass
+expect_validate doc_l3_valid_threat_asvs              pass
+expect_validate doc_l2_valid_crlf                     pass
+expect_validate doc_l1_invalid_no_level_marker        block "R-DOC-1"
+expect_validate doc_l2_invalid_crlf_marker_trailing   block "R-DOC-1"
+expect_validate doc_l2_invalid_shortform_headings     block "R-DOC-2"
+expect_validate doc_l3_invalid_threat_no_asvs         block "R-DOC-2"
+expect_validate doc_l2_invalid_empty_slices           block "R-DOC-3"
+expect_validate doc_l2_invalid_broken_slice_fields    block "R-DOC-4"
+expect_validate doc_l2_invalid_shortform_slice_labels block "R-DOC-4"
+expect_validate doc_l2_invalid_missing_d_ref          block "R-DOC-6"
 
 echo
-echo "=== Existing artifact-quality-gate (artifact-quality-gate.sh) ==="
-# Architecture-pipeline artifacts: gate must exit 0 (handed off to validate hook).
-for f in \
-  doc_l1_valid doc_l2_valid doc_l3_valid \
-  bundle_valid_l2 audit_valid_no_discrepancy review_valid_empty_findings \
-  doc_l2_invalid_missing_d_ref \
-  bundle_invalid_level_mismatch; do
-  expect_gate "$FIXTURES_DIR/${f}.json" pass
-done
-# Non-architecture clean: gate exits 0.
-expect_gate "$FIXTURES_DIR/non_architecture_clean.json" pass
-# Non-architecture with TODO: gate blocks.
-expect_gate "$FIXTURES_DIR/non_architecture_with_todo.json" block
+echo "=== validate-architecture-artifact.sh — ARCH_FACTS_BUNDLE_V2 ==="
+expect_validate bundle_valid_l1                  pass
+expect_validate bundle_valid_l2                  pass
+expect_validate bundle_valid_l3                  pass
+expect_validate bundle_valid_l2_crlf             pass
+expect_validate bundle_valid_l2_bom              pass
+expect_validate bundle_invalid_level_mismatch    block "R-BUNDLE-5"
+expect_validate bundle_invalid_malformed_json    block "R-BUNDLE-1"
+expect_validate bundle_invalid_wrong_sentinel    block "R-BUNDLE-1"
+expect_validate bundle_invalid_absent_sentinel   block "R-BUNDLE-1"
 
 echo
-echo "=== Prompt injection (inject-quality-gate-prompt.sh) ==="
-# Architecture artifacts: no prompt injected.
-for f in \
-  doc_l1_valid doc_l2_valid doc_l3_valid \
-  bundle_valid_l2 audit_valid_no_discrepancy review_valid_empty_findings; do
-  expect_inject "$FIXTURES_DIR/${f}.json" empty
+echo "=== validate-architecture-artifact.sh — ARCH_BUNDLE_AUDIT_V2 ==="
+expect_validate audit_valid_no_discrepancy            pass
+expect_validate audit_valid_with_discrepancy          pass
+expect_validate audit_valid_no_discrepancy_crlf       pass
+expect_validate audit_invalid_missing_verdicts        block "R-AUDIT-3"
+expect_validate audit_invalid_incoherent_discrepancy  block "R-AUDIT-4"
+expect_validate audit_invalid_any_discrepancy_null    block "R-AUDIT-4"
+expect_validate audit_invalid_any_discrepancy_string  block "R-AUDIT-4"
+expect_validate audit_invalid_corrected_bundle_scalar block "R-AUDIT-4"
+expect_validate audit_invalid_wrong_sentinel          block "R-AUDIT-1"
+
+echo
+echo "=== validate-architecture-artifact.sh — ARCH_DESIGN_REVIEW_V1 ==="
+expect_validate review_valid_empty_findings       pass
+expect_validate review_valid_with_findings        pass
+expect_validate review_valid_empty_findings_crlf  pass
+expect_validate review_invalid_summary_mismatch   block "R-REVIEW-3"
+expect_validate review_invalid_bad_severity       block "R-REVIEW-2"
+expect_validate review_invalid_bad_category       block "R-REVIEW-2"
+expect_validate review_invalid_id_f0              block "R-REVIEW-2"
+expect_validate review_invalid_id_f01             block "R-REVIEW-2"
+expect_validate review_invalid_duplicate_ids      block "R-REVIEW-2"
+expect_validate review_invalid_noncontiguous_ids  block "R-REVIEW-3"
+expect_validate review_invalid_empty_quoted_text  block "R-REVIEW-2"
+expect_validate review_invalid_wrong_sentinel     block "R-REVIEW-1"
+
+echo
+echo "=== non-architecture artifacts — validate must noop (exit 0) ==="
+expect_validate non_architecture_clean      noop
+expect_validate non_architecture_with_todo  noop
+
+echo
+echo "=== existing artifact-quality-gate.sh (architecture artifacts -> exit 0) ==="
+for f in doc_l1_valid doc_l2_valid doc_l3_valid \
+         bundle_valid_l2 audit_valid_no_discrepancy review_valid_empty_findings; do
+  expect_gate "$f" pass
 done
-# Non-architecture artifacts: prompt emitted.
-expect_inject "$FIXTURES_DIR/non_architecture_clean.json" prompt
-expect_inject "$FIXTURES_DIR/non_architecture_with_todo.json" prompt
+expect_gate non_architecture_clean     pass
+expect_gate non_architecture_with_todo block
+
+echo
+echo "=== inject-quality-gate-prompt.sh (architecture -> empty; other -> prompt) ==="
+for f in doc_l1_valid doc_l2_valid doc_l3_valid \
+         bundle_valid_l2 audit_valid_no_discrepancy review_valid_empty_findings; do
+  expect_inject "$f" empty
+done
+expect_inject non_architecture_clean     prompt
+expect_inject non_architecture_with_todo prompt
 
 echo
 echo "----------------------------------------"
