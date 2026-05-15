@@ -1,4 +1,0 @@
-{
-  "artifact_type": "architecture_document",
-  "content": "# Architecture \u2014 Synthetic L1\n\n## Goal \u2014 what this architecture serves\nSynthetic L1 fixture.\n\n## Scope (in / out)\nIn: foo utility. Out: bar.\n\n_At L1, the slice Descriptions and Allowed-touch lists carry the component-level content._\n\n## Card Slices (populated)\n### Add foo utility\n- **Description**: Create the foo helper module.\n- **Allowed-touch**: src/foo.py\n- **Forbidden-touch**: None\n- **Produces**: None\n- **Consumes**: None\n- **Verification scope**: local-only\n- **Depends on**: None\n- **Source decisions**: Direct from spec \u2014 R1 (no design decisions at this level)\n\n## Limitations\nMinimal.\n\n## Standards governing this architecture\nInherited from spec.\n\n## Status of this architecture\nDraft.\n\n**Level:** L1\n"
-}
