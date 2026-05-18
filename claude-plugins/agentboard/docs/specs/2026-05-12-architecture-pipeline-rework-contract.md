@@ -28,7 +28,7 @@ These design decisions are correct and not in scope for re-litigation:
 1. **Deterministic classification with hard-fail audit.** Rules v1.0 baked into the research agent; auditor validates with anchoring-bias discipline; `rules_version` mismatch halts. User does not pick level at runtime.
 2. **Three independently authored compose profiles (L1, L2, L3).** Conditionality lives in `commands/architecture.md` dispatch, never inside a compose profile. No skip language inside any profile.
 3. **Eight-field §6.3 slice schema.** Description, Allowed-touch, Forbidden-touch, Produces, Consumes, Verification scope, Depends on, Source decisions. Consistent across all levels. Downstream agents consume slices identically regardless of level.
-4. **`/architecture` orchestration shape.** The end-to-end flow (locate spec → board → scaffold → research → audit → display → dispatch compose → review → user approval → commit → cards → finished) stays. Two new stages insert: the validation hook gates artifact submission; the design review wave runs between compose and user approval.
+4. **`/architecture` orchestration shape.** The end-to-end flow (locate spec → board → scaffold → research → audit → display → dispatch compose → review → user approval → commit → cards → finished) stays. Three new stages insert: the validation hook gates artifact submission; the design review wave runs between compose and user approval; and a bounded correction loop (per the 2026-05-16 design spec) runs on a caught problem, routing by real-time source-trace.
 5. **Two-pass write at L2/L3, single-pass at L1.** The structural reason still holds: L2/L3 slice from committed intermediate design content; L1 has no intermediate layer.
 6. **Anchoring-bias discipline in the auditor.** Re-measure independently before looking at the research bundle. Load-bearing for the audit trail.
 
@@ -44,11 +44,12 @@ The architecture pipeline must honor the research/compose split the way the plan
 - The auditor is upgraded from haiku to sonnet-4.6 with extended thinking and validates the full bundle, not just the 8 classification fields.
 - The three opus compose agents read from the verified bundle and only reason. No `rag_search`. No `codegraph_*`. No `rag_query_impact`. Context7 (`resolve-library-id` AND `query-docs`) remains available to compose — the discipline is "no codebase discovery in compose," not "no discovery at all." External doc lookup is reasoning-shaped and unsuitable for haiku pre-gathering; codebase discovery is mechanical and bundle-friendly. Compose uses bundle library IDs when present; resolves new IDs directly when the bundle didn't anticipate a needed library.
 
-Plus three additions:
+Plus four additions:
 
 - A deterministic validation hook gates architecture artifact submission.
 - A design review wave runs after compose succeeds and before user approval.
 - An agentboard app spec is drafted alongside the plan, scoping app changes that would better support the reworked pipeline.
+- A bounded correction loop per the owner-approved `docs/specs/2026-05-16-correction-loop-option-a-design.md` (2026-05-17): corrections are a declared `ARCH_CORRECTIONS_V1` artifact; routing is a real-time source-trace among {architecture-document → compose revision mode, verified-bundle → fresh research+audit, spec → surfaced to owner}; `spec_path` is never silently or automatically mutated; the owner pause is opt-in and off by default.
 
 ---
 
@@ -97,7 +98,8 @@ This carries through to acceptance criteria: every reworked profile is verified 
 - All three opus-modeled. Independently authored (no copy-pasting across levels).
 - Tools: Read, Edit, Write, Glob, Grep, Skill, agentboard MCP (same set as research), Clear Thought (full set for L3; subset for L2 per inline-discipline locked in 2026-05-09 plan; minimal for L1), Context7 (`resolve-library-id` AND `query-docs`).
 - NO `rag_search`. NO `codegraph_*` (any). NO `rag_query_impact`. The discipline is "no codebase discovery in compose" — codebase facts come from the bundle. Context7 is external doc lookup; not codebase discovery; available to compose.
-- Process step 1 is the cross-cutting expert-standards activation. Process step 2 ingests the verified `ARCH_FACTS_BUNDLE_V2` passed inline by the orchestrator. Treat snippet existence (RAG hits, dependency edges, file lists with roles) as authoritative ground truth; treat RAG hit relevance to a specific decision as advisory. Subsequent process reads from bundle fields.
+- Process step 1 is the cross-cutting expert-standards activation. Process step 2 ingests the verified `ARCH_FACTS_BUNDLE_V2` fetched via `get_workspace_artifact` on `verified_bundle_artifact_id` (no longer passed inline — design-spec DD-Bundle). Treat snippet existence (RAG hits, dependency edges, file lists with roles) as authoritative ground truth; treat RAG hit relevance to a specific decision as advisory. Subsequent process reads from bundle fields.
+- Revision mode (presence of a declared `corrections_artifact_id` — design-spec DD-1/DD-4): a prescribed process, authored per profile — re-derive only the decisions/sections (L1: slices) the corrections artifact's `target` names, carry every non-targeted decision/slice forward verbatim by Reading the prior architecture document, and unconditionally re-run the level's whole-document validators and Card-Slices re-derivation. No diff/preserve/patch of the prior document anywhere in any compose profile (grep-checkable).
 - Process phases reason from the bundle: standards, spec problems, hard decisions, threat model (L3 when security in scope), design decisions, quality characteristics mapping (L3 only), ASVS mapping (L3 when security in scope), write document, slice. NO codebase-discovery phases.
 - `query-docs` against Context7 IDs when a specific decision's premise verification needs a specific library's documented behavior. Use IDs from `bundle.external_libraries` when present; resolve new IDs via `resolve-library-id` when the bundle didn't anticipate a library compose now needs. The bundle's library list is an efficiency optimization, not a closed set.
 - The architecture document includes a deterministic level marker in the Status section: `**Level:** L1` / `L2` / `L3`. This is mandatory and machine-readable; the validation hook depends on it.
@@ -108,12 +110,13 @@ This carries through to acceptance criteria: every reworked profile is verified 
 ### Validation hook — `hooks/scripts/validate-architecture-artifact.{py|sh}` and `hooks/hooks.json`
 
 - Form factor: `PreToolUse` hook on `mcp__agentboard__agentboard_submit_workspace_artifact`.
-- Scope: covers ALL FOUR architecture-pipeline artifact types via content-type dispatch. The hook reads `TOOL_INPUT.content` (and `artifact_type` when available), detects which architecture-pipeline artifact it is, and applies the matching rule set. If the content matches none of the four types, the hook exits cleanly with no action (the existing artifact-quality-gate handles non-architecture artifacts).
+- Scope: covers ALL FIVE architecture-pipeline artifact types via content-type dispatch. The hook reads `TOOL_INPUT.content` (and `artifact_type` when available), detects which architecture-pipeline artifact it is, and applies the matching rule set. If the content matches none of the five types, the hook exits cleanly with no action (the existing artifact-quality-gate handles non-architecture artifacts).
 - Detection markers:
   - **`architecture_document`** → top-level `# Architecture —` heading AND `## Card Slices` section
   - **`ARCH_FACTS_BUNDLE_V2`** → recognizable bundle sentinel (e.g., `ARCH_FACTS_BUNDLE_V2` in the first lines) or `artifact_type` set to that value
   - **`ARCH_BUNDLE_AUDIT_V2`** → recognizable audit sentinel or matching `artifact_type`
   - **`ARCH_DESIGN_REVIEW_V1`** → recognizable review sentinel or matching `artifact_type`
+  - **`ARCH_CORRECTIONS_V1`** → recognizable corrections sentinel or matching `artifact_type` (the correction loop's declared artifact — design-spec §5 / plan §4.1)
 - Scope is **structural-only**. The hook reads `TOOL_INPUT.content` and validates against deterministic rules. The hook does NOT verify behavioral properties (tool-use logs, bundle-ingestion events) because the PreToolUse hook surface doesn't have access to that information. Behavioral guarantees come from subagent frontmatter constraints (compose's tools list excludes the forbidden tools) verified at plan-acceptance time, not at runtime.
 - Rule set per artifact type:
   - **`architecture_document` rules** (all must pass):
@@ -140,6 +143,10 @@ This carries through to acceptance criteria: every reworked profile is verified 
     - Review is valid JSON
     - Findings list is present (may be empty)
     - Every finding has severity (`blocker` / `serious` / `minor`) and at least one document citation
+  - **`ARCH_CORRECTIONS_V1` rules** (all must pass; structural-only — see plan §4.1):
+    - Valid JSON after sentinel strip; `schema_version == "1.0"`; `round` is a positive integer; `route` ∈ {`architecture-document`, `verified-bundle`, `spec`}
+    - `corrections` items each have `id`, `origin` ∈ {`user-directed`, `finding-resolution`, `source-traced`}, a `target` object, non-empty `requested_change`, non-empty `provenance`
+    - When `route == "architecture-document"`: prior-document path + id non-null and every `target.decision_id_or_slice_name` is a non-empty string (concrete-target structural check; resolution correctness is the orchestrator's responsibility)
 - Disk-path check (`docs/arch/*.md`) is NOT in the hook (the hook doesn't see disk paths). Path verification happens in the orchestrator's git-commit step instead.
 - On failure: hook returns non-zero with structured error JSON identifying the artifact type detected and the rule that failed; tool call blocked; submitting subagent sees the failure and must address it before resubmitting.
 - On pass: tool call proceeds; orchestrator continues to the next stage.
@@ -149,7 +156,7 @@ This carries through to acceptance criteria: every reworked profile is verified 
 
 - New file. Sonnet-4.6 with extended thinking.
 - Runs after compose's artifact passes the validation hook, before user approval.
-- Inputs: `spec_path`, `architecture_document_path`, `verified_bundle_artifact_id`, `scaffold_card_id`, `agent_id`. Reads all three substantive inputs.
+- Inputs: `spec_path`, `architecture_document_path`, `audit_artifact_id`, `scaffold_card_id`, `agent_id` (`audit_artifact_id` is the `ARCH_BUNDLE_AUDIT_V2` id — the reviewer resolves the verified bundle from the audit; renamed from the prior misnamed `verified_bundle_artifact_id` per design-spec DD-ReviewerParam). Reads all three substantive inputs.
 - Reviews the design for:
   - Decisions that don't actually serve the spec requirement they claim to address
   - Missing decisions (a spec R#/Q# with no decision addressing it AND not scoped out)
@@ -188,14 +195,14 @@ The plan specifies the JSON schema in full with types and validation. This contr
 - `rules_version: "1.0"` unchanged (the 9 classification rules are unchanged at v1.0).
 - Auditor validates `(schema_version, rules_version)` separately. Mismatch on either halts with structured error.
 - Plugin version bumps to `0.3.0` in `claude-plugins/agentboard/.claude-plugin/plugin.json`.
-- Codex plugin version bumps to `0.3.0` in `codex-plugins/agentboard/.codex-plugin/plugin.json` in lockstep.
-- Marketplace entry (`/.claude-plugin/marketplace.json`) updates to `0.3.0` for the agentboard entry.
+- **SUPERSEDED (correction-loop design §9, owner-ratified 2026-05-17):** the codex plugin version and the marketplace entry are **not** touched by this work. `codex-plugins/agentboard/.codex-plugin/plugin.json` and `/.claude-plugin/marketplace.json` are out of scope; the codex tree is never edited or mirrored. The Claude-tree `0.3.0` bump (above) lands with the implementation stage.
 
 ### `/architecture` orchestrator — `commands/architecture.md`
 
-- Process: load tools → locate spec → select board → scaffold card → spawn research → verify bundle artifact submitted → spawn auditor → verify audit artifact submitted → read verified level from audit → display verified bundle + audit + level to user (transparency only, not approval) → dispatch compose by verified level → wait for compose → (validation hook fires on artifact submission; orchestrator observes pass/fail) → spawn design reviewer → wait for review artifact → display document + review findings to user → get user approval → apply corrections if any → commit document → parse `## Card Slices` section → create one workspace card per slice → scaffold card to finished → summary.
+- Process: load tools → locate spec → select board → scaffold card → spawn research → verify bundle artifact submitted → spawn auditor → verify audit artifact submitted → read verified level from audit → display verified bundle + audit + level to user (transparency only, not approval) → dispatch compose by verified level → wait for compose → (validation hook fires on artifact submission; orchestrator observes pass/fail) → spawn design reviewer → wait for review artifact → display document + review findings to user → (opt-in owner pause only if enabled — design-spec DD-3) → on a caught problem run the bounded correction loop: source-trace the origin, construct a declared `ARCH_CORRECTIONS_V1` artifact, and route (architecture-document → compose revision mode; verified-bundle → fresh research+audit; spec → surface to owner) — bounded per DD-6, no silent/automatic `spec_path` mutation (DD-7) → commit document → parse `## Card Slices` section → create one workspace card per slice → scaffold card to finished → summary.
 - Each subagent invocation passes only the inputs that subagent's profile declares it consumes. No "for your reference" extra context that might bleed orchestration concerns into the subagent's flow.
 - The orchestrator command is written to be read and executed by the orchestrator. Subagent profiles are written to be read and executed by the subagent. No cross-talk.
+- Corrections reach a subagent only via the declared `ARCH_CORRECTIONS_V1` artifact (never as undeclared prompt context — this is the standard the bullet above states, which Option A makes the orchestrator comply with). Within `/architecture`, `spec_path` is never silently or automatically mutated; a spec-origin problem is surfaced to the owner (design-spec DD-7).
 
 ### Plan author discipline
 
@@ -212,7 +219,7 @@ The plan that follows this contract must:
   - "Validation hook correctly parses the level marker and applies level-appropriate section checks across all three levels (synthetic artifacts at each level)"
   - "Auditor profile cites sonnet-4.6 with extended thinking enabled in frontmatter"
 - Independent code-reviewer subagent pass before any plan section is finalized; findings applied in full per repo standing rule (no prioritized subsets).
-- Codex sync report at end of rework covers every file changed in both `claude-plugins/agentboard/` and `codex-plugins/agentboard/`.
+- **SUPERSEDED (correction-loop design §9, owner-ratified 2026-05-17):** no codex sync report is produced; `codex-plugins/agentboard/` is not touched. Codex is handled later by a separate document, out of scope for this change set.
 
 ### Agentboard app spec — `docs/specs/2026-05-12-agentboard-app-arch-pipeline-support.md`
 
@@ -265,11 +272,11 @@ Two representations exist for the level; the contract pins each to a specific su
 - All three compose profile output templates include the level marker.
 - The supersession is explicitly noted in the rework plan's preamble.
 
-### Codex plugin sync — `codex-plugins/agentboard/`
+### Codex plugin sync — SUPERSEDED (correction-loop design §9, owner-ratified 2026-05-17)
 
-- Every agent file, command file, skill update, hook script, hook registration, plan/spec/contract/report document that lands in `claude-plugins/agentboard/` lands in `codex-plugins/agentboard/` (modulo runtime-specific adjustments noted explicitly).
-- Plugin version bump applies to both trees.
-- Codex sync report at end of rework lists every file changed in both trees, with side-by-side diff summaries where they differ.
+- This entire subsection is **superseded**. `codex-plugins/agentboard/` is **never edited or mirrored** by this work, in every circumstance, and no codex sync report is produced.
+- The pre-FAILED file-mirror approach was the wrong shape (the Codex plugin is skills-based and never had `agents/`/`commands/`) and was reverted in commit `c4c4466`.
+- Codex is handled later by a separate *document* describing the rework for the skills-based Codex plugin to apply itself — sequenced after the Claude tree is final and out of scope for this change set.
 
 ---
 
@@ -285,17 +292,18 @@ The rework is finished when ALL of the following hold:
 6. Compose profile frontmatter `tools` field excludes every forbidden codebase-discovery tool. Subagent literally cannot call them.
 7. Compose profiles read from bundle fields in Step 2 (Step 1 is the cross-cutting expert-standards activation); subsequent reasoning consumes those fields, doesn't re-derive codebase facts.
 8. Compose profiles have Context7 (`resolve-library-id` AND `query-docs`) in their tools list; the contract for "no discovery" is scoped to codebase discovery, not external doc lookup.
-9. Validation hook exists at `hooks/scripts/validate-architecture-artifact.{py|sh}`, is registered in `hooks/hooks.json`, fires on `submit_workspace_artifact` for all four architecture-pipeline artifact types (`architecture_document`, `ARCH_FACTS_BUNDLE_V2`, `ARCH_BUNDLE_AUDIT_V2`, `ARCH_DESIGN_REVIEW_V1`) via content-type dispatch, performs structural-only checks per type-specific rule sets, blocks invalid submissions with structured error, passes valid submissions.
-10. Synthetic-artifact tests for the validation hook pass: invalid + valid synthetic for each of the four artifact types; valid architecture document tested at each level (L1, L2, L3).
+9. Validation hook exists at `hooks/scripts/validate-architecture-artifact.{py|sh}`, is registered in `hooks/hooks.json`, fires on `submit_workspace_artifact` for all five architecture-pipeline artifact types (`architecture_document`, `ARCH_FACTS_BUNDLE_V2`, `ARCH_BUNDLE_AUDIT_V2`, `ARCH_DESIGN_REVIEW_V1`, `ARCH_CORRECTIONS_V1`) via content-type dispatch, performs structural-only checks per type-specific rule sets, blocks invalid submissions with structured error, passes valid submissions.
+10. Synthetic-artifact tests for the validation hook pass: invalid + valid synthetic for each of the five artifact types (including `ARCH_CORRECTIONS_V1`); valid architecture document tested at each level (L1, L2, L3).
 11. Existing PreToolUse hook on `submit_workspace_artifact` is revised in BOTH halves: (a) the script `hooks/scripts/artifact-quality-gate.sh` becomes artifact-type-aware (existing rules apply to non-architecture artifacts; architecture-pipeline artifacts exit cleanly), AND (b) the prompt instruction in `hooks/hooks.json` is configured so that the existing "no open questions" and "you used codegraph/codebase-rag" guidance is NOT injected for architecture-pipeline submissions. Non-architecture submission behavior unchanged. Verified by synthetic submissions for both architecture and non-architecture artifact types — architecture submissions get neither contradictory prompt nor false fail; non-architecture submissions still get existing prompt and script behavior.
 12. All architecture document output templates (L1, L2, L3) include the mandatory `**Level:** L#` marker in the Status section.
 13. The 2026-05-09 plan's §8.7 is explicitly superseded by this contract; the rework plan's preamble names the supersession.
 14. Design review agent exists, is sonnet-4.6 with extended thinking, runs after compose's artifact passes the validation hook and before user approval, emits `ARCH_DESIGN_REVIEW_V1` with severity-tagged findings.
 15. `/architecture` command orchestrates the full flow including the new design review wave AND the disk-path verification (`docs/arch/*.md`) at the git-commit step (moved out of the hook).
-16. Plugin version is `0.3.0` in `claude-plugins/agentboard/.claude-plugin/plugin.json`, `codex-plugins/agentboard/.codex-plugin/plugin.json`, and the marketplace entry.
-17. Codex sync report exists listing every file changed in both trees.
+16. Plugin version is `0.3.0` in `claude-plugins/agentboard/.claude-plugin/plugin.json` (Claude tree only; lands with the implementation stage). The codex-tree and marketplace clauses are SUPERSEDED — `codex-plugins/agentboard/.codex-plugin/plugin.json` and the marketplace entry are not touched (correction-loop design §9, owner-ratified 2026-05-17).
+17. SUPERSEDED — no codex sync report is produced; `codex-plugins/agentboard/` is not touched (correction-loop design §9). Codex is handled later by a separate document, out of scope for this change set.
 18. Agentboard app spec exists at the declared path with the scope listed above.
 19. The 2026-05-09 plan is preserved as historical record; the new plan explicitly supersedes it.
+20. The correction loop conforms to the owner-approved `docs/specs/2026-05-16-correction-loop-option-a-design.md` (2026-05-17): declared `verified_bundle_artifact_id` + optional `corrections_artifact_id` with no inline-bundle mandate anywhere; `audit_artifact_id` rename with the apology sentence gone and the four named out-of-scope sites reconciled; no silent/automatic `spec_path` mutation; each compose profile carries a prescribed revision-mode process (targeted re-derivation per `corrections[].target`, non-targeted carried verbatim, whole-document validators + Card-Slices re-run unconditionally; zero diff/preserve/patch instructions, grep-checkable); `ARCH_CORRECTIONS_V1` defined and in the hook type set with invalid+valid synthetic fixtures; real-time source-trace routing with no static table; opt-in/default-off owner pause with no AgentBoard app change; an unresolved correction `target` surfaced as underspecified, never guessed. (Mirrors plan §11 AC-21.)
 
 ---
 
@@ -306,7 +314,11 @@ The rework is finished when ALL of the following hold:
 - Threshold tuning of v1.0 classification rules (open item from original plan; remains open).
 - Implementation of any agentboard app changes the app spec identifies.
 - Changes to `mcp-servers/`, `skills/codebase-rag-enforcer/`, or other plugins in this workspace.
-- Test infrastructure changes beyond the synthetic-artifact tests for the validation hook.
+- Test infrastructure changes beyond the synthetic-artifact tests for the validation hook (now including `ARCH_CORRECTIONS_V1` fixtures).
+- **Modifying or mirroring `codex-plugins/agentboard/`** — hard out of scope, in every circumstance (correction-loop design §9, owner-ratified 2026-05-17).
+- **The Codex rework document** — a real later deliverable, sequenced after the Claude tree is final; not part of this change set.
+
+In scope and now part of the definition of done: the bounded correction loop per the owner-approved `docs/specs/2026-05-16-correction-loop-option-a-design.md` (2026-05-17), as reflected in the Commitments-by-area and Acceptance-criteria sections above.
 
 ---
 
