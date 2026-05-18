@@ -31,42 +31,42 @@ Each subagent in the rework has a single coherent contract that specifies what i
 
 ### 1.1 `architecture-research-agent`
 
-- **Consumes:** `spec_path` (file path string), `scaffold_card_id`, `agent_id`.
+- **Consumes:** `spec_path` (file path string), `scaffold_card_id`, `agent_id`, and an optional `force_remeasure` signal (set by the orchestrator on a bundle-origin correction re-run — design-spec DD-Routing; see §9 steps 16–17).
 - **Produces:** one `ARCH_FACTS_BUNDLE_V2` artifact submitted to the scaffold card via `submit_workspace_artifact`.
-- **Scope:** mechanical discovery (RAG, codegraph, Context7 library resolution), classification measurement against v1.0 rules, evidence citation for every field.
-- **NOT in scope:** design reasoning, slice derivation, document authoring, level revision (compute only — corrections happen at audit).
+- **Scope:** mechanical discovery (RAG, codegraph, Context7 library resolution), classification measurement against v1.0 rules, evidence citation for every field. When `force_remeasure` is set, Step-2 prior-bundle reuse is suppressed and the agent re-measures into a fresh V2 bundle regardless of spec-hash match.
+- **NOT in scope:** design reasoning, slice derivation, document authoring, level revision (compute only — corrections happen at audit; a bundle-origin correction is a fresh re-measure, never self-revision against a supplied correction).
 
 ### 1.2 `architecture-classification-auditor`
 
 - **Consumes:** `spec_path`, `audited_bundle_artifact_id`, `scaffold_card_id`, `agent_id`.
 - **Produces:** one `ARCH_BUNDLE_AUDIT_V2` artifact submitted to the scaffold card.
 - **Scope:** independent re-derivation of every bundle field (classification + design) BEFORE looking at the research agent's bundle, then field-by-field comparison; corrected bundle and recomputed level when discrepancies are flagged.
-- **NOT in scope:** design reasoning, slice derivation, document authoring, soft-judgment overrides not anchored in a field discrepancy.
+- **NOT in scope:** design reasoning, slice derivation, document authoring, soft-judgment overrides not anchored in a field discrepancy. The correction loop does not change this contract: a bundle-origin correction triggers a fresh independent audit of the freshly re-measured bundle; the auditor is never handed a correction as input (anchoring before independent measurement is the failure mode it exists to prevent — design-spec DD-Routing/DD-5).
 
 ### 1.3 `architecture-compose-l3` (opus)
 
-- **Consumes:** `spec_path`, `verified_level: 3`, `scaffold_card_id`, `agent_id`, full verified `ARCH_FACTS_BUNDLE_V2` inline.
+- **Consumes:** `spec_path`, `verified_level: 3`, `scaffold_card_id`, `agent_id`, `verified_bundle_artifact_id` (fetched via `get_workspace_artifact` — DD-Bundle, no longer inline). On a correction re-run also: `corrections_artifact_id` and the prior architecture document's `architecture_document_path` + `architecture_document_artifact_id`.
 - **Produces:** one `architecture_document` artifact (document content) submitted via `submit_workspace_artifact`; the same content written to `docs/arch/<file>.md` via Write.
-- **Scope:** read inputs (Step 1 activation, Step 2 bundle ingestion), goal, standards identification (including ISO 25010 mapping, ASVS when security in scope), spec problem detection, hard decisions in five-part format, threat model when security in scope, design decisions, quality characteristic mapping (10a), ASVS mapping (10b), document write (Phase 11), slicing (Phase 12). Clear Thought tools throughout per the 2026-05-09 plan's reasoning support table. Context7 `query-docs` against bundle library IDs (and `resolve-library-id` for libraries not in bundle).
+- **Scope:** read inputs (Step 1 activation, Step 2 bundle ingestion by id), goal, standards identification (including ISO 25010 mapping, ASVS when security in scope), spec problem detection, hard decisions in five-part format, threat model when security in scope, design decisions, quality characteristic mapping (10a), ASVS mapping (10b), document write (Phase 11), slicing (Phase 12). Clear Thought tools throughout per the 2026-05-09 plan's reasoning support table. Context7 `query-docs` against bundle library IDs (and `resolve-library-id` for libraries not in bundle). **Revision mode** (presence of `corrections_artifact_id`): the prescribed targeted re-derivation per §6.3 — re-derive only the decisions/sections the corrections artifact's `target` names, carry every non-targeted decision forward verbatim by Reading the prior document, and unconditionally re-run the traceability matrix, Gates A/B/C, the trap audit, and Card-Slices re-derivation. No diff/preserve/patch of the prior document.
 - **NOT in scope:** `rag_search`, `codegraph_*`, `rag_query_impact` (any codebase discovery — comes from bundle). Halts if `verified_level != 3`.
 
 ### 1.4 `architecture-compose-l2` (opus)
 
-- **Consumes:** `spec_path`, `verified_level: 2`, `scaffold_card_id`, `agent_id`, full verified `ARCH_FACTS_BUNDLE_V2` inline.
+- **Consumes:** `spec_path`, `verified_level: 2`, `scaffold_card_id`, `agent_id`, `verified_bundle_artifact_id` (fetched via `get_workspace_artifact` — DD-Bundle, no longer inline). On a correction re-run also: `corrections_artifact_id` and the prior architecture document's `architecture_document_path` + `architecture_document_artifact_id`.
 - **Produces:** `architecture_document` artifact; `docs/arch/<file>.md`.
-- **Scope:** read inputs (Step 1, Step 2 bundle ingestion), goal, standards (lighter than L3), spec problems, design decisions in five-part format with inline verification approach per decision (replaces L3's Phase 10a/10b ceremony), two-pass write (Phase 7.5 body, Phase 8 slicing). No Clear Thought MCP invocations — disciplines stay inline per 2026-05-09 plan's §8.4.
+- **Scope:** read inputs (Step 1, Step 2 bundle ingestion by id), goal, standards (lighter than L3), spec problems, design decisions in five-part format with inline verification approach per decision (replaces L3's Phase 10a/10b ceremony), two-pass write (Phase 7.5 body, Phase 8 slicing). No Clear Thought MCP invocations — disciplines stay inline per 2026-05-09 plan's §8.4. **Revision mode** (presence of `corrections_artifact_id`): the prescribed targeted re-derivation per §6.4 — re-derive only the `target`-named decisions/sections, carry non-targeted decisions forward verbatim by Reading the prior document, unconditionally re-run the traceability matrix, the inline Gates A/B/C + trap audit, and Card-Slices re-derivation. No diff/preserve/patch.
 - **NOT in scope:** Phase 6 (Context7-as-discovery), Phase 9 (threat model — internal trust boundary noted inline in relevant decision instead), Phase 10a (ISO 25010 ceremony), Phase 10b (ASVS), codebase discovery. Halts if `verified_level != 2`.
 
 ### 1.5 `architecture-compose-l1` (opus)
 
-- **Consumes:** `spec_path`, `verified_level: 1`, `scaffold_card_id`, `agent_id`, full verified `ARCH_FACTS_BUNDLE_V2` inline.
+- **Consumes:** `spec_path`, `verified_level: 1`, `scaffold_card_id`, `agent_id`, `verified_bundle_artifact_id` (fetched via `get_workspace_artifact` — DD-Bundle, no longer inline). On a correction re-run also: `corrections_artifact_id` and the prior architecture document's `architecture_document_path` + `architecture_document_artifact_id`.
 - **Produces:** `architecture_document` artifact (slim — slices ARE the architecture); `docs/arch/<file>.md`.
-- **Scope:** read inputs (Step 1, Step 2 bundle ingestion), goal, standards (inherited from spec), slice the cards (1–3 cards by classification), single-pass write per 2026-05-09 plan's §8.5 Phase 6.
+- **Scope:** read inputs (Step 1, Step 2 bundle ingestion by id), goal, standards (inherited from spec), slice the cards (1–3 cards by classification), single-pass write per 2026-05-09 plan's §8.5 Phase 6. **Revision mode** (presence of `corrections_artifact_id`): the prescribed targeted re-derivation per §6.5 — at L1 the corrections artifact's `target` names the slice(s); re-derive only those, carry every non-targeted slice forward verbatim by Reading the prior document, and unconditionally re-run the single delivery gate, the trap audit, and slice-consistency. No diff/preserve/patch.
 - **NOT in scope:** design decisions section, components and structure section, threat model, ASVS, quality characteristics, codebase discovery. Halts if `verified_level != 1`.
 
 ### 1.6 `architecture-design-reviewer` (sonnet 4.6 + extended thinking)
 
-- **Consumes:** `spec_path`, `architecture_document_path`, `architecture_document_artifact_id`, `verified_bundle_artifact_id`, `scaffold_card_id`, `agent_id`. (Both path and artifact ID for the architecture document — path for direct Read access, artifact ID for fetching via `get_workspace_artifact` if disk read fails. Reviewer chooses whichever path is convenient.)
+- **Consumes:** `spec_path`, `architecture_document_path`, `architecture_document_artifact_id`, `audit_artifact_id`, `scaffold_card_id`, `agent_id`. (`audit_artifact_id` is the `ARCH_BUNDLE_AUDIT_V2` artifact id — the reviewer resolves the verified bundle from the audit itself; corrected per design-spec DD-ReviewerParam from the prior misnamed `verified_bundle_artifact_id`. Both path and artifact ID are provided for the architecture document — path for direct Read access, artifact ID for fetching via `get_workspace_artifact` if disk read fails.)
 - **Produces:** one `ARCH_DESIGN_REVIEW_V1` artifact submitted to the scaffold card. Findings list with severity tags.
 - **Scope:** read spec, architecture document, verified bundle. Evaluate decisions against spec requirements (every R#/Q# addressed or scoped out), surface unjustified slices, contract mismatches between produces/consumes pairs, standards-decoration trap, decision-hiding trap, deferred-decision trap.
 - **NOT in scope:** rewriting the architecture document, blocking user approval directly (advisory only), reasoning that requires fresh codebase discovery (review reads the bundle, doesn't re-derive).
@@ -304,7 +304,7 @@ All level fields are **numeric**.
   "spec_path": "<path>",
   "architecture_document_path": "<path>",
   "architecture_document_artifact_id": "<id>",
-  "verified_bundle_artifact_id": "<id>",
+  "audit_artifact_id": "<id>",
 
   "findings": [
     {
@@ -338,6 +338,41 @@ All level fields are **numeric**.
 ```
 
 `findings` MAY be empty. Empty list means the reviewer found no defects worth surfacing; this is a meaningful signal, not a failure to evaluate.
+
+---
+
+## 4.1 `ARCH_CORRECTIONS_V1` schema (correction loop)
+
+The correction loop's declared, hook-gated artifact. Governing design: `docs/specs/2026-05-16-correction-loop-option-a-design.md` (owner-approved 2026-05-17). Submitted by the orchestrator as the round's auditable record; additionally consumed by compose as a declared input **only** on the `architecture-document` route.
+
+```json
+{
+  "schema_version": "1.0",
+  "round": 1,
+  "scaffold_card_id": "<id>",
+  "route": "architecture-document | verified-bundle | spec",
+  "prior_architecture_document_path": "<path or null>",
+  "prior_architecture_document_artifact_id": "<id or null>",
+  "prior_design_review_artifact_id": "<id or null>",
+  "corrections": [
+    {
+      "id": "C1",
+      "origin": "user-directed | finding-resolution | source-traced",
+      "resolves_finding_id": "<F# or null>",
+      "target": { "section": "<heading>", "decision_id_or_slice_name": "<D# / slice title>", "quoted_text": "<excerpt or null>" },
+      "requested_change": "<prose statement of the change>",
+      "provenance": "<originating instruction / finding / trace, verbatim>"
+    }
+  ],
+  "agent_metadata": { "agent_id": "<id>", "timestamp_iso": "<ts>" }
+}
+```
+
+- On the `architecture-document` route every `corrections[].target` MUST resolve to a concrete decision/section identifier (a `D#`, or a named section / slice title). It is **load-bearing for the §6.3–§6.5 prescribed preserve/re-derive partition**, not provenance. If the orchestrator cannot resolve a concrete target, the correction is underspecified — it is surfaced to the owner, never submitted with a vague target (design-spec DD-1 / §5).
+- On the `verified-bundle` / `spec` routes the artifact is the audit record only (no compose consumption); `target` records the origin locus.
+- `prior_architecture_document_*` are populated only when `route == "architecture-document"`.
+- `corrections` MAY be empty only for a degenerate re-derivation request with no itemized change; otherwise an empty list is invalid.
+- Structurally gated by the §7 validation hook as a fifth architecture-pipeline artifact type (structural-only, consistent with the other types).
 
 ---
 
@@ -381,7 +416,7 @@ tools: Read, Glob, Grep, Bash, Skill, mcp__agentboard__agentboard_get_card, mcp_
 1. Subagent boundary contract (per §1.1).
 2. Process steps:
    - **Step 1**: cross-cutting expert-standards activation (verbatim).
-   - **Step 2**: Read spec at `spec_path` in full.
+   - **Step 2**: Read spec at `spec_path` in full; perform the prior-bundle reuse check. When the orchestrator set `force_remeasure` (a bundle-origin correction re-run — design-spec DD-Routing), prior-bundle reuse is suppressed and the agent re-measures into a fresh V2 bundle regardless of spec-hash match.
    - **Step 3**: Codebase semantic survey via `rag_search` — capabilities the spec introduces/modifies/replaces, design patterns (`source_type=docs`), constraints (`source_type=constraints`). Capture queries and results.
    - **Step 4**: Codebase structural survey via codegraph — `scan`, `get_stats`, `find_entry_points`, `list_files`; per-file `get_dependencies` / `get_dependents` / `get_subgraph` (depth 2) on the relevant set; `get_change_impact` on the candidate-modified set.
    - **Step 5**: Library identification — for every library the spec implies depending on, `resolve-library-id` to get Context7 ID; record name, ID (or null), why_needed.
@@ -434,6 +469,7 @@ tools: Read, Glob, Grep, Bash, Skill, mcp__agentboard__agentboard_get_card, mcp_
    - **Step 14**: Construct the V2 audit per §3 schema. Submit; add log; update card note.
 3. Anti-anchoring rebuttals — explicit reminders that the auditor's bundle is constructed independently; the research bundle is consulted only at Step 9.
 4. Failure modes.
+5. Correction loop: this profile is **unchanged** by the correction loop. A bundle-origin correction is handled as a fresh re-measure (orchestrator re-runs research with `force_remeasure`) followed by this auditor running normally; the auditor is never handed a correction as input — anchoring before independent measurement is the failure mode it exists to prevent (design-spec DD-Routing / DD-5).
 
 ### 6.3 `agents/architecture-compose-l3.md`
 
@@ -458,7 +494,7 @@ tools: Read, Edit, Write, Glob, Grep, Skill, mcp__agentboard__agentboard_get_car
 7. Halt condition — if `verified_level != 3` or `bundle.rule_evaluation.computed_level != 3` or they disagree, halt with structured error to scaffold card.
 8. Process steps:
    - **Step 1**: cross-cutting expert-standards activation (verbatim text per Preamble rule 2).
-   - **Step 2**: Ingest the verified `ARCH_FACTS_BUNDLE_V2` passed inline. Read it as authoritative. Specifically: `files_relevant` is the file set the architecture addresses; `dependency_edges` describe coupling; `blast_radius` informs scope decisions; `existing_patterns_hits` informs pattern adherence/divergence decisions; `constraint_hits` are constraints the architecture must respect; `external_libraries` lists library IDs available for Context7 query-docs; `open_questions` enumerates ambiguities to resolve in design. Snippet existence is authoritative (auditor verified); snippet relevance to a specific decision is the agent's judgment.
+   - **Step 2**: Ingest the verified `ARCH_FACTS_BUNDLE_V2` fetched via `get_workspace_artifact` on `verified_bundle_artifact_id` (DD-Bundle — no longer passed inline). Read it as authoritative. Specifically: `files_relevant` is the file set the architecture addresses; `dependency_edges` describe coupling; `blast_radius` informs scope decisions; `existing_patterns_hits` informs pattern adherence/divergence decisions; `constraint_hits` are constraints the architecture must respect; `external_libraries` lists library IDs available for Context7 query-docs; `open_questions` enumerates ambiguities to resolve in design. Snippet existence is authoritative (auditor verified); snippet relevance to a specific decision is the agent's judgment.
    - **Step 3**: Read spec at `spec_path` in full; read any documents the spec references locally.
    - **Step 4**: Understand the goal (one-paragraph internal articulation) + Clear Thought `metacognitivemonitoring` invocation for knowledge-state assessment.
    - **Step 5**: Identify governing standards inherited from spec + add architecture-phase standards (SOLID, ISO 25010, OWASP ASVS if security in scope, RFC suite if API design in scope). For decisions without a formal standard, `mentalmodel(first_principles)` per the 2026-05-09 plan's reasoning support.
@@ -492,6 +528,7 @@ tools: Read, Edit, Write, Glob, Grep, Skill, mcp__agentboard__agentboard_get_car
    - **Step 15**: Edit the architecture document at `docs/arch/<file>.md` to incorporate the Step 14 collaborativereasoning synthesis into the Design decisions section. If no perspective-specific gaps surfaced, write an explicit attestation in that section ("All three perspectives (planner, reviewer, stakeholder) were checked at Gate A; no perspective-specific gaps surfaced"). The document on disk must reflect the synthesis before gates run, because gates evaluate the document, not the agent's working memory.
    - **Step 16**: Gates A/B/C + trap audit per 2026-05-09 plan's "Before delivering" section. Run against the updated document on disk. Fail → fix the document and re-run gates; do not deliver with failing gates.
    - **Step 17**: Submit architecture document content as `architecture_document` workspace artifact. Card note + activity log.
+   - **Revision mode** (entered iff `corrections_artifact_id` is present — design-spec DD-1/DD-4; a prescribed process, not a flag): (a) fetch + ingest the corrections artifact and the prior architecture document (`architecture_document_path` / `architecture_document_artifact_id`); (b) for every `corrections[].target`, re-derive exactly that decision/section through the same five-part / Clear-Thought discipline (Steps 5–11); (c) carry every non-targeted decision/section forward verbatim by Reading the prior document — never re-derived, never diff/preserve/patched; (d) unconditionally re-run the traceability matrix, Steps 14–16 (collaborativereasoning, synthesis incorporation, Gates A/B/C + trap audit) and Step 13 Card-Slices re-derivation (slices derive from the changed document); (e) submit per Step 17. No instruction in this profile may tell compose to diff, preserve, or patch the prior document (grep-checkable acceptance criterion).
 9. Failure modes — Context7 unavailable for a library compose needs to verify → halt with structured error; tool unavailability or malformed bundle → halt; Step 13 placeholder unreplaced → halt before submit. The anti-skip rebuttals listed in item 2 carry the discipline previously held under a separate "anti-skip rebuttals" body-structure element in earlier drafts; they remain a required section (now folded into the Anti-skip discipline section).
 
 ### 6.4 `agents/architecture-compose-l2.md`
@@ -512,7 +549,7 @@ tools: Read, Edit, Write, Glob, Grep, Skill, mcp__agentboard__agentboard_get_car
 2. Halt condition — `verified_level != 2` → halt.
 3. Process steps:
    - **Step 1**: cross-cutting expert-standards activation (verbatim text per Preamble rule 2).
-   - **Step 2**: Bundle ingestion (same authority and field meanings as L3).
+   - **Step 2**: Bundle ingestion — fetch the verified bundle via `get_workspace_artifact` on `verified_bundle_artifact_id` (DD-Bundle — no longer inline); same authority and field meanings as L3.
    - **Step 3**: Read spec + referenced docs.
    - **Step 4**: Understand goal (inline; no metacognitivemonitoring MCP).
    - **Step 5**: Identify governing standards. First-principles articulation inline when no standard applies (three-part: goal / local-optimum shortcut / why chosen path serves goal).
@@ -535,6 +572,7 @@ tools: Read, Edit, Write, Glob, Grep, Skill, mcp__agentboard__agentboard_get_car
    - **Step 9**: Slice — read the written body; derive each slice's 8 fields. Verification scope per slice derives from D# decisions' inline verification approach. Write the populated slices into the document's `## Card Slices` section, replacing the placeholder.
    - **Step 10**: Gates A/B/C inline checklist + trap audit. Gate C includes the discipline-coverage check (first-principles articulation appeared where Step 5 used it; thesis-antithesis-synthesis appeared where Step 6 used it; multi-criteria table appeared where Step 7 had 3+ alternatives; verification approach named in every non-trivial Step 7 decision; OR explicit attestation that trigger didn't fire).
    - **Step 11**: Submit + card note + log.
+   - **Revision mode** (entered iff `corrections_artifact_id` is present — design-spec DD-1/DD-4; a prescribed process, not a flag): (a) fetch + ingest the corrections artifact and the prior architecture document; (b) re-derive only the `corrections[].target` decisions/sections through Step 7's five-part discipline; (c) carry every non-targeted decision forward verbatim by Reading the prior document — no diff/preserve/patch; (d) unconditionally re-run the traceability matrix, Step 10's inline Gates A/B/C + trap audit, and Step 9 Card-Slices re-derivation; (e) submit per Step 11. No instruction may tell compose to diff, preserve, or patch the prior document (grep-checkable).
 4. Failure modes.
 
 ### 6.5 `agents/architecture-compose-l1.md`
@@ -555,7 +593,7 @@ tools: Read, Edit, Write, Glob, Grep, Skill, mcp__agentboard__agentboard_get_car
 2. Halt condition — `verified_level != 1` → halt.
 3. Process steps:
    - **Step 1**: cross-cutting expert-standards activation (verbatim text per Preamble rule 2).
-   - **Step 2**: Bundle ingestion. At L1, design fields are likely minimal but present (e.g., few `files_relevant`, no `dependency_edges` or sparse, no `open_questions` typical).
+   - **Step 2**: Bundle ingestion — fetch the verified bundle via `get_workspace_artifact` on `verified_bundle_artifact_id` (DD-Bundle — no longer inline). At L1, design fields are likely minimal but present (e.g., few `files_relevant`, no `dependency_edges` or sparse, no `open_questions` typical).
    - **Step 3**: Read spec.
    - **Step 4**: Understand goal (brief).
    - **Step 5**: Identify governing standards (inherited from spec; L1 rarely adds).
@@ -577,6 +615,7 @@ tools: Read, Edit, Write, Glob, Grep, Skill, mcp__agentboard__agentboard_get_car
    - **Step 8**: Single delivery gate — 5 mechanical checks from 2026-05-09 plan's §8.5 item 9 (R#/Q# coverage; Source decisions L1 form; eight §6.3 fields; precise allowed-touch; no overlap).
    - **Step 9**: Trap audit (5 traps).
    - **Step 10**: Submit + card note + log.
+   - **Revision mode** (entered iff `corrections_artifact_id` is present — design-spec DD-1/DD-4; a prescribed process, not a flag): at L1 the slicing IS the architecture, so `corrections[].target` names the slice(s). (a) Fetch + ingest the corrections artifact and the prior architecture document; (b) re-derive only the targeted slice(s) per Step 6; (c) carry every non-targeted slice forward verbatim by Reading the prior document — no diff/preserve/patch; (d) unconditionally re-run Step 8's single delivery gate, Step 9's trap audit, and slice-consistency; (e) submit per Step 10. No instruction may tell compose to diff, preserve, or patch the prior document (grep-checkable).
 4. Failure modes.
 
 ### 6.6 `agents/architecture-design-reviewer.md`
@@ -599,7 +638,7 @@ tools: Read, Glob, Grep, Skill, mcp__agentboard__agentboard_get_card, mcp__agent
 1. Subagent boundary contract (per §1.6).
 2. Process steps:
    - **Step 1**: cross-cutting expert-standards activation (verbatim text per Preamble rule 2).
-   - **Step 2**: Read inputs — spec at `spec_path`; architecture document via Read at `architecture_document_path` (or fall back to `get_workspace_artifact` on `architecture_document_artifact_id` if disk read fails); verified bundle via `get_workspace_artifact` on `verified_bundle_artifact_id` (the audit artifact, from which the bundle is derived per the `any_discrepancy` branch — see §3 audit schema). Apply BOM/CR normalization and sentinel-line verification to all fetched artifact content before JSON parse.
+   - **Step 2**: Read inputs — spec at `spec_path`; architecture document via Read at `architecture_document_path` (or fall back to `get_workspace_artifact` on `architecture_document_artifact_id` if disk read fails); the `ARCH_BUNDLE_AUDIT_V2` artifact via `get_workspace_artifact` on `audit_artifact_id`, resolving the verified bundle from it per the `any_discrepancy` branch (§3 audit schema). Apply BOM/CR normalization and sentinel-line verification to all fetched artifact content before JSON parse.
    - **Step 3**: Build a coverage matrix — every R# and Q# in the spec → which D# (or Source decision attribution at L1) addresses it. Missing entries are `missing-decision` findings.
    - **Step 4**: For each slice — check that its allowed-touch is justified by the decisions in its `source_decisions` (or by the R#/Q# at L1). Unjustified files → `unjustified-slice` finding.
    - **Step 5**: For each produces/consumes pair across slices — verify the consumer's consumed contract is produced by some other slice. Orphan produces (no consumer) is a finding; orphan consumes (no producer) is a finding.
@@ -649,6 +688,8 @@ tools: Read, Glob, Grep, Skill, mcp__agentboard__agentboard_get_card, mcp__agent
      → ARCH_BUNDLE_AUDIT_V2 rule set
    - Else if (artifact_type startswith "ARCH_DESIGN_REVIEW") OR (content contains literal "ARCH_DESIGN_REVIEW_V1" sentinel in first 200 chars):
      → ARCH_DESIGN_REVIEW_V1 rule set
+   - Else if (artifact_type startswith "ARCH_CORRECTIONS") OR (content contains literal "ARCH_CORRECTIONS_V1" sentinel in first 200 chars):
+     → ARCH_CORRECTIONS_V1 rule set
    - Otherwise:
      → exit 0 (no action; existing gate handles non-architecture)
 4. Apply matched rule set (enumerated below).
@@ -716,7 +757,16 @@ R-REVIEW-2: .findings is an array (may be empty). For every finding: .id matches
 R-REVIEW-3: .summary.{blocker_count, serious_count, minor_count} are non-negative integers, each equals the actual count of findings with that severity in .findings, and their sum equals len(findings). The findings IDs are contiguous and ascending: when .findings is non-empty, findings[i].id == "F" + str(i+1) for every index i.
 ```
 
-**Synthetic test fixtures** for the rework's Session-N test step (per the plan author discipline acceptance criterion): one valid + one invalid synthetic for each of the four artifact types; valid architecture document tested at each level (L1, L2, L3).
+**`ARCH_CORRECTIONS_V1` rule set (4 rules):**
+
+```
+R-CORR-1: After BOM/CR normalization, content's first line equals the literal sentinel `ARCH_CORRECTIONS_V1`; the remainder is valid JSON.
+R-CORR-2: .schema_version == "1.0"; .round is a positive integer; .route in {"architecture-document", "verified-bundle", "spec"}.
+R-CORR-3: .corrections is an array. Every item has non-empty string .id; .origin in {"user-directed", "finding-resolution", "source-traced"}; a .target object; non-empty string .requested_change; non-empty string .provenance. (Empty .corrections is permitted only when a degenerate-re-derivation marker is set; structural-only — semantic validity is the orchestrator's responsibility.)
+R-CORR-4: When .route == "architecture-document": .prior_architecture_document_path and .prior_architecture_document_artifact_id are non-null, and every .corrections[].target.decision_id_or_slice_name is a non-empty string (concrete target — structural check only; resolution correctness is the orchestrator's responsibility per §4.1).
+```
+
+**Synthetic test fixtures** for the rework's Session-N test step (per the plan author discipline acceptance criterion): one valid + one invalid synthetic for each of the five artifact types (including `ARCH_CORRECTIONS_V1`); valid architecture document tested at each level (L1, L2, L3).
 
 ---
 
@@ -820,7 +870,7 @@ This pattern keeps the prompt injection configurable without modifying the under
 1. Load required MCP tools and skills. Authenticate AgentBoard if needed.
 2. Activate the agentboard:expert-standards skill (orchestrator-level activation; subagents activate independently).
 3. Locate the approved spec from docs/specs/ (most recent or user-specified). Confirm path with user.
-4. Select or create a workspace board via agentboard MCP. Read auto_transitions settings.
+4. Select or create a workspace board via agentboard MCP. (The architecture owner-pause is opt-in via a declared `/architecture` parameter, default off — design-spec DD-3; this work introduces no AgentBoard app change and does not depend on the app's blocking / auto_transitions mechanism.)
 5. Create scaffold card:
    - Title: "Architecture: <spec topic>"
    - Description: "Architecture flow scaffold. Holds research bundle, audit, architecture document, and design review artifacts during the level-aware architecture pipeline. Will be moved to finished after cards are created from the architecture's slices."
@@ -828,20 +878,20 @@ This pattern keeps the prompt injection configurable without modifying the under
 6. Spawn architecture-research-agent (background). Pass spec_path, scaffold_card_id, agent_id. Wait for completion.
 7. Verify the agent submitted an ARCH_FACTS_BUNDLE_V2 artifact. If not, halt and report to scaffold card.
 8. Spawn architecture-classification-auditor (background). Pass spec_path, audited_bundle_artifact_id, scaffold_card_id, agent_id. Wait for completion.
-9. Verify the agent submitted an ARCH_BUNDLE_AUDIT_V2 artifact. Read verified_level (numeric) from it.
+9. Verify the agent submitted an ARCH_BUNDLE_AUDIT_V2 artifact. Read verified_level (numeric) from it. Then materialize the verified bundle as a standalone artifact (DD-Bundle): submit the resolved verified bundle — the audit's corrected_bundle when any_discrepancy, else the original ARCH_FACTS_BUNDLE_V2 body — as a standalone ARCH_FACTS_BUNDLE_V2 artifact on the scaffold card, and capture its id as verified_bundle_artifact_id. (One id regardless of the discrepancy branch; the auditor contract §1.2/§3 is unchanged.)
 10. Display to user (transparency, not approval): bundle summary, audit findings, verified level (presented as "L1"/"L2"/"L3" in the chat for readability), rules that fired. Brief markdown summary.
 11. Dispatch:
     - verified_level == 1 → spawn architecture-compose-l1
     - verified_level == 2 → spawn architecture-compose-l2
     - verified_level == 3 → spawn architecture-compose-l3
     - any other value → halt, report (rule evaluation produced invalid level)
-    Pass to compose agent: spec_path, verified_level (numeric), scaffold_card_id, agent_id, the verified bundle inline. Wait for completion.
+    Pass to compose agent: spec_path, verified_level (numeric), scaffold_card_id, agent_id, verified_bundle_artifact_id (DD-Bundle — by id, not inline). On an architecture-document-route correction re-run also pass corrections_artifact_id and the prior architecture document path + id. Wait for completion.
 12. The validation hook fires automatically on compose's submit_workspace_artifact call. The hook either passes the artifact (orchestrator continues) or blocks (orchestrator sees the structured error; compose subagent must address and resubmit). Verify the architecture_document artifact landed.
 13. Verify docs/arch/<file>.md exists on disk and matches the docs/arch/*.md path pattern. If not, halt and report (the disk-path check moved out of the hook).
-14. Spawn architecture-design-reviewer (background). Pass spec_path, architecture_document_path, architecture_document_artifact_id, verified_bundle_artifact_id, scaffold_card_id, agent_id. Wait for completion.
+14. Spawn architecture-design-reviewer (background). Pass spec_path, architecture_document_path, architecture_document_artifact_id, audit_artifact_id (the ARCH_BUNDLE_AUDIT_V2 id — renamed from the prior misnamed verified_bundle_artifact_id per design-spec DD-ReviewerParam), scaffold_card_id, agent_id. Wait for completion.
 15. Verify the reviewer submitted an ARCH_DESIGN_REVIEW_V1 artifact. Read findings.
 16. Display to user: the architecture document path, the design review findings (rendered by severity), the verified level. Ask for approval, request-changes (with rewording), or rejection.
-17. Apply corrections if user requests (re-spawn compose with corrections context if substantive; otherwise minor edits via Edit tool).
+17. Correction loop (design-spec DD-Routing / DD-1 / DD-3 / DD-6 / DD-7; supersedes the prior re-spawn-with-context workaround that the FAILED handoff flagged as the §9-step-17 contradiction). On a correction (a design-review finding, a user-directed change, or a failure source-traced back to architecture): determine the route by real-time source-trace among {architecture-document, verified-bundle, spec}; construct an `ARCH_CORRECTIONS_V1` artifact (§4.1) tagging each item `user-directed` / `finding-resolution` / `source-traced`, with a concrete resolved `target` when the route is architecture-document — an unresolvable target is surfaced to the owner, never guessed; submit it as the round's record; increment the round counter; then by route: **architecture-document** ⇒ re-enter the level-appropriate compose stage in revision mode with `corrections_artifact_id` + prior document; **verified-bundle** ⇒ set research's `force_remeasure` and run a fresh research → auditor pass (no corrections input to either); **spec** ⇒ surface to the owner (DD-7), no in-pipeline redo and no `spec_path` edit. The loop is bounded (DD-6, default 2); on the bound, source-trace and route to the determined origin, escalating to the owner only on a spec-origin determination as an evidenced finding (assert no unsupported cause; do not auto-invoke `/foundation`). The owner pause is opt-in/default-off (DD-3): the loop runs autonomously and does not stop for the owner each round unless the pause was opted on. **No silent or automatic `Edit` of `spec_path` anywhere.** The only direct-`Edit`-then-redisplay bypass is a change that provably alters no design content (no decision/slice/contract/classification touched); even then the validation hook still runs before redisplay and only the revision re-derive + design-reviewer is skipped — there is no subjective "minor" judgment.
 18. Commit docs/arch/<file>.md to git on the current branch.
 19. Read the Card Slices section of the architecture document. For each slice:
     - agentboard_create_workspace_card with title = slice title, description = slice description + the 8 §6.3 fields, status = backlog.
@@ -853,40 +903,19 @@ Each subagent invocation passes only the inputs that subagent's profile declares
 
 ---
 
-## 10. Plugin version bump and codex sync
+## 10. Plugin version bump (codex sync superseded — design §9)
 
 **Plugin version:**
-- `claude-plugins/agentboard/.claude-plugin/plugin.json`: bump `version` from `0.2.1` (or whatever is current) to `0.3.0`.
-- `codex-plugins/agentboard/.codex-plugin/plugin.json`: bump to `0.3.0` in lockstep.
-- `/.claude-plugin/marketplace.json`: agentboard entry version → `0.3.0`.
+- `claude-plugins/agentboard/.claude-plugin/plugin.json`: bump `version` to `0.3.0`. **This bump lands with the implementation stage (when the profiles/command/hook are conformed), not at plan-amendment time** — the plan amendment changes no runtime behavior (SemVer; correction-loop design §10).
+- **SUPERSEDED by correction-loop design §9 (owner-ratified 2026-05-17):** `codex-plugins/agentboard/.codex-plugin/plugin.json` and `/.claude-plugin/marketplace.json` are **not** touched by this work. The codex plugin tree is never edited or mirrored, in every circumstance; Codex is handled later by a separate document only.
 
-**Codex sync requirements:**
-- Every file changed in `claude-plugins/agentboard/` has an equivalent file in `codex-plugins/agentboard/`. Specifically:
-  - `agents/architecture-research-agent.md` → both trees
-  - `agents/architecture-classification-auditor.md` → both
-  - `agents/architecture-compose-l1.md` → both
-  - `agents/architecture-compose-l2.md` → both
-  - `agents/architecture-compose-l3.md` → both
-  - `agents/architecture-design-reviewer.md` → both
-  - `commands/architecture.md` → both
-  - `hooks/scripts/validate-architecture-artifact.sh` → both
-  - `hooks/scripts/artifact-quality-gate.sh` → both (revised)
-  - `hooks/scripts/inject-quality-gate-prompt.sh` (if used) → both
-  - `hooks/hooks.json` → both
-  - `.claude-plugin/plugin.json` / `.codex-plugin/plugin.json` → both (versions in sync)
-  - Plan, contract, issues, codex sync report documents → both trees
-- Runtime-specific differences (e.g., codex plugin uses `.codex-plugin/` instead of `.claude-plugin/`; tool naming if it differs) are noted in the codex sync report.
-
-**Codex sync report (`docs/plans/2026-05-12-codex-sync-report.md`):**
-- Section per file group with side-by-side diff summary.
-- Confirms version match across both trees and marketplace.
-- Notes any intentional divergence (e.g., a tool name that's different in the codex runtime).
+**Codex sync — SUPERSEDED by correction-loop design §9 (owner-ratified 2026-05-17).** No file in `codex-plugins/agentboard/` is created, edited, or mirrored by this work, and no `docs/plans/2026-05-12-codex-sync-report.md` is produced. The pre-FAILED file-mirror approach previously specified here was the wrong shape (the Codex plugin is skills-based and never had `agents/`/`commands/`) and was reverted in commit `c4c4466`. Codex is handled later by a separate *document* describing the rework for the skills-based Codex plugin to apply itself — sequenced after the Claude tree is final and out of scope for this change set.
 
 ---
 
 ## 11. Acceptance criteria
 
-The contract's 19 acceptance criteria plus one plan-author-discipline criterion (the plant-watering test, elevated here for mechanical verifiability) — 20 total. Behavioral and structural; each one is directly checkable against repo state or synthetic test output. The rework is complete when ALL of the following hold:
+The contract's 19 acceptance criteria, one plan-author-discipline criterion (the plant-watering test, elevated here for mechanical verifiability), and the correction-loop conformance criterion added by the 2026-05-17 design-spec amendment (AC-21) — **21 total**. Behavioral and structural; each one is directly checkable against repo state or synthetic test output. The rework is complete when ALL of the following hold:
 
 1. **Cross-cutting activation present.** Every subagent profile (research, auditor, compose-l1, compose-l2, compose-l3, design reviewer) has `Skill` in its frontmatter tools list AND its first numbered process step activates `agentboard:expert-standards` via the Skill tool. Verified by grep against each profile file.
 
@@ -922,15 +951,17 @@ The contract's 19 acceptance criteria plus one plan-author-discipline criterion 
 
 15. **/architecture orchestrates full flow.** `commands/architecture.md` includes all 21 steps per §9 in order, including the design review wave and the disk-path verification at step 13 (moved out of the hook). Verified by reading the command and tracing it against §9.
 
-16. **Plugin versions bumped.** `claude-plugins/agentboard/.claude-plugin/plugin.json` version is `0.3.0`. `codex-plugins/agentboard/.codex-plugin/plugin.json` version is `0.3.0`. `/.claude-plugin/marketplace.json` agentboard entry version is `0.3.0`.
+16. **Plugin version bumped (Claude tree only).** `claude-plugins/agentboard/.claude-plugin/plugin.json` version is `0.3.0`, landing with the implementation stage (not at plan-amendment time — SemVer). The codex-tree and marketplace clauses are **superseded** by correction-loop design §9 (owner-ratified 2026-05-17): `codex-plugins/agentboard/.codex-plugin/plugin.json` and `/.claude-plugin/marketplace.json` are not touched by this work.
 
-17. **Codex sync report exists.** `docs/plans/2026-05-12-codex-sync-report.md` exists in both plugin trees, listing every changed file in both with side-by-side diff summaries.
+17. **SUPERSEDED — no codex sync report.** Per correction-loop design §9 (owner-ratified 2026-05-17), no `docs/plans/2026-05-12-codex-sync-report.md` is produced and `codex-plugins/agentboard/` is not touched. Codex is handled later by a separate document, out of scope for this change set.
 
 18. **Agentboard app spec exists.** `docs/specs/2026-05-12-agentboard-app-arch-pipeline-support.md` exists in `claude-plugins/agentboard/` with the scope listed in the contract.
 
 19. **Plant-watering test passes.** A mechanical pass over each rewritten profile classifies every sentence in the profile as either "instruction-to-subagent" or "other." The count of "other" sentences is zero for all six profiles (research, auditor, compose-l1, compose-l2, compose-l3, design reviewer). The classification can be done by reviewer-subagent inspection per profile.
 
 20. **2026-05-09 plan preserved.** The original plan at `docs/plans/2026-05-09-architecture-pipeline-redesign.md` is unchanged in git history (committed at its time of writing) and remains as historical record.
+
+21. **Correction loop conforms to the approved design spec.** The implemented correction loop satisfies AC-1…AC-12 of `docs/specs/2026-05-16-correction-loop-option-a-design.md` (owner-approved 2026-05-17): the redo-target compose contracts declare `verified_bundle_artifact_id` and an optional `corrections_artifact_id` with no inline-bundle mandate anywhere (grep-checkable); the design reviewer's input is `audit_artifact_id` with the apology sentence gone and the four named out-of-scope reconciliation sites reconciled identically (`docs/specs/2026-05-12-agentboard-app-arch-pipeline-support.md`, `docs/handoffs/2026-05-13-session-6-to-7.md`, `hooks/tests/build-fixtures.py`, `hooks/tests/fixtures/review_*.json`); no step performs a silent/automatic `Edit` of `spec_path`; each of the three compose profiles carries a prescribed revision-mode process (targeted re-derivation per `corrections[].target`, non-targeted decisions/slices carried verbatim, whole-document validators + Card-Slices re-run unconditionally; zero diff/preserve/patch instructions, grep-checkable); `ARCH_CORRECTIONS_V1` is defined (§4.1), in the §7 hook type set, with invalid+valid synthetic fixtures; routing is a real-time source-trace with no static table; the owner pause is opt-in/default-off with no AgentBoard app change; an unresolved correction `target` is surfaced as underspecified, never guessed. Verified by grep + the §7 synthetic fixtures + tracing `commands/architecture.md` steps 9/11/14/16–17 against §9.
 
 ---
 
@@ -982,11 +1013,10 @@ The rework is structured into 10 sessions. Each session has a clear scope, an ou
 - Write `docs/specs/2026-05-12-agentboard-app-arch-pipeline-support.md` per the contract.
 - Reviewer pass on both.
 
-**Session 10: Plugin version + codex sync + final verification.**
-- Bump plugin versions in both trees + marketplace.
-- Sync every changed file to `codex-plugins/agentboard/`.
-- Write `docs/plans/2026-05-12-codex-sync-report.md`.
-- Run the full acceptance criteria checklist (all 20 items from §11) and produce a verification report.
+**Session 10: Plugin version (Claude tree) + final verification.**
+- Bump `claude-plugins/agentboard/.claude-plugin/plugin.json` to `0.3.0` (Claude tree only).
+- **Codex sync — SUPERSEDED (correction-loop design §9, owner-ratified 2026-05-17):** no `codex-plugins/agentboard/` file is touched or mirrored and no `docs/plans/2026-05-12-codex-sync-report.md` is written. Codex is handled later by a separate document, out of scope for this change set.
+- Run the full acceptance criteria checklist (all 21 items from §11, including the correction-loop conformance criterion) and produce a verification report.
 - Final reviewer pass.
 - Commit + PR.
 
