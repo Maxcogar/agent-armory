@@ -910,7 +910,8 @@ validate_arch_design_review_v1() {
   # resolves the verified bundle from this audit artifact id per the §1.6
   # boundary contract). Catches stale verified_bundle_artifact_id submissions
   # at the hook layer rather than silently letting them through.
-  review4=$(printf '%s' "$JSON_BODY" | "$JQ_BIN" -r '
+  local review4
+  review4=$(printf '%s' "$json_body" | "$JQ_BIN" -r '
     if (.audit_artifact_id | type) != "string" then
       "audit_artifact_id_missing_or_not_string(found_type=\(.audit_artifact_id | type))"
     elif (.audit_artifact_id | length) == 0 then
