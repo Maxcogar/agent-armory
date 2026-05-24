@@ -1,0 +1,4 @@
+{
+  "artifact_type": "architecture_document",
+  "content": "# Architecture \u2014 Synthetic L2 broken slice\n\n## Goal \u2014 what this architecture serves\nx\n\n## Scope (in / deferred / out)\nx\n\n## Components and structure\nx\n\n## Design decisions\n### D1: Foo\ny\n\n## Card Slices\n### Half-formed slice\n- **Description.** missing required fields\n- **Allowed-touch list.** src/foo.py\n\n## Traceability matrix\n| R# | Decision |\n|----|----------|\n| R1 | D1 |\n\n## Limitations and trade-offs\nx\n\n## Standards governing this architecture\nx\n\n## Status of this architecture\nx\n\n**Level:** L2\n"
+}

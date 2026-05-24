@@ -1,0 +1,4 @@
+{
+  "artifact_type": "general",
+  "content": "ARCH_DESIGN_REVIEW_V1\r\n{\r\n  \"schema_version\": \"1.0\",\r\n  \"spec_path\": \"docs/specs/synthetic.md\",\r\n  \"architecture_document_path\": \"docs/arch/synthetic.md\",\r\n  \"architecture_document_artifact_id\": \"artifact-doc\",\r\n  \"audit_artifact_id\": \"artifact-audit\",\r\n  \"findings\": [],\r\n  \"summary\": {\r\n    \"blocker_count\": 0,\r\n    \"serious_count\": 0,\r\n    \"minor_count\": 0\r\n  },\r\n  \"agent_metadata\": {\r\n    \"agent_id\": \"test-reviewer\",\r\n    \"model\": \"claude-sonnet-4-6\",\r\n    \"extended_thinking\": true,\r\n    \"timestamp_iso\": \"2026-05-14T00:00:00Z\"\r\n  }\r\n}"
+}

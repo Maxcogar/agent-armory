@@ -1,0 +1,4 @@
+{
+  "artifact_type": "architecture_document",
+  "content": "# Architecture \u2014 Synthetic L2 shortform\n\n## Goal\nx\n\n## Scope\nx\n\n## Components and structure\nx\n\n## Design decisions\n### D1: Foo\ny\n\n## Card Slices\n### Slice A\n- **Description.** desc\n- **Allowed-touch list.** src/a.py\n- **Forbidden-touch list.** None\n- **Produces.** None\n- **Consumes.** None\n- **Verification scope.** local-only\n- **Depends on.** None\n- **Source decisions.** D1\n\n## Traceability matrix\n| R# | Decision |\n|----|----------|\n| R1 | D1 |\n\n## Limitations\nx\n\n## Standards\nx\n\n## Status\nx\n\n**Level:** L2\n"
+}

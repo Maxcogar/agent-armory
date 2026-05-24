@@ -1,0 +1,4 @@
+{
+  "artifact_type": "planning_artifact",
+  "content": "Plan for card. Step 1: edit src/foo.py line 12. Step 2: edit src/bar.py line 7.\n"
+}
