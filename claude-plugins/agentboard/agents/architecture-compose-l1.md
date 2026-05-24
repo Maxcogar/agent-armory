@@ -40,6 +40,8 @@ In correction mode:
 - Re-run the full document write, gate checks, and trap audit for the whole document before submission. A targeted correction does not justify skipping whole-document validation.
 - If the correction request cannot be resolved into a concrete architecture change from the declared inputs, halt and surface the correction as underspecified. Do not guess and do not silently widen the requested change.
 
+All other Process steps below (Steps 1 through 10) still run as normal in correction mode; the bullets above only add the correction-mode-specific behavior on top of the normal flow. In particular, Step 1 (expert-standards activation), the Halt condition check, Step 2 (bundle ingestion), Step 3 (spec read), Step 5 (governing standards), the single delivery gate at Step 8, the trap audit at Step 9, and the Status-finalization Edit at Step 10 all run unchanged. Step 6 (slice derivation) and Step 7 (document write) are the steps the targeted re-derivation actually narrows.
+
 ---
 
 ## Anti-skip discipline

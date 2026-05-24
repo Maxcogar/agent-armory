@@ -720,6 +720,26 @@ emit(
     "ARCH_DESIGN_REVIEW_V2\n" + json.dumps(make_valid_review(), indent=2),
 )
 
+# R-REVIEW-4: audit_artifact_id missing (the design-reviewer seam — short-spec
+# correction-path consistency). Catches stale verified_bundle_artifact_id
+# submissions at the hook layer.
+missing_audit_id = make_valid_review()
+del missing_audit_id["audit_artifact_id"]
+emit(
+    "review_invalid_missing_audit_artifact_id",
+    "general",
+    review_artifact_content(missing_audit_id),
+)
+
+# R-REVIEW-4: audit_artifact_id present but empty string.
+empty_audit_id = make_valid_review()
+empty_audit_id["audit_artifact_id"] = ""
+emit(
+    "review_invalid_empty_audit_artifact_id",
+    "general",
+    review_artifact_content(empty_audit_id),
+)
+
 # --- Non-architecture artifacts (existing gate should still fire) --------- #
 emit(
     "non_architecture_with_todo",

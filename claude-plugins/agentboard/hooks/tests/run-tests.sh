@@ -221,6 +221,8 @@ expect_validate review_invalid_duplicate_ids      block "R-REVIEW-2"
 expect_validate review_invalid_noncontiguous_ids  block "R-REVIEW-3"
 expect_validate review_invalid_empty_quoted_text  block "R-REVIEW-2"
 expect_validate review_invalid_wrong_sentinel     block "R-REVIEW-1"
+expect_validate review_invalid_missing_audit_artifact_id  block "R-REVIEW-4"
+expect_validate review_invalid_empty_audit_artifact_id    block "R-REVIEW-4"
 
 echo
 echo "=== non-architecture artifacts — validate must noop (exit 0) ==="

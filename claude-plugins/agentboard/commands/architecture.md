@@ -10,7 +10,7 @@ You are the orchestrator of the architecture pipeline. Convert an approved spec 
 ## Inputs from the user
 
 - The path to an approved spec at `docs/specs/<file>.md` (provided as a command argument or the most recent file in `docs/specs/`).
-- Optional correction-pause intent for this `/architecture` run. If the user does not explicitly opt in, `/architecture` correction pause is off by default.
+- Optional `--pause` flag in the command argument string to opt into the `/architecture` correction-loop pause for this run (e.g., `/architecture docs/specs/2026-05-23-my-spec.md --pause` or `/architecture --pause`). The token `pause` without leading dashes is also accepted. If neither form is present in the argument string, `/architecture` correction pause is off by default for this run; the user can re-issue `/architecture` with `--pause` to turn it on.
 
 ## Outputs you produce
 
@@ -56,13 +56,13 @@ Call `ToolSearch` for `agentboard`, `codegraph`, `rag`, and `Context7` to make t
 
 Activate the `agentboard:expert-standards` skill via the `Skill` tool. This is your governing cognitive frame for the orchestration decisions you make in subsequent steps (halt-or-continue verdicts, applying user corrections, summarizing transparency to the user). Subagents activate the same skill independently as the first step of their own profiles; your activation does not satisfy theirs.
 
-### 3. Locate the approved spec
+### 3. Locate the approved spec and detect the correction-pause flag
 
-If the user passed a spec path as a command argument, use that path. Otherwise, list `docs/specs/` and pick the most recent file. Read the spec via `Read` in full to confirm it exists and is non-empty. Confirm with the user that this is the spec the architecture is being built for.
+Parse the command argument string into two pieces. First, scan the tokens for the literal flag `--pause` (case-sensitive) or the bare token `pause` (case-sensitive); if either is present, capture `architecture_correction_pause_flag = true` for step 4 and remove that token from the remaining argument string. Second, treat the remaining argument string as the spec path: if a spec path was passed, use that path; otherwise, list `docs/specs/` and pick the most recent file. Read the spec via `Read` in full to confirm it exists and is non-empty. Confirm with the user that this is the spec the architecture is being built for, and (if `architecture_correction_pause_flag == true`) confirm that they explicitly want the correction-loop pause on for this run.
 
 ### 4. Select or create a workspace board and correction-loop pause mode
 
-Call `agentboard_list_apps`, then `agentboard_list_boards` for the chosen app. If no suitable board exists for this work, call `agentboard_create_app` and/or `agentboard_create_board` to make one. Call `agentboard_get_board` on the chosen board to read its `auto_transitions` settings (`review_blocking`, `audit_blocking`) and capture them. Separately determine the `/architecture` correction-pause mode for this run: if the user explicitly asked for a pause before applying correction-loop reruns, set `architecture_correction_pause = true`; otherwise set `architecture_correction_pause = false` by default. Report both the board's existing checkpoint behavior and the `/architecture` correction-pause mode to the user before continuing. The `/architecture` pause is distinct from the AgentBoard app's blocking-gate mechanism and does not modify board settings.
+Call `agentboard_list_apps`, then `agentboard_list_boards` for the chosen app. If no suitable board exists for this work, call `agentboard_create_app` and/or `agentboard_create_board` to make one. Call `agentboard_get_board` on the chosen board to read its `auto_transitions` settings (`review_blocking`, `audit_blocking`) and capture them. Set the `/architecture` correction-pause mode for this run from `architecture_correction_pause_flag` captured in step 3: `architecture_correction_pause = architecture_correction_pause_flag` (defaults to `false` because step 3 captures the flag only if `--pause` or `pause` was passed in the argument string). Report both the board's existing checkpoint behavior and the `/architecture` correction-pause mode to the user before continuing. The `/architecture` pause is distinct from the AgentBoard app's blocking-gate mechanism and does not modify board settings.
 
 ### 5. Create the scaffold card
 
@@ -76,9 +76,9 @@ Capture the returned `scaffold_card_id` for use in every subsequent step that sp
 
 ### 6. Spawn the research agent
 
-Before spawning the research agent, call `agentboard_list_workspace_artifacts` on `scaffold_card_id` and capture the set of existing artifact IDs as `pre_research_artifact_ids`. Step 7 diffs against this snapshot to bind the exact bundle this run produced, so a re-run from step 17 (which repeats this step against the amended spec) cannot rebind to a prior round's bundle.
+Before spawning the research agent, call `agentboard_list_workspace_artifacts` on `scaffold_card_id` and capture the set of existing artifact IDs as `pre_research_artifact_ids`. Step 7 diffs against this snapshot to bind the exact bundle this run produced, so a re-run from step 17 cannot rebind to a prior round's bundle.
 
-Spawn `architecture-research-agent` (background). Pass exactly these inputs in the prompt and no others: `spec_path`, `scaffold_card_id`, `agent_id`. Wait for completion.
+Spawn `architecture-research-agent` (background). On the initial run, pass exactly these inputs in the prompt and no others: `spec_path`, `scaffold_card_id`, `agent_id`. On a re-run from step 17's `verified-bundle` route, ALSO pass `force_remeasure: true` so the agent's prior-bundle-reuse check is suppressed and a fresh V2 bundle is produced (short-spec CL-009). Wait for completion.
 
 ### 7. Verify the research bundle artifact
 
@@ -195,7 +195,7 @@ Then route by actual origin:
   - Then repeat steps 12 through 16 on the same scaffold card so the revised architecture document is re-verified and re-reviewed.
 - **If route is `verified-bundle`:**
   - Do not send a compose correction request.
-  - Re-run the pipeline from the research wave: repeat steps 6 through 16 on the same `scaffold_card_id` so research and audit produce a fresh verified bundle before compose runs again.
+  - Re-run the pipeline from the research wave: repeat steps 6 through 16 on the same `scaffold_card_id` so research and audit produce a fresh verified bundle before compose runs again. When step 6 spawns research on this re-run, pass `force_remeasure: true` so the research agent suppresses its prior-bundle-reuse check and re-measures into a fresh V2 bundle (short-spec CL-009).
 - **If route is `spec`:**
   - Do not edit `spec_path` inside `/architecture`.
   - Surface that the issue is spec-origin and hand it off to the external spec-modification path rather than using `/foundation` or an in-flow spec edit.

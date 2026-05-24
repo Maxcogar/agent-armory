@@ -12,12 +12,12 @@ This file must be updated at the end of every session that changes or meaningful
 
 ## Current Workflow State
 
-- **Workflow phase:** Phase 9 remediation in progress - runnable correction-path surfaces updated, support-surface seam reconciliation started, plugin skill surfaces still unreconciled, verification still open
-- **Primary source of truth right now:** `docs/specs/2026-05-16-correction-loop-option-a-design.md` for the bounded conformance pass, with `docs/specs/spec-ledger.yaml` plus `docs/specs/spec-conflicts.yaml` still governing the rescue workflow state
+- **Workflow phase:** Phase 9 remediation — runnable correction-path surfaces (`commands/architecture.md` + three compose profiles + `agents/architecture-research-agent.md` with `force_remeasure`) conformant to the short spec; support surfaces (hook scripts, fixtures, app-support spec, session-6-to-7 handoff) reconciled; older `contract` + `plan` surfaces reconciled to the short-spec correction path (2026-05-23 / 2026-05-24 audit + cleanup); hook validator extended with R-REVIEW-4 `audit_artifact_id` field check; new invalid fixtures `review_invalid_missing_audit_artifact_id` and `review_invalid_empty_audit_artifact_id` generated. Plugin-wide grep confirms no `ARCH_CORRECTIONS_V1`, `corrections_artifact_id`, or `DD-*` (old-spec labels) references survive in active surfaces; remaining hits are confined to historical handoffs, backups, inventory of the prior long spec, and rename-history footnotes. Verification still open: hook-suite end-to-end run blocked on `jq` availability.
+- **Primary source of truth right now:** `docs/specs/2026-05-16-correction-loop-option-a-design.md` (the Phase-8 short prose draft) backed by `docs/specs/spec-ledger.yaml` CL-001..CL-029. `docs/specs/spec-conflicts.yaml` (all 8 issues resolved) plus `docs/specs/spec-chunk.md` remain governing inputs.
 - **Inventory-only artifact:** `docs/specs/spec-inventory.md`
 - **Workflow authority:** `docs/specs/spec-workflow.md`
 - **Workflow skill:** `skills/spec-rescue/SKILL.md`
-- **CORE memory:** CORE is required for this workflow and must be used exactly as CORE requires, both at session start and at session close/handoff. CORE tools were not available in this session context, so the repo-local durable record was updated but CORE actions were not executed here.
+- **CORE memory:** CORE is required for this workflow and must be used exactly as CORE requires, both at session start and at session close/handoff. CORE was initialized at session start (2026-05-23 session id `0eaca4a6-dd19-434a-9852-02521585a759`) and `memory_search` was executed. End-of-session `memory_ingest` requires owner-approved ingestion text per the AGENTS.md protocol and has not yet been performed for this session's work.
 
 ## Current Artifact Statuses
 
@@ -57,20 +57,10 @@ This file must be updated at the end of every session that changes or meaningful
 5. Identified the current verification blocker:
    - `hooks/tests/run-tests.sh` exists and is the correct synthetic test runner for the hook scripts
    - the full hook-suite run did not execute in this environment because `jq` was not available on `PATH` and no working `AGENTBOARD_JQ_BIN` was available in-session
-6. Performed a late-session direct check of the plugin skill surfaces after the runnable and first support passes:
-   - `skills/workspace-orchestration/SKILL.md` is still stale relative to current repo reality
-   - it still references old orchestration agents:
-     - `planning-research-agent`
-     - `plan-compose-agent`
-     - `review-agent`
-     - `implementation-agent`
-     - `audit-research-agent`
-     - `audit-compose-agent`
-   - it still references old artifact names:
-     - `FACTS_BUNDLE_V1`
-     - `AUDIT_FACTS_BUNDLE_V1`
-   - it still describes the older `/architecture` dependency on `/foundation` for workspace-board setup
-   - `skills/agentboard/SKILL.md` still routes workspace-board orchestration users to `skills/workspace-orchestration/SKILL.md`, so that stale orchestration skill remains a live plugin-facing invocation surface
+6. Performed a late-session direct check of the plugin skill surfaces and then a 2026-05-23 audit re-check that corrected the initial reading:
+   - `skills/workspace-orchestration/SKILL.md` is consistent with current repo reality. Its references to `planning-research-agent`, `plan-compose-agent`, `review-agent`, `implementation-agent`, `audit-research-agent`, `audit-compose-agent` all exist in `agents/` and are the current wave-worker names. Its references to `FACTS_BUNDLE_V1` and `AUDIT_FACTS_BUNDLE_V1` are the current workspace pipeline bundle sentinels (a distinct namespace from the architecture pipeline's `ARCH_FACTS_BUNDLE_V2`), as defined by `agents/planning-research-agent.md` and `agents/audit-research-agent.md`. Its statement that `/architecture` depends on a spec from `/foundation` matches CL-014 and `commands/foundation.md`.
+   - `skills/agentboard/SKILL.md` correctly routes workspace-board orchestration users to `skills/workspace-orchestration/SKILL.md`; that target skill is not stale.
+   - Initial assessment in this section had flagged these skill files as stale; that assessment was incorrect and is superseded by the 2026-05-23 audit (`docs/handoffs/2026-05-23-codex-remediation-audit.md`).
 
 ## Artifacts Changed This Session
 
@@ -96,9 +86,9 @@ This file must be updated at the end of every session that changes or meaningful
 - `hooks/tests/fixtures/review_valid_with_findings.json`
 - `docs/specs/2026-05-12-agentboard-app-arch-pipeline-support.md`
 - `docs/handoffs/2026-05-13-session-6-to-7.md`
-- `skills/workspace-orchestration/SKILL.md`
-- `skills/agentboard/SKILL.md`
 - `docs/specs/spec-session-status.md`
+
+(`skills/workspace-orchestration/SKILL.md` and `skills/agentboard/SKILL.md` were inspected but not modified; the initial entry that listed them under "Artifacts Changed" was an error corrected by the 2026-05-23 audit.)
 
 ## Artifacts Intentionally Not Created Yet
 
@@ -113,33 +103,27 @@ This file must be updated at the end of every session that changes or meaningful
 - `docs/specs/spec-conflicts.yaml`
 - `docs/specs/spec-evidence.md`
 - `commands/foundation.md`
-- `agents/architecture-research-agent.md`
 - `agents/architecture-classification-auditor.md`
 - `agents/architecture-design-reviewer.md`
 - `hooks/hooks.json`
-- `docs/specs/2026-05-12-architecture-pipeline-rework-contract.md`
-- `docs/plans/2026-05-12-architecture-pipeline-rework-plan.md`
 
-Those artifacts were either governing inputs, outside the bounded remediation slice, or intentionally left for a later reconciliation pass.
+Those artifacts are governing inputs, protected, or were verified consistent without edits. Note: `agents/architecture-research-agent.md`, `docs/specs/2026-05-12-architecture-pipeline-rework-contract.md`, and `docs/plans/2026-05-12-architecture-pipeline-rework-plan.md` were previously listed here but were edited in the 2026-05-23 / 2026-05-24 plugin-wide cleanup to reconcile them to the short spec — see the changed-list above.
 
 ## Open Issues
 
-1. The runnable correction-path remediation is in place, but end-to-end hook verification is still open because the synthetic hook suite could not run without a working `jq` binary.
-2. The plugin skill surfaces are not reconciled:
-   - `skills/workspace-orchestration/SKILL.md` still describes old agents, old bundle artifact names, and an older orchestration shape
-   - `skills/agentboard/SKILL.md` still points users at that stale orchestration skill for workspace-board orchestration
-3. Older contract/plan surfaces outside this bounded support pass still contain pre-short-spec correction-path assumptions, including declared correction-artifact language (`ARCH_CORRECTIONS_V1`) that was not adopted in this remediation slice.
-4. The current support-surface pass reconciled the design-reviewer seam and clarified the four-artifact hook runtime, but it did not broaden into a full rewrite of every older planning, contract, or skill artifact that predates the short-spec decision.
-5. CORE-required session-start and session-close actions were not executable in this session context because CORE tools were unavailable.
-6. Owner sign-off has not occurred, and this repo state must not be treated as fully conforming just because the runnable files now encode the short-spec path.
+1. End-to-end hook verification is still open because the synthetic hook suite could not run in the prior session without a working `jq` binary. Fixtures (47 total, including the two new R-REVIEW-4 fixtures) regenerate cleanly via `python hooks/tests/build-fixtures.py`. Run `bash hooks/tests/run-tests.sh` with `AGENTBOARD_JQ_BIN` set to a working `jq` to close this.
+2. `~~The plugin skill surfaces are not reconciled.~~` Superseded by the 2026-05-23 audit: `skills/workspace-orchestration/SKILL.md` and `skills/agentboard/SKILL.md` were inspected and found consistent with current repo reality; the original staleness claim conflated workspace-pipeline bundle names (`FACTS_BUNDLE_V1`, `AUDIT_FACTS_BUNDLE_V1`) with architecture-pipeline bundle names (`ARCH_FACTS_BUNDLE_V2`). No skill changes required.
+3. `~~Older contract/plan surfaces still contain pre-short-spec correction-path assumptions.~~` Closed by the 2026-05-23 / 2026-05-24 cleanup: `docs/specs/2026-05-12-architecture-pipeline-rework-contract.md` and `docs/plans/2026-05-12-architecture-pipeline-rework-plan.md` were surgically reconciled — `ARCH_CORRECTIONS_V1` replaced with the declared `correction_request_json` input model; `corrections_artifact_id` replaced with `correction_request_json`; the four-submitted-artifact-type model documented as intentional; old `DD-*` labels translated to short-spec `CL-*` references; step 17 `spec_path` edit workaround replaced with source-trace routing + retry cap 3 + external-investigator handoff; AC-20/AC-21 rewritten against the short spec. `force_remeasure` wired end-to-end from `commands/architecture.md` step 17's verified-bundle route through `agents/architecture-research-agent.md` Step 2. Plugin-wide grep confirms zero active `ARCH_CORRECTIONS_V1` / `corrections_artifact_id` / old `DD-*` references in runnable or governing surfaces; remaining hits are historical handoffs, backup file, inventory of the prior long spec, and rename-history footnotes.
+4. CORE end-of-session `memory_ingest` requires owner-approved ingestion text per the AGENTS.md protocol and has not yet been performed for the 2026-05-23 / 2026-05-24 session work.
+5. Owner sign-off on the correction-loop design and the plugin-wide cleanup has not occurred. This repo state must not be treated as fully conforming just because the runnable + governing files now encode the short-spec path.
 
 ## Blocked / Sensitive Points
 
 1. `spec-chunk.md` is protected and should not be modified without direct owner approval.
 2. The final spec must not be rewritten from memory or chat.
 3. The next agent must not re-import the older correction-artifact shape into runnable surfaces unless the owner explicitly expands scope and approves that broader reconciliation.
-4. The next agent must keep the short spec authoritative for this bounded pass: declared correction input on the affected stage, real-time source-trace routing, no silent/automatic `spec_path` mutation, opt-in `/architecture` pause, retry cap `3`, and external-investigator handoff.
-5. The next agent must not treat the lack of a fifth submitted artifact type in the current hooks as a defect by itself; for this remediation slice, the correction path is carried by declared stage inputs rather than a submitted correction artifact.
+4. The next agent must keep the short spec authoritative: declared correction input on the affected stage (`correction_request_json`), real-time source-trace routing across three origins, no silent/automatic `spec_path` mutation, opt-in `/architecture` pause via the `--pause` / `pause` flag, retry cap `3` on the same scaffold card, external-investigator handoff at the cap, owner escalation only on spec-origin outcomes.
+5. The lack of a fifth submitted artifact type in the current hooks is intentional, not a defect; the correction path is carried by the declared stage input `correction_request_json`, not by a submitted correction artifact.
 6. The next agent must still preserve the three-bucket standard when reading residual drift:
    - direct finding
    - implementation implication
@@ -147,26 +131,15 @@ Those artifacts were either governing inputs, outside the bounded remediation sl
 
 ## Next Safe Step
 
-Reconcile the plugin skill surfaces before treating this remediation as complete, then run the hook-suite verification with a working `jq` binary available to the shell.
+Run the hook-suite verification with a working `jq` binary available:
 
-Immediate remediation targets:
-- `skills/workspace-orchestration/SKILL.md`
-- `skills/agentboard/SKILL.md`
+```
+AGENTBOARD_JQ_BIN=<path-to-jq.exe> bash hooks/tests/run-tests.sh
+```
 
-Required skill-surface goals:
-- remove stale references to old wave agents that no longer match the current plugin surface
-- remove stale references to `FACTS_BUNDLE_V1` and `AUDIT_FACTS_BUNDLE_V1`
-- reconcile the orchestration skill's `/architecture` dependency language to current repo reality
-- ensure the plugin-facing skill layer says the same thing as the current runnable correction-path surfaces and does not route users into stale orchestration instructions
+The suite now includes two new R-REVIEW-4 invalid fixtures (`review_invalid_missing_audit_artifact_id` and `review_invalid_empty_audit_artifact_id`) that exercise the new field-level check on the design-reviewer top-level `audit_artifact_id` seam.
 
-Verification target:
-- `bash hooks/tests/run-tests.sh` with `AGENTBOARD_JQ_BIN` set if needed
-
-After the skill surfaces are reconciled and the hook suite passes, the next bounded follow-up is a residual-drift read of the older contract/plan surfaces that were intentionally left untouched in this session:
-- `docs/specs/2026-05-12-architecture-pipeline-rework-contract.md`
-- `docs/plans/2026-05-12-architecture-pipeline-rework-plan.md`
-
-That residual pass should decide whether the owner wants those older design artifacts reconciled to the short-spec remediation, or intentionally left as historical pre-remediation documents.
+After the suite passes, present the CORE end-of-session ingestion text to the owner for approval and run `memory_ingest`.
 
 Still out of scope unless the owner expands scope:
 - unrelated plugin commands

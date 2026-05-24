@@ -18,7 +18,7 @@
 #
 # Spec reference: docs/plans/2026-05-12-architecture-pipeline-rework-plan.md §7
 # (post-reconciliation: commits 9828344 / 47a1c14 are the spec of record).
-# Rule set IDs: R-DOC-1..7, R-BUNDLE-1..5, R-AUDIT-1..4, R-REVIEW-1..3
+# Rule set IDs: R-DOC-1..7, R-BUNDLE-1..5, R-AUDIT-1..4, R-REVIEW-1..4
 #
 # Cross-platform discipline (§7 "Cross-platform end-of-line discipline"):
 #   every pattern that anchors with `$` uses `\r?$`; sentinel normalization
@@ -804,7 +804,7 @@ validate_arch_bundle_audit_v2() {
 }
 
 # ===========================================================================
-# Rule set: ARCH_DESIGN_REVIEW_V1  (R-REVIEW-1 .. R-REVIEW-3)
+# Rule set: ARCH_DESIGN_REVIEW_V1  (R-REVIEW-1 .. R-REVIEW-4)
 # ===========================================================================
 
 validate_arch_design_review_v1() {
@@ -903,6 +903,23 @@ validate_arch_design_review_v1() {
   if [ "$review3" != "OK" ]; then
     failed+=("R-REVIEW-3")
     detail_lines+=("R-REVIEW-3: ${review3#ERR=}")
+  fi
+
+  # R-REVIEW-4: .audit_artifact_id is present and is a non-empty string (the
+  # design-reviewer seam — short-spec correction-path consistency; the reviewer
+  # resolves the verified bundle from this audit artifact id per the §1.6
+  # boundary contract). Catches stale verified_bundle_artifact_id submissions
+  # at the hook layer rather than silently letting them through.
+  review4=$(printf '%s' "$JSON_BODY" | "$JQ_BIN" -r '
+    if (.audit_artifact_id | type) != "string" then
+      "audit_artifact_id_missing_or_not_string(found_type=\(.audit_artifact_id | type))"
+    elif (.audit_artifact_id | length) == 0 then
+      "audit_artifact_id_empty_string"
+    else "OK" end
+  ' 2>&1)
+  if [ "$review4" != "OK" ]; then
+    failed+=("R-REVIEW-4")
+    detail_lines+=("R-REVIEW-4: ${review4}")
   fi
 
   if [ ${#failed[@]} -gt 0 ]; then
