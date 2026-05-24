@@ -103,7 +103,7 @@ Requirements are numbered. Each requirement carries its source — the named sta
    *Source: ISO/IEC 25010:2023 reliability characteristic (specifically "maturity" — the degree to which a system meets needs for reliability under normal operation). Non-deterministic validation makes downstream behavior non-reproducible and turns every reported failure into a "could not reproduce."*
 
 **R16. Concurrent submissions to the same scaffold card produce a consistent ordering of the persisted artifacts.** A research bundle and an audit submitted in flight for the same card persist in an order that respects causality (the audit references the bundle's artifact ID; if the audit persists, the bundle it references is queryable). The application does not need to serialize all submissions, but it must not persist an audit whose referenced bundle does not exist on the same card.
-   *Source: Confirmed need — the rework's classification auditor passes the audit's input as `audited_bundle_artifact_id`; the design reviewer passes `verified_bundle_artifact_id`. A reader resolving these IDs after persistence assumes the referenced artifact exists on the same card. Causal consistency across the four submissions on a scaffold card is the property that makes those reads safe.*
+   *Source: Confirmed need — the rework's classification auditor passes the audit's input as `audited_bundle_artifact_id`; the design reviewer passes `audit_artifact_id`, then resolves the verified bundle from that audit artifact. A reader resolving these IDs after persistence assumes the referenced artifact exists on the same card. Causal consistency across the four submissions on a scaffold card is the property that makes those reads safe.*
 
 ---
 

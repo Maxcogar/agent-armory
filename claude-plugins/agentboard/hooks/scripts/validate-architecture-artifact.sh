@@ -5,7 +5,7 @@
 # Matches: mcp__agentboard__agentboard_submit_workspace_artifact
 # Behavior:
 #   1. Reads TOOL_INPUT from stdin (JSON via jq).
-#   2. Detects which of the four architecture-pipeline artifact types the
+#   2. Detects which of the four submitted architecture-pipeline artifact types the
 #      submission is (architecture_document / ARCH_FACTS_BUNDLE_V2 /
 #      ARCH_BUNDLE_AUDIT_V2 / ARCH_DESIGN_REVIEW_V1) using artifact_type
 #      primary path with content-sentinel fallback.
@@ -31,7 +31,9 @@
 # awk is avoided for the same reason.
 #
 # This script is structural-only. Behavioral guarantees come from subagent
-# frontmatter constraints, not from this hook.
+# frontmatter constraints, not from this hook. The correction-loop remediation
+# path uses declared correction inputs passed to the affected stage; it does
+# not submit a fifth correction artifact type through this hook.
 
 set -uo pipefail
 

@@ -1,0 +1,318 @@
+ledger_status: reconciled
+workflow_phase: 7
+authoritative_source: docs/specs/spec-chunk.md
+reference_source: docs/specs/spec-inventory.md
+notes:
+  - Records were extracted from primary chunks and approved amendments only.
+  - Phase 7 reconciliation has been applied against CF-001 through CF-008.
+  - Current repo-runtime mismatches recorded in docs/specs/spec-evidence.md are implementation mismatches, not ledger truth.
+records:
+  - id: CL-001
+    title: Final approved spec becomes governing authority
+    status: captured
+    decision_class: owner_decision
+    statement: Once approved, the correction-loop spec is the governing design authority for this work.
+    source_basis:
+      - chunk: CH-01
+        layer: primary
+    scope: spec_authority
+  - id: CL-002
+    title: Owner constraints act as review-time verification basis
+    status: captured
+    decision_class: new_synthesis
+    statement: During the final review pass, owner-stated constraints are used as a verification basis for the spec; after approval, those constraints remain historical evidence rather than governing authority.
+    source_basis:
+      - chunk: CH-01
+        layer: amendment_01
+    scope: spec_authority
+  - id: CL-003
+    title: Declared-input discipline remains in force
+    status: captured
+    decision_class: surviving_invariant
+    statement: The declared-input discipline from the existing contract remains a governing technical constraint wherever this rework does not amend it.
+    source_basis:
+      - chunk: CH-01
+        layer: amendment_01
+    scope: technical_invariants
+  - id: CL-004
+    title: Spec and architecture remain separate authorities
+    status: captured
+    decision_class: surviving_invariant
+    statement: The existing separation between spec authority and architecture authority remains a governing technical constraint for this rework.
+    source_basis:
+      - chunk: CH-01
+        layer: amendment_01
+    scope: technical_invariants
+  - id: CL-005
+    title: Untouched pipeline boundaries remain in force
+    status: captured
+    decision_class: surviving_invariant
+    statement: Existing pipeline boundary contracts for stages not amended by this rework remain governing technical constraints.
+    source_basis:
+      - chunk: CH-01
+        layer: amendment_01
+    scope: technical_invariants
+  - id: CL-006
+    title: Process discipline stays outside the product spec
+    status: captured
+    decision_class: owner_decision
+    statement: Agent operating discipline for implementation and cleanup belongs in a separate agent-facing reference, not inside the product-design spec.
+    source_basis:
+      - chunk: CH-02
+        layer: primary
+      - chunk: CH-01
+        layer: amendment_01
+    scope: spec_boundary
+  - id: CL-007
+    title: Working evaluation axes for this design
+    status: captured
+    decision_class: new_synthesis
+    statement: The concrete evaluation method for this design uses determinism, auditability, interface honesty, operability, and a check against both failure poles before accepting a design choice.
+    source_basis:
+      - chunk: CH-01
+        layer: amendment_01
+    scope: evaluation_frame
+  - id: CL-008
+    title: Corrections have multiple valid origins
+    status: captured
+    decision_class: owner_decision
+    statement: A correction may originate from the design reviewer, an owner-directed change, or a failure elsewhere in the pipeline that source-traces back to architecture.
+    source_basis:
+      - chunk: CH-01
+        layer: amendment_01
+      - chunk: CH-03
+        layer: amendment_02
+    scope: correction_routing
+  - id: CL-009
+    title: Routing follows real-time source trace
+    status: captured
+    decision_class: owner_decision
+    statement: Correction routing is determined by real-time source trace to the actual origin rather than by a fixed mapping from problem type to a stage.
+    source_basis:
+      - chunk: CH-01
+        layer: amendment_01
+      - chunk: CH-03
+        layer: amendment_02
+    scope: correction_routing
+  - id: CL-010
+    title: Opt-in pause lives at architecture orchestration
+    status: captured
+    decision_class: owner_decision
+    statement: The opt-in pause is implemented at the /architecture orchestration layer, while the AgentBoard blocking-gate mechanism remains a separate existing feature that this design neither modifies nor depends on.
+    source_basis:
+      - chunk: CH-01
+        layer: amendment_01
+    scope: orchestration_boundary
+  - id: CL-011
+    title: False hard gates are not allowed
+    status: captured
+    decision_class: owner_decision
+    statement: The correction loop must not enforce false hard gates such as permanent spec immutability or a retry cap that simply stops and hands the problem to the owner without investigation.
+    source_basis:
+      - chunk: CH-01
+        layer: amendment_01
+    scope: correction_loop_behavior
+  - id: CL-012
+    title: Architecture correction flow cannot edit the spec directly
+    status: captured
+    decision_class: owner_decision
+    statement: The architecture correction flow must not directly edit the spec as an in-flow workaround.
+    source_basis:
+      - chunk: CH-06
+        layer: primary
+      - chunk: CH-01
+        layer: amendment_01
+    scope: spec_modification_boundary
+  - id: CL-013
+    title: Spec-origin problems may modify the spec
+    status: captured
+    decision_class: owner_decision
+    statement: If source trace determines that the issue originates in the spec, the spec may be modified on that basis.
+    source_basis:
+      - chunk: CH-07
+        layer: primary
+      - chunk: CH-01
+        layer: amendment_01
+    scope: spec_modification_boundary
+  - id: CL-014
+    title: Foundation is not the modification path
+    status: captured
+    decision_class: owner_decision
+    statement: /foundation is for spec creation only and is not the channel for modifying the spec.
+    source_basis:
+      - chunk: CH-08
+        layer: primary
+      - chunk: CH-01
+        layer: amendment_01
+    scope: spec_modification_boundary
+  - id: CL-015
+    title: Spec-modification mechanics are out of scope here
+    status: captured
+    decision_class: owner_decision
+    statement: This spec may acknowledge that a non-/foundation external path exists for spec modification when source trace lands on the spec, but the mechanics and actor choreography of that path are outside the scope of this design.
+    source_basis:
+      - chunk: CH-01
+        layer: amendment_01
+    scope: spec_modification_boundary
+  - id: CL-016
+    title: Repeated-failure investigation is external to review
+    status: captured
+    decision_class: owner_decision
+    statement: The investigation function for repeated failure is separate from review and is handled by an external investigator agent outside the scope of this spec.
+    source_basis:
+      - chunk: CH-11
+        layer: primary
+      - chunk: CH-12
+        layer: primary
+      - chunk: CH-13
+        layer: primary
+      - chunk: CH-01
+        layer: amendment_01
+    scope: investigation_boundary
+  - id: CL-017
+    title: Reviewer and investigator responsibilities stay separate
+    status: captured
+    decision_class: owner_decision
+    statement: The reviewer must not own the decision to stop retrying and begin deeper investigation, because that would let reviewer corrections expand beyond the reviewed stage.
+    source_basis:
+      - chunk: CH-11
+        layer: primary
+    scope: investigation_boundary
+  - id: CL-018
+    title: Retry cap is three attempts on the same card
+    status: captured
+    decision_class: owner_decision
+    statement: The correction loop has a finite retry cap of 3 on the same card.
+    source_basis:
+      - chunk: CH-09
+        layer: primary
+      - chunk: CH-01
+        layer: amendment_01
+    scope: retry_loop
+    constraints:
+      retry_cap: 3
+  - id: CL-019
+    title: Retry-cap handoff goes to investigation, not dead halt
+    status: captured
+    decision_class: owner_decision
+    statement: When the retry cap is hit, the system hands off to the external investigator agent for root cause analysis instead of dead-halting or handing directly to the owner without investigation.
+    source_basis:
+      - chunk: CH-10
+        layer: primary
+      - chunk: CH-12
+        layer: primary
+      - chunk: CH-01
+        layer: amendment_01
+    scope: retry_loop
+  - id: CL-020
+    title: Owner escalation is limited to spec-origin outcomes
+    status: captured
+    decision_class: owner_decision
+    statement: Escalation to the owner after repeated failure occurs specifically when the external source-trace process determines that the origin of the issue is in the spec.
+    source_basis:
+      - chunk: CH-01
+        layer: amendment_01
+    scope: retry_loop
+  - id: CL-021
+    title: Investigator handoff is automatic and externally contextual
+    status: captured
+    decision_class: owner_decision
+    statement: The investigator agent runs automatically at the cap and may use chat logs, card information, and other relevant context or functions, but this spec does not define its internal behavior.
+    source_basis:
+      - chunk: CH-14
+        layer: primary
+      - chunk: CH-13
+        layer: primary
+    scope: investigation_boundary
+  - id: CL-022
+    title: Correction-mode support requires explicit stage support
+    status: captured
+    decision_class: owner_decision
+    statement: Determining that correction is needed is not sufficient by itself; the affected stage must support correction-mode work explicitly.
+    source_basis:
+      - chunk: CH-03
+        layer: primary
+      - chunk: CH-03
+        layer: amendment_01
+    scope: correction_mode
+  - id: CL-023
+    title: Affected stage must declare a correction input
+    status: captured
+    decision_class: owner_decision
+    statement: The affected stage must declare a dedicated correction input that carries substantive correction work explicitly.
+    source_basis:
+      - chunk: CH-03
+        layer: primary
+      - chunk: CH-04
+        layer: primary
+      - chunk: CH-03
+        layer: amendment_01
+      - chunk: CH-03
+        layer: amendment_02
+    scope: correction_mode
+  - id: CL-024
+    title: Existing inputs do not substitute for correction input
+    status: captured
+    decision_class: owner_decision
+    statement: Inputs used for the normal create-from-scratch workflow do not, by themselves, define or replace a dedicated correction input.
+    source_basis:
+      - chunk: CH-04
+        layer: primary
+    scope: correction_mode
+  - id: CL-025
+    title: Affected stage must define a correction-mode process
+    status: captured
+    decision_class: owner_decision
+    statement: The affected stage must define a correction-mode process that is used when correction work is present.
+    source_basis:
+      - chunk: CH-03
+        layer: primary
+      - chunk: CH-05
+        layer: primary
+      - chunk: CH-03
+        layer: amendment_01
+      - chunk: CH-03
+        layer: amendment_02
+    scope: correction_mode
+  - id: CL-026
+    title: Correction mode is distinct from create-from-scratch flow
+    status: captured
+    decision_class: owner_decision
+    statement: The correction-mode process must be distinct from the initial create-from-scratch flow rather than reusing that flow for substantive rework.
+    source_basis:
+      - chunk: CH-05
+        layer: primary
+      - chunk: CH-03
+        layer: amendment_01
+      - chunk: CH-03
+        layer: amendment_02
+    scope: correction_mode
+  - id: CL-027
+    title: Correction-mode instructions must explain revision behavior
+    status: captured
+    decision_class: new_synthesis
+    statement: Correction-mode instructions must tell the stage how to interpret correction work, revise existing output, and operate when the task is rework rather than initial generation.
+    source_basis:
+      - chunk: CH-03
+        layer: amendment_01
+    scope: correction_mode
+  - id: CL-028
+    title: Correction work travels as a declared auditable input
+    status: captured
+    decision_class: owner_decision
+    statement: Substantive correction work must travel to the affected stage as a declared, auditable input rather than undeclared prompt context or an implicit workaround inside the architecture flow.
+    source_basis:
+      - chunk: CH-03
+        layer: amendment_02
+    scope: correction_mode
+  - id: CL-029
+    title: Workaround behavior is not the intended design
+    status: captured
+    decision_class: new_synthesis
+    statement: The current workaround behavior is not the intended correction design and must not remain the governing path once the explicit correction path is defined.
+    source_basis:
+      - chunk: CH-03
+        layer: amendment_01
+      - chunk: CH-03
+        layer: amendment_02
+    scope: correction_mode

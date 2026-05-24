@@ -7,7 +7,8 @@
 #
 # Behavior:
 #   1. Reads TOOL_INPUT from stdin (Claude Code hook protocol) or env.
-#   2. Detects whether this is an architecture-pipeline artifact (one of
+#   2. Detects whether this is one of the current submitted architecture-pipeline
+#      artifact types (one of
 #      architecture_document / ARCH_FACTS_BUNDLE_V2 / ARCH_BUNDLE_AUDIT_V2 /
 #      ARCH_DESIGN_REVIEW_V1).
 #   3. If architecture-pipeline: exit 0 with empty stdout — no prompt
@@ -19,6 +20,8 @@
 #      the existing prompt behavior unchanged.
 #
 # Spec reference: docs/plans/2026-05-12-architecture-pipeline-rework-plan.md §8.
+# The correction loop's declared correction input is prompt-level state, not
+# a submitted artifact type handled by this hook.
 
 set -uo pipefail
 

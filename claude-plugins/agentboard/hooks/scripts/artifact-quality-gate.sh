@@ -10,9 +10,11 @@
 #
 # Type-aware dispatch (added in the architecture-pipeline rework, plan §8):
 # Architecture-pipeline artifacts are handled by validate-architecture-artifact.sh,
-# which owns those four artifact types. This script exits 0 with no action
-# for them; the existing red-flag rules apply only to non-architecture
-# artifacts (planning, review, implementation, audit).
+# which owns the current four submitted architecture artifact types. The
+# correction loop's declared correction input is prompt-level state, not a
+# submitted artifact type. This script exits 0 with no action for the four
+# architecture artifact types; the existing red-flag rules apply only to
+# non-architecture artifacts (planning, review, implementation, audit).
 
 CONTENT="$TOOL_INPUT"
 

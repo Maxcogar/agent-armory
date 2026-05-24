@@ -1,0 +1,114 @@
+conflict_register_status: reconciled
+workflow_phase: 7
+authoritative_source: docs/specs/spec-ledger.yaml
+reference_sources:
+  - docs/specs/spec-chunk.md
+  - docs/specs/spec-inventory.md
+notes:
+  - First-pass registration built from ledger relationships and phase-1 inventory notes.
+  - No direct duplicate pairs or direct logical conflicts were identified from chunk and ledger material alone in this pass.
+  - Phase 7 reconciliation resolved all first-pass issues by explicit boundary retention and by treating runtime mismatch evidence as implementation divergence rather than ledger conflict.
+issues:
+  - id: CF-001
+    kind: overlap
+    left:
+      - CL-001
+      - CL-002
+    right:
+      - CL-006
+    description: Authority-governance rules and process-guidance-boundary rules both constrain what belongs in the spec, but they do different work and should not be collapsed blindly.
+    status: resolved
+    resolution: Keep separate boundaries. CL-001 and CL-002 govern what counts as authority during review and after approval; CL-006 governs where agent operating discipline is allowed to live. The overlap is resolved by prose separation, not by merge.
+    notes:
+      - Mirrors the CH-01 / CH-02 overlap noted in the protected chunk inventory.
+      - Final prose will need a clear section boundary between governing authority and agent operating discipline.
+  - id: CF-002
+    kind: overlap
+    left:
+      - CL-022
+    right:
+      - CL-023
+      - CL-025
+    description: CL-022 states the umbrella requirement that the affected stage must support correction-mode work explicitly, while CL-023 and CL-025 split that umbrella into input and process requirements.
+    status: resolved
+    resolution: Retain CL-022 as the umbrella requirement and retain CL-023 plus CL-025 as the two concrete subrequirements. The overlap is resolved as parent-versus-children, not as duplication.
+    notes:
+      - Mirrors the CH-03 relationship to the two missing pieces broken out separately in CH-04 and CH-05.
+      - Reconciliation will need to preserve both the umbrella statement and the two concrete requirements without restating the same decision repeatedly.
+  - id: CF-003
+    kind: overlap
+    left:
+      - CL-023
+    right:
+      - CL-024
+    description: CL-023 requires a dedicated correction input, while CL-024 narrows that requirement by stating that existing create-from-scratch inputs are not valid substitutes.
+    status: resolved
+    resolution: Retain both records. CL-023 is the positive interface requirement; CL-024 is the narrowing boundary that existing create-from-scratch inputs do not satisfy that requirement.
+    notes:
+      - This is not a contradiction; it is a positive requirement plus a boundary clarification.
+  - id: CF-004
+    kind: overlap
+    left:
+      - CL-025
+    right:
+      - CL-026
+      - CL-027
+    description: CL-025 requires a correction-mode process, while CL-026 and CL-027 elaborate what makes that process distinct and what instructions it must contain.
+    status: resolved
+    resolution: Retain all three records. CL-025 requires the existence of a correction-mode process, CL-026 requires that the process be distinct from create-from-scratch flow, and CL-027 states the minimum instruction content that process must carry.
+    notes:
+      - Reconciliation will need to decide whether CL-026 and CL-027 remain separate atomic records or are absorbed into a refined CL-025 replacement set.
+  - id: CF-005
+    kind: overlap
+    left:
+      - CL-012
+      - CL-013
+    right:
+      - CL-014
+      - CL-015
+    description: The spec-modification boundary is spread across a prohibition on direct architecture edits, a permission for spec-origin modification, a channel exclusion for /foundation, and an out-of-scope note for the actual modification mechanics.
+    status: resolved
+    resolution: Retain all four records as a four-part boundary set. CL-012 forbids direct architecture-flow spec edits, CL-013 permits spec modification on true spec-origin findings, CL-014 excludes /foundation as the channel, and CL-015 keeps the external mechanics explicitly out of scope.
+    notes:
+      - Mirrors the CH-06 / CH-07 / CH-08 overlap cluster from the protected inventory.
+      - Later reconciliation should preserve the difference between allowed outcome, forbidden path, and unspecified implementation path.
+  - id: CF-006
+    kind: overlap
+    left:
+      - CL-018
+    right:
+      - CL-019
+      - CL-020
+    description: The retry-cap value, the handoff behavior at the cap, and the condition for owner escalation are tightly coupled and will need to be expressed without making the cap appear as a dead-stop rule.
+    status: resolved
+    resolution: Retain all three records and interpret them through CL-011. CL-018 is the finite retry count, CL-019 is the action at the cap, and CL-020 is the owner-escalation condition; together they define a bounded loop without turning the cap into a dead-stop hard gate.
+    notes:
+      - Mirrors the CH-09 / CH-10 / CH-12 relationship noted in the protected inventory.
+      - This cluster should be checked against CL-011 during later reconciliation so the finite bound is not mistaken for a forbidden hard gate.
+  - id: CF-007
+    kind: overlap
+    left:
+      - CL-016
+      - CL-017
+    right:
+      - CL-021
+    description: Investigation ownership, reviewer/investigator separation, and the investigator's automatic contextual handoff all govern the same external-investigation boundary.
+    status: resolved
+    resolution: Retain all three records. CL-016 defines ownership of repeated-failure investigation, CL-017 defines reviewer/investigator separation, and CL-021 acknowledges the external investigator's automatic contextual handoff without defining its internals.
+    notes:
+      - Mirrors the CH-11 / CH-12 / CH-13 / CH-14 overlap cluster from the protected inventory.
+      - Final reconciliation should keep role separation distinct from capability acknowledgment.
+  - id: CF-008
+    kind: ambiguity
+    left:
+      - CL-013
+      - CL-015
+    right:
+      - CL-020
+      - CL-021
+    description: The ledger says the spec may be modified when source trace lands there and that owner escalation is limited to spec-origin outcomes, but the actual external path that performs or governs that source-trace and subsequent spec modification is intentionally out of scope here.
+    status: resolved
+    resolution: Resolve the ambiguity by keeping the path intentionally external. The ledger asserts only that spec-origin outcomes may modify the spec and that owner escalation is limited to those outcomes; it does not define the mechanics or choreography of the external source-trace/spec-modification path.
+    notes:
+      - This is a real ambiguity boundary, not a contradiction.
+      - Phase 5 evidence gathering should collect where the external investigator and spec-modification path are defined elsewhere so later prose does not invent missing mechanics.

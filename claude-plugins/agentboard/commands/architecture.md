@@ -10,6 +10,7 @@ You are the orchestrator of the architecture pipeline. Convert an approved spec 
 ## Inputs from the user
 
 - The path to an approved spec at `docs/specs/<file>.md` (provided as a command argument or the most recent file in `docs/specs/`).
+- Optional correction-pause intent for this `/architecture` run. If the user does not explicitly opt in, `/architecture` correction pause is off by default.
 
 ## Outputs you produce
 
@@ -59,9 +60,9 @@ Activate the `agentboard:expert-standards` skill via the `Skill` tool. This is y
 
 If the user passed a spec path as a command argument, use that path. Otherwise, list `docs/specs/` and pick the most recent file. Read the spec via `Read` in full to confirm it exists and is non-empty. Confirm with the user that this is the spec the architecture is being built for.
 
-### 4. Select or create a workspace board
+### 4. Select or create a workspace board and correction-loop pause mode
 
-Call `agentboard_list_apps`, then `agentboard_list_boards` for the chosen app. If no suitable board exists for this work, call `agentboard_create_app` and/or `agentboard_create_board` to make one. Call `agentboard_get_board` on the chosen board to read its `auto_transitions` settings (`review_blocking`, `audit_blocking`) and capture them; report them to the user before continuing so the user knows what checkpoint behavior `/orchestrate` will inherit when it runs against the cards you create in step 19.
+Call `agentboard_list_apps`, then `agentboard_list_boards` for the chosen app. If no suitable board exists for this work, call `agentboard_create_app` and/or `agentboard_create_board` to make one. Call `agentboard_get_board` on the chosen board to read its `auto_transitions` settings (`review_blocking`, `audit_blocking`) and capture them. Separately determine the `/architecture` correction-pause mode for this run: if the user explicitly asked for a pause before applying correction-loop reruns, set `architecture_correction_pause = true`; otherwise set `architecture_correction_pause = false` by default. Report both the board's existing checkpoint behavior and the `/architecture` correction-pause mode to the user before continuing. The `/architecture` pause is distinct from the AgentBoard app's blocking-gate mechanism and does not modify board settings.
 
 ### 5. Create the scaffold card
 
@@ -93,7 +94,7 @@ Spawn `architecture-classification-auditor` (background). Pass exactly these inp
 
 This step produces two distinct seam objects. Hold them as separately named values and never substitute one for the other:
 
-- `audit_artifact_id` — the artifact ID of the `ARCH_BUNDLE_AUDIT_V2` audit artifact. This is the only value passed to the design reviewer in step 14 as `verified_bundle_artifact_id`. The design reviewer resolves the verified bundle from the audit itself (it fetches the audit, branches on `any_discrepancy`, and either reads `corrected_bundle` or fetches the original bundle via the audit's `audited_bundle_artifact_id` back-reference). Do not pass the original bundle's artifact ID to the design reviewer under any branch.
+- `audit_artifact_id` — the artifact ID of the `ARCH_BUNDLE_AUDIT_V2` audit artifact. This is the only value passed to the design reviewer in step 14 as `audit_artifact_id`. The design reviewer resolves the verified bundle from the audit itself (it fetches the audit, branches on `any_discrepancy`, and either reads `corrected_bundle` or fetches the original bundle via the audit's `audited_bundle_artifact_id` back-reference). Do not pass the original bundle's artifact ID to the design reviewer under any branch.
 - `verified_bundle_json` — the parsed JSON body of the verified bundle itself. This is the value passed inline to the compose agent in step 11. Compose has no codebase-discovery tools and reads codebase facts only from this inline bundle.
 
 Call `agentboard_list_workspace_artifacts` on `scaffold_card_id`. Diff the returned artifact IDs against `pre_audit_artifact_ids` from step 8; the artifact IDs not present in that snapshot are the ones this audit run created. Among the newly created artifacts, select the one whose `artifact_type` is `ARCH_BUNDLE_AUDIT_V2` and capture its exact artifact ID as `audit_artifact_id` for this round; never re-resolve the audit by a type-only lookup, which would rebind to a prior round's audit after a step-17 re-run. Fetch its content via `agentboard_get_workspace_artifact` on `audit_artifact_id`. Read the `verified_level` field — an integer that is `1`, `2`, or `3`. Capture the audit's `field_verdicts`, `any_discrepancy` flag, and (when present) `corrected_bundle` for the transparency display in step 10.
@@ -143,7 +144,7 @@ Derive the architecture document path deterministically from the spec path; do n
 
 Before spawning the design reviewer, call `agentboard_list_workspace_artifacts` on `scaffold_card_id` and capture the set of existing artifact IDs as `pre_review_artifact_ids`. Step 15 diffs against this snapshot to bind the exact review artifact this run produced, so a re-run from step 17 cannot rebind to a prior round's review artifact.
 
-Spawn `architecture-design-reviewer` (background). Pass exactly these inputs in the prompt and no others: `spec_path`, `architecture_document_path` (the exact path from step 13), `architecture_document_artifact_id` (the per-round ID captured in step 12), `verified_bundle_artifact_id`, `scaffold_card_id`, `agent_id`. The value supplied for the `verified_bundle_artifact_id` argument is `audit_artifact_id` from step 9 — the design reviewer's contract resolves the verified bundle from the audit artifact itself, so it expects this argument to carry the `ARCH_BUNDLE_AUDIT_V2` artifact's ID, never the original bundle's ID. Do not pass `verified_bundle_json` here; the design reviewer fetches and resolves the bundle from the audit by its own branch logic. Wait for completion.
+Spawn `architecture-design-reviewer` (background). Pass exactly these inputs in the prompt and no others: `spec_path`, `architecture_document_path` (the exact path from step 13), `architecture_document_artifact_id` (the per-round ID captured in step 12), `audit_artifact_id`, `scaffold_card_id`, `agent_id`. The value supplied for `audit_artifact_id` is the `ARCH_BUNDLE_AUDIT_V2` artifact's ID from step 9, never the original bundle's ID. Do not pass `verified_bundle_json` here; the design reviewer fetches and resolves the bundle from the audit by its own branch logic. Wait for completion.
 
 ### 15. Verify the design review artifact and read the findings
 
@@ -163,9 +164,44 @@ If the user rejects the document, halt per the Halt conditions section.
 
 ### 17. Apply corrections if the user requests changes
 
-If the user requests **substantive** corrections (rework of a Design decision, a different Components decomposition, an added or removed Card Slice, a new alternative considered, a re-derivation triggered by a `blocker` or `serious` finding the user wants addressed): the compose agents read requirements only from `spec_path` and the inline bundle — their process never reads the scaffold card, and they declare no input that carries free-form corrections. Conveying the user's substantive changes therefore goes through the only channel compose actually consumes: the spec. Work with the user to amend the approved spec at `spec_path` so it states the corrected requirement (an added requirement, a removed requirement, a tightened constraint, or a resolved open question — phrased the way the rest of the spec is phrased). Ask one question at a time while capturing the amendment. Apply the user's amendment to the spec file via `Edit`. Then re-run the pipeline from the research wave against the amended spec: repeat steps 6 through 16 (new research bundle, new audit, new verified level and `verified_bundle_json`, new compose dispatch, new on-disk document, new design review) on the same `scaffold_card_id`. Each re-run captures fresh per-round artifact IDs via the snapshot-and-diff in steps 6/7, 8/9, 11/12, and 14/15, so no step rebinds to a prior round's artifact. Re-running from research is required rather than re-spawning compose directly because the corrected requirement changes classification inputs (a new requirement can change the verified level, the file set, or the contract surface) and only a fresh research-and-audit pass produces a verified bundle consistent with the amended spec.
+If the user requests **substantive** corrections (rework of a Design decision, a different Components decomposition, an added or removed Card Slice, a new alternative considered, or a re-derivation triggered by a `blocker` or `serious` finding the user wants addressed), do not treat spec amendment as the default route. Run the correction loop as a real-time source-trace on the same `scaffold_card_id`.
 
-Residual limitation (surface this to the user when it applies): substantive corrections are realized only insofar as the user can express them as a spec amendment. A correction that is purely about how compose should reason — not expressible as a changed requirement, constraint, or resolved question in the spec — has no contract-clean channel into compose, because no compose input carries free-form reasoning instructions. If the user's request cannot be reduced to a spec amendment, state this limitation explicitly, record it as a card note on `scaffold_card_id` via `agentboard_update_workspace_card`, and ask the user to either reframe the request as a spec change or reject the document.
+Maintain `correction_round_count` for this architecture run. The initial compose/review pass is round `0`; each routed substantive correction increments the count by `1`. The correction loop has a finite retry cap of `3` on the same scaffold card.
+
+For every substantive correction request, determine the actual origin from the evidence in hand:
+
+- **`architecture-document` route** — the problem is in architecture reasoning, decomposition, traceability, slice boundaries, or design-review resolution while the verified bundle remains usable.
+- **`verified-bundle` route** — the problem is in the research/audit facts or in a failure elsewhere that source-traces back to the verified bundle rather than the architecture document.
+- **`spec` route** — the problem source-traces to the spec itself rather than to the architecture document or verified bundle.
+
+Use the best-supported route from the document, review findings, user request, and pipeline state. Do not use a fixed mapping from problem type to route. Do not let the design reviewer own repeated-failure investigation or source-trace beyond the findings it already surfaced.
+
+When `architecture_correction_pause == true`, pause before applying a routed substantive correction and ask the user whether to proceed with that correction round. When `architecture_correction_pause == false`, do not pause merely because a correction round is starting.
+
+Construct a declared correction input for the affected stage as `correction_request_json`. This input must be explicit and auditable, not free-form prompt context. At minimum it contains:
+
+- `round`: the incremented `correction_round_count`
+- `origin`: one of `design-reviewer`, `owner-directed`, or `source-traced-upstream-failure`
+- `routed_target`: one of `architecture-document`, `verified-bundle`, or `spec`
+- `requested_change`: the substantive correction to apply
+- `provenance`: the finding ID, user instruction, or failure trace that justified the correction
+
+Then route by actual origin:
+
+- **If route is `architecture-document`:**
+  - Re-enter the already-verified compose stage in correction mode instead of editing `spec_path`.
+  - Reuse the current `verified_level` and `verified_bundle_json`.
+  - Dispatch the same compose profile selected in step 11 with these declared inputs: `spec_path`, `verified_level`, `scaffold_card_id`, `agent_id`, `verified_bundle_json`, `correction_request_json`, `prior_architecture_document_path` (the current `architecture_document_path`), and `prior_architecture_document_artifact_id` (the current `architecture_document_artifact_id`).
+  - Then repeat steps 12 through 16 on the same scaffold card so the revised architecture document is re-verified and re-reviewed.
+- **If route is `verified-bundle`:**
+  - Do not send a compose correction request.
+  - Re-run the pipeline from the research wave: repeat steps 6 through 16 on the same `scaffold_card_id` so research and audit produce a fresh verified bundle before compose runs again.
+- **If route is `spec`:**
+  - Do not edit `spec_path` inside `/architecture`.
+  - Surface that the issue is spec-origin and hand it off to the external spec-modification path rather than using `/foundation` or an in-flow spec edit.
+  - If owner input is required because the source-trace landed on the spec, report that explicitly to the user and stop the `/architecture` correction loop for this run.
+
+If the same scaffold card reaches `correction_round_count == 3` without approval, do not keep retrying or dead-halt to the user by default. Hand the run off to the external investigator path and stop the local correction loop. The investigator handoff is automatic at the cap and is separate from the design reviewer. `/architecture` records the handoff by writing a scaffold-card note and activity log entry naming the round cap, the current routed evidence, and that an external investigator handoff is now required. Escalate to the user only when the external source-trace process determines that the issue is spec-origin.
 
 If the user requests **minor** corrections (wording, a missed traceability row, a typo, a non-substantive rewording of a single sentence): apply the edits via `Edit` directly on the file at `architecture_document_path` (the exact path from step 13). Show the corrected document to the user and ask for approval again.
 
@@ -224,8 +260,9 @@ Populate the table with one row per card created in step 19, ordered to match th
 - Do not write the architecture document yourself. Do not judge its design quality. Do not pick the level. Spawn agents, verify their outputs, display results to the user, and act on the user's decisions.
 - Do not ask the user to approve the level. Do not offer level overrides.
 - Do not create any workspace cards before step 19.
-- Pass each subagent only the inputs that subagent's profile declares it consumes — no exceptions. Substantive user corrections reach compose only through an amended spec (step 17), never through an extra prompt field.
-- The two step-9 seam objects are distinct and must never be substituted for each other: `audit_artifact_id` (the `ARCH_BUNDLE_AUDIT_V2` artifact's ID) is the only value passed to the design reviewer as its `verified_bundle_artifact_id` argument; `verified_bundle_json` (the parsed bundle body) is the only value passed inline to compose.
+- Pass each subagent only the inputs that subagent's profile declares it consumes — no exceptions. Substantive corrections reach the affected stage only through declared correction-loop inputs and routed re-entry, never through undeclared prompt context and never through a silent `spec_path` edit.
+- The two step-9 seam objects are distinct and must never be substituted for each other: `audit_artifact_id` (the `ARCH_BUNDLE_AUDIT_V2` artifact's ID) is the only value passed to the design reviewer as its `audit_artifact_id` argument; `verified_bundle_json` (the parsed bundle body) is the only value passed inline to compose.
 - Bind every pipeline artifact (bundle, audit, architecture document, design review) by the exact ID captured via the snapshot-and-diff in steps 6/7, 8/9, 11/12, and 14/15 for that round. Never re-resolve any of them by a type-only lookup that could match a prior round's artifact after a step-17 re-run.
 - Thread the single exact `architecture_document_path` from step 13 unchanged through review (step 14), display and edits (step 16), corrections (step 17), commit (step 18), and card creation (step 19). Never re-derive the document path by closest-match scanning.
+- The `/architecture` correction pause is opt-in and off by default. It is separate from AgentBoard app blocking gates and must not mutate board settings.
 - Ask one question at a time when iterating with the user on corrections.

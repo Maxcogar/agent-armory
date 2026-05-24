@@ -231,7 +231,7 @@ def make_valid_review(findings: list = None) -> dict:
         "spec_path": "docs/specs/synthetic.md",
         "architecture_document_path": "docs/arch/synthetic.md",
         "architecture_document_artifact_id": "artifact-doc",
-        "verified_bundle_artifact_id": "artifact-bundle",
+        "audit_artifact_id": "artifact-audit",
         "findings": findings,
         "summary": {
             "blocker_count": blocker,
