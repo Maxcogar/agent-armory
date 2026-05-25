@@ -32,6 +32,17 @@ hooks, system prompts, and workflows.
   `setup_project` takes `generate_files=False` for this reason.
 - Don't touch other plugins or marketplace configs unless explicitly
   scoped in.
+- Read before proposing. Before suggesting structural changes to a file
+  (splits, renames, refactors, content moves), read the things that
+  reference it: slash commands, hooks, agent files, sibling skills, and
+  any cross-plugin variants (e.g. `codex-plugins/`, `gemini-extensions/`).
+  A single-file read is not a basis for a restructuring proposal.
+- Don't invent the user's agenda. When the user says something has flaws,
+  ask which flaws they mean before listing guesses. Don't present
+  speculative findings as if they were the user's brief.
+- Doing the homework is the floor. Don't offer "let me actually read the
+  relevant files" as a deliverable, and don't ask permission for it.
+  Either you've done it before you proposed, or the proposal is premature.
 
 ## Plan / handoff files
 
