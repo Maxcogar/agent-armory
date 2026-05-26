@@ -9,6 +9,37 @@ Use the AgentBoard AI project management system to create, track, and manage sof
 
 ---
 
+## 0. Mental model — read this first
+
+AgentBoard runs **two parallel workflows** on the same cloud backend. They share the auth surface, the activity log, the agent_id convention, and the companion MCPs (codegraph, codebase-rag), but they're independent pipelines with different state machines. Pick the right one for the work in front of you:
+
+| Workflow | Unit of work | State authority | Lifecycle | When to use |
+|---|---|---|---|---|
+| **Phase-based project** | Phase document (13 fixed phases) | The document is authority; the milestone task is a reflection that the server keeps in sync. | `template → submitted → approved` (or `rejected → revise → resubmit`). Humans approve; agents never approve their own work. After phase 9, switches to free-form implementation tasks in phases 10-12. | A new feature, refactor, bug fix, migration, or integration where the rigor of "write the requirements doc, write the architecture, then implement" is appropriate. The phases force a discovery-before-implementation discipline. |
+| **Workspace board** | Card on a board (kanban columns) | The card is authority; artifacts are append-only outputs attached to it. | `backlog → planning → review → implementation → audit → finished` (with rejection back to planning). | Ad-hoc work that doesn't fit the 13-phase rigor — orchestrated parallel cards (via `/orchestrate`), discrete cleanup tasks, work spawned by `/architecture` from a spec's Card Slices. |
+
+**Three actors, strict separation** (applies to both workflows):
+
+- **Worker agent** does the work and submits. Never approves, never rejects. For phase work: calls `agentboard_submit_document` (blocks until human decides). For workspace work: calls `agentboard_submit_workspace_artifact` (append-only, no blocking, no approval implied).
+- **Review agent** (privileged) corrects locked documents in place via `agentboard_update_document` (phase) or appends `review_note` artifacts (workspace). Never approves, never rejects.
+- **Human** is the sole approval authority. For phase work: through the UI (`PUT /documents/:id` with status). For workspace work: column transitions reflect human decisions when blocking gates are on; auto-progression when they're off (per the board's `auto_transitions`).
+
+**The MCP-mediated state machine is strict** — illegal transitions return HTTP 422 with a structured error naming `from`, `to`, `allowed`, and `missing_fields`. Read the error; don't guess. State conflicts (someone else changed the resource between your read and your write) return HTTP 409; refetch and retry.
+
+**`agent_id` is mandatory on every mutation** for traceability in the activity log. Use your model identifier (`"claude-opus-4-7"`, `"claude-sonnet-4-6"`, etc.). Don't invent ids; the activity log is the audit trail used to debug what happened weeks later.
+
+**Companion MCPs are not optional context decoration** — they're how you get the data the phase documents and workspace artifacts demand. `codegraph` gives you dependency structure (in-memory, must be scanned every session). `codebase-rag` gives you semantic search (cached on-disk, first-run indexing can take significant time on non-trivial codebases). The main agent (the one driving the session) is responsible for pre-warming both before spawning subagents — see §6.0.
+
+**The /-commands are the entry points:**
+- `/foundation` — interactive spec-building session (architecturally silent) → produces `docs/specs/<file>.md`
+- `/architecture` — reads an approved spec, runs the level-aware architecture pipeline → produces architecture document + workspace cards from its Card Slices
+- `/orchestrate` — runs the workspace pipeline (planning → review → implementation → audit) across the cards `/architecture` created
+- AgentBoard MCP tools — for ad-hoc work or to inspect/manage state outside the orchestration commands
+
+The typical flow for a new project is: `/foundation` → `/architecture` → `/orchestrate`. The typical flow for ad-hoc cleanup is `/sweep` (creates cards) → `/orchestrate`. The typical flow for a phase-based project is `agentboard_create_project` → milestone loop through phases 1-9 → implementation tasks in phases 10-12.
+
+---
+
 ## 1. Setup
 
 ### 1.1 Cloud-Hosted Service
@@ -22,44 +53,9 @@ AgentBoard is fully cloud-hosted. There is **no local installation, no Node.js, 
 
 The MCP server is always available — agents talk to it directly through the configured MCP client. Just call the tools.
 
-### 1.2 Configure the MCP Server
+### 1.2 MCP Servers Are Plugin-Installed
 
-The MCP servers are configured in `.mcp.json` at the project root:
-
-```json
-{
-  "mcpServers": {
-    "agentboard": {
-      "type": "http",
-      "url": "https://mcp.agent-board.app/mcp"
-    },
-    "codegraph": {
-      "type": "stdio",
-      "command": "cmd",
-      "args": [
-        "/c",
-        "node",
-        "C:\\Users\\maxco\\Documents\\agent-armory\\mcp-servers\\codegraph-mcp\\dist\\index.js"
-      ],
-      "env": {}
-    },
-    "codebase-rag": {
-      "command": "python",
-      "args": [
-        "C:\\Users\\maxco\\Documents\\agent-armory\\mcp-servers\\codebase-rag\\mcp-server-python\\server.py"
-      ]
-    }
-  }
-}
-```
-
-Enable all three in `.claude/settings.local.json`:
-
-```json
-{
-  "enabledMcpjsonServers": ["agentboard", "codebase-rag", "codegraph"]
-}
-```
+The three MCP servers this plugin uses — `agentboard` (cloud, HTTP transport), `codegraph` (local, stdio), and `codebase-rag` (local, stdio) — are configured automatically when this plugin is installed. There is nothing to add to `.mcp.json` or `.claude/settings.local.json` by hand. If the agentboard MCP tools aren't visible at all, the plugin isn't installed; if they're visible but only the two auth tools are, you need to authenticate (see §1.3).
 
 ### 1.3 Authenticate
 
@@ -93,12 +89,27 @@ Many tools require an `agent_id` parameter. Use your model identifier -- e.g., `
 
 ### 1.6 Session Startup Checklist
 
-At the start of every session, run these steps in order:
+The right startup sequence depends on which workflow you're about to do (see §0). Both share the first three steps, then diverge.
 
-1. **Authenticate if needed** — if only `agentboard_authenticate` and `agentboard_complete_authentication` are visible, run the bootstrap from §1.3
-2. **Health check** -- call `agentboard_health_check` to confirm the cloud service is reachable
-3. **List projects** -- call `agentboard_list_projects` to see existing projects
-4. **Get next task** -- call `agentboard_get_next_task` with your project ID and agent ID to pick up work
+**Shared startup (steps 1-3 — always run, in order):**
+
+1. **Authenticate if needed.** If only `agentboard_authenticate` and `agentboard_complete_authentication` are visible in the agentboard tool surface, run the bootstrap from §1.3. If the full tool surface is visible, you're authenticated.
+2. **Health check** — call `agentboard_health_check`. Confirms the cloud service is reachable (AgentBoard is fully cloud-hosted; this is a reachability check, not a local-process check).
+3. **Pre-warm companion MCPs (if you will spawn subagents or do data-intensive work).** See §6.0. This is the main agent's job — codegraph_scan upfront (in-memory, per-session), verify RAG is indexed and returns real results (not `status: "indexing"`). Subagents that hit cold-start companion MCPs silently degrade.
+
+**Then diverge by workflow:**
+
+**Phase-based project work (4a-5a):**
+
+4a. **List projects** — `agentboard_list_projects` to see existing projects. If you're starting fresh, `agentboard_create_project` with `name`, `project_type`, `idea`, `target_project_path`.
+5a. **Claim next task** — `agentboard_get_next_task` with your project ID and `agent_id`. The response tells you what to do next: a new milestone to fill (proceed to §3.2 milestone workflow), an in-progress task to resume, a submitted document awaiting human review (wait), or no tasks available (404 — you may be done with this phase).
+
+**Workspace-board work (4b-5b):**
+
+4b. **Find the board** — `agentboard_list_apps` then `agentboard_list_boards` on the chosen app. If the cards you need don't exist yet, they were probably going to be created by `/architecture` from a spec's Card Slices, or by `/sweep` from a codebase audit; see those commands' docs.
+5b. **Either claim a card or run /orchestrate** — for single-card work, `agentboard_get_next_card` with `board_id`, `agent_id`, optional `column`. For orchestrated parallel-card work across multiple cards and waves, run `/orchestrate` (which uses the `workspace-orchestration` skill — the authoritative wave-by-wave logic lives there).
+
+**Don't mix the two workflows on the same unit of work** — phase milestones and workspace cards are independent state machines. A workspace card is never a milestone; never call `agentboard_update_task` on a card (cards use `agentboard_update_workspace_card`).
 
 ---
 
@@ -195,13 +206,28 @@ Workspace boards are a separate, ad-hoc pipeline alongside the phase system — 
 | `agentboard_create_workspace_card` | Create a card on a board. Use when an agent needs to spawn follow-up work from the card it's currently on (e.g. a planning agent splits a card into smaller implementation cards). Don't pollute one card with multiple distinct units of work. | `board_id`, `title`, `description?`, `priority?`, `depends_on?` |
 | `agentboard_update_workspace_card` | Update card fields (title, description, notes, status/column). Triggers the workspace-card-guidance hook. | `card_id`, `agent_id`, fields to update |
 
-**Artifacts** are the outputs an agent produces for a card — typed records like `plan`, `review_note`, `implementation_note`, `audit_report`. They are **append-only**: there is no edit or delete, and `column_at_creation` is captured for audit context. To correct a prior artifact, submit a new one.
+**Artifacts** are the outputs an agent produces for a card — typed records. They are **append-only**: there is no edit or delete, and `column_at_creation` is captured for audit context. To correct a prior artifact, submit a new one.
+
+**Recognized artifact types** (the plugin has hooks that gate them by type, so use these exact strings):
+
+| Type | Produced by | Triggers gate |
+|---|---|---|
+| `plan` | `plan-compose-agent` (Wave 1 Phase B) | existing `artifact-quality-gate` (TODO/TBD/placeholder check + codegraph/RAG-usage prompt) |
+| `review_note` | `review-agent` (Wave 2) | existing `artifact-quality-gate` |
+| `implementation_note` | `implementation-agent` (Wave 3) | existing `artifact-quality-gate` |
+| `audit_report` | `audit-compose-agent` (Wave 4 Phase B) | existing `artifact-quality-gate` |
+| `ARCH_FACTS_BUNDLE_V2` | `architecture-research-agent` (Phase A of `/architecture`) | `validate-architecture-artifact` (sentinel + JSON schema + classification rules check) |
+| `ARCH_BUNDLE_AUDIT_V2` | `architecture-classification-auditor` (Phase A audit) | `validate-architecture-artifact` |
+| `architecture_document` | `architecture-compose-l{1,2,3}` (Phase B of `/architecture`) | `validate-architecture-artifact` (level marker, required sections, slice schema, R#/Q# coverage) |
+| `ARCH_DESIGN_REVIEW_V1` | `architecture-design-reviewer` (Phase B review) | `validate-architecture-artifact` (findings schema, audit_artifact_id field check) |
+
+**Gate dispatch is artifact-type-aware** (post-architecture-pipeline rework): the existing `artifact-quality-gate.sh` script early-exits cleanly for the four architecture-pipeline artifact types — those are handled by `validate-architecture-artifact.sh` instead. The "no open questions" and "you used codegraph/RAG" prompt injection from `inject-quality-gate-prompt.sh` is suppressed for architecture-pipeline submissions (architecture-compose agents legitimately surface open questions in design, and they don't use codegraph/RAG by design — discovery is done by `architecture-research-agent`). For the four original types (`plan`, `review_note`, `implementation_note`, `audit_report`), the existing gate behavior is unchanged: artifacts must be free of TODO/TBD/placeholder text and reference specific files/line numbers.
 
 | Tool | Purpose | Key Parameters |
 |---|---|---|
-| `agentboard_submit_workspace_artifact` | Append an artifact to a card. Triggers the SUBMISSION QUALITY GATE hook — the artifact must be free of TODO/TBD/placeholder text and reference specific files/line numbers. | `card_id`, `agent_id`, `artifact_type`, `content` |
-| `agentboard_list_workspace_artifacts` | List artifacts on a card without pulling the full card. Use this for cross-card lookups (e.g. an implementation agent reading the planning card's plan artifact). | `card_id` |
-| `agentboard_get_workspace_artifact` | Fetch a single artifact by ID. Cheaper than `get_card` when only one artifact body is needed. | `artifact_id` |
+| `agentboard_submit_workspace_artifact` | Append an artifact to a card. Triggers either the `artifact-quality-gate` (original four types) or `validate-architecture-artifact` (architecture-pipeline types) per the dispatch table above. | `card_id`, `agent_id`, `artifact_type`, `content` |
+| `agentboard_list_workspace_artifacts` | List artifacts on a card without pulling the full card. Use this for cross-card lookups (e.g. an implementation agent reading the planning card's `plan` artifact). | `card_id` |
+| `agentboard_get_workspace_artifact` | Fetch a single artifact by ID. Cheaper than `get_card` when only one artifact body is needed. This is the path Phase B compose agents (plan-compose, audit-compose, architecture-compose-l{1,2,3}, architecture-design-reviewer) use to fetch their input bundle — orchestrators pass the artifact ID, agents fetch. | `artifact_id` |
 
 **Workspace pipeline at a glance:**
 
@@ -219,25 +245,27 @@ Agents are spawned per-card per-wave by the `/orchestrate` command. Each agent f
 
 ### 3.1 Phase System
 
-Every project progresses through 13 phases:
+Every project progresses through 13 phases. Phases 1-9 are document phases (an authored, reviewed, approved document is the deliverable for each); phases 10-12 are implementation phases (free-form tasks); phase 13 is the terminal state. The structure enforces discovery-before-implementation: you cannot start phase 10 (Implementation) without having approved all 9 prior documents.
 
-| Phase | Name | Document Required |
-|---|---|---|
-| 1 | Initialization | No (auto-completed) |
-| 2 | Codebase Survey | `codebase_survey` |
-| 3 | Requirements | `requirements` |
-| 4 | Constraints | `constraints` |
-| 5 | Risk Assessment | `risk_assessment` |
-| 6 | Architecture | `architecture` |
-| 7 | Contracts | `contracts` |
-| 8 | Test Strategy | `test_strategy` |
-| 9 | Task Breakdown | `task_breakdown` |
-| 10 | Implementation | No |
-| 11 | Verification | No |
-| 12 | Review | No |
-| 13 | Complete | No |
+| Phase | Name | Document | What it's FOR |
+|---|---|---|---|
+| 1 | Initialization | none (auto-completed) | Project scaffold exists — server creates the project record, all phase document templates, and the milestone tasks for phases 1-8. No agent work. |
+| 2 | Codebase Survey | `codebase_survey` | Establish ground truth about what the codebase currently is — directory structure, entry points, module inventory, dependency analysis, integration points, code conventions. This is the empirical baseline every later phase reasons against. **codegraph is the primary tool here.** |
+| 3 | Requirements | `requirements` | What the work must accomplish, in concrete acceptance-criteria form — R-numbered requirements and Q-numbered quality requirements. The spec the rest of the project is judged against. |
+| 4 | Constraints | `constraints` | The named rules and conventions the work must respect — state-machine constraints, naming conventions, security policies, performance targets, contract invariants. **RAG is the primary tool here** (`source_type="constraints"` queries to discover what already exists). The constraints doc should reflect reality, not invent rules. |
+| 5 | Risk Assessment | `risk_assessment` | What could go wrong, where the blast radius lives, which coupling hotspots the work touches. **codegraph `get_stats` and `get_dependents` are the primary tools here** — high-coupling files imply high change-risk. |
+| 6 | Architecture | `architecture` | Component architecture, structural decisions, and the level-aware design output. Often produced by the `/architecture` command rather than authored by hand (the command runs a research → audit → classification → compose → review pipeline and produces this document plus workspace cards from its Card Slices section). |
+| 7 | Contracts | `contracts` | The interface contracts between components — function signatures, API surfaces, message shapes, schemas. Must be consistent with what already exists (use RAG to verify). |
+| 8 | Test Strategy | `test_strategy` | The verification plan — what kinds of tests, what coverage, how each requirement maps to its verification. Test code does not get written here; the strategy does. |
+| 9 | Task Breakdown | `task_breakdown` | Implementation tasks ordered by dependency. **Phase 9 is the exception**: it has a document but no milestone task; submit the document manually. After approval, the project moves to phase 10 and the task list authored here becomes the queue of implementation tasks. |
+| 10 | Implementation | none | Free-form implementation tasks (not milestones) created by agents or humans. Agents call `agentboard_advance_phase` to move forward; the document state machine doesn't gate progression here. |
+| 11 | Verification | none | Execute the test strategy from phase 8 against the implementation from phase 10. Tasks here are about running, observing, and fixing — not adding features. |
+| 12 | Review | none | Final review before completion. Anything surfaced here either gets fixed (back to phase 10/11) or accepted as a known limitation. |
+| 13 | Complete | none | Terminal state. No further transitions. The project is done. |
 
-**Advance rule:** During doc phases (2-9), the human advances the phase after approving the document -- agents do not call `advance_phase` here. During implementation phases (10-12), agents call `agentboard_advance_phase` to advance freely.
+**Advance rule:** During doc phases (2-9), the human advances the phase after approving the document — agents do not call `advance_phase` here. During implementation phases (10-12), agents call `agentboard_advance_phase` to advance freely. The phase-1 transition to phase 2 is automatic on project creation.
+
+**Why the structure is strict:** without forcing the doc-before-code order, agents will write code against assumptions that the requirements phase would have caught, against constraints the constraints phase would have surfaced, against an architecture the architecture phase would have explicitly rejected. The 13 phases exist to make those failure modes impossible by sequencing.
 
 ### 3.2 Milestone Workflow (Phases 1-8)
 
@@ -282,20 +310,56 @@ backlog -----> ready -----> in-progress -----> review -----> done (FINAL)
 
 **Same-status no-op:** Transitioning a task to its current status succeeds silently without triggering validation. Relevant for Review Agents using `update_task` to add notes or correct metadata without changing state.
 
-### 3.4 Typical Agent Session
+### 3.4 Typical Agent Sessions
+
+There are two shapes depending on which workflow you're in (§0). Both share the §1.6 startup; the diverge happens at step 4.
+
+**Phase-based project session (worker agent):**
 
 ```
-1. agentboard_health_check          -- verify cloud service is reachable
-2. agentboard_list_projects         -- find or create project
-3. agentboard_get_next_task         -- claim work
-4. (do the work: read template, fill document, or implement code)
-5. agentboard_submit_document       -- for milestones: submit and wait for review
-   OR submit for review with notes  -- for implementation: see Section 4.3
-6. agentboard_get_next_task         -- claim next work item
-7. (repeat 4-6 until phase complete)
-8. (human advances phase during doc phases 2-9)
-   agentboard_advance_phase         -- agents call this ONLY during implementation phases 10-12
-9. (repeat 3-8 until project complete)
+1-3. §1.6 shared startup: auth → health_check → companion-MCP pre-warm (§6.0)
+4.   agentboard_list_projects        -- pick the project, or agentboard_create_project to start one
+5.   agentboard_get_next_task        -- claim next milestone or task (response shape tells you which)
+6.   (do the work: study the linked template, do research via codegraph/RAG, fill the document fields)
+7.   agentboard_submit_document      -- milestone: submit + wait (call blocks until human approves/rejects)
+     OR agentboard_update_task       -- implementation task: status="review" + notes + acceptance_criteria
+8.   On approval: server auto-completes the milestone and the next milestone becomes `ready`. On rejection:
+     read rejection_feedback, revise, resubmit (status returns to `template` then back through `submit_document`).
+9.   agentboard_get_next_task        -- claim the next item
+10.  Repeat 6-9 until the phase is done.
+11.  Phase 2-9: human advances the phase after approving the document; agents do NOT call advance_phase here.
+     Phase 10-12: agents call agentboard_advance_phase to move forward.
+12.  Repeat 5-11 until phase 13 (Complete) is reached.
+```
+
+**Workspace-board session (single-card worker):**
+
+```
+1-3. §1.6 shared startup: auth → health_check → companion-MCP pre-warm (§6.0)
+4.   agentboard_list_apps + agentboard_list_boards  -- find the board you're working on
+5.   agentboard_get_next_card        -- auto-claim the next actionable card in a column
+                                        OR agentboard_get_card on a specific card_id
+6.   (do the work specific to your wave: planning agents write plans, review agents validate plans,
+     implementation agents write code, audit agents verify against the plan + acceptance criteria)
+7.   agentboard_submit_workspace_artifact   -- append the typed artifact (plan / review_note /
+                                               implementation_note / audit_report). Append-only;
+                                               to correct a prior artifact, submit a new one.
+8.   agentboard_update_workspace_card       -- advance the card's column (planning → review,
+                                               review → implementation, implementation → audit,
+                                               audit → finished or back to implementation on FAIL)
+9.   Repeat for the next card you claim, or end the session if /orchestrate handed you a single card.
+```
+
+**Orchestrated workspace session (main agent driving multiple cards in parallel):** don't follow the single-card pattern above. Run `/orchestrate` — the `workspace-orchestration` skill carries the wave-by-wave logic, prompt templates, checkpoint policy, retry policy, and per-wave failure handling. Do not duplicate that here.
+
+**A worked example for new project flow (most common):**
+
+```
+/foundation                          -- interactive spec-building session → docs/specs/<file>.md
+/architecture                        -- reads the spec, runs the level-aware architecture pipeline
+                                        → architecture document + cards on a workspace board
+/orchestrate                         -- runs the planning → review → implementation → audit pipeline
+                                        across the cards from /architecture
 ```
 
 ---
@@ -437,9 +501,18 @@ The resource's state changed between when you last read it and when you tried to
 
 ## 6. Companion MCP Servers
 
-AgentBoard works alongside two other MCP servers. These are not optional extras -- they provide the data you need to fill document templates properly instead of guessing.
+AgentBoard works alongside two other MCP servers. These are not optional extras — they provide the data you need to fill document templates properly instead of guessing.
 
 **Load tools via `ToolSearch` before first use** (search for `codegraph` or `rag`).
+
+### 6.0 Main-Agent Pre-warm Responsibility
+
+**The main agent (the one driving the session, the one that spawns subagents via `/orchestrate`, `/architecture`, or direct `Agent` calls) is responsible for pre-warming the companion MCPs before spawning subagents that may use them.** This is non-optional. Cold-start failure modes are silent:
+
+- **codegraph is in-memory and per-session.** Every fresh MCP process restart wipes the graph. If a subagent calls `codegraph_get_dependencies` before any agent in the session has called `codegraph_scan`, the call fails (no graph loaded) and the subagent may silently fall back to guessing structure from filenames. **Main-agent action:** run `codegraph_scan` on the target project root once, upfront, at session start. Verify it returned a non-empty stats result.
+- **codebase-rag indexes on first call.** First-run indexing builds an on-disk vector index for the project tree. The build time is variable — small projects finish in seconds; non-trivial plugin or monorepo trees can take significantly longer (minutes are realistic). While indexing, `rag_search` returns `status: "indexing"` with a hint to retry. If indexing fails or the HNSW index is corrupted, calls return a hard error (`Error loading hnsw index`). If a subagent calls `rag_search` during the indexing window, it may retry once and then proceed without semantic results — silently degrading the data it produces. **Main-agent action:** call `rag_search` with any short test query upfront, confirm it returns real results (not `status: "indexing"`, not a transport error), THEN spawn subagents. If indexing isn't finishing, surface that to the user before doing the work; don't spawn agents into a known-degraded environment.
+
+**Detection signature for subagent-silent-skip:** a Wave 1 plan or implementation_note that doesn't cite specific file:line ranges and doesn't reference patterns from `existing_patterns_hits` or `constraint_hits` — that subagent's RAG was probably unavailable at call time and it filled the gap with general knowledge instead of project facts. The main agent's pre-warm is what prevents that.
 
 ### 6.1 Codegraph (dependency analysis)
 
@@ -473,7 +546,7 @@ The codebase-rag MCP exposes two tools. The server auto-detects the project root
 | `rag_search` | Semantic search across the project. Inputs: `query` (3–2000 chars), `num_results` (1–20, default 5), `source_type` (`"all"` (default) / `"docs"` (constraints + patterns) / `"code"` / `"constraints"`). Returns ranked results with file paths and relevance scores. |
 | `rag_query_impact` | Show what depends on a file before you change it: exports, importers, and semantically similar files that may need coordinated edits. Inputs: `file_path` (relative to project root, forward slashes), `num_similar` (1–20, default 5). |
 
-**First-call note:** if the project has never been indexed, the first call may return `status: "indexing"` while the index builds (a few seconds). Try again. If the server can't find a project root, it returns `status: "no_project"` with a hint.
+**First-call note:** if the project has never been indexed, the first call returns `status: "indexing"` while the index builds. Build time varies with codebase size — seconds for small projects, minutes for non-trivial plugin or monorepo trees. The main agent is responsible for pre-warming this before spawning subagents (see §6.0 — subagents that hit `status: "indexing"` may silently degrade). If the server can't find a project root, it returns `status: "no_project"` with a hint. If the server returns a transport-level error like `Error loading hnsw index`, the index itself is corrupted — clearing the cache and re-indexing is the recovery path, not a retry.
 
 **When to use RAG in the workflow:**
 
@@ -485,17 +558,25 @@ The codebase-rag MCP exposes two tools. The server auto-detects the project root
 | **7 -- Contracts** | Use `rag_search` (`source_type="docs"` or `"all"`) to find existing API contracts and interface patterns. Your contracts doc must be consistent with what already exists. |
 | **10+ -- Implementation** | Before writing code, use `rag_search` describing your planned change to surface relevant patterns and constraints. Use `rag_query_impact` on files you plan to modify to understand blast radius. |
 
-### 6.3 Setup Sequence
+### 6.3 Setup Sequence (Main Agent, Every Session)
 
-At the start of a session, after authenticating to AgentBoard:
+At the start of every session, after authenticating to AgentBoard:
 
 ```
 1. ToolSearch("codegraph")             -- load codegraph tools
 2. ToolSearch("rag")                   -- load RAG tools (rag_search, rag_query_impact)
-3. codegraph_scan(path="<target>")     -- REQUIRED every session (graph is in-memory only, lost when MCP server restarts)
-4. rag_search("<first query>")         -- RAG auto-bootstraps; first call in a never-indexed project takes a few seconds
+3. codegraph_scan(path="<target>")     -- REQUIRED every session (graph is in-memory only,
+                                          lost on MCP server restart). Verify it returns a
+                                          non-empty stats result before continuing.
+4. rag_search("<short test query>")    -- pre-warm RAG. The first call in a never-indexed
+                                          project returns status: "indexing" while the index
+                                          builds. Build time varies with codebase size; retry
+                                          on a calm cadence until you get real results back.
+                                          DO NOT spawn subagents until this returns hits — a
+                                          subagent that hits an indexing window may silently
+                                          degrade its output (§6.0).
 ```
 
-**Codegraph** rebuilds from scratch every session — its graph lives in memory only. **Codebase RAG** auto-detects the project root, builds an index in a per-machine cache directory on first run, and watches the filesystem to keep it current. No setup, init, or status calls are needed — call `rag_search` or `rag_query_impact` directly. If the first query returns `status: "indexing"`, retry after a few seconds.
+**If RAG is taking unreasonably long** (more than a few minutes on a codebase you don't expect to be huge) or returns a transport-level error like `Error loading hnsw index`, **stop and surface to the user** — don't spawn subagents into a degraded environment. The recovery is clearing the per-project cache and re-indexing, not retrying the query.
 
-Both servers are configured in `.mcp.json` and enabled in `.claude/settings.local.json`.
+**Codegraph** rebuilds from scratch every session — its graph lives in memory only. **Codebase RAG** auto-detects the project root, builds an on-disk index in a per-machine cache directory on first run, and watches the filesystem to keep it current after that. No setup, init, or status calls are needed beyond the pre-warm above. Both MCP servers are auto-installed by this plugin (see §1.2).

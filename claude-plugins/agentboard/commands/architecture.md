@@ -38,7 +38,7 @@ You are the orchestrator of the architecture pipeline. Convert an approved spec 
 
 - A spawned subagent fails to submit its required artifact to the scaffold card (verified per round by the snapshot-and-diff in steps 6/7, 8/9, 11/12, and 14/15, not by a type-only lookup).
 - The audit reports an invalid level (anything other than the integers `1`, `2`, or `3` in `verified_level`).
-- The audit reports `any_discrepancy: true` but carries no `corrected_bundle`, or `any_discrepancy: false` but the original bundle fetched via the audit's `audited_bundle_artifact_id` back-reference cannot be retrieved or parsed (step 9 cannot resolve `verified_bundle_json`).
+- A spawned compose agent halts because the audit reports `any_discrepancy: true` but carries no `corrected_bundle`, or `any_discrepancy: false` but the original bundle fetched via the audit's `audited_bundle_artifact_id` back-reference cannot be retrieved or parsed (compose's Step 2 audit-fetch-and-bundle-resolution fails). The orchestrator detects this by the absence of the compose agent's required artifact at step 12 and reads the failure card note compose wrote to the scaffold card.
 - The architecture document is not present at the exact `architecture_document_path` derived in step 13 on disk after the compose wave.
 - The user rejects the architecture document.
 
@@ -90,19 +90,11 @@ Before spawning the auditor, call `agentboard_list_workspace_artifacts` on `scaf
 
 Spawn `architecture-classification-auditor` (background). Pass exactly these inputs in the prompt and no others: `spec_path`, `audited_bundle_artifact_id` (the per-round bundle ID captured in step 7), `scaffold_card_id`, `agent_id`. Wait for completion.
 
-### 9. Verify the audit artifact, read the verified level, and resolve the verified bundle
+### 9. Verify the audit artifact and read the verified level
 
-This step produces two distinct seam objects. Hold them as separately named values and never substitute one for the other:
-
-- `audit_artifact_id` — the artifact ID of the `ARCH_BUNDLE_AUDIT_V2` audit artifact. This is the only value passed to the design reviewer in step 14 as `audit_artifact_id`. The design reviewer resolves the verified bundle from the audit itself (it fetches the audit, branches on `any_discrepancy`, and either reads `corrected_bundle` or fetches the original bundle via the audit's `audited_bundle_artifact_id` back-reference). Do not pass the original bundle's artifact ID to the design reviewer under any branch.
-- `verified_bundle_json` — the parsed JSON body of the verified bundle itself. This is the value passed inline to the compose agent in step 11. Compose has no codebase-discovery tools and reads codebase facts only from this inline bundle.
+This step produces one seam object — `audit_artifact_id` — that the orchestrator threads forward unchanged to both compose (step 11) and the design reviewer (step 14), the same single value to both. The orchestrator does NOT resolve the verified bundle: that resolution moves to compose's Step 2 and to the design reviewer's Step 2(c), each of which fetches the audit via this same `audit_artifact_id`, branches on the audit's `any_discrepancy` flag, and either reads `corrected_bundle` directly (when `true`) or fetches the original bundle via the audit's `audited_bundle_artifact_id` back-reference and parses it (when `false`). This is the single-seam discipline: the audit is the only place the verified bundle lives; the orchestrator never serializes the bundle; no orphan-artifact failure mode is introduced; both downstream consumers (compose and reviewer) resolve the bundle identically by reading the same audit.
 
 Call `agentboard_list_workspace_artifacts` on `scaffold_card_id`. Diff the returned artifact IDs against `pre_audit_artifact_ids` from step 8; the artifact IDs not present in that snapshot are the ones this audit run created. Among the newly created artifacts, select the one whose `artifact_type` is `ARCH_BUNDLE_AUDIT_V2` and capture its exact artifact ID as `audit_artifact_id` for this round; never re-resolve the audit by a type-only lookup, which would rebind to a prior round's audit after a step-17 re-run. Fetch its content via `agentboard_get_workspace_artifact` on `audit_artifact_id`. Read the `verified_level` field — an integer that is `1`, `2`, or `3`. Capture the audit's `field_verdicts`, `any_discrepancy` flag, and (when present) `corrected_bundle` for the transparency display in step 10.
-
-Resolve `verified_bundle_json` now, before step 11 dispatches compose, so the verified bundle is genuinely available to pass inline:
-
-- When `any_discrepancy` is `true`: set `verified_bundle_json` to the audit's `corrected_bundle` object (already in hand from the audit content). If `corrected_bundle` is absent or null while `any_discrepancy` is `true`, halt per the Halt conditions section.
-- When `any_discrepancy` is `false`: fetch the original bundle body explicitly. Read the audit's `audited_bundle_artifact_id` (the back-reference to the specific `ARCH_FACTS_BUNDLE_V2` the audit verified — this is the bundle artifact ID captured as `audited_bundle_artifact_id` in step 7; use the audit's back-reference value, not a type-only lookup, so a card carrying multiple historical bundle artifacts cannot mis-bind). Call `agentboard_get_workspace_artifact` on that ID, strip the leading `ARCH_FACTS_BUNDLE_V2` sentinel line from the returned content, and parse the remainder as JSON into `verified_bundle_json`. If the fetch fails or the content does not parse as JSON, halt per the Halt conditions section.
 
 If no newly created `ARCH_BUNDLE_AUDIT_V2` artifact exists, halt per the Halt conditions section. Before reporting the halt, call `agentboard_get_card` on `scaffold_card_id` to read the auditor's most recent card note for the diagnostic.
 
@@ -128,7 +120,7 @@ Read the integer `verified_level` captured in step 9. Dispatch on the numeric va
 - `verified_level == 3` → spawn `architecture-compose-l3` (background).
 - Any other value (not in `{1, 2, 3}`) → halt per the Halt conditions section.
 
-Pass exactly these inputs in the prompt to the dispatched compose agent and no others: `spec_path`, `verified_level` (as the integer `1`, `2`, or `3`), `scaffold_card_id`, `agent_id`, and `verified_bundle_json` from step 9 inline as JSON. Pass the verified bundle inline; do not pass its artifact ID and ask compose to fetch it — compose has no codebase-discovery tools and reads codebase facts only from the inline bundle. Wait for completion.
+Pass exactly these inputs in the prompt to the dispatched compose agent and no others: `spec_path`, `verified_level` (as the integer `1`, `2`, or `3`), `scaffold_card_id`, `agent_id`, and `audit_artifact_id` (the same artifact ID also passed to the design reviewer at step 14). Compose's Step 2 fetches the audit via `agentboard_get_workspace_artifact` and resolves the verified bundle by the same `any_discrepancy`-branch logic the design reviewer uses at its Step 2(c). Never embed bundle JSON in the prompt — `audit_artifact_id` is the single seam between the orchestrator and compose for the verified bundle. Wait for completion.
 
 ### 12. Verify the architecture document artifact landed
 
@@ -144,7 +136,7 @@ Derive the architecture document path deterministically from the spec path; do n
 
 Before spawning the design reviewer, call `agentboard_list_workspace_artifacts` on `scaffold_card_id` and capture the set of existing artifact IDs as `pre_review_artifact_ids`. Step 15 diffs against this snapshot to bind the exact review artifact this run produced, so a re-run from step 17 cannot rebind to a prior round's review artifact.
 
-Spawn `architecture-design-reviewer` (background). Pass exactly these inputs in the prompt and no others: `spec_path`, `architecture_document_path` (the exact path from step 13), `architecture_document_artifact_id` (the per-round ID captured in step 12), `audit_artifact_id`, `scaffold_card_id`, `agent_id`. The value supplied for `audit_artifact_id` is the `ARCH_BUNDLE_AUDIT_V2` artifact's ID from step 9, never the original bundle's ID. Do not pass `verified_bundle_json` here; the design reviewer fetches and resolves the bundle from the audit by its own branch logic. Wait for completion.
+Spawn `architecture-design-reviewer` (background). Pass exactly these inputs in the prompt and no others: `spec_path`, `architecture_document_path` (the exact path from step 13), `architecture_document_artifact_id` (the per-round ID captured in step 12), `audit_artifact_id`, `scaffold_card_id`, `agent_id`. The value supplied for `audit_artifact_id` is the `ARCH_BUNDLE_AUDIT_V2` artifact's ID from step 9, never the original bundle's ID. The design reviewer fetches the audit and resolves the bundle from it by the same `any_discrepancy`-branch logic compose's Step 2 uses. Wait for completion.
 
 ### 15. Verify the design review artifact and read the findings
 
@@ -190,8 +182,8 @@ Then route by actual origin:
 
 - **If route is `architecture-document`:**
   - Re-enter the already-verified compose stage in correction mode instead of editing `spec_path`.
-  - Reuse the current `verified_level` and `verified_bundle_json`.
-  - Dispatch the same compose profile selected in step 11 with these declared inputs: `spec_path`, `verified_level`, `scaffold_card_id`, `agent_id`, `verified_bundle_json`, `correction_request_json`, `prior_architecture_document_path` (the current `architecture_document_path`), and `prior_architecture_document_artifact_id` (the current `architecture_document_artifact_id`).
+  - Reuse the current `verified_level` and `audit_artifact_id` (compose's Step 2 re-fetches the audit and re-resolves the verified bundle from it on each compose invocation; no orchestrator-side bundle state to thread forward).
+  - Dispatch the same compose profile selected in step 11 with these declared inputs: `spec_path`, `verified_level`, `scaffold_card_id`, `agent_id`, `audit_artifact_id`, `correction_request_json`, `prior_architecture_document_path` (the current `architecture_document_path`), and `prior_architecture_document_artifact_id` (the current `architecture_document_artifact_id`).
   - Then repeat steps 12 through 16 on the same scaffold card so the revised architecture document is re-verified and re-reviewed.
 - **If route is `verified-bundle`:**
   - Do not send a compose correction request.
@@ -261,7 +253,7 @@ Populate the table with one row per card created in step 19, ordered to match th
 - Do not ask the user to approve the level. Do not offer level overrides.
 - Do not create any workspace cards before step 19.
 - Pass each subagent only the inputs that subagent's profile declares it consumes — no exceptions. Substantive corrections reach the affected stage only through declared correction-loop inputs and routed re-entry, never through undeclared prompt context and never through a silent `spec_path` edit.
-- The two step-9 seam objects are distinct and must never be substituted for each other: `audit_artifact_id` (the `ARCH_BUNDLE_AUDIT_V2` artifact's ID) is the only value passed to the design reviewer as its `audit_artifact_id` argument; `verified_bundle_json` (the parsed bundle body) is the only value passed inline to compose.
+- `audit_artifact_id` (the `ARCH_BUNDLE_AUDIT_V2` artifact's ID captured in step 9) is the single seam between the orchestrator and the downstream stages that consume the verified bundle: passed unchanged to compose at step 11 AND to the design reviewer at step 14 (the same value to both). The orchestrator never resolves the bundle and never embeds bundle JSON in any prompt — compose and the design reviewer each fetch the audit themselves and resolve the bundle by the audit's `any_discrepancy` branch.
 - Bind every pipeline artifact (bundle, audit, architecture document, design review) by the exact ID captured via the snapshot-and-diff in steps 6/7, 8/9, 11/12, and 14/15 for that round. Never re-resolve any of them by a type-only lookup that could match a prior round's artifact after a step-17 re-run.
 - Thread the single exact `architecture_document_path` from step 13 unchanged through review (step 14), display and edits (step 16), corrections (step 17), commit (step 18), and card creation (step 19). Never re-derive the document path by closest-match scanning.
 - The `/architecture` correction pause is opt-in and off by default. It is separate from AgentBoard app blocking gates and must not mutate board settings.
