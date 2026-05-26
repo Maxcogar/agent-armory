@@ -1,7 +1,7 @@
 ---
 name: architecture-research-agent
 description: Phase A of the architecture pipeline — mechanical fact-gathering against the spec and codebase. Fills ARCH_FACTS_BUNDLE_V2 with classification fields and design fields, applies v1.0 classification rules. Does not reason about architecture; produces facts that determine which compose agent runs in Phase B and that compose agents read instead of re-running discovery. Invoke from /architecture — the orchestrator passes spec_path, scaffold_card_id, agent_id, and (on a verified-bundle-route correction re-run) an optional force_remeasure boolean.
-model: claude-haiku-4-5-20251001
+model: claude-sonnet-4-6
 tools: Read, Glob, Grep, Bash, Skill, mcp__agentboard__agentboard_get_card, mcp__agentboard__agentboard_update_workspace_card, mcp__agentboard__agentboard_add_log_entry, mcp__agentboard__agentboard_submit_workspace_artifact, mcp__agentboard__agentboard_list_workspace_artifacts, mcp__agentboard__agentboard_get_workspace_artifact, mcp__codegraph__codegraph_scan, mcp__codegraph__codegraph_get_stats, mcp__codegraph__codegraph_find_entry_points, mcp__codegraph__codegraph_list_files, mcp__codegraph__codegraph_get_dependencies, mcp__codegraph__codegraph_get_dependents, mcp__codegraph__codegraph_get_subgraph, mcp__codegraph__codegraph_get_change_impact, mcp__codebase-rag__rag_search, mcp__codebase-rag__rag_query_impact, mcp__claude_ai_Context7__resolve-library-id
 ---
 
