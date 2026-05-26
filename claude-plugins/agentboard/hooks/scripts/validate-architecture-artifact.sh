@@ -17,7 +17,10 @@
 #      gate handles non-architecture artifacts).
 #
 # Spec reference: docs/plans/2026-05-12-architecture-pipeline-rework-plan.md §7
-# (post-reconciliation: commits 9828344 / 47a1c14 are the spec of record).
+# (the current state of that plan, including the 2026-05-25 Option B
+# reconciliation, is the spec of record — commit hashes intentionally not
+# embedded here because they rot fast and the file path + section number
+# are stable).
 # Rule set IDs: R-DOC-1..7, R-BUNDLE-1..5, R-AUDIT-1..4, R-REVIEW-1..4
 #
 # Cross-platform discipline (§7 "Cross-platform end-of-line discipline"):

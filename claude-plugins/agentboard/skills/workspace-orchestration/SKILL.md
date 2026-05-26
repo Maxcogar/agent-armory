@@ -7,11 +7,13 @@ description: Use when orchestrating parallel subagents across workspace board ca
 
 Orchestrate parallel subagents through workspace board columns: planning → review → implementation → audit → finished.
 
+**Source of truth.** This skill is the authoritative reference for the workspace-orchestration workflow — wave logic, prompt templates, checkpoint policy, retry policy, build verification, and per-wave failure handling all live here. The `/orchestrate` slash command at `commands/orchestrate.md` is a thin entry point: it parses command flags, loads this skill, and hands off control. Do not duplicate wave logic in `commands/orchestrate.md`; if behavior needs to change, change it here.
+
 ## Prerequisites
 
-- AgentBoard server running (call `agentboard_health_check`)
+- AgentBoard cloud reachable (call `agentboard_health_check` — AgentBoard is cloud-hosted, this is a reachability/auth check, not a local-process check)
 - A workspace board with cards in `backlog` (created via `/architecture`, which itself depends on a spec from `/foundation`)
-- An approved architecture document at `docs/arch/<topic>.md` whose Card Slices section corresponds to the cards on this board
+- An approved architecture document at `docs/arch/architecture-<spec-basename>.md` whose Card Slices section corresponds to the cards on this board. Note: the architecture pipeline has a correction loop, so the document a card's slice came from may have been revised since the cards were created — if cards predate the current architecture document, re-create them from the current Card Slices section before running this skill.
 - MCP tools loaded: `agentboard`, `codegraph`, `codebase-rag`
 
 ## Pipeline Overview
@@ -65,36 +67,36 @@ Launch one Agent per card using `run_in_background: true`. Set `subagent_type` t
 
 **Phase A prompt (Waves 1 and 4):**
 
+The research agents (`planning-research-agent`, `audit-research-agent`) fetch their own card data via `agentboard_get_card`; do not pass `card_title` in the prompt — those agents do not declare it as a declared input.
+
 ```
 card_id: 7f3c...
 board_id: a91e...
 agent_id: claude-opus-4-6
-card_title: Add pagination to workspace cards endpoint
-arch_slice: <paste the card's section from `## Card Slices` in the arch doc — full slice with all eight §6.3 fields: Description / Allowed-touch / Forbidden-touch / Produces / Consumes / Verification scope / Depends on / Source decisions>   ← Wave 1 only
+arch_slice: <paste the card's section from `## Card Slices` in the arch doc — full slice with all eight §6.3 fields: Description / Allowed-touch list / Forbidden-touch list / Produces / Consumes / Verification scope / Depends on / Source decisions>   ← Wave 1 only
 repo_root: /absolute/path/to/repo                                                                                                                                                            ← Wave 4 only
 ```
 
+After Phase A completes for each card, capture the artifact ID returned by the research agent's `agentboard_submit_workspace_artifact` call — Phase B needs it as `facts_bundle_artifact_id` (Wave 1) or `audit_facts_bundle_artifact_id` (Wave 4).
+
 **Phase B prompt (Waves 1 and 4):**
 
-Before spawning Phase B agents, fetch the Phase A bundle from each card:
-- Call `agentboard_list_workspace_artifacts` for the card
-- Find the artifact starting with `FACTS_BUNDLE_V1` (Wave 1) or `AUDIT_FACTS_BUNDLE_V1` (Wave 4)
-- Call `agentboard_get_workspace_artifact` to fetch the full content
+Before spawning Phase B agents, capture the Phase A artifact ID from each card:
+- Call `agentboard_list_workspace_artifacts` for the card (or use the artifact ID the Phase A submission returned, if you captured it directly).
+- Identify the artifact whose `artifact_type` is `FACTS_BUNDLE_V1` (Wave 1) or `AUDIT_FACTS_BUNDLE_V1` (Wave 4) and capture its artifact ID.
 
-Pass the bundle inline so the compose agent does not need to fetch it again. For Wave 1, also pass the `arch_slice` so the compose agent does not need to re-extract it:
+Pass the artifact ID to the compose agent — the compose agent fetches the bundle itself via `agentboard_get_workspace_artifact`. Never embed bundle JSON in the prompt; the orchestrator does not parse the bundle, and Phase B compose agents declare the artifact ID as a required input. For Wave 1, also pass the `arch_slice` so the compose agent does not need to re-extract it:
 
 ```
 card_id: 7f3c...
 board_id: a91e...
 agent_id: claude-opus-4-6
-card_title: Add pagination to workspace cards endpoint
-arch_slice: <the same per-card slice passed to Phase A — full slice with all eight §6.3 fields: Description / Allowed-touch / Forbidden-touch / Produces / Consumes / Verification scope / Depends on / Source decisions>   ← Wave 1 only
-facts_bundle:
-FACTS_BUNDLE_V1
-{ ...full JSON bundle content... }
+card_title: Add pagination to workspace cards endpoint                    ← Phase B compose agents declare card_title as a declared input
+arch_slice: <the same per-card slice passed to Phase A — full slice with all eight §6.3 fields: Description / Allowed-touch list / Forbidden-touch list / Produces / Consumes / Verification scope / Depends on / Source decisions>   ← Wave 1 only
+facts_bundle_artifact_id: <uuid of the FACTS_BUNDLE_V1 artifact>          ← Wave 1 (use audit_facts_bundle_artifact_id on Wave 4)
 ```
 
-If a Phase A artifact is missing for a card, skip Phase B for that card and report the failure — do not spawn a compose agent without a bundle.
+If a Phase A artifact is missing for a card, skip Phase B for that card and report the failure — do not spawn a compose agent without a bundle artifact ID.
 
 **Waves 2 and 3 prompt:**
 
@@ -149,14 +151,11 @@ Wait for user confirmation before starting the next wave.
 
 ## Build Verification
 
-After Wave 3 (Implementation), before Wave 4 (Audit):
+After Wave 3 (Implementation), before Wave 4 (Audit), verify the project builds and lints. Build/lint commands are project-specific — do not hardcode `npm`, `cargo`, `pytest`, etc. into this skill. The `implementation-agent` runs build and lint as part of executing the plan and reports the result in its submitted `implementation_note` artifact; the orchestrator reads that artifact's build/lint status field instead of running build commands itself.
 
-```bash
-npm run build
-npm run lint --prefix client
-```
+If the implementation-agent's submitted artifact reports a build or lint failure, stop the pipeline (do not advance to Wave 4) and report which files changed and the failing command output. Wait for user intervention.
 
-Both must pass. If either fails, stop and report.
+When the build/lint command for the project is not obvious from `implementation-agent`'s context (e.g., a polyglot repo, an unfamiliar project shape), the orchestrator may inspect the repo root for build-system markers (`package.json` scripts, `pyproject.toml`/`setup.py`, `Cargo.toml`, `go.mod`, `Makefile`, `.claude-plugin/`) and pass a hint to `implementation-agent`; this is an inspection step, not a hardcoded command.
 
 ## Retry Policy
 
@@ -190,14 +189,16 @@ Progress: 5/10 cards finished (50%)
 
 All wave workers are dedicated agents defined in `agents/` at the plugin root:
 
+The model column below shows each agent's `model:` frontmatter value verbatim. Workspace-pipeline agents use short aliases (`opus`, `sonnet`, `haiku`) to track ongoing model capability improvements; the hooks validate submitted artifact shape at runtime, so a model change that breaks output format is caught immediately. Architecture-pipeline agents pin specific versions for separate reasons that live in their own profile docs.
+
 | Agent | Model | Role |
 |-------|-------|------|
-| `planning-research-agent` | haiku | Wave 1 Phase A — codegraph/RAG discovery, emits `FACTS_BUNDLE_V1` |
-| `plan-compose-agent` | opus | Wave 1 Phase B — reads bundle, writes plan artifact with full Expert Standard rigor |
-| `review-agent` | opus | Wave 2 — validates plans against constraints |
-| `implementation-agent` | sonnet | Wave 3 — executes plans, writes code |
-| `audit-research-agent` | haiku | Wave 4 Phase A — git diff + blast radius, emits `AUDIT_FACTS_BUNDLE_V1` |
-| `audit-compose-agent` | opus | Wave 4 Phase B — reads bundle, writes audit report, moves card |
+| `planning-research-agent` | `claude-haiku-4-5-20251001` | Wave 1 Phase A — codegraph/RAG discovery, emits `FACTS_BUNDLE_V1` |
+| `plan-compose-agent` | `opus` | Wave 1 Phase B — fetches bundle by ID, writes plan artifact with full Expert Standard rigor |
+| `review-agent` | `opus` | Wave 2 — validates plans against constraints |
+| `implementation-agent` | `sonnet` | Wave 3 — executes plans, writes code, runs build/lint |
+| `audit-research-agent` | `claude-haiku-4-5-20251001` | Wave 4 Phase A — git diff + blast radius, emits `AUDIT_FACTS_BUNDLE_V1` |
+| `audit-compose-agent` | `opus` | Wave 4 Phase B — fetches bundle by ID, writes audit report, moves card |
 
 ### Two-Phase Pipeline (Waves 1 and 4)
 
