@@ -123,7 +123,8 @@ All background agents must complete before proceeding. Report results:
 ### 4. Handle Failures
 
 **Review rejections (Wave 2):**
-- Card sent back to `planning` with rejection notes
+- The reviewer submits a `review_note` with `## Verdict: FAIL`; the **server auto-routes** the card back to `planning`. The orchestrator does NOT call `agentboard_update_workspace_card` to move the card — that path is deprecated.
+- A `review_note` lacking the `## Verdict: PASS|FAIL` marker is rejected with HTTP 422 (`REVIEW_NOTE_MISSING_VERDICT`); the reviewer reads the `instructions_for_agents` field and resubmits with the marker (the app is not broken).
 - Re-run Wave 1 for rejected cards only (max 2 retries per card)
 - After 2 failures: report to user, do not retry
 
@@ -133,7 +134,9 @@ All background agents must complete before proceeding. Report results:
 - Wait for user intervention
 
 **Audit failure (Wave 4):**
-- Card moves back to `implementation` with notes on what must be fixed
+- The audit agent submits the `audit_report` (verdict FAIL) and does NOT move the card — the server's audit advance is content-blind, so the verdict does not auto-route.
+- On a blocking audit board (`audit_blocking: true`) the card holds in `audit`; report the findings to the user, who decides whether to rework (move the card back to `implementation`) or accept it.
+- On a non-blocking audit board (`audit_blocking: false`) the card has already auto-advanced to `finished` on submit; report the FAIL, but the card is terminal — run audit blocking ON when failed cards must stay reworkable.
 
 ### 5. Checkpoint (if applicable)
 
@@ -198,7 +201,7 @@ The model column below shows each agent's `model:` frontmatter value verbatim. W
 | `review-agent` | `opus` | Wave 2 — validates plans against constraints |
 | `implementation-agent` | `sonnet` | Wave 3 — executes plans, writes code, runs build/lint |
 | `audit-research-agent` | `claude-haiku-4-5-20251001` | Wave 4 Phase A — git diff + blast radius, emits `AUDIT_FACTS_BUNDLE_V1` |
-| `audit-compose-agent` | `opus` | Wave 4 Phase B — fetches bundle by ID, writes audit report, moves card |
+| `audit-compose-agent` | `opus` | Wave 4 Phase B — fetches bundle by ID, writes audit report, then stops; card routing is server-driven |
 
 ### Two-Phase Pipeline (Waves 1 and 4)
 
@@ -210,4 +213,4 @@ The model column below shows each agent's `model:` frontmatter value verbatim. W
 **Wave 4:**
 1. Spawn `audit-research-agent` per card in parallel — gathers git diff, blast radius, cross-references the plan artifact, emits `AUDIT_FACTS_BUNDLE_V1`
 2. Wait for ALL Phase A agents to complete
-3. Spawn `audit-compose-agent` per card in parallel — reads the bundle, writes `audit_report` artifact, moves card to `finished` (PASS) or back to `implementation` (FAIL)
+3. Spawn `audit-compose-agent` per card in parallel — reads the bundle, writes `audit_report` artifact; the server auto-advances the card on submit (content-blind: finished if `audit_blocking` is OFF, else holds in `audit`)
