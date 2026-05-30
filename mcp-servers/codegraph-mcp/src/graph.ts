@@ -198,6 +198,27 @@ async function discoverDocFiles(rootDir: string, ignorePatterns?: string[]): Pro
  *
  * We build a set of search terms from the graph and scan the doc content once.
  */
+/**
+ * Escape a string for literal use inside a RegExp.
+ */
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Test whether `term` appears in `content` as a bounded token — preceded by
+ * start-of-line/whitespace/quote/paren and followed by end-of-line/whitespace/
+ * quote/paren/punctuation. This prevents substring false positives such as
+ * "app" matching inside "happens" or "api" inside "rapid".
+ */
+function containsAsToken(content: string, term: string): boolean {
+  const pattern = new RegExp(
+    `(?:^|[\\s\`'"(/])${escapeRegExp(term)}(?:$|[\\s\`'")/,;:.])`,
+    "m"
+  );
+  return pattern.test(content);
+}
+
 function scanDocForCodeReferences(
   docContent: string,
   codeNodes: Map<string, FileNode>,
@@ -208,14 +229,50 @@ function scanDocForCodeReferences(
   // Normalize content for matching (case-sensitive for paths)
   const content = docContent;
 
+  // Collect directory prefixes referenced as "dir/" tokens (e.g. "src/auth/"),
+  // so a doc that names a directory matches every file under it. Computed once.
+  const referencedDirs = new Set<string>();
+  const candidateDirs = new Set<string>();
+  for (const node of codeNodes.values()) {
+    const parts = node.relativePath.split("/");
+    for (let i = 1; i < parts.length; i++) {
+      candidateDirs.add(parts.slice(0, i).join("/"));
+    }
+  }
+  for (const dir of candidateDirs) {
+    // Require the trailing slash so "src/auth/" matches but a bare word does not.
+    if (containsAsToken(content, dir + "/")) {
+      referencedDirs.add(dir);
+    }
+  }
+
   for (const [absPath, node] of codeNodes) {
     const relPath = node.relativePath;
     const relPathNoExt = relPath.replace(/\.[^.]+$/, "");
     const fileName = path.basename(absPath);
     const fileNameNoExt = path.basename(absPath).replace(/\.[^.]+$/, "");
 
-    // Match relative path (with or without extension)
-    if (content.includes(relPath) || content.includes(relPathNoExt)) {
+    // Match the full relative path as a bounded token (with extension), or — for
+    // multi-segment paths only — without the extension. A single-segment stem
+    // like "app" is NOT matched here (it would match prose words); it falls
+    // through to the filename logic below, which has length/generic guards.
+    if (
+      containsAsToken(content, relPath) ||
+      (relPathNoExt.includes("/") && containsAsToken(content, relPathNoExt))
+    ) {
+      matchedFiles.add(absPath);
+      continue;
+    }
+
+    // Directory reference: the file lives under a directory the doc named.
+    let underReferencedDir = false;
+    for (const dir of referencedDirs) {
+      if (relPath === dir || relPath.startsWith(dir + "/")) {
+        underReferencedDir = true;
+        break;
+      }
+    }
+    if (underReferencedDir) {
       matchedFiles.add(absPath);
       continue;
     }
@@ -229,26 +286,17 @@ function scanDocForCodeReferences(
     ]);
 
     if (!genericNames.has(fileName)) {
-      // Use word boundary-ish matching: filename must be preceded by
-      // whitespace, punctuation, or start of line, and followed by
-      // whitespace, punctuation, or end of line.
-      // This prevents "login.ts" from matching inside "not-login.tsx"
-      const escapedFileName = fileName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const pattern = new RegExp(`(?:^|[\\s\`'"(/])${escapedFileName}(?:$|[\\s\`'")/,;:])`, "m");
-      if (pattern.test(content)) {
+      // Bounded filename match: "login.ts" must not match inside "not-login.tsx".
+      if (containsAsToken(content, fileName)) {
         matchedFiles.add(absPath);
         continue;
       }
 
       // Also try filename without extension with the same boundary matching
-      // (useful for docs that reference "LoginService" not "LoginService.ts")
-      if (fileNameNoExt.length > 3) {
-        const escapedNoExt = fileNameNoExt.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const patternNoExt = new RegExp(`(?:^|[\\s\`'"(/])${escapedNoExt}(?:$|[\\s\`'")/,;:.])`, "m");
-        if (patternNoExt.test(content)) {
-          matchedFiles.add(absPath);
-          continue;
-        }
+      // (useful for docs that reference "LoginService" not "LoginService.ts").
+      if (fileNameNoExt.length > 3 && containsAsToken(content, fileNameNoExt)) {
+        matchedFiles.add(absPath);
+        continue;
       }
     }
   }

@@ -66,12 +66,46 @@ paths and string contents are untouched.
 regex parsers. Eliminating this would require a real tokenizer; deemed rare
 enough to document rather than fix.
 
-### Also fixed in this pass
+### Finding D (SERIOUS): doc-reference matcher had substring false positives
+
+`scanDocForCodeReferences` matched a file's relative-path stem with a bare
+`content.includes(relPathNoExt)` — no word boundary. For a top-level file like
+`app.ts`/`api.ts`, the stem `app`/`api` matched inside ordinary prose words
+("h**app**ens", "r**api**d"), so `codegraph_find_related_docs` flagged unrelated
+docs. For a tool the repo relies on to *enforce* doc-sync deterministically,
+spurious matches erode the whole contract.
+
+**Fix:** match the full relative path as a bounded token; only match the
+extension-stripped path when it is multi-segment (contains `/`). Single-segment
+stems fall through to the filename logic, which already has length and
+generic-name guards. Extracted a shared `containsAsToken` boundary matcher.
+
+### Finding E (MODERATE): documented directory references were not implemented
+
+The function's own docstring and the README both promised "directory references:
+`src/auth/` matches all files under that dir." It was never implemented —
+returned `[]`.
+
+**Fix:** collect directory prefixes that appear in the doc as `dir/` tokens and
+match every file under them (including deeply nested files).
+
+### Also fixed in earlier passes of this audit
 
 Docs-discoverability gap: documentation files were scanned into the graph but
 had no listing tool, so `codegraph_list_files` returned nothing for docs-only
 directories. Added the `codegraph_list_docs` tool plus an explanatory `note` on
 empty `codegraph_list_files` results.
+
+---
+
+## Modules covered by the 2026-05-30 empirical sweep
+
+Run-it-don't-read-it probes were executed against: the Python/JS/C++ parsers
+(Findings A–C), the documentation-reference matcher (Findings D–E), the graph
+builder end-to-end, entry-point detection, stats, and fuzzy/ambiguous file
+resolution. Entry-point detection, stats aggregation, ambiguous-path errors,
+and the blast-radius integration behaved correctly under test and needed no
+change.
 
 ---
 
