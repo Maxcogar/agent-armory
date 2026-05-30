@@ -168,12 +168,12 @@ This separation is a design convention; the server does not enforce it today, so
 
 | Tool | Purpose | Key Parameters |
 |---|---|---|
-| `agentboard_get_activity_log` | Get audit trail | `project_id`, `actor?`, `action?`, `limit?` (default 50, max 1000), `offset?`. NOT part of the standard worker agent work loop -- primarily for debugging and project oversight. |
+| `agentboard_get_activity_log` | Get audit trail | `project_id`, `actor?`, `action?`, `limit?` (default 50, cap 500), `offset?`. NOT part of the standard worker agent work loop -- primarily for debugging and project oversight. |
 | `agentboard_add_log_entry` | Record significant project-wide events | `project_id`, `agent_id`, `action`, `target?`, `detail?`. Records events NOT captured by automatic status changes. Distinct from task `notes`. NOT part of the standard worker agent work loop. |
 
 **Valid `action` values:** `project_created`, `phase_approved`, `task_created`, `task_started`, `task_completed`, `task_updated`, `note_added`, `document_filled`, `document_approved`, `document_superseded`, `document_rejected`, `log_entry`.
 
-**`response_format` parameter:** Read-only tools accept `response_format` (`"markdown"` or `"json"`, default `"markdown"`): in the core surface — `health_check`, `list_projects`, `get_project`, `list_tasks`, `get_task`, `list_documents`, `get_document`, `get_activity_log`; in the workspace surface — `list_apps`, `list_boards`, `get_board`, `list_workspace_cards`, `get_card`, `list_workspace_artifacts`, `get_workspace_artifact`. Mutating tools (creates, updates, submits) do NOT accept it.
+**`response_format` parameter:** Read-only tools accept `response_format` (`"markdown"` or `"json"`, **default `"json"`** — JSON is data; markdown is presentation, so machine callers get JSON by default and a human browsing a transcript opts in with `response_format="markdown"`): in the core surface — `health_check`, `list_projects`, `get_project`, `list_tasks`, `get_task`, `list_documents`, `get_document`, `get_activity_log`; in the workspace surface — `list_apps`, `list_boards`, `get_board`, `list_workspace_cards`, `get_card`, `list_workspace_artifacts`, `get_workspace_artifact`, `resolve_artifact_prefix`. Mutating tools (creates, updates, submits) do NOT accept it.
 
 ---
 
@@ -204,9 +204,13 @@ Workspace boards are a separate, ad-hoc pipeline alongside the phase system — 
 | `agentboard_get_card` | Fetch a card by ID. Returns artifacts bundled. | `card_id`, `include_notes?` (`all` default / `latest` / `count`), `response_format?` |
 | `agentboard_get_next_card` | Auto-claim the next actionable card from a column. Triggers the workspace-card-guidance hook. | `board_id`, `agent_id`, `column?` |
 | `agentboard_create_workspace_card` | Create a card on a board. Use when an agent needs to spawn follow-up work from the card it's currently on (e.g. a planning agent splits a card into smaller implementation cards). Don't pollute one card with multiple distinct units of work. | `board_id`, `title`, `description?`, `priority?`, `depends_on?` |
-| `agentboard_update_workspace_card` | Update card fields (title, description, notes, status/column). Triggers the workspace-card-guidance hook. | `card_id`, `agent_id`, fields to update |
+| `agentboard_update_workspace_card` | Append notes / update fields (title, description, priority, assignee, files_touched; notes and files_touched append). Triggers the workspace-card-guidance hook. It *can* force a `status`/column change, but **in the orchestration pipeline cards advance automatically on artifact submission** — manually moving a pipeline card fights the auto-advance and is rarely correct (see "Workspace pipeline" below). | `card_id`, `agent_id`, fields to update |
 
-**Artifacts** are the outputs an agent produces for a card — typed records. They are **append-only**: there is no edit or delete, and `column_at_creation` is captured for audit context. To correct a prior artifact, submit a new one.
+**Artifacts** are the outputs an agent produces for a card — typed records like `plan`, `review_note`, `implementation_note`, `audit_report`. Storage is **append-only**: nothing is deleted or content-rewritten, and `column_at_creation` is captured for audit context.
+
+**Implicit auto-supersede (server-enforced, no flag):** submitting a new wave-deliverable (`plan`, `review_note`, `implementation_note`, `audit_report`) to a card that already has one of the same type automatically marks the predecessor *superseded* — the prior row stays in the DB (readable via `include_superseded=true`) but drops out of the default list. `general` artifacts (facts bundles, research notes) **stack** as active siblings and are never auto-superseded. There is no caller-supplied supersede parameter. The POST response includes `superseded_artifact_ids` telling you what your submission replaced.
+
+**`review_note` verdict marker (MANDATORY):** every `review_note` body MUST contain `## Verdict: PASS` or `## Verdict: FAIL` — a level-2 markdown heading on its own line, value inline, case-insensitive. Missing/malformed → HTTP 422 `REVIEW_NOTE_MISSING_VERDICT` (read the `instructions_for_agents` field; the app is NOT broken). FAIL routes the card back to `planning` (both blocking and non-blocking modes); PASS keeps the existing blocking-aware advance to `implementation`. Reviewers never call `update_workspace_card` to move the card — the verdict drives routing.
 
 **Recognized artifact types** (the plugin has hooks that gate them by type, so use these exact strings):
 
@@ -225,9 +229,10 @@ Workspace boards are a separate, ad-hoc pipeline alongside the phase system — 
 
 | Tool | Purpose | Key Parameters |
 |---|---|---|
-| `agentboard_submit_workspace_artifact` | Append an artifact to a card. Triggers either the `artifact-quality-gate` (original four types) or `validate-architecture-artifact` (architecture-pipeline types) per the dispatch table above. | `card_id`, `agent_id`, `artifact_type`, `content` |
-| `agentboard_list_workspace_artifacts` | List artifacts on a card without pulling the full card. Use this for cross-card lookups (e.g. an implementation agent reading the planning card's `plan` artifact). | `card_id` |
-| `agentboard_get_workspace_artifact` | Fetch a single artifact by ID. Cheaper than `get_card` when only one artifact body is needed. This is the path Phase B compose agents (plan-compose, audit-compose, architecture-compose-l{1,2,3}, architecture-design-reviewer) use to fetch their input bundle — orchestrators pass the artifact ID, agents fetch. | `artifact_id` |
+| `agentboard_submit_workspace_artifact` | Append an artifact to a card. Triggers either the `artifact-quality-gate` (original four types) or `validate-architecture-artifact` (architecture-pipeline types) per the dispatch table above. `review_note` additionally requires the `## Verdict:` marker (above) — without it the server returns HTTP 422. | `card_id`, `agent_id`, `artifact_type`, `content` |
+| `agentboard_list_workspace_artifacts` | List artifacts on a card — **metadata-only by default** (no bodies; superseded hidden). Use this for cross-card lookups (e.g. an implementation agent finding the planning card's `plan` artifact). Pass `fields='...,content'` or `view='full'` for bodies, `include_superseded=true` for history, `limit`/`offset` to paginate. Returns the `{total, artifacts}` envelope. | `card_id`, `view?`, `fields?`, `include_superseded?`, `limit?`, `offset?` |
+| `agentboard_get_workspace_artifact` | Fetch a single artifact by full ID, with content (bodies up to 500 000 chars return in full). Cheaper than `get_card` when only one artifact body is needed. This is the path Phase B compose agents (plan-compose, audit-compose, architecture-compose-l{1,2,3}, architecture-design-reviewer) use to fetch their input bundle — orchestrators pass the artifact ID, agents fetch. | `artifact_id` |
+| `agentboard_resolve_artifact_prefix` | Resolve an 8–32 hex-char artifact UUID prefix to a single artifact within a card or board scope. Use when a list was truncated before emitting full UUIDs or you only have a short id. Unique match → artifact; ambiguous → 409 with `candidates[]`; none → 404. | `scope_id`, `scope` (`card`\|`board`), `prefix` |
 
 **Workspace pipeline at a glance:**
 
@@ -237,7 +242,7 @@ backlog → planning → review → implementation → audit → finished
            └───────────┘
 ```
 
-Agents are spawned per-card per-wave by the `/orchestrate` command. Each agent fetches the card, performs its wave's work, and submits an artifact + updates the card's column. The `workspace-orchestration` skill has the per-wave prompt templates and full pipeline logic.
+Agents are spawned per-card per-wave by the `/orchestrate` command. Each agent fetches the card, performs its wave's work, and **submits its artifact — which advances the card automatically**. `planning → review` and `implementation → audit` happen on submit; the `review` transition routes on the `review_note` verdict; `audit` is resolved by the orchestrator (PASS → `finished`, FAIL → stays in `audit` for human review). Wave agents do NOT call `agentboard_update_workspace_card` to move the card. The `workspace-orchestration` skill has the per-wave prompt templates and full pipeline logic.
 
 ---
 
@@ -342,11 +347,17 @@ There are two shapes depending on which workflow you're in (§0). Both share the
 6.   (do the work specific to your wave: planning agents write plans, review agents validate plans,
      implementation agents write code, audit agents verify against the plan + acceptance criteria)
 7.   agentboard_submit_workspace_artifact   -- append the typed artifact (plan / review_note /
-                                               implementation_note / audit_report). Append-only;
-                                               to correct a prior artifact, submit a new one.
-8.   agentboard_update_workspace_card       -- advance the card's column (planning → review,
-                                               review → implementation, implementation → audit,
-                                               audit → finished or back to implementation on FAIL)
+                                               implementation_note / audit_report). SUBMITTING IS WHAT ADVANCES
+                                               THE CARD: planning → review and implementation → audit happen
+                                               automatically on submit; the review transition routes on the
+                                               review_note's `## Verdict:` marker (PASS → implementation,
+                                               FAIL → planning); audit is resolved by the orchestrator. All
+                                               server/orchestrator-side (§2.6). Storage is append-only; a new
+                                               same-type deliverable auto-supersedes the prior one (§2.6).
+8.   (no manual card move)                  -- do NOT call agentboard_update_workspace_card to move the card
+                                               through the pipeline; submission drives advancement. Use
+                                               update_workspace_card only to append notes or update fields
+                                               (title, description, files_touched, priority).
 9.   Repeat for the next card you claim, or end the session if /orchestrate handed you a single card.
 ```
 

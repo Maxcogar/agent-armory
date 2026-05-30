@@ -122,12 +122,16 @@ The same applies in the other direction: do not fail a plan because earlier retr
 Submit a `review_note` artifact using `mcp__agentboard__agentboard_submit_workspace_artifact`:
 - card_id: `{{card_id}}`
 - agent_id: `{{agent_id}}`
-- content: Approval summary
+- content: see template below
 - type: `review_note`
+
+The server reads the `## Verdict:` heading and auto-advances the card to `implementation` (non-blocking mode) or leaves it in `review` for human approval (blocking mode). Do NOT call `mcp__agentboard__agentboard_update_workspace_card` to move the card — the server handles routing automatically per the verdict.
 
 Format:
 ```markdown
 # Review: PASS
+
+## Verdict: PASS
 
 ## Validation Results
 - Files verified: [count, list paths]
@@ -167,22 +171,24 @@ None.
 ## Notes
 - [Non-actionable observations only. If you would phrase something as "could be improved," "consider," "minor concern," "risk to watch," or "might want to" — that's an actionable issue, which means FAIL, not a PASS with a note.]
 
-## Verdict
+## Summary
 Plan is correct, complete, and ready for implementation.
 ```
 
 ### If FAIL:
 
-Update the card with rejection feedback using `mcp__agentboard__agentboard_update_workspace_card`:
+Submit a `review_note` artifact using `mcp__agentboard__agentboard_submit_workspace_artifact`:
 - card_id: `{{card_id}}`
 - agent_id: `{{agent_id}}`
-- status: `planning`
-- notes: Detailed rejection feedback
+- content: see template below
+- type: `review_note`
 
-Then submit a `review_note` artifact:
+The server reads the `## Verdict:` heading and auto-routes the card back to `planning`. Do NOT call `mcp__agentboard__agentboard_update_workspace_card` — the server handles routing automatically per the verdict.
 
 ```markdown
 # Review: FAIL
+
+## Verdict: FAIL
 
 ## Findings Inventory
 
@@ -219,7 +225,7 @@ Then submit a `review_note` artifact:
 - Premise axis — what was verified: [...]
 - Premise axis — what was NOT verified: [...]
 
-## Verdict
+## Summary
 Plan rejected. All confirmed findings must be addressed before resubmission. Critical issues are non-negotiable. Tentative findings should be addressed if the planning agent has access to the verification source.
 ```
 </pass-fail-examples>
@@ -236,3 +242,5 @@ Plan rejected. All confirmed findings must be addressed before resubmission. Cri
 - Do NOT skip the Expert Evaluation Pass or the Re-Evaluation Pass. They are the substantive part of the review — the binary form tests are the floor, not the ceiling.
 - Required fixes in FAIL artifacts must be specific enough that the planning agent can execute them without further interpretation
 - Use agent_id `{{agent_id}}` for all MCP calls
+- The `## Verdict: PASS` or `## Verdict: FAIL` heading is MANDATORY — a level-2 markdown heading on its own line with the value inline. Without it the server returns HTTP 422 (`REVIEW_NOTE_MISSING_VERDICT`); read the response's `instructions_for_agents` field and resubmit with the marker. The app is NOT broken — the body is just missing the verdict line.
+- Do NOT call `mcp__agentboard__agentboard_update_workspace_card` to move the card. Submitting the `review_note` with the `## Verdict:` marker causes the server to auto-route — `## Verdict: FAIL` back to `planning`, `## Verdict: PASS` forward to `implementation` (non-blocking) or held in `review` (blocking), in both modes. The card-move path documented in older versions of this template has been removed.

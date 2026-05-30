@@ -93,11 +93,14 @@ Submit with `agentboard_submit_workspace_artifact`:
 - `type`: `audit_report`
 - `content`: the full audit report (see format below)
 
-### 9. Move the card
+### 9. Do not move the card
 
-Call `agentboard_update_workspace_card`:
-- **PASS or PASS WITH NOTES:** set `status` to `finished`
-- **FAIL:** set `status` to `implementation` and add a `notes` entry that lists every finding the implementation agent must fix before the card can pass audit
+Submitting the `audit_report` in step 8 is your last action. **You do not move the card** — its routing is owned by the server and the orchestrator, not the audit agent. The `## Verdict:` line in your report is read by the orchestrator and the human, not by the server (the server's audit advance is content-blind):
+
+- **Non-blocking audit board** (`audit_blocking: false`): the server auto-advances the card to `finished` on submit, regardless of your verdict.
+- **Blocking audit board** (`audit_blocking: true`): the card holds in `audit`. The orchestrator reports your verdict to the user, who decides whether to rework (move back to `implementation`) or accept and finish.
+
+Do NOT call `agentboard_update_workspace_card` to move the card — manually moving it fights the server's auto-advance and the orchestrator's checkpoint and is almost always wrong. Every finding the implementation agent needs on a rework is already in the `audit_report` body.
 
 ---
 
@@ -156,3 +159,4 @@ For each check, state PASS, FAIL, or N/A with a one-sentence rationale:
 - Use the given `agent_id` for all MCP calls
 - Be thorough but fair — minor style differences are not failures
 - A FAIL verdict must include at least one Critical or Major finding
+- Do NOT call `agentboard_update_workspace_card` to move the card — submitting the `audit_report` is your last action; card routing is handled by the server and the orchestrator (see step 9)
