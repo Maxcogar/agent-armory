@@ -26,6 +26,10 @@ Automatically ignores: `node_modules`, `.git`, `dist`, `build`, `__pycache__`, `
 | `codegraph_get_change_impact` | Full blast radius if file(s) change (direct + transitive) |
 | `codegraph_get_subgraph` | Local neighborhood around a file (configurable depth) |
 | `codegraph_find_entry_points` | Files at the top of the tree (nothing imports them) |
+| `codegraph_find_cycles` | Circular dependencies (SCC analysis), each ring reported once |
+| `codegraph_get_path_between` | Shortest dependency chain A→…→B ("why does A depend on B?") |
+| `codegraph_find_orphans` | Fully isolated files — zero dependents **and** zero dependencies (dead-code candidates) |
+| `codegraph_get_layers` | Dependency layers / architectural tiers via topological sort (cycle-safe) |
 | `codegraph_list_files` | All **code** files in the graph, with language filter + pagination |
 | `codegraph_list_docs` | All **documentation** files (`.md`, `.mdx`, `.rst`, `.txt`) scanned, with reference counts + pagination |
 | `codegraph_get_stats` | Codebase overview: most connected, most depended-on, etc. |

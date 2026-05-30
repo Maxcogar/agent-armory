@@ -436,3 +436,302 @@ export function findEntryPoints(graph: DependencyGraph): string[] {
   }
   return entries;
 }
+
+/**
+ * Find orphan (dead) files: zero dependents AND zero dependencies. These are
+ * isolated nodes — nothing imports them and they import nothing in-project.
+ *
+ * This is a distinct concept from an entry point. An entry point has
+ * dependencies but no dependents (a root that pulls others in); an orphan has
+ * neither. `findEntryPoints` deliberately excludes orphans, so without this
+ * function isolated files are invisible to every tool.
+ */
+export function findOrphans(graph: DependencyGraph): string[] {
+  const orphans: string[] = [];
+  for (const [filePath, node] of graph.nodes) {
+    if (node.dependents.length === 0 && node.dependencies.length === 0) {
+      orphans.push(filePath);
+    }
+  }
+  return orphans;
+}
+
+/**
+ * Shortest dependency path from `from` to `to`, following the `dependencies`
+ * (import) direction. Returns the chain of absolute paths inclusive of both
+ * endpoints, or null if `to` is not reachable from `from`.
+ *
+ * BFS gives the fewest-hops path and is deterministic given a stable neighbour
+ * order. Used to answer "why does A depend on B?".
+ */
+export function findDependencyPath(
+  graph: DependencyGraph,
+  from: string,
+  to: string
+): string[] | null {
+  if (from === to) return [from];
+
+  const prev = new Map<string, string>();
+  const visited = new Set<string>([from]);
+  const queue: string[] = [from];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    const node = graph.nodes.get(current);
+    if (!node) continue;
+
+    for (const dep of node.dependencies) {
+      if (visited.has(dep)) continue;
+      visited.add(dep);
+      prev.set(dep, current);
+      if (dep === to) {
+        // Reconstruct the path back to `from`.
+        const path: string[] = [to];
+        let step = to;
+        while (step !== from) {
+          step = prev.get(step)!;
+          path.push(step);
+        }
+        return path.reverse();
+      }
+      queue.push(dep);
+    }
+  }
+
+  return null;
+}
+
+// ============================================================
+// Strongly Connected Components (Tarjan) — cycle detection
+// ============================================================
+
+/**
+ * Tarjan's algorithm: partition the graph into strongly connected components
+ * over the `dependencies` edges. Returns each SCC as a list of absolute paths.
+ * Iterative (explicit stack) to avoid blowing the call stack on large graphs.
+ */
+export function stronglyConnectedComponents(graph: DependencyGraph): string[][] {
+  let index = 0;
+  const indices = new Map<string, number>();
+  const lowlink = new Map<string, number>();
+  const onStack = new Set<string>();
+  const stack: string[] = [];
+  const sccs: string[][] = [];
+
+  // Iterative DFS frame: a node plus the position of the next neighbour to visit.
+  interface Frame {
+    node: string;
+    deps: string[];
+    i: number;
+  }
+
+  for (const start of graph.nodes.keys()) {
+    if (indices.has(start)) continue;
+
+    const callStack: Frame[] = [
+      { node: start, deps: graph.nodes.get(start)!.dependencies, i: 0 },
+    ];
+    indices.set(start, index);
+    lowlink.set(start, index);
+    index++;
+    stack.push(start);
+    onStack.add(start);
+
+    while (callStack.length > 0) {
+      const frame = callStack[callStack.length - 1];
+      const { node, deps } = frame;
+
+      if (frame.i < deps.length) {
+        const dep = deps[frame.i];
+        frame.i++;
+        if (!graph.nodes.has(dep)) continue; // edge to a non-node; skip
+        if (!indices.has(dep)) {
+          indices.set(dep, index);
+          lowlink.set(dep, index);
+          index++;
+          stack.push(dep);
+          onStack.add(dep);
+          callStack.push({
+            node: dep,
+            deps: graph.nodes.get(dep)!.dependencies,
+            i: 0,
+          });
+        } else if (onStack.has(dep)) {
+          lowlink.set(node, Math.min(lowlink.get(node)!, indices.get(dep)!));
+        }
+      } else {
+        // Done with this node's neighbours; settle its lowlink into its parent.
+        if (lowlink.get(node) === indices.get(node)) {
+          const component: string[] = [];
+          let w: string;
+          do {
+            w = stack.pop()!;
+            onStack.delete(w);
+            component.push(w);
+          } while (w !== node);
+          sccs.push(component);
+        }
+        callStack.pop();
+        const parent = callStack[callStack.length - 1];
+        if (parent) {
+          lowlink.set(
+            parent.node,
+            Math.min(lowlink.get(parent.node)!, lowlink.get(node)!)
+          );
+        }
+      }
+    }
+  }
+
+  return sccs;
+}
+
+/**
+ * Detect dependency cycles. A cycle is any SCC of size > 1, plus any single
+ * node with a self-edge (a file importing itself, which Tarjan reports as a
+ * singleton SCC). Each cycle is returned as an ordered ring of absolute paths,
+ * normalized to start at the lexicographically smallest member so the same
+ * cycle isn't reported in N rotations.
+ */
+export function findCycles(graph: DependencyGraph): string[][] {
+  const cycles: string[][] = [];
+
+  for (const scc of stronglyConnectedComponents(graph)) {
+    if (scc.length > 1) {
+      cycles.push(orderCycle(graph, scc));
+    } else {
+      // Singleton SCC is a cycle only if it has a self-edge.
+      const only = scc[0];
+      if (graph.nodes.get(only)?.dependencies.includes(only)) {
+        cycles.push([only]);
+      }
+    }
+  }
+
+  // Deterministic order: by smallest member.
+  cycles.sort((a, b) => a[0].localeCompare(b[0]));
+  return cycles;
+}
+
+/**
+ * Order an SCC's members into a readable ring by walking dependency edges that
+ * stay inside the component, starting from its lexicographically smallest node.
+ */
+function orderCycle(graph: DependencyGraph, scc: string[]): string[] {
+  const members = new Set(scc);
+  const start = [...scc].sort((a, b) => a.localeCompare(b))[0];
+
+  const ring: string[] = [start];
+  const visited = new Set<string>([start]);
+  let current = start;
+
+  while (ring.length < scc.length) {
+    const node = graph.nodes.get(current);
+    const next = node?.dependencies.find(
+      (d) => members.has(d) && !visited.has(d)
+    );
+    if (!next) break; // defensive: shouldn't happen in a true SCC
+    ring.push(next);
+    visited.add(next);
+    current = next;
+  }
+
+  return ring;
+}
+
+// ============================================================
+// Topological layering (over the SCC condensation)
+// ============================================================
+
+export interface GraphLayers {
+  layers: string[][];
+  depth: number;
+  cyclic: boolean;
+  cyclicNodes: string[];
+}
+
+/**
+ * Partition files into dependency layers. Layer 0 holds files that import
+ * nothing in-project; each subsequent layer holds files whose dependencies all
+ * live in earlier layers.
+ *
+ * Cycles break a plain topological sort, so we first condense each SCC into a
+ * super-node (the condensation is always a DAG), layer that via Kahn's
+ * algorithm, then expand super-nodes back to their members. Files participating
+ * in a cycle are reported in `cyclicNodes`.
+ */
+export function computeLayers(graph: DependencyGraph): GraphLayers {
+  const sccs = stronglyConnectedComponents(graph);
+
+  // Map each node to its component id.
+  const compOf = new Map<string, number>();
+  sccs.forEach((scc, id) => scc.forEach((n) => compOf.set(n, id)));
+
+  // Build the condensation DAG: edges between distinct components, and track
+  // in-degree for Kahn. A component is cyclic if it has >1 member or a self-edge.
+  const compDeps = new Map<number, Set<number>>();
+  const indegree = new Map<number, number>();
+  const cyclicComp = new Set<number>();
+  for (let id = 0; id < sccs.length; id++) {
+    compDeps.set(id, new Set());
+    indegree.set(id, 0);
+    if (sccs[id].length > 1) cyclicComp.add(id);
+  }
+  for (const [node, nodeData] of graph.nodes) {
+    const from = compOf.get(node)!;
+    for (const dep of nodeData.dependencies) {
+      if (!compOf.has(dep)) continue;
+      const to = compOf.get(dep)!;
+      if (from === to) {
+        if (node === dep) cyclicComp.add(from); // self-edge
+        continue;
+      }
+      // Edge node -> dep means `from` depends on `to`; `to` must layer first.
+      if (!compDeps.get(to)!.has(from)) {
+        compDeps.get(to)!.add(from);
+        indegree.set(from, indegree.get(from)! + 1);
+      }
+    }
+  }
+
+  // Kahn layering on the condensation.
+  let frontier = [...indegree.keys()].filter((id) => indegree.get(id) === 0);
+  const compLayer = new Map<number, number>();
+  let layerIdx = 0;
+  let processed = 0;
+  while (frontier.length > 0) {
+    const next: number[] = [];
+    for (const id of frontier) {
+      compLayer.set(id, layerIdx);
+      processed++;
+      for (const dependent of compDeps.get(id)!) {
+        indegree.set(dependent, indegree.get(dependent)! - 1);
+        if (indegree.get(dependent) === 0) next.push(dependent);
+      }
+    }
+    frontier = next;
+    layerIdx++;
+  }
+
+  // Expand components into node layers.
+  const layers: string[][] = Array.from({ length: layerIdx }, () => []);
+  for (let id = 0; id < sccs.length; id++) {
+    const li = compLayer.get(id);
+    if (li === undefined) continue; // unreached (only if condensation had a cycle — impossible)
+    for (const node of sccs[id]) layers[li].push(node);
+  }
+  for (const layer of layers) layer.sort((a, b) => a.localeCompare(b));
+
+  const cyclicNodes: string[] = [];
+  for (const [node] of graph.nodes) {
+    if (cyclicComp.has(compOf.get(node)!)) cyclicNodes.push(node);
+  }
+  cyclicNodes.sort((a, b) => a.localeCompare(b));
+
+  return {
+    layers,
+    depth: layers.length,
+    cyclic: cyclicComp.size > 0,
+    cyclicNodes,
+  };
+}

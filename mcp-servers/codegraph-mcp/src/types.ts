@@ -127,6 +127,50 @@ export interface ConnectedFile {
 }
 
 // ============================================================
+// Graph Intelligence Types
+// ============================================================
+
+export interface CyclesResult {
+  [key: string]: unknown;
+  /** Each cycle as an ordered ring of files (normalized to start at the smallest path) */
+  cycles: FileRef[][];
+  count: number;
+  hasCycles: boolean;
+  /** True when more cycles existed than were returned (capped by max_cycles) */
+  truncated: boolean;
+}
+
+export interface PathBetweenResult {
+  [key: string]: unknown;
+  from: FileRef;
+  to: FileRef;
+  /** The dependency chain from->...->to, inclusive, or null if unreachable */
+  path: FileRef[] | null;
+  found: boolean;
+  /** Number of hops (edges) in the path; 0 when from === to, null when not found */
+  length: number | null;
+  /** Set when there is no forward path but `to` depends on `from` instead */
+  reverseExists?: boolean;
+}
+
+export interface OrphansResult {
+  [key: string]: unknown;
+  orphans: FileRef[];
+  count: number;
+}
+
+export interface LayersResult {
+  [key: string]: unknown;
+  /** Layer 0 imports nothing in-project; each later layer depends only on earlier ones */
+  layers: FileRef[][];
+  depth: number;
+  /** True when the graph contains at least one dependency cycle */
+  cyclic: boolean;
+  /** Files participating in a cycle (empty when acyclic) */
+  cyclicNodes: FileRef[];
+}
+
+// ============================================================
 // Documentation Graph Types
 // ============================================================
 

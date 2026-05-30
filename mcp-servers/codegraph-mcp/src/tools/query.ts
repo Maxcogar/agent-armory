@@ -14,10 +14,18 @@ import {
   DocRef,
   DocListRef,
   RelatedDocsResult,
+  CyclesResult,
+  PathBetweenResult,
+  OrphansResult,
+  LayersResult,
 } from "../types.js";
 import {
   findFileInGraph,
   findEntryPoints,
+  findOrphans,
+  findCycles,
+  findDependencyPath,
+  computeLayers,
   getTransitiveDependents,
   getTransitiveDependencies,
 } from "../graph.js";
@@ -422,5 +430,85 @@ export function toolGetStats(graph: DependencyGraph): GraphStats {
       allNodes.length > 0
         ? parseFloat((totalDeps / allNodes.length).toFixed(2))
         : 0,
+  };
+}
+
+// ============================================================
+// Graph Intelligence Tools
+// ============================================================
+
+/** codegraph_find_cycles */
+export function toolFindCycles(
+  graph: DependencyGraph,
+  maxCycles: number = 50
+): CyclesResult {
+  const all = findCycles(graph);
+  const page = all.slice(0, maxCycles);
+  return {
+    cycles: page.map((ring) => ring.map((f) => toFileRef(f, graph))),
+    count: all.length,
+    hasCycles: all.length > 0,
+    truncated: all.length > page.length,
+  };
+}
+
+/** codegraph_get_path_between */
+export function toolGetPathBetween(
+  graph: DependencyGraph,
+  fromQuery: string,
+  toQuery: string
+): PathBetweenResult | { error: string } {
+  const from = resolveSingleFile(graph, fromQuery);
+  if (from.error || !from.resolved) return { error: from.error! };
+  const to = resolveSingleFile(graph, toQuery);
+  if (to.error || !to.resolved) return { error: to.error! };
+
+  const chain = findDependencyPath(graph, from.resolved, to.resolved);
+  if (chain) {
+    return {
+      from: toFileRef(from.resolved, graph),
+      to: toFileRef(to.resolved, graph),
+      path: chain.map((f) => toFileRef(f, graph)),
+      found: true,
+      length: chain.length - 1,
+    };
+  }
+
+  // No forward path; report whether the reverse dependency exists as a hint.
+  const reverse = findDependencyPath(graph, to.resolved, from.resolved);
+  return {
+    from: toFileRef(from.resolved, graph),
+    to: toFileRef(to.resolved, graph),
+    path: null,
+    found: false,
+    length: null,
+    reverseExists: reverse !== null,
+  };
+}
+
+/** codegraph_find_orphans */
+export function toolFindOrphans(
+  graph: DependencyGraph,
+  language?: Language
+): OrphansResult {
+  const orphans = findOrphans(graph)
+    .filter((f) => !language || graph.nodes.get(f)?.language === language)
+    .sort((a, b) => {
+      const ra = graph.nodes.get(a)!.relativePath;
+      const rb = graph.nodes.get(b)!.relativePath;
+      return ra.localeCompare(rb);
+    })
+    .map((f) => toFileRef(f, graph));
+  return { orphans, count: orphans.length };
+}
+
+/** codegraph_get_layers */
+export function toolGetLayers(graph: DependencyGraph): LayersResult {
+  const { layers, depth, cyclic, cyclicNodes } = computeLayers(graph);
+  return {
+    layers: layers.map((layer) => layer.map((f) => toFileRef(f, graph))),
+    depth,
+    cyclic,
+    cyclicNodes: cyclicNodes.map((f) => toFileRef(f, graph)),
   };
 }

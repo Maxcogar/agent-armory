@@ -15,6 +15,10 @@ import {
   toolListDocs,
   toolGetStats,
   toolFindRelatedDocs,
+  toolFindCycles,
+  toolGetPathBetween,
+  toolFindOrphans,
+  toolGetLayers,
 } from "./tools/query.js";
 
 // ============================================================
@@ -552,6 +556,171 @@ Prerequisite: codegraph_scan must be called first.`,
   async () => {
     if (!currentGraph) return noGraphError();
     return okResponse(toolGetStats(currentGraph));
+  }
+);
+
+// ============================================================
+// Tool: codegraph_find_cycles
+// ============================================================
+
+server.registerTool(
+  "codegraph_find_cycles",
+  {
+    title: "Find Dependency Cycles",
+    description: `Detects circular dependencies in the graph — groups of files that import each other directly or transitively (A→B→C→A), plus any file that imports itself.
+
+Each cycle is returned once as an ordered ring of files, normalized to start at the lexicographically smallest path (so the same cycle is never reported in multiple rotations). Computed via strongly-connected-component analysis — deterministic, no guessing.
+
+Args:
+  - max_cycles (number, optional): Max cycles to return (default: 50). If more exist, "truncated" is true.
+
+Returns:
+  - cycles: Array of cycles, each an ordered array of files in the ring
+  - count: Total number of distinct cycles found
+  - hasCycles: Whether any cycle exists
+  - truncated: Whether more cycles existed than were returned
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {
+      max_cycles: z
+        .number()
+        .int()
+        .min(1)
+        .max(500)
+        .default(50)
+        .describe("Maximum number of cycles to return (default: 50)"),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ max_cycles }) => {
+    if (!currentGraph) return noGraphError();
+    return okResponse(toolFindCycles(currentGraph, max_cycles));
+  }
+);
+
+// ============================================================
+// Tool: codegraph_get_path_between
+// ============================================================
+
+server.registerTool(
+  "codegraph_get_path_between",
+  {
+    title: "Get Dependency Path Between Two Files",
+    description: `Finds the shortest dependency chain from one file to another, following the import direction. Answers "why does A depend on B?" by showing the exact chain A → ... → B.
+
+If there is no forward path, the result reports found=false and a "reverseExists" hint indicating whether B depends on A instead.
+
+Args:
+  - from (string): Starting file (relative, absolute, or filename)
+  - to (string): Target file (relative, absolute, or filename)
+
+Returns:
+  - from, to: The resolved endpoints
+  - path: The chain of files from->...->to (inclusive), or null if unreachable
+  - found: Whether a forward dependency path exists
+  - length: Number of hops in the path (0 if from===to, null if not found)
+  - reverseExists: When not found, whether the reverse path (to->from) exists
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {
+      from: z
+        .string()
+        .describe("Starting file (relative, absolute, or filename)"),
+      to: z
+        .string()
+        .describe("Target file (relative, absolute, or filename)"),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ from, to }) => {
+    if (!currentGraph) return noGraphError();
+    const result = toolGetPathBetween(currentGraph, from, to);
+    if (isToolError(result)) return errResponse(result.error);
+    return okResponse(result);
+  }
+);
+
+// ============================================================
+// Tool: codegraph_find_orphans
+// ============================================================
+
+server.registerTool(
+  "codegraph_find_orphans",
+  {
+    title: "Find Orphan (Dead) Files",
+    description: `Finds orphan files — files with zero dependents AND zero dependencies. Nothing imports them and they import nothing in-project, making them candidates for dead code.
+
+This is distinct from entry points: an entry point imports other files but has no dependents (a root). An orphan has neither. codegraph_find_entry_points deliberately excludes orphans, so this is the only tool that surfaces fully isolated files. (Note: a file may be legitimately isolated — e.g. a standalone script — so review before deleting.)
+
+Args:
+  - language (string, optional): Filter by language.
+
+Returns:
+  - orphans: Array of isolated files, sorted by path
+  - count: Number of orphans
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {
+      language: z
+        .enum(LANGUAGE_VALUES)
+        .optional()
+        .describe("Optional: filter by language"),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ language }) => {
+    if (!currentGraph) return noGraphError();
+    return okResponse(toolFindOrphans(currentGraph, language as Language | undefined));
+  }
+);
+
+// ============================================================
+// Tool: codegraph_get_layers
+// ============================================================
+
+server.registerTool(
+  "codegraph_get_layers",
+  {
+    title: "Get Dependency Layers",
+    description: `Partitions files into dependency layers (architectural tiers). Layer 0 contains files that import nothing in-project; each subsequent layer contains files whose dependencies all live in earlier layers. This reveals the depth and tiering of the codebase.
+
+Cycles cannot be topologically ordered, so files in a cycle are condensed together and reported in "cyclicNodes". The layering still completes (it never hangs or drops files) and "cyclic" is set true.
+
+Args: None
+
+Returns:
+  - layers: Array of layers, each an array of files (layer 0 = deepest dependencies)
+  - depth: Number of layers
+  - cyclic: Whether the graph contains any dependency cycle
+  - cyclicNodes: Files participating in a cycle (empty when acyclic)
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {},
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async () => {
+    if (!currentGraph) return noGraphError();
+    return okResponse(toolGetLayers(currentGraph));
   }
 );
 
