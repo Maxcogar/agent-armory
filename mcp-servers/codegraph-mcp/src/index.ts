@@ -65,6 +65,7 @@ const LANGUAGE_VALUES = [
   "python",
   "cpp",
   "arduino",
+  "config",
   "unknown",
 ] as const;
 

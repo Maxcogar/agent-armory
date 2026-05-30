@@ -131,6 +131,7 @@ const LANGUAGE_CLASS: Record<string, string> = {
   python: "py",
   cpp: "cpp",
   arduino: "ino",
+  config: "cfg",
   unknown: "unk",
 };
 
@@ -166,6 +167,7 @@ export function exportMermaid(
   lines.push("  classDef py fill:#3776ab,color:#fff;");
   lines.push("  classDef cpp fill:#00599c,color:#fff;");
   lines.push("  classDef ino fill:#00979d,color:#fff;");
+  lines.push("  classDef cfg fill:#6e5494,color:#fff;");
   lines.push("  classDef unk fill:#999,color:#fff;");
 
   return {

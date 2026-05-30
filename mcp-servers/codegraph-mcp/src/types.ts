@@ -2,7 +2,7 @@
 // Core Graph Types
 // ============================================================
 
-export type Language = "javascript" | "typescript" | "python" | "cpp" | "arduino" | "unknown";
+export type Language = "javascript" | "typescript" | "python" | "cpp" | "arduino" | "config" | "unknown";
 
 export interface FileNode {
   /** Normalized absolute path */

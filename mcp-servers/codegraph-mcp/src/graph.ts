@@ -13,15 +13,36 @@ import {
 import { parseJavaScriptDependencies, resolveJsImport, clearTsConfigCache } from "./parsers/javascript.js";
 import { parsePythonDependencies } from "./parsers/python.js";
 import { parseCppDependencies, collectCppSearchDirs } from "./parsers/cpp.js";
+import { parsePackageJsonDependencies } from "./parsers/packagejson.js";
+import { parseRequirementsTxtDependencies } from "./parsers/requirementstxt.js";
+import { parseGoModDependencies } from "./parsers/gomod.js";
 
 // ============================================================
 // Language Detection
 // ============================================================
 
+/** Package-manager manifest kinds whose local edges we resolve. */
+export type ManifestKind = "npm" | "pip" | "go";
+
+/**
+ * Classify a file as a dependency manifest by its (base) filename, or null if
+ * it is not a manifest. Dispatch is by exact name, not extension: package.json
+ * and go.mod are exact, while pip requirements files vary in name (e.g.
+ * requirements.txt, requirements-dev.txt, dev-requirements.txt).
+ */
+export function manifestKind(filePath: string): ManifestKind | null {
+  const base = path.basename(filePath).toLowerCase();
+  if (base === "package.json") return "npm";
+  if (base === "go.mod") return "go";
+  if (base.endsWith(".txt") && base.includes("requirements")) return "pip";
+  return null;
+}
+
 export function detectLanguage(filePath: string): Language {
   const ext = path.extname(filePath).toLowerCase();
   const base = path.basename(filePath).toLowerCase();
 
+  if (manifestKind(filePath) !== null) return "config";
   if ([".ts", ".tsx"].includes(ext)) return "typescript";
   if ([".js", ".jsx", ".mjs", ".cjs"].includes(ext)) return "javascript";
   if (ext === ".py") return "python";
@@ -42,6 +63,11 @@ export function detectLanguage(filePath: string): Language {
 const SUPPORTED_EXTENSIONS_GLOB =
   "**/*.{ts,tsx,js,jsx,mjs,cjs,py,cpp,cc,cxx,c,h,hpp,ino}";
 
+// Dependency manifests, matched by name rather than extension. The default
+// ignore patterns (node_modules, dist, .venv, ...) keep this from sweeping up
+// vendored manifests.
+const MANIFEST_GLOB = "**/{package.json,go.mod,*requirements*.txt}";
+
 export const DEFAULT_IGNORE_PATTERNS = [
   "**/node_modules/**",
   "**/.git/**",
@@ -57,12 +83,13 @@ export const DEFAULT_IGNORE_PATTERNS = [
 ];
 
 async function discoverFiles(rootDir: string, ignorePatterns?: string[]): Promise<string[]> {
-  return glob(SUPPORTED_EXTENSIONS_GLOB, {
-    cwd: rootDir,
-    absolute: true,
-    ignore: ignorePatterns ?? DEFAULT_IGNORE_PATTERNS,
-    nodir: true,
-  });
+  const ignore = ignorePatterns ?? DEFAULT_IGNORE_PATTERNS;
+  const [code, manifests] = await Promise.all([
+    glob(SUPPORTED_EXTENSIONS_GLOB, { cwd: rootDir, absolute: true, ignore, nodir: true }),
+    glob(MANIFEST_GLOB, { cwd: rootDir, absolute: true, ignore, nodir: true }),
+  ]);
+  // Dedupe in case a pattern overlap ever surfaces the same path twice.
+  return [...new Set([...code, ...manifests])];
 }
 
 // ============================================================
@@ -74,6 +101,44 @@ export interface BuildGraphOptions {
   ignorePatterns?: string[];
   /** Additional ignore patterns to append to the defaults. */
   additionalIgnorePatterns?: string[];
+}
+
+/**
+ * Build a name -> package.json map over all in-tree npm manifests, so a
+ * dependency referenced by name (the common monorepo/workspace case) can be
+ * resolved to a local edge. First declaration wins on a name collision.
+ */
+function buildLocalPackageMap(nodes: Map<string, FileNode>): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const [filePath, node] of nodes) {
+    if (node.language !== "config" || manifestKind(filePath) !== "npm") continue;
+    try {
+      const pkg = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+      if (pkg && typeof pkg.name === "string" && pkg.name && !map.has(pkg.name)) {
+        map.set(pkg.name, filePath);
+      }
+    } catch {
+      // Unparseable manifest: skip; the parse error is surfaced in the second pass.
+    }
+  }
+  return map;
+}
+
+/** Dispatch a manifest file to the parser for its package manager. */
+function parseManifestDependencies(
+  filePath: string,
+  localPackages: Map<string, string>
+): string[] {
+  switch (manifestKind(filePath)) {
+    case "npm":
+      return parsePackageJsonDependencies(filePath, localPackages);
+    case "pip":
+      return parseRequirementsTxtDependencies(filePath);
+    case "go":
+      return parseGoModDependencies(filePath);
+    default:
+      return [];
+  }
 }
 
 export async function buildDependencyGraph(
@@ -122,6 +187,10 @@ export async function buildDependencyGraph(
     });
   }
 
+  // Map in-tree npm package names to their package.json, so workspace deps
+  // referenced by name (workspace:* or plain semver) resolve to a local edge.
+  const localPackages = buildLocalPackageMap(nodes);
+
   // Second pass: parse dependencies for each file
   for (const [filePath, node] of nodes) {
     try {
@@ -138,6 +207,9 @@ export async function buildDependencyGraph(
         case "cpp":
         case "arduino":
           rawDeps = parseCppDependencies(filePath, cppSearchDirs);
+          break;
+        case "config":
+          rawDeps = parseManifestDependencies(filePath, localPackages);
           break;
         default:
           break;

@@ -14,6 +14,19 @@ No AI guessing — pure AST/regex parsing to map actual import/include relations
 | C++ | `.cpp`, `.c`, `.h`, `.hpp` | `#include "local.h"` |
 | Arduino | `.ino` | `#include "local.h"` |
 
+### Dependency manifests
+
+Package-manager manifests are also indexed as nodes, with edges to **local /
+workspace** dependencies only — the npm/PyPI/Go module universe is never pulled
+in. These edges live in the same graph as code imports, so every tool (impact,
+cycles, layers, export, …) works on them unchanged.
+
+| Manifest | Detected by | Local edges resolved |
+|---|---|---|
+| npm | `package.json` | `file:`/`link:` specifiers, and workspace packages referenced by name (`workspace:*` or a plain semver ref to an in-tree package) → that package's `package.json` |
+| pip | `*requirements*.txt` | `-r/--requirement` files, `-e/--editable` local packages, bare local paths → the referenced requirements file |
+| Go | `go.mod` | `replace … => ./local` directives → the replaced module's `go.mod` |
+
 Automatically ignores: `node_modules`, `.git`, `dist`, `build`, `__pycache__`, `.venv`, `.pio`, `*.min.js`
 
 ## Tools
