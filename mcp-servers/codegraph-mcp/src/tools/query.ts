@@ -12,6 +12,7 @@ import {
   ConnectedFile,
   Language,
   DocRef,
+  DocListRef,
   RelatedDocsResult,
 } from "../types.js";
 import {
@@ -245,6 +246,7 @@ export function toolListFiles(
   returned: number;
   offset: number;
   has_more: boolean;
+  note?: string;
 } {
   let files = [...graph.nodes.values()];
 
@@ -257,8 +259,60 @@ export function toolListFiles(
   const total = files.length;
   const page = files.slice(offset, offset + limit);
 
-  return {
+  const result: {
+    files: FileRef[];
+    total: number;
+    returned: number;
+    offset: number;
+    has_more: boolean;
+    note?: string;
+  } = {
     files: page.map((n) => toFileRef(n.path, graph)),
+    total,
+    returned: page.length,
+    offset,
+    has_more: offset + page.length < total,
+  };
+
+  // codegraph_list_files only returns code files (the dependency-graph nodes).
+  // Documentation files (.md/.mdx/.rst/.txt) are scanned into a separate index.
+  // If a project has no code files but does have docs, surface that explicitly
+  // so an empty result isn't mistaken for "nothing was scanned".
+  if (graph.nodes.size === 0 && graph.docNodes.size > 0) {
+    result.note =
+      `No code files are in the graph, but ${graph.docNodes.size} documentation ` +
+      `file(s) were scanned. codegraph_list_files only lists code (JS/TS/Python/C++). ` +
+      `Use codegraph_list_docs to list the documentation files.`;
+  }
+
+  return result;
+}
+
+/** codegraph_list_docs */
+export function toolListDocs(
+  graph: DependencyGraph,
+  limit: number = 200,
+  offset: number = 0
+): {
+  docs: DocListRef[];
+  total: number;
+  returned: number;
+  offset: number;
+  has_more: boolean;
+} {
+  const docs = [...graph.docNodes.values()].sort((a, b) =>
+    a.relativePath.localeCompare(b.relativePath)
+  );
+
+  const total = docs.length;
+  const page = docs.slice(offset, offset + limit);
+
+  return {
+    docs: page.map((d) => ({
+      path: d.path,
+      relativePath: d.relativePath,
+      referencedCodeFileCount: d.referencedCodeFiles.length,
+    })),
     total,
     returned: page.length,
     offset,

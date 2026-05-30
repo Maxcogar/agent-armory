@@ -149,6 +149,14 @@ export interface DocRef {
   reason: string;
 }
 
+export interface DocListRef {
+  [key: string]: unknown;
+  path: string;
+  relativePath: string;
+  /** Number of code files in the graph this doc references */
+  referencedCodeFileCount: number;
+}
+
 export interface RelatedDocsResult {
   [key: string]: unknown;
   /** The changed files that were analyzed */

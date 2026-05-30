@@ -26,9 +26,24 @@ Automatically ignores: `node_modules`, `.git`, `dist`, `build`, `__pycache__`, `
 | `codegraph_get_change_impact` | Full blast radius if file(s) change (direct + transitive) |
 | `codegraph_get_subgraph` | Local neighborhood around a file (configurable depth) |
 | `codegraph_find_entry_points` | Files at the top of the tree (nothing imports them) |
-| `codegraph_list_files` | All files in the graph, with language filter + pagination |
+| `codegraph_list_files` | All **code** files in the graph, with language filter + pagination |
+| `codegraph_list_docs` | All **documentation** files (`.md`, `.mdx`, `.rst`, `.txt`) scanned, with reference counts + pagination |
 | `codegraph_get_stats` | Codebase overview: most connected, most depended-on, etc. |
 | `codegraph_find_related_docs` | Find all documentation files affected by code changes |
+
+### Code files vs. documentation files
+
+codegraph keeps two separate indexes. **Code files** (`.ts`, `.js`, `.py`, `.cpp`,
+etc.) become graph nodes with import/include edges — these are what
+`codegraph_list_files`, `codegraph_get_stats`, and the dependency/impact tools
+operate on. **Documentation files** (`.md`, `.mdx`, `.rst`, `.txt`) are scanned
+into a separate index that records which code files each doc references.
+
+This means `codegraph_list_files` returns **nothing** for a docs-only directory
+(e.g. a plugin that's all markdown) — there are no code nodes to list. Use
+`codegraph_list_docs` to enumerate documentation. When `codegraph_list_files`
+finds no code but docs exist, its response includes a `note` pointing you to
+`codegraph_list_docs`.
 
 ### codegraph_find_related_docs
 

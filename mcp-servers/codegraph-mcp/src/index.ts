@@ -12,6 +12,7 @@ import {
   toolGetSubgraph,
   toolFindEntryPoints,
   toolListFiles,
+  toolListDocs,
   toolGetStats,
   toolFindRelatedDocs,
 } from "./tools/query.js";
@@ -456,6 +457,58 @@ Prerequisite: codegraph_scan must be called first.`,
       offset
     );
     return okResponse(result);
+  }
+);
+
+// ============================================================
+// Tool: codegraph_list_docs
+// ============================================================
+
+server.registerTool(
+  "codegraph_list_docs",
+  {
+    title: "List All Documentation Files in Graph",
+    description: `Lists all documentation files (.md, .mdx, .rst, .txt) discovered during the scan, sorted by relative path.
+
+codegraph_list_files only returns CODE files (the dependency-graph nodes). Documentation files are scanned into a separate index. Use THIS tool to enumerate docs — e.g. for a docs-only directory where codegraph_list_files returns nothing.
+
+Each entry includes how many code files in the graph the doc references (referencedCodeFileCount), which is useful for finding orphaned docs (count 0) or heavily cross-linked docs.
+
+Args:
+  - limit (number, optional): Max docs to return (default: 200, max: 500)
+  - offset (number, optional): Pagination offset (default: 0)
+
+Returns:
+  - docs: Array of doc references with path, relativePath, and referencedCodeFileCount
+  - total: Total doc count
+  - has_more: Whether there are more docs beyond this page
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {
+      limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(500)
+        .default(200)
+        .describe("Maximum docs to return (default: 200)"),
+      offset: z
+        .number()
+        .int()
+        .min(0)
+        .default(0)
+        .describe("Pagination offset (default: 0)"),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ limit, offset }) => {
+    if (!currentGraph) return noGraphError();
+    return okResponse(toolListDocs(currentGraph, limit, offset));
   }
 );
 

@@ -5,6 +5,27 @@
 
 ---
 
+## ⚠️ Status: RESOLVED (verified 2026-05-30)
+
+All findings in this report have since been fixed in the source. This document
+is retained for historical context only:
+
+- **Issue 1 (JS non-relative imports dropped):** Fixed. `src/parsers/javascript.ts`
+  now resolves TypeScript path aliases (`resolveWithTsPaths`) and `baseUrl`
+  imports (`resolveWithBaseUrl`) from `tsconfig.json` before discarding bare
+  specifiers.
+- **Issue 2 (hardcoded ignores):** Fixed. `codegraph_scan` accepts
+  `ignore_patterns` (replace) and `additional_ignore_patterns` (append).
+- **Issue 3 (Python regex bugs):** Fixed. `src/parsers/python.ts:32,42` use the
+  correct `[\w.]` / `[\w.,\s]` character classes (no malformed `[[\w.]`).
+
+Separately, a docs-discoverability gap found in the 2026-05-30 audit was fixed by
+adding the `codegraph_list_docs` tool (documentation files were scanned into the
+graph but had no listing tool, so `codegraph_list_files` returned nothing for
+docs-only directories).
+
+---
+
 ## Executive Summary
 
 The code graph MCP **does discover** backend `.js`/`.ts` files during its scan phase. The real problem is that **backend files appear disconnected/isolated in the graph** because the JavaScript parser only tracks **relative imports** — it silently drops all non-relative imports (package imports, path aliases, absolute imports). This makes backend files look like they have no connections, giving the impression they aren't being picked up at all.
