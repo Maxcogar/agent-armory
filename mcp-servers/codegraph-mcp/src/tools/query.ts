@@ -6,20 +6,34 @@ import {
   FileDependents,
   ChangeImpact,
   SubGraph,
-  SubGraphNode,
-  SubGraphEdge,
   GraphStats,
   ConnectedFile,
   Language,
   DocRef,
+  DocListRef,
   RelatedDocsResult,
+  CyclesResult,
+  PathBetweenResult,
+  OrphansResult,
+  LayersResult,
 } from "../types.js";
 import {
   findFileInGraph,
   findEntryPoints,
+  findOrphans,
+  findCycles,
+  findDependencyPath,
+  computeLayers,
+  collectSubgraph,
   getTransitiveDependents,
   getTransitiveDependencies,
 } from "../graph.js";
+import {
+  exportMermaid,
+  exportDot,
+  ExportResult,
+  ExportOptions,
+} from "../export.js";
 
 // ============================================================
 // Helpers
@@ -150,71 +164,12 @@ export function toolGetSubgraph(
   const { resolved, error } = resolveSingleFile(graph, fileQuery);
   if (error || !resolved) return { error: error! };
 
-  const centerNode = graph.nodes.get(resolved)!;
-  const nodesMap = new Map<string, SubGraphNode>();
-  const edges: SubGraphEdge[] = [];
-
-  // Add center
-  nodesMap.set(resolved, {
-    path: resolved,
-    relativePath: centerNode.relativePath,
-    language: centerNode.language,
-    distanceFromCenter: 0,
-    direction: "center",
-  });
-
-  // BFS in both directions up to `depth`
-  const queue: Array<{ filePath: string; dist: number; dir: "dependency" | "dependent" }> = [];
-
-  for (const dep of centerNode.dependencies) {
-    queue.push({ filePath: dep, dist: 1, dir: "dependency" });
-  }
-  for (const dep of centerNode.dependents) {
-    queue.push({ filePath: dep, dist: 1, dir: "dependent" });
-  }
-
-  while (queue.length > 0) {
-    const { filePath, dist, dir } = queue.shift()!;
-    if (nodesMap.has(filePath) || dist > depth) continue;
-
-    const n = graph.nodes.get(filePath);
-    if (!n) continue;
-
-    nodesMap.set(filePath, {
-      path: filePath,
-      relativePath: n.relativePath,
-      language: n.language,
-      distanceFromCenter: dist,
-      direction: dir,
-    });
-
-    if (dist < depth) {
-      if (dir === "dependency") {
-        for (const dep of n.dependencies) {
-          if (!nodesMap.has(dep)) queue.push({ filePath: dep, dist: dist + 1, dir: "dependency" });
-        }
-      } else {
-        for (const dep of n.dependents) {
-          if (!nodesMap.has(dep)) queue.push({ filePath: dep, dist: dist + 1, dir: "dependent" });
-        }
-      }
-    }
-  }
-
-  // Build edges (only between nodes in the subgraph)
-  for (const [from, fromNode] of graph.nodes) {
-    if (!nodesMap.has(from)) continue;
-    for (const to of fromNode.dependencies) {
-      if (nodesMap.has(to)) {
-        edges.push({ from, to, type: "imports" });
-      }
-    }
-  }
+  const { nodes, edges } = collectSubgraph(graph, resolved, depth);
 
   return {
     centerFile: toFileRef(resolved, graph),
     depth,
-    nodes: [...nodesMap.values()],
+    nodes: [...nodes.values()],
     edges,
   };
 }
@@ -245,6 +200,7 @@ export function toolListFiles(
   returned: number;
   offset: number;
   has_more: boolean;
+  note?: string;
 } {
   let files = [...graph.nodes.values()];
 
@@ -257,8 +213,60 @@ export function toolListFiles(
   const total = files.length;
   const page = files.slice(offset, offset + limit);
 
-  return {
+  const result: {
+    files: FileRef[];
+    total: number;
+    returned: number;
+    offset: number;
+    has_more: boolean;
+    note?: string;
+  } = {
     files: page.map((n) => toFileRef(n.path, graph)),
+    total,
+    returned: page.length,
+    offset,
+    has_more: offset + page.length < total,
+  };
+
+  // codegraph_list_files only returns code files (the dependency-graph nodes).
+  // Documentation files (.md/.mdx/.rst/.txt) are scanned into a separate index.
+  // If a project has no code files but does have docs, surface that explicitly
+  // so an empty result isn't mistaken for "nothing was scanned".
+  if (graph.nodes.size === 0 && graph.docNodes.size > 0) {
+    result.note =
+      `No code files are in the graph, but ${graph.docNodes.size} documentation ` +
+      `file(s) were scanned. codegraph_list_files only lists code (JS/TS/Python/C++). ` +
+      `Use codegraph_list_docs to list the documentation files.`;
+  }
+
+  return result;
+}
+
+/** codegraph_list_docs */
+export function toolListDocs(
+  graph: DependencyGraph,
+  limit: number = 200,
+  offset: number = 0
+): {
+  docs: DocListRef[];
+  total: number;
+  returned: number;
+  offset: number;
+  has_more: boolean;
+} {
+  const docs = [...graph.docNodes.values()].sort((a, b) =>
+    a.relativePath.localeCompare(b.relativePath)
+  );
+
+  const total = docs.length;
+  const page = docs.slice(offset, offset + limit);
+
+  return {
+    docs: page.map((d) => ({
+      path: d.path,
+      relativePath: d.relativePath,
+      referencedCodeFileCount: d.referencedCodeFiles.length,
+    })),
     total,
     returned: page.length,
     offset,
@@ -369,4 +377,143 @@ export function toolGetStats(graph: DependencyGraph): GraphStats {
         ? parseFloat((totalDeps / allNodes.length).toFixed(2))
         : 0,
   };
+}
+
+// ============================================================
+// Graph Intelligence Tools
+// ============================================================
+
+/** codegraph_find_cycles */
+export function toolFindCycles(
+  graph: DependencyGraph,
+  maxCycles: number = 50
+): CyclesResult {
+  const all = findCycles(graph);
+  const page = all.slice(0, maxCycles);
+  return {
+    cycles: page.map((ring) => ring.map((f) => toFileRef(f, graph))),
+    count: all.length,
+    hasCycles: all.length > 0,
+    truncated: all.length > page.length,
+  };
+}
+
+/** codegraph_get_path_between */
+export function toolGetPathBetween(
+  graph: DependencyGraph,
+  fromQuery: string,
+  toQuery: string
+): PathBetweenResult | { error: string } {
+  const from = resolveSingleFile(graph, fromQuery);
+  if (from.error || !from.resolved) return { error: from.error! };
+  const to = resolveSingleFile(graph, toQuery);
+  if (to.error || !to.resolved) return { error: to.error! };
+
+  const chain = findDependencyPath(graph, from.resolved, to.resolved);
+  if (chain) {
+    return {
+      from: toFileRef(from.resolved, graph),
+      to: toFileRef(to.resolved, graph),
+      path: chain.map((f) => toFileRef(f, graph)),
+      found: true,
+      length: chain.length - 1,
+    };
+  }
+
+  // No forward path; report whether the reverse dependency exists as a hint.
+  const reverse = findDependencyPath(graph, to.resolved, from.resolved);
+  return {
+    from: toFileRef(from.resolved, graph),
+    to: toFileRef(to.resolved, graph),
+    path: null,
+    found: false,
+    length: null,
+    reverseExists: reverse !== null,
+  };
+}
+
+/** codegraph_find_orphans */
+export function toolFindOrphans(
+  graph: DependencyGraph,
+  language?: Language
+): OrphansResult {
+  const orphans = findOrphans(graph)
+    .filter((f) => !language || graph.nodes.get(f)?.language === language)
+    .sort((a, b) => {
+      const ra = graph.nodes.get(a)!.relativePath;
+      const rb = graph.nodes.get(b)!.relativePath;
+      return ra.localeCompare(rb);
+    })
+    .map((f) => toFileRef(f, graph));
+  return { orphans, count: orphans.length };
+}
+
+/** codegraph_get_layers */
+export function toolGetLayers(graph: DependencyGraph): LayersResult {
+  const { layers, depth, cyclic, cyclicNodes } = computeLayers(graph);
+  return {
+    layers: layers.map((layer) => layer.map((f) => toFileRef(f, graph))),
+    depth,
+    cyclic,
+    cyclicNodes: cyclicNodes.map((f) => toFileRef(f, graph)),
+  };
+}
+
+// ============================================================
+// Visualization export tools
+// ============================================================
+
+export interface ExportArgs {
+  file?: string;
+  depth: number;
+  language?: Language;
+  maxNodes: number;
+}
+
+/**
+ * Resolve the optional `file` arg to a concrete center path, returning the
+ * ExportOptions both exporters consume. Centralizes resolution so
+ * codegraph_export_mermaid and codegraph_export_dot behave identically.
+ */
+export function resolveExportOptions(
+  graph: DependencyGraph,
+  args: ExportArgs
+): ExportOptions | { error: string } {
+  if (args.file === undefined) {
+    return { depth: args.depth, language: args.language, maxNodes: args.maxNodes };
+  }
+  const { resolved, error } = resolveSingleFile(graph, args.file);
+  if (error || !resolved) return { error: error! };
+  return {
+    center: resolved,
+    depth: args.depth,
+    language: args.language,
+    maxNodes: args.maxNodes,
+  };
+}
+
+/** codegraph_export_mermaid */
+export function toolExportMermaid(
+  graph: DependencyGraph,
+  args: ExportArgs
+): ExportResult | { error: string } {
+  const opts = resolveExportOptions(graph, args);
+  if (isExportError(opts)) return opts;
+  return exportMermaid(graph, opts);
+}
+
+/** codegraph_export_dot */
+export function toolExportDot(
+  graph: DependencyGraph,
+  args: ExportArgs
+): ExportResult | { error: string } {
+  const opts = resolveExportOptions(graph, args);
+  if (isExportError(opts)) return opts;
+  return exportDot(graph, opts);
+}
+
+function isExportError(
+  v: ExportOptions | { error: string }
+): v is { error: string } {
+  return (v as { error: string }).error !== undefined;
 }

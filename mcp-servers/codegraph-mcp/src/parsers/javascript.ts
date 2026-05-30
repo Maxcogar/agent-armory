@@ -122,6 +122,19 @@ export function clearTsConfigCache(): void {
  * Handles: import ... from '...', require('...'), dynamic import('...')
  * Resolves relative imports, TypeScript path aliases, and baseUrl imports.
  */
+/**
+ * Remove line (`//`) and block (slash-star) comments from JS/TS source so that
+ * commented-out imports are not counted as real dependencies. String and
+ * template literals are preserved so their contents (which may legitimately
+ * contain `//` or import-like text) are untouched.
+ */
+export function stripJsComments(src: string): string {
+  return src.replace(
+    /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`|\/\*[\s\S]*?\*\/|\/\/[^\n]*/g,
+    (m) => (m[0] === '"' || m[0] === "'" || m[0] === "`" ? m : " ")
+  );
+}
+
 export function parseJavaScriptDependencies(filePath: string, rootDir?: string): string[] {
   let content: string;
   try {
@@ -129,6 +142,8 @@ export function parseJavaScriptDependencies(filePath: string, rootDir?: string):
   } catch {
     return [];
   }
+
+  content = stripJsComments(content);
 
   const importPaths = new Set<string>();
   const dir = path.dirname(filePath);

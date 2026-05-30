@@ -17,8 +17,9 @@ export function parsePythonDependencies(filePath: string, rootDir: string): stri
   const fileDir = path.dirname(filePath);
   const packageRoot = findPythonPackageRoot(filePath, rootDir);
 
-  // from .module import x  OR  from ..module import x (relative)
-  const relativeImport = /^from\s+(\.+)([\w.]*)\s+import\s+/gm;
+  // from .module import x  OR  from ..module import x (relative).
+  // Allow leading indentation so conditional/function-level imports are caught.
+  const relativeImport = /^[ \t]*from\s+(\.+)([\w.]*)\s+import\s+/gm;
   let match: RegExpExecArray | null;
 
   while ((match = relativeImport.exec(content)) !== null) {
@@ -29,7 +30,7 @@ export function parsePythonDependencies(filePath: string, rootDir: string): stri
   }
 
   // from package.module import x (absolute)
-  const absoluteFromImport = /^from\s+([\w][\w.]*)\s+import\s+/gm;
+  const absoluteFromImport = /^[ \t]*from\s+([\w][\w.]*)\s+import\s+/gm;
   while ((match = absoluteFromImport.exec(content)) !== null) {
     const modulePath = match[1];
     if (!modulePath.startsWith(".")) {
@@ -38,8 +39,11 @@ export function parsePythonDependencies(filePath: string, rootDir: string): stri
     }
   }
 
-  // import module (absolute)
-  const directImport = /^import\s+([\w][\w.,\s]*)/gm;
+  // import module  /  import a, b  /  import a as alias (absolute).
+  // The character class must NOT include \s (it matches newlines, which would
+  // make a single `import` greedily swallow every following import line and
+  // resolve to nothing). Restrict intra-statement whitespace to spaces/tabs.
+  const directImport = /^[ \t]*import\s+([\w][\w., \t]*)/gm;
   while ((match = directImport.exec(content)) !== null) {
     // Handle "import a, b, c"
     const modules = match[1].split(",").map((m) => m.trim().split(" ")[0]);

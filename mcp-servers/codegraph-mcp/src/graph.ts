@@ -7,19 +7,42 @@ import {
   FileNode,
   Language,
   ParseError,
+  SubGraphNode,
+  SubGraphEdge,
 } from "./types.js";
 import { parseJavaScriptDependencies, resolveJsImport, clearTsConfigCache } from "./parsers/javascript.js";
 import { parsePythonDependencies } from "./parsers/python.js";
 import { parseCppDependencies, collectCppSearchDirs } from "./parsers/cpp.js";
+import { parsePackageJsonDependencies } from "./parsers/packagejson.js";
+import { parseRequirementsTxtDependencies } from "./parsers/requirementstxt.js";
+import { parseGoModDependencies } from "./parsers/gomod.js";
 
 // ============================================================
 // Language Detection
 // ============================================================
 
+/** Package-manager manifest kinds whose local edges we resolve. */
+export type ManifestKind = "npm" | "pip" | "go";
+
+/**
+ * Classify a file as a dependency manifest by its (base) filename, or null if
+ * it is not a manifest. Dispatch is by exact name, not extension: package.json
+ * and go.mod are exact, while pip requirements files vary in name (e.g.
+ * requirements.txt, requirements-dev.txt, dev-requirements.txt).
+ */
+export function manifestKind(filePath: string): ManifestKind | null {
+  const base = path.basename(filePath).toLowerCase();
+  if (base === "package.json") return "npm";
+  if (base === "go.mod") return "go";
+  if (base.endsWith(".txt") && base.includes("requirements")) return "pip";
+  return null;
+}
+
 export function detectLanguage(filePath: string): Language {
   const ext = path.extname(filePath).toLowerCase();
   const base = path.basename(filePath).toLowerCase();
 
+  if (manifestKind(filePath) !== null) return "config";
   if ([".ts", ".tsx"].includes(ext)) return "typescript";
   if ([".js", ".jsx", ".mjs", ".cjs"].includes(ext)) return "javascript";
   if (ext === ".py") return "python";
@@ -40,6 +63,11 @@ export function detectLanguage(filePath: string): Language {
 const SUPPORTED_EXTENSIONS_GLOB =
   "**/*.{ts,tsx,js,jsx,mjs,cjs,py,cpp,cc,cxx,c,h,hpp,ino}";
 
+// Dependency manifests, matched by name rather than extension. The default
+// ignore patterns (node_modules, dist, .venv, ...) keep this from sweeping up
+// vendored manifests.
+const MANIFEST_GLOB = "**/{package.json,go.mod,*requirements*.txt}";
+
 export const DEFAULT_IGNORE_PATTERNS = [
   "**/node_modules/**",
   "**/.git/**",
@@ -55,12 +83,13 @@ export const DEFAULT_IGNORE_PATTERNS = [
 ];
 
 async function discoverFiles(rootDir: string, ignorePatterns?: string[]): Promise<string[]> {
-  return glob(SUPPORTED_EXTENSIONS_GLOB, {
-    cwd: rootDir,
-    absolute: true,
-    ignore: ignorePatterns ?? DEFAULT_IGNORE_PATTERNS,
-    nodir: true,
-  });
+  const ignore = ignorePatterns ?? DEFAULT_IGNORE_PATTERNS;
+  const [code, manifests] = await Promise.all([
+    glob(SUPPORTED_EXTENSIONS_GLOB, { cwd: rootDir, absolute: true, ignore, nodir: true }),
+    glob(MANIFEST_GLOB, { cwd: rootDir, absolute: true, ignore, nodir: true }),
+  ]);
+  // Dedupe in case a pattern overlap ever surfaces the same path twice.
+  return [...new Set([...code, ...manifests])];
 }
 
 // ============================================================
@@ -74,6 +103,104 @@ export interface BuildGraphOptions {
   additionalIgnorePatterns?: string[];
 }
 
+/**
+ * Build a name -> package.json map over all in-tree npm manifests, so a
+ * dependency referenced by name (the common monorepo/workspace case) can be
+ * resolved to a local edge. First declaration wins on a name collision.
+ */
+function buildLocalPackageMap(nodes: Map<string, FileNode>): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const [filePath, node] of nodes) {
+    if (node.language !== "config" || manifestKind(filePath) !== "npm") continue;
+    try {
+      const pkg = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+      if (pkg && typeof pkg.name === "string" && pkg.name && !map.has(pkg.name)) {
+        map.set(pkg.name, filePath);
+      }
+    } catch {
+      // Unparseable manifest: skip; the parse error is surfaced in the second pass.
+    }
+  }
+  return map;
+}
+
+/** Dispatch a manifest file to the parser for its package manager. */
+function parseManifestDependencies(
+  filePath: string,
+  localPackages: Map<string, string>
+): string[] {
+  switch (manifestKind(filePath)) {
+    case "npm":
+      return parsePackageJsonDependencies(filePath, localPackages);
+    case "pip":
+      return parseRequirementsTxtDependencies(filePath);
+    case "go":
+      return parseGoModDependencies(filePath);
+    default:
+      return [];
+  }
+}
+
+/** Everything a single-file parse needs that is derived once per scan. */
+interface ParseContext {
+  rootDir: string;
+  cppSearchDirs: string[];
+  localPackages: Map<string, string>;
+}
+
+/**
+ * Parse one file's raw (unfiltered) dependency targets by language. The single
+ * dispatch point shared by the full build and incremental updates, so both
+ * resolve imports identically.
+ */
+function parseNodeDependencies(
+  filePath: string,
+  language: Language,
+  ctx: ParseContext
+): string[] {
+  switch (language) {
+    case "typescript":
+    case "javascript":
+      return parseJavaScriptDependencies(filePath, ctx.rootDir);
+    case "python":
+      return parsePythonDependencies(filePath, ctx.rootDir);
+    case "cpp":
+    case "arduino":
+      return parseCppDependencies(filePath, ctx.cppSearchDirs);
+    case "config":
+      return parseManifestDependencies(filePath, ctx.localPackages);
+    default:
+      return [];
+  }
+}
+
+/**
+ * Recompute every node's `dependents` from the forward `dependencies` edges.
+ * Deriving reverse edges in a single pass (rather than patching them) keeps
+ * them consistent after incremental updates — there is no way to leave a stale
+ * dependent behind.
+ */
+function computeDependents(nodes: Map<string, FileNode>): void {
+  for (const node of nodes.values()) node.dependents = [];
+  for (const [filePath, node] of nodes) {
+    for (const dep of node.dependencies) {
+      const depNode = nodes.get(dep);
+      if (depNode && !depNode.dependents.includes(filePath)) {
+        depNode.dependents.push(filePath);
+      }
+    }
+  }
+}
+
+/** Resolve the effective ignore globs from build options (shared by full + incremental). */
+function resolveIgnorePatterns(options?: BuildGraphOptions): string[] | undefined {
+  if (options?.ignorePatterns) return options.ignorePatterns;
+  if (options?.additionalIgnorePatterns?.length) {
+    return [...DEFAULT_IGNORE_PATTERNS, ...options.additionalIgnorePatterns];
+  }
+  return undefined;
+}
+
 export async function buildDependencyGraph(
   rootDir: string,
   options?: BuildGraphOptions
@@ -84,13 +211,7 @@ export async function buildDependencyGraph(
   // Clear tsconfig cache on each scan to pick up config changes
   clearTsConfigCache();
 
-  // Merge ignore patterns
-  let ignorePatterns: string[] | undefined;
-  if (options?.ignorePatterns) {
-    ignorePatterns = options.ignorePatterns;
-  } else if (options?.additionalIgnorePatterns?.length) {
-    ignorePatterns = [...DEFAULT_IGNORE_PATTERNS, ...options.additionalIgnorePatterns];
-  }
+  const ignorePatterns = resolveIgnorePatterns(options);
 
   // Discover all files
   const files = await discoverFiles(normalizedRoot, ignorePatterns);
@@ -120,38 +241,17 @@ export async function buildDependencyGraph(
     });
   }
 
+  // Map in-tree npm package names to their package.json, so workspace deps
+  // referenced by name (workspace:* or plain semver) resolve to a local edge.
+  const localPackages = buildLocalPackageMap(nodes);
+
   // Second pass: parse dependencies for each file
+  const ctx: ParseContext = { rootDir: normalizedRoot, cppSearchDirs, localPackages };
   for (const [filePath, node] of nodes) {
     try {
-      let rawDeps: string[] = [];
-
-      switch (node.language) {
-        case "typescript":
-        case "javascript":
-          rawDeps = parseJavaScriptDependencies(filePath, normalizedRoot);
-          break;
-        case "python":
-          rawDeps = parsePythonDependencies(filePath, normalizedRoot);
-          break;
-        case "cpp":
-        case "arduino":
-          rawDeps = parseCppDependencies(filePath, cppSearchDirs);
-          break;
-        default:
-          break;
-      }
-
-      // Only keep deps that are in the graph (i.e., part of the project)
-      const validDeps = rawDeps.filter((dep) => nodes.has(dep));
-      node.dependencies = validDeps;
-
-      // Register reverse edges (dependents)
-      for (const dep of validDeps) {
-        const depNode = nodes.get(dep);
-        if (depNode && !depNode.dependents.includes(filePath)) {
-          depNode.dependents.push(filePath);
-        }
-      }
+      const rawDeps = parseNodeDependencies(filePath, node.language, ctx);
+      // Only keep deps that are in the graph (i.e., part of the project).
+      node.dependencies = rawDeps.filter((dep) => nodes.has(dep));
     } catch (err: unknown) {
       parseErrors.push({
         file: filePath,
@@ -159,6 +259,9 @@ export async function buildDependencyGraph(
       });
     }
   }
+
+  // Reverse edges (dependents) are derived from the forward edges in one pass.
+  computeDependents(nodes);
 
   // Third pass: discover and scan documentation files for code references
   const docNodes = await buildDocNodes(normalizedRoot, nodes, ignorePatterns);
@@ -170,6 +273,123 @@ export async function buildDependencyGraph(
     totalFiles: nodes.size,
     parseErrors,
     docNodes,
+  };
+}
+
+export interface IncrementalDelta {
+  added: number;
+  changed: number;
+  removed: number;
+  reused: number;
+}
+
+/**
+ * Rebuild the graph reusing the previous one, re-parsing only files whose mtime
+ * or size changed (make-style, no hashing). Unchanged files keep their cached
+ * dependency edges; reverse edges and docs are recomputed wholesale so the
+ * result is structurally identical to a full build — with one documented
+ * exception (below).
+ *
+ * Known limitation: a file that is itself unchanged but contains an import that
+ * only becomes resolvable because its target was just *added* will not gain that
+ * edge until the importer is touched or a full rescan (`force`) is run — the
+ * importer's mtime did not change, so it is not re-parsed. Likewise, edits to a
+ * non-node config (e.g. tsconfig.json path aliases) are not detected. Both are
+ * inherent to mtime-based incremental builds; `force` is the escape hatch.
+ */
+export async function incrementalUpdate(
+  previous: DependencyGraph,
+  options?: BuildGraphOptions
+): Promise<{ graph: DependencyGraph; delta: IncrementalDelta }> {
+  const rootDir = previous.rootDir;
+  clearTsConfigCache();
+
+  const ignorePatterns = resolveIgnorePatterns(options);
+  const files = await discoverFiles(rootDir, ignorePatterns);
+  const parseErrors: ParseError[] = [];
+
+  const nodes = new Map<string, FileNode>();
+  const toParse: string[] = [];
+  let added = 0;
+  let changed = 0;
+  let reused = 0;
+
+  for (const filePath of files) {
+    let stat: fs.Stats;
+    try {
+      stat = fs.statSync(filePath);
+    } catch {
+      continue;
+    }
+    const prev = previous.nodes.get(filePath);
+    if (prev && prev.lastModified === stat.mtimeMs && prev.sizeBytes === stat.size) {
+      // Unchanged: reuse the cached node (and its forward edges). Dependents are
+      // cleared because they are recomputed globally below.
+      nodes.set(filePath, { ...prev, dependents: [] });
+      reused++;
+    } else {
+      nodes.set(filePath, {
+        path: filePath,
+        relativePath: path.relative(rootDir, filePath),
+        language: detectLanguage(filePath),
+        dependencies: [],
+        dependents: [],
+        sizeBytes: stat.size,
+        lastModified: stat.mtimeMs,
+      });
+      if (prev) changed++;
+      else added++;
+      toParse.push(filePath);
+    }
+  }
+  const removed = previous.totalFiles - reused - changed;
+
+  // Re-parse only the changed/added files.
+  const ctx: ParseContext = {
+    rootDir,
+    cppSearchDirs: collectCppSearchDirs(rootDir),
+    localPackages: buildLocalPackageMap(nodes),
+  };
+  const reparsed = new Set(toParse);
+  for (const filePath of toParse) {
+    const node = nodes.get(filePath)!;
+    try {
+      const rawDeps = parseNodeDependencies(filePath, node.language, ctx);
+      node.dependencies = rawDeps.filter((dep) => nodes.has(dep));
+    } catch (err: unknown) {
+      parseErrors.push({
+        file: filePath,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  // Reused nodes kept edges that may point at now-deleted files; prune to the
+  // current node set so nothing dangles.
+  for (const node of nodes.values()) {
+    if (!reparsed.has(node.path)) {
+      node.dependencies = node.dependencies.filter((dep) => nodes.has(dep));
+    }
+  }
+
+  // Carry forward parse errors for files we did not re-parse but still exist.
+  for (const pe of previous.parseErrors) {
+    if (!reparsed.has(pe.file) && nodes.has(pe.file)) parseErrors.push(pe);
+  }
+
+  computeDependents(nodes);
+  const docNodes = await buildDocNodes(rootDir, nodes, ignorePatterns);
+
+  return {
+    graph: {
+      rootDir,
+      builtAt: Date.now(),
+      nodes,
+      totalFiles: nodes.size,
+      parseErrors,
+      docNodes,
+    },
+    delta: { added, changed, removed, reused },
   };
 }
 
@@ -198,6 +418,27 @@ async function discoverDocFiles(rootDir: string, ignorePatterns?: string[]): Pro
  *
  * We build a set of search terms from the graph and scan the doc content once.
  */
+/**
+ * Escape a string for literal use inside a RegExp.
+ */
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Test whether `term` appears in `content` as a bounded token — preceded by
+ * start-of-line/whitespace/quote/paren and followed by end-of-line/whitespace/
+ * quote/paren/punctuation. This prevents substring false positives such as
+ * "app" matching inside "happens" or "api" inside "rapid".
+ */
+function containsAsToken(content: string, term: string): boolean {
+  const pattern = new RegExp(
+    `(?:^|[\\s\`'"(/])${escapeRegExp(term)}(?:$|[\\s\`'")/,;:.])`,
+    "m"
+  );
+  return pattern.test(content);
+}
+
 function scanDocForCodeReferences(
   docContent: string,
   codeNodes: Map<string, FileNode>,
@@ -208,14 +449,50 @@ function scanDocForCodeReferences(
   // Normalize content for matching (case-sensitive for paths)
   const content = docContent;
 
+  // Collect directory prefixes referenced as "dir/" tokens (e.g. "src/auth/"),
+  // so a doc that names a directory matches every file under it. Computed once.
+  const referencedDirs = new Set<string>();
+  const candidateDirs = new Set<string>();
+  for (const node of codeNodes.values()) {
+    const parts = node.relativePath.split("/");
+    for (let i = 1; i < parts.length; i++) {
+      candidateDirs.add(parts.slice(0, i).join("/"));
+    }
+  }
+  for (const dir of candidateDirs) {
+    // Require the trailing slash so "src/auth/" matches but a bare word does not.
+    if (containsAsToken(content, dir + "/")) {
+      referencedDirs.add(dir);
+    }
+  }
+
   for (const [absPath, node] of codeNodes) {
     const relPath = node.relativePath;
     const relPathNoExt = relPath.replace(/\.[^.]+$/, "");
     const fileName = path.basename(absPath);
     const fileNameNoExt = path.basename(absPath).replace(/\.[^.]+$/, "");
 
-    // Match relative path (with or without extension)
-    if (content.includes(relPath) || content.includes(relPathNoExt)) {
+    // Match the full relative path as a bounded token (with extension), or — for
+    // multi-segment paths only — without the extension. A single-segment stem
+    // like "app" is NOT matched here (it would match prose words); it falls
+    // through to the filename logic below, which has length/generic guards.
+    if (
+      containsAsToken(content, relPath) ||
+      (relPathNoExt.includes("/") && containsAsToken(content, relPathNoExt))
+    ) {
+      matchedFiles.add(absPath);
+      continue;
+    }
+
+    // Directory reference: the file lives under a directory the doc named.
+    let underReferencedDir = false;
+    for (const dir of referencedDirs) {
+      if (relPath === dir || relPath.startsWith(dir + "/")) {
+        underReferencedDir = true;
+        break;
+      }
+    }
+    if (underReferencedDir) {
       matchedFiles.add(absPath);
       continue;
     }
@@ -229,26 +506,17 @@ function scanDocForCodeReferences(
     ]);
 
     if (!genericNames.has(fileName)) {
-      // Use word boundary-ish matching: filename must be preceded by
-      // whitespace, punctuation, or start of line, and followed by
-      // whitespace, punctuation, or end of line.
-      // This prevents "login.ts" from matching inside "not-login.tsx"
-      const escapedFileName = fileName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const pattern = new RegExp(`(?:^|[\\s\`'"(/])${escapedFileName}(?:$|[\\s\`'")/,;:])`, "m");
-      if (pattern.test(content)) {
+      // Bounded filename match: "login.ts" must not match inside "not-login.tsx".
+      if (containsAsToken(content, fileName)) {
         matchedFiles.add(absPath);
         continue;
       }
 
       // Also try filename without extension with the same boundary matching
-      // (useful for docs that reference "LoginService" not "LoginService.ts")
-      if (fileNameNoExt.length > 3) {
-        const escapedNoExt = fileNameNoExt.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const patternNoExt = new RegExp(`(?:^|[\\s\`'"(/])${escapedNoExt}(?:$|[\\s\`'")/,;:.])`, "m");
-        if (patternNoExt.test(content)) {
-          matchedFiles.add(absPath);
-          continue;
-        }
+      // (useful for docs that reference "LoginService" not "LoginService.ts").
+      if (fileNameNoExt.length > 3 && containsAsToken(content, fileNameNoExt)) {
+        matchedFiles.add(absPath);
+        continue;
       }
     }
   }
@@ -265,6 +533,11 @@ async function buildDocNodes(
   const docNodes = new Map<string, DocNode>();
 
   for (const docPath of docFiles) {
+    // A file already indexed as code (e.g. a requirements.txt manifest, which
+    // the `.txt` doc glob also matches) is not documentation — skip it so it is
+    // never both a code node and a doc node.
+    if (codeNodes.has(docPath)) continue;
+
     let content: string;
     try {
       content = fs.readFileSync(docPath, "utf-8");
@@ -387,4 +660,385 @@ export function findEntryPoints(graph: DependencyGraph): string[] {
     }
   }
   return entries;
+}
+
+/**
+ * Find orphan (dead) files: zero dependents AND zero dependencies. These are
+ * isolated nodes — nothing imports them and they import nothing in-project.
+ *
+ * This is a distinct concept from an entry point. An entry point has
+ * dependencies but no dependents (a root that pulls others in); an orphan has
+ * neither. `findEntryPoints` deliberately excludes orphans, so without this
+ * function isolated files are invisible to every tool.
+ */
+export function findOrphans(graph: DependencyGraph): string[] {
+  const orphans: string[] = [];
+  for (const [filePath, node] of graph.nodes) {
+    if (node.dependents.length === 0 && node.dependencies.length === 0) {
+      orphans.push(filePath);
+    }
+  }
+  return orphans;
+}
+
+/**
+ * Shortest dependency path from `from` to `to`, following the `dependencies`
+ * (import) direction. Returns the chain of absolute paths inclusive of both
+ * endpoints, or null if `to` is not reachable from `from`.
+ *
+ * BFS gives the fewest-hops path and is deterministic given a stable neighbour
+ * order. Used to answer "why does A depend on B?".
+ */
+export function findDependencyPath(
+  graph: DependencyGraph,
+  from: string,
+  to: string
+): string[] | null {
+  if (from === to) return [from];
+
+  const prev = new Map<string, string>();
+  const visited = new Set<string>([from]);
+  const queue: string[] = [from];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    const node = graph.nodes.get(current);
+    if (!node) continue;
+
+    for (const dep of node.dependencies) {
+      if (visited.has(dep)) continue;
+      visited.add(dep);
+      prev.set(dep, current);
+      if (dep === to) {
+        // Reconstruct the path back to `from`.
+        const path: string[] = [to];
+        let step = to;
+        while (step !== from) {
+          step = prev.get(step)!;
+          path.push(step);
+        }
+        return path.reverse();
+      }
+      queue.push(dep);
+    }
+  }
+
+  return null;
+}
+
+// ============================================================
+// Strongly Connected Components (Tarjan) — cycle detection
+// ============================================================
+
+/**
+ * Tarjan's algorithm: partition the graph into strongly connected components
+ * over the `dependencies` edges. Returns each SCC as a list of absolute paths.
+ * Iterative (explicit stack) to avoid blowing the call stack on large graphs.
+ */
+export function stronglyConnectedComponents(graph: DependencyGraph): string[][] {
+  let index = 0;
+  const indices = new Map<string, number>();
+  const lowlink = new Map<string, number>();
+  const onStack = new Set<string>();
+  const stack: string[] = [];
+  const sccs: string[][] = [];
+
+  // Iterative DFS frame: a node plus the position of the next neighbour to visit.
+  interface Frame {
+    node: string;
+    deps: string[];
+    i: number;
+  }
+
+  for (const start of graph.nodes.keys()) {
+    if (indices.has(start)) continue;
+
+    const callStack: Frame[] = [
+      { node: start, deps: graph.nodes.get(start)!.dependencies, i: 0 },
+    ];
+    indices.set(start, index);
+    lowlink.set(start, index);
+    index++;
+    stack.push(start);
+    onStack.add(start);
+
+    while (callStack.length > 0) {
+      const frame = callStack[callStack.length - 1];
+      const { node, deps } = frame;
+
+      if (frame.i < deps.length) {
+        const dep = deps[frame.i];
+        frame.i++;
+        if (!graph.nodes.has(dep)) continue; // edge to a non-node; skip
+        if (!indices.has(dep)) {
+          indices.set(dep, index);
+          lowlink.set(dep, index);
+          index++;
+          stack.push(dep);
+          onStack.add(dep);
+          callStack.push({
+            node: dep,
+            deps: graph.nodes.get(dep)!.dependencies,
+            i: 0,
+          });
+        } else if (onStack.has(dep)) {
+          lowlink.set(node, Math.min(lowlink.get(node)!, indices.get(dep)!));
+        }
+      } else {
+        // Done with this node's neighbours; settle its lowlink into its parent.
+        if (lowlink.get(node) === indices.get(node)) {
+          const component: string[] = [];
+          let w: string;
+          do {
+            w = stack.pop()!;
+            onStack.delete(w);
+            component.push(w);
+          } while (w !== node);
+          sccs.push(component);
+        }
+        callStack.pop();
+        const parent = callStack[callStack.length - 1];
+        if (parent) {
+          lowlink.set(
+            parent.node,
+            Math.min(lowlink.get(parent.node)!, lowlink.get(node)!)
+          );
+        }
+      }
+    }
+  }
+
+  return sccs;
+}
+
+/**
+ * Detect dependency cycles. A cycle is any SCC of size > 1, plus any single
+ * node with a self-edge (a file importing itself, which Tarjan reports as a
+ * singleton SCC). Each cycle is returned as an ordered ring of absolute paths,
+ * normalized to start at the lexicographically smallest member so the same
+ * cycle isn't reported in N rotations.
+ */
+export function findCycles(graph: DependencyGraph): string[][] {
+  const cycles: string[][] = [];
+
+  for (const scc of stronglyConnectedComponents(graph)) {
+    if (scc.length > 1) {
+      cycles.push(orderCycle(graph, scc));
+    } else {
+      // Singleton SCC is a cycle only if it has a self-edge.
+      const only = scc[0];
+      if (graph.nodes.get(only)?.dependencies.includes(only)) {
+        cycles.push([only]);
+      }
+    }
+  }
+
+  // Deterministic order: by smallest member.
+  cycles.sort((a, b) => a[0].localeCompare(b[0]));
+  return cycles;
+}
+
+/**
+ * Order an SCC's members into a readable ring by walking dependency edges that
+ * stay inside the component, starting from its lexicographically smallest node.
+ */
+function orderCycle(graph: DependencyGraph, scc: string[]): string[] {
+  const members = new Set(scc);
+  const start = [...scc].sort((a, b) => a.localeCompare(b))[0];
+
+  const ring: string[] = [start];
+  const visited = new Set<string>([start]);
+  let current = start;
+
+  while (ring.length < scc.length) {
+    const node = graph.nodes.get(current);
+    const next = node?.dependencies.find(
+      (d) => members.has(d) && !visited.has(d)
+    );
+    if (!next) break; // defensive: shouldn't happen in a true SCC
+    ring.push(next);
+    visited.add(next);
+    current = next;
+  }
+
+  return ring;
+}
+
+// ============================================================
+// Topological layering (over the SCC condensation)
+// ============================================================
+
+export interface GraphLayers {
+  layers: string[][];
+  depth: number;
+  cyclic: boolean;
+  cyclicNodes: string[];
+}
+
+/**
+ * Partition files into dependency layers. Layer 0 holds files that import
+ * nothing in-project; each subsequent layer holds files whose dependencies all
+ * live in earlier layers.
+ *
+ * Cycles break a plain topological sort, so we first condense each SCC into a
+ * super-node (the condensation is always a DAG), layer that via Kahn's
+ * algorithm, then expand super-nodes back to their members. Files participating
+ * in a cycle are reported in `cyclicNodes`.
+ */
+export function computeLayers(graph: DependencyGraph): GraphLayers {
+  const sccs = stronglyConnectedComponents(graph);
+
+  // Map each node to its component id.
+  const compOf = new Map<string, number>();
+  sccs.forEach((scc, id) => scc.forEach((n) => compOf.set(n, id)));
+
+  // Build the condensation DAG: edges between distinct components, and track
+  // in-degree for Kahn. A component is cyclic if it has >1 member or a self-edge.
+  const compDeps = new Map<number, Set<number>>();
+  const indegree = new Map<number, number>();
+  const cyclicComp = new Set<number>();
+  for (let id = 0; id < sccs.length; id++) {
+    compDeps.set(id, new Set());
+    indegree.set(id, 0);
+    if (sccs[id].length > 1) cyclicComp.add(id);
+  }
+  for (const [node, nodeData] of graph.nodes) {
+    const from = compOf.get(node)!;
+    for (const dep of nodeData.dependencies) {
+      if (!compOf.has(dep)) continue;
+      const to = compOf.get(dep)!;
+      if (from === to) {
+        if (node === dep) cyclicComp.add(from); // self-edge
+        continue;
+      }
+      // Edge node -> dep means `from` depends on `to`; `to` must layer first.
+      if (!compDeps.get(to)!.has(from)) {
+        compDeps.get(to)!.add(from);
+        indegree.set(from, indegree.get(from)! + 1);
+      }
+    }
+  }
+
+  // Kahn layering on the condensation.
+  let frontier = [...indegree.keys()].filter((id) => indegree.get(id) === 0);
+  const compLayer = new Map<number, number>();
+  let layerIdx = 0;
+  let processed = 0;
+  while (frontier.length > 0) {
+    const next: number[] = [];
+    for (const id of frontier) {
+      compLayer.set(id, layerIdx);
+      processed++;
+      for (const dependent of compDeps.get(id)!) {
+        indegree.set(dependent, indegree.get(dependent)! - 1);
+        if (indegree.get(dependent) === 0) next.push(dependent);
+      }
+    }
+    frontier = next;
+    layerIdx++;
+  }
+
+  // Expand components into node layers.
+  const layers: string[][] = Array.from({ length: layerIdx }, () => []);
+  for (let id = 0; id < sccs.length; id++) {
+    const li = compLayer.get(id);
+    if (li === undefined) continue; // unreached (only if condensation had a cycle — impossible)
+    for (const node of sccs[id]) layers[li].push(node);
+  }
+  for (const layer of layers) layer.sort((a, b) => a.localeCompare(b));
+
+  const cyclicNodes: string[] = [];
+  for (const [node] of graph.nodes) {
+    if (cyclicComp.has(compOf.get(node)!)) cyclicNodes.push(node);
+  }
+  cyclicNodes.sort((a, b) => a.localeCompare(b));
+
+  return {
+    layers,
+    depth: layers.length,
+    cyclic: cyclicComp.size > 0,
+    cyclicNodes,
+  };
+}
+
+// ============================================================
+// Subgraph collection (shared by subgraph query + visual exporters)
+// ============================================================
+
+export interface CollectedSubgraph {
+  nodes: Map<string, SubGraphNode>;
+  edges: SubGraphEdge[];
+}
+
+/**
+ * Collect the neighbourhood of `center` up to `depth` hops, traversing both
+ * the dependency and dependent directions via BFS. Returns the nodes (keyed by
+ * absolute path, each tagged with its distance and direction from center) and
+ * the edges that fall entirely within the collected node set.
+ *
+ * Single source of truth for neighbourhood scoping — used by the subgraph query
+ * tool and by the Mermaid/DOT exporters so they cannot drift apart. `center`
+ * must be an absolute path already present in the graph.
+ */
+export function collectSubgraph(
+  graph: DependencyGraph,
+  center: string,
+  depth: number
+): CollectedSubgraph {
+  const centerNode = graph.nodes.get(center)!;
+  const nodes = new Map<string, SubGraphNode>();
+  const edges: SubGraphEdge[] = [];
+
+  nodes.set(center, {
+    path: center,
+    relativePath: centerNode.relativePath,
+    language: centerNode.language,
+    distanceFromCenter: 0,
+    direction: "center",
+  });
+
+  const queue: Array<{
+    filePath: string;
+    dist: number;
+    dir: "dependency" | "dependent";
+  }> = [];
+  for (const dep of centerNode.dependencies) {
+    queue.push({ filePath: dep, dist: 1, dir: "dependency" });
+  }
+  for (const dep of centerNode.dependents) {
+    queue.push({ filePath: dep, dist: 1, dir: "dependent" });
+  }
+
+  while (queue.length > 0) {
+    const { filePath, dist, dir } = queue.shift()!;
+    if (nodes.has(filePath) || dist > depth) continue;
+
+    const n = graph.nodes.get(filePath);
+    if (!n) continue;
+
+    nodes.set(filePath, {
+      path: filePath,
+      relativePath: n.relativePath,
+      language: n.language,
+      distanceFromCenter: dist,
+      direction: dir,
+    });
+
+    if (dist < depth) {
+      const next = dir === "dependency" ? n.dependencies : n.dependents;
+      for (const dep of next) {
+        if (!nodes.has(dep)) queue.push({ filePath: dep, dist: dist + 1, dir });
+      }
+    }
+  }
+
+  // Edges between nodes that both made it into the subgraph.
+  for (const [from, fromNode] of graph.nodes) {
+    if (!nodes.has(from)) continue;
+    for (const to of fromNode.dependencies) {
+      if (nodes.has(to)) edges.push({ from, to, type: "imports" });
+    }
+  }
+
+  return { nodes, edges };
 }

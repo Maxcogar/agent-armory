@@ -14,21 +14,72 @@ No AI guessing — pure AST/regex parsing to map actual import/include relations
 | C++ | `.cpp`, `.c`, `.h`, `.hpp` | `#include "local.h"` |
 | Arduino | `.ino` | `#include "local.h"` |
 
+### Dependency manifests
+
+Package-manager manifests are also indexed as nodes, with edges to **local /
+workspace** dependencies only — the npm/PyPI/Go module universe is never pulled
+in. These edges live in the same graph as code imports, so every tool (impact,
+cycles, layers, export, …) works on them unchanged.
+
+| Manifest | Detected by | Local edges resolved |
+|---|---|---|
+| npm | `package.json` | `file:`/`link:` specifiers, and workspace packages referenced by name (`workspace:*` or a plain semver ref to an in-tree package) → that package's `package.json` |
+| pip | `*requirements*.txt` | `-r/--requirement` files, `-e/--editable` local packages, bare local paths → the referenced requirements file |
+| Go | `go.mod` | `replace … => ./local` directives → the replaced module's `go.mod` |
+
 Automatically ignores: `node_modules`, `.git`, `dist`, `build`, `__pycache__`, `.venv`, `.pio`, `*.min.js`
 
 ## Tools
 
 | Tool | Description |
 |---|---|
-| `codegraph_scan` | **Call first.** Scans a directory and builds the graph in memory. Also scans doc files (`.md`, `.mdx`, `.rst`, `.txt`) for code references. |
+| `codegraph_scan` | **Call first.** Scans a directory and builds the graph in memory. Reuses an on-disk cache for an incremental rescan when one exists (pass `force: true` for a full rebuild). Also scans doc files (`.md`, `.mdx`, `.rst`, `.txt`) for code references. |
 | `codegraph_get_dependencies` | What does file X import? |
 | `codegraph_get_dependents` | What files import file X? |
 | `codegraph_get_change_impact` | Full blast radius if file(s) change (direct + transitive) |
 | `codegraph_get_subgraph` | Local neighborhood around a file (configurable depth) |
 | `codegraph_find_entry_points` | Files at the top of the tree (nothing imports them) |
-| `codegraph_list_files` | All files in the graph, with language filter + pagination |
+| `codegraph_find_cycles` | Circular dependencies (SCC analysis), each ring reported once |
+| `codegraph_get_path_between` | Shortest dependency chain A→…→B ("why does A depend on B?") |
+| `codegraph_find_orphans` | Fully isolated files — zero dependents **and** zero dependencies (dead-code candidates) |
+| `codegraph_get_layers` | Dependency layers / architectural tiers via topological sort (cycle-safe) |
+| `codegraph_export_mermaid` | Export the graph (or a file's neighbourhood) as a Mermaid flowchart |
+| `codegraph_export_dot` | Export the graph (or a file's neighbourhood) as Graphviz DOT |
+| `codegraph_list_files` | All **code** files in the graph, with language filter + pagination |
+| `codegraph_list_docs` | All **documentation** files (`.md`, `.mdx`, `.rst`, `.txt`) scanned, with reference counts + pagination |
 | `codegraph_get_stats` | Codebase overview: most connected, most depended-on, etc. |
 | `codegraph_find_related_docs` | Find all documentation files affected by code changes |
+| `codegraph_watch_start` | Watch the scanned project and keep the graph current via debounced incremental rescans |
+| `codegraph_watch_stop` | Stop the active file watcher |
+
+### Persistence & incremental rescans
+
+After a scan the graph is persisted to an on-disk cache (outside the project,
+keyed by a hash of the root path; override with `CODEGRAPH_CACHE_DIR`). A later
+`codegraph_scan` of the same root reuses it for an **incremental rescan** —
+only files whose mtime/size changed are re-parsed (make-style). The cache
+carries a schema version and is ignored on any mismatch, never deserialized
+stale. `codegraph_watch_start` runs the same incremental path automatically on
+file changes.
+
+> Incremental rescans are mtime-based: an *unchanged* file that gains a
+> now-resolvable import to a *newly-added* file (or an edit to a non-tracked
+> config like `tsconfig.json`) is not picked up until the importer is touched.
+> Use `codegraph_scan` with `force: true` for a guaranteed full rebuild.
+
+### Code files vs. documentation files
+
+codegraph keeps two separate indexes. **Code files** (`.ts`, `.js`, `.py`, `.cpp`,
+etc.) become graph nodes with import/include edges — these are what
+`codegraph_list_files`, `codegraph_get_stats`, and the dependency/impact tools
+operate on. **Documentation files** (`.md`, `.mdx`, `.rst`, `.txt`) are scanned
+into a separate index that records which code files each doc references.
+
+This means `codegraph_list_files` returns **nothing** for a docs-only directory
+(e.g. a plugin that's all markdown) — there are no code nodes to list. Use
+`codegraph_list_docs` to enumerate documentation. When `codegraph_list_files`
+finds no code but docs exist, its response includes a `note` pointing you to
+`codegraph_list_docs`.
 
 ### codegraph_find_related_docs
 

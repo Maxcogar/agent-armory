@@ -4,7 +4,14 @@ import { z } from "zod";
 import * as path from "path";
 
 import { DependencyGraph, Language } from "./types.js";
-import { buildDependencyGraph, DEFAULT_IGNORE_PATTERNS } from "./graph.js";
+import {
+  buildDependencyGraph,
+  incrementalUpdate,
+  DEFAULT_IGNORE_PATTERNS,
+  type BuildGraphOptions,
+} from "./graph.js";
+import { saveCache, loadCache } from "./cache.js";
+import { startWatch, stopWatch } from "./watch.js";
 import {
   toolGetDependencies,
   toolGetDependents,
@@ -12,8 +19,15 @@ import {
   toolGetSubgraph,
   toolFindEntryPoints,
   toolListFiles,
+  toolListDocs,
   toolGetStats,
   toolFindRelatedDocs,
+  toolFindCycles,
+  toolGetPathBetween,
+  toolFindOrphans,
+  toolGetLayers,
+  toolExportMermaid,
+  toolExportDot,
 } from "./tools/query.js";
 
 // ============================================================
@@ -51,6 +65,9 @@ function isToolError(result: unknown): result is { error: string } {
 // ============================================================
 
 let currentGraph: DependencyGraph | null = null;
+// Build options from the most recent scan, replayed by incremental rescans and
+// the file watcher so they discover the same file set.
+let lastBuildOptions: BuildGraphOptions | undefined;
 
 const LANGUAGE_VALUES = [
   "javascript",
@@ -58,6 +75,7 @@ const LANGUAGE_VALUES = [
   "python",
   "cpp",
   "arduino",
+  "config",
   "unknown",
 ] as const;
 
@@ -118,6 +136,13 @@ Returns:
         .describe(
           "Extra ignore glob patterns appended to the defaults (e.g. ['**/test/**', '**/fixtures/**'])"
         ),
+      force: z
+        .boolean()
+        .optional()
+        .describe(
+          "Force a full rebuild, bypassing the cache and any in-memory graph. " +
+          "Use after changing a non-tracked config (e.g. tsconfig.json) or to recover from a stale incremental result."
+        ),
     },
     annotations: {
       readOnlyHint: true,
@@ -126,23 +151,56 @@ Returns:
       openWorldHint: false,
     },
   },
-  async ({ root_dir, ignore_patterns, additional_ignore_patterns }) => {
+  async ({ root_dir, ignore_patterns, additional_ignore_patterns, force }) => {
     const normalizedRoot = path.resolve(root_dir);
-    process.stderr.write(`[codegraph] Scanning: ${normalizedRoot}\n`);
+    const options: BuildGraphOptions = {
+      ignorePatterns: ignore_patterns,
+      additionalIgnorePatterns: additional_ignore_patterns,
+    };
 
+    // Choose a base graph for an incremental update: the in-memory graph if it
+    // is for this same root, else a cached graph from a prior session. With no
+    // base (or force), do a full rebuild.
+    const base =
+      !force &&
+      (currentGraph && currentGraph.rootDir === normalizedRoot
+        ? currentGraph
+        : loadCache(normalizedRoot));
+
+    let mode: "full" | "incremental";
+    let delta: { added: number; changed: number; removed: number; reused: number } | undefined;
     try {
-      currentGraph = await buildDependencyGraph(normalizedRoot, {
-        ignorePatterns: ignore_patterns,
-        additionalIgnorePatterns: additional_ignore_patterns,
-      });
+      if (base) {
+        process.stderr.write(`[codegraph] Incremental rescan: ${normalizedRoot}\n`);
+        const result = await incrementalUpdate(base, options);
+        currentGraph = result.graph;
+        delta = result.delta;
+        mode = "incremental";
+      } else {
+        process.stderr.write(`[codegraph] Scanning: ${normalizedRoot}\n`);
+        currentGraph = await buildDependencyGraph(normalizedRoot, options);
+        mode = "full";
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       return errResponse(`Error scanning directory: ${msg}`);
     }
 
+    lastBuildOptions = options;
+    try {
+      saveCache(currentGraph);
+    } catch (err: unknown) {
+      // A cache write failure must not fail the scan; the graph is in memory.
+      process.stderr.write(
+        `[codegraph] cache write failed: ${err instanceof Error ? err.message : String(err)}\n`
+      );
+    }
+
     const stats = toolGetStats(currentGraph);
     return okResponse({
       status: "success",
+      mode,
+      delta,
       rootDir: currentGraph.rootDir,
       totalFiles: currentGraph.totalFiles,
       totalDocFiles: currentGraph.docNodes.size,
@@ -152,7 +210,7 @@ Returns:
         currentGraph.parseErrors.length > 0
           ? currentGraph.parseErrors.slice(0, 5)
           : undefined,
-      message: `Graph built. ${currentGraph.totalFiles} code files and ${currentGraph.docNodes.size} doc files scanned. Use codegraph_get_stats for full overview, or codegraph_find_related_docs to find docs affected by code changes.`,
+      message: `Graph ${mode === "incremental" ? "updated incrementally" : "built"}. ${currentGraph.totalFiles} code files and ${currentGraph.docNodes.size} doc files. Use codegraph_get_stats for a full overview.`,
     });
   }
 );
@@ -460,6 +518,58 @@ Prerequisite: codegraph_scan must be called first.`,
 );
 
 // ============================================================
+// Tool: codegraph_list_docs
+// ============================================================
+
+server.registerTool(
+  "codegraph_list_docs",
+  {
+    title: "List All Documentation Files in Graph",
+    description: `Lists all documentation files (.md, .mdx, .rst, .txt) discovered during the scan, sorted by relative path.
+
+codegraph_list_files only returns CODE files (the dependency-graph nodes). Documentation files are scanned into a separate index. Use THIS tool to enumerate docs — e.g. for a docs-only directory where codegraph_list_files returns nothing.
+
+Each entry includes how many code files in the graph the doc references (referencedCodeFileCount), which is useful for finding orphaned docs (count 0) or heavily cross-linked docs.
+
+Args:
+  - limit (number, optional): Max docs to return (default: 200, max: 500)
+  - offset (number, optional): Pagination offset (default: 0)
+
+Returns:
+  - docs: Array of doc references with path, relativePath, and referencedCodeFileCount
+  - total: Total doc count
+  - has_more: Whether there are more docs beyond this page
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {
+      limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(500)
+        .default(200)
+        .describe("Maximum docs to return (default: 200)"),
+      offset: z
+        .number()
+        .int()
+        .min(0)
+        .default(0)
+        .describe("Pagination offset (default: 0)"),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ limit, offset }) => {
+    if (!currentGraph) return noGraphError();
+    return okResponse(toolListDocs(currentGraph, limit, offset));
+  }
+);
+
+// ============================================================
 // Tool: codegraph_get_stats
 // ============================================================
 
@@ -499,6 +609,363 @@ Prerequisite: codegraph_scan must be called first.`,
   async () => {
     if (!currentGraph) return noGraphError();
     return okResponse(toolGetStats(currentGraph));
+  }
+);
+
+// ============================================================
+// Tool: codegraph_find_cycles
+// ============================================================
+
+server.registerTool(
+  "codegraph_find_cycles",
+  {
+    title: "Find Dependency Cycles",
+    description: `Detects circular dependencies in the graph — groups of files that import each other directly or transitively (A→B→C→A), plus any file that imports itself.
+
+Each cycle is returned once as an ordered ring of files, normalized to start at the lexicographically smallest path (so the same cycle is never reported in multiple rotations). Computed via strongly-connected-component analysis — deterministic, no guessing.
+
+Args:
+  - max_cycles (number, optional): Max cycles to return (default: 50). If more exist, "truncated" is true.
+
+Returns:
+  - cycles: Array of cycles, each an ordered array of files in the ring
+  - count: Total number of distinct cycles found
+  - hasCycles: Whether any cycle exists
+  - truncated: Whether more cycles existed than were returned
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {
+      max_cycles: z
+        .number()
+        .int()
+        .min(1)
+        .max(500)
+        .default(50)
+        .describe("Maximum number of cycles to return (default: 50)"),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ max_cycles }) => {
+    if (!currentGraph) return noGraphError();
+    return okResponse(toolFindCycles(currentGraph, max_cycles));
+  }
+);
+
+// ============================================================
+// Tool: codegraph_get_path_between
+// ============================================================
+
+server.registerTool(
+  "codegraph_get_path_between",
+  {
+    title: "Get Dependency Path Between Two Files",
+    description: `Finds the shortest dependency chain from one file to another, following the import direction. Answers "why does A depend on B?" by showing the exact chain A → ... → B.
+
+If there is no forward path, the result reports found=false and a "reverseExists" hint indicating whether B depends on A instead.
+
+Args:
+  - from (string): Starting file (relative, absolute, or filename)
+  - to (string): Target file (relative, absolute, or filename)
+
+Returns:
+  - from, to: The resolved endpoints
+  - path: The chain of files from->...->to (inclusive), or null if unreachable
+  - found: Whether a forward dependency path exists
+  - length: Number of hops in the path (0 if from===to, null if not found)
+  - reverseExists: When not found, whether the reverse path (to->from) exists
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {
+      from: z
+        .string()
+        .describe("Starting file (relative, absolute, or filename)"),
+      to: z
+        .string()
+        .describe("Target file (relative, absolute, or filename)"),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ from, to }) => {
+    if (!currentGraph) return noGraphError();
+    const result = toolGetPathBetween(currentGraph, from, to);
+    if (isToolError(result)) return errResponse(result.error);
+    return okResponse(result);
+  }
+);
+
+// ============================================================
+// Tool: codegraph_find_orphans
+// ============================================================
+
+server.registerTool(
+  "codegraph_find_orphans",
+  {
+    title: "Find Orphan (Dead) Files",
+    description: `Finds orphan files — files with zero dependents AND zero dependencies. Nothing imports them and they import nothing in-project, making them candidates for dead code.
+
+This is distinct from entry points: an entry point imports other files but has no dependents (a root). An orphan has neither. codegraph_find_entry_points deliberately excludes orphans, so this is the only tool that surfaces fully isolated files. (Note: a file may be legitimately isolated — e.g. a standalone script — so review before deleting.)
+
+Args:
+  - language (string, optional): Filter by language.
+
+Returns:
+  - orphans: Array of isolated files, sorted by path
+  - count: Number of orphans
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {
+      language: z
+        .enum(LANGUAGE_VALUES)
+        .optional()
+        .describe("Optional: filter by language"),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ language }) => {
+    if (!currentGraph) return noGraphError();
+    return okResponse(toolFindOrphans(currentGraph, language as Language | undefined));
+  }
+);
+
+// ============================================================
+// Tool: codegraph_get_layers
+// ============================================================
+
+server.registerTool(
+  "codegraph_get_layers",
+  {
+    title: "Get Dependency Layers",
+    description: `Partitions files into dependency layers (architectural tiers). Layer 0 contains files that import nothing in-project; each subsequent layer contains files whose dependencies all live in earlier layers. This reveals the depth and tiering of the codebase.
+
+Cycles cannot be topologically ordered, so files in a cycle are condensed together and reported in "cyclicNodes". The layering still completes (it never hangs or drops files) and "cyclic" is set true.
+
+Args: None
+
+Returns:
+  - layers: Array of layers, each an array of files (layer 0 = deepest dependencies)
+  - depth: Number of layers
+  - cyclic: Whether the graph contains any dependency cycle
+  - cyclicNodes: Files participating in a cycle (empty when acyclic)
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {},
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async () => {
+    if (!currentGraph) return noGraphError();
+    return okResponse(toolGetLayers(currentGraph));
+  }
+);
+
+// ============================================================
+// Tool: codegraph_export_mermaid / codegraph_export_dot
+// ============================================================
+
+// Shared input schema for both exporters: an optional center file, neighbourhood
+// depth, language filter, and a node cap that guards against unrenderable
+// whole-graph dumps.
+const EXPORT_INPUT_SCHEMA = {
+  file: z
+    .string()
+    .optional()
+    .describe(
+      "Optional center file (relative, absolute, or filename). When given, the diagram is scoped to its neighbourhood; when omitted, the whole graph is exported (capped by max_nodes)."
+    ),
+  depth: z
+    .number()
+    .int()
+    .min(1)
+    .max(5)
+    .default(2)
+    .describe("Neighbourhood radius around the center file (default: 2, ignored when no file is given)"),
+  language: z
+    .enum(LANGUAGE_VALUES)
+    .optional()
+    .describe("Optional: only include files of this language"),
+  max_nodes: z
+    .number()
+    .int()
+    .min(1)
+    .max(2000)
+    .default(200)
+    .describe("Maximum nodes to render; over this, the highest-degree nodes are kept and truncated=true (default: 200)"),
+};
+
+server.registerTool(
+  "codegraph_export_mermaid",
+  {
+    title: "Export Dependency Graph as Mermaid",
+    description: `Renders the dependency graph (or a file's neighbourhood) as a Mermaid flowchart that can be pasted into Markdown, GitHub, or a Mermaid live editor.
+
+File paths are placed in node labels, never in node IDs (IDs are synthetic, e.g. n0, n1), so paths containing slashes/dots/dashes render correctly. Output is deterministic.
+
+Args:
+  - file (string, optional): Center the diagram on this file's neighbourhood. Omit for the whole graph.
+  - depth (number, optional): Neighbourhood radius (1-5, default 2). Ignored without a file.
+  - language (string, optional): Only include files of this language.
+  - max_nodes (number, optional): Cap (default 200). Over this, highest-degree nodes are kept and truncated=true.
+
+Returns: { format, diagram, nodeCount, edgeCount, truncated }
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: EXPORT_INPUT_SCHEMA,
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ file, depth, language, max_nodes }) => {
+    if (!currentGraph) return noGraphError();
+    const result = toolExportMermaid(currentGraph, {
+      file,
+      depth,
+      language: language as Language | undefined,
+      maxNodes: max_nodes,
+    });
+    if (isToolError(result)) return errResponse(result.error);
+    return okResponse(result);
+  }
+);
+
+server.registerTool(
+  "codegraph_export_dot",
+  {
+    title: "Export Dependency Graph as Graphviz DOT",
+    description: `Renders the dependency graph (or a file's neighbourhood) as Graphviz DOT, for rendering with \`dot\`/\`graphviz\` into SVG/PNG.
+
+File paths are placed in node labels, never in node IDs (IDs are synthetic, e.g. n0, n1), so paths containing slashes/dots/dashes render correctly. Output is deterministic.
+
+Args:
+  - file (string, optional): Center the diagram on this file's neighbourhood. Omit for the whole graph.
+  - depth (number, optional): Neighbourhood radius (1-5, default 2). Ignored without a file.
+  - language (string, optional): Only include files of this language.
+  - max_nodes (number, optional): Cap (default 200). Over this, highest-degree nodes are kept and truncated=true.
+
+Returns: { format, diagram, nodeCount, edgeCount, truncated }
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: EXPORT_INPUT_SCHEMA,
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ file, depth, language, max_nodes }) => {
+    if (!currentGraph) return noGraphError();
+    const result = toolExportDot(currentGraph, {
+      file,
+      depth,
+      language: language as Language | undefined,
+      maxNodes: max_nodes,
+    });
+    if (isToolError(result)) return errResponse(result.error);
+    return okResponse(result);
+  }
+);
+
+// ============================================================
+// Tool: codegraph_watch_start / codegraph_watch_stop
+// ============================================================
+
+/**
+ * Incrementally rebuild the in-memory graph and refresh the cache. Used by the
+ * file watcher; assumes a graph is already loaded.
+ */
+async function rescanCurrentGraph(): Promise<void> {
+  if (!currentGraph) return;
+  const result = await incrementalUpdate(currentGraph, lastBuildOptions);
+  currentGraph = result.graph;
+  try {
+    saveCache(currentGraph);
+  } catch {
+    /* cache write best-effort */
+  }
+}
+
+server.registerTool(
+  "codegraph_watch_start",
+  {
+    title: "Start Watching the Scanned Project",
+    description: `Watches the scanned project for file changes and keeps the dependency graph up to date automatically via incremental rescans (debounced to coalesce bursts of edits).
+
+A single watcher is maintained per server; calling this again restarts it on the current root. Use codegraph_watch_stop to stop.
+
+Prerequisite: codegraph_scan must be called first.
+
+Returns: { status, watching, rootDir }`,
+    inputSchema: {},
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+  },
+  async () => {
+    if (!currentGraph) return noGraphError();
+    const rootDir = currentGraph.rootDir;
+    try {
+      startWatch(rootDir, rescanCurrentGraph);
+    } catch (err: unknown) {
+      return errResponse(
+        `Failed to start watch: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+    return okResponse({
+      status: "success",
+      watching: true,
+      rootDir,
+      message: `Watching ${rootDir}. The graph will update automatically on file changes.`,
+    });
+  }
+);
+
+server.registerTool(
+  "codegraph_watch_stop",
+  {
+    title: "Stop Watching the Project",
+    description: `Stops the active file watcher started by codegraph_watch_start and releases its resources. Safe to call when not watching.
+
+Returns: { status, wasWatching }`,
+    inputSchema: {},
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async () => {
+    const wasWatching = stopWatch();
+    return okResponse({
+      status: "success",
+      wasWatching,
+      message: wasWatching ? "Watcher stopped." : "No watcher was active.",
+    });
   }
 );
 
@@ -566,6 +1033,18 @@ Prerequisite: codegraph_scan must be called first.`,
 // ============================================================
 
 async function run(): Promise<void> {
+  // Release the file watcher on exit so it never outlives the process.
+  const cleanup = () => {
+    stopWatch();
+  };
+  process.on("exit", cleanup);
+  for (const signal of ["SIGINT", "SIGTERM"] as const) {
+    process.on(signal, () => {
+      cleanup();
+      process.exit(0);
+    });
+  }
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
   process.stderr.write("[codegraph-mcp-server] Ready. Call codegraph_scan to begin.\n");

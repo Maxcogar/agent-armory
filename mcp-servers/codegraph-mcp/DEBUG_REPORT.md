@@ -5,6 +5,110 @@
 
 ---
 
+## Status of original (2026-03-05) findings
+
+- **Issue 1 (JS non-relative imports dropped):** Fixed in source.
+  `src/parsers/javascript.ts` resolves TypeScript path aliases
+  (`resolveWithTsPaths`) and `baseUrl` imports (`resolveWithBaseUrl`) from
+  `tsconfig.json` before discarding bare specifiers.
+- **Issue 2 (hardcoded ignores):** Fixed in source. `codegraph_scan` accepts
+  `ignore_patterns` (replace) and `additional_ignore_patterns` (append).
+- **Issue 3 (Python regex char-class typo `[[\w.]`):** The literal typo is gone,
+  **but the replacement introduced a worse bug** — see the 2026-05-30 audit
+  below. Do not trust the original "just fix the brackets" framing.
+
+---
+
+## 2026-05-30 Audit (empirical — parsers run against real input, not just read)
+
+These bugs were found by *executing* the parsers on crafted inputs. They are
+fixed in this commit, each with a regression test in
+`tests/parser-edge-cases.test.js`.
+
+### Finding A (SERIOUS): Python dropped consecutive `import` statements
+
+`directImport` was `/^import\s+([\w][\w.,\s]*)/gm`. The `\s` in the character
+class matches **newlines**, so for the very common pattern:
+
+```python
+import os
+import sys
+import mymod
+```
+
+the first `import` greedily consumed all three lines as one token, which
+resolved to nothing — yielding `[]`. Most real Python modules use consecutive
+imports, so this silently blanked out Python dependency edges across the board.
+
+**Fix:** restrict intra-statement whitespace to spaces/tabs:
+`/^[ \t]*import\s+([\w][\w., \t]*)/gm`.
+
+### Finding B (MODERATE): Python missed all indented imports
+
+The `^from` / `^import` anchors with no leading-whitespace allowance skipped
+function-level and `try/except ImportError` conditional imports (a standard
+optional-dependency pattern).
+
+**Fix:** allow leading `[ \t]*` on all three Python import regexes.
+
+### Finding C (MODERATE): JS and C++ counted commented-out imports as real deps
+
+`// import x from './x'` and `/* ... */` blocks produced false dependency edges
+in both the JS/TS and C++ parsers. This violates the README's "deterministic,
+real relationships, does not guess" contract.
+
+**Fix:** strip line and block comments before scanning (`stripJsComments`,
+`stripCppComments`), preserving string/template literals so quoted include
+paths and string contents are untouched.
+
+**Known remaining limitation:** import-like *text inside a string literal*
+(e.g. `const s = "import a from './a'"`) is still counted as a dependency by the
+regex parsers. Eliminating this would require a real tokenizer; deemed rare
+enough to document rather than fix.
+
+### Finding D (SERIOUS): doc-reference matcher had substring false positives
+
+`scanDocForCodeReferences` matched a file's relative-path stem with a bare
+`content.includes(relPathNoExt)` — no word boundary. For a top-level file like
+`app.ts`/`api.ts`, the stem `app`/`api` matched inside ordinary prose words
+("h**app**ens", "r**api**d"), so `codegraph_find_related_docs` flagged unrelated
+docs. For a tool the repo relies on to *enforce* doc-sync deterministically,
+spurious matches erode the whole contract.
+
+**Fix:** match the full relative path as a bounded token; only match the
+extension-stripped path when it is multi-segment (contains `/`). Single-segment
+stems fall through to the filename logic, which already has length and
+generic-name guards. Extracted a shared `containsAsToken` boundary matcher.
+
+### Finding E (MODERATE): documented directory references were not implemented
+
+The function's own docstring and the README both promised "directory references:
+`src/auth/` matches all files under that dir." It was never implemented —
+returned `[]`.
+
+**Fix:** collect directory prefixes that appear in the doc as `dir/` tokens and
+match every file under them (including deeply nested files).
+
+### Also fixed in earlier passes of this audit
+
+Docs-discoverability gap: documentation files were scanned into the graph but
+had no listing tool, so `codegraph_list_files` returned nothing for docs-only
+directories. Added the `codegraph_list_docs` tool plus an explanatory `note` on
+empty `codegraph_list_files` results.
+
+---
+
+## Modules covered by the 2026-05-30 empirical sweep
+
+Run-it-don't-read-it probes were executed against: the Python/JS/C++ parsers
+(Findings A–C), the documentation-reference matcher (Findings D–E), the graph
+builder end-to-end, entry-point detection, stats, and fuzzy/ambiguous file
+resolution. Entry-point detection, stats aggregation, ambiguous-path errors,
+and the blast-radius integration behaved correctly under test and needed no
+change.
+
+---
+
 ## Executive Summary
 
 The code graph MCP **does discover** backend `.js`/`.ts` files during its scan phase. The real problem is that **backend files appear disconnected/isolated in the graph** because the JavaScript parser only tracks **relative imports** — it silently drops all non-relative imports (package imports, path aliases, absolute imports). This makes backend files look like they have no connections, giving the impression they aren't being picked up at all.
