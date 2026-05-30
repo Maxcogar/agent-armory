@@ -4,7 +4,14 @@ import { z } from "zod";
 import * as path from "path";
 
 import { DependencyGraph, Language } from "./types.js";
-import { buildDependencyGraph, DEFAULT_IGNORE_PATTERNS } from "./graph.js";
+import {
+  buildDependencyGraph,
+  incrementalUpdate,
+  DEFAULT_IGNORE_PATTERNS,
+  type BuildGraphOptions,
+} from "./graph.js";
+import { saveCache, loadCache } from "./cache.js";
+import { startWatch, stopWatch } from "./watch.js";
 import {
   toolGetDependencies,
   toolGetDependents,
@@ -58,6 +65,9 @@ function isToolError(result: unknown): result is { error: string } {
 // ============================================================
 
 let currentGraph: DependencyGraph | null = null;
+// Build options from the most recent scan, replayed by incremental rescans and
+// the file watcher so they discover the same file set.
+let lastBuildOptions: BuildGraphOptions | undefined;
 
 const LANGUAGE_VALUES = [
   "javascript",
@@ -126,6 +136,13 @@ Returns:
         .describe(
           "Extra ignore glob patterns appended to the defaults (e.g. ['**/test/**', '**/fixtures/**'])"
         ),
+      force: z
+        .boolean()
+        .optional()
+        .describe(
+          "Force a full rebuild, bypassing the cache and any in-memory graph. " +
+          "Use after changing a non-tracked config (e.g. tsconfig.json) or to recover from a stale incremental result."
+        ),
     },
     annotations: {
       readOnlyHint: true,
@@ -134,23 +151,56 @@ Returns:
       openWorldHint: false,
     },
   },
-  async ({ root_dir, ignore_patterns, additional_ignore_patterns }) => {
+  async ({ root_dir, ignore_patterns, additional_ignore_patterns, force }) => {
     const normalizedRoot = path.resolve(root_dir);
-    process.stderr.write(`[codegraph] Scanning: ${normalizedRoot}\n`);
+    const options: BuildGraphOptions = {
+      ignorePatterns: ignore_patterns,
+      additionalIgnorePatterns: additional_ignore_patterns,
+    };
 
+    // Choose a base graph for an incremental update: the in-memory graph if it
+    // is for this same root, else a cached graph from a prior session. With no
+    // base (or force), do a full rebuild.
+    const base =
+      !force &&
+      (currentGraph && currentGraph.rootDir === normalizedRoot
+        ? currentGraph
+        : loadCache(normalizedRoot));
+
+    let mode: "full" | "incremental";
+    let delta: { added: number; changed: number; removed: number; reused: number } | undefined;
     try {
-      currentGraph = await buildDependencyGraph(normalizedRoot, {
-        ignorePatterns: ignore_patterns,
-        additionalIgnorePatterns: additional_ignore_patterns,
-      });
+      if (base) {
+        process.stderr.write(`[codegraph] Incremental rescan: ${normalizedRoot}\n`);
+        const result = await incrementalUpdate(base, options);
+        currentGraph = result.graph;
+        delta = result.delta;
+        mode = "incremental";
+      } else {
+        process.stderr.write(`[codegraph] Scanning: ${normalizedRoot}\n`);
+        currentGraph = await buildDependencyGraph(normalizedRoot, options);
+        mode = "full";
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       return errResponse(`Error scanning directory: ${msg}`);
     }
 
+    lastBuildOptions = options;
+    try {
+      saveCache(currentGraph);
+    } catch (err: unknown) {
+      // A cache write failure must not fail the scan; the graph is in memory.
+      process.stderr.write(
+        `[codegraph] cache write failed: ${err instanceof Error ? err.message : String(err)}\n`
+      );
+    }
+
     const stats = toolGetStats(currentGraph);
     return okResponse({
       status: "success",
+      mode,
+      delta,
       rootDir: currentGraph.rootDir,
       totalFiles: currentGraph.totalFiles,
       totalDocFiles: currentGraph.docNodes.size,
@@ -160,7 +210,7 @@ Returns:
         currentGraph.parseErrors.length > 0
           ? currentGraph.parseErrors.slice(0, 5)
           : undefined,
-      message: `Graph built. ${currentGraph.totalFiles} code files and ${currentGraph.docNodes.size} doc files scanned. Use codegraph_get_stats for full overview, or codegraph_find_related_docs to find docs affected by code changes.`,
+      message: `Graph ${mode === "incremental" ? "updated incrementally" : "built"}. ${currentGraph.totalFiles} code files and ${currentGraph.docNodes.size} doc files. Use codegraph_get_stats for a full overview.`,
     });
   }
 );
@@ -838,6 +888,88 @@ Prerequisite: codegraph_scan must be called first.`,
 );
 
 // ============================================================
+// Tool: codegraph_watch_start / codegraph_watch_stop
+// ============================================================
+
+/**
+ * Incrementally rebuild the in-memory graph and refresh the cache. Used by the
+ * file watcher; assumes a graph is already loaded.
+ */
+async function rescanCurrentGraph(): Promise<void> {
+  if (!currentGraph) return;
+  const result = await incrementalUpdate(currentGraph, lastBuildOptions);
+  currentGraph = result.graph;
+  try {
+    saveCache(currentGraph);
+  } catch {
+    /* cache write best-effort */
+  }
+}
+
+server.registerTool(
+  "codegraph_watch_start",
+  {
+    title: "Start Watching the Scanned Project",
+    description: `Watches the scanned project for file changes and keeps the dependency graph up to date automatically via incremental rescans (debounced to coalesce bursts of edits).
+
+A single watcher is maintained per server; calling this again restarts it on the current root. Use codegraph_watch_stop to stop.
+
+Prerequisite: codegraph_scan must be called first.
+
+Returns: { status, watching, rootDir }`,
+    inputSchema: {},
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+  },
+  async () => {
+    if (!currentGraph) return noGraphError();
+    const rootDir = currentGraph.rootDir;
+    try {
+      startWatch(rootDir, rescanCurrentGraph);
+    } catch (err: unknown) {
+      return errResponse(
+        `Failed to start watch: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+    return okResponse({
+      status: "success",
+      watching: true,
+      rootDir,
+      message: `Watching ${rootDir}. The graph will update automatically on file changes.`,
+    });
+  }
+);
+
+server.registerTool(
+  "codegraph_watch_stop",
+  {
+    title: "Stop Watching the Project",
+    description: `Stops the active file watcher started by codegraph_watch_start and releases its resources. Safe to call when not watching.
+
+Returns: { status, wasWatching }`,
+    inputSchema: {},
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async () => {
+    const wasWatching = stopWatch();
+    return okResponse({
+      status: "success",
+      wasWatching,
+      message: wasWatching ? "Watcher stopped." : "No watcher was active.",
+    });
+  }
+);
+
+// ============================================================
 // Tool: codegraph_find_related_docs
 // ============================================================
 
@@ -901,6 +1033,18 @@ Prerequisite: codegraph_scan must be called first.`,
 // ============================================================
 
 async function run(): Promise<void> {
+  // Release the file watcher on exit so it never outlives the process.
+  const cleanup = () => {
+    stopWatch();
+  };
+  process.on("exit", cleanup);
+  for (const signal of ["SIGINT", "SIGTERM"] as const) {
+    process.on(signal, () => {
+      cleanup();
+      process.exit(0);
+    });
+  }
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
   process.stderr.write("[codegraph-mcp-server] Ready. Call codegraph_scan to begin.\n");

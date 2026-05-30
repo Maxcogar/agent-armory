@@ -33,7 +33,7 @@ Automatically ignores: `node_modules`, `.git`, `dist`, `build`, `__pycache__`, `
 
 | Tool | Description |
 |---|---|
-| `codegraph_scan` | **Call first.** Scans a directory and builds the graph in memory. Also scans doc files (`.md`, `.mdx`, `.rst`, `.txt`) for code references. |
+| `codegraph_scan` | **Call first.** Scans a directory and builds the graph in memory. Reuses an on-disk cache for an incremental rescan when one exists (pass `force: true` for a full rebuild). Also scans doc files (`.md`, `.mdx`, `.rst`, `.txt`) for code references. |
 | `codegraph_get_dependencies` | What does file X import? |
 | `codegraph_get_dependents` | What files import file X? |
 | `codegraph_get_change_impact` | Full blast radius if file(s) change (direct + transitive) |
@@ -49,6 +49,23 @@ Automatically ignores: `node_modules`, `.git`, `dist`, `build`, `__pycache__`, `
 | `codegraph_list_docs` | All **documentation** files (`.md`, `.mdx`, `.rst`, `.txt`) scanned, with reference counts + pagination |
 | `codegraph_get_stats` | Codebase overview: most connected, most depended-on, etc. |
 | `codegraph_find_related_docs` | Find all documentation files affected by code changes |
+| `codegraph_watch_start` | Watch the scanned project and keep the graph current via debounced incremental rescans |
+| `codegraph_watch_stop` | Stop the active file watcher |
+
+### Persistence & incremental rescans
+
+After a scan the graph is persisted to an on-disk cache (outside the project,
+keyed by a hash of the root path; override with `CODEGRAPH_CACHE_DIR`). A later
+`codegraph_scan` of the same root reuses it for an **incremental rescan** —
+only files whose mtime/size changed are re-parsed (make-style). The cache
+carries a schema version and is ignored on any mismatch, never deserialized
+stale. `codegraph_watch_start` runs the same incremental path automatically on
+file changes.
+
+> Incremental rescans are mtime-based: an *unchanged* file that gains a
+> now-resolvable import to a *newly-added* file (or an edit to a non-tracked
+> config like `tsconfig.json`) is not picked up until the importer is touched.
+> Use `codegraph_scan` with `force: true` for a guaranteed full rebuild.
 
 ### Code files vs. documentation files
 

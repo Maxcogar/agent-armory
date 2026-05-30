@@ -141,6 +141,66 @@ function parseManifestDependencies(
   }
 }
 
+/** Everything a single-file parse needs that is derived once per scan. */
+interface ParseContext {
+  rootDir: string;
+  cppSearchDirs: string[];
+  localPackages: Map<string, string>;
+}
+
+/**
+ * Parse one file's raw (unfiltered) dependency targets by language. The single
+ * dispatch point shared by the full build and incremental updates, so both
+ * resolve imports identically.
+ */
+function parseNodeDependencies(
+  filePath: string,
+  language: Language,
+  ctx: ParseContext
+): string[] {
+  switch (language) {
+    case "typescript":
+    case "javascript":
+      return parseJavaScriptDependencies(filePath, ctx.rootDir);
+    case "python":
+      return parsePythonDependencies(filePath, ctx.rootDir);
+    case "cpp":
+    case "arduino":
+      return parseCppDependencies(filePath, ctx.cppSearchDirs);
+    case "config":
+      return parseManifestDependencies(filePath, ctx.localPackages);
+    default:
+      return [];
+  }
+}
+
+/**
+ * Recompute every node's `dependents` from the forward `dependencies` edges.
+ * Deriving reverse edges in a single pass (rather than patching them) keeps
+ * them consistent after incremental updates — there is no way to leave a stale
+ * dependent behind.
+ */
+function computeDependents(nodes: Map<string, FileNode>): void {
+  for (const node of nodes.values()) node.dependents = [];
+  for (const [filePath, node] of nodes) {
+    for (const dep of node.dependencies) {
+      const depNode = nodes.get(dep);
+      if (depNode && !depNode.dependents.includes(filePath)) {
+        depNode.dependents.push(filePath);
+      }
+    }
+  }
+}
+
+/** Resolve the effective ignore globs from build options (shared by full + incremental). */
+function resolveIgnorePatterns(options?: BuildGraphOptions): string[] | undefined {
+  if (options?.ignorePatterns) return options.ignorePatterns;
+  if (options?.additionalIgnorePatterns?.length) {
+    return [...DEFAULT_IGNORE_PATTERNS, ...options.additionalIgnorePatterns];
+  }
+  return undefined;
+}
+
 export async function buildDependencyGraph(
   rootDir: string,
   options?: BuildGraphOptions
@@ -151,13 +211,7 @@ export async function buildDependencyGraph(
   // Clear tsconfig cache on each scan to pick up config changes
   clearTsConfigCache();
 
-  // Merge ignore patterns
-  let ignorePatterns: string[] | undefined;
-  if (options?.ignorePatterns) {
-    ignorePatterns = options.ignorePatterns;
-  } else if (options?.additionalIgnorePatterns?.length) {
-    ignorePatterns = [...DEFAULT_IGNORE_PATTERNS, ...options.additionalIgnorePatterns];
-  }
+  const ignorePatterns = resolveIgnorePatterns(options);
 
   // Discover all files
   const files = await discoverFiles(normalizedRoot, ignorePatterns);
@@ -192,40 +246,12 @@ export async function buildDependencyGraph(
   const localPackages = buildLocalPackageMap(nodes);
 
   // Second pass: parse dependencies for each file
+  const ctx: ParseContext = { rootDir: normalizedRoot, cppSearchDirs, localPackages };
   for (const [filePath, node] of nodes) {
     try {
-      let rawDeps: string[] = [];
-
-      switch (node.language) {
-        case "typescript":
-        case "javascript":
-          rawDeps = parseJavaScriptDependencies(filePath, normalizedRoot);
-          break;
-        case "python":
-          rawDeps = parsePythonDependencies(filePath, normalizedRoot);
-          break;
-        case "cpp":
-        case "arduino":
-          rawDeps = parseCppDependencies(filePath, cppSearchDirs);
-          break;
-        case "config":
-          rawDeps = parseManifestDependencies(filePath, localPackages);
-          break;
-        default:
-          break;
-      }
-
-      // Only keep deps that are in the graph (i.e., part of the project)
-      const validDeps = rawDeps.filter((dep) => nodes.has(dep));
-      node.dependencies = validDeps;
-
-      // Register reverse edges (dependents)
-      for (const dep of validDeps) {
-        const depNode = nodes.get(dep);
-        if (depNode && !depNode.dependents.includes(filePath)) {
-          depNode.dependents.push(filePath);
-        }
-      }
+      const rawDeps = parseNodeDependencies(filePath, node.language, ctx);
+      // Only keep deps that are in the graph (i.e., part of the project).
+      node.dependencies = rawDeps.filter((dep) => nodes.has(dep));
     } catch (err: unknown) {
       parseErrors.push({
         file: filePath,
@@ -233,6 +259,9 @@ export async function buildDependencyGraph(
       });
     }
   }
+
+  // Reverse edges (dependents) are derived from the forward edges in one pass.
+  computeDependents(nodes);
 
   // Third pass: discover and scan documentation files for code references
   const docNodes = await buildDocNodes(normalizedRoot, nodes, ignorePatterns);
@@ -244,6 +273,123 @@ export async function buildDependencyGraph(
     totalFiles: nodes.size,
     parseErrors,
     docNodes,
+  };
+}
+
+export interface IncrementalDelta {
+  added: number;
+  changed: number;
+  removed: number;
+  reused: number;
+}
+
+/**
+ * Rebuild the graph reusing the previous one, re-parsing only files whose mtime
+ * or size changed (make-style, no hashing). Unchanged files keep their cached
+ * dependency edges; reverse edges and docs are recomputed wholesale so the
+ * result is structurally identical to a full build — with one documented
+ * exception (below).
+ *
+ * Known limitation: a file that is itself unchanged but contains an import that
+ * only becomes resolvable because its target was just *added* will not gain that
+ * edge until the importer is touched or a full rescan (`force`) is run — the
+ * importer's mtime did not change, so it is not re-parsed. Likewise, edits to a
+ * non-node config (e.g. tsconfig.json path aliases) are not detected. Both are
+ * inherent to mtime-based incremental builds; `force` is the escape hatch.
+ */
+export async function incrementalUpdate(
+  previous: DependencyGraph,
+  options?: BuildGraphOptions
+): Promise<{ graph: DependencyGraph; delta: IncrementalDelta }> {
+  const rootDir = previous.rootDir;
+  clearTsConfigCache();
+
+  const ignorePatterns = resolveIgnorePatterns(options);
+  const files = await discoverFiles(rootDir, ignorePatterns);
+  const parseErrors: ParseError[] = [];
+
+  const nodes = new Map<string, FileNode>();
+  const toParse: string[] = [];
+  let added = 0;
+  let changed = 0;
+  let reused = 0;
+
+  for (const filePath of files) {
+    let stat: fs.Stats;
+    try {
+      stat = fs.statSync(filePath);
+    } catch {
+      continue;
+    }
+    const prev = previous.nodes.get(filePath);
+    if (prev && prev.lastModified === stat.mtimeMs && prev.sizeBytes === stat.size) {
+      // Unchanged: reuse the cached node (and its forward edges). Dependents are
+      // cleared because they are recomputed globally below.
+      nodes.set(filePath, { ...prev, dependents: [] });
+      reused++;
+    } else {
+      nodes.set(filePath, {
+        path: filePath,
+        relativePath: path.relative(rootDir, filePath),
+        language: detectLanguage(filePath),
+        dependencies: [],
+        dependents: [],
+        sizeBytes: stat.size,
+        lastModified: stat.mtimeMs,
+      });
+      if (prev) changed++;
+      else added++;
+      toParse.push(filePath);
+    }
+  }
+  const removed = previous.totalFiles - reused - changed;
+
+  // Re-parse only the changed/added files.
+  const ctx: ParseContext = {
+    rootDir,
+    cppSearchDirs: collectCppSearchDirs(rootDir),
+    localPackages: buildLocalPackageMap(nodes),
+  };
+  const reparsed = new Set(toParse);
+  for (const filePath of toParse) {
+    const node = nodes.get(filePath)!;
+    try {
+      const rawDeps = parseNodeDependencies(filePath, node.language, ctx);
+      node.dependencies = rawDeps.filter((dep) => nodes.has(dep));
+    } catch (err: unknown) {
+      parseErrors.push({
+        file: filePath,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  // Reused nodes kept edges that may point at now-deleted files; prune to the
+  // current node set so nothing dangles.
+  for (const node of nodes.values()) {
+    if (!reparsed.has(node.path)) {
+      node.dependencies = node.dependencies.filter((dep) => nodes.has(dep));
+    }
+  }
+
+  // Carry forward parse errors for files we did not re-parse but still exist.
+  for (const pe of previous.parseErrors) {
+    if (!reparsed.has(pe.file) && nodes.has(pe.file)) parseErrors.push(pe);
+  }
+
+  computeDependents(nodes);
+  const docNodes = await buildDocNodes(rootDir, nodes, ignorePatterns);
+
+  return {
+    graph: {
+      rootDir,
+      builtAt: Date.now(),
+      nodes,
+      totalFiles: nodes.size,
+      parseErrors,
+      docNodes,
+    },
+    delta: { added, changed, removed, reused },
   };
 }
 
@@ -387,6 +533,11 @@ async function buildDocNodes(
   const docNodes = new Map<string, DocNode>();
 
   for (const docPath of docFiles) {
+    // A file already indexed as code (e.g. a requirements.txt manifest, which
+    // the `.txt` doc glob also matches) is not documentation — skip it so it is
+    // never both a code node and a doc node.
+    if (codeNodes.has(docPath)) continue;
+
     let content: string;
     try {
       content = fs.readFileSync(docPath, "utf-8");
