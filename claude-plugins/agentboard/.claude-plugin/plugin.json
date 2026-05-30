@@ -1,6 +1,6 @@
 {
   "name": "agentboard",
-  "version": "0.3.0",
+  "version": "0.3.2",
   "description": "AgentBoard AI project management toolkit — phase-based project workflow plus workspace boards (apps, boards, cards, artifacts) for ad-hoc agent orchestration, with codegraph and RAG companion tools. Cloud-hosted MCP at mcp.agent-board.app.",
   "author": {
     "name": "Maxcogar"
