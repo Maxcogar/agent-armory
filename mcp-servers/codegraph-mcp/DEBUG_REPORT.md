@@ -5,24 +5,73 @@
 
 ---
 
-## ⚠️ Status: RESOLVED (verified 2026-05-30)
+## Status of original (2026-03-05) findings
 
-All findings in this report have since been fixed in the source. This document
-is retained for historical context only:
-
-- **Issue 1 (JS non-relative imports dropped):** Fixed. `src/parsers/javascript.ts`
-  now resolves TypeScript path aliases (`resolveWithTsPaths`) and `baseUrl`
-  imports (`resolveWithBaseUrl`) from `tsconfig.json` before discarding bare
-  specifiers.
-- **Issue 2 (hardcoded ignores):** Fixed. `codegraph_scan` accepts
+- **Issue 1 (JS non-relative imports dropped):** Fixed in source.
+  `src/parsers/javascript.ts` resolves TypeScript path aliases
+  (`resolveWithTsPaths`) and `baseUrl` imports (`resolveWithBaseUrl`) from
+  `tsconfig.json` before discarding bare specifiers.
+- **Issue 2 (hardcoded ignores):** Fixed in source. `codegraph_scan` accepts
   `ignore_patterns` (replace) and `additional_ignore_patterns` (append).
-- **Issue 3 (Python regex bugs):** Fixed. `src/parsers/python.ts:32,42` use the
-  correct `[\w.]` / `[\w.,\s]` character classes (no malformed `[[\w.]`).
+- **Issue 3 (Python regex char-class typo `[[\w.]`):** The literal typo is gone,
+  **but the replacement introduced a worse bug** — see the 2026-05-30 audit
+  below. Do not trust the original "just fix the brackets" framing.
 
-Separately, a docs-discoverability gap found in the 2026-05-30 audit was fixed by
-adding the `codegraph_list_docs` tool (documentation files were scanned into the
-graph but had no listing tool, so `codegraph_list_files` returned nothing for
-docs-only directories).
+---
+
+## 2026-05-30 Audit (empirical — parsers run against real input, not just read)
+
+These bugs were found by *executing* the parsers on crafted inputs. They are
+fixed in this commit, each with a regression test in
+`tests/parser-edge-cases.test.js`.
+
+### Finding A (SERIOUS): Python dropped consecutive `import` statements
+
+`directImport` was `/^import\s+([\w][\w.,\s]*)/gm`. The `\s` in the character
+class matches **newlines**, so for the very common pattern:
+
+```python
+import os
+import sys
+import mymod
+```
+
+the first `import` greedily consumed all three lines as one token, which
+resolved to nothing — yielding `[]`. Most real Python modules use consecutive
+imports, so this silently blanked out Python dependency edges across the board.
+
+**Fix:** restrict intra-statement whitespace to spaces/tabs:
+`/^[ \t]*import\s+([\w][\w., \t]*)/gm`.
+
+### Finding B (MODERATE): Python missed all indented imports
+
+The `^from` / `^import` anchors with no leading-whitespace allowance skipped
+function-level and `try/except ImportError` conditional imports (a standard
+optional-dependency pattern).
+
+**Fix:** allow leading `[ \t]*` on all three Python import regexes.
+
+### Finding C (MODERATE): JS and C++ counted commented-out imports as real deps
+
+`// import x from './x'` and `/* ... */` blocks produced false dependency edges
+in both the JS/TS and C++ parsers. This violates the README's "deterministic,
+real relationships, does not guess" contract.
+
+**Fix:** strip line and block comments before scanning (`stripJsComments`,
+`stripCppComments`), preserving string/template literals so quoted include
+paths and string contents are untouched.
+
+**Known remaining limitation:** import-like *text inside a string literal*
+(e.g. `const s = "import a from './a'"`) is still counted as a dependency by the
+regex parsers. Eliminating this would require a real tokenizer; deemed rare
+enough to document rather than fix.
+
+### Also fixed in this pass
+
+Docs-discoverability gap: documentation files were scanned into the graph but
+had no listing tool, so `codegraph_list_files` returned nothing for docs-only
+directories. Added the `codegraph_list_docs` tool plus an explanatory `note` on
+empty `codegraph_list_files` results.
 
 ---
 
