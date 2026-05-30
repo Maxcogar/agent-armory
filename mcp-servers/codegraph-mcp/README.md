@@ -30,6 +30,8 @@ Automatically ignores: `node_modules`, `.git`, `dist`, `build`, `__pycache__`, `
 | `codegraph_get_path_between` | Shortest dependency chain A→…→B ("why does A depend on B?") |
 | `codegraph_find_orphans` | Fully isolated files — zero dependents **and** zero dependencies (dead-code candidates) |
 | `codegraph_get_layers` | Dependency layers / architectural tiers via topological sort (cycle-safe) |
+| `codegraph_export_mermaid` | Export the graph (or a file's neighbourhood) as a Mermaid flowchart |
+| `codegraph_export_dot` | Export the graph (or a file's neighbourhood) as Graphviz DOT |
 | `codegraph_list_files` | All **code** files in the graph, with language filter + pagination |
 | `codegraph_list_docs` | All **documentation** files (`.md`, `.mdx`, `.rst`, `.txt`) scanned, with reference counts + pagination |
 | `codegraph_get_stats` | Codebase overview: most connected, most depended-on, etc. |

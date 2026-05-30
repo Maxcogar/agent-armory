@@ -6,8 +6,6 @@ import {
   FileDependents,
   ChangeImpact,
   SubGraph,
-  SubGraphNode,
-  SubGraphEdge,
   GraphStats,
   ConnectedFile,
   Language,
@@ -26,9 +24,16 @@ import {
   findCycles,
   findDependencyPath,
   computeLayers,
+  collectSubgraph,
   getTransitiveDependents,
   getTransitiveDependencies,
 } from "../graph.js";
+import {
+  exportMermaid,
+  exportDot,
+  ExportResult,
+  ExportOptions,
+} from "../export.js";
 
 // ============================================================
 // Helpers
@@ -159,71 +164,12 @@ export function toolGetSubgraph(
   const { resolved, error } = resolveSingleFile(graph, fileQuery);
   if (error || !resolved) return { error: error! };
 
-  const centerNode = graph.nodes.get(resolved)!;
-  const nodesMap = new Map<string, SubGraphNode>();
-  const edges: SubGraphEdge[] = [];
-
-  // Add center
-  nodesMap.set(resolved, {
-    path: resolved,
-    relativePath: centerNode.relativePath,
-    language: centerNode.language,
-    distanceFromCenter: 0,
-    direction: "center",
-  });
-
-  // BFS in both directions up to `depth`
-  const queue: Array<{ filePath: string; dist: number; dir: "dependency" | "dependent" }> = [];
-
-  for (const dep of centerNode.dependencies) {
-    queue.push({ filePath: dep, dist: 1, dir: "dependency" });
-  }
-  for (const dep of centerNode.dependents) {
-    queue.push({ filePath: dep, dist: 1, dir: "dependent" });
-  }
-
-  while (queue.length > 0) {
-    const { filePath, dist, dir } = queue.shift()!;
-    if (nodesMap.has(filePath) || dist > depth) continue;
-
-    const n = graph.nodes.get(filePath);
-    if (!n) continue;
-
-    nodesMap.set(filePath, {
-      path: filePath,
-      relativePath: n.relativePath,
-      language: n.language,
-      distanceFromCenter: dist,
-      direction: dir,
-    });
-
-    if (dist < depth) {
-      if (dir === "dependency") {
-        for (const dep of n.dependencies) {
-          if (!nodesMap.has(dep)) queue.push({ filePath: dep, dist: dist + 1, dir: "dependency" });
-        }
-      } else {
-        for (const dep of n.dependents) {
-          if (!nodesMap.has(dep)) queue.push({ filePath: dep, dist: dist + 1, dir: "dependent" });
-        }
-      }
-    }
-  }
-
-  // Build edges (only between nodes in the subgraph)
-  for (const [from, fromNode] of graph.nodes) {
-    if (!nodesMap.has(from)) continue;
-    for (const to of fromNode.dependencies) {
-      if (nodesMap.has(to)) {
-        edges.push({ from, to, type: "imports" });
-      }
-    }
-  }
+  const { nodes, edges } = collectSubgraph(graph, resolved, depth);
 
   return {
     centerFile: toFileRef(resolved, graph),
     depth,
-    nodes: [...nodesMap.values()],
+    nodes: [...nodes.values()],
     edges,
   };
 }
@@ -511,4 +457,63 @@ export function toolGetLayers(graph: DependencyGraph): LayersResult {
     cyclic,
     cyclicNodes: cyclicNodes.map((f) => toFileRef(f, graph)),
   };
+}
+
+// ============================================================
+// Visualization export tools
+// ============================================================
+
+export interface ExportArgs {
+  file?: string;
+  depth: number;
+  language?: Language;
+  maxNodes: number;
+}
+
+/**
+ * Resolve the optional `file` arg to a concrete center path, returning the
+ * ExportOptions both exporters consume. Centralizes resolution so
+ * codegraph_export_mermaid and codegraph_export_dot behave identically.
+ */
+export function resolveExportOptions(
+  graph: DependencyGraph,
+  args: ExportArgs
+): ExportOptions | { error: string } {
+  if (args.file === undefined) {
+    return { depth: args.depth, language: args.language, maxNodes: args.maxNodes };
+  }
+  const { resolved, error } = resolveSingleFile(graph, args.file);
+  if (error || !resolved) return { error: error! };
+  return {
+    center: resolved,
+    depth: args.depth,
+    language: args.language,
+    maxNodes: args.maxNodes,
+  };
+}
+
+/** codegraph_export_mermaid */
+export function toolExportMermaid(
+  graph: DependencyGraph,
+  args: ExportArgs
+): ExportResult | { error: string } {
+  const opts = resolveExportOptions(graph, args);
+  if (isExportError(opts)) return opts;
+  return exportMermaid(graph, opts);
+}
+
+/** codegraph_export_dot */
+export function toolExportDot(
+  graph: DependencyGraph,
+  args: ExportArgs
+): ExportResult | { error: string } {
+  const opts = resolveExportOptions(graph, args);
+  if (isExportError(opts)) return opts;
+  return exportDot(graph, opts);
+}
+
+function isExportError(
+  v: ExportOptions | { error: string }
+): v is { error: string } {
+  return (v as { error: string }).error !== undefined;
 }

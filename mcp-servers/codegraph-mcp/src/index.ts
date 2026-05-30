@@ -19,6 +19,8 @@ import {
   toolGetPathBetween,
   toolFindOrphans,
   toolGetLayers,
+  toolExportMermaid,
+  toolExportDot,
 } from "./tools/query.js";
 
 // ============================================================
@@ -721,6 +723,116 @@ Prerequisite: codegraph_scan must be called first.`,
   async () => {
     if (!currentGraph) return noGraphError();
     return okResponse(toolGetLayers(currentGraph));
+  }
+);
+
+// ============================================================
+// Tool: codegraph_export_mermaid / codegraph_export_dot
+// ============================================================
+
+// Shared input schema for both exporters: an optional center file, neighbourhood
+// depth, language filter, and a node cap that guards against unrenderable
+// whole-graph dumps.
+const EXPORT_INPUT_SCHEMA = {
+  file: z
+    .string()
+    .optional()
+    .describe(
+      "Optional center file (relative, absolute, or filename). When given, the diagram is scoped to its neighbourhood; when omitted, the whole graph is exported (capped by max_nodes)."
+    ),
+  depth: z
+    .number()
+    .int()
+    .min(1)
+    .max(5)
+    .default(2)
+    .describe("Neighbourhood radius around the center file (default: 2, ignored when no file is given)"),
+  language: z
+    .enum(LANGUAGE_VALUES)
+    .optional()
+    .describe("Optional: only include files of this language"),
+  max_nodes: z
+    .number()
+    .int()
+    .min(1)
+    .max(2000)
+    .default(200)
+    .describe("Maximum nodes to render; over this, the highest-degree nodes are kept and truncated=true (default: 200)"),
+};
+
+server.registerTool(
+  "codegraph_export_mermaid",
+  {
+    title: "Export Dependency Graph as Mermaid",
+    description: `Renders the dependency graph (or a file's neighbourhood) as a Mermaid flowchart that can be pasted into Markdown, GitHub, or a Mermaid live editor.
+
+File paths are placed in node labels, never in node IDs (IDs are synthetic, e.g. n0, n1), so paths containing slashes/dots/dashes render correctly. Output is deterministic.
+
+Args:
+  - file (string, optional): Center the diagram on this file's neighbourhood. Omit for the whole graph.
+  - depth (number, optional): Neighbourhood radius (1-5, default 2). Ignored without a file.
+  - language (string, optional): Only include files of this language.
+  - max_nodes (number, optional): Cap (default 200). Over this, highest-degree nodes are kept and truncated=true.
+
+Returns: { format, diagram, nodeCount, edgeCount, truncated }
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: EXPORT_INPUT_SCHEMA,
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ file, depth, language, max_nodes }) => {
+    if (!currentGraph) return noGraphError();
+    const result = toolExportMermaid(currentGraph, {
+      file,
+      depth,
+      language: language as Language | undefined,
+      maxNodes: max_nodes,
+    });
+    if (isToolError(result)) return errResponse(result.error);
+    return okResponse(result);
+  }
+);
+
+server.registerTool(
+  "codegraph_export_dot",
+  {
+    title: "Export Dependency Graph as Graphviz DOT",
+    description: `Renders the dependency graph (or a file's neighbourhood) as Graphviz DOT, for rendering with \`dot\`/\`graphviz\` into SVG/PNG.
+
+File paths are placed in node labels, never in node IDs (IDs are synthetic, e.g. n0, n1), so paths containing slashes/dots/dashes render correctly. Output is deterministic.
+
+Args:
+  - file (string, optional): Center the diagram on this file's neighbourhood. Omit for the whole graph.
+  - depth (number, optional): Neighbourhood radius (1-5, default 2). Ignored without a file.
+  - language (string, optional): Only include files of this language.
+  - max_nodes (number, optional): Cap (default 200). Over this, highest-degree nodes are kept and truncated=true.
+
+Returns: { format, diagram, nodeCount, edgeCount, truncated }
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: EXPORT_INPUT_SCHEMA,
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ file, depth, language, max_nodes }) => {
+    if (!currentGraph) return noGraphError();
+    const result = toolExportDot(currentGraph, {
+      file,
+      depth,
+      language: language as Language | undefined,
+      maxNodes: max_nodes,
+    });
+    if (isToolError(result)) return errResponse(result.error);
+    return okResponse(result);
   }
 );
 

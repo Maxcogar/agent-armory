@@ -7,6 +7,8 @@ import {
   FileNode,
   Language,
   ParseError,
+  SubGraphNode,
+  SubGraphEdge,
 } from "./types.js";
 import { parseJavaScriptDependencies, resolveJsImport, clearTsConfigCache } from "./parsers/javascript.js";
 import { parsePythonDependencies } from "./parsers/python.js";
@@ -734,4 +736,86 @@ export function computeLayers(graph: DependencyGraph): GraphLayers {
     cyclic: cyclicComp.size > 0,
     cyclicNodes,
   };
+}
+
+// ============================================================
+// Subgraph collection (shared by subgraph query + visual exporters)
+// ============================================================
+
+export interface CollectedSubgraph {
+  nodes: Map<string, SubGraphNode>;
+  edges: SubGraphEdge[];
+}
+
+/**
+ * Collect the neighbourhood of `center` up to `depth` hops, traversing both
+ * the dependency and dependent directions via BFS. Returns the nodes (keyed by
+ * absolute path, each tagged with its distance and direction from center) and
+ * the edges that fall entirely within the collected node set.
+ *
+ * Single source of truth for neighbourhood scoping — used by the subgraph query
+ * tool and by the Mermaid/DOT exporters so they cannot drift apart. `center`
+ * must be an absolute path already present in the graph.
+ */
+export function collectSubgraph(
+  graph: DependencyGraph,
+  center: string,
+  depth: number
+): CollectedSubgraph {
+  const centerNode = graph.nodes.get(center)!;
+  const nodes = new Map<string, SubGraphNode>();
+  const edges: SubGraphEdge[] = [];
+
+  nodes.set(center, {
+    path: center,
+    relativePath: centerNode.relativePath,
+    language: centerNode.language,
+    distanceFromCenter: 0,
+    direction: "center",
+  });
+
+  const queue: Array<{
+    filePath: string;
+    dist: number;
+    dir: "dependency" | "dependent";
+  }> = [];
+  for (const dep of centerNode.dependencies) {
+    queue.push({ filePath: dep, dist: 1, dir: "dependency" });
+  }
+  for (const dep of centerNode.dependents) {
+    queue.push({ filePath: dep, dist: 1, dir: "dependent" });
+  }
+
+  while (queue.length > 0) {
+    const { filePath, dist, dir } = queue.shift()!;
+    if (nodes.has(filePath) || dist > depth) continue;
+
+    const n = graph.nodes.get(filePath);
+    if (!n) continue;
+
+    nodes.set(filePath, {
+      path: filePath,
+      relativePath: n.relativePath,
+      language: n.language,
+      distanceFromCenter: dist,
+      direction: dir,
+    });
+
+    if (dist < depth) {
+      const next = dir === "dependency" ? n.dependencies : n.dependents;
+      for (const dep of next) {
+        if (!nodes.has(dep)) queue.push({ filePath: dep, dist: dist + 1, dir });
+      }
+    }
+  }
+
+  // Edges between nodes that both made it into the subgraph.
+  for (const [from, fromNode] of graph.nodes) {
+    if (!nodes.has(from)) continue;
+    for (const to of fromNode.dependencies) {
+      if (nodes.has(to)) edges.push({ from, to, type: "imports" });
+    }
+  }
+
+  return { nodes, edges };
 }
