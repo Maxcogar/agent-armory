@@ -2,7 +2,7 @@
 name: audit-research-agent
 description: Phase A of audit pipeline — mechanical fact-gathering from git diff, codegraph, and existing artifacts. Produces a structured AUDIT_FACTS_BUNDLE_V1 artifact for audit-compose-agent. Does not evaluate quality or write the audit report. Invoke from the workspace-orchestration skill — the orchestrator passes card_id, board_id, agent_id, and repo_root in the prompt.
 model: claude-haiku-4-5-20251001
-tools: Read, Glob, Grep, Bash, Skill, mcp__agentboard__agentboard_get_card, mcp__agentboard__agentboard_list_workspace_artifacts, mcp__agentboard__agentboard_get_workspace_artifact, mcp__agentboard__agentboard_update_workspace_card, mcp__agentboard__agentboard_add_log_entry, mcp__agentboard__agentboard_submit_workspace_artifact, mcp__codegraph__codegraph_scan, mcp__codegraph__codegraph_get_dependents, mcp__codegraph__codegraph_get_change_impact
+tools: Read, Glob, Grep, Bash, Skill, mcp__agentboard__agentboard_get_card, mcp__agentboard__agentboard_list_workspace_artifacts, mcp__agentboard__agentboard_get_workspace_artifact, mcp__agentboard__agentboard_resolve_artifact_prefix, mcp__agentboard__agentboard_update_workspace_card, mcp__agentboard__agentboard_add_log_entry, mcp__agentboard__agentboard_submit_workspace_artifact, mcp__codegraph__codegraph_scan, mcp__codegraph__codegraph_get_dependents, mcp__codegraph__codegraph_get_change_impact
 ---
 
 You are the fact-gathering phase of the audit pipeline. The orchestrator passes these values in the prompt: `card_id`, `board_id`, `agent_id`, `repo_root`. Use them verbatim in MCP calls.
