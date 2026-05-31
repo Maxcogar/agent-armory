@@ -92,14 +92,18 @@ A single entry in `hooks/hooks.json`:
 ]
 ```
 
-- **`type: "agent"`** — the LLM-backed hook variant with tool access (Read,
-  Write), so it can read `transcript_path` and append to the log. The pure
-  `prompt` variant can't touch the filesystem.
+- **`type: "agent"`** — the LLM-backed hook variant that spawns a subagent
+  with multi-turn tool access (read files, run commands, use other tools), up
+  to 50 tool-use turns, so it can `Read` the transcript at `transcript_path`
+  and write the log. The pure `prompt` variant is a single LLM call with no
+  filesystem access, so it can't persist anything.
 - **`Stop`** — fires when Claude finishes a turn. The prompt's first step is a
-  cheap triage that no-ops on turns with no pipeline activity, so most
-  interactive turns cost almost nothing.
-- **Non-blocking** — the prompt never returns a `block` decision. The observer
-  must never hold or alter the running session.
+  cheap triage that returns `{"ok": true}` with no tool use on turns with no
+  pipeline activity, so most interactive turns cost ~one fast-model call.
+- **Non-blocking** — the hook **always returns `{"ok": true}`** (the
+  documented "allow" decision on `Stop`). It never returns `{"ok": false}`,
+  which would force Claude to keep working. The observer must never hold or
+  alter the running session.
 
 ## Tuning
 
@@ -112,25 +116,39 @@ adjust it there. Common knobs:
   Step 3.
 - **Model** — add a `"model"` field to the hook to run the analysis on a
   stronger model (default is a fast model). Deeper observations, higher cost.
-- **Cadence** — see the note below if you want once-per-session instead of
-  per-turn.
+- **Cadence** — `Stop` is per-turn and is the only event that runs LLM-backed
+  hooks (see Confirmed mechanics below), so the Step 1 triage gate is the cost
+  control. Tighten the gate to act on fewer turns; there is no documented
+  once-per-session LLM-hook event to move to.
 
-## Known doc gaps / assumptions to verify against a live run
+## Confirmed mechanics (and the one real caveat)
 
-Claude Code's hooks documentation does not fully specify two things this
-design leans on. Both are resolved by the fact that an equivalent global
-"reads transcripts → logs suggestions" observer already works in this
-environment, but verify on first real run:
+These were verified against the Claude Code hooks docs
+([reference](https://code.claude.com/docs/en/hooks),
+[guide](https://code.claude.com/docs/en/hooks-guide)):
 
-1. **Agent-hook write access** — the docs name `Read`/`Grep`/`Glob` for agent
-   hooks but don't confirm `Write`/`Bash`. If the agent hook turns out to be
-   read-only, the log step won't persist and the wiring must move the write
-   into a companion `command` hook.
-2. **Event choice** — `SessionEnd` would be the natural "once per session"
-   home, but it's documented as command/cleanup-only with no LLM-hook
-   guarantee, so this uses `Stop` (per-turn) with triage gating instead. If a
-   live run shows LLM-backed hooks do run on `SessionEnd`, moving there would
-   give clean once-per-session behavior with zero per-turn cost.
+- **Agent hooks have write access.** An `agent` hook spawns a subagent that
+  "can read files, search code, and use other tools," up to **50 tool-use
+  turns** (60s default timeout; raised to 120s here). Write/Edit/Bash are
+  available by default — read-only variants are made by *adding*
+  `disallowedTools: [Edit, Write]`. So reading the transcript and writing the
+  log is fully supported.
+- **`Stop` is the right event.** Both canonical LLM-hook examples in the guide
+  (prompt and agent) are `Stop` hooks. `SessionStart`/`Setup` are
+  command/`mcp_tool`-only, and no LLM-hook example targets `SessionEnd`, so
+  `SessionEnd` is not a viable home for this. `Stop` fires per-turn, which is
+  why the cheap triage in Step 1 matters.
+- **Output contract.** On `Stop`, returning `{"ok": false, "reason": ...}`
+  makes Claude *keep working* (the reason becomes its next instruction).
+  Returning `{"ok": true}` lets it stop. This observer **always returns
+  `{"ok": true}`** so it can never wedge or extend a session.
+- **Loop cap (not triggered here).** Claude Code overrides a `Stop` hook after
+  8 consecutive blocks; since this hook never blocks, the cap is irrelevant.
 
-If the existing global observer uses a different event or hook type, point at
-its config and this can be matched to the proven wiring exactly.
+**The one real caveat:** agent hooks are flagged **experimental** in the docs
+("Behavior and configuration may change... For production workflows, prefer
+command hooks"). That's an acceptable trade for an observer — it's best-effort
+telemetry that never blocks, so if it misbehaves the worst case is a missed
+observation, not a broken pipeline. The first live run is still the proof that
+it fires, triages, and writes as intended; tune the Step 1 gate from what that
+first session's log shows.
