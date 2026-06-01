@@ -1,62 +1,60 @@
 # Workflow Autonomy Observer
 
-A background observer that runs at the end of each turn, reads the session
-transcript **and the friction captured from orchestration subagents**, and logs
-concrete, actionable changes that would let the AgentBoard workspace-board
-pipeline run with fewer human stops next time.
+A background observer that reads **full transcripts** — the main agent's and
+every orchestration subagent's — and logs concrete, actionable changes that
+would let the AgentBoard workspace-board pipeline run with fewer human stops.
 
 It is **not** a general-purpose assistant and **not** a code-changing agent.
-Its only product is a per-session log of workflow-improvement observations for
+Its only product is a per-session set of workflow-improvement observations for
 the maintainer (Max) to review and act on.
 
 ## Why it exists
 
 The end-state for AgentBoard's workspace-board side is a mostly-autonomous
-system: drop a spec on a card (or build one via `/foundation`), run the
-pipeline (`/architecture` → `/orchestrate`), and have it carry the work
-through planning → review → implementation → audit, stopping only for a
-**small set of legitimate reasons**. Every session that falls short of that
-leaves evidence in its transcript — an avoidable human checkpoint, a rework
-loop, a state-machine error, a silently degraded subagent. The observer turns
-that evidence into a backlog of specific, targeted refinements.
+system: drop a spec on a card (or build one via `/foundation`), run the pipeline
+(`/architecture` → `/orchestrate`), and have it carry the work through
+planning → review → implementation → audit, stopping only for a **small set of
+legitimate reasons**. Every session that falls short leaves evidence in the
+transcripts — an avoidable checkpoint, a rework loop, a state-machine error, a
+silently degraded subagent. The observer turns that evidence into a backlog of
+specific, targeted refinements.
 
 This is deliberately **narrower** than a general "suggestions from the
-transcript" observer. It only cares about one thing: **what stopped this
-session from running autonomously, and what concrete change would prevent that
-stop next time.**
+transcript" observer. It cares about one thing: **what stopped this session from
+running autonomously, and what concrete change would prevent that stop next
+time.**
 
 ## The lens
 
 Every observation answers one question:
 
-> Where did this session stop, loop, retry, or require a human — and for each,
-> was that a **legitimate** stop (genuine ambiguity only Max can resolve, or a
-> real external failure) or an **avoidable** stop the pipeline should have
-> handled itself? If avoidable, what specific change to a named
-> skill / agent / hook / command / spec would have prevented it?
+> Where did this run stop, loop, retry, or require a human — and for each, was it
+> a **legitimate** stop (genuine ambiguity only Max can resolve, or a real
+> external failure) or an **avoidable** one the pipeline should have handled
+> itself? If avoidable, what specific change to a named skill / agent / hook /
+> command / spec would have prevented it?
 
 ## What it hunts for (signal taxonomy)
 
-Grounded in the pipeline's actual failure modes (see
-`skills/agentboard/SKILL.md` and `skills/workspace-orchestration/SKILL.md`):
+Grounded in the pipeline's actual failure modes (see `skills/agentboard/SKILL.md`
+and `skills/workspace-orchestration/SKILL.md`):
 
-| Signal | What it looks like in the transcript | Usually points at |
+| Signal | What it looks like | Usually points at |
 |---|---|---|
 | **Avoidable human stop** | A blocking checkpoint, clarifying question, or approval the spec or an agent could have resolved itself | A board's `auto_transitions`, a spec template gap, an agent profile that punts decisions |
-| **Rework loop** | `## Verdict: FAIL` → back to planning; audit FAIL; build/lint failure halting before audit; retry-cap exhaustion | `plan-compose-agent` / `review-agent` / `implementation-agent` prompts |
+| **Rework loop** | `## Verdict: FAIL` → back to planning; audit FAIL; build/lint failure; retry-cap exhaustion | `plan-compose-agent` / `review-agent` / `implementation-agent` prompts |
 | **State-machine friction** | HTTP 422/409 — illegal transition, missing `## Verdict:` marker, missing `acceptance_criteria`/notes, stale-read conflict | The agent profile or SKILL section that should have taught the contract |
-| **Companion-MCP cold-start degradation** | `rag` `status: "indexing"`, codegraph "no graph"/unscanned, or a `plan`/`implementation_note` with no `file:line` citations (the §6.0 silent-skip signature) | The main-agent pre-warm step in `workspace-orchestration` / `agentboard` SKILLs |
-| **Hook-gate rejection** | `artifact-quality-gate` or `validate-architecture-artifact` bounces (TODO/placeholder text, bad/absent sentinel, schema or verdict failure) | The *producing* agent's prompt/output contract |
-| **Tool / permission friction** | Repeated permission prompts, "tool not loaded", `ToolSearch` misses | `.claude/settings.local.json` allowlist, SKILL tool-loading guidance |
+| **Companion-MCP cold-start degradation** | `rag` `status: "indexing"`, codegraph "no graph"/unscanned, or output with no `file:line` citations (the §6.0 silent-skip signature) | The main-agent pre-warm step in the SKILLs |
+| **Hook-gate rejection** | `artifact-quality-gate` / `validate-architecture-artifact` bounces (placeholder text, bad/absent sentinel, schema or verdict failure) | The *producing* agent's prompt/output contract |
+| **Tool / permission friction & inefficiency** | Repeated permission prompts, "tool not loaded", `ToolSearch` misses, wasted tool calls, wrong turns | `.claude/settings.local.json` allowlist, SKILL tool-loading guidance, agent prompts |
 
 ## Output contract
 
-Each observation is appended to the session log as a tight, actionable entry.
-"Actionable" is enforced by shape — vague entries ("improve error handling")
-are not allowed:
+Each observation is a tight, actionable entry. "Actionable" is enforced by
+shape — vague entries ("improve error handling") are not allowed:
 
 ```markdown
-## <ISO-8601 timestamp> — <one-line signal summary>
+## <ISO-8601 timestamp> — <one-line summary>
 - Evidence: <what happened, with the tool call / error code / verdict that proves it>
 - Target: <the exact artifact to change — e.g. agents/review-agent.md,
   skills/workspace-orchestration/SKILL.md §4, hooks/scripts/<file>.sh,
@@ -65,231 +63,154 @@ are not allowed:
 - Autonomy impact: <how this moves the pipeline toward running without this stop>
 ```
 
-Legitimate stops are either skipped or logged tagged `LEGITIMATE STOP` with a
-one-line reason, so Max can confirm where the "stop for a human" boundary
-should sit.
-
-## Where the log lives
-
-`$HOME/.agentboard/observations/<YYYY-MM-DD>-<session_id>.md`
-
-One file per session, appended to as the session progresses. This keeps
-observations off any target project's tree and out of this repo — they are
-machine-local development telemetry, not committed artifacts. Review them, act
-on the worthwhile ones, then archive or delete.
+Legitimate stops are tagged `LEGITIMATE STOP` with a one-line reason, so Max can
+confirm where the "stop for a human" boundary should sit.
 
 ## How it's wired
 
-**Two** coordinated hooks in `hooks/hooks.json`, because orchestration friction
-lives in two places — the main agent's turns *and* inside isolated subagents:
+**Two `agent` hooks, each reading the ENTIRE transcript it is handed** — no
+keyword filter, no staging, no intermediate script:
 
 ```jsonc
 "SubagentStop": [
-  { "matcher": "", "hooks": [
-    { "type": "command",
-      "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/subagent-friction-capture.sh",
-      "timeout": 10000 } ] }
+  { "matcher": "planning|plan-compose|review-agent|implementation-agent|audit|architecture",
+    "hooks": [ { "type": "agent", "prompt": "<read the full subagent transcript…>", "timeout": 180 } ] }
 ],
 "Stop": [
-  { "matcher": "", "hooks": [
-    { "type": "agent", "prompt": "<the observer prompt>", "timeout": 120 } ] }
+  { "matcher": "",
+    "hooks": [ { "type": "agent", "prompt": "<read the full main transcript…>", "timeout": 180 } ] }
 ]
 ```
 
-- **`SubagentStop` → `subagent-friction-capture.sh` (command hook).** Each
-  orchestration worker (planning/review/implementation/audit) runs in an
-  isolated context, and the main transcript receives only its *final summary* —
-  not its internal 422s, `Verdict: FAIL`s, or RAG cold-starts. This hook fires
-  when a worker finishes and **stages a pointer to that worker's own transcript**
-  (`agent_transcript_path`) for **every** pipeline worker — not only the ones
-  that trip a keyword. A `grep` for known failure strings rides along as a
-  *hint*, never a gate, so genuinely novel friction is never filtered out before
-  the observer sees it. It is a **command** hook on purpose: command hooks can't
-  spawn subagents, so it cannot trigger the recursive-hook loop an `agent` hook
-  on `SubagentStop` would risk, and it costs no LLM call per worker. Allowlisted
-  to pipeline agent types (ignores `Explore`/`general-purpose` and the observer's
-  own analysis agent).
-- **`Stop` → the `agent` observer (LLM hook).** Fires when the main agent
-  finishes a turn. Reads the main transcript **and opens every staged worker
-  transcript, reading each one in full** with the same scrutiny it gives the
-  main agent (the `signals` hint only sets priority — it does not limit what the
-  observer looks for). Reasons over the combined friction, dedupes against the
-  existing log, and writes the actionable entries. `type: "agent"` because it
-  needs file read+write (the `prompt` variant has no filesystem access). Step 1
-  is a cheap gate that returns `{"ok": true}` with no tool use on quiet turns
-  with nothing staged.
-- **Non-blocking** — the observer **always returns `{"ok": true}`** (the
-  documented "allow" decision on `Stop`). It never returns `{"ok": false}`,
-  which would force Claude to keep working. It must never hold or alter the
-  running session.
+- **`Stop` → reads the FULL main transcript.** Fires when the main agent finishes
+  a turn; reads the entire `transcript_path` JSONL start to finish (explicitly
+  *not* just the tail) and logs.
+- **`SubagentStop` → reads the FULL subagent transcript.** Fires when an
+  orchestration worker finishes; reads that worker's own `agent_transcript_path`
+  in full and logs. This is the only way to see a worker's internals — the main
+  transcript holds only its final summary (confirmed in the sub-agents docs).
+- **`matcher` on `SubagentStop`** scopes the hook to the pipeline worker agent
+  names. That targets the right workers **and** is the recursion guard: the
+  observer's own analysis agent has a different `agent_type`, so it does not
+  match and cannot re-trigger the hook. A `stop_hook_active` check in the prompt
+  is a backstop.
+- **`type: "agent"`** because reading and analyzing a full transcript needs an
+  LLM with file access; the `prompt` hook variant has no filesystem access.
+- **Non-blocking** — both hooks **always return `{"ok": true}`** (the documented
+  "allow" decision). They never return `{"ok": false}` (which would force the
+  agent to keep working). They only read and log.
+
+## Where the observations live
+
+A per-session **directory**:
+
+```
+$HOME/.agentboard/observations/<session_id>/
+  main.md                          # written by the Stop hook (main agent)
+  <agent_type>-<agent_id>.md       # one per worker, written by SubagentStop
+```
+
+One file per source on purpose: parallel workers finishing at once each write
+their **own** file, so concurrent appends can't corrupt each other. The whole
+folder is one session's record. It stays off any target project's tree and out
+of this repo — machine-local dev telemetry, not committed artifacts.
 
 ## Tuning
 
-The behavior lives entirely in the `prompt` string in `hooks/hooks.json` —
-adjust it there. Common knobs:
+Behavior lives in the two `prompt` strings in `hooks/hooks.json`:
 
-- **Triage breadth** — Step 1's gate decides which turns are worth a deep read.
-  Tighten it to cut cost; loosen it to catch more.
-- **Log location** — change the `$HOME/.agentboard/observations/...` path in
-  Step 3.
-- **Model** — add a `"model"` field to the hook to run the analysis on a
-  stronger model (default is a fast model). Deeper observations, higher cost.
-- **Cadence** — `Stop` is per-turn and is the only event that runs LLM-backed
-  hooks (see Confirmed mechanics below), so the Step 1 triage gate is the cost
-  control. Tighten the gate to act on fewer turns; there is no documented
-  once-per-session LLM-hook event to move to.
+- **Scope** — the `SubagentStop` `matcher` decides which workers are observed.
+- **Cost** — both hooks read full transcripts, so cost scales with transcript
+  size and worker count. Raise/lower `timeout`, or set a stronger `model` field
+  for deeper analysis (default is a fast model).
+- **Log location** — change the `$HOME/.agentboard/observations/...` paths.
 
-## Confirmed mechanics (and the one real caveat)
+## Confirmed mechanics
 
-These were verified against the Claude Code hooks docs
-([reference](https://code.claude.com/docs/en/hooks),
-[guide](https://code.claude.com/docs/en/hooks-guide)):
+Verified verbatim against the Claude Code hooks
+[reference](https://code.claude.com/docs/en/hooks),
+[guide](https://code.claude.com/docs/en/hooks-guide), and
+[Agent SDK hooks reference](https://code.claude.com/docs/en/agent-sdk/hooks)
+(2026-06-01):
 
-- **Agent hooks have write access.** An `agent` hook spawns a subagent that
-  "can read files, search code, and use other tools," up to **50 tool-use
-  turns** (60s default timeout; raised to 120s here). Write/Edit/Bash are
-  available by default — read-only variants are made by *adding*
-  `disallowedTools: [Edit, Write]`. So reading the transcript and writing the
-  log is fully supported.
-- **`Stop` is the right event.** Both canonical LLM-hook examples in the guide
-  (prompt and agent) are `Stop` hooks. `SessionStart`/`Setup` are
-  command/`mcp_tool`-only, and no LLM-hook example targets `SessionEnd`, so
-  `SessionEnd` is not a viable home for this. `Stop` fires per-turn, which is
-  why the cheap triage in Step 1 matters.
-- **Subagent friction is reachable.** `SubagentStop` fires when each subagent
-  finishes, and its input carries `agent_transcript_path` (the subagent's own
-  transcript) plus `stop_hook_active` — verified verbatim in the Agent SDK hooks
-  reference's `SubagentStop` example. The sub-agents docs confirm a subagent
-  "does that work in its own context and **returns only the summary**," so the
-  main transcript alone misses in-wave friction; reading `agent_transcript_path`
-  is how we recover it. Capture runs as a `command` hook to stay immune to the
-  documented recursive-hook-loop risk for hooks that spawn subagents.
-- **Output contract.** On `Stop`, returning `{"ok": false, "reason": ...}`
-  makes Claude *keep working* (the reason becomes its next instruction).
-  Returning `{"ok": true}` lets it stop. This observer **always returns
-  `{"ok": true}`** so it can never wedge or extend a session.
-- **Loop cap (not triggered here).** Claude Code overrides a `Stop` hook after
-  8 consecutive blocks; since this hook never blocks, the cap is irrelevant.
-
-**The one real caveat:** agent hooks are flagged **experimental** in the docs
-("Behavior and configuration may change... For production workflows, prefer
-command hooks"). That's an acceptable trade for an observer — it's best-effort
-telemetry that never blocks, so if it misbehaves the worst case is a missed
-observation, not a broken pipeline. The first live run is still the proof that
-it fires, triages, and writes as intended; tune the Step 1 gate from what that
-first session's log shows.
+- **Agent hooks read files.** An `agent` hook "spawns a subagent that can read
+  files, search code, and use other tools," up to 50 tool-use turns — so it can
+  `Read` an entire transcript.
+- **`SubagentStop` delivers the subagent's own transcript.** Its input carries
+  `agent_transcript_path` plus `stop_hook_active` (SDK reference, verbatim
+  `SubagentStop` example). The sub-agents docs confirm a worker "returns only the
+  summary" to the main agent, so reading `agent_transcript_path` is the only way
+  to see its internals.
+- **`SubagentStop` matches on agent type.** Its `matcher` is tested against the
+  subagent's type/name (hooks reference matcher table) — which is what scopes the
+  hook to pipeline workers and excludes the observer's own analysis agent.
+- **Output contract.** On `Stop`/`SubagentStop`, `{"ok": false}` makes the agent
+  keep working; `{"ok": true}` lets it stop. The observer always returns
+  `{"ok": true}`.
 
 ## Hook Design Record
 
-*Every behavioral claim below traces to the live Claude Code hooks
-[reference](https://code.claude.com/docs/en/hooks) and
-[guide](https://code.claude.com/docs/en/hooks-guide), read verbatim and
-verified 2026-06-01 — not to memory.*
+**Goal, and why a hook.** Read each session's full transcripts and persist
+concrete autonomy-friction observations. A hook (not `CLAUDE.md`, not a slash
+command) is correct because it must fire automatically at lifecycle points.
+Reasoning over a full transcript needs an LLM (rules out a pure `command` hook);
+a Task subagent and `claude -p` were explicitly excluded by the owner.
 
-**Goal, and why a hook.** Observe each agentboard session and persist concrete
-autonomy-friction observations for later action. A hook (not `CLAUDE.md`, not a
-slash command) is correct because the behavior must fire automatically at a
-lifecycle point without the model choosing to. Reasoning over the transcript
-needs an LLM, which rules out a pure `command` hook; a Task subagent and
-`claude -p` were both explicitly excluded by the owner.
-
-**Event: `Stop` — why.** `Stop` fires "when Claude finishes responding"
-(cadence: once per turn) and is verified to run `agent` hooks (the guide's
-canonical agent-hook example is a `Stop` hook). `SessionEnd` would be a nicer
-cadence (once per session; its decision control is literally "side effects like
-logging or cleanup") — **but** `SessionStart` and `Setup`, the sibling
-once-per-session lifecycle events, both verbatim restrict to
-`command`/`mcp_tool` only, and `SessionEnd`'s own handler-type line could not be
-confirmed (its doc section truncated on every fetch). Putting an `agent` hook on
-`SessionEnd` therefore risks a hook that silently never fires, so `Stop`
-(verified) is used. If `SessionEnd` is later confirmed to accept `agent` hooks,
-moving there removes the per-turn cost in gate item 6.
-
-**Second event: `SubagentStop` (capture) — why.** Orchestration workers are
-isolated; the main transcript gets only their summary, so a `Stop`-only observer
-is blind to in-wave friction (the original design flaw). `SubagentStop` fires per
-worker and its input carries `agent_transcript_path` — the worker's own
-transcript — so the observer can read the actual 422s/FAILs/cold-starts. The
-capture hook stages **every** pipeline worker (the keyword `grep` is a hint, not
-a gate, so the observer is never restricted to pre-enumerated strings); the
-`Stop` observer then opens each staged worker transcript and observes it in full.
-It runs as a **`command`** hook, not `agent`: command hooks can't spawn
-subagents, so they're structurally immune to the recursive-hook-loop the SDK docs
-warn about, and far cheaper than an LLM call per worker.
-
-**Handler: `agent` — why.** It must read `transcript_path` (a path, not
-contents) and write a log. `prompt` hooks are single-turn with no tools; `agent`
-hooks "spawn a subagent that can read files, search code, and use other tools,"
-up to 50 tool-use turns. Anthropic flags agent hooks experimental — acceptable
-for non-blocking telemetry.
+**Events & handlers.** `Stop` (agent) reads the full main transcript;
+`SubagentStop` (agent, matcher-scoped to pipeline workers) reads each full worker
+transcript. Both are verified to support LLM hooks and to return the
+`{"ok"/"reason"}` decision. `SessionEnd` is not used — it's restricted to
+command/`mcp_tool` like `SessionStart`/`Setup`.
 
 **Validation gate (all nine):**
 
-1. **No-op firing** — most turns have no pipeline friction; Step 1 returns
-   `{"ok": true}` with zero tool use, logs nothing, session stops normally.
-2. **Blocking semantics** — `Stop` blocks on `{"ok": false}` (reason fed back,
-   Claude keeps working). The observer **never** returns `ok: false`.
-   `stop_hook_active` is checked in Step 1 and short-circuits to `ok: true`; the
-   8-consecutive-block override (`CLAUDE_CODE_STOP_HOOK_BLOCK_CAP`) is a backstop
-   if the model ever errs.
-3. **Decision schema** — `agent` hooks use the model-return `{"ok"/"reason"}`
-   format (not top-level `decision`, which is the command/HTTP form). Always
-   returns `{"ok": true}`.
-4. **Exit-code / stdout discipline** — N/A: `agent` hooks return structured
-   model JSON managed by Claude Code, not raw stdout or exit codes.
-5. **Context budget** — none. The observer injects no context
-   (`additionalContext` unused); it only writes a file. Zero context cost to the
-   session.
-6. **Latency / hot path** — `Stop` is per-turn and `agent` hooks cannot run
-   `async` (async is command-only), so it blocks. Mitigation: the Step 1 gate
-   returns in one fast-model turn on no-op turns; `timeout: 120` bounds the deep
-   path. The `SubagentStop` capture is a `command` hook (grep, no LLM), so it
-   stays cheap and non-blocking however many workers a wave spawns. The cost that
-   *does* scale with worker count is the `Stop` observer reading every staged
-   worker transcript in full; to cut it, re-enable the `grep` as a gate in the
-   capture script (stage only flagged workers) — trading completeness for cost.
-7. **Failure mode** — on error or timeout the turn proceeds (Stop's non-block
-   default); worst case is a missed observation, never a blocked session.
-8. **Resume / state** — log keyed by `session_id`; Step 3 reads the existing
-   file and skips already-logged signals, so `--resume` appends without
-   duplicating.
-9. **Portability & security** — writes under `$HOME/.agentboard/observations/`
-   (durable on local runs; ephemeral in remote containers). **Security surface:**
-   the observer is an autonomous LLM with Write/Bash access that reads transcript
+1. **No-op firing** — clean turn/worker: read the transcript, find nothing, log
+   nothing, return `{"ok": true}`.
+2. **Blocking semantics** — both events block on `{"ok": false}`; the observer
+   never returns it. `stop_hook_active` short-circuits to `{"ok": true}`.
+3. **Decision schema** — agent hooks use the model-return `{"ok"/"reason"}` form;
+   always `{"ok": true}`.
+4. **Exit-code / stdout** — N/A: agent hooks return structured model JSON, not
+   raw stdout/exit codes.
+5. **Context budget** — none; the observer injects no context, only writes files.
+6. **Latency / hot path** — agent hooks can't run `async`, so both block.
+   `Stop` fires per main turn; `SubagentStop` once per worker. Full-transcript
+   reads make cost scale with transcript size; `timeout: 180` bounds each. Narrow
+   the `SubagentStop` matcher or raise the gate to cut cost.
+7. **Failure mode** — on error/timeout the turn/worker proceeds (non-block
+   default); worst case is a missed observation, never a blocked run.
+8. **Resume / state** — logs keyed by `session_id` (+ `agent_id` per worker);
+   each pass reads the existing file and skips already-logged findings, so
+   `--resume` and repeated turns append without duplicating.
+9. **Portability & security** — writes under `$HOME/.agentboard/observations/`.
+   **Security surface:** an autonomous LLM with file access reads transcript
    content, which can include untrusted tool/web output — a prompt-injection
-   vector. Mitigated by the tightly-scoped prompt ("your sole job… never modify
-   code") and by running on the owner's own machine and transcripts. To harden,
-   add `disallowedTools` to drop Bash and confine it to `Write`.
+   vector. Mitigated by the tightly-scoped prompt and by running on the owner's
+   own machine/transcripts. To harden, add `disallowedTools`.
+
+**Recursion.** An `agent` hook on `SubagentStop` could in principle re-trigger
+itself if its own analysis subagent fired `SubagentStop`. Prevented by the
+`matcher` (the analysis agent's type doesn't match the pipeline-worker pattern)
+and backstopped by the `stop_hook_active` gate. Concurrent worker writes can't
+race because each worker logs to its own file.
 
 **Interactions with existing hooks.** Independent of the plugin's
-`SessionStart` / `PreToolUse` / `PostToolUse` hooks (different events). The new
-`SubagentStop` command hook and the `Stop` agent hook are coupled by one shared
-file (the per-session staging path) and ordered by lifecycle — captures land as
-subagents finish; the `Stop` observer consumes them at the next main-turn
-boundary. Any user-level `Stop` hook runs in parallel; because the observer
-never blocks, it cannot conflict with another `Stop` hook's decision.
+`SessionStart` / `PreToolUse` / `PostToolUse` hooks. Any user-level `Stop` hook
+runs in parallel; the observer never blocks, so it can't conflict.
 
 **Tested / not verified.**
-- *Verified here:* `hooks.json` parses; the `Stop` prompt returns `{"ok": true}`
-  on both paths. `subagent-friction-capture.sh` (`bash -n` clean) was run against
-  synthetic inputs — it stages **every** pipeline worker (a `review-agent` with
-  friction *and* a clean `plan-compose-agent`, the latter with empty `signals` so
-  the observer still reads it in full), skips non-pipeline agent types
-  (`Explore`), and honors the `stop_hook_active` loop guard.
-- *Not verified:* the live hook plumbing — that Claude Code fires these hooks and
-  that the CLI delivers `agent_transcript_path` on `SubagentStop` exactly as the
-  Agent SDK reference documents (the script falls back to `transcript_path` if
-  the field name differs). Hook execution needs a real local Claude Code session
-  with the plugin installed, which this environment cannot run. First local
-  `/orchestrate` is the proof; the staging file `.staging-<session_id>.jsonl`
-  appearing with records is the signal it works.
+- *Verified here:* `hooks.json` parses; both prompts instruct a full transcript
+  read and return `{"ok": true}`; the `SubagentStop` matcher is scoped to
+  pipeline workers.
+- *Not verified:* the live plumbing — that Claude Code fires these hooks, scopes
+  the `SubagentStop` matcher on agent type as documented, and delivers
+  `agent_transcript_path` under the CLI (the prompt falls back to
+  `transcript_path`). Needs a real local session; this container can't run one.
+  First local `/orchestrate` is the proof: a populated
+  `~/.agentboard/observations/<session_id>/` is the signal it works.
 
-**Known limitations.** Agent hooks are experimental; per-turn blocking cost on
-`Stop` (bounded by the gate); the observer reads every staged worker transcript
-in full, so deep-analysis cost scales with worker count per wave (re-gate on the
-`grep` hint to trade completeness for cost); observation depth is also limited by
-the default fast model unless `model` is raised; capture covers only in-session
-`Agent`-tool workers via `SubagentStop` — if `/orchestrate` is ever changed to
-spawn separate background sessions, each such session would instead be observed
-by its own `Stop` hook; the cleaner once-per-session `SessionEnd` cadence is
-unavailable pending verification of its handler support.
+**Known limitations.** Agent hooks are experimental; both hooks block (no async);
+full-transcript reads cost scales with size and worker count; observation depth
+limited by the default fast model unless `model` is raised; covers in-session
+`Agent`-tool workers via `SubagentStop` (separate background sessions would each
+be covered by their own `Stop` instead).
