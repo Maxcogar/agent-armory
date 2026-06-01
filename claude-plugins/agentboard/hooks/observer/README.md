@@ -73,7 +73,7 @@ keyword filter, no staging, no intermediate script:
 
 ```jsonc
 "SubagentStop": [
-  { "matcher": "planning|plan-compose|review-agent|implementation-agent|audit|architecture",
+  { "matcher": "planning-research-agent|plan-compose-agent|review-agent|implementation-agent|audit-research-agent|audit-compose-agent|architecture-research-agent|architecture-classification-auditor|architecture-compose-l1|architecture-compose-l2|architecture-compose-l3|architecture-design-reviewer|planning-agent|audit-agent",
     "hooks": [ { "type": "agent", "prompt": "<read the full subagent transcript…>", "timeout": 180 } ] }
 ],
 "Stop": [
@@ -89,11 +89,15 @@ keyword filter, no staging, no intermediate script:
   orchestration worker finishes; reads that worker's own `agent_transcript_path`
   in full and logs. This is the only way to see a worker's internals — the main
   transcript holds only its final summary (confirmed in the sub-agents docs).
-- **`matcher` on `SubagentStop`** scopes the hook to the pipeline worker agent
-  names. That targets the right workers **and** is the recursion guard: the
-  observer's own analysis agent has a different `agent_type`, so it does not
-  match and cannot re-trigger the hook. A `stop_hook_active` check in the prompt
-  is a backstop.
+- **`matcher` on `SubagentStop`** lists the **exact `name:`** of every pipeline
+  worker (it's matched against the subagent's agent type, the same way this
+  plugin's other hooks list full tool names — bare keywords like `audit` do
+  *not* reliably match `audit-compose-agent`). All 12 wave/architecture workers
+  plus the two legacy ones are covered; verified by matching the regex against
+  every agent's real `name:`. This also serves as the recursion guard: the
+  observer's own analysis agent isn't one of these names, so it can't re-trigger
+  the hook (`stop_hook_active` is a backstop). **Add a new worker agent → add its
+  exact `name:` here**, or it won't be observed.
 - **`type: "agent"`** because reading and analyzing a full transcript needs an
   LLM with file access; the `prompt` hook variant has no filesystem access.
 - **Non-blocking** — both hooks **always return `{"ok": true}`** (the documented
@@ -119,7 +123,8 @@ of this repo — machine-local dev telemetry, not committed artifacts.
 
 Behavior lives in the two `prompt` strings in `hooks/hooks.json`:
 
-- **Scope** — the `SubagentStop` `matcher` decides which workers are observed.
+- **Scope** — the `SubagentStop` `matcher` is the exact-name list of workers to
+  observe; add or remove agent `name:`s there (full names, not keywords).
 - **Cost** — both hooks read full transcripts, so cost scales with transcript
   size and worker count. Raise/lower `timeout`, or set a stronger `model` field
   for deeper analysis (default is a fast model).
