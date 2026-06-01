@@ -152,3 +152,86 @@ telemetry that never blocks, so if it misbehaves the worst case is a missed
 observation, not a broken pipeline. The first live run is still the proof that
 it fires, triages, and writes as intended; tune the Step 1 gate from what that
 first session's log shows.
+
+## Hook Design Record
+
+*Every behavioral claim below traces to the live Claude Code hooks
+[reference](https://code.claude.com/docs/en/hooks) and
+[guide](https://code.claude.com/docs/en/hooks-guide), read verbatim and
+verified 2026-06-01 — not to memory.*
+
+**Goal, and why a hook.** Observe each agentboard session and persist concrete
+autonomy-friction observations for later action. A hook (not `CLAUDE.md`, not a
+slash command) is correct because the behavior must fire automatically at a
+lifecycle point without the model choosing to. Reasoning over the transcript
+needs an LLM, which rules out a pure `command` hook; a Task subagent and
+`claude -p` were both explicitly excluded by the owner.
+
+**Event: `Stop` — why.** `Stop` fires "when Claude finishes responding"
+(cadence: once per turn) and is verified to run `agent` hooks (the guide's
+canonical agent-hook example is a `Stop` hook). `SessionEnd` would be a nicer
+cadence (once per session; its decision control is literally "side effects like
+logging or cleanup") — **but** `SessionStart` and `Setup`, the sibling
+once-per-session lifecycle events, both verbatim restrict to
+`command`/`mcp_tool` only, and `SessionEnd`'s own handler-type line could not be
+confirmed (its doc section truncated on every fetch). Putting an `agent` hook on
+`SessionEnd` therefore risks a hook that silently never fires, so `Stop`
+(verified) is used. If `SessionEnd` is later confirmed to accept `agent` hooks,
+moving there removes the per-turn cost in gate item 6.
+
+**Handler: `agent` — why.** It must read `transcript_path` (a path, not
+contents) and write a log. `prompt` hooks are single-turn with no tools; `agent`
+hooks "spawn a subagent that can read files, search code, and use other tools,"
+up to 50 tool-use turns. Anthropic flags agent hooks experimental — acceptable
+for non-blocking telemetry.
+
+**Validation gate (all nine):**
+
+1. **No-op firing** — most turns have no pipeline friction; Step 1 returns
+   `{"ok": true}` with zero tool use, logs nothing, session stops normally.
+2. **Blocking semantics** — `Stop` blocks on `{"ok": false}` (reason fed back,
+   Claude keeps working). The observer **never** returns `ok: false`.
+   `stop_hook_active` is checked in Step 1 and short-circuits to `ok: true`; the
+   8-consecutive-block override (`CLAUDE_CODE_STOP_HOOK_BLOCK_CAP`) is a backstop
+   if the model ever errs.
+3. **Decision schema** — `agent` hooks use the model-return `{"ok"/"reason"}`
+   format (not top-level `decision`, which is the command/HTTP form). Always
+   returns `{"ok": true}`.
+4. **Exit-code / stdout discipline** — N/A: `agent` hooks return structured
+   model JSON managed by Claude Code, not raw stdout or exit codes.
+5. **Context budget** — none. The observer injects no context
+   (`additionalContext` unused); it only writes a file. Zero context cost to the
+   session.
+6. **Latency / hot path** — `Stop` is per-turn and `agent` hooks cannot run
+   `async` (async is command-only), so it blocks. Mitigation: the Step 1 gate
+   returns in one fast-model turn on no-op turns. During `/orchestrate`, `Stop`
+   fires on main-agent turns only (subagents fire `SubagentStop`, not handled
+   here), so the per-session count is modest. `timeout: 120` bounds the deep
+   path.
+7. **Failure mode** — on error or timeout the turn proceeds (Stop's non-block
+   default); worst case is a missed observation, never a blocked session.
+8. **Resume / state** — log keyed by `session_id`; Step 3 reads the existing
+   file and skips already-logged signals, so `--resume` appends without
+   duplicating.
+9. **Portability & security** — writes under `$HOME/.agentboard/observations/`
+   (durable on local runs; ephemeral in remote containers). **Security surface:**
+   the observer is an autonomous LLM with Write/Bash access that reads transcript
+   content, which can include untrusted tool/web output — a prompt-injection
+   vector. Mitigated by the tightly-scoped prompt ("your sole job… never modify
+   code") and by running on the owner's own machine and transcripts. To harden,
+   add `disallowedTools` to drop Bash and confine it to `Write`.
+
+**Interactions with existing hooks.** Independent of the plugin's
+`SessionStart` / `PreToolUse` / `PostToolUse` hooks (different events). Any
+user-level `Stop` hook runs in parallel; because the observer never blocks, it
+cannot conflict with another `Stop` hook's decision.
+
+**Tested / not verified.** `hooks.json` validated (parses; returns `{"ok": true}`
+on both the gate and post-log paths). **Not** verified by a live run — hook
+execution needs a real local Claude Code session with the plugin installed,
+which this environment cannot do. The first local session is the proof.
+
+**Known limitations.** Agent hooks are experimental; per-turn blocking cost
+(bounded by the gate); observation depth is limited by the default fast model
+unless `model` is raised; the cleaner once-per-session `SessionEnd` cadence is
+unavailable pending verification of its handler support.
