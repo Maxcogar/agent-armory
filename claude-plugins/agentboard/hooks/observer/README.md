@@ -97,22 +97,27 @@ lives in two places — the main agent's turns *and* inside isolated subagents:
 ```
 
 - **`SubagentStop` → `subagent-friction-capture.sh` (command hook).** Each
-  orchestration subagent (planning/review/implementation/audit) runs in an
+  orchestration worker (planning/review/implementation/audit) runs in an
   isolated context, and the main transcript receives only its *final summary* —
   not its internal 422s, `Verdict: FAIL`s, or RAG cold-starts. This hook fires
-  when a subagent finishes, reads the subagent's **own** transcript (delivered
-  as `agent_transcript_path`), greps it for friction signatures, and appends a
-  record to a per-session staging file. It is a **command** hook on purpose:
-  command hooks can't spawn subagents, so it cannot trigger the recursive-hook
-  loop that an `agent` hook on `SubagentStop` would risk. Pure deterministic
-  capture — no LLM, no blocking. (Allowlisted to pipeline agent types, so it
-  ignores `Explore`/`general-purpose` and the observer's own analysis agent.)
+  when a worker finishes and **stages a pointer to that worker's own transcript**
+  (`agent_transcript_path`) for **every** pipeline worker — not only the ones
+  that trip a keyword. A `grep` for known failure strings rides along as a
+  *hint*, never a gate, so genuinely novel friction is never filtered out before
+  the observer sees it. It is a **command** hook on purpose: command hooks can't
+  spawn subagents, so it cannot trigger the recursive-hook loop an `agent` hook
+  on `SubagentStop` would risk, and it costs no LLM call per worker. Allowlisted
+  to pipeline agent types (ignores `Explore`/`general-purpose` and the observer's
+  own analysis agent).
 - **`Stop` → the `agent` observer (LLM hook).** Fires when the main agent
-  finishes a turn. Reads **both** the main transcript and the subagent staging
-  file, reasons over the combined friction, and writes the actionable log.
-  `type: "agent"` because it needs file read+write (the `prompt` variant has no
-  filesystem access). Step 1 is a cheap gate that returns `{"ok": true}` with no
-  tool use on quiet turns.
+  finishes a turn. Reads the main transcript **and opens every staged worker
+  transcript, reading each one in full** with the same scrutiny it gives the
+  main agent (the `signals` hint only sets priority — it does not limit what the
+  observer looks for). Reasons over the combined friction, dedupes against the
+  existing log, and writes the actionable entries. `type: "agent"` because it
+  needs file read+write (the `prompt` variant has no filesystem access). Step 1
+  is a cheap gate that returns `{"ok": true}` with no tool use on quiet turns
+  with nothing staged.
 - **Non-blocking** — the observer **always returns `{"ok": true}`** (the
   documented "allow" decision on `Stop`). It never returns `{"ok": false}`,
   which would force Claude to keep working. It must never hold or alter the
@@ -200,15 +205,17 @@ confirmed (its doc section truncated on every fetch). Putting an `agent` hook on
 (verified) is used. If `SessionEnd` is later confirmed to accept `agent` hooks,
 moving there removes the per-turn cost in gate item 6.
 
-**Second event: `SubagentStop` (capture) — why.** Orchestration subagents are
+**Second event: `SubagentStop` (capture) — why.** Orchestration workers are
 isolated; the main transcript gets only their summary, so a `Stop`-only observer
 is blind to in-wave friction (the original design flaw). `SubagentStop` fires per
-subagent and its input carries `agent_transcript_path` — the subagent's own
-transcript — so a hook there can read the actual 422s/FAILs/cold-starts. It runs
-as a **`command`** hook, not `agent`: command hooks can't spawn subagents, so
-they're structurally immune to the recursive-hook-loop the SDK docs warn about
-(and far cheaper than an LLM call per subagent). Capture is deterministic (grep);
-the `Stop` observer does the reasoning over the staged result.
+worker and its input carries `agent_transcript_path` — the worker's own
+transcript — so the observer can read the actual 422s/FAILs/cold-starts. The
+capture hook stages **every** pipeline worker (the keyword `grep` is a hint, not
+a gate, so the observer is never restricted to pre-enumerated strings); the
+`Stop` observer then opens each staged worker transcript and observes it in full.
+It runs as a **`command`** hook, not `agent`: command hooks can't spawn
+subagents, so they're structurally immune to the recursive-hook-loop the SDK docs
+warn about, and far cheaper than an LLM call per worker.
 
 **Handler: `agent` — why.** It must read `transcript_path` (a path, not
 contents) and write a log. `prompt` hooks are single-turn with no tools; `agent`
@@ -236,9 +243,11 @@ for non-blocking telemetry.
 6. **Latency / hot path** — `Stop` is per-turn and `agent` hooks cannot run
    `async` (async is command-only), so it blocks. Mitigation: the Step 1 gate
    returns in one fast-model turn on no-op turns; `timeout: 120` bounds the deep
-   path. The per-subagent `SubagentStop` capture is a `command` hook (grep, no
-   LLM), so even with many subagents per wave it stays cheap and non-blocking —
-   it does not pay an LLM call per subagent.
+   path. The `SubagentStop` capture is a `command` hook (grep, no LLM), so it
+   stays cheap and non-blocking however many workers a wave spawns. The cost that
+   *does* scale with worker count is the `Stop` observer reading every staged
+   worker transcript in full; to cut it, re-enable the `grep` as a gate in the
+   capture script (stage only flagged workers) — trading completeness for cost.
 7. **Failure mode** — on error or timeout the turn proceeds (Stop's non-block
    default); worst case is a missed observation, never a blocked session.
 8. **Resume / state** — log keyed by `session_id`; Step 3 reads the existing
@@ -262,11 +271,11 @@ never blocks, it cannot conflict with another `Stop` hook's decision.
 
 **Tested / not verified.**
 - *Verified here:* `hooks.json` parses; the `Stop` prompt returns `{"ok": true}`
-  on both paths. `subagent-friction-capture.sh` was run against synthetic inputs
-  (`bash -n` clean) — it stages a correct record when a pipeline subagent's
-  transcript contains friction, stages nothing for a clean subagent, skips
-  non-pipeline agent types (`Explore`), and honors the `stop_hook_active` loop
-  guard.
+  on both paths. `subagent-friction-capture.sh` (`bash -n` clean) was run against
+  synthetic inputs — it stages **every** pipeline worker (a `review-agent` with
+  friction *and* a clean `plan-compose-agent`, the latter with empty `signals` so
+  the observer still reads it in full), skips non-pipeline agent types
+  (`Explore`), and honors the `stop_hook_active` loop guard.
 - *Not verified:* the live hook plumbing — that Claude Code fires these hooks and
   that the CLI delivers `agent_transcript_path` on `SubagentStop` exactly as the
   Agent SDK reference documents (the script falls back to `transcript_path` if
@@ -276,8 +285,11 @@ never blocks, it cannot conflict with another `Stop` hook's decision.
   appearing with records is the signal it works.
 
 **Known limitations.** Agent hooks are experimental; per-turn blocking cost on
-`Stop` (bounded by the gate); observation depth is limited by the default fast
-model unless `model` is raised; the friction signature list in the capture
-script is a fixed denylist of known failure strings (tune it as new failure
-modes appear); the cleaner once-per-session `SessionEnd` cadence is unavailable
-pending verification of its handler support.
+`Stop` (bounded by the gate); the observer reads every staged worker transcript
+in full, so deep-analysis cost scales with worker count per wave (re-gate on the
+`grep` hint to trade completeness for cost); observation depth is also limited by
+the default fast model unless `model` is raised; capture covers only in-session
+`Agent`-tool workers via `SubagentStop` — if `/orchestrate` is ever changed to
+spawn separate background sessions, each such session would instead be observed
+by its own `Stop` hook; the cleaner once-per-session `SessionEnd` cadence is
+unavailable pending verification of its handler support.

@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 # subagent-friction-capture.sh
-# SubagentStop hook — deterministically captures autonomy-friction signals from a
-# finished orchestration subagent's OWN transcript into a per-session staging
-# file, so the Stop-event observer (an agent hook that only sees the MAIN
-# transcript) can reason over friction that happened *inside* the waves.
+# SubagentStop hook — records every finished orchestration subagent's OWN
+# transcript into a per-session staging file, so the Stop-event observer (an
+# agent hook that only sees the MAIN transcript) can OPEN AND FULLY READ each
+# worker's transcript and observe it with the same scrutiny as the main agent.
+#
+# This is NOT a keyword filter. It stages the transcript pointer for every
+# pipeline subagent; the optional `signals` grep is only a hint passed to the
+# observer, never a gate. A clean worker is still staged so the observer can
+# notice non-obvious friction (e.g. an avoidable retry, an over-long tool chain)
+# that no fixed string would catch.
 #
 # Why a command hook (not an agent hook): orchestration subagents are isolated —
 # the main transcript receives only their final summary, not their internal
@@ -11,8 +17,7 @@
 # subagent's own transcript is delivered here via `agent_transcript_path`
 # (Agent SDK hooks reference). A *command* hook cannot spawn a subagent, so it is
 # immune to the documented recursive-hook-loop risk that an agent hook on
-# SubagentStop would carry. This stage is pure deterministic capture (grep); all
-# reasoning happens in the Stop observer.
+# SubagentStop would carry, and it costs no LLM call per subagent.
 #
 # Contract: never blocks (always exits 0); writes only to
 # $HOME/.agentboard/observations/.staging-<session_id>.jsonl.
@@ -53,11 +58,12 @@ case "$AGENT_TYPE" in
   *) exit 0 ;;
 esac
 
-# --- Deterministic friction signatures (keep aligned with the observer taxonomy)
+# --- Optional friction hint (NOT a gate) --------------------------------------
+# Surface known failure strings so the observer can prioritise, but stage the
+# subagent regardless of whether any match — the observer reads the full
+# transcript and finds friction the signature list does not enumerate.
 SIGNATURE='HTTP 422|HTTP 409|REVIEW_NOTE_MISSING_VERDICT|Verdict: FAIL|status.{0,3}indexing|Error loading hnsw|No graph|not been scanned|build failed|lint failed|INVALID_TRANSITION|permission denied|tool not loaded|max retries'
-
 HITS="$(grep -aoiE "$SIGNATURE" "$TRANSCRIPT" 2>/dev/null | sort | uniq -c | sort -rn | head -20 || true)"
-[ -n "$HITS" ] || exit 0
 
 # --- Stage one JSON record (never overwrites; append-only) --------------------
 STAGING_DIR="${HOME}/.agentboard/observations"
