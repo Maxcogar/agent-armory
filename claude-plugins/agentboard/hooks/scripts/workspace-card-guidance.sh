@@ -40,8 +40,9 @@ EOF
 PLAN REVIEW PHASE:
 1. Read ALL plan artifacts on this card thoroughly.
 2. Evaluate: Is the plan complete? Does it reference specific files and line numbers? Are there open questions or TODOs?
-3. If the plan is insufficient, submit a review_note artifact explaining what's missing.
-4. A good plan has zero ambiguity — another agent should be able to implement it without asking questions.
+3. Submit a review_note artifact (pass an explicit type="review_note") with your verdict.
+4. The body MUST contain a level-2 heading "## Verdict: PASS" or "## Verdict: FAIL" (its own line). Without it the server returns 422 REVIEW_NOTE_MISSING_VERDICT. The server routes on the verdict: FAIL sends the card back to planning; PASS advances to implementation when review blocking is off. Do NOT move the card yourself.
+5. A good plan has zero ambiguity — another agent should be able to implement it without asking questions.
 EOF
     ;;
   implementation)
@@ -59,7 +60,8 @@ AUDIT PHASE:
 1. Read the plan, review notes, and implementation artifacts on this card.
 2. Verify the implementation matches the plan. Run tests and lint.
 3. Check for state machine violations, missing WebSocket events, and API contract adherence.
-4. Submit an audit_report artifact with your findings.
+4. Submit an audit_report artifact (pass an explicit type="audit_report") with your findings.
+5. The body MUST contain a level-2 heading "## Verdict: PASS", "## Verdict: PASS WITH NOTES", or "## Verdict: FAIL" (single value, its own line). Without it the server returns 422 AUDIT_REPORT_MISSING_VERDICT. The server routes on the verdict: FAIL sends the card to implementation; PASS / PASS WITH NOTES finishes it when audit blocking is off. Do NOT move the card yourself.
 EOF
     ;;
   *)

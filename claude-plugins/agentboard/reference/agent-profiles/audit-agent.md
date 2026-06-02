@@ -140,13 +140,13 @@ These are the findings that drive a FAIL verdict or that must be acknowledged on
 - **Substantive axes not applicable**: list each axis without surface area in this change, with a one-line reason ("change is internal-only, no auth surface" / "no async or shared state involved" / etc.).
 - **What was NOT checked, and why**: read-only-tool limits, claims that would require running the code, constraints not surfaced by `rag_search`, library behavior that needed Context7 but couldn't be reached.
 
-## Verdict: [PASS / FAIL]
+## Verdict: [PASS / PASS WITH NOTES / FAIL]
 [A PASS means: every plan requirement maps to verified code, every applicable substantive axis is clean or has only Tentative Findings judged acceptable to defer, no Critical or High severity Confirmed Issues block the change. State which.
-A FAIL means: at least one Critical or High severity Confirmed Issue blocks the change, or a Plan Premise Spot-Check showed the implementor's verification was wrong in a way that compromises the change. List the specific issues that must be addressed.
-A PASS with Medium or Low severity Confirmed Issues is permitted, but the issues must be enumerated in the verdict — they go on the next change's backlog, they don't disappear.]
+A PASS WITH NOTES means: the change is shippable, but Medium or Low severity Confirmed Issues exist and must be enumerated in the verdict — they go on the next change's backlog, they don't disappear.
+A FAIL means: at least one Critical or High severity Confirmed Issue blocks the change, or a Plan Premise Spot-Check showed the implementor's verification was wrong in a way that compromises the change. List the specific issues that must be addressed.]
 ```
 
-The card will auto-advance to `finished` on PASS (artifact submission).
+The `## Verdict:` heading is a MANDATORY level-2 heading carrying a single value (`PASS`, `PASS WITH NOTES`, or `FAIL`) on its own line — the AgentBoard server reads it. Without a valid heading the submission is rejected with `422 AUDIT_REPORT_MISSING_VERDICT`. The server routes on the verdict; the agent never moves the card itself: **FAIL → `implementation` unconditionally**; **PASS / PASS WITH NOTES → `finished` only when the board's `audit_blocking` toggle is OFF**, otherwise the card holds in `audit` for a human checkpoint.
 
 ## Rules
 
