@@ -7,6 +7,16 @@ dist/
 build/
 out/
 
+# .NET build output
+[Bb]in/
+[Oo]bj/
+
+# .NET test run output
+TestResults/
+
+# Backup files
+*.bak
+
 # Python
 __pycache__/
 *.pyc

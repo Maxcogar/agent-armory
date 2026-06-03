@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# pre-commit hook: Detects stale docs and auto-updates them before the commit proceeds.
+#
+# Install:
+#   cp pre-commit .git/hooks/pre-commit
+#   chmod +x .git/hooks/pre-commit
+#
+# What happens when you commit:
+#   1. Detection runs against staged code changes
+#   2. If stale docs are found, sync-docs.sh runs and updates them via focused Claude sessions
+#   3. Updated docs are staged automatically
+#   4. Commit proceeds with the doc updates included
+#
+# Bypass (emergency only):
+#   git commit --no-verify
+
+set -euo pipefail
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+DETECT_SCRIPT="$REPO_ROOT/scripts/doc-sync/detect-stale-docs.sh"
+SYNC_SCRIPT="$REPO_ROOT/scripts/doc-sync/sync-docs.sh"
+
+# If scripts don't exist, warn but don't block
+if [[ ! -x "$DETECT_SCRIPT" ]]; then
+    echo "WARNING: detect-stale-docs.sh not found at $DETECT_SCRIPT"
+    echo "Doc staleness check skipped."
+    exit 0
+fi
+
+if [[ ! -x "$SYNC_SCRIPT" ]]; then
+    echo "WARNING: sync-docs.sh not found at $SYNC_SCRIPT"
+    echo "Doc staleness check skipped."
+    exit 0
+fi
+
+# Run detection on staged changes
+DETECT_OUTPUT=$("$DETECT_SCRIPT" --staged --json 2>/dev/null || true)
+STALE_COUNT=$(echo "$DETECT_OUTPUT" | grep -oP '"stale_count":\s*\K[0-9]+' || echo "0")
+
+if [[ "$STALE_COUNT" -eq 0 ]]; then
+    # All clear, commit proceeds
+    exit 0
+fi
+
+echo ""
+echo "============================================"
+echo "  DOC SYNC: $STALE_COUNT stale doc(s) found"
+echo "============================================"
+echo ""
+echo "Updating docs before commit..."
+echo ""
+
+# Run the sync script on staged changes
+"$SYNC_SCRIPT" --staged
+
+# Stage the updated doc files so they're included in this commit
+STALE_DOCS=$(echo "$DETECT_OUTPUT" | grep -oP '"doc":\s*"\K[^"]+' || true)
+while IFS= read -r doc; do
+    [[ -z "$doc" ]] && continue
+    if [[ -f "$REPO_ROOT/$doc" ]]; then
+        git add "$REPO_ROOT/$doc"
+    fi
+done <<< "$STALE_DOCS"
+
+echo ""
+echo "Doc updates staged. Commit proceeding."
+exit 0

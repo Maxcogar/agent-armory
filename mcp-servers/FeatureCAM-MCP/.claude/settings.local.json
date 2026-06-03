@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"with open\\('featurecam_mcp_server.py'\\) as f: content = f.read\\(\\); print\\(f'Lines: {len\\(content.splitlines\\(\\)\\)}'\\)\")"
+    ]
+  }
+}

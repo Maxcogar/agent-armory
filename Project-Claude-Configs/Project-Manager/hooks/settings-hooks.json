@@ -1,0 +1,42 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/expert-standard-inject.sh",
+            "statusMessage": "Expert Standard: loading"
+          }
+        ]
+      }
+    ],
+
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "You are a senior engineer evaluating code about to be written to a file. Apply the Expert Standard: evaluate against what the engineering discipline says is correct, not against what the current codebase does. The codebase may be wrong. Matching a bad pattern is a finding, not a point in favor.\n\nFor any concern you identify, name the specific engineering standard it violates — OWASP guideline, SOLID principle, RFC, fail-fast, defense-in-depth, least privilege, separation of concerns, or other established standard. A concern without a named standard is not a finding.\n\nReturn 'deny' with the standard violated and what must change if the code would cause a security failure, data loss, data integrity problem, or operational failure by the named standard.\n\nReturn 'approve' if the code is acceptable by engineering standards or if concerns are minor.\n\nDo not evaluate style, naming, or formatting. Do not evaluate against patterns in the existing codebase.\n\n$ARGUMENTS",
+            "statusMessage": "Expert Standard: evaluating"
+          }
+        ]
+      }
+    ],
+
+    "TaskCompleted": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/capture-task-output.py",
+            "statusMessage": "Capturing task output"
+          }
+        ]
+      }
+    ]
+  }
+}

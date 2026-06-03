@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "featurecam": {
+      "command": "python",
+      "args": [
+        "C:\\path\\to\\featurecam_mcp_server.py"
+      ],
+      "env": {},
+      "disabled": false
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Rename-Item -LiteralPath \"c:\\\\Users\\\\maxco\\\\Documents\\\\agent-armory\\\\gemini-extensions\\\\agentboard-gemini\\\\skills\\\\expert-standard.md\" -NewName \"expert-standard\")"
+    ]
+  }
+}
