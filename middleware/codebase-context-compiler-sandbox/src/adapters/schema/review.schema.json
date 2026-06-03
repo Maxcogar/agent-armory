@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ctxpack.dev/schemas/review-1.0.0.json",
+  "title": "Review Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["package_id", "repository_snapshot_id", "reviewed_at", "passed", "findings", "verification_status"],
+  "properties": {
+    "package_id": { "type": "string" },
+    "repository_snapshot_id": { "type": "string" },
+    "reviewed_at": { "type": "string", "format": "date-time" },
+    "passed": { "type": "boolean" },
+    "verification_status": { "enum": ["run_passed", "run_failed", "not_run", "unknown", "waived"] },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rule_id", "severity", "message", "path", "start_line", "end_line"],
+        "properties": {
+          "rule_id": { "type": "string", "minLength": 1 },
+          "severity": { "enum": ["error", "warning", "note"] },
+          "message": { "type": "string" },
+          "path": { "type": ["string", "null"] },
+          "start_line": { "type": ["integer", "null"] },
+          "end_line": { "type": ["integer", "null"] }
+        }
+      }
+    }
+  }
+}
