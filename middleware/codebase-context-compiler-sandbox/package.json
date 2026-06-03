@@ -1,0 +1,37 @@
+{
+  "name": "codebase-context-compiler-sandbox",
+  "version": "0.1.0",
+  "description": "Sandbox build of ctxpack: compiles task-scoped, evidence-backed context packages for coding agents and enforces them via an injection+gate harness. Uses Node's built-in node:sqlite so it installs with no native toolchain in ephemeral/offline containers.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "ctxpack": "dist/cli/main.js"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/copy-assets.mjs",
+    "prepare": "npm run build",
+    "test": "vitest run",
+    "ctxpack": "tsx src/cli/main.ts"
+  },
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "commander": "^12.1.0",
+    "fast-glob": "^3.3.3",
+    "tree-sitter-wasms": "^0.1.13",
+    "typescript": "^5.9.3",
+    "web-tree-sitter": "^0.22.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.19",
+    "tsx": "^4.22.4",
+    "vitest": "^4.1.8"
+  }
+}

@@ -1,0 +1,237 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ctxpack.dev/schemas/context-package-1.0.0.json",
+  "title": "Context Package",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "package_id", "generated_at", "repository", "task",
+    "context_requirements", "relevant_files", "relevant_symbols",
+    "existing_patterns", "constraints", "forbidden_moves", "known_facts",
+    "unknowns", "context_gaps_allowed_to_create", "checked_not_relevant",
+    "verification_guidance", "unresolved_decisions", "flagged_repository_text",
+    "token_budget"
+  ],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "package_id": { "type": "string", "minLength": 1 },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "root", "revision", "dirty_state", "snapshot_id"],
+      "properties": {
+        "name": { "type": "string" },
+        "root": { "type": "string" },
+        "revision": { "type": ["string", "null"] },
+        "dirty_state": { "type": "boolean" },
+        "snapshot_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["original_request", "normalized_task", "task_types", "scope_summary"],
+      "properties": {
+        "original_request": { "type": "string" },
+        "normalized_task": { "type": "string" },
+        "task_types": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "scope_summary": { "type": "string" }
+      }
+    },
+    "context_requirements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["category", "status", "reason"],
+        "properties": {
+          "category": { "type": "string" },
+          "status": { "enum": ["satisfied", "unresolved", "not_applicable"] },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "relevant_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "role", "required", "relevance_reason", "evidence", "key_facts"],
+        "properties": {
+          "path": { "type": "string" },
+          "role": { "type": "string" },
+          "required": { "type": "boolean" },
+          "relevance_reason": { "type": "string", "minLength": 1 },
+          "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } },
+          "key_facts": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "relevant_symbols": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "kind", "file", "relevance_reason", "evidence"],
+        "properties": {
+          "name": { "type": "string" },
+          "kind": { "type": "string" },
+          "file": { "type": "string" },
+          "relevance_reason": { "type": "string", "minLength": 1 },
+          "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } }
+        }
+      }
+    },
+    "existing_patterns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["description", "required_to_follow", "evidence"],
+        "properties": {
+          "description": { "type": "string" },
+          "required_to_follow": { "type": "boolean" },
+          "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } }
+        }
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["description", "source", "evidence"],
+        "properties": {
+          "description": { "type": "string" },
+          "source": { "enum": ["standard", "user_need", "project_decision", "repository_evidence", "security_threat", "human_override"] },
+          "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } }
+        }
+      }
+    },
+    "forbidden_moves": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["description", "reason", "evidence"],
+        "properties": {
+          "description": { "type": "string" },
+          "reason": { "type": "string" },
+          "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } }
+        }
+      }
+    },
+    "known_facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["statement", "evidence"],
+        "properties": {
+          "statement": { "type": "string" },
+          "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" }, "minItems": 1 }
+        }
+      }
+    },
+    "unknowns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["description", "searched_locations", "impact"],
+        "properties": {
+          "description": { "type": "string" },
+          "searched_locations": { "type": "array", "items": { "type": "string" } },
+          "impact": { "type": "string" }
+        }
+      }
+    },
+    "context_gaps_allowed_to_create": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["description", "reason"],
+        "properties": {
+          "description": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "checked_not_relevant": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "reason"],
+        "properties": {
+          "path": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "verification_guidance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commands", "manual_checks", "affected_tests"],
+      "properties": {
+        "commands": { "type": "array", "items": { "type": "string" } },
+        "manual_checks": { "type": "array", "items": { "type": "string" } },
+        "affected_tests": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "unresolved_decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["decision", "owner", "blocks"],
+        "properties": {
+          "decision": { "type": "string" },
+          "owner": { "enum": ["human", "architect", "implementer"] },
+          "blocks": { "type": "string" }
+        }
+      }
+    },
+    "flagged_repository_text": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "start_line", "end_line", "reason"],
+        "properties": {
+          "path": { "type": "string" },
+          "start_line": { "type": ["integer", "null"] },
+          "end_line": { "type": ["integer", "null"] },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "token_budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["budget", "estimated", "overflow"],
+      "properties": {
+        "budget": { "type": "integer" },
+        "estimated": { "type": "integer" },
+        "overflow": { "type": "boolean" }
+      }
+    }
+  },
+  "$defs": {
+    "evidenceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_type", "path", "symbol", "start_line", "end_line", "relationship"],
+      "properties": {
+        "source_type": { "enum": ["file", "symbol", "static_analysis", "external_input", "human_override"] },
+        "path": { "type": "string" },
+        "symbol": { "type": ["string", "null"] },
+        "start_line": { "type": ["integer", "null"] },
+        "end_line": { "type": ["integer", "null"] },
+        "relationship": { "type": ["string", "null"] }
+      }
+    }
+  }
+}
