@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ctxpack.dev/schemas/expansion-request-1.0.0.json",
+  "title": "Context Expansion Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["missing", "why_needed", "blocked_claim_or_step"],
+  "properties": {
+    "missing": { "type": "string", "minLength": 1 },
+    "why_needed": { "type": "string", "minLength": 1 },
+    "blocked_claim_or_step": { "type": "string", "minLength": 1 },
+    "candidate_paths": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "candidate_symbols": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "keywords": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}
