@@ -25,6 +25,8 @@ Wave 3: Implementation → parallel agents write code            → build/lint 
 Wave 4: Audit       → parallel read-only agents verify         → cards advance to finished (or back to implementation)
 ```
 
+Waves 2 and 4 each open with a **board-level cross-card consistency barrier** (see that section below) that holds all cards at once before the per-card agents run — catching inconsistencies *between* cards that the per-card waves cannot see.
+
 Transitions are **server-enforced and verdict-driven** — agents and the orchestrator never move a card themselves. Both rejection loops route on the submitted artifact's `## Verdict:` heading:
 
 ```
@@ -34,6 +36,28 @@ backlog → planning → review → implementation → audit → finished
               └──────────┘            └────────────┘
    review_note FAIL → planning     audit_report FAIL → implementation
 ```
+
+## Cross-Card Consistency Barrier (Waves 2 and 4)
+
+The per-card waves each see one card at a time. Nothing in them holds the whole board at once, so a class of failure is invisible to them: the cards drift out of consistency *with each other* even when each card is individually correct against its own plan and the architecture. The architecture's design-time review paired the *slices*, but plans and then code can each drift from the slices in locally-valid ways that are only globally inconsistent — orphaned or signature-skewed contracts between a producer card and a consumer card, incompatible edits to a shared allowed-touch file, realized dependency cycles, contracts the cards collectively dropped.
+
+Two board-level cross-examiners close that gap. Each runs **once, as the opening action of its wave, before the per-card agents are spawned**:
+
+| Wave | Cross-examiner | Cards held | Fails inconsistent cards by | Server routes them to |
+|------|----------------|------------|-----------------------------|-----------------------|
+| 2 (Review) | `cross-card-plan-reviewer` | every `plan` in `review` | submitting a `review_note` FAIL | `planning` |
+| 4 (Audit) | `cross-card-implementation-auditor` | every `implementation_note` + diff in `audit` | submitting an `audit_report` FAIL | `implementation` |
+
+**They fail cards themselves, then report.** Each cross-examiner runs first, holds the whole column at once, and for each card it finds cross-card-inconsistent it **submits the wave's FAIL verdict artifact on that card** (`review_note` / `audit_report` with `## Verdict: FAIL`). The server routes that card on the verdict exactly as it routes any failure — `review`→`planning`, `audit`→`implementation`. The cross-examiner does not move cards directly (no `update_workspace_card`); routing stays verdict-driven and server-enforced. Because the inconsistent cards leave the column before the per-card agents are spawned, **the per-card agents simply never run on them this round** — they run only on the cards the cross-examiner cleared. The cross-examiner then returns a summary message to you (the orchestrator).
+
+Mechanically, per wave:
+
+1. **Spawn the cross-examiner first** (background, single instance), passing: Wave 2 → `board_id`, `agent_id`, `arch_path`, and the `review`-column card IDs from Collect Cards; Wave 4 → `board_id`, `agent_id`, `repo_root`, `arch_path`, and the `audit`-column card IDs. Wait for it to return.
+2. **Read its return summary.** It carries `## Cross-Card Consistency: PASS | INCONSISTENT` and lists the cards it **failed** (already routed back by the server via the FAIL it submitted), the cards it **escalated** (architecture change required — see step 4), and the cards it **cleared**. It has already submitted the FAIL verdicts before returning — you do not route those cards yourself.
+3. **Spawn the per-card wave on the cleared cards only.** Re-query the wave's input column (`review` for Wave 2, `audit` for Wave 4) — the failed cards have already moved out — and spawn the per-card agents (Wave 2 → `review-agent` per card; Wave 4 → the two-phase audit per card) on the cards that remain. These are exactly the cards the cross-examiner cleared; they are evaluated on their own per-card merits.
+4. **Architecture-change escalations.** A finding whose resolution is an architecture change (the contract surface itself is wrong, not either card's realization of it) is **not** failed by the cross-examiner — re-planning or re-implementing the card cannot fix it. The cross-examiner lists it under "Cards escalated" instead. Surface each escalation to the user — the same handoff the `/architecture` correction loop uses for its spec route — naming the contract and cards affected. Do not spin the card through its wave to the retry cap.
+
+Retry accounting: a cross-card-triggered FAIL counts against the existing per-card retry cap (2) — a card the cross-examiner keeps failing on re-entry exhausts the cap like any repeated failure. Report the cross-examiner's verdict (failed / escalated / cleared counts) in your wave-status and checkpoint output so the human sees board-level consistency alongside per-card readiness.
 
 ## Checkpoint Logic
 
@@ -63,6 +87,8 @@ Query cards by status matching the wave's input column:
 Use `mcp__agentboard__agentboard_list_workspace_cards` filtered by status. Always pass `limit=100` to prevent silent truncation on large boards — if the result count equals your limit, paginate with `offset` to retrieve the rest.
 
 ### 2. Spawn Parallel Subagents
+
+**Waves 2 and 4 first run the Cross-Card Consistency Barrier** (see that section above): spawn the board-level cross-examiner, wait for it to fail the inconsistent cards (it submits the FAIL verdicts itself, routing them out of the column) and return its summary, then re-query the column and spawn the per-card agents below only on the cards that remain (the cleared ones). Waves 1 and 3 have no barrier — spawn the per-card agents directly.
 
 Launch one Agent per card using `run_in_background: true`. Set `subagent_type` to the agent name for the wave. The agents carry their own system prompts, tool allowlists, and model assignments — the prompt only needs to pass the per-card variables.
 
@@ -176,8 +202,11 @@ When the build/lint command for the project is not obvious from `implementation-
 | Scenario | Action | Max Retries |
 |---|---|---|
 | Review rejects a plan (`review_note` FAIL) | Server routes card to `planning`; re-plan with feedback | 2 per card |
+| Cross-card plan inconsistency (Wave 2 barrier) | `cross-card-plan-reviewer` submits a `review_note` FAIL on the card; server routes it to `planning` | 2 per card (shared with review) |
 | Build fails | Stop, report to user | 0 (user intervenes) |
 | Audit fails (`audit_report` FAIL) | Server routes card to `implementation`; re-run Wave 3 against the audit findings | 2 per card |
+| Cross-card implementation skew (Wave 4 barrier) | `cross-card-implementation-auditor` submits an `audit_report` FAIL on the card; server routes it to `implementation` | 2 per card (shared with audit) |
+| Cross-card finding needs an architecture change | Stop re-running the card; surface the contract/cards to the user | 0 (user intervenes) |
 | Agent crashes/times out | Report, card unchanged | 1 |
 
 ## Status Reporting
@@ -209,8 +238,10 @@ The model column below shows each agent's `model:` frontmatter value verbatim. W
 |-------|-------|------|
 | `planning-research-agent` | `claude-haiku-4-5-20251001` | Wave 1 Phase A — codegraph/RAG discovery, emits `FACTS_BUNDLE_V1` |
 | `plan-compose-agent` | `opus` | Wave 1 Phase B — fetches bundle by ID, writes plan artifact with full Expert Standard rigor |
-| `review-agent` | `opus` | Wave 2 — validates plans against constraints |
+| `cross-card-plan-reviewer` | `opus` | Wave 2 opening barrier — board-level; holds every plan in `review` at once, submits a `review_note` FAIL on each cross-card-inconsistent card (server routes it to `planning`), returns a summary to the orchestrator |
+| `review-agent` | `opus` | Wave 2 — validates each cleared plan against constraints |
 | `implementation-agent` | `sonnet` | Wave 3 — executes plans, writes code, runs build/lint |
+| `cross-card-implementation-auditor` | `opus` | Wave 4 opening barrier — board-level; holds every implementation in `audit` at once, submits an `audit_report` FAIL on each card with realized-code interface skew (server routes it to `implementation`), returns a summary to the orchestrator |
 | `audit-research-agent` | `claude-haiku-4-5-20251001` | Wave 4 Phase A — git diff + blast radius, emits `AUDIT_FACTS_BUNDLE_V1` |
 | `audit-compose-agent` | `opus` | Wave 4 Phase B — fetches bundle by ID, writes audit report with a `## Verdict:` heading, then stops; the server routes on the verdict |
 
@@ -222,6 +253,7 @@ The model column below shows each agent's `model:` frontmatter value verbatim. W
 3. Spawn `plan-compose-agent` per card in parallel — reads the bundle, writes the `plan` artifact (no discovery calls)
 
 **Wave 4:**
-1. Spawn `audit-research-agent` per card in parallel — gathers git diff, blast radius, cross-references the plan artifact, emits `AUDIT_FACTS_BUNDLE_V1`
+0. **Barrier first:** spawn `cross-card-implementation-auditor` (board-level, single instance), wait, and read its return summary — see the Cross-Card Consistency Barrier section. It has already submitted `audit_report` FAILs on the cross-card-inconsistent cards, routing them to `implementation`; the cards remaining in `audit` are the ones it cleared. Steps 1–3 run on those remaining cards only.
+1. Spawn `audit-research-agent` per (remaining) card in parallel — gathers git diff, blast radius, cross-references the plan artifact, emits `AUDIT_FACTS_BUNDLE_V1`
 2. Wait for ALL Phase A agents to complete
-3. Spawn `audit-compose-agent` per card in parallel — reads the bundle, writes the `audit_report` artifact with a mandatory `## Verdict:` heading; the server routes on the verdict (FAIL → `implementation` unconditionally; PASS / PASS WITH NOTES → `finished` when `audit_blocking` is OFF, else holds in `audit` for a human checkpoint)
+3. Spawn `audit-compose-agent` per card in parallel — reads the bundle, writes the `audit_report` artifact with a mandatory `## Verdict:` heading; the server routes on the verdict (FAIL → `implementation` unconditionally; PASS / PASS WITH NOTES → `finished` when `audit_blocking` is OFF, else holds in `audit` for a human checkpoint).
