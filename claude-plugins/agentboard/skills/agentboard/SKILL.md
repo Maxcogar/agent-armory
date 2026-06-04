@@ -255,6 +255,8 @@ Agents are spawned per-card per-wave by `/orchestrate`. Each agent fetches the c
 - `review` routes on the `review_note` verdict: FAIL → `planning` (unconditional); PASS → `implementation` when `review_blocking` is OFF, else holds for human approval.
 - `audit` routes on the `audit_report` verdict: FAIL → `implementation` (unconditional); PASS / PASS WITH NOTES → `finished` when `audit_blocking` is OFF, else holds for a human checkpoint.
 
+Waves 2 and 4 additionally open with a single **board-level cross-card consistency barrier** (`cross-card-plan-reviewer` / `cross-card-implementation-auditor`) that holds all cards in the column at once and finds inconsistencies *between* cards that the per-card agents cannot see. It runs before the per-card agents and fails each inconsistent card itself by submitting that wave's FAIL verdict (`review_note` / `audit_report` with `## Verdict: FAIL`), so the server routes the card back the normal way above; the per-card agents then run only on the cards it cleared.
+
 Wave agents do NOT call `agentboard_update_workspace_card` to move the card. The `orchestrate` skill has the per-wave prompt templates and full pipeline logic.
 
 ---
