@@ -38,6 +38,16 @@ ctxpack init
 
 This is the primary AIR1 enforcement path. Writing `.context/task-context.md` and merely telling Claude Code to read it does not satisfy the spec.
 
+## Task-Aware Profiles
+
+`ctxpack` keeps legacy task labels in `task.task_types`, but package policy separates task intent from runtime domain:
+
+- `intent` describes the work mode, such as understanding code, fixing a bug, adding a feature, refactoring, reviewing a diff, creating tests, updating docs, maintaining dependencies, or auditing security.
+- `domains` describe where the relevant runtime surface lives, such as frontend, backend, database, build/config, integration, or docs.
+- `modifiers` add cross-cutting policy, currently including `security_sensitive`.
+
+Relevant file and symbol entries also carry structured confidence/provenance metadata (`confidence`, `signals`, `corroboration_count`, `representation`) in addition to human-readable relevance reasons.
+
 ## Manual CLI
 
 ```bash

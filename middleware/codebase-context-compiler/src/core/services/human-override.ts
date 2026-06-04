@@ -61,6 +61,14 @@ function relevantFileFromOverride(storage: Storage, pkg: ContextPackage, request
     role: file?.boundary ?? 'unknown',
     required: true,
     relevance_reason: request.reason,
+    confidence: 'high',
+    signals: [{
+      source: 'human_override',
+      score: 10,
+      reason: request.reason,
+    }],
+    corroboration_count: 1,
+    representation: 'full',
     evidence: [evidence],
     key_facts: storage.symbolsInFile(pkg.repository.snapshot_id, request.path!).slice(0, 8)
       .map((s) => `${s.kind} ${s.name}${s.exported ? ' (exported)' : ''}`),

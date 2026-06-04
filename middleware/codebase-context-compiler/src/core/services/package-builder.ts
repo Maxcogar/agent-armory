@@ -15,12 +15,14 @@ import type { EvidenceRef } from '../domain/evidence.js';
 import type {
   ContextPackage, RelevantFile, RelevantSymbol, ContextRequirement, ExistingPattern,
   ForbiddenMove, KnownFact, Unknown, ContextGapAllowedToCreate, CheckedNotRelevant,
-  Constraint, UnresolvedDecision, FlaggedRepositoryText,
+  Constraint, UnresolvedDecision, FlaggedRepositoryText, InclusionConfidence, InclusionSignal, RepresentationTier,
 } from '../domain/context-package.js';
 import { SCHEMA_VERSION } from '../domain/context-package.js';
 import type { RepositorySnapshot, SymbolRecord } from '../domain/repository-map.js';
-import { classifyTask, type Classification } from './task-classifier.js';
-import { requiredCategories, type ContextCategory } from './recipe-engine.js';
+import type { RuntimeDomain, Task } from '../domain/task.js';
+import { classifyTask, domainsForPath, type Classification } from './task-classifier.js';
+import { type ContextCategory } from './recipe-engine.js';
+import { profileForTask } from './task-profiles.js';
 import { expandContext } from './graph-expander.js';
 
 export interface BuildOptions {
@@ -54,6 +56,8 @@ export function buildPackage(
   const expansion = expandContext(storage, snap, seeds, { maxDepth: 2, maxFiles });
   const relatedPaths = new Set(expansion.related.map((r) => r.path));
   const allPaths = new Set<string>([...expansion.seeds, ...relatedPaths]);
+  const derivedTask = withSourceDerivedDomains(cls.task, [...allPaths]);
+  const profile = profileForTask(derivedTask);
 
   // --- 3. relevant files ---
   const relevant_files: RelevantFile[] = [];
@@ -63,6 +67,7 @@ export function buildPackage(
       path, role: file.boundary,
       required: !questionMode,
       relevance_reason: seedReason(path, cls),
+      ...inclusionMeta(seedSignals(path, cls), !questionMode ? 'full' : 'excerpt'),
       evidence: [{ source_type: 'external_input', path, symbol: null, start_line: null, end_line: null, relationship: questionMode ? 'task_inquiry_target' : 'task_target' }],
       key_facts: keyFacts(storage, snap, path),
     });
@@ -72,6 +77,7 @@ export function buildPackage(
       path: r.path, role: r.boundary,
       required: !questionMode && r.depth <= 1 && r.boundary !== 'doc',
       relevance_reason: r.reasons[0] ?? 'related by code relationship',
+      ...inclusionMeta([{ source: 'graph_expansion', score: Math.max(1, 5 - r.depth), reason: r.reasons[0] ?? 'related by code relationship' }], 'pointer'),
       evidence: r.evidence,
       key_facts: keyFacts(storage, snap, r.path),
     });
@@ -84,13 +90,14 @@ export function buildPackage(
       relevant_symbols.push({
         name: s.name, kind: s.kind, file: s.path,
         relevance_reason: questionMode ? `defined in investigation file ${s.path}` : `defined in target file ${s.path}`,
+        ...inclusionMeta([{ source: 'symbol_extraction', score: s.exported ? 4 : 2, reason: `symbol ${s.name} defined in ${s.path}` }], 'signature'),
         evidence: [symEv(s)],
       });
     }
   }
 
   // --- 5. category completeness (FR4/NFR6) ---
-  const required = requiredCategories(cls.task.task_types);
+  const required = profile.contextCategories;
   const context_requirements: ContextRequirement[] = [];
   const unknowns: Unknown[] = [];
   const gaps: ContextGapAllowedToCreate[] = [];
@@ -146,7 +153,7 @@ export function buildPackage(
       name: snapshot.repo_name, root: snapshot.root, revision: snapshot.revision,
       dirty_state: snapshot.dirty_state, snapshot_id: snap,
     },
-    task: cls.task,
+    task: derivedTask,
     context_requirements,
     relevant_files,
     relevant_symbols,
@@ -222,6 +229,52 @@ function keyFacts(storage: Storage, snap: string, path: string): string[] {
 
 function symEv(s: SymbolRecord): EvidenceRef {
   return { source_type: 'symbol', path: s.path, symbol: s.name, start_line: s.start_line, end_line: s.end_line, relationship: 'defines' };
+}
+
+function withSourceDerivedDomains(task: Task, paths: string[]): Task {
+  const domains = new Set<RuntimeDomain>(task.domains);
+  for (const path of paths) {
+    for (const domain of domainsForPath(path)) domains.add(domain);
+  }
+  if (domains.size > 1) domains.delete('unknown');
+  return { ...task, domains: domains.size ? [...domains] : ['unknown'] };
+}
+
+function inclusionMeta(signals: InclusionSignal[], representation: RepresentationTier): {
+  confidence: InclusionConfidence;
+  signals: InclusionSignal[];
+  corroboration_count: number;
+  representation: RepresentationTier;
+} {
+  const sources = new Set(signals.map((s) => s.source));
+  const corroboration_count = Math.max(1, sources.size);
+  const score = signals.reduce((sum, s) => sum + s.score, 0);
+  const confidence: InclusionConfidence = corroboration_count >= 2 || score >= 8
+    ? 'high'
+    : score >= 4
+      ? 'medium'
+      : 'low';
+  return { confidence, signals, corroboration_count, representation };
+}
+
+function seedSignals(path: string, cls: Classification): InclusionSignal[] {
+  const signals: InclusionSignal[] = [];
+  if (cls.mentionedPaths.some((p) => p.replace(/^\.\//, '').replace(/\\/g, '/') === path)) {
+    signals.push({ source: 'explicit_path', score: 10, reason: 'path was named explicitly in the task' });
+  }
+  const symbols = cls.mentionedSymbols.filter((sym) => sym.length > 2);
+  if (symbols.length) {
+    signals.push({ source: 'symbol_hint', score: 6, reason: `task mentioned symbol-like term(s): ${symbols.slice(0, 4).join(', ')}` });
+  }
+  const pathWords = wordsForPath(path);
+  const matchedKeywords = cls.keywords.filter((k) => pathWords.has(k.toLowerCase()) || path.toLowerCase().includes(k.toLowerCase()));
+  if (matchedKeywords.length) {
+    signals.push({ source: 'path_keyword', score: Math.min(6, matchedKeywords.length * 2), reason: `path matched task keyword(s): ${matchedKeywords.slice(0, 4).join(', ')}` });
+  }
+  if (signals.length === 0) {
+    signals.push({ source: 'text_search', score: 3, reason: 'repository text matched task keywords' });
+  }
+  return signals;
 }
 
 interface CatEval { satisfied: boolean; reason: string; searched: string[]; impact: string }
@@ -404,6 +457,7 @@ function rankedKeywordSeeds(storage: Storage, snap: string, cls: Classification)
     if (isCodebaseQuestion(cls)) score += questionFileShapeScore(path, f.boundary);
     if (f.boundary === 'source') score += 1;
     if (f.boundary === 'test') score -= 1;
+    if (isCodebaseQuestion(cls) && looksLikeWeakQuestionSeed(path) && score < 4) return;
     scored.set(path, (scored.get(path) ?? 0) + score);
   };
 
@@ -499,4 +553,12 @@ function wordsForPath(path: string): Set<string> {
 function looksLikeDumpOrArtifact(path: string): boolean {
   return /(^|\/|\\)(temp|tmp|logs?|backup|report|reports?|coverage|fixture|fixtures?)(_|-|\/|\\|\.)/i.test(path)
     || /(^|\/)(api-endpoint-report|.*logs?\.json)$/i.test(path);
+}
+
+function looksLikeWeakQuestionSeed(path: string): boolean {
+  const lower = path.toLowerCase();
+  return /\/(app|index|main)\.(tsx|jsx|ts|js)$/.test(lower)
+    || /^(app|index|main)\.(tsx|jsx|ts|js)$/.test(lower)
+    || /\/(migrations?|seeds?|fixtures?|__tests__|tests?)\//.test(lower)
+    || /(^|\/)seed[-_.]/.test(lower);
 }

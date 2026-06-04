@@ -138,7 +138,7 @@ describe('index + expand pipeline (FR1, FR5)', () => {
 
     expect(pkg.task.task_types).toContain('codebase_question');
     expect(pkg.relevant_files[0]?.path).toBe('components/DetailCard.tsx');
-    expect(pkg.relevant_files.findIndex((f) => f.path === 'App.tsx')).toBeGreaterThan(0);
+    expect(pkg.relevant_files.findIndex((f) => f.path === 'App.tsx')).not.toBe(0);
     expect(pkg.relevant_files.findIndex((f) => f.path === 'backend/migrations/seed-sensors.js')).not.toBe(0);
 
     rmSync(tmp, { recursive: true, force: true });

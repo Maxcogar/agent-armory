@@ -70,6 +70,14 @@ export function expandPackageContext(
       role: file.boundary,
       required: expansion.seeds.includes(path),
       relevance_reason: related?.reasons[0] ?? `added by context expansion: ${request.why_needed}`,
+      confidence: expansion.seeds.includes(path) ? 'high' : 'medium',
+      signals: [{
+        source: expansion.seeds.includes(path) ? 'context_expansion_seed' : 'context_expansion_graph',
+        score: expansion.seeds.includes(path) ? 8 : 4,
+        reason: related?.reasons[0] ?? request.why_needed,
+      }],
+      corroboration_count: 1,
+      representation: expansion.seeds.includes(path) ? 'excerpt' : 'pointer',
       evidence,
       key_facts: keyFacts(storage, snapshotId, path),
     } satisfies RelevantFile;
@@ -182,6 +190,14 @@ function symbolToRelevant(s: SymbolRecord): RelevantSymbol {
     kind: s.kind,
     file: s.path,
     relevance_reason: `symbol added by context expansion from ${s.path}`,
+    confidence: s.exported ? 'medium' : 'low',
+    signals: [{
+      source: 'symbol_extraction',
+      score: s.exported ? 4 : 2,
+      reason: `symbol ${s.name} defined in expanded file ${s.path}`,
+    }],
+    corroboration_count: 1,
+    representation: 'signature',
     evidence: [{
       source_type: 'symbol',
       path: s.path,

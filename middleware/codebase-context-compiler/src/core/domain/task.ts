@@ -23,9 +23,41 @@ export type KnownTaskType =
 
 export type TaskType = KnownTaskType | (string & {});
 
+export type TaskIntent =
+  | 'locate_understand'
+  | 'bug_fix'
+  | 'feature'
+  | 'refactor'
+  | 'review'
+  | 'test_creation'
+  | 'documentation_update'
+  | 'dependency_maintenance'
+  | 'audit_security'
+  | 'general_change';
+
+export type RuntimeDomain =
+  | 'frontend'
+  | 'backend'
+  | 'database'
+  | 'build_config'
+  | 'integration'
+  | 'docs'
+  | 'unknown';
+
+export type TaskModifier =
+  | 'security_sensitive';
+
 export interface Task {
   original_request: string;
   normalized_task: string;
+  /**
+   * Legacy compatibility labels. They are still preserved for CLI output,
+   * tests, and older package consumers, but profile policy should prefer the
+   * intent/domain/modifier fields below.
+   */
   task_types: TaskType[];
+  intent: TaskIntent;
+  domains: RuntimeDomain[];
+  modifiers: TaskModifier[];
   scope_summary: string;
 }
