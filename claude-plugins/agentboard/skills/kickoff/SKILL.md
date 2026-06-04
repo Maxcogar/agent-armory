@@ -1,6 +1,6 @@
 ---
 name: kickoff
-description: Onboard an agent to AgentBoard — verify connectivity and create or select a project
+description: Onboard a fresh agent to AgentBoard and start a project: authenticate, health-check, list or create a project, and claim the first task. Use whenever the user wants to start, set up, kick off, or begin a new AgentBoard project, or hand off to a brand-new session — e.g. "kickoff", "start a new agentboard project", "set this project up in agentboard", "onboard a new agent". To resume existing work instead, use pickup.
 ---
 
 # AgentBoard Kickoff

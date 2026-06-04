@@ -1,13 +1,13 @@
 ---
-name: workspace-orchestration
-description: Use when orchestrating parallel subagents across workspace board cards for planning, review, implementation, and audit waves
+name: orchestrate
+description: Run the AgentBoard workspace pipeline across a board's cards — planning → review → implementation → audit waves with parallel subagents per card, server-driven verdict routing, and checkpoint pauses. Use ONLY when the user explicitly wants to run or continue the pipeline on a board that already has cards — e.g. "/orchestrate", "run the pipeline", "orchestrate the board". Do NOT trigger on general discussion of orchestration, or when no cards exist yet (create them via architecture or sweep first).
 ---
 
 # Workspace Orchestration
 
 Orchestrate parallel subagents through workspace board columns: planning → review → implementation → audit → finished.
 
-**Source of truth.** This skill is the authoritative reference for the workspace-orchestration workflow — wave logic, prompt templates, checkpoint policy, retry policy, build verification, and per-wave failure handling all live here. The `/orchestrate` slash command at `commands/orchestrate.md` is a thin entry point: it parses command flags, loads this skill, and hands off control. Do not duplicate wave logic in `commands/orchestrate.md`; if behavior needs to change, change it here.
+**Source of truth and invocation.** This skill is the authoritative reference for the orchestrate workflow — wave logic, prompt templates, checkpoint policy, retry policy, build verification, and per-wave failure handling all live here. Run it directly as `/orchestrate` (optionally `/orchestrate --auto`). Before the first wave, load the `agentboard`, `codegraph`, and `rag` tool schemas via `ToolSearch` and call `agentboard_health_check`. The one flag is `--auto` — skip checkpoints where the board's blocking toggle is OFF (blocking ON always pauses; see Checkpoint Logic below).
 
 ## Prerequisites
 

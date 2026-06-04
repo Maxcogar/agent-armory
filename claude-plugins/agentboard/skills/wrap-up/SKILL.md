@@ -1,6 +1,6 @@
 ---
 name: wrap-up
-description: End-of-session handoff — add progress notes, log activity, and summarize state for the next agent
+description: End an AgentBoard session cleanly: add progress notes to in-progress tasks, transition any completed work, log a session summary, and produce a handoff for the next agent. Use whenever the user wants to wrap up, close out, end, or hand off an AgentBoard session, or save state before stopping — e.g. "wrap up", "wrap up the session", "save progress and hand off", "end-of-session notes".
 ---
 
 # AgentBoard Wrap-Up

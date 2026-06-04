@@ -107,7 +107,7 @@ The right startup sequence depends on which workflow you're about to do (see §0
 **Workspace-board work (4b-5b):**
 
 4b. **Find the board** — `agentboard_list_apps` then `agentboard_list_boards` on the chosen app. If the cards you need don't exist yet, they were probably going to be created by `/architecture` from a spec's Card Slices, or by `/sweep` from a codebase audit; see those commands' docs.
-5b. **Either claim a card or run /orchestrate** — for single-card work, `agentboard_get_next_card` with `board_id`, `agent_id`, optional `column`. For orchestrated parallel-card work across multiple cards and waves, run `/orchestrate` (which uses the `workspace-orchestration` skill — the authoritative wave-by-wave logic lives there).
+5b. **Either claim a card or run /orchestrate** — for single-card work, `agentboard_get_next_card` with `board_id`, `agent_id`, optional `column`. For orchestrated parallel-card work across multiple cards and waves, run `/orchestrate` (which uses the `orchestrate` skill — the authoritative wave-by-wave logic lives there).
 
 **Don't mix the two workflows on the same unit of work** — phase milestones and workspace cards are independent state machines. A workspace card is never a milestone; never call `agentboard_update_task` on a card (cards use `agentboard_update_workspace_card`).
 
@@ -179,7 +179,7 @@ This separation is a design convention; the server does not enforce it today, so
 
 ### 2.6 Workspace Boards
 
-Workspace boards are a separate, ad-hoc pipeline alongside the phase system — for everyday work that doesn't go through the 13-phase document workflow. Cards move through columns: `backlog → planning → review → implementation → audit → finished`. For the orchestration pipeline (parallel agents per wave, checkpoint logic, blocking toggles) see the `workspace-orchestration` skill.
+Workspace boards are a separate, ad-hoc pipeline alongside the phase system — for everyday work that doesn't go through the 13-phase document workflow. Cards move through columns: `backlog → planning → review → implementation → audit → finished`. For the orchestration pipeline (parallel agents per wave, checkpoint logic, blocking toggles) see the `orchestrate` skill.
 
 **Apps** group boards (typically one app per codebase or product).
 
@@ -248,14 +248,14 @@ backlog → planning → review → implementation → audit → finished
    review_note FAIL → planning     audit_report FAIL → implementation
 ```
 
-Agents are spawned per-card per-wave by the `/orchestrate` command. Each agent fetches the card, performs its wave's work, and **submits its artifact — which advances the card automatically**. All transitions are **server-enforced and verdict-driven**; agents never move a card themselves:
+Agents are spawned per-card per-wave by `/orchestrate`. Each agent fetches the card, performs its wave's work, and **submits its artifact — which advances the card automatically**. All transitions are **server-enforced and verdict-driven**; agents never move a card themselves:
 
 - `planning → review` happens on `plan` submit (unconditional).
 - `implementation → audit` happens on `implementation_note` submit (unconditional).
 - `review` routes on the `review_note` verdict: FAIL → `planning` (unconditional); PASS → `implementation` when `review_blocking` is OFF, else holds for human approval.
 - `audit` routes on the `audit_report` verdict: FAIL → `implementation` (unconditional); PASS / PASS WITH NOTES → `finished` when `audit_blocking` is OFF, else holds for a human checkpoint.
 
-Wave agents do NOT call `agentboard_update_workspace_card` to move the card. The `workspace-orchestration` skill has the per-wave prompt templates and full pipeline logic.
+Wave agents do NOT call `agentboard_update_workspace_card` to move the card. The `orchestrate` skill has the per-wave prompt templates and full pipeline logic.
 
 ---
 
@@ -272,7 +272,7 @@ Every project progresses through 13 phases. Phases 1-9 are document phases (an a
 | 3 | Requirements | `requirements` | What the work must accomplish, in concrete acceptance-criteria form — R-numbered requirements and Q-numbered quality requirements. The spec the rest of the project is judged against. |
 | 4 | Constraints | `constraints` | The named rules and conventions the work must respect — state-machine constraints, naming conventions, security policies, performance targets, contract invariants. **RAG is the primary tool here** (`source_type="constraints"` queries to discover what already exists). The constraints doc should reflect reality, not invent rules. |
 | 5 | Risk Assessment | `risk_assessment` | What could go wrong, where the blast radius lives, which coupling hotspots the work touches. **codegraph `get_stats` and `get_dependents` are the primary tools here** — high-coupling files imply high change-risk. |
-| 6 | Architecture | `architecture` | Component architecture, structural decisions, and the level-aware design output. Often produced by the `/architecture` command rather than authored by hand (the command runs a research → audit → classification → compose → review pipeline and produces this document plus workspace cards from its Card Slices section). |
+| 6 | Architecture | `architecture` | Component architecture, structural decisions, and the level-aware design output. Often produced by the `/architecture` skill rather than authored by hand (the skill runs a research → audit → classification → compose → review pipeline and produces this document plus workspace cards from its Card Slices section). |
 | 7 | Contracts | `contracts` | The interface contracts between components — function signatures, API surfaces, message shapes, schemas. Must be consistent with what already exists (use RAG to verify). |
 | 8 | Test Strategy | `test_strategy` | The verification plan — what kinds of tests, what coverage, how each requirement maps to its verification. Test code does not get written here; the strategy does. |
 | 9 | Task Breakdown | `task_breakdown` | Implementation tasks ordered by dependency. **Phase 9 is the exception**: it has a document but no milestone task; submit the document manually. After approval, the project moves to phase 10 and the task list authored here becomes the queue of implementation tasks. |
@@ -377,7 +377,7 @@ There are two shapes depending on which workflow you're in (§0). Both share the
 9.   Repeat for the next card you claim, or end the session if /orchestrate handed you a single card.
 ```
 
-**Orchestrated workspace session (main agent driving multiple cards in parallel):** don't follow the single-card pattern above. Run `/orchestrate` — the `workspace-orchestration` skill carries the wave-by-wave logic, prompt templates, checkpoint policy, retry policy, and per-wave failure handling. Do not duplicate that here.
+**Orchestrated workspace session (main agent driving multiple cards in parallel):** don't follow the single-card pattern above. Run `/orchestrate` — the `orchestrate` skill carries the wave-by-wave logic, prompt templates, checkpoint policy, retry policy, and per-wave failure handling. Do not duplicate that here.
 
 **A worked example for new project flow (most common):**
 

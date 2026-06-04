@@ -1,6 +1,6 @@
 ---
 name: pickup
-description: Resume AgentBoard work — read the skill, check server health, find active project, and claim next task
+description: Resume existing AgentBoard work in a continuation session: authenticate, find the active project, resume any in-progress task or claim the next one, and read recent activity for context. Use whenever the user wants to pick up, resume, continue, or get back into an existing AgentBoard project — e.g. "pickup", "resume agentboard", "continue where we left off", "what was I working on". To start a brand-new project instead, use kickoff.
 ---
 
 # AgentBoard Pickup

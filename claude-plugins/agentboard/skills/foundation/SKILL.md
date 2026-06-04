@@ -1,6 +1,6 @@
 ---
 name: foundation
-description: Interactive spec-building session — produce a rigorous, architecturally-silent spec via the spec-writing skill. Architecture decisions and card creation happen later via /architecture.
+description: Run an interactive spec-building session for AgentBoard — produce a rigorous, architecturally-silent spec via the spec-writing skill, commit it, and hand off to architecture. Use whenever the user wants to start a new body of work that needs a spec before architecture and cards — e.g. "foundation", "write a spec for this feature", "let's spec this out", "start the foundation phase". Produces docs/specs/<file>.md; it does NOT make architecture decisions or create cards (that is the architecture skill).
 ---
 
 # Foundation — Spec
@@ -41,7 +41,7 @@ Follow these steps in order.
    **Status:** approved, committed
 
    **Next step:** Start a new session and run `/architecture <spec-path>`.
-   The command runs a level-aware pipeline: a haiku research agent measures
+   It runs a level-aware pipeline: a haiku research agent measures
    eight bundle fields from your spec and the codebase and applies the v1.0
    classification rules to compute an L1, L2, or L3 level; a haiku auditor
    independently re-measures every field; the bundle, audit, and level are

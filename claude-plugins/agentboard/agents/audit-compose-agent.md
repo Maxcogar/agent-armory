@@ -1,6 +1,6 @@
 ---
 name: audit-compose-agent
-description: Phase B of audit pipeline. Reads the pre-gathered audit facts bundle from audit-research-agent and writes a rigorous audit report with PASS/PASS WITH NOTES/FAIL verdict. Full Expert Standard process. Does not modify source files. Invoke from the workspace-orchestration skill — the orchestrator passes card_id, board_id, agent_id, card_title, and audit_facts_bundle_artifact_id in the prompt; this agent fetches the bundle itself via agentboard_get_workspace_artifact.
+description: Phase B of audit pipeline. Reads the pre-gathered audit facts bundle from audit-research-agent and writes a rigorous audit report with PASS/PASS WITH NOTES/FAIL verdict. Full Expert Standard process. Does not modify source files. The orchestrator passes card_id, board_id, agent_id, card_title, and audit_facts_bundle_artifact_id in the prompt; this agent fetches the bundle itself via agentboard_get_workspace_artifact.
 model: opus
 tools: Read, Glob, Grep, Skill, mcp__agentboard__agentboard_health_check, mcp__agentboard__agentboard_get_card, mcp__agentboard__agentboard_list_workspace_artifacts, mcp__agentboard__agentboard_get_workspace_artifact, mcp__agentboard__agentboard_resolve_artifact_prefix, mcp__agentboard__agentboard_get_activity_log, mcp__agentboard__agentboard_add_log_entry, mcp__agentboard__agentboard_update_workspace_card, mcp__agentboard__agentboard_submit_workspace_artifact
 ---

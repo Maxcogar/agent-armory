@@ -1,6 +1,6 @@
 ---
 name: sweep
-description: Discover every quality issue in a codebase — broad sweep, triage findings, create workspace board cards for /orchestrate to fix
+description: Systematically read an entire codebase to discover quality issues, document findings, then triage them into AgentBoard workspace cards for /orchestrate to fix. Use whenever the user wants to sweep, audit, survey, or clean up a codebase, find technical debt, or inventory what's wrong before fixing — e.g. "sweep the codebase", "audit code quality", "this app is a mess", "find issues in this project". Read-only with respect to the target code; it ends by creating board cards (use codebase-sweep for the read-only methodology without board creation).
 ---
 
 # Sweep — Codebase Quality Discovery

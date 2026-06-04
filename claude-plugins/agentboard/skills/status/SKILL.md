@@ -1,6 +1,6 @@
 ---
 name: status
-description: Show current AgentBoard project state — phase, active tasks, blockers, and next action
+description: Read-only status of an AgentBoard phase-based project — current phase (N/13), task counts by status, blockers, and the next action, without starting work. Use whenever the user asks where a project stands, what phase it's on, what's blocked, or what's next on an AgentBoard project — e.g. "project status", "where are we", "what phase are we in", "anything blocked". Mutates nothing. For a workspace-board snapshot, use board-status instead.
 ---
 
 # AgentBoard Status
@@ -41,4 +41,4 @@ Quick situational awareness. Read-only — no mutations.
    [What should happen next — e.g., "Claim next ready task with /pickup" or "Waiting for human to approve Phase 3 document"]
    ```
 
-5. **Do not start any work.** This command is purely informational.
+5. **Do not start any work.** This skill is purely informational.

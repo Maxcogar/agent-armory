@@ -1,6 +1,6 @@
 ---
 name: board-status
-description: Quick progress snapshot of a workspace board — card counts, blocked items, recent activity
+description: Read-only progress snapshot of an AgentBoard workspace board — card counts per column, percent finished, blocking settings, cards needing attention, and recent activity, without resuming work. Use whenever the user asks how a board or orchestration is going, where a board stands, how many cards are left or finished, or wants a board snapshot — e.g. "board status", "how's the cleanup board doing", "how many cards left on the board", "show me where the board is at". Mutates nothing.
 ---
 
 # Board Status
