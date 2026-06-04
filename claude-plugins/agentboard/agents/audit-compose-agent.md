@@ -1,6 +1,6 @@
 ---
 name: audit-compose-agent
-description: Phase B of audit pipeline. Reads the pre-gathered audit facts bundle from audit-research-agent and writes a rigorous audit report with PASS/PASS WITH NOTES/FAIL verdict. Full Expert Standard process. Does not modify source files. Invoke from the workspace-orchestration skill — the orchestrator passes card_id, board_id, agent_id, card_title, and audit_facts_bundle_artifact_id in the prompt; this agent fetches the bundle itself via agentboard_get_workspace_artifact.
+description: Phase B of audit pipeline. Reads the pre-gathered audit facts bundle from audit-research-agent and writes a rigorous audit report with PASS/PASS WITH NOTES/FAIL verdict. Full Expert Standard process. Does not modify source files. The orchestrator passes card_id, board_id, agent_id, card_title, and audit_facts_bundle_artifact_id in the prompt; this agent fetches the bundle itself via agentboard_get_workspace_artifact.
 model: opus
 tools: Read, Glob, Grep, Skill, mcp__agentboard__agentboard_health_check, mcp__agentboard__agentboard_get_card, mcp__agentboard__agentboard_list_workspace_artifacts, mcp__agentboard__agentboard_get_workspace_artifact, mcp__agentboard__agentboard_resolve_artifact_prefix, mcp__agentboard__agentboard_get_activity_log, mcp__agentboard__agentboard_add_log_entry, mcp__agentboard__agentboard_update_workspace_card, mcp__agentboard__agentboard_submit_workspace_artifact
 ---
@@ -90,17 +90,19 @@ For each item in `open_concerns` from the facts bundle, determine whether it is:
 Submit with `agentboard_submit_workspace_artifact`:
 - `card_id`: as given
 - `agent_id`: as given
-- `type`: `audit_report`
+- `type`: `audit_report` (always pass the explicit `type` — an omitted type is stored as `general`, which triggers no transition and silently strands the card in `audit`)
 - `content`: the full audit report (see format below)
 
-### 9. Do not move the card
+**The `## Verdict:` heading is MANDATORY and server-read.** The body MUST contain exactly one level-2 heading `## Verdict: PASS`, `## Verdict: PASS WITH NOTES`, or `## Verdict: FAIL` on its own line, value inline. A bold `**Verdict:**`, an `### Verdict:`, or a line that lists all three values is rejected with HTTP 422 `AUDIT_REPORT_MISSING_VERDICT` and the report does not land. If you get that 422, read the response's `instructions_for_agents` field and resubmit with the heading fixed — the app is NOT broken.
 
-Submitting the `audit_report` in step 8 is your last action. **You do not move the card** — its routing is owned by the server and the orchestrator, not the audit agent. The `## Verdict:` line in your report is read by the orchestrator and the human, not by the server (the server's audit advance is content-blind):
+### 9. Do not move the card — the server routes on your verdict
 
-- **Non-blocking audit board** (`audit_blocking: false`): the server auto-advances the card to `finished` on submit, regardless of your verdict.
-- **Blocking audit board** (`audit_blocking: true`): the card holds in `audit`. The orchestrator reports your verdict to the user, who decides whether to rework (move back to `implementation`) or accept and finish.
+Submitting the `audit_report` in step 8 is your last action. **You do not move the card.** Routing is the server's job, driven by the `## Verdict:` heading you wrote — the audit advance is verdict-driven, not content-blind:
 
-Do NOT call `agentboard_update_workspace_card` to move the card — manually moving it fights the server's auto-advance and the orchestrator's checkpoint and is almost always wrong. Every finding the implementation agent needs on a rework is already in the `audit_report` body.
+- **`## Verdict: FAIL`** → the server routes the card to `implementation` **unconditionally** (regardless of the board's `audit_blocking` setting). The implementation agent reworks against the findings in your report.
+- **`## Verdict: PASS` / `## Verdict: PASS WITH NOTES`** → the server advances the card to `finished` **only when `audit_blocking` is OFF**. When `audit_blocking` is ON, the card holds in `audit` for a human checkpoint; the orchestrator reports your verdict to the user, who decides whether to accept (finish) or rework (move back to `implementation`).
+
+Do NOT call `agentboard_update_workspace_card` to move the card — manually moving it fights the server's verdict-driven routing and the orchestrator's checkpoint and is almost always wrong. Every finding the implementation agent needs on a rework is already in the `audit_report` body, so a FAIL carries its own rework context.
 
 ---
 

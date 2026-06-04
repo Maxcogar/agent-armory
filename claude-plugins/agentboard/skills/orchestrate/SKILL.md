@@ -1,13 +1,13 @@
 ---
-name: workspace-orchestration
-description: Use when orchestrating parallel subagents across workspace board cards for planning, review, implementation, and audit waves
+name: orchestrate
+description: Run the AgentBoard workspace pipeline across a board's cards — planning → review → implementation → audit waves with parallel subagents per card, server-driven verdict routing, and checkpoint pauses. Use ONLY when the user explicitly wants to run or continue the pipeline on a board that already has cards — e.g. "/orchestrate", "run the pipeline", "orchestrate the board". Do NOT trigger on general discussion of orchestration, or when no cards exist yet (create them via architecture or sweep first).
 ---
 
 # Workspace Orchestration
 
 Orchestrate parallel subagents through workspace board columns: planning → review → implementation → audit → finished.
 
-**Source of truth.** This skill is the authoritative reference for the workspace-orchestration workflow — wave logic, prompt templates, checkpoint policy, retry policy, build verification, and per-wave failure handling all live here. The `/orchestrate` slash command at `commands/orchestrate.md` is a thin entry point: it parses command flags, loads this skill, and hands off control. Do not duplicate wave logic in `commands/orchestrate.md`; if behavior needs to change, change it here.
+**Source of truth and invocation.** This skill is the authoritative reference for the orchestrate workflow — wave logic, prompt templates, checkpoint policy, retry policy, build verification, and per-wave failure handling all live here. Run it directly as `/orchestrate` (optionally `/orchestrate --auto`). Before the first wave, load the `agentboard`, `codegraph`, and `rag` tool schemas via `ToolSearch` and call `agentboard_health_check`. The one flag is `--auto` — skip checkpoints where the board's blocking toggle is OFF (blocking ON always pauses; see Checkpoint Logic below).
 
 ## Prerequisites
 
@@ -22,7 +22,17 @@ Orchestrate parallel subagents through workspace board columns: planning → rev
 Wave 1: Planning    → parallel agents build plans per card     → cards advance to review
 Wave 2: Review      → parallel agents validate plans           → cards advance to implementation (or back to planning)
 Wave 3: Implementation → parallel agents write code            → build/lint check → cards advance to audit
-Wave 4: Audit       → parallel read-only agents verify         → cards advance to finished
+Wave 4: Audit       → parallel read-only agents verify         → cards advance to finished (or back to implementation)
+```
+
+Transitions are **server-enforced and verdict-driven** — agents and the orchestrator never move a card themselves. Both rejection loops route on the submitted artifact's `## Verdict:` heading:
+
+```
+backlog → planning → review → implementation → audit → finished
+              ▲          │            ▲            │
+              │  review  │ FAIL       │  audit     │ FAIL
+              └──────────┘            └────────────┘
+   review_note FAIL → planning     audit_report FAIL → implementation
 ```
 
 ## Checkpoint Logic
@@ -134,9 +144,10 @@ All background agents must complete before proceeding. Report results:
 - Wait for user intervention
 
 **Audit failure (Wave 4):**
-- The audit agent submits the `audit_report` (verdict FAIL) and does NOT move the card — the server's audit advance is content-blind, so the verdict does not auto-route.
-- On a blocking audit board (`audit_blocking: true`) the card holds in `audit`; report the findings to the user, who decides whether to rework (move the card back to `implementation`) or accept it.
-- On a non-blocking audit board (`audit_blocking: false`) the card has already auto-advanced to `finished` on submit; report the FAIL, but the card is terminal — run audit blocking ON when failed cards must stay reworkable.
+- The audit agent submits the `audit_report` with `## Verdict: FAIL` and does NOT move the card — the server routes on the verdict. A **FAIL routes the card to `implementation` unconditionally**, regardless of the `audit_blocking` setting. The orchestrator does NOT call `agentboard_update_workspace_card`; that path is deprecated.
+- An `audit_report` lacking a valid `## Verdict:` heading (a level-2 heading with value `PASS` / `PASS WITH NOTES` / `FAIL` inline) is rejected with HTTP 422 (`AUDIT_REPORT_MISSING_VERDICT`); the audit agent reads `instructions_for_agents` and resubmits with the marker (the app is not broken).
+- On a FAIL, re-run Wave 3 (Implementation) for the rejected card against the findings in the audit report. The audit report body carries the full rework context.
+- A `## Verdict: PASS` or `PASS WITH NOTES` advances the card to `finished` only when `audit_blocking` is OFF; when ON, the card holds in `audit` for a human checkpoint — report the verdict to the user, who accepts (finish) or reworks (back to `implementation`).
 
 ### 5. Checkpoint (if applicable)
 
@@ -164,9 +175,9 @@ When the build/lint command for the project is not obvious from `implementation-
 
 | Scenario | Action | Max Retries |
 |---|---|---|
-| Review rejects a plan | Re-plan with feedback | 2 per card |
+| Review rejects a plan (`review_note` FAIL) | Server routes card to `planning`; re-plan with feedback | 2 per card |
 | Build fails | Stop, report to user | 0 (user intervenes) |
-| Audit fails | Report, card stays in audit | 0 (user reviews) |
+| Audit fails (`audit_report` FAIL) | Server routes card to `implementation`; re-run Wave 3 against the audit findings | 2 per card |
 | Agent crashes/times out | Report, card unchanged | 1 |
 
 ## Status Reporting
@@ -201,7 +212,7 @@ The model column below shows each agent's `model:` frontmatter value verbatim. W
 | `review-agent` | `opus` | Wave 2 — validates plans against constraints |
 | `implementation-agent` | `sonnet` | Wave 3 — executes plans, writes code, runs build/lint |
 | `audit-research-agent` | `claude-haiku-4-5-20251001` | Wave 4 Phase A — git diff + blast radius, emits `AUDIT_FACTS_BUNDLE_V1` |
-| `audit-compose-agent` | `opus` | Wave 4 Phase B — fetches bundle by ID, writes audit report, then stops; card routing is server-driven |
+| `audit-compose-agent` | `opus` | Wave 4 Phase B — fetches bundle by ID, writes audit report with a `## Verdict:` heading, then stops; the server routes on the verdict |
 
 ### Two-Phase Pipeline (Waves 1 and 4)
 
@@ -213,4 +224,4 @@ The model column below shows each agent's `model:` frontmatter value verbatim. W
 **Wave 4:**
 1. Spawn `audit-research-agent` per card in parallel — gathers git diff, blast radius, cross-references the plan artifact, emits `AUDIT_FACTS_BUNDLE_V1`
 2. Wait for ALL Phase A agents to complete
-3. Spawn `audit-compose-agent` per card in parallel — reads the bundle, writes `audit_report` artifact; the server auto-advances the card on submit (content-blind: finished if `audit_blocking` is OFF, else holds in `audit`)
+3. Spawn `audit-compose-agent` per card in parallel — reads the bundle, writes the `audit_report` artifact with a mandatory `## Verdict:` heading; the server routes on the verdict (FAIL → `implementation` unconditionally; PASS / PASS WITH NOTES → `finished` when `audit_blocking` is OFF, else holds in `audit` for a human checkpoint)

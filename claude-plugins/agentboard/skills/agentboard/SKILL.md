@@ -16,7 +16,7 @@ AgentBoard runs **two parallel workflows** on the same cloud backend. They share
 | Workflow | Unit of work | State authority | Lifecycle | When to use |
 |---|---|---|---|---|
 | **Phase-based project** | Phase document (13 fixed phases) | The document is authority; the milestone task is a reflection that the server keeps in sync. | `template → submitted → approved` (or `rejected → revise → resubmit`). Humans approve; agents never approve their own work. After phase 9, switches to free-form implementation tasks in phases 10-12. | A new feature, refactor, bug fix, migration, or integration where the rigor of "write the requirements doc, write the architecture, then implement" is appropriate. The phases force a discovery-before-implementation discipline. |
-| **Workspace board** | Card on a board (kanban columns) | The card is authority; artifacts are append-only outputs attached to it. | `backlog → planning → review → implementation → audit → finished` (with rejection back to planning). | Ad-hoc work that doesn't fit the 13-phase rigor — orchestrated parallel cards (via `/orchestrate`), discrete cleanup tasks, work spawned by `/architecture` from a spec's Card Slices. |
+| **Workspace board** | Card on a board (kanban columns) | The card is authority; artifacts are append-only outputs attached to it. | `backlog → planning → review → implementation → audit → finished`, with two verdict-driven rejection loops: `review_note` FAIL → `planning`, `audit_report` FAIL → `implementation`. `finished` is terminal. | Ad-hoc work that doesn't fit the 13-phase rigor — orchestrated parallel cards (via `/orchestrate`), discrete cleanup tasks, work spawned by `/architecture` from a spec's Card Slices. |
 
 **Three actors, strict separation** (applies to both workflows):
 
@@ -107,7 +107,7 @@ The right startup sequence depends on which workflow you're about to do (see §0
 **Workspace-board work (4b-5b):**
 
 4b. **Find the board** — `agentboard_list_apps` then `agentboard_list_boards` on the chosen app. If the cards you need don't exist yet, they were probably going to be created by `/architecture` from a spec's Card Slices, or by `/sweep` from a codebase audit; see those commands' docs.
-5b. **Either claim a card or run /orchestrate** — for single-card work, `agentboard_get_next_card` with `board_id`, `agent_id`, optional `column`. For orchestrated parallel-card work across multiple cards and waves, run `/orchestrate` (which uses the `workspace-orchestration` skill — the authoritative wave-by-wave logic lives there).
+5b. **Either claim a card or run /orchestrate** — for single-card work, `agentboard_get_next_card` with `board_id`, `agent_id`, optional `column`. For orchestrated parallel-card work across multiple cards and waves, run `/orchestrate` (which uses the `orchestrate` skill — the authoritative wave-by-wave logic lives there).
 
 **Don't mix the two workflows on the same unit of work** — phase milestones and workspace cards are independent state machines. A workspace card is never a milestone; never call `agentboard_update_task` on a card (cards use `agentboard_update_workspace_card`).
 
@@ -179,7 +179,7 @@ This separation is a design convention; the server does not enforce it today, so
 
 ### 2.6 Workspace Boards
 
-Workspace boards are a separate, ad-hoc pipeline alongside the phase system — for everyday work that doesn't go through the 13-phase document workflow. Cards move through columns: `backlog → planning → review → implementation → audit → finished`. For the orchestration pipeline (parallel agents per wave, checkpoint logic, blocking toggles) see the `workspace-orchestration` skill.
+Workspace boards are a separate, ad-hoc pipeline alongside the phase system — for everyday work that doesn't go through the 13-phase document workflow. Cards move through columns: `backlog → planning → review → implementation → audit → finished`. For the orchestration pipeline (parallel agents per wave, checkpoint logic, blocking toggles) see the `orchestrate` skill.
 
 **Apps** group boards (typically one app per codebase or product).
 
@@ -212,6 +212,10 @@ Workspace boards are a separate, ad-hoc pipeline alongside the phase system — 
 
 **`review_note` verdict marker (MANDATORY):** every `review_note` body MUST contain `## Verdict: PASS` or `## Verdict: FAIL` — a level-2 markdown heading on its own line, value inline, case-insensitive. Missing/malformed → HTTP 422 `REVIEW_NOTE_MISSING_VERDICT` (read the `instructions_for_agents` field; the app is NOT broken). FAIL routes the card back to `planning` (both blocking and non-blocking modes); PASS keeps the existing blocking-aware advance to `implementation`. Reviewers never call `update_workspace_card` to move the card — the verdict drives routing.
 
+**`audit_report` verdict marker (MANDATORY):** every `audit_report` body MUST contain `## Verdict: PASS`, `## Verdict: PASS WITH NOTES`, or `## Verdict: FAIL` — a level-2 markdown heading on its own line, single value inline. A bold `**Verdict:**`, an `### Verdict:`, or a line listing all three values → HTTP 422 `AUDIT_REPORT_MISSING_VERDICT` (read `instructions_for_agents`; the app is NOT broken). FAIL routes the card to `implementation` **unconditionally** (regardless of `audit_blocking`); PASS / PASS WITH NOTES advances to `finished` only when `audit_blocking` is OFF, else holds in `audit` for a human checkpoint. Audit agents never call `update_workspace_card` to move the card — the verdict drives routing.
+
+**Always pass an explicit `artifact_type` (`type`) on every submit.** Column inference was removed: an omitted type is stored as `general`, which triggers **no** transition and silently strands the card. Pass `plan` / `review_note` / `implementation_note` / `audit_report` for the four advancing wave deliverables, and `general` for non-advancing outputs (facts bundles, research notes, the architecture-pipeline artifacts which carry their real type in a leading sentinel line).
+
 **Recognized artifact types** (the plugin has hooks that gate them by type, so use these exact strings):
 
 | Type | Produced by | Triggers gate |
@@ -238,11 +242,20 @@ Workspace boards are a separate, ad-hoc pipeline alongside the phase system — 
 
 ```
 backlog → planning → review → implementation → audit → finished
-           ↑           ↓ (rejection)
-           └───────────┘
+              ▲          │            ▲            │
+              │  review  │ FAIL       │  audit     │ FAIL
+              └──────────┘            └────────────┘
+   review_note FAIL → planning     audit_report FAIL → implementation
 ```
 
-Agents are spawned per-card per-wave by the `/orchestrate` command. Each agent fetches the card, performs its wave's work, and **submits its artifact — which advances the card automatically**. `planning → review` and `implementation → audit` happen on submit; the `review` transition routes on the `review_note` verdict; `audit` is resolved by the orchestrator (PASS → `finished`, FAIL → stays in `audit` for human review). Wave agents do NOT call `agentboard_update_workspace_card` to move the card. The `workspace-orchestration` skill has the per-wave prompt templates and full pipeline logic.
+Agents are spawned per-card per-wave by `/orchestrate`. Each agent fetches the card, performs its wave's work, and **submits its artifact — which advances the card automatically**. All transitions are **server-enforced and verdict-driven**; agents never move a card themselves:
+
+- `planning → review` happens on `plan` submit (unconditional).
+- `implementation → audit` happens on `implementation_note` submit (unconditional).
+- `review` routes on the `review_note` verdict: FAIL → `planning` (unconditional); PASS → `implementation` when `review_blocking` is OFF, else holds for human approval.
+- `audit` routes on the `audit_report` verdict: FAIL → `implementation` (unconditional); PASS / PASS WITH NOTES → `finished` when `audit_blocking` is OFF, else holds for a human checkpoint.
+
+Wave agents do NOT call `agentboard_update_workspace_card` to move the card. The `orchestrate` skill has the per-wave prompt templates and full pipeline logic.
 
 ---
 
@@ -259,7 +272,7 @@ Every project progresses through 13 phases. Phases 1-9 are document phases (an a
 | 3 | Requirements | `requirements` | What the work must accomplish, in concrete acceptance-criteria form — R-numbered requirements and Q-numbered quality requirements. The spec the rest of the project is judged against. |
 | 4 | Constraints | `constraints` | The named rules and conventions the work must respect — state-machine constraints, naming conventions, security policies, performance targets, contract invariants. **RAG is the primary tool here** (`source_type="constraints"` queries to discover what already exists). The constraints doc should reflect reality, not invent rules. |
 | 5 | Risk Assessment | `risk_assessment` | What could go wrong, where the blast radius lives, which coupling hotspots the work touches. **codegraph `get_stats` and `get_dependents` are the primary tools here** — high-coupling files imply high change-risk. |
-| 6 | Architecture | `architecture` | Component architecture, structural decisions, and the level-aware design output. Often produced by the `/architecture` command rather than authored by hand (the command runs a research → audit → classification → compose → review pipeline and produces this document plus workspace cards from its Card Slices section). |
+| 6 | Architecture | `architecture` | Component architecture, structural decisions, and the level-aware design output. Often produced by the `/architecture` skill rather than authored by hand (the skill runs a research → audit → classification → compose → review pipeline and produces this document plus workspace cards from its Card Slices section). |
 | 7 | Contracts | `contracts` | The interface contracts between components — function signatures, API surfaces, message shapes, schemas. Must be consistent with what already exists (use RAG to verify). |
 | 8 | Test Strategy | `test_strategy` | The verification plan — what kinds of tests, what coverage, how each requirement maps to its verification. Test code does not get written here; the strategy does. |
 | 9 | Task Breakdown | `task_breakdown` | Implementation tasks ordered by dependency. **Phase 9 is the exception**: it has a document but no milestone task; submit the document manually. After approval, the project moves to phase 10 and the task list authored here becomes the queue of implementation tasks. |
@@ -346,14 +359,17 @@ There are two shapes depending on which workflow you're in (§0). Both share the
                                         OR agentboard_get_card on a specific card_id
 6.   (do the work specific to your wave: planning agents write plans, review agents validate plans,
      implementation agents write code, audit agents verify against the plan + acceptance criteria)
-7.   agentboard_submit_workspace_artifact   -- append the typed artifact (plan / review_note /
-                                               implementation_note / audit_report). SUBMITTING IS WHAT ADVANCES
-                                               THE CARD: planning → review and implementation → audit happen
-                                               automatically on submit; the review transition routes on the
-                                               review_note's `## Verdict:` marker (PASS → implementation,
-                                               FAIL → planning); audit is resolved by the orchestrator. All
-                                               server/orchestrator-side (§2.6). Storage is append-only; a new
-                                               same-type deliverable auto-supersedes the prior one (§2.6).
+7.   agentboard_submit_workspace_artifact   -- append the typed artifact (always pass an explicit `type`:
+                                               plan / review_note / implementation_note / audit_report).
+                                               SUBMITTING IS WHAT ADVANCES THE CARD: planning → review and
+                                               implementation → audit happen automatically on submit; the
+                                               review transition routes on the review_note's `## Verdict:`
+                                               marker (PASS → implementation, FAIL → planning); the audit
+                                               transition routes on the audit_report's `## Verdict:` marker
+                                               (FAIL → implementation unconditionally; PASS / PASS WITH NOTES
+                                               → finished when audit_blocking is OFF, else holds). All
+                                               server-side (§2.6). Storage is append-only; a new same-type
+                                               deliverable auto-supersedes the prior one (§2.6).
 8.   (no manual card move)                  -- do NOT call agentboard_update_workspace_card to move the card
                                                through the pipeline; submission drives advancement. Use
                                                update_workspace_card only to append notes or update fields
@@ -361,7 +377,7 @@ There are two shapes depending on which workflow you're in (§0). Both share the
 9.   Repeat for the next card you claim, or end the session if /orchestrate handed you a single card.
 ```
 
-**Orchestrated workspace session (main agent driving multiple cards in parallel):** don't follow the single-card pattern above. Run `/orchestrate` — the `workspace-orchestration` skill carries the wave-by-wave logic, prompt templates, checkpoint policy, retry policy, and per-wave failure handling. Do not duplicate that here.
+**Orchestrated workspace session (main agent driving multiple cards in parallel):** don't follow the single-card pattern above. Run `/orchestrate` — the `orchestrate` skill carries the wave-by-wave logic, prompt templates, checkpoint policy, retry policy, and per-wave failure handling. Do not duplicate that here.
 
 **A worked example for new project flow (most common):**
 
@@ -496,6 +512,20 @@ When a transition is invalid, the error response includes all 7 fields:
 ### State Conflict (HTTP 409)
 
 The resource's state changed between when you last read it and when you tried to act on it. Most common: trying to submit a document whose linked milestone was moved out of `in-progress`. **Recovery:** Refetch resources (`get_project`, `get_task`, `get_document`) to get current state, then decide whether to retry.
+
+### Workspace Artifact & Card Errors
+
+These surface on the workspace-board pipeline (`submit_workspace_artifact`, card transitions), distinct from the phase task state machine above.
+
+| Code | HTTP | When | Recovery |
+|---|---|---|---|
+| `REVIEW_NOTE_MISSING_VERDICT` | 422 | `review_note` body has no valid `## Verdict: PASS\|FAIL` level-2 heading | Read `instructions_for_agents`; resubmit with the heading. The app is not broken. |
+| `AUDIT_REPORT_MISSING_VERDICT` | 422 | `audit_report` body has no valid `## Verdict: PASS\|PASS WITH NOTES\|FAIL` level-2 heading (bold `**Verdict:**`, `### Verdict:`, or a line listing all three all fail) | Read `instructions_for_agents`; resubmit with a single level-2 heading carrying one value. |
+| `CARD_FINISHED` | 422 | artifact submit (or in-place edit) on a card already in `finished` — `finished` is terminal | Reopen first: `agentboard_update_workspace_card` to PATCH the card's `status` to a non-finished column (e.g. `audit`), then resubmit. The response body carries a `reopen_with` hint. |
+| `INVALID_IDEMPOTENCY_KEY` | 400 | `Idempotency-Key` header outside 1–255 printable-ASCII characters | Use a valid key (or omit it — submissions are idempotent automatically). |
+| `IDEMPOTENCY_KEY_REUSED` | 409 | the same `Idempotency-Key` was reused for a *different* request | Use a fresh key for the new request, or refetch to confirm the prior submission already landed. |
+
+**`finished` is terminal (Rule 4).** A `finished` card rejects any artifact submission or in-place edit with `422 CARD_FINISHED`. To reopen, a human (or an agent acting on explicit instruction) PATCHes the card to a non-finished status via `agentboard_update_workspace_card` first. SYSTEM transitions never reopen a finished card — only a MANUAL status change does.
 
 ### Common Mistakes
 

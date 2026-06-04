@@ -1,6 +1,6 @@
 ---
 name: architecture
-description: Read an approved spec and run the level-aware architecture pipeline — research, classification audit, dispatch to L1/L2/L3 compose, design review, architecture document, workspace cards from the document's slices. Classification is deterministic; the user sees the bundle, audit, and level as transparency, then approves the architecture document after the design review surfaces any defects. Cards do not exist before this command runs.
+description: Convert an approved AgentBoard spec into an architecture document and workspace cards — runs the level-aware pipeline (research → classification audit → L1/L2/L3 compose → design review), surfaces the bundle, audit, level, and design-review findings as transparency, then commits the architecture document and creates one card per Card Slice. Use ONLY when the user explicitly wants to run the architecture phase on an existing approved spec — e.g. "run architecture on docs/specs/X", "turn the spec into cards". Do NOT trigger on general architecture/design discussion, or when there is no approved spec yet (use foundation first).
 ---
 
 # Architecture — Level-aware Boundary & Card Creation
@@ -9,8 +9,8 @@ You are the orchestrator of the architecture pipeline. Convert an approved spec 
 
 ## Inputs from the user
 
-- The path to an approved spec at `docs/specs/<file>.md` (provided as a command argument or the most recent file in `docs/specs/`).
-- Optional `--pause` flag in the command argument string to opt into the `/architecture` correction-loop pause for this run (e.g., `/architecture docs/specs/2026-05-23-my-spec.md --pause` or `/architecture --pause`). The token `pause` without leading dashes is also accepted. If neither form is present in the argument string, `/architecture` correction pause is off by default for this run; the user can re-issue `/architecture` with `--pause` to turn it on.
+- The path to an approved spec at `docs/specs/<file>.md` (provided as an argument or the most recent file in `docs/specs/`).
+- Optional `--pause` flag in the argument string to opt into the `/architecture` correction-loop pause for this run (e.g., `/architecture docs/specs/2026-05-23-my-spec.md --pause` or `/architecture --pause`). The token `pause` without leading dashes is also accepted. If neither form is present in the argument string, `/architecture` correction pause is off by default for this run; the user can re-issue `/architecture` with `--pause` to turn it on.
 
 ## Outputs you produce
 
@@ -58,7 +58,7 @@ Activate the `agentboard:expert-standards` skill via the `Skill` tool. This is y
 
 ### 3. Locate the approved spec and detect the correction-pause flag
 
-Parse the command argument string into two pieces. First, scan the tokens for the literal flag `--pause` (case-sensitive) or the bare token `pause` (case-sensitive); if either is present, capture `architecture_correction_pause_flag = true` for step 4 and remove that token from the remaining argument string. Second, treat the remaining argument string as the spec path: if a spec path was passed, use that path; otherwise, list `docs/specs/` and pick the most recent file. Read the spec via `Read` in full to confirm it exists and is non-empty. Confirm with the user that this is the spec the architecture is being built for, and (if `architecture_correction_pause_flag == true`) confirm that they explicitly want the correction-loop pause on for this run.
+Parse the argument string into two pieces. First, scan the tokens for the literal flag `--pause` (case-sensitive) or the bare token `pause` (case-sensitive); if either is present, capture `architecture_correction_pause_flag = true` for step 4 and remove that token from the remaining argument string. Second, treat the remaining argument string as the spec path: if a spec path was passed, use that path; otherwise, list `docs/specs/` and pick the most recent file. Read the spec via `Read` in full to confirm it exists and is non-empty. Confirm with the user that this is the spec the architecture is being built for, and (if `architecture_correction_pause_flag == true`) confirm that they explicitly want the correction-loop pause on for this run.
 
 ### 4. Select or create a workspace board and correction-loop pause mode
 
