@@ -1,0 +1,223 @@
+# Smart Project Initializer - Installation and Setup Script
+
+param(
+    [switch]$Install,
+    [switch]$SetupHooks,
+    [switch]$AddToPath,
+    [switch]$All,
+    [switch]$Status,
+    [switch]$Help
+)
+
+$ProjectInitPath = "C:\Users\maxco\OneDrive\Documents\GitHub\Coding Tools\Claude\project-initializer"
+$QuickSetupScript = Join-Path $ProjectInitPath "quick-setup.ps1"
+
+function Show-Help {
+    Write-Host @"
+🤖 Smart Project Initializer Setup
+
+This system automatically offers project templates when working with Claude Code CLI.
+
+Available Commands:
+  .\setup.ps1 -All          # Complete setup (recommended)
+  .\setup.ps1 -Install      # Install core system only
+  .\setup.ps1 -SetupHooks   # Configure rule2hook integration
+  .\setup.ps1 -AddToPath    # Add to system PATH
+  .\setup.ps1 -Status       # Show current setup status
+  .\setup.ps1 -Help         # Show this help
+
+Quick Usage After Setup:
+  quick-setup               # Set up templates in current project
+  quick-setup -List         # Show available templates
+  
+Templates Available:
+  - BMAD: Complete agile AI development framework
+  - (More templates can be added to templates/ directory)
+
+Integration Options:
+  1. Manual: Run 'quick-setup' when needed
+  2. PowerShell Profile: Auto-prompt in new projects
+  3. rule2hook: Integrate with Claude Code CLI hooks
+
+"@ -ForegroundColor Cyan
+}
+
+function Show-Status {
+    Write-Host "🔍 Smart Project Initializer Status" -ForegroundColor Cyan
+    Write-Host "========================================"
+    
+    # Check core installation
+    $coreInstalled = Test-Path $ProjectInitPath
+    Write-Host "Core Installation: " -NoNewline
+    if ($coreInstalled) {
+        Write-Host "✅ Installed" -ForegroundColor Green
+    } else {
+        Write-Host "❌ Not Found" -ForegroundColor Red
+    }
+    
+    # Check templates
+    $templatesPath = Join-Path $ProjectInitPath "templates"
+    $templateCount = 0
+    if (Test-Path $templatesPath) {
+        $templateCount = (Get-ChildItem $templatesPath -Directory).Count
+    }
+    Write-Host "Templates Available: " -NoNewline
+    if ($templateCount -gt 0) {
+        Write-Host "✅ $templateCount template(s)" -ForegroundColor Green
+    } else {
+        Write-Host "⚠️  No templates found" -ForegroundColor Yellow
+    }
+    
+    # Check PATH
+    $inPath = $env:PATH -like "*$ProjectInitPath*"
+    Write-Host "Global Access (PATH): " -NoNewline
+    if ($inPath) {
+        Write-Host "✅ Available globally" -ForegroundColor Green
+    } else {
+        Write-Host "⚠️  Not in PATH" -ForegroundColor Yellow
+    }
+    
+    # Check rule2hook
+    $rule2hookAvailable = Test-Path "$env:USERPROFILE\.claude\commands\rule2hook.md"
+    Write-Host "rule2hook Integration: " -NoNewline
+    if ($rule2hookAvailable) {
+        Write-Host "✅ Available" -ForegroundColor Green
+        
+        # Check if hooks are configured
+        $hooksFile = "$env:USERPROFILE\.claude\hooks.json"
+        if (Test-Path $hooksFile) {
+            $hooksContent = Get-Content $hooksFile -Raw -ErrorAction SilentlyContinue
+            if ($hooksContent -and $hooksContent -like "*Initialize-Project*") {
+                Write-Host "Project Init Hooks: ✅ Configured" -ForegroundColor Green
+            } else {
+                Write-Host "Project Init Hooks: ⚠️  Not configured" -ForegroundColor Yellow
+            }
+        } else {
+            Write-Host "Project Init Hooks: ⚠️  No hooks.json found" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "❌ Not installed" -ForegroundColor Red
+    }
+    
+    # Show next steps
+    Write-Host "`n💡 Recommended Next Steps:" -ForegroundColor Cyan
+    if (-not $coreInstalled) {
+        Write-Host "   1. Run: .\setup.ps1 -All" -ForegroundColor White
+    } elseif (-not $inPath) {
+        Write-Host "   1. Run: .\setup.ps1 -AddToPath" -ForegroundColor White
+    } elseif ($rule2hookAvailable -and -not ($hooksContent -like "*Initialize-Project*")) {
+        Write-Host "   1. Run: .\setup.ps1 -SetupHooks" -ForegroundColor White
+    } else {
+        Write-Host "   ✅ System ready! Use 'quick-setup' in projects" -ForegroundColor Green
+    }
+}
+
+function Install-Core {
+    Write-Host "📦 Installing Smart Project Initializer..." -ForegroundColor Cyan
+    
+    if (Test-Path $ProjectInitPath) {
+        Write-Host "✅ Core system already installed at $ProjectInitPath" -ForegroundColor Green
+    } else {
+        Write-Host "❌ Core system not found. Please ensure files are properly organized." -ForegroundColor Red
+        return $false
+    }
+    
+    # Verify templates
+    $templatesPath = Join-Path $ProjectInitPath "templates"
+    $templateCount = (Get-ChildItem $templatesPath -Directory -ErrorAction SilentlyContinue).Count
+    
+    Write-Host "📁 Templates: $templateCount template(s) available" -ForegroundColor Green
+    
+    return $true
+}
+
+function Add-ToPath {
+    Write-Host "🛣️  Adding to system PATH..." -ForegroundColor Cyan
+    
+    $currentPath = [Environment]::GetEnvironmentVariable("PATH", "User")
+    if ($currentPath -like "*$ProjectInitPath*") {
+        Write-Host "✅ Already in PATH" -ForegroundColor Green
+        return $true
+    }
+    
+    try {
+        $newPath = "$currentPath;$ProjectInitPath"
+        [Environment]::SetEnvironmentVariable("PATH", $newPath, "User")
+        Write-Host "✅ Added to PATH. Restart terminal to use 'quick-setup' globally." -ForegroundColor Green
+        return $true
+    }
+    catch {
+        Write-Host "❌ Failed to add to PATH: $($_.Exception.Message)" -ForegroundColor Red
+        return $false
+    }
+}
+
+function Setup-Hooks {
+    Write-Host "🪝 Setting up rule2hook integration..." -ForegroundColor Cyan
+    
+    $rule2hookPath = "$env:USERPROFILE\.claude\commands\rule2hook.md"
+    if (-not (Test-Path $rule2hookPath)) {
+        Write-Host "❌ rule2hook not found. Please install it first." -ForegroundColor Red
+        Write-Host "   Install with: npm install -g claudecode-rule2hook" -ForegroundColor Yellow
+        return $false
+    }
+    
+    $ruleConfigPath = Join-Path $ProjectInitPath "hooks\rule2hook-config.md"
+    if (-not (Test-Path $ruleConfigPath)) {
+        Write-Host "❌ Hook configuration not found at $ruleConfigPath" -ForegroundColor Red
+        return $false
+    }
+    
+    Write-Host "📋 To complete hook setup:" -ForegroundColor Yellow
+    Write-Host "   1. Open Claude Code CLI" -ForegroundColor White
+    Write-Host "   2. Run: /rule2hook" -ForegroundColor White
+    Write-Host "   3. Provide this file: $ruleConfigPath" -ForegroundColor White
+    Write-Host "   4. The hook will automatically offer templates in new projects" -ForegroundColor White
+    
+    return $true
+}
+
+# Main execution
+if ($Help) {
+    Show-Help
+    exit 0
+}
+
+if ($Status) {
+    Show-Status
+    exit 0
+}
+
+if ($All) {
+    Write-Host "🚀 Complete Smart Project Initializer Setup" -ForegroundColor Cyan
+    Write-Host "=================================================="
+    
+    $success = $true
+    $success = Install-Core -and $success
+    $success = Add-ToPath -and $success
+    $success = Setup-Hooks -and $success
+    
+    if ($success) {
+        Write-Host "`n🎉 Setup complete!" -ForegroundColor Green
+        Write-Host "You can now use 'quick-setup' in any project directory." -ForegroundColor White
+    }
+    exit 0
+}
+
+if ($Install) {
+    Install-Core
+    exit 0
+}
+
+if ($AddToPath) {
+    Add-ToPath
+    exit 0
+}
+
+if ($SetupHooks) {
+    Setup-Hooks
+    exit 0
+}
+
+# Default: show help
+Show-Help

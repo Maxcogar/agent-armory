@@ -1,0 +1,7 @@
+{
+  "name": "agentboard-gemini",
+  "version": "0.1.0",
+  "description": "AgentBoard project management toolkit — adapted for Gemini CLI. Includes phase-based workflows, workspace boards, and specialized subagents.",
+  "author": "Maxcogar",
+  "license": "MIT"
+}

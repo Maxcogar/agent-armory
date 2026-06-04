@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "agentboard": {
+      "type": "http",
+      "url": "https://mcp.agent-board.app/mcp"
+    },
+    "codegraph": {
+      "type": "stdio",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "node",
+        "C:\\Users\\maxco\\Documents\\agent-armory\\mcp-servers\\codegraph-mcp\\dist\\index.js"
+      ],
+      "env": {}
+    },
+    "codebase-rag": {
+      "command": "python",
+      "args": [
+        "C:\\Users\\maxco\\Documents\\agent-armory\\mcp-servers\\codebase-rag\\mcp-server-python\\server.py"
+      ]
+    }
+  }
+}

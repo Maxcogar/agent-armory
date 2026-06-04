@@ -1,0 +1,24 @@
+{
+  "name": "agentboard-gemini",
+  "version": "0.1.0",
+  "description": "AgentBoard project management toolkit — adapted for Gemini CLI. Includes phase-based workflows, workspace boards, and specialized subagents.",
+  "contextFileName": "GEMINI.md",
+  "mcpServers": {
+    "agentboard": {
+      "type": "http",
+      "url": "https://mcp.agent-board.app/mcp"
+    },
+    "codegraph": {
+      "command": "node",
+      "args": ["${extensionPath}${/}..${/}..${/}mcp-servers${/}codegraph-mcp${/}dist${/}index.js"]
+    },
+    "codebase-rag": {
+      "command": "python",
+      "args": ["${extensionPath}${/}..${/}..${/}mcp-servers${/}codebase-rag${/}mcp-server-python${/}server.py"]
+    },
+    "clear-thought": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "-p", "@waldzellai/clear-thought", "mcp-server-clear-thought"]
+    }
+  }
+}

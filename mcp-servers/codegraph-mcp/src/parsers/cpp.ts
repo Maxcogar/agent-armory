@@ -5,6 +5,19 @@ import * as path from "path";
  * Extracts all #include paths from C++/Arduino files.
  * Handles: #include "local.h" (relative includes only — skips system includes like <Arduino.h>)
  */
+/**
+ * Remove line (`//`) and block (slash-star) comments from C/C++ source so that
+ * commented-out #include directives are not counted as real dependencies.
+ * Double-quoted strings are preserved so the quoted path in `#include "x.h"`
+ * (and any string literal containing comment-like text) is untouched.
+ */
+export function stripCppComments(src: string): string {
+  return src.replace(
+    /"(?:[^"\\]|\\.)*"|\/\*[\s\S]*?\*\/|\/\/[^\n]*/g,
+    (m) => (m[0] === '"' ? m : " ")
+  );
+}
+
 export function parseCppDependencies(filePath: string, searchDirs: string[]): string[] {
   let content: string;
   try {
@@ -12,6 +25,8 @@ export function parseCppDependencies(filePath: string, searchDirs: string[]): st
   } catch {
     return [];
   }
+
+  content = stripCppComments(content);
 
   const importPaths = new Set<string>();
   const fileDir = path.dirname(filePath);

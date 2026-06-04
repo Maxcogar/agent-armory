@@ -1,0 +1,7 @@
+description = "Discover every quality issue in a codebase — broad sweep, triage findings, create workspace board cards for /orchestrate to fix"
+prompt = """
+Invoke the `sweep-agent` subagent to perform a codebase quality sweep: load the `codebase-sweep` skill, scan with codegraph, read the code critically, write findings to `docs/sweep/`, then triage them into workspace board cards ready for `/orchestrate`.
+
+User context (target codebase path, or board to attach cards to):
+{{args}}
+"""

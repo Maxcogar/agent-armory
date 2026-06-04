@@ -1,0 +1,7 @@
+description = "Show current AgentBoard project state — phase, active tasks, blockers, and next action"
+prompt = """
+Invoke the `status-agent` subagent to show a read-only snapshot of the current AgentBoard project: current phase, task counts by status, blockers, and the recommended next action.
+
+User context (optional project ID):
+{{args}}
+"""

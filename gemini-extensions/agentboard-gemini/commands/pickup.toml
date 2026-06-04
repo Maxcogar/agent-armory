@@ -1,0 +1,7 @@
+description = "Resume AgentBoard work — check server health, find active project, and claim next task"
+prompt = """
+Invoke the `pickup-agent` subagent to resume AgentBoard work for the active project: authenticate if needed, verify connectivity, identify the current project and any in-progress task (or claim the next ready one), and summarize state for the user.
+
+User context (optional project ID or task hint):
+{{args}}
+"""

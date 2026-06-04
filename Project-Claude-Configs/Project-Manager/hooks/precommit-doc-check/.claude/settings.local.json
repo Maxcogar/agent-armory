@@ -1,0 +1,7 @@
+{
+  "enabledMcpjsonServers": [
+    "codebase-rag",
+    "codegraph",
+    "agentboard"
+  ]
+}

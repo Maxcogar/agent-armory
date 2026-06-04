@@ -1,0 +1,6 @@
+[submodule "workflows/agent-strategy"]
+	path = workflows/agent-strategy
+	url = https://github.com/Maxcogar/agent-strategy.git
+[submodule "workflows/claude-systematic-debug"]
+	path = workflows/claude-systematic-debug
+	url = https://github.com/Maxcogar/systematic-debug.git

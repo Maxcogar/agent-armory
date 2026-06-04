@@ -1,0 +1,10 @@
+# FeatureCAM MCP Server Requirements
+
+# MCP Server Framework
+mcp>=1.20.0
+
+# Input Validation
+pydantic>=2.0.0
+
+# Windows COM Automation (required for FeatureCAM integration)
+pywin32>=300

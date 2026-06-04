@@ -1,0 +1,15 @@
+{
+  "name": "BMAD Agile AI Development",
+  "description": "Complete BMAD framework for agile AI-driven development with Product Owner, Scrum Master, Developer, and QA agents",
+  "version": "4.35.0",
+  "requires": ["Node.js 20+"],
+  "includes": [
+    ".bmad-core/ - Core BMAD system files",
+    ".claude/ - Claude Code CLI agent rules", 
+    ".cursor/ - Cursor IDE agent rules",
+    ".windsurf/ - Windsurf IDE agent rules",
+    "web-bundles/ - Pre-built web components",
+    "docs/ - Place PRD and architecture files here"
+  ],
+  "usage": "Run /PO then 'shard doc docs/prd.md docs/architecture.md' to start"
+}

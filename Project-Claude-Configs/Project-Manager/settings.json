@@ -1,0 +1,8 @@
+{
+  "enabledPlugins": {
+    "claude-md-management@claude-plugins-official": true,
+    "pi-pathfinder@claude-code-plugins-plus": false,
+    "claude-code-setup@claude-plugins-official": true,
+    "superpowers@claude-plugins-official": true
+  }
+}
