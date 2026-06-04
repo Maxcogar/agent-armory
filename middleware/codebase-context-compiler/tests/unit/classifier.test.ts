@@ -19,6 +19,7 @@ describe('task classifier', () => {
   it('labels codebase comprehension questions separately from edit tasks', () => {
     const c = classifyTask('How does getPreference work and what data can it use?');
     expect(c.task.task_types).toContain('codebase_question');
+    expect(c.task.intent).toBe('locate_understand');
     expect(c.mentionedSymbols).toContain('getPreference');
     expect(c.keywords).not.toContain('how');
   });
@@ -26,6 +27,19 @@ describe('task classifier', () => {
     const c = classifyTask("okay then jsut test this. Ill ask a question about the codebase and you see if ctxpack gave you any help. you dont have to answer the question, its just for the test - what telemetry data can be seen in the detail cards of the plants in my collection?");
     expect(c.task.task_types).toContain('codebase_question');
     expect(c.task.task_types).not.toContain('test_creation');
+    expect(c.task.intent).toBe('locate_understand');
+  });
+  it('separates intent, domain, and security modifier', () => {
+    const c = classifyTask('Fix the login API route bug without leaking session tokens');
+    expect(c.task.intent).toBe('bug_fix');
+    expect(c.task.domains).toContain('backend');
+    expect(c.task.modifiers).toContain('security_sensitive');
+  });
+  it('maps dependency and docs tasks to explicit intents', () => {
+    expect(classifyTask('Upgrade vite and verify package.json scripts').task.intent).toBe('dependency_maintenance');
+    expect(classifyTask('Update the README documentation for SettingsPage').task.intent).toBe('documentation_update');
+    expect(classifyTask('Implement a new dashboard widget').task.intent).toBe('feature');
+    expect(classifyTask('Review this diff for regressions').task.intent).toBe('review');
   });
   it('recipe unions categories across matched types', () => {
     const cats = requiredCategories(['frontend_ui_change', 'backend_api_change']);

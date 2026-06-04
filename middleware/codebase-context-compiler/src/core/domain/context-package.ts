@@ -20,12 +20,25 @@ export interface ContextRequirement {
   reason: string;
 }
 
+export type InclusionConfidence = 'low' | 'medium' | 'high';
+export type RepresentationTier = 'full' | 'excerpt' | 'signature' | 'pointer';
+
+export interface InclusionSignal {
+  source: string;
+  score: number;
+  reason: string;
+}
+
 export interface RelevantFile {
   path: string;
   role: string;
   required: boolean;
   /** FR20: no file may appear without a relevance reason. */
   relevance_reason: string;
+  confidence: InclusionConfidence;
+  signals: InclusionSignal[];
+  corroboration_count: number;
+  representation: RepresentationTier;
   evidence: EvidenceRef[];
   key_facts: string[];
 }
@@ -35,6 +48,10 @@ export interface RelevantSymbol {
   kind: string;
   file: string;
   relevance_reason: string;
+  confidence: InclusionConfidence;
+  signals: InclusionSignal[];
+  corroboration_count: number;
+  representation: RepresentationTier;
   evidence: EvidenceRef[];
 }
 

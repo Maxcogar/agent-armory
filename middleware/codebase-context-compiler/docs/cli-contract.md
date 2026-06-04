@@ -22,6 +22,16 @@
 - `review.json` - patch-review findings.
 - `review.sarif` - optional SARIF 2.1.0 export.
 
+## Task Model
+
+The package preserves legacy `task.task_types` labels for compatibility, but profile policy is based on composed task axes:
+
+- `task.intent` - the cognitive mode, such as `locate_understand`, `bug_fix`, `feature`, `refactor`, `review`, `test_creation`, `documentation_update`, `dependency_maintenance`, or `audit_security`.
+- `task.domains` - source-derived runtime/domain scope such as `frontend`, `backend`, `database`, `build_config`, `integration`, `docs`, or `unknown`.
+- `task.modifiers` - cross-cutting policy flags such as `security_sensitive`.
+
+Relevant files and symbols include structured inclusion metadata: `confidence`, `signals`, `corroboration_count`, and `representation`. The prose `relevance_reason` remains for human review; structured fields are the machine-readable provenance used by future profile, thread, and budget selection logic.
+
 ## Configuration
 
 `ctxpack` reads `ctxpack.config.json` first, then `.ctxpack.json`, from the repository root:

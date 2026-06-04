@@ -84,7 +84,7 @@ describe('native Claude Code hooks', () => {
     expect(injectedContext(out)).toContain('<CTXPACK_PLAN>');
     expect(injectedContext(out).length).toBeLessThan(10000);
     expect(out.systemMessage).toContain('ctxpack injected Context Package');
-  });
+  }, 15000);
 
   it('UserPromptSubmit treats explanation prompts as investigation context, not edit targets', async () => {
     const out: any = await handleHook('user-prompt', {

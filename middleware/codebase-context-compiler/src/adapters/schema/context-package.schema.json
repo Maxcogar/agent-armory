@@ -31,11 +31,23 @@
     "task": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["original_request", "normalized_task", "task_types", "scope_summary"],
+      "required": ["original_request", "normalized_task", "task_types", "intent", "domains", "modifiers", "scope_summary"],
       "properties": {
         "original_request": { "type": "string" },
         "normalized_task": { "type": "string" },
         "task_types": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "intent": {
+          "enum": ["locate_understand", "bug_fix", "feature", "refactor", "review", "test_creation", "documentation_update", "dependency_maintenance", "audit_security", "general_change"]
+        },
+        "domains": {
+          "type": "array",
+          "items": { "enum": ["frontend", "backend", "database", "build_config", "integration", "docs", "unknown"] },
+          "minItems": 1
+        },
+        "modifiers": {
+          "type": "array",
+          "items": { "enum": ["security_sensitive"] }
+        },
         "scope_summary": { "type": "string" }
       }
     },
@@ -57,12 +69,16 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["path", "role", "required", "relevance_reason", "evidence", "key_facts"],
+        "required": ["path", "role", "required", "relevance_reason", "confidence", "signals", "corroboration_count", "representation", "evidence", "key_facts"],
         "properties": {
           "path": { "type": "string" },
           "role": { "type": "string" },
           "required": { "type": "boolean" },
           "relevance_reason": { "type": "string", "minLength": 1 },
+          "confidence": { "$ref": "#/$defs/confidence" },
+          "signals": { "type": "array", "items": { "$ref": "#/$defs/inclusionSignal" } },
+          "corroboration_count": { "type": "integer", "minimum": 1 },
+          "representation": { "$ref": "#/$defs/representation" },
           "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } },
           "key_facts": { "type": "array", "items": { "type": "string" } }
         }
@@ -73,12 +89,16 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["name", "kind", "file", "relevance_reason", "evidence"],
+        "required": ["name", "kind", "file", "relevance_reason", "confidence", "signals", "corroboration_count", "representation", "evidence"],
         "properties": {
           "name": { "type": "string" },
           "kind": { "type": "string" },
           "file": { "type": "string" },
           "relevance_reason": { "type": "string", "minLength": 1 },
+          "confidence": { "$ref": "#/$defs/confidence" },
+          "signals": { "type": "array", "items": { "$ref": "#/$defs/inclusionSignal" } },
+          "corroboration_count": { "type": "integer", "minimum": 1 },
+          "representation": { "$ref": "#/$defs/representation" },
           "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } }
         }
       }
@@ -220,6 +240,18 @@
     }
   },
   "$defs": {
+    "confidence": { "enum": ["low", "medium", "high"] },
+    "representation": { "enum": ["full", "excerpt", "signature", "pointer"] },
+    "inclusionSignal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "score", "reason"],
+      "properties": {
+        "source": { "type": "string", "minLength": 1 },
+        "score": { "type": "number" },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    },
     "evidenceRef": {
       "type": "object",
       "additionalProperties": false,

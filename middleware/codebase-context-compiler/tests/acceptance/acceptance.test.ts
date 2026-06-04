@@ -32,6 +32,10 @@ describe('Acceptance criteria', () => {
     for (const f of pkg.relevant_files) {
       expect(f.relevance_reason.length).toBeGreaterThan(0);
       expect(f.evidence.length).toBeGreaterThan(0);
+      expect(['low', 'medium', 'high']).toContain(f.confidence);
+      expect(f.signals.length).toBeGreaterThan(0);
+      expect(f.corroboration_count).toBeGreaterThan(0);
+      expect(['full', 'excerpt', 'signature', 'pointer']).toContain(f.representation);
     }
     for (const k of pkg.known_facts) expect(k.evidence.length).toBeGreaterThan(0);
   });
