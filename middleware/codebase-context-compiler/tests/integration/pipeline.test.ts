@@ -143,4 +143,58 @@ describe('index + expand pipeline (FR1, FR5)', () => {
 
     rmSync(tmp, { recursive: true, force: true });
   });
+
+  it('pulls matching backend routes across API client contracts for explanation tasks', async () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'ctxpack-api-contract-'));
+    mkdirSync(join(tmp, 'components'), { recursive: true });
+    mkdirSync(join(tmp, 'lib/api'), { recursive: true });
+    mkdirSync(join(tmp, 'backend/routes'), { recursive: true });
+    writeFileSync(join(tmp, 'components/PlantDoctor.tsx'), `
+      import { apiClient } from '../lib/api/client';
+      export function PlantDoctor({ plant }) {
+        return apiClient.diagnosePlant({ plantId: plant.id, problem: plant.problem });
+      }
+    `);
+    writeFileSync(join(tmp, 'lib/api/client.ts'), `
+      export const apiClient = {
+        recognizePlant(photo) {
+          return makeRequest('/api/plant-doctor/recognize-plant', { method: 'POST', body: photo });
+        },
+        diagnosePlant(data) {
+          return makeRequest('/api/plant-doctor/diagnose', { method: 'POST', body: JSON.stringify(data) });
+        },
+        messagePlantDoctor(data) {
+          return makeRequest('/api/plant-doctor/message', { method: 'POST', body: JSON.stringify(data) });
+        },
+      };
+      function makeRequest(path, init) { return fetch(path, init); }
+    `);
+    writeFileSync(join(tmp, 'backend/routes/plant-doctor.js'), `
+      const express = require('express');
+      const router = express.Router();
+
+      // POST /api/plant-doctor/diagnose
+      router.post('/diagnose', async (req, res) => res.json({ diagnosis: 'ok' }));
+      // POST /api/plant-doctor/recognize-plant
+      router.post('/recognize-plant', async (req, res) => res.json({ confidence: 0.9 }));
+      // POST /api/plant-doctor/message
+      router.post('/message', async (req, res) => res.json({ reply: 'ok' }));
+      module.exports = router;
+    `);
+
+    const storage = new SqliteStorage(':memory:'); open = storage;
+    const indexer = new Indexer(storage, [new TreeSitterParserAdapter()], new SecretScanner());
+    const indexResult = await indexer.index(tmp, 'sample-app');
+    const snapshot = storage.getSnapshot(indexResult.snapshotId)!;
+    const pkg = buildPackage(storage, snapshot, 'How does the plant doctor diagnosis work and what data can it use?');
+    const routeRank = pkg.relevant_files.findIndex((f) => f.path === 'backend/routes/plant-doctor.js');
+    const route = pkg.relevant_files[routeRank];
+
+    expect(routeRank).toBeGreaterThanOrEqual(0);
+    expect(routeRank).toBeLessThan(8);
+    expect(route?.signals.some((s) => s.source === 'cross_boundary_contract')).toBe(true);
+    expect(route?.relevance_reason).toContain('/api/plant-doctor/diagnose');
+
+    rmSync(tmp, { recursive: true, force: true });
+  });
 });
