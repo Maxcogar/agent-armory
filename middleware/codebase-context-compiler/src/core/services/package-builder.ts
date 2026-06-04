@@ -50,10 +50,21 @@ export function buildPackage(
   const questionMode = isCodebaseQuestion(cls);
 
   // --- 1. seed selection ---
-  const seeds = selectSeeds(storage, snap, cls);
+  const selectedSeeds = selectSeeds(storage, snap, cls);
 
   // --- 2. relationship expansion ---
-  const expansion = expandContext(storage, snap, seeds, { maxDepth: 2, maxFiles });
+  const initialExpansion = expandContext(storage, snap, selectedSeeds, { maxDepth: 2, maxFiles });
+  const contractSeeds = selectCrossBoundarySeeds(
+    storage,
+    snap,
+    cls,
+    [...initialExpansion.seeds, ...initialExpansion.related.map((r) => r.path)],
+  );
+  const contractSeedMap = new Map(contractSeeds.map((seed) => [seed.path, seed]));
+  const seeds = [...selectedSeeds, ...contractSeeds.map((s) => s.path).filter((path) => !selectedSeeds.includes(path))];
+  const expansion = contractSeeds.length
+    ? expandContext(storage, snap, seeds, { maxDepth: 2, maxFiles })
+    : initialExpansion;
   const relatedPaths = new Set(expansion.related.map((r) => r.path));
   const allPaths = new Set<string>([...expansion.seeds, ...relatedPaths]);
   const derivedTask = withSourceDerivedDomains(cls.task, [...allPaths]);
@@ -63,12 +74,20 @@ export function buildPackage(
   const relevant_files: RelevantFile[] = [];
   for (const path of expansion.seeds) {
     const file = storage.getFile(snap, path)!;
+    const contractSeed = contractSeedMap.get(path);
     relevant_files.push({
       path, role: file.boundary,
       required: !questionMode,
-      relevance_reason: seedReason(path, cls),
-      ...inclusionMeta(seedSignals(path, cls), !questionMode ? 'full' : 'excerpt'),
-      evidence: [{ source_type: 'external_input', path, symbol: null, start_line: null, end_line: null, relationship: questionMode ? 'task_inquiry_target' : 'task_target' }],
+      relevance_reason: contractSeed ? contractSeedReason(contractSeed) : seedReason(path, cls),
+      ...inclusionMeta(contractSeed ? contractSeedSignals(contractSeed) : seedSignals(path, cls), !questionMode ? 'full' : 'excerpt'),
+      evidence: [{
+        source_type: contractSeed ? 'file' : 'external_input',
+        path,
+        symbol: null,
+        start_line: null,
+        end_line: null,
+        relationship: contractSeed ? 'cross_boundary_contract' : questionMode ? 'task_inquiry_target' : 'task_target',
+      }],
       key_facts: keyFacts(storage, snap, path),
     });
   }
@@ -208,6 +227,155 @@ function selectSeeds(storage: Storage, snap: string, cls: Classification): strin
     for (const p of rankedKeywordSeeds(storage, snap, cls).slice(0, 5)) seeds.add(p);
   }
   return [...seeds];
+}
+
+interface ContractSeed {
+  path: string;
+  endpoints: string[];
+  score: number;
+  sourcePaths: string[];
+}
+
+function selectCrossBoundarySeeds(
+  storage: Storage,
+  snap: string,
+  cls: Classification,
+  sourcePaths: string[],
+): ContractSeed[] {
+  const uniqueSourcePaths = [...new Set(sourcePaths)];
+  const endpointSources = new Map<string, Set<string>>();
+  for (const path of uniqueSourcePaths) {
+    const content = storage.getFileContent(snap, path);
+    if (!content) continue;
+    for (const endpoint of endpointHints(content)) {
+      if (!endpointSources.has(endpoint)) endpointSources.set(endpoint, new Set<string>());
+      endpointSources.get(endpoint)!.add(path);
+    }
+  }
+  if (endpointSources.size === 0) return [];
+
+  const activeEndpointSources = focusEndpointSources(endpointSources, cls);
+  const taskTerms = new Set(expandedKeywordTerms(cls.keywords));
+  const scored: ContractSeed[] = [];
+
+  for (const file of storage.listFiles(snap)) {
+    if (!isRouteLikeFile(file.path, file.boundary)) continue;
+    const content = storage.getFileContent(snap, file.path);
+    if (!content) continue;
+
+    const lowerPath = file.path.toLowerCase();
+    const lowerContent = content.toLowerCase();
+    const endpoints: string[] = [];
+    let score = 0;
+
+    for (const [endpoint, sources] of activeEndpointSources.entries()) {
+      const externalSources = [...sources].filter((source) => source !== file.path);
+      if (externalSources.length === 0) continue;
+      const lowerEndpoint = endpoint.toLowerCase();
+      const segments = endpointSegments(endpoint);
+      const strongSegments = segments.filter((s) => !['api', 'v1', 'v2'].includes(s));
+      const segmentHits = strongSegments.filter((segment) => lowerPath.includes(segment) || lowerContent.includes(segment));
+      const exact = lowerContent.includes(lowerEndpoint);
+      if (exact) {
+        score += 12;
+        endpoints.push(endpoint);
+      } else if (segmentHits.length >= Math.min(2, strongSegments.length)) {
+        score += 4 + segmentHits.length;
+        endpoints.push(endpoint);
+      }
+
+      for (const source of externalSources) {
+        const sourceName = source.split('/').pop()?.toLowerCase() ?? '';
+        if (sourceName.includes('api') || sourceName.includes('client')) score += 1;
+      }
+    }
+
+    for (const term of taskTerms) {
+      if (lowerPath.includes(term) || lowerContent.includes(term)) score += 1;
+    }
+
+    const uniqueEndpoints = [...new Set(endpoints)];
+    if (score >= 8 && uniqueEndpoints.length > 0) {
+      const matchedSources = uniqueEndpoints.flatMap((endpoint) =>
+        [...activeEndpointSources.get(endpoint)!].filter((source) => source !== file.path)
+      );
+      scored.push({ path: file.path, endpoints: uniqueEndpoints, score, sourcePaths: [...new Set(matchedSources)] });
+    }
+  }
+
+  return scored
+    .sort((a, b) => b.score - a.score || a.path.localeCompare(b.path))
+    .slice(0, 6);
+}
+
+function focusEndpointSources(endpointSources: Map<string, Set<string>>, cls: Classification): Map<string, Set<string>> {
+  const terms = expandedKeywordTerms(cls.keywords);
+  const scored = [...endpointSources.entries()].map(([endpoint, sources]) => ({
+    endpoint,
+    sources,
+    score: endpointTaskScore(endpoint, terms),
+  }));
+  const maxScore = Math.max(0, ...scored.map((x) => x.score));
+  if (maxScore < 2) return endpointSources;
+  return new Map(scored
+    .filter((x) => x.score >= 2)
+    .map((x) => [x.endpoint, x.sources]));
+}
+
+function endpointTaskScore(endpoint: string, terms: string[]): number {
+  const lower = endpoint.toLowerCase();
+  const matched = new Set<string>();
+  for (const term of terms) {
+    const key = term.endsWith('s') && term.length > 3 ? term.slice(0, -1) : term;
+    if (lower.includes(term)) matched.add(key);
+    else if (term.startsWith('diagnos') && lower.includes('diagnos')) matched.add('diagnos');
+  }
+  return matched.size;
+}
+
+function endpointHints(content: string): string[] {
+  const out = new Set<string>();
+  const re = /["'`](\/api\/[A-Za-z0-9_./:${}?=&%-]+)["'`]/g;
+  for (const match of content.matchAll(re)) {
+    const endpoint = normalizeEndpoint(match[1] ?? '');
+    if (endpointSegments(endpoint).length >= 2) out.add(endpoint);
+  }
+  return [...out];
+}
+
+function normalizeEndpoint(endpoint: string): string {
+  return endpoint
+    .replace(/\$\{[^}]+\}/g, ':param')
+    .replace(/[?#].*$/, '')
+    .replace(/\/+$/, '');
+}
+
+function endpointSegments(endpoint: string): string[] {
+  return endpoint
+    .toLowerCase()
+    .split('/')
+    .map((segment) => segment.replace(/^:/, '').replace(/[^a-z0-9_-]/g, ''))
+    .filter((segment) => segment.length > 1);
+}
+
+function isRouteLikeFile(path: string, boundary: string): boolean {
+  const lower = path.toLowerCase();
+  if (!['source', 'config'].includes(boundary)) return false;
+  return /(^|\/)(backend\/(routes?|controllers?)|api|routes?|controllers?|server)\//.test(lower)
+    || /(^|\/)server\.(ts|tsx|js|jsx)$/.test(lower)
+    || /(^|\/)backend\/server\.(ts|tsx|js|jsx)$/.test(lower);
+}
+
+function contractSeedReason(seed: ContractSeed): string {
+  return `matched API contract endpoint(s) ${seed.endpoints.slice(0, 3).join(', ')} from ${seed.sourcePaths.slice(0, 3).join(', ')}`;
+}
+
+function contractSeedSignals(seed: ContractSeed): InclusionSignal[] {
+  return [{
+    source: 'cross_boundary_contract',
+    score: Math.min(12, seed.score),
+    reason: contractSeedReason(seed),
+  }];
 }
 
 function seedReason(path: string, cls: Classification): string {
