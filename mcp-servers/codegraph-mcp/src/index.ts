@@ -32,6 +32,7 @@ import {
   toolFindUnreachable,
   toolFindClusters,
   toolGetSymbol,
+  toolTraceSymbol,
   toolFindSymbolDependents,
   toolFindDeadExports,
   toolFindUnusedImports,
@@ -1036,6 +1037,58 @@ Prerequisite: codegraph_scan must be called first.`,
   async ({ name, file }) => {
     if (!currentGraph) return noGraphError();
     const result = toolGetSymbol(currentGraph, name, file);
+    if (isToolError(result)) return errResponse(result.error);
+    return okResponse(result);
+  }
+);
+
+// ============================================================
+// Tool: codegraph_trace_symbol
+// ============================================================
+
+server.registerTool(
+  "codegraph_trace_symbol",
+  {
+    title: "Trace a Symbol's Full Connection Chain",
+    description: `Walks the symbol-to-symbol connection chain in both directions, so you can see the whole path a thing connects through — and where it goes cold.
+
+  - usedBy (upstream): what uses this symbol, what uses *those*, and so on, all the
+    way up. Its "terminals" are where the chains end going up (the ultimate callers
+    — e.g. module-level code that runs, or a function nothing else calls).
+  - uses (downstream): what this symbol uses, transitively, down to the leaves.
+
+Each entry has a depth (hops from the symbol). This is finer than
+codegraph_find_symbol_dependents (which is file-level): it tells you the specific
+function/component/interface in the chain, not just the file. Use it to see
+whether a symbol's chain ultimately reaches live code or dead-ends in a pocket
+nothing real touches.
+
+Resolved with the TypeScript compiler — works for TypeScript and JavaScript. For
+other languages use codegraph_find_symbol_dependents (file-level).
+
+Args:
+  - name (string): the symbol to trace.
+  - file (string, optional): disambiguate when the name is defined in several files.
+  - max_depth (number, optional): max hops each direction (default 25).
+
+Returns: { symbol, usedBy: { chain, terminals, count }, uses: { chain, terminals, count } }
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {
+      name: z.string().describe("Symbol name to trace"),
+      file: z.string().optional().describe("Optional: the file that defines it (to disambiguate)"),
+      max_depth: z.number().int().min(1).max(100).default(25).describe("Max hops per direction (default 25)"),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ name, file, max_depth }) => {
+    if (!currentGraph) return noGraphError();
+    const result = toolTraceSymbol(currentGraph, name, file, max_depth);
     if (isToolError(result)) return errResponse(result.error);
     return okResponse(result);
   }

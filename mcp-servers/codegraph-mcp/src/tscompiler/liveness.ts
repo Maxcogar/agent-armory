@@ -19,7 +19,7 @@ export interface TsLiveness {
   covered: Set<string>;
 }
 
-function loadCompilerOptions(rootDir: string): ts.CompilerOptions {
+export function loadCompilerOptions(rootDir: string): ts.CompilerOptions {
   const base: ts.CompilerOptions = {
     allowJs: true,
     checkJs: false,
@@ -43,7 +43,7 @@ function loadCompilerOptions(rootDir: string): ts.CompilerOptions {
 }
 
 /** True when `id` is the declared name of its declaration (not a usage). */
-function isDeclarationName(id: ts.Identifier): boolean {
+export function isDeclarationName(id: ts.Identifier): boolean {
   const p = id.parent as ts.Node & { name?: ts.Node };
   return !!p && "name" in p && p.name === id &&
     (ts.isFunctionDeclaration(p) || ts.isClassDeclaration(p) || ts.isInterfaceDeclaration(p) ||

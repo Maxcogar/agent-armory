@@ -45,6 +45,7 @@ import {
 import { symbolStem, extractUnusedImports } from "../treesitter/symbols.js";
 import { normalizeHttpPath, mqttMatches } from "../treesitter/surface.js";
 import { computeTsLiveness, TsLiveness } from "../tscompiler/liveness.js";
+import { computeSymbolConnections, SymbolGraph } from "../tscompiler/connections.js";
 
 // ============================================================
 // Helpers
@@ -858,6 +859,125 @@ export function toolFindUnusedImports(
   }
   unused.sort((a, b) => a.file.relativePath.localeCompare(b.file.relativePath) || a.line - b.line);
   return { unused, count: unused.length };
+}
+
+// ============================================================
+// Symbol-to-symbol connection chains (trace_symbol)
+// ============================================================
+
+interface SymbolRef2 {
+  name: string;
+  relativePath: string;
+  line: number;
+}
+
+const symbolGraphCache = new WeakMap<DependencyGraph, SymbolGraph>();
+
+function getSymbolGraph(graph: DependencyGraph): SymbolGraph {
+  let cached = symbolGraphCache.get(graph);
+  if (!cached) {
+    const tsJs = [...graph.nodes.values()]
+      .filter((n) => n.language === "typescript" || n.language === "javascript")
+      .map((n) => n.path);
+    cached = computeSymbolConnections(graph.rootDir, tsJs);
+    symbolGraphCache.set(graph, cached);
+  }
+  return cached;
+}
+
+/** BFS over a symbol adjacency, recording depth; terminals = chain ends. */
+function walkChain(
+  adj: Map<string, Set<string>>,
+  starts: string[],
+  maxDepth: number
+): { reached: { key: string; depth: number }[]; terminals: string[]; truncated: boolean } {
+  const depth = new Map<string, number>(starts.map((s) => [s, 0]));
+  const startSet = new Set(starts);
+  let frontier = [...starts];
+  let d = 0;
+  while (frontier.length > 0 && d < maxDepth) {
+    const next: string[] = [];
+    for (const node of frontier) {
+      for (const nb of adj.get(node) ?? []) {
+        if (!depth.has(nb)) {
+          depth.set(nb, d + 1);
+          next.push(nb);
+        }
+      }
+    }
+    frontier = next;
+    d++;
+  }
+  const reached = [...depth.entries()]
+    .filter(([k]) => !startSet.has(k))
+    .map(([key, dp]) => ({ key, depth: dp }))
+    .sort((a, b) => a.depth - b.depth);
+  const terminals = reached.filter((r) => (adj.get(r.key)?.size ?? 0) === 0).map((r) => r.key);
+  return { reached, terminals, truncated: frontier.length > 0 };
+}
+
+/** codegraph_trace_symbol — the full chain of what reaches a symbol and what it reaches. */
+export function toolTraceSymbol(
+  graph: DependencyGraph,
+  name: string,
+  fileQuery?: string,
+  maxDepth: number = 25
+): {
+  symbol: { name: string; relativePath: string; line: number };
+  usedBy: { count: number; terminals: SymbolRef2[]; chain: (SymbolRef2 & { depth: number })[]; truncated: boolean };
+  uses: { count: number; terminals: SymbolRef2[]; chain: (SymbolRef2 & { depth: number })[]; truncated: boolean };
+  note?: string;
+} | { error: string } {
+  let fileFilter: string | null = null;
+  if (fileQuery) {
+    const { resolved, error } = resolveSingleFile(graph, fileQuery);
+    if (error || !resolved) return { error: error! };
+    fileFilter = resolved;
+  }
+
+  const starts: string[] = [];
+  let symbolRef = { name, relativePath: "", line: 0 };
+  let nonTs = false;
+  for (const node of graph.nodes.values()) {
+    if (!node.symbols) continue;
+    if (fileFilter && node.path !== fileFilter) continue;
+    for (const sym of node.symbols) {
+      if (sym.name !== name) continue;
+      starts.push(`${node.path}#${name}`);
+      symbolRef = { name, relativePath: node.relativePath, line: sym.line };
+      if (node.language !== "typescript" && node.language !== "javascript") nonTs = true;
+    }
+  }
+  if (starts.length === 0) {
+    return { error: `Symbol not found: "${name}". Use codegraph_get_symbol or codegraph_list_files first.` };
+  }
+
+  const sg = getSymbolGraph(graph);
+  const ref = (key: string): SymbolRef2 => {
+    const i = sg.info.get(key);
+    if (i) return { name: i.name, relativePath: path.relative(graph.rootDir, i.file), line: i.line };
+    const hash = key.lastIndexOf("#");
+    return { name: key.slice(hash + 1), relativePath: path.relative(graph.rootDir, key.slice(0, hash)), line: 0 };
+  };
+
+  const up = walkChain(sg.usedBy, starts, maxDepth);
+  const down = walkChain(sg.uses, starts, maxDepth);
+  const toRefs = (xs: { key: string; depth: number }[]) => xs.map((x) => ({ ...ref(x.key), depth: x.depth }));
+
+  const result: {
+    symbol: { name: string; relativePath: string; line: number };
+    usedBy: { count: number; terminals: SymbolRef2[]; chain: (SymbolRef2 & { depth: number })[]; truncated: boolean };
+    uses: { count: number; terminals: SymbolRef2[]; chain: (SymbolRef2 & { depth: number })[]; truncated: boolean };
+    note?: string;
+  } = {
+    symbol: symbolRef,
+    usedBy: { count: up.reached.length, terminals: up.terminals.map(ref), chain: toRefs(up.reached), truncated: up.truncated },
+    uses: { count: down.reached.length, terminals: down.terminals.map(ref), chain: toRefs(down.reached), truncated: down.truncated },
+  };
+  if (nonTs || sg.covered.size === 0) {
+    result.note = "Symbol-to-symbol chains are resolved for TypeScript/JavaScript. For other languages, use codegraph_find_symbol_dependents (file-level).";
+  }
+  return result;
 }
 
 // ============================================================
