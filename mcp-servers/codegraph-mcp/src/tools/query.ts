@@ -460,6 +460,74 @@ export function toolGetLayers(graph: DependencyGraph): LayersResult {
 }
 
 // ============================================================
+// Import-edge tools (broken imports / external dependencies)
+// ============================================================
+
+/** Aggregate an external specifier to its package root ("lodash/fn" -> "lodash"). */
+function externalName(spec: string): string {
+  if (spec.startsWith("@")) return spec.split("/").slice(0, 2).join("/");
+  return spec.split(/[/.]/)[0];
+}
+
+/** codegraph_find_broken_imports — relative/local imports that resolved to nothing. */
+export function toolFindBrokenImports(graph: DependencyGraph): {
+  broken: { file: string; relativePath: string; raw: string; line: number }[];
+  count: number;
+} {
+  const broken: { file: string; relativePath: string; raw: string; line: number }[] = [];
+  for (const node of graph.nodes.values()) {
+    if (!node.imports) continue;
+    for (const edge of node.imports) {
+      if (edge.resolution === "unresolved") {
+        broken.push({ file: node.path, relativePath: node.relativePath, raw: edge.raw, line: edge.line });
+      }
+    }
+  }
+  broken.sort((a, b) => a.relativePath.localeCompare(b.relativePath) || a.line - b.line);
+  return { broken, count: broken.length };
+}
+
+/** codegraph_list_external_dependencies — third-party/builtin packages used, by importer count. */
+export function toolListExternalDependencies(
+  graph: DependencyGraph,
+  language?: Language
+): { externals: { name: string; importerCount: number }[]; count: number } {
+  const importers = new Map<string, Set<string>>();
+  for (const node of graph.nodes.values()) {
+    if (language && node.language !== language) continue;
+    if (!node.imports) continue;
+    for (const edge of node.imports) {
+      if (edge.resolution !== "external") continue;
+      const name = externalName(edge.raw);
+      let set = importers.get(name);
+      if (!set) importers.set(name, (set = new Set()));
+      set.add(node.path);
+    }
+  }
+  const externals = [...importers.entries()]
+    .map(([name, files]) => ({ name, importerCount: files.size }))
+    .sort((a, b) => b.importerCount - a.importerCount || a.name.localeCompare(b.name));
+  return { externals, count: externals.length };
+}
+
+/** codegraph_get_external_users — which files import a given external package. */
+export function toolGetExternalUsers(
+  graph: DependencyGraph,
+  name: string
+): { name: string; users: FileRef[]; count: number } {
+  const users: FileRef[] = [];
+  for (const node of graph.nodes.values()) {
+    if (!node.imports) continue;
+    const uses = node.imports.some(
+      (e) => e.resolution === "external" && (e.raw === name || externalName(e.raw) === name)
+    );
+    if (uses) users.push(toFileRef(node.path, graph));
+  }
+  users.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+  return { name, users, count: users.length };
+}
+
+// ============================================================
 // Visualization export tools
 // ============================================================
 

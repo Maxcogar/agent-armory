@@ -1,6 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
 
+import { ImportResolution } from "../types.js";
+
 /**
  * Extracts all import paths from a Python file.
  * Handles: import x, from x import y, relative imports (from . import x)
@@ -60,6 +62,34 @@ export function parsePythonDependencies(filePath: string, rootDir: string): stri
 
   // Remove self-references
   return Array.from(importPaths).filter((p) => p !== filePath);
+}
+
+/**
+ * Resolve a single Python module specifier (as written, e.g. ".mod", "..pkg.sub",
+ * "os") to a project file, classifying the result. Reuses the same relative/
+ * absolute resolvers as {@link parsePythonDependencies}. An absolute import that
+ * resolves to no project file is `external` (stdlib/third-party); a relative one
+ * that resolves to nothing is `unresolved` (a broken in-package reference).
+ */
+export function resolvePythonModule(
+  raw: string,
+  filePath: string,
+  rootDir: string
+): { to: string | null; resolution: ImportResolution } {
+  if (raw.startsWith(".")) {
+    let dots = 0;
+    while (dots < raw.length && raw[dots] === ".") dots++;
+    const moduleName = raw.slice(dots);
+    const resolved = resolveRelativePythonImport(filePath, dots, moduleName);
+    return resolved
+      ? { to: resolved, resolution: "internal" }
+      : { to: null, resolution: "unresolved" };
+  }
+  const packageRoot = findPythonPackageRoot(filePath, rootDir);
+  const resolved = resolveAbsolutePythonImport(raw, packageRoot || rootDir, rootDir);
+  return resolved
+    ? { to: resolved, resolution: "internal" }
+    : { to: null, resolution: "external" };
 }
 
 /**

@@ -90,12 +90,74 @@ test("type-only import is tagged kind=type in the graph", async () => {
   assert.ok([...a.dependencies].some((d) => d.endsWith("types.ts")));
 });
 
-test("non-JS/TS files do not get imports[] populated in this step", async () => {
+test("Python imports[] resolve: internal sibling, external stdlib, broken relative", async () => {
   const root = writeProject({
-    "m.py": `import os\nfrom . import sibling`,
-    "sibling.py": `x = 1`,
+    "m.py": `import os\nfrom .sibling import thing\nfrom .missing import gone`,
+    "sibling.py": `thing = 1`,
   });
   const graph = await buildDependencyGraph(root);
   const m = nodeByRel(graph, "m.py");
-  assert.equal(m.imports, undefined, "python imports[] are wired in a later step");
+  assert.ok(Array.isArray(m.imports), "python files now get imports[]");
+  const byRaw = (raw) => m.imports.find((e) => e.raw === raw);
+
+  assert.equal(byRaw("os").resolution, "external", "stdlib import is external");
+  assert.equal(byRaw(".sibling").resolution, "internal", "relative import resolves to sibling.py");
+  assert.equal(byRaw(".missing").resolution, "unresolved", "missing relative module is broken");
+});
+
+test("config/manifest files get no imports[] (no grammar)", async () => {
+  const root = writeProject({
+    "package.json": `{ "name": "x", "version": "1.0.0" }`,
+    "a.ts": `export const a = 1;`,
+  });
+  const graph = await buildDependencyGraph(root);
+  assert.equal(nodeByRel(graph, "package.json").imports, undefined);
+  assert.ok(Array.isArray(nodeByRel(graph, "a.ts").imports));
+});
+
+test("isTest classification flags test files only", async () => {
+  const root = writeProject({
+    "src/a.ts": `export const a = 1;`,
+    "src/a.test.ts": `import { a } from './a';`,
+    "tests/b.ts": `export const b = 1;`,
+    "pkg/test_thing.py": `x = 1`,
+  });
+  const graph = await buildDependencyGraph(root);
+  assert.equal(nodeByRel(graph, "src/a.ts").isTest, false);
+  assert.equal(nodeByRel(graph, "src/a.test.ts").isTest, true);
+  assert.equal(nodeByRel(graph, "tests/b.ts").isTest, true);
+  assert.equal(nodeByRel(graph, "pkg/test_thing.py").isTest, true);
+});
+
+test("tool: find_broken_imports surfaces unresolved imports across languages", async () => {
+  const { toolFindBrokenImports } = require("../dist/tools/query.js");
+  const root = writeProject({
+    "a.ts": `import { x } from './gone';\nexport const a = 1;`,
+    "b.py": `from .nope import y`,
+    "ok.ts": `export const ok = 1;`,
+  });
+  const graph = await buildDependencyGraph(root);
+  const { broken, count } = toolFindBrokenImports(graph);
+  assert.equal(count, 2);
+  const raws = broken.map((b) => b.raw).sort();
+  assert.deepEqual(raws, ["./gone", ".nope"]);
+  assert.ok(broken.every((b) => typeof b.line === "number" && b.line > 0));
+});
+
+test("tools: external dependencies are listed and queryable by package root", async () => {
+  const { toolListExternalDependencies, toolGetExternalUsers } = require("../dist/tools/query.js");
+  const root = writeProject({
+    "a.ts": `import express from 'express';\nimport { merge } from 'lodash/fp';`,
+    "b.ts": `import express from 'express';`,
+  });
+  const graph = await buildDependencyGraph(root);
+
+  const { externals } = toolListExternalDependencies(graph);
+  const express = externals.find((e) => e.name === "express");
+  const lodash = externals.find((e) => e.name === "lodash");
+  assert.equal(express.importerCount, 2, "express imported by two files");
+  assert.equal(lodash.importerCount, 1, "lodash/fp aggregates under 'lodash'");
+
+  const users = toolGetExternalUsers(graph, "lodash");
+  assert.equal(users.count, 1, "lodash/fp matches a query for 'lodash'");
 });

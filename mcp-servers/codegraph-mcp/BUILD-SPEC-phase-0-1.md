@@ -204,9 +204,10 @@ Plus: re-run the existing 8 suites unchanged after Step 1 (regression gate).
    resolver; parity with `dependencies[]` asserted by test. Edge-kind + broken/
    external data now live in the graph. *(JS/TS only; Python/C++ extraction +
    the F1 `excludeTypeOnly` option and the F2/F3 tools are the next units.)*
-3. Wire Python + C++ import resolution; expose F1 `excludeTypeOnly`, F2 broken
-   imports, F3 externals tools; F5 test classification.
-4. F4 reachability dead-code; F6 clusters.
+3. ✅ Python + C++ import resolution on the shared model; F2 broken-imports, F3
+   externals (`list_external_dependencies` + `get_external_users`) tools; F5
+   test classification (`isTest`). *(F1 `excludeTypeOnly` folded into step 4.)*
+4. F1 `excludeTypeOnly` on change-impact; F4 reachability dead-code; F6 clusters.
 5. S1/S2 symbol + specifier extraction; `get_symbol`, `find_symbol_dependents`.
 6. S3/S4 dead-exports + unused-imports + calibrated verdicts; S5 siblings.
 7. S6 surface diff.

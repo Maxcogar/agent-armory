@@ -57,6 +57,22 @@ export function detectLanguage(filePath: string): Language {
   return "unknown";
 }
 
+/**
+ * Classify a file as a test by conventional path/name patterns:
+ * a `test/`, `tests/`, or `__tests__/` directory, a `*.test.*` / `*.spec.*`
+ * file, or Python `test_*.py` / `*_test.py`. Used so dead-code/orphan/impact
+ * queries can optionally treat test-only references as non-production.
+ */
+export function isTestFile(relativePath: string): boolean {
+  const p = relativePath.replace(/\\/g, "/");
+  return (
+    /(^|\/)(__tests__|tests?)\//.test(p) ||
+    /\.(test|spec)\.[cm]?[jt]sx?$/.test(p) ||
+    /(^|\/)test_[^/]+\.py$/.test(p) ||
+    /_test\.py$/.test(p)
+  );
+}
+
 // ============================================================
 // File Discovery
 // ============================================================
@@ -231,14 +247,16 @@ export async function buildDependencyGraph(
     }
 
     const lang = detectLanguage(filePath);
+    const relativePath = path.relative(normalizedRoot, filePath);
     nodes.set(filePath, {
       path: filePath,
-      relativePath: path.relative(normalizedRoot, filePath),
+      relativePath,
       language: lang,
       dependencies: [],
       dependents: [],
       sizeBytes: stat.size,
       lastModified: stat.mtimeMs,
+      isTest: isTestFile(relativePath),
     });
   }
 
@@ -255,9 +273,8 @@ export async function buildDependencyGraph(
       node.dependencies = rawDeps.filter((dep) => nodes.has(dep));
       // Additively attach rich import edges (kind + specifiers + resolution).
       // `dependencies` stays the source of truth; parity is asserted in tests.
-      if (node.language === "typescript" || node.language === "javascript") {
-        node.imports = parseFileImports(filePath, node.language, normalizedRoot);
-      }
+      const imports = parseFileImports(filePath, node.language, ctx);
+      if (imports) node.imports = imports;
     } catch (err: unknown) {
       parseErrors.push({
         file: filePath,
@@ -334,14 +351,16 @@ export async function incrementalUpdate(
       nodes.set(filePath, { ...prev, dependents: [] });
       reused++;
     } else {
+      const relativePath = path.relative(rootDir, filePath);
       nodes.set(filePath, {
         path: filePath,
-        relativePath: path.relative(rootDir, filePath),
+        relativePath,
         language: detectLanguage(filePath),
         dependencies: [],
         dependents: [],
         sizeBytes: stat.size,
         lastModified: stat.mtimeMs,
+        isTest: isTestFile(relativePath),
       });
       if (prev) changed++;
       else added++;
@@ -362,9 +381,8 @@ export async function incrementalUpdate(
     try {
       const rawDeps = parseNodeDependencies(filePath, node.language, ctx);
       node.dependencies = rawDeps.filter((dep) => nodes.has(dep));
-      if (node.language === "typescript" || node.language === "javascript") {
-        node.imports = parseFileImports(filePath, node.language, rootDir);
-      }
+      const imports = parseFileImports(filePath, node.language, ctx);
+      if (imports) node.imports = imports;
     } catch (err: unknown) {
       parseErrors.push({
         file: filePath,

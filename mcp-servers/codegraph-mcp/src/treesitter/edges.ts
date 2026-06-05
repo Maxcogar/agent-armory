@@ -4,39 +4,78 @@ import * as path from "path";
 import { Language, ImportEdge } from "../types.js";
 import { extractImports } from "./imports.js";
 import { resolveJsModule } from "../parsers/javascript.js";
+import { resolvePythonModule } from "../parsers/python.js";
+import { resolveCppModule } from "../parsers/cpp.js";
 
 // ============================================================
-// Resolved import edges (tree-sitter extraction + shared resolver)
+// Resolved import edges (tree-sitter extraction + shared resolvers)
 // ============================================================
 //
 // Produces the rich ImportEdge list for a file: tree-sitter supplies the raw
-// imports (kind + specifiers), and resolution reuses the *same* resolver the
-// legacy `dependencies` path uses, so the internal edges here are guaranteed to
-// match `dependencies` (proven by the integration parity test).
-//
-// JS/TS only for now; Python and C++ resolution are wired in a later step.
+// imports (kind + specifiers), and resolution reuses the *same* per-language
+// resolvers the legacy `dependencies` path uses, so internal edges here match
+// `dependencies` (proven for JS/TS by the integration parity test).
 
+/** What import resolution needs from the scan (a subset of the parse context). */
+export interface ImportResolveContext {
+  rootDir: string;
+  cppSearchDirs: string[];
+}
+
+const GRAMMAR_LANGUAGES: ReadonlySet<Language> = new Set<Language>([
+  "typescript",
+  "javascript",
+  "python",
+  "cpp",
+  "arduino",
+]);
+
+/**
+ * Resolved import edges for a file, or `null` when the language has no
+ * tree-sitter grammar (config/unknown). A grammar language with no imports
+ * returns `[]` — distinguishing "analyzed, none found" from "not analyzed".
+ */
 export function parseFileImports(
   filePath: string,
   language: Language,
-  rootDir: string
-): ImportEdge[] {
-  if (language !== "typescript" && language !== "javascript") return [];
-
-  let code: string;
-  try {
-    code = fs.readFileSync(filePath, "utf-8");
-  } catch {
-    return [];
-  }
+  ctx: ImportResolveContext
+): ImportEdge[] | null {
+  if (!GRAMMAR_LANGUAGES.has(language)) return null;
 
   const fromDir = path.dirname(filePath);
+  const raws = extractImports(language, code(filePath));
   const edges: ImportEdge[] = [];
-  for (const imp of extractImports(language, code)) {
-    const { to, resolution } = resolveJsModule(imp.raw, fromDir, rootDir);
+  for (const imp of raws) {
+    let to: string | null = null;
+    let resolution: ImportEdge["resolution"] = "external";
+
+    switch (language) {
+      case "typescript":
+      case "javascript":
+        ({ to, resolution } = resolveJsModule(imp.raw, fromDir, ctx.rootDir));
+        break;
+      case "python":
+        ({ to, resolution } = resolvePythonModule(imp.raw, filePath, ctx.rootDir));
+        break;
+      case "cpp":
+      case "arduino":
+        ({ to, resolution } = resolveCppModule(imp.raw, fromDir, ctx.cppSearchDirs));
+        break;
+      default:
+        continue;
+    }
+
     // A file importing itself is not a dependency edge (matches the legacy path).
     if (to === filePath) continue;
     edges.push({ ...imp, to, resolution });
   }
   return edges;
+}
+
+function code(filePath: string): string {
+  try {
+    return fs.readFileSync(filePath, "utf-8");
+  } catch {
+    return "";
+  }
 }

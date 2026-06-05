@@ -26,6 +26,9 @@ import {
   toolGetPathBetween,
   toolFindOrphans,
   toolGetLayers,
+  toolFindBrokenImports,
+  toolListExternalDependencies,
+  toolGetExternalUsers,
   toolExportMermaid,
   toolExportDot,
 } from "./tools/query.js";
@@ -966,6 +969,111 @@ Returns: { status, wasWatching }`,
       wasWatching,
       message: wasWatching ? "Watcher stopped." : "No watcher was active.",
     });
+  }
+);
+
+// ============================================================
+// Tool: codegraph_find_broken_imports
+// ============================================================
+
+server.registerTool(
+  "codegraph_find_broken_imports",
+  {
+    title: "Find Broken Imports",
+    description: `Lists imports that resolved to nothing — a relative/local import or include whose target file does not exist (a typo, a moved/deleted file, a bad path alias).
+
+These are distinct from external packages: an unresolved import is almost always a bug, whereas a bare package specifier (express, lodash) is expected and is reported by codegraph_list_external_dependencies instead.
+
+Returns:
+  - broken: { relativePath, raw, line } for each unresolved import
+  - count: total broken imports
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {},
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async () => {
+    if (!currentGraph) return noGraphError();
+    return okResponse(toolFindBrokenImports(currentGraph));
+  }
+);
+
+// ============================================================
+// Tool: codegraph_list_external_dependencies
+// ============================================================
+
+server.registerTool(
+  "codegraph_list_external_dependencies",
+  {
+    title: "List External Dependencies",
+    description: `Lists the third-party / built-in packages the code imports (npm, PyPI, system headers) — every import specifier that did not resolve to a project file — aggregated to the package root and ranked by how many files import it.
+
+This is the supply-chain view: "which external packages does this codebase actually use in source, and how widely?" Use codegraph_get_external_users to see which files use a specific one.
+
+Args:
+  - language (string, optional): only count imports from files of this language.
+
+Returns:
+  - externals: { name, importerCount }[] sorted by importerCount
+  - count: number of distinct external packages
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {
+      language: z
+        .enum(LANGUAGE_VALUES)
+        .optional()
+        .describe("Optional: only count imports from files of this language"),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ language }) => {
+    if (!currentGraph) return noGraphError();
+    return okResponse(toolListExternalDependencies(currentGraph, language as Language | undefined));
+  }
+);
+
+// ============================================================
+// Tool: codegraph_get_external_users
+// ============================================================
+
+server.registerTool(
+  "codegraph_get_external_users",
+  {
+    title: "Get Files Using an External Package",
+    description: `Lists every file that imports a given external package. Matches by package root, so "lodash" also matches "lodash/fp" and "@scope/pkg" matches its subpaths.
+
+Use this for impact/audit questions like "which files use this deprecated library?" or "what would a CVE in package X touch?".
+
+Args:
+  - name (string): the external package name (e.g. "express", "@scope/pkg", "numpy").
+
+Returns:
+  - name, users: FileRef[], count
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {
+      name: z.string().describe("External package name (package root, e.g. \"express\")"),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ name }) => {
+    if (!currentGraph) return noGraphError();
+    return okResponse(toolGetExternalUsers(currentGraph, name));
   }
 );
 
