@@ -24,6 +24,12 @@ import type { SymbolGraph } from "../tscompiler/connections.js";
 
 type Node = Parser.SyntaxNode;
 
+// C++ aggregate definitions whose body's references attribute to the type and
+// whose own name is a declaration, not a use.
+const CPP_TYPE_DEFS: ReadonlySet<string> = new Set([
+  "struct_specifier", "class_specifier", "enum_specifier", "union_specifier",
+]);
+
 export function computeTreeSitterConnections(graph: DependencyGraph): SymbolGraph {
   const b = new SymbolGraphBuilder();
 
@@ -117,6 +123,17 @@ export function computeTreeSitterConnections(graph: DependencyGraph): SymbolGrap
         encl = `${node.path}#${tn}`;
         b.setInfo(encl, node.path, tn, n.startPosition.row + 1);
       }
+      // A C++ type *definition* (struct/class/enum with a body) encloses its body
+      // and its own name is a declaration, not a use — thread the body to it so
+      // its name self-edges (dropped) instead of looking like a module-level use.
+      // A bodyless `struct Widget x;` is a reference, so it falls through.
+      if (lang !== "python" && CPP_TYPE_DEFS.has(n.type) && n.childForFieldName("body")) {
+        const nm = n.childForFieldName("name");
+        if (nm) {
+          encl = `${node.path}#${nm.text}`;
+          b.setInfo(encl, node.path, nm.text, nm.startPosition.row + 1);
+        }
+      }
       if (n.type === ATTR) {
         const obj = n.childForFieldName(OBJ);
         const mem = n.childForFieldName(MEM);
@@ -127,7 +144,9 @@ export function computeTreeSitterConnections(graph: DependencyGraph): SymbolGrap
         if (obj) walk(obj, encl);
         return;
       }
-      if (n.type === "identifier") {
+      // `identifier` covers value names (both langs) and Python annotations;
+      // `type_identifier` covers C++ type-position uses (field/param/return types).
+      if (n.type === "identifier" || n.type === "type_identifier") {
         const tgt = resolveName(n.text);
         if (tgt) b.addEdge(encl, tgt);
       }

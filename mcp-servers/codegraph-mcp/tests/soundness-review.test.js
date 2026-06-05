@@ -132,3 +132,14 @@ test("C++: a genuinely unused function IS still flagged (the name guard doesn't 
   });
   assert.ok(dead.includes("lib.cpp#reallyUnused"), "an uncalled function with no same-named use is still dead");
 });
+
+test("C++: a struct used only as a parameter type is NOT dead, but a truly unused struct IS", async () => {
+  // `Widget`/`Used` appear only in type position (never constructed by a call),
+  // which a value-only walker would miss; `Unused` is referenced nowhere.
+  const dead = await deadKeys({
+    "types.h": `struct Used { int x; };\nstruct Unused { int y; };\n`,
+    "use.cpp": `#include "types.h"\nint f(Used u) { return u.x; }\nint main() { Used a; return f(a); }\n`,
+  });
+  assert.ok(!dead.includes("types.h#Used"), "Used is referenced as a parameter/variable type");
+  assert.ok(dead.includes("types.h#Unused"), "Unused is genuinely dead and still flagged");
+});
