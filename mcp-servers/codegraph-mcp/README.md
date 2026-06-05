@@ -6,13 +6,28 @@ No AI guessing — tree-sitter parsing (with the existing resolvers) maps actual
 
 ## Supported Languages
 
-| Language | Extensions | What's parsed |
-|---|---|---|
-| TypeScript | `.ts`, `.tsx` | `import`, re-exports |
-| JavaScript | `.js`, `.jsx`, `.mjs`, `.cjs` | `import`, `require()`, dynamic `import()` |
-| Python | `.py` | `import`, `from x import` (absolute + relative) |
-| C++ | `.cpp`, `.c`, `.h`, `.hpp` | `#include "local.h"` |
-| Arduino | `.ino` | `#include "local.h"` |
+All languages get the same core feature set — the file dependency graph, symbol
+extraction, **symbol-to-symbol connection chains**, external-dependency and
+broken-import detection, and (where statically sound) dead-code. The last column
+is how cross-file references are resolved.
+
+| Language | Extensions | Resolution | Dead-code |
+|---|---|---|---|
+| TypeScript / JavaScript | `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs` | TypeScript compiler (follows barrels + namespace imports) | ✅ |
+| Python | `.py` | imports (relative + absolute, package roots) | ✅ |
+| C++ / Arduino | `.cpp`, `.c`, `.h`, `.hpp`, `.ino` | `#include` + included-file symbols | ✅ |
+| Go | `.go` | go.mod module path → package directories | ✅ |
+| Rust | `.rs` | module-path convention + `use` / `mod` | ✅ |
+| Java | `.java` | fully-qualified names (`package` + `import`) | ✅ |
+| C# | `.cs` | fully-qualified names (`namespace` + `using`) | ✅ |
+| PHP | `.php`, `.phtml` | fully-qualified names (`namespace` + `use`) | ✅ |
+| Ruby | `.rb` | `require_relative` closure (name-scoped) | — (runtime metaprogramming makes a sound verdict impossible; chains only) |
+
+Resolution is precise per language: a name that collides across packages/
+namespaces resolves to the *imported* one, not a same-named declaration
+elsewhere. `codegraph_trace_symbol` works for every language above;
+`codegraph_find_dead_exports` reports a symbol dead only where references resolve
+precisely (so it never emits a false "dead" — Ruby is excluded for that reason).
 
 ### Dependency manifests
 
