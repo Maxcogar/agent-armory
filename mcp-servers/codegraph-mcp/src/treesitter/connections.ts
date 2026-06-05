@@ -152,7 +152,7 @@ export function computeTreeSitterConnections(graph: DependencyGraph): SymbolGrap
 // keywords don't create noise.
 
 const GENERIC_LANGS: ReadonlySet<Language> = new Set<Language>([
-  "rust", "java", "ruby", "csharp", "php",
+  "rust", "ruby",
 ]);
 
 export function computeGenericConnections(graph: DependencyGraph): SymbolGraph {

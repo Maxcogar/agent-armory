@@ -157,7 +157,10 @@ interface DeclSpec {
 
 const LANG_DECLS: Partial<Record<Language, DeclSpec[]>> = {
   go: [
-    { types: ["function_declaration", "method_declaration"], kind: "function" },
+    { types: ["function_declaration"], kind: "function" },
+    // Receiver methods are called through instances (needs type inference to
+    // resolve cross-file), so mark them `method` and keep them out of dead-code.
+    { types: ["method_declaration"], kind: "method" },
     { types: ["type_spec"], kind: "class" },
   ],
   rust: [

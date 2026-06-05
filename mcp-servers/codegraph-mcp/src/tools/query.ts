@@ -47,6 +47,7 @@ import { normalizeHttpPath, mqttMatches } from "../treesitter/surface.js";
 import { computeTsLiveness, TsLiveness } from "../tscompiler/liveness.js";
 import { computeSymbolConnections, SymbolGraph } from "../tscompiler/connections.js";
 import { computeTreeSitterConnections, computeGenericConnections, computeGoConnections } from "../treesitter/connections.js";
+import { computeNamespacedConnections, NS_LANGS } from "../treesitter/namespaced.js";
 
 // ============================================================
 // Helpers
@@ -753,10 +754,14 @@ export function toolGetSymbol(
 }
 
 // Languages whose references resolve precisely enough to trust a "dead" verdict
-// (compiler for TS/JS, imports for Python, includes for C++, package scope for Go).
+// (compiler for TS/JS, imports for Python, includes for C++, package scope for Go,
+// fully-qualified names for Java/C#/PHP).
 const PRECISE_DEAD_LANGS: ReadonlySet<Language> = new Set<Language>([
-  "typescript", "javascript", "python", "cpp", "arduino", "go",
+  "typescript", "javascript", "python", "cpp", "arduino", "go", "java", "csharp", "php",
 ]);
+
+/** Type-kind symbols (the resolvable surface for namespace languages). */
+const TYPE_KINDS: ReadonlySet<string> = new Set(["class", "interface", "enum", "type"]);
 
 /** codegraph_find_dead_exports — exported symbols with no live importer. */
 export function toolFindDeadExports(
@@ -795,6 +800,10 @@ export function toolFindDeadExports(
     }
     for (const sym of node.symbols) {
       if (!sym.exported) continue;
+      // Instance methods need type inference to resolve cross-file — never claim
+      // them dead. For namespace languages, only types resolve precisely.
+      if (sym.kind === "method") continue;
+      if (NS_LANGS.has(node.language) && !TYPE_KINDS.has(sym.kind)) continue;
       const liveness = livenessFor(sym.name, node, tsLiveness, sg);
       if (liveness.verdict === "unused") dead.push({ ...toSymbolRef(node, sym), liveness });
       else if (liveness.verdict === "ambiguous") ambiguousCount++;
@@ -890,7 +899,8 @@ function getSymbolGraph(graph: DependencyGraph): SymbolGraph {
     cached = computeSymbolConnections(graph.rootDir, tsJs);
     mergeInto(cached, computeTreeSitterConnections(graph)); // python, c++
     mergeInto(cached, computeGoConnections(graph)); // go (package-scoped, precise)
-    mergeInto(cached, computeGenericConnections(graph)); // rust/java/ruby/c#/php (name-based)
+    mergeInto(cached, computeNamespacedConnections(graph)); // java/c#/php (FQN, precise)
+    mergeInto(cached, computeGenericConnections(graph)); // rust/ruby (name-based, for now)
     symbolGraphCache.set(graph, cached);
   }
   return cached;
