@@ -240,7 +240,7 @@ export async function handleHook(event: string, input: any): Promise<Record<stri
       const ctx = openContext(root);
       try {
         if (isEdit) {
-          const gate = validateEditGate(ctx.root, ctx.repoName, ctx.contextDir, input.session_id ?? 'nosession', input.transcript_path);
+          const gate = await validateEditGate(ctx, input.session_id ?? 'nosession', input.transcript_path);
           if (gate.decision === 'deny') return denyEdit(gate.message);
         }
 
@@ -387,16 +387,19 @@ function readSeenKeys(file: string): Set<string> {
 
 type GateResult = { decision: 'allow' } | { decision: 'deny'; message: string };
 
-function validateEditGate(root: string, repoName: string, contextDir: string, sessionId: string, transcriptPath?: string): GateResult {
+async function validateEditGate(ctx: ReturnType<typeof openContext>, sessionId: string, transcriptPath?: string): Promise<GateResult> {
+  const { root, repoName, contextDir } = ctx;
   const packagePath = join(contextDir, PKG_JSON);
   if (!existsSync(packagePath)) {
     return { decision: 'deny', message: 'ctxpack: no task Context Package exists. Submit a coding task first so ctxpack can generate and inject one.' };
   }
 
-  const pkg = loadPackageFile(packagePath);
+  let pkg = loadPackageFile(packagePath);
   const stale = checkStaleness(root, repoName, pkg);
   if (stale.stale) {
-    return { decision: 'deny', message: `ctxpack: task Context Package is stale (${pkg.repository.snapshot_id} != ${stale.currentSnapshotId}). Regenerate context before editing.` };
+    const refreshed = await refreshStalePackage(ctx, pkg, stale.currentSnapshotId);
+    if (refreshed.decision === 'deny') return refreshed;
+    pkg = refreshed.pkg;
   }
 
   const cached = readPlanCache(contextDir, sessionId);
@@ -418,6 +421,40 @@ function validateEditGate(root: string, repoName: string, contextDir: string, se
     return { decision: 'deny', message: `ctxpack: plan failed the assumption firewall.\n${formatFirewallFailures(firewall)}` };
   }
   return { decision: 'allow' };
+}
+
+type RefreshResult = { decision: 'allow'; pkg: ReturnType<typeof loadPackageFile> } | { decision: 'deny'; message: string };
+
+async function refreshStalePackage(
+  ctx: ReturnType<typeof openContext>,
+  stalePkg: ReturnType<typeof loadPackageFile>,
+  currentSnapshotId: string,
+): Promise<RefreshResult> {
+  try {
+    const idx = await ctx.indexer.index(ctx.root, ctx.repoName, {
+      excludes: ctx.config.excludes,
+      maxBytes: ctx.config.maxBytes,
+      staticAnalysis: ctx.config.staticAnalysis,
+    });
+    const snapshot = ctx.storage.getSnapshot(idx.snapshotId);
+    if (!snapshot) {
+      return { decision: 'deny', message: `ctxpack: package is stale (${stalePkg.repository.snapshot_id} != ${currentSnapshotId}) and automatic refresh failed because the new snapshot was not stored.` };
+    }
+    const refreshed = buildPackage(ctx.storage, snapshot, stalePkg.task.original_request || stalePkg.task.normalized_task, {
+      injectionScanner: ctx.injectionScanner,
+    });
+    const validation = ctx.validator.validatePackage(refreshed);
+    if (!validation.valid) {
+      return { decision: 'deny', message: `ctxpack: package is stale and automatic refresh generated an invalid Context Package: ${validation.errors.join('; ')}` };
+    }
+    ctx.storage.savePackage(refreshed);
+    writeFileSync(join(ctx.contextDir, PKG_JSON), JSON.stringify(refreshed, null, 2));
+    writeFileSync(join(ctx.contextDir, PKG_MD), renderPackageMarkdown(refreshed));
+    new AuditLog(ctx.storage, 'hook:stale-refresh').record('package-refresh', `from=${stalePkg.package_id} to=${refreshed.package_id} snapshot=${refreshed.repository.snapshot_id}`);
+    return { decision: 'allow', pkg: refreshed };
+  } catch (e) {
+    return { decision: 'deny', message: `ctxpack: package is stale (${stalePkg.repository.snapshot_id} != ${currentSnapshotId}) and automatic refresh failed: ${(e as Error).message}` };
+  }
 }
 
 function denyEdit(message: string): Record<string, unknown> {
