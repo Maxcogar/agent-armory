@@ -33,6 +33,8 @@ describe('task classifier', () => {
     const c = classifyTask('There are some files/functions in this app that are supposed to be wired in but never were. Particularly im interested in one related to the plant doctor, the telemetry for the plants in my collection, and the journal entries');
     expect(c.task.task_types).toContain('codebase_question');
     expect(c.task.intent).toBe('locate_understand');
+    expect(c.keywords).toEqual(expect.arrayContaining(['plant', 'doctor', 'telemetry', 'plants', 'collection', 'journal', 'entries']));
+    expect(c.keywords).not.toContain('wired');
   });
   it('separates intent, domain, and security modifier', () => {
     const c = classifyTask('Fix the login API route bug without leaking session tokens');

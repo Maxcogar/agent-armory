@@ -686,13 +686,28 @@ function validateQuestionSearchGate(root: string, sessionId: string): GateResult
 function primaryQuestionLeads(pkg: ReturnType<typeof loadPackageFile>): string[] {
   const out: string[] = [];
   for (const f of pkg.relevant_files) {
-    if (f.role === 'test' || f.role === 'doc') continue;
-    const name = f.path.split('/').pop() ?? f.path;
-    if (/^Lazy[A-Z]/.test(name)) continue;
+    if (!isTrustedQuestionLead(f)) continue;
     if (!out.includes(f.path)) out.push(f.path);
     if (out.length >= 4) break;
   }
   return out;
+}
+
+function isTrustedQuestionLead(file: ReturnType<typeof loadPackageFile>['relevant_files'][number]): boolean {
+  if (!['source', 'config'].includes(file.role)) return false;
+  if (looksLikeQuestionLeadNoise(file.path)) return false;
+  const name = file.path.split('/').pop() ?? file.path;
+  if (/^Lazy[A-Z]/.test(name)) return false;
+  if (file.confidence === 'low') return false;
+  const signalSources = new Set(file.signals.map((s) => s.source));
+  if (signalSources.size === 1 && signalSources.has('text_search') && file.confidence !== 'high') return false;
+  return true;
+}
+
+function looksLikeQuestionLeadNoise(path: string): boolean {
+  const lower = path.toLowerCase().replace(/\\/g, '/');
+  return /(^|\/)(_?recycle_?bin|temp|tmp|logs?|backup|backups?|reports?|coverage|fixtures?)\//.test(lower)
+    || /(^|\/)(auto[_-]?fill[_-]?system[_-]?map|.*source[_-]?trace|test[_-]?vite|test[_-]?loadenv|test[_-]?env[_-]?inheritance)\.[cm]?[jt]s$/.test(lower);
 }
 
 function readSeenKeys(file: string): Set<string> {

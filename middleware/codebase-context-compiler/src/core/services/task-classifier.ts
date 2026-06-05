@@ -38,6 +38,9 @@ const STOPWORDS = new Set([
   'how','does','do','did','what','why','where','can','could','would','work','works','worked',
   'just','dont','answer','question','codebase','help','test',
   'okay','then','ill','ask','you','your','me','any','its','have','about','see','gave',
+  'there','are','was','were','some','but','im','i','one','related','particularly','interested',
+  'files','file','functions','function','app','supposed','intended','wired','wire','wiring','unwired',
+  'connected','used','called','reachable','never','not',
 ]);
 
 const DOMAIN_BY_TYPE: Partial<Record<string, RuntimeDomain>> = {

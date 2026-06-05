@@ -122,6 +122,45 @@ describe('native Claude Code hooks', () => {
     expect(injectedContext(out)).not.toContain('Required files (in scope)');
   });
 
+  it('Search gate does not force noisy artifact leads for unwired-code discovery prompts', async () => {
+    const root = repo();
+    mkdirSync(join(root, '_recycle_bin'), { recursive: true });
+    mkdirSync(join(root, 'components'), { recursive: true });
+    writeFileSync(join(root, '_recycle_bin/test-vite-source-trace.cjs'), `
+      module.exports = 'files functions supposed wired never plant doctor telemetry journal entries';
+    `);
+    writeFileSync(join(root, 'auto_fill_system_map.js'), `
+      export const map = 'files functions supposed wired never plant doctor telemetry journal entries';
+    `);
+    writeFileSync(join(root, 'components/PlantDoctor.tsx'), `
+      export function PlantDoctor({ plant }) {
+        return plant.journalEntries?.map((entry) => entry.content).join(' plant doctor diagnosis ');
+      }
+    `);
+    writeFileSync(join(root, 'components/TelemetryDetailCards.tsx'), `
+      export function TelemetryDetailCards({ plant }) {
+        return plant.telemetry.map((reading) => reading.sensorKind).join(' telemetry plants collection ');
+      }
+    `);
+
+    await handleHook('user-prompt', {
+      user_prompt: 'There are some files/functions in this app that are supposed to be wired in but never were. Particularly im interested in one related to the plant doctor, the telemetry for the plants in my collection, and the journal entries',
+      cwd: root,
+      session_id: 'unwired-search-gate',
+    });
+
+    const blocked: any = await handleHook('pre-tool', {
+      tool_name: 'Glob',
+      cwd: root,
+      session_id: 'unwired-search-gate',
+      tool_input: { pattern: '**/*doctor*' },
+    });
+    expect(blocked.hookSpecificOutput.permissionDecision).toBe('deny');
+    expect(blocked.systemMessage).toContain('components/PlantDoctor.tsx');
+    expect(blocked.systemMessage).not.toContain('_recycle_bin');
+    expect(blocked.systemMessage).not.toContain('auto_fill_system_map.js');
+  });
+
   it('UserPromptSubmit also fires for symbol-heavy prompts without obvious task keywords', async () => {
     const out: any = await handleHook('user-prompt', { user_prompt: 'look at getPreference and make behavior sane', cwd: repo() });
     expect(injectedContext(out)).toContain('CTXPACK MANDATORY CONTEXT');
