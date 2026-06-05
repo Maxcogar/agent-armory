@@ -65,15 +65,16 @@ workflow, to a standard a serious developer would praise.
    apps + Python agentic tooling + C++/Arduino IoT. A TS-only solution that
    regresses the other languages to file-level is unacceptable.
 4. **Self-contained install.** `npm install` must stay clean on Windows/Mac/
-   Linux (there is already a Windows config). No mandatory native compile.
+   Linux (there is already a Windows config) — satisfied by prebuilt native
+   binaries; no source compile on mainstream platforms.
 5. **Backward compatible.** Existing tools and their outputs keep working;
    symbol data is additive. Cache schema version bumps and self-invalidates.
 
 ## 4. Engineering decision: the parsing stack
 
-**Decision: `web-tree-sitter` (WASM grammars) as the universal extraction
-substrate for all four language families, with the TypeScript compiler API as a
-semantic *enrichment* layer for TS/JS only.**
+**Decision: tree-sitter as the universal extraction substrate for all four
+language families, with the TypeScript compiler API as a semantic *enrichment*
+layer for TS/JS only.** (Binding choice revised during Step 1 — see below.)
 
 Why:
 
@@ -84,10 +85,13 @@ Why:
 - **tree-sitter is the industry-standard answer** for fast, error-tolerant,
   incremental, multi-language parsing (it backs many LSPs and code-intel tools).
   It runs in-process and aligns with the existing incremental/watch design.
-- **WASM over native bindings**: `web-tree-sitter` + prebuilt `.wasm` grammars
-  install with zero node-gyp/native build — cross-platform clean. Native
-  bindings are marginally faster but reintroduce install friction the Windows
-  users would feel. Accept the small perf cost for a clean install.
+- **Native bindings over WASM** (revised in Step 1): the original plan picked
+  `web-tree-sitter` (WASM) to avoid native-compile friction. But the existing
+  parsers and tests are **synchronous** and WASM init is **async**, which would
+  force an async refactor and break the test contract. The **native bindings
+  parse synchronously** and — verified in the target environment — install via
+  **prebuilt binaries in ~2s with no node-gyp compile**, so the friction WASM
+  was meant to avoid doesn't materialize. Native it is.
 - **tree-sitter is syntactic, not semantic.** It gives exact declarations and
   import specifiers with byte spans, but does **not** resolve which declaration
   a usage binds to, nor follow re-export barrels or namespace imports. That gap

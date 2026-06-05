@@ -19,6 +19,16 @@ export interface FileNode {
   sizeBytes: number;
   /** Last modified timestamp */
   lastModified: number;
+  /**
+   * Rich import edges from the tree-sitter pass (kind + specifiers + resolution).
+   * Supplements `dependencies` (which stays the resolved-internal file list every
+   * existing algorithm reads). Optional until the symbol layer populates it.
+   */
+  imports?: ImportEdge[];
+  /** Declared symbols in this file (exports + internals). Optional until populated. */
+  symbols?: SymbolNode[];
+  /** True when this file is classified as a test (see test/source partition). */
+  isTest?: boolean;
 }
 
 export interface DependencyGraph {
@@ -213,4 +223,63 @@ export interface RelatedDocsResult {
   totalDocsToReview: number;
   /** Total doc files in the project (for context) */
   totalDocsInProject: number;
+}
+
+// ============================================================
+// Symbol & Import Layer (tree-sitter substrate)
+// ============================================================
+
+/** How an import couples the importer to its target. */
+export type ImportKind = "value" | "type" | "dynamic" | "re-export" | "side-effect";
+
+/** One name brought in by an import or re-export. */
+export interface ImportSpecifier {
+  /** Name in the source module; "default" for a default import, "*" for a namespace. */
+  imported: string;
+  /** Local binding name (equals `imported` when not aliased). */
+  local: string;
+  kind: "named" | "default" | "namespace";
+  /** True for `import type {X}` or `import {type X}` — TS type-only specifiers. */
+  isType: boolean;
+}
+
+/**
+ * A syntactic import as read straight from the parse tree, before path
+ * resolution. `raw` is the module specifier exactly as written.
+ */
+export interface RawImport {
+  raw: string;
+  kind: ImportKind;
+  specifiers: ImportSpecifier[];
+  /** 1-based line of the import/require/re-export statement. */
+  line: number;
+}
+
+/** A {@link RawImport} whose `raw` specifier has been resolved against the graph. */
+export interface ImportEdge extends RawImport {
+  /** Resolved absolute path (internal), an external package id, or null. */
+  to: string | null;
+  resolution: "internal" | "external" | "unresolved";
+}
+
+export type SymbolKind =
+  | "function" | "class" | "interface" | "type"
+  | "enum" | "const" | "variable" | "method";
+
+export type LivenessVerdict = "used" | "unused" | "ambiguous";
+
+export interface Liveness {
+  verdict: LivenessVerdict;
+  /** Why, when the verdict is `ambiguous` (e.g. "re-exported via barrel"). */
+  reason?: string;
+}
+
+export interface SymbolNode {
+  name: string;
+  kind: SymbolKind;
+  exported: boolean;
+  /** True for type-space declarations (interface, type alias, etc.). */
+  isType: boolean;
+  /** 1-based line of the declaration. */
+  line: number;
 }

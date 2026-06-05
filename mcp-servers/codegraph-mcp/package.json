@@ -12,6 +12,10 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "glob": "^13.0.5",
+    "tree-sitter": "0.21.1",
+    "tree-sitter-cpp": "0.22.0",
+    "tree-sitter-python": "0.21.0",
+    "tree-sitter-typescript": "0.21.2",
     "zod": "^3.25.76"
   },
   "devDependencies": {

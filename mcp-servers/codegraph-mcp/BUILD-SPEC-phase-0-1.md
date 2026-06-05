@@ -26,10 +26,23 @@ Risk control: resolution is untouched, so the regression surface is "did
 tree-sitter find the same import strings the regex did?" — covered by the
 existing parser tests plus new fixtures (§5).
 
-### Parsing stack
-`web-tree-sitter` (WASM) + prebuilt grammars for `tsx`, `javascript`, `python`,
-`cpp`. WASM = no node-gyp, clean cross-platform install. Grammars loaded once at
-process start; parser instances reused across the incremental path.
+### Parsing stack — REVISED during Step 1 (native bindings, not WASM)
+
+The plan chose `web-tree-sitter` (WASM) to avoid native-compile friction.
+Implementing Step 1 surfaced a decisive fact the plan didn't account for: the
+existing parsers **and their unit tests are synchronous**
+(`parseJavaScriptDependencies(...)` returns `string[]` directly), while WASM
+requires async `Parser.init()`. Forcing the parse path async would break that
+contract and ripple through the build loop.
+
+So the substrate is the **native `tree-sitter` bindings**
+(`tree-sitter` + `tree-sitter-typescript` + `tree-sitter-python` +
+`tree-sitter-cpp`, pinned exact), which parse **synchronously** and drop in
+without an async refactor. Verified in this environment: they install via
+**prebuilt binaries in ~2s with no node-gyp compile**, so the install-friction
+concern that motivated WASM does not actually arise here. The `tsx` grammar
+(a superset that parses JS/TS/JSX/TSX) covers the whole JS/TS family; one
+`Parser` instance is cached per grammar and reused across files.
 
 ## 1. `types.ts` additions (all additive — nothing removed)
 
@@ -198,9 +211,10 @@ specced separately once these land.
 
 ## 7. Decisions (resolved)
 
-- **WASM grammars are vendored in-repo** under `grammars/` (pinned
-  `tree-sitter-{tsx,javascript,python,cpp}.wasm`), loaded via
-  `Parser.Language.load(path)`. Deterministic, offline, no moving npm dep.
+- **Grammars are native npm packages, pinned to exact versions** (no WASM, no
+  vendored files — superseded; see the revised Parsing-stack note in §0).
+  Determinism comes from exact version pins in `package.json` +
+  `package-lock.json`.
 - **`diff_surface` compares against the previously persisted symbol snapshot**
   in the on-disk cache (i.e. "what changed since the last scan"). Git-ref
   baselines are out of scope for Phase 1 and are a named later item.
