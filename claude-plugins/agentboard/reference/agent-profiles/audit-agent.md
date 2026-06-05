@@ -56,6 +56,8 @@ Findings on every axis follow the same per-finding contract from the report form
 
 **Test coverage.** Change has tests, tests actually exercise the change path (not just import the module), edge cases and error paths covered, existing tests still pass. The implementor's `Build/Lint/Tests: pass` claim in the `implementation_note` is itself a candidate premise — spot-check by reading at least one new or modified test and confirming it asserts something meaningful about the change. Findings cite the project's test convention or a named coverage standard. Surface area: any non-trivial change.
 
+> In the `/orchestrate` workspace pipeline, test *integrity* is the dedicated job of the `test-integrity-auditor` gate, which runs in Wave 4 **before** this per-card audit and routes cards with fake tests back to `implementation`. By the time a card reaches you, its tests have passed that gate. Your spot-check above is a **backstop**, not the primary defense — do not treat it as optional on the assumption the gate covered it, and do not silently downgrade a test concern to a note because "the integrity gate would have caught it." If you find a fake or empty test the gate missed, that is a Serious finding: the gate is upstream, but a missed lying test is exactly the failure the whole pipeline exists to prevent.
+
 ## Steps
 
 1. **Fetch the card** using `mcp__agentboard__agentboard_get_card` with the given `card_id` and `response_format: markdown`. Read both the plan artifact and the implementation_note artifact. Only switch to `json` for a specific call if you need to programmatically parse a field.

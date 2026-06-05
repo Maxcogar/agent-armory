@@ -22,10 +22,10 @@ Orchestrate parallel subagents through workspace board columns: planning → rev
 Wave 1: Planning    → parallel agents build plans per card     → cards advance to review
 Wave 2: Review      → parallel agents validate plans           → cards advance to implementation (or back to planning)
 Wave 3: Implementation → parallel agents write code            → build/lint check → cards advance to audit
-Wave 4: Audit       → parallel read-only agents verify         → cards advance to finished (or back to implementation)
+Wave 4: Audit       → cross-card barrier → test-integrity gate → parallel read-only agents verify → cards advance to finished (or back to implementation)
 ```
 
-Waves 2 and 4 each open with a **board-level cross-card consistency barrier** (see that section below) that holds all cards at once before the per-card agents run — catching inconsistencies *between* cards that the per-card waves cannot see.
+Waves 2 and 4 each open with a **board-level cross-card consistency barrier** (see that section below) that holds all cards at once before the per-card agents run — catching inconsistencies *between* cards that the per-card waves cannot see. Wave 4 then runs a **per-card test-integrity gate** (see that section below) on the cards the barrier cleared, before the per-card audit — catching tests that pass without verifying anything.
 
 Transitions are **server-enforced and verdict-driven** — agents and the orchestrator never move a card themselves. Both rejection loops route on the submitted artifact's `## Verdict:` heading:
 
@@ -59,6 +59,22 @@ Mechanically, per wave:
 
 Retry accounting: a cross-card-triggered FAIL counts against the existing per-card retry cap (2) — a card the cross-examiner keeps failing on re-entry exhausts the cap like any repeated failure. Report the cross-examiner's verdict (failed / escalated / cleared counts) in your wave-status and checkpoint output so the human sees board-level consistency alongside per-card readiness.
 
+## Test-Integrity Gate (Wave 4)
+
+Every gate before Wave 4 treats tests as presence-and-status. The `implementation-agent` runs the suite and reports `Tests: pass` in its `implementation_note`; the per-card auditor verifies the *code* matches the *plan*. Nothing asks whether `pass` means anything. A suite that mocks the unit under test, asserts on its own mock's return value, skips silently in CI, or is never collected by the runner is green and verifies nothing — and sails through every wave into `finished`. That failure (a wall of green tests that lie, undetected for weeks) is what this gate exists to stop.
+
+So Wave 4 runs a dedicated **per-card `test-integrity-auditor`** between the cross-card barrier and the per-card audit. It does not trust `Tests: pass`: it runs the suite itself, accounts for skipped/uncollected tests, runs coverage scoped to the card's changed production lines (the load-bearing signal — mocked-to-death tests do not execute the real code), traces each changed unit to a test that calls its real path and asserts on observable behavior, and statically hunts the fake-test taxonomy (no-assertion, tautology, mock-the-SUT, silent skip, exception-swallow, snapshot auto-bless, assert-on-mock-config).
+
+**It fails fake-test cards itself, then the per-card audit runs on the rest.** For each card whose tests do not verify the change, the gate **submits an `audit_report` with `## Verdict: FAIL`** on that card — the same verdict mechanism the per-card audit uses. The server routes that card on the verdict exactly as it routes any audit failure: `audit` → `implementation`, with the gate's findings as the rework context. The gate does **not** submit a PASS (a PASS `audit_report` would advance the card to `finished` and skip the functional audit); it clears a card by **submitting nothing**, exactly as the cross-card barrier clears cards. It runs as a gate *before* the per-card `audit-research-agent`/`audit-compose-agent` so opus audit time is not spent on cards whose tests are fake.
+
+Mechanically, after the cross-card barrier has cleared cards and you have re-queried the `audit` column:
+
+1. **Spawn one `test-integrity-auditor` per remaining card** (background, parallel), passing `card_id`, `board_id`, `agent_id`, `repo_root`. Wait for all to return.
+2. **Read each return summary.** It carries `## Test Integrity: PASS | FAIL`. A `FAIL` means the gate already submitted the `audit_report` FAIL and the server already routed that card back to `implementation` — you do not route it yourself. A `PASS` means the gate submitted nothing and the card remains in `audit`.
+3. **Re-query the `audit` column** — the failed cards have moved out — and run the per-card audit (research → compose) only on the cards that remain. These are exactly the cards the gate cleared.
+
+A test-integrity FAIL counts against the **same per-card audit retry cap (2)** as any audit failure — a card whose tests keep failing the gate on re-entry exhausts the cap like any repeated failure. Report the gate's verdict (cards failed for fake tests / cards cleared) in your wave-status and checkpoint output alongside the cross-card and per-card results, so the human sees test integrity as its own line, not buried in the audit count.
+
 ## Checkpoint Logic
 
 Read the board's `auto_transitions` to determine pausing:
@@ -88,7 +104,7 @@ Use `mcp__agentboard__agentboard_list_workspace_cards` filtered by status. Alway
 
 ### 2. Spawn Parallel Subagents
 
-**Waves 2 and 4 first run the Cross-Card Consistency Barrier** (see that section above): spawn the board-level cross-examiner, wait for it to fail the inconsistent cards (it submits the FAIL verdicts itself, routing them out of the column) and return its summary, then re-query the column and spawn the per-card agents below only on the cards that remain (the cleared ones). Waves 1 and 3 have no barrier — spawn the per-card agents directly.
+**Waves 2 and 4 first run the Cross-Card Consistency Barrier** (see that section above): spawn the board-level cross-examiner, wait for it to fail the inconsistent cards (it submits the FAIL verdicts itself, routing them out of the column) and return its summary, then re-query the column and spawn the per-card agents below only on the cards that remain (the cleared ones). **Wave 4 then runs the Test-Integrity Gate** (see that section above): on the cards the barrier cleared, spawn one `test-integrity-auditor` per card, wait, re-query the `audit` column (cards it failed for fake tests have routed out to `implementation`), and spawn the per-card audit only on the cards that still remain. Waves 1 and 3 have no barrier or gate — spawn the per-card agents directly.
 
 Launch one Agent per card using `run_in_background: true`. Set `subagent_type` to the agent name for the wave. The agents carry their own system prompts, tool allowlists, and model assignments — the prompt only needs to pass the per-card variables.
 
@@ -98,6 +114,7 @@ Launch one Agent per card using `run_in_background: true`. Set `subagent_type` t
 | 1 — Planning | B (opus) | `plan-compose-agent` |
 | 2 — Review | — | `review-agent` |
 | 3 — Implementation | — | `implementation-agent` |
+| 4 — Audit | Test-integrity gate (opus) | `test-integrity-auditor` |
 | 4 — Audit | A (haiku) | `audit-research-agent` |
 | 4 — Audit | B (opus) | `audit-compose-agent` |
 
@@ -144,6 +161,17 @@ card_title: Add pagination to workspace cards endpoint
 arch_path: /repo/docs/arch/2026-05-08-<topic>.md    ← review-agent only — full architecture doc, not just the slice
 ```
 
+**Test-integrity gate prompt (Wave 4, before the per-card audit):**
+
+The `test-integrity-auditor` fetches its own card data and reads the `implementation_note` itself; it needs only these four values. It runs the suite and coverage under `repo_root`, so that path must be the real working tree.
+
+```
+card_id: 7f3c...
+board_id: a91e...
+agent_id: claude-opus-4-6
+repo_root: /absolute/path/to/repo
+```
+
 ### 3. Wait for All Agents
 
 All background agents must complete before proceeding. Report results:
@@ -168,6 +196,11 @@ All background agents must complete before proceeding. Report results:
 - Stop pipeline — do NOT proceed to Wave 4
 - Report which files changed and likely culprit
 - Wait for user intervention
+
+**Test-integrity failure (Wave 4 gate):**
+- The `test-integrity-auditor` submits an `audit_report` with `## Verdict: FAIL` on a card whose tests pass without verifying the change; the **server auto-routes** it to `implementation`, with the gate's findings (which units are untested, which assertions are fake, what coverage showed) as the rework context. The orchestrator does NOT move the card.
+- The gate runs before the per-card audit, so a card it fails never reaches `audit-research-agent`/`audit-compose-agent` this round — re-run Wave 3 against the test-integrity findings, then the card re-enters Wave 4 from the top (barrier → gate → audit). Shares the audit retry cap (2 per card).
+- A card the gate clears (no artifact submitted) stays in `audit` and proceeds to the per-card audit.
 
 **Audit failure (Wave 4):**
 - The audit agent submits the `audit_report` with `## Verdict: FAIL` and does NOT move the card — the server routes on the verdict. A **FAIL routes the card to `implementation` unconditionally**, regardless of the `audit_blocking` setting. The orchestrator does NOT call `agentboard_update_workspace_card`; that path is deprecated.
@@ -206,6 +239,7 @@ When the build/lint command for the project is not obvious from `implementation-
 | Build fails | Stop, report to user | 0 (user intervenes) |
 | Audit fails (`audit_report` FAIL) | Server routes card to `implementation`; re-run Wave 3 against the audit findings | 2 per card |
 | Cross-card implementation skew (Wave 4 barrier) | `cross-card-implementation-auditor` submits an `audit_report` FAIL on the card; server routes it to `implementation` | 2 per card (shared with audit) |
+| Tests do not verify the change (Wave 4 test-integrity gate) | `test-integrity-auditor` submits an `audit_report` FAIL on the card; server routes it to `implementation` to make the tests real | 2 per card (shared with audit) |
 | Cross-card finding needs an architecture change | Stop re-running the card; surface the contract/cards to the user | 0 (user intervenes) |
 | Agent crashes/times out | Report, card unchanged | 1 |
 
@@ -242,6 +276,7 @@ The model column below shows each agent's `model:` frontmatter value verbatim. W
 | `review-agent` | `opus` | Wave 2 — validates each cleared plan against constraints |
 | `implementation-agent` | `sonnet` | Wave 3 — executes plans, writes code, runs build/lint |
 | `cross-card-implementation-auditor` | `opus` | Wave 4 opening barrier — board-level; holds every implementation in `audit` at once, submits an `audit_report` FAIL on each card with realized-code interface skew (server routes it to `implementation`), returns a summary to the orchestrator |
+| `test-integrity-auditor` | `opus` | Wave 4 test-integrity gate — per-card; runs the suite + coverage on the card's changed code, fails cards whose tests pass without verifying anything by submitting an `audit_report` FAIL (server routes it to `implementation`), clears the rest by submitting nothing, returns a summary to the orchestrator |
 | `audit-research-agent` | `claude-haiku-4-5-20251001` | Wave 4 Phase A — git diff + blast radius, emits `AUDIT_FACTS_BUNDLE_V1` |
 | `audit-compose-agent` | `opus` | Wave 4 Phase B — fetches bundle by ID, writes audit report with a `## Verdict:` heading, then stops; the server routes on the verdict |
 
@@ -253,7 +288,8 @@ The model column below shows each agent's `model:` frontmatter value verbatim. W
 3. Spawn `plan-compose-agent` per card in parallel — reads the bundle, writes the `plan` artifact (no discovery calls)
 
 **Wave 4:**
-0. **Barrier first:** spawn `cross-card-implementation-auditor` (board-level, single instance), wait, and read its return summary — see the Cross-Card Consistency Barrier section. It has already submitted `audit_report` FAILs on the cross-card-inconsistent cards, routing them to `implementation`; the cards remaining in `audit` are the ones it cleared. Steps 1–3 run on those remaining cards only.
+0. **Barrier first:** spawn `cross-card-implementation-auditor` (board-level, single instance), wait, and read its return summary — see the Cross-Card Consistency Barrier section. It has already submitted `audit_report` FAILs on the cross-card-inconsistent cards, routing them to `implementation`; the cards remaining in `audit` are the ones it cleared. The steps below run on those remaining cards only.
+0.5. **Test-integrity gate next:** re-query the `audit` column, then spawn `test-integrity-auditor` per remaining card in parallel — see the Test-Integrity Gate section. Wait for all to return. Each fails its card or clears it: a card whose tests do not verify the change gets an `audit_report` FAIL submitted by the gate (server routes it to `implementation`); a card whose tests are real gets no artifact and stays in `audit`. Re-query the `audit` column again; the cards that remain are the ones the gate cleared. Steps 1–3 run on those only.
 1. Spawn `audit-research-agent` per (remaining) card in parallel — gathers git diff, blast radius, cross-references the plan artifact, emits `AUDIT_FACTS_BUNDLE_V1`
 2. Wait for ALL Phase A agents to complete
 3. Spawn `audit-compose-agent` per card in parallel — reads the bundle, writes the `audit_report` artifact with a mandatory `## Verdict:` heading; the server routes on the verdict (FAIL → `implementation` unconditionally; PASS / PASS WITH NOTES → `finished` when `audit_blocking` is OFF, else holds in `audit` for a human checkpoint).
