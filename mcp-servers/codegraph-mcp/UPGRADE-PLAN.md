@@ -27,22 +27,33 @@ What it cannot do (verified against source):
   catches degree-zero files; a clump `A→B→C→A` that nothing outside imports is
   invisible to *both* orphans and entry-points, yet it is dead.
 
-## 2. The use case this serves (north star)
+## 2. What symbol-level resolution unlocks
 
-The user audits **documents** (migration audits, architecture/phase docs)
-against a codebase. The dangerous failure is a **document that misdescribes the
-code**: calling dead code live (or vice-versa), inventing field names/shapes, or
-describing something under a name while the *live* equivalent sits under a
-sibling name the doc never mentions. The motivating incident: an audit said a
-nested `PlantIdentificationResponse` interface was the active flow and should be
-removed; it is in fact dead — but the live flow uses a flat
-`PlantIdentificationResult` sibling. Human intuition caught it ("those names are
-too familiar to be a lost fragment"). The tool's job is to make that intuition
-**checkable deterministically, at symbol granularity** — and to surface the live
-sibling automatically.
+codegraph today answers questions at *file* granularity, but most real
+engineering questions are at *symbol* granularity. Resolving the graph down to
+symbols is the spine of this upgrade, and it serves a whole family of workflows
+— no single one is "the" use case:
 
-Everything below ladders up to that, plus the broader goal: make codegraph a
-tool a serious developer would praise.
+- **Dead code, precisely:** is this *export / function / interface* used
+  anywhere, not just "is this file imported." (Today codegraph can only say the
+  file has N dependents.)
+- **True impact / refactor safety:** if I change this function's signature,
+  exactly which call sites break — instead of the coarse whole-file blast
+  radius.
+- **Comprehension:** what does this module actually export, who consumes each
+  export, what's public surface vs. internal.
+- **Who-calls-X:** symbol-level dependents, for navigating unfamiliar code.
+- **Verifying claims about code:** e.g. checking whether a document/audit's
+  description of the code is accurate. This is the *active example* that exposed
+  the gap — an audit called a nested interface the live flow and said to remove
+  it, when it was dead and a flat sibling was the real live shape — but it is
+  **one application** of symbol resolution + sibling surfacing, not the point.
+- **Endpoints & cross-language bridges** (Phase 4): API surface and IoT
+  channels, which also need below-file granularity.
+
+The organizing goal is simply: make codegraph authoritative for "is this *thing*
+— file **or** symbol — used, and what is its real blast radius," across whatever
+workflow, to a standard a serious developer would praise.
 
 ## 3. Guiding principles
 
@@ -145,9 +156,10 @@ Cheap, independently valuable, and prerequisites for trustworthy symbol work.
 - **S4. Calibrated verdicts** — barrels / namespace imports / dynamic access →
   `ambiguous` in this tier, with the reason named (never a false `unused`).
 - **S5. Sibling / near-name surfacing** — when reporting on a symbol, also
-  surface same-stem and structurally-similar symbols and their liveness. This is
-  the feature that turns "`…Response` is dead" into "`…Response` is dead, but
-  live sibling `…Result` exists at X" — the audit-catch the incident needed.
+  surface same-stem and structurally-similar symbols and their liveness. Turns
+  "`…Response` is dead" into "`…Response` is dead, but live sibling `…Result`
+  exists at X" — useful for refactors, comprehension, and (one case) the catch a
+  human had to make by hand in the active example.
 
 ### Phase 2 — TS/JS semantic enrichment (TypeScript compiler)
 Upgrade TS/JS verdicts from calibrated-syntactic to authoritative: follow
@@ -156,13 +168,15 @@ re-export barrels and namespace imports, run true find-all-references. Most
 calibrated substrate (honest about it).
 
 ### Phase 3 — Document ↔ code consistency
-Builds on the existing doc index (`DocNode`) + the new symbol graph.
+One concrete application of the symbol graph (the active doc-audit example) —
+not its reason for existing. Builds on the existing doc index (`DocNode`).
 - **D1. Symbol-level doc references** — extend doc scanning to extract the
   *symbols/shapes* a doc claims about code, not just file paths.
 - **D2. `codegraph_verify_doc(doc)`** — for each claim a doc makes: does the
   symbol exist? is it live or dead? does the described shape match a real one?
-  If not found, return the nearest real symbol (the sibling). This is the
-  deterministic backbone for catching a wrong audit before acting on it.
+  If not found, return the nearest real symbol (the sibling). A deterministic
+  backbone for catching a wrong doc/audit before acting on it — built entirely
+  on the Phase 1 symbol graph.
 
 ### Phase 4 — Interface / endpoint & cross-language surface
 Ideas from the Python tool, rebuilt correctly on tree-sitter.
@@ -209,8 +223,8 @@ Ideas from the Python tool, rebuilt correctly on tree-sitter.
 These are product calls, not engineering ones — I'll default unless you say
 otherwise:
 - Dead-code / dead-export: **exclude tests by default** (toggle available)?
-- Phase order after Phase 1: **Phase 3 (doc verification) next**, since it's
-  closest to your audit use case — or Phase 2 (max TS accuracy) first?
+- Phase order after Phase 1: **Phase 2 (max TS accuracy) next** — it sharpens
+  the core symbol verdicts that every workflow relies on — or jump to Phase 3/4?
 - Endpoint frameworks to prioritize first (**Express + FastAPI + Next**)?
 - Should `codegraph_verify_doc` eventually run as a completion hook (like the
   existing doc-sync idea), or stay an on-demand tool (**on-demand first**)?
