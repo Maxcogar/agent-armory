@@ -1,6 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
 
+import { ImportResolution } from "../types.js";
+
 // ============================================================
 // tsconfig.json Resolution
 // ============================================================
@@ -147,7 +149,6 @@ export function parseJavaScriptDependencies(filePath: string, rootDir?: string):
 
   const importPaths = new Set<string>();
   const dir = path.dirname(filePath);
-  const tsConfig = rootDir ? loadTsConfig(rootDir) : null;
 
   const importPatterns = [
     /import\s+(?:[\w*{},\s]+\s+from\s+)?['"]([^'"]+)['"]/g,  // static import
@@ -159,7 +160,7 @@ export function parseJavaScriptDependencies(filePath: string, rootDir?: string):
   for (const pattern of importPatterns) {
     let match: RegExpExecArray | null;
     while ((match = pattern.exec(content)) !== null) {
-      resolveImport(match[1], dir, filePath, rootDir, tsConfig, importPaths);
+      resolveImport(match[1], dir, filePath, rootDir, importPaths);
     }
   }
 
@@ -215,45 +216,62 @@ export function resolveJsImport(importPath: string, fromDir: string): string | n
   return null;
 }
 
+/**
+ * Resolve a single import specifier to a project file, classifying the result.
+ *
+ * This is the single source of truth for JS/TS module resolution, shared by the
+ * legacy `dependencies` extraction (via {@link resolveImport}) and the
+ * tree-sitter `imports` edges, so the two can never diverge on resolution.
+ *
+ *   - `internal`   — resolved to a project file (`to` is its absolute path)
+ *   - `unresolved` — a relative import that pointed at no existing file (a bug)
+ *   - `external`   — a bare package specifier or URL (npm/PyPI/builtin)
+ */
+export function resolveJsModule(
+  raw: string,
+  fromDir: string,
+  rootDir?: string
+): { to: string | null; resolution: ImportResolution } {
+  if (raw.startsWith("http://") || raw.startsWith("https://")) {
+    return { to: null, resolution: "external" };
+  }
+
+  // Relative imports (./foo, ../bar). A relative import that fails to resolve is
+  // a broken reference, not an external package.
+  if (raw.startsWith(".")) {
+    const resolved = resolveJsImport(raw, fromDir);
+    return resolved
+      ? { to: resolved, resolution: "internal" }
+      : { to: null, resolution: "unresolved" };
+  }
+
+  const tsConfig = rootDir ? loadTsConfig(rootDir) : null;
+
+  // TypeScript path aliases (e.g. @/models/User).
+  if (tsConfig?.hasPaths && rootDir) {
+    const resolved = resolveWithTsPaths(raw, rootDir, tsConfig);
+    if (resolved) return { to: resolved, resolution: "internal" };
+  }
+
+  // baseUrl resolution (e.g. "models/User" when baseUrl is "src").
+  if (tsConfig?.baseUrl) {
+    const resolved = resolveWithBaseUrl(raw, tsConfig.baseUrl);
+    if (resolved) return { to: resolved, resolution: "internal" };
+  }
+
+  // A bare specifier that matched no alias/baseUrl is an external package.
+  return { to: null, resolution: "external" };
+}
+
 function resolveImport(
   importPath: string,
   dir: string,
   sourceFile: string,
   rootDir: string | undefined,
-  tsConfig: TsConfig | null,
   result: Set<string>
 ): void {
-  // Skip URLs
-  if (importPath.startsWith("http://") || importPath.startsWith("https://")) return;
-
-  // 1. Try relative imports first (./foo, ../bar)
-  if (importPath.startsWith(".") || importPath.startsWith("..")) {
-    const resolved = resolveJsImport(importPath, dir);
-    if (resolved && resolved !== sourceFile) {
-      result.add(resolved);
-    }
-    return;
+  const { to, resolution } = resolveJsModule(importPath, dir, rootDir);
+  if (resolution === "internal" && to && to !== sourceFile) {
+    result.add(to);
   }
-
-  // 2. Try TypeScript path aliases (e.g. @/models/User, @components/Button)
-  if (tsConfig?.hasPaths) {
-    const resolved = resolveWithTsPaths(importPath, rootDir!, tsConfig);
-    if (resolved && resolved !== sourceFile) {
-      result.add(resolved);
-      return;
-    }
-  }
-
-  // 3. Try baseUrl resolution (e.g. "models/User" when baseUrl is "src")
-  if (tsConfig?.baseUrl) {
-    const resolved = resolveWithBaseUrl(importPath, tsConfig.baseUrl);
-    if (resolved && resolved !== sourceFile) {
-      result.add(resolved);
-      return;
-    }
-  }
-
-  // 4. Skip bare package specifiers (express, fs, lodash, etc.)
-  // These are npm packages or Node built-ins, not project files.
-  // We only reach here if alias and baseUrl resolution both failed.
 }

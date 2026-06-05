@@ -20,7 +20,8 @@ import { DependencyGraph, FileNode, DocNode, ParseError } from "./types.js";
 // the location with CODEGRAPH_CACHE_DIR.
 
 /** Bump whenever the serialized graph shape changes. */
-export const SCHEMA_VERSION = 1;
+// v2: FileNode gained optional imports/symbols/isTest (tree-sitter import edges).
+export const SCHEMA_VERSION = 2;
 
 interface SerializedGraph {
   schemaVersion: number;

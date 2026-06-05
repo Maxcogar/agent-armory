@@ -198,9 +198,14 @@ Plus: re-run the existing 8 suites unchanged after Step 1 (regression gate).
 
 ## 6. Build order (each a reviewable unit)
 
-1. tree-sitter foundation + `ImportEdge`; derive `dependencies[]`; existing tests green. *(no new tools)*
-2. F1 edge kinds + `excludeTypeOnly`; F2 broken imports.
-3. F3 externals; F5 test classification.
+1. ✅ tree-sitter foundation + import extraction (`RawImport`), standalone + tested. *(no new tools)*
+2. ✅ Graph integration: `FileNode.imports` (`ImportEdge` with kind + specifiers +
+   internal/external/unresolved resolution) populated for JS/TS via a shared
+   resolver; parity with `dependencies[]` asserted by test. Edge-kind + broken/
+   external data now live in the graph. *(JS/TS only; Python/C++ extraction +
+   the F1 `excludeTypeOnly` option and the F2/F3 tools are the next units.)*
+3. Wire Python + C++ import resolution; expose F1 `excludeTypeOnly`, F2 broken
+   imports, F3 externals tools; F5 test classification.
 4. F4 reachability dead-code; F6 clusters.
 5. S1/S2 symbol + specifier extraction; `get_symbol`, `find_symbol_dependents`.
 6. S3/S4 dead-exports + unused-imports + calibrated verdicts; S5 siblings.

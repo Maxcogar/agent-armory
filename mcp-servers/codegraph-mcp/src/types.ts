@@ -232,6 +232,9 @@ export interface RelatedDocsResult {
 /** How an import couples the importer to its target. */
 export type ImportKind = "value" | "type" | "dynamic" | "re-export" | "side-effect";
 
+/** Whether an import's `raw` specifier resolved to an in-graph file. */
+export type ImportResolution = "internal" | "external" | "unresolved";
+
 /** One name brought in by an import or re-export. */
 export interface ImportSpecifier {
   /** Name in the source module; "default" for a default import, "*" for a namespace. */
@@ -259,7 +262,7 @@ export interface RawImport {
 export interface ImportEdge extends RawImport {
   /** Resolved absolute path (internal), an external package id, or null. */
   to: string | null;
-  resolution: "internal" | "external" | "unresolved";
+  resolution: ImportResolution;
 }
 
 export type SymbolKind =
