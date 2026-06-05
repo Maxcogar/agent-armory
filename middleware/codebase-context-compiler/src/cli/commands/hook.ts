@@ -8,7 +8,7 @@
  * transcript contains a <CTXPACK_PLAN>...</CTXPACK_PLAN> block that passes the
  * assumption firewall for that package.
  */
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { join } from 'node:path';
 import { openContext, loadPackageFile, PKG_JSON, PKG_MD } from '../app-context.js';
@@ -53,6 +53,36 @@ function looksLikeCodingTask(prompt: string): boolean {
   return c.task.task_types.some((t) => t !== 'general_change') || c.mentionedPaths.length > 0 || c.mentionedSymbols.length > 0;
 }
 
+function looksLikeNonCodeWorkflowPrompt(prompt: string): boolean {
+  if (!prompt || prompt.trim().split(/\s+/).length < 2) return false;
+  const lower = prompt.toLowerCase();
+  if (/\b(write|add|create|implement|fix|update|change|modify|refactor)\b.{0,80}\b(test|tests|specs?|unit test|integration test|e2e)\b/.test(lower)) {
+    return false;
+  }
+  if (/\b(implement|fix|debug|refactor|patch|wire)\b.{0,80}\b(code|function|component|endpoint|route|api|schema|migration|bug|feature)\b/.test(lower)) {
+    return false;
+  }
+  if (/\b(agentboard|workspace card|board card|artifact|memory file|memory files|observation log|skill-observations|handoff|session summary|core ingest)\b/.test(lower)) {
+    return true;
+  }
+  if (/\b(write|create|draft|append|record|log|make|update)\b.{0,100}\b(doc|document|documentation|markdown|readme|changelog|roadmap|plan|note|notes|report|write[- ]?up|brief|proposal)\b/.test(lower)) {
+    return true;
+  }
+  const c = classifyTask(prompt);
+  const nonDocTypes = c.task.task_types.filter((t) => t !== 'documentation_only_change' && t !== 'general_change');
+  return c.task.intent === 'documentation_update' && nonDocTypes.length === 0;
+}
+
+function isNonCodeArtifactPath(path: string): boolean {
+  const normalized = path.replace(/\\/g, '/').toLowerCase();
+  const name = normalized.split('/').pop() ?? normalized;
+  if (/^(readme|changelog|handoff|roadmap|todo|agents|claude|gemini|memory|notes?)\.(md|mdx|txt|rst|adoc)$/i.test(name)) return true;
+  if (/\.(md|mdx|txt|rst|adoc|docx)$/i.test(normalized)) return true;
+  if (/(^|\/)(docs?|documentation|plans?|notes?|reports?|handoffs?|artifacts?|memory|memories|skill-observations|agentboard)\//.test(normalized)) return true;
+  if (/(^|\/)\.(claude|codex)\//.test(normalized)) return true;
+  return false;
+}
+
 function relForRoot(root: string, abs: string): string {
   const normalizedAbs = abs.replace(/\\/g, '/');
   const normalizedRoot = root.replace(/\\/g, '/').replace(/\/$/, '');
@@ -69,6 +99,31 @@ function alreadySeen(file: string, key: string): boolean {
 
 function markSeen(file: string, key: string): void {
   try { appendFileSync(file, key + '\n'); } catch { /* best effort */ }
+}
+
+type SessionMode = 'ctxpack_active' | 'non_code_workflow';
+
+function sessionModePath(contextDir: string, session: string): string {
+  return join(contextDir, `.mode-${session.replace(/[^\w.-]/g, '_')}.json`);
+}
+
+function writeSessionMode(contextDir: string, session: string, mode: SessionMode, reason: string): void {
+  try {
+    writeFileSync(sessionModePath(contextDir, session), JSON.stringify({
+      mode,
+      reason,
+      updated_at: new Date().toISOString(),
+    }, null, 2));
+  } catch { /* optional session state */ }
+}
+
+function isNonCodeWorkflowSession(contextDir: string, session: string): boolean {
+  try {
+    const parsed = JSON.parse(readFileSync(sessionModePath(contextDir, session), 'utf8')) as { mode?: string };
+    return parsed.mode === 'non_code_workflow';
+  } catch {
+    return false;
+  }
 }
 
 export async function runHook(event: string): Promise<number> {
@@ -90,11 +145,21 @@ export async function handleHook(event: string, input: any): Promise<Record<stri
     if (event === 'user-prompt') {
       const prompt: string = input.prompt ?? input.user_prompt ?? '';
       const root: string = input.cwd ?? process.cwd();
+      const sessionId: string = input.session_id ?? 'nosession';
+      if (looksLikeNonCodeWorkflowPrompt(prompt)) {
+        const contextDir = join(root, '.context');
+        try {
+          mkdirSync(contextDir, { recursive: true });
+          writeSessionMode(contextDir, sessionId, 'non_code_workflow', 'document/memory/admin workflow');
+        } catch { /* optional session state */ }
+        return {};
+      }
       if (!looksLikeCodingTask(prompt)) return {};
 
       const ctx = openContext(root);
       try {
-        writeChangeBaseline(ctx.contextDir, input.session_id ?? 'nosession', changedFiles(root) ?? []);
+        writeSessionMode(ctx.contextDir, sessionId, 'ctxpack_active', 'codebase task');
+        writeChangeBaseline(ctx.contextDir, sessionId, changedFiles(root) ?? []);
         const idx = await ctx.indexer.index(ctx.root, ctx.repoName, {
           excludes: ctx.config.excludes,
           maxBytes: ctx.config.maxBytes,
@@ -128,13 +193,19 @@ export async function handleHook(event: string, input: any): Promise<Record<stri
 
       const root: string = input.cwd ?? process.cwd();
       const toolInput = input.tool_input ?? {};
+      const sessionId: string = input.session_id ?? 'nosession';
+      const contextDir = join(root, '.context');
       if (isSearch) {
-        const gate = validateQuestionSearchGate(root, input.session_id ?? 'nosession');
+        if (isNonCodeWorkflowSession(contextDir, sessionId)) return {};
+        const gate = validateQuestionSearchGate(root, sessionId);
         if (gate.decision === 'deny') return denyEdit(gate.message);
         return {};
       }
 
       if (isSubagent) {
+        if (isNonCodeWorkflowSession(contextDir, sessionId)) {
+          return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow' } };
+        }
         const ctx = openContext(root);
         try {
           const pkgPath = join(ctx.contextDir, PKG_JSON);
@@ -158,6 +229,12 @@ export async function handleHook(event: string, input: any): Promise<Record<stri
       if (isEdit) {
         const boundary = forbiddenBoundary(path);
         if (boundary) return denyEdit(`ctxpack: ${path} ${boundary}; it should not be hand-edited.`);
+        if (isNonCodeArtifactPath(path)) {
+          return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow' } };
+        }
+        if (isNonCodeWorkflowSession(contextDir, sessionId)) {
+          return denyEdit(`ctxpack: current prompt is a document/memory/admin workflow, so code edit ${path} is blocked. Submit a code task first if this edit is intentional.`);
+        }
       }
 
       const ctx = openContext(root);
@@ -200,7 +277,8 @@ export async function handleHook(event: string, input: any): Promise<Record<stri
     if (event === 'stop') {
       const root: string = input.cwd ?? process.cwd();
       const contextDir = join(root, '.context');
-      const baseline = readChangeBaseline(contextDir, input.session_id ?? 'nosession');
+      const sessionId: string = input.session_id ?? 'nosession';
+      const baseline = readChangeBaseline(contextDir, sessionId);
       const changed = changedFiles(root, baseline);
       if (!changed || changed.length === 0) return {};
 
@@ -211,6 +289,7 @@ export async function handleHook(event: string, input: any): Promise<Record<stri
           reason: `ctxpack: you modified files that should not be hand-edited: ${forbidden.join(', ')}. Revert these or regenerate them through their source, then finish.`,
         };
       }
+      if (isNonCodeWorkflowSession(contextDir, sessionId)) return {};
 
       const ctx = openContext(root);
       try {
