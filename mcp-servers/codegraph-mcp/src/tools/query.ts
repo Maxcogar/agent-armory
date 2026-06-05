@@ -803,12 +803,25 @@ export function toolFindDeadExports(
       skipped.add(node.language);
       continue;
     }
+    // In C/C++ a .cpp function defined here but DECLARED in an included header is
+    // an implementation of that header's API — the header declaration is the
+    // dead-code candidate, not this definition. (Resolving a call through the
+    // header lands on the prototype, so the definition would otherwise look dead.)
+    let cppHeaderDeclared: Set<string> | null = null;
+    if (node.language === "cpp" || node.language === "arduino") {
+      cppHeaderDeclared = new Set();
+      for (const dep of node.dependencies) {
+        const dn = graph.nodes.get(dep);
+        if (dn?.symbols) for (const s of dn.symbols) cppHeaderDeclared.add(s.name);
+      }
+    }
     for (const sym of node.symbols) {
       if (!sym.exported) continue;
       // Instance methods need type inference to resolve cross-file — never claim
       // them dead. For namespace languages, only types resolve precisely.
       if (sym.kind === "method") continue;
       if (FQN_TYPE_ONLY.has(node.language) && !TYPE_KINDS.has(sym.kind)) continue;
+      if (cppHeaderDeclared && cppHeaderDeclared.has(sym.name)) continue;
       const liveness = livenessFor(sym.name, node, tsLiveness, sg);
       if (liveness.verdict === "unused") dead.push({ ...toSymbolRef(node, sym), liveness });
       else if (liveness.verdict === "ambiguous") ambiguousCount++;

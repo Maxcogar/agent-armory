@@ -145,6 +145,10 @@ function extractPyImports(root: Node): RawImport[] {
       const local = aliased ? nameNode.childForFieldName("alias")?.text ?? imported : imported;
       specifiers.push({ imported, local, kind: "named", isType: false });
     }
+    // `from mod import *` brings every name of `mod` into scope.
+    if (stmt.descendantsOfType("wildcard_import").length > 0) {
+      specifiers.push({ imported: "*", local: "*", kind: "namespace", isType: false });
+    }
     out.push({ raw, kind: "value", specifiers, line: lineOf(stmt) });
   }
 

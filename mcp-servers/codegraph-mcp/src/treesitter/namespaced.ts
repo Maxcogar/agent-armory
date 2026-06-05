@@ -214,6 +214,30 @@ export function computeNamespacedConnections(graph: DependencyGraph): SymbolGrap
     }
   }
 
+  // name lookup within a namespace, for the prefix fallback below.
+  const nsTypeByName = new Map<string, Map<string, string>>();
+  for (const [ns, types] of nsTypes) {
+    const m = new Map<string, string>();
+    for (const t of types) if (!m.has(t.name)) m.set(t.name, t.key);
+    nsTypeByName.set(ns, m);
+  }
+  // Resolve a fully-qualified name, falling back to the final segment within the
+  // longest matching module/namespace prefix. This handles names declared in an
+  // inline `mod {}` (Rust) or nested namespace whose own module path isn't a
+  // file: `crate::a::b::Item` resolves to `Item` in module `crate::a` when `b`
+  // is an inline submodule of that file.
+  const resolveFqn = (fqn: string, sep: string): string | null => {
+    const exact = fqnIndex.get(fqn);
+    if (exact) return exact;
+    const parts = fqn.split(sep);
+    const name = parts[parts.length - 1];
+    for (let i = parts.length - 1; i >= 1; i--) {
+      const k = nsTypeByName.get(parts.slice(0, i).join(sep))?.get(name);
+      if (k) return k;
+    }
+    return null;
+  };
+
   for (const p of parsed) {
     const cfg = CONFIGS[p.language]!;
     covered.add(p.file);
@@ -226,7 +250,7 @@ export function computeNamespacedConnections(graph: DependencyGraph): SymbolGrap
     for (const t of nsTypes.get(p.namespace) ?? []) nameToKey.set(t.name, t.key);
     for (const imp of cfg.importsOf(p.root)) {
       if (imp.fqn) {
-        const key = fqnIndex.get(imp.fqn);
+        const key = resolveFqn(imp.fqn, cfg.sep);
         if (key) nameToKey.set(imp.alias ?? imp.fqn.split(cfg.sep).pop()!, key);
       } else if (imp.namespace) {
         for (const t of nsTypes.get(imp.namespace) ?? []) nameToKey.set(t.name, t.key);

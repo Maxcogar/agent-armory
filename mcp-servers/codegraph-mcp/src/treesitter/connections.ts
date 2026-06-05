@@ -87,10 +87,25 @@ export function computeTreeSitterConnections(graph: DependencyGraph): SymbolGrap
       }
     }
 
+    // `from mod import *` makes every name of `mod` resolvable directly.
+    const starResolve = new Map<string, string>();
+    for (const e of node.imports ?? []) {
+      if (e.resolution !== "internal" || !e.to) continue;
+      if (!e.specifiers.some((s) => s.kind === "namespace" && s.local === "*")) continue;
+      const target = graph.nodes.get(e.to);
+      if (target?.symbols) {
+        for (const sym of target.symbols) {
+          const key = `${e.to}#${sym.name}`;
+          if (!starResolve.has(sym.name)) starResolve.set(sym.name, key);
+          setInfo(key, e.to, sym.name, sym.line);
+        }
+      }
+    }
+
     const moduleKey = `${node.path}#(module)`;
     setInfo(moduleKey, node.path, "(module top-level)", 0);
     const resolveName = (name: string): string | null =>
-      localResolve.get(name) ?? sameFile.get(name) ?? includeResolve.get(name) ?? null;
+      localResolve.get(name) ?? sameFile.get(name) ?? includeResolve.get(name) ?? starResolve.get(name) ?? null;
 
     const ATTR = lang === "python" ? "attribute" : "field_expression";
     const OBJ = lang === "python" ? "object" : "argument";
@@ -258,20 +273,11 @@ export function computeGoConnections(graph: DependencyGraph): SymbolGraph {
   };
 
   const moduleName = goModuleName(graph.rootDir);
-  // package directory -> (symbol name -> key)
+  // Parse each Go file once; index symbols by directory and record each
+  // directory's *declared* package name (which need not match the dir name).
   const dirSymbols = new Map<string, Map<string, string>>();
-  for (const node of graph.nodes.values()) {
-    if (node.language !== "go" || !node.symbols) continue;
-    const dir = path.dirname(node.path);
-    let m = dirSymbols.get(dir);
-    if (!m) dirSymbols.set(dir, (m = new Map()));
-    for (const sym of node.symbols) {
-      const key = `${node.path}#${sym.name}`;
-      if (!m.has(sym.name)) m.set(sym.name, key);
-      setInfo(key, node.path, sym.name, sym.line);
-    }
-  }
-
+  const dirPackageName = new Map<string, string>();
+  const parsed: { node: { path: string; imports?: { resolution: string; raw: string; specifiers: { local: string }[] }[]; symbols?: { name: string; line: number }[] }; root: Node }[] = [];
   for (const node of graph.nodes.values()) {
     if (node.language !== "go" || !node.symbols) continue;
     let code: string;
@@ -282,6 +288,22 @@ export function computeGoConnections(graph: DependencyGraph): SymbolGraph {
     }
     const tree = parseSource("go", code);
     if (!tree) continue;
+    parsed.push({ node, root: tree.rootNode });
+    const dir = path.dirname(node.path);
+    let m = dirSymbols.get(dir);
+    if (!m) dirSymbols.set(dir, (m = new Map()));
+    for (const sym of node.symbols) {
+      const key = `${node.path}#${sym.name}`;
+      if (!m.has(sym.name)) m.set(sym.name, key);
+      setInfo(key, node.path, sym.name, sym.line);
+    }
+    if (!dirPackageName.has(dir)) {
+      const pkg = tree.rootNode.descendantsOfType("package_clause")[0]?.namedChild(0)?.text;
+      if (pkg) dirPackageName.set(dir, pkg);
+    }
+  }
+
+  for (const { node, root } of parsed) {
     covered.add(node.path);
 
     const sameDir = dirSymbols.get(path.dirname(node.path)) ?? new Map<string, string>();
@@ -290,13 +312,18 @@ export function computeGoConnections(graph: DependencyGraph): SymbolGraph {
       if (e.resolution !== "internal") continue;
       const d = resolveGoPackageDir(e.raw, graph.rootDir, moduleName);
       const syms = d ? dirSymbols.get(d) : undefined;
-      const alias = e.specifiers[0]?.local;
-      if (syms && alias) aliasDir.set(alias, syms);
+      if (!syms) continue;
+      // Register under the import's local name AND the package's declared name,
+      // so `pkg.Sym` resolves even when the package name != the directory name.
+      const local = e.specifiers[0]?.local;
+      if (local) aliasDir.set(local, syms);
+      const pkg = d ? dirPackageName.get(d) : undefined;
+      if (pkg) aliasDir.set(pkg, syms);
     }
 
     const moduleKey = `${node.path}#(module)`;
     setInfo(moduleKey, node.path, "(module top-level)", 0);
-    const syms = [...node.symbols].sort((a, b) => a.line - b.line);
+    const syms = [...(node.symbols ?? [])].sort((a, b) => a.line - b.line);
     const ownerAt = (line: number): string => {
       let o = moduleKey;
       for (const s of syms) {
@@ -323,7 +350,7 @@ export function computeGoConnections(graph: DependencyGraph): SymbolGraph {
       }
       for (const c of n.namedChildren) walk(c);
     };
-    walk(tree.rootNode);
+    walk(root);
   }
 
   return { uses, usedBy, info, covered };

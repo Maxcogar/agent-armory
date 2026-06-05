@@ -169,7 +169,8 @@ const LANG_DECLS: Partial<Record<Language, DeclSpec[]>> = {
     { types: ["trait_item"], kind: "interface", isType: true },
     { types: ["type_item"], kind: "type", isType: true },
     { types: ["const_item", "static_item"], kind: "const" },
-    { types: ["mod_item"], kind: "class" },
+    // `mod` declarations are namespaces, not dead-code candidates (a module used
+    // only via a path would otherwise be a false dead) — not extracted as symbols.
   ],
   java: [
     { types: ["class_declaration", "record_declaration"], kind: "class" },
