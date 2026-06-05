@@ -2,11 +2,12 @@ import * as fs from "fs";
 import * as path from "path";
 import Parser from "tree-sitter";
 
-import { DependencyGraph, Language } from "../types.js";
+import { DependencyGraph } from "../types.js";
 import { parseSource } from "./parser.js";
 import { cppFunctionName } from "./symbols.js";
 import { goModuleName, resolveGoPackageDir } from "../parsers/golang.js";
 import { getTransitiveDependencies } from "../graph.js";
+import { SymbolGraphBuilder, enclosingDeclKey } from "./graphbuilder.js";
 import type { SymbolGraph } from "../tscompiler/connections.js";
 
 // ============================================================
@@ -24,24 +25,7 @@ import type { SymbolGraph } from "../tscompiler/connections.js";
 type Node = Parser.SyntaxNode;
 
 export function computeTreeSitterConnections(graph: DependencyGraph): SymbolGraph {
-  const uses = new Map<string, Set<string>>();
-  const usedBy = new Map<string, Set<string>>();
-  const info = new Map<string, { file: string; name: string; line: number }>();
-  const covered = new Set<string>();
-
-  const ensure = (m: Map<string, Set<string>>, k: string): Set<string> => {
-    let s = m.get(k);
-    if (!s) m.set(k, (s = new Set()));
-    return s;
-  };
-  const addEdge = (from: string, to: string): void => {
-    if (from === to) return;
-    ensure(uses, from).add(to);
-    ensure(usedBy, to).add(from);
-  };
-  const setInfo = (key: string, file: string, name: string, line: number): void => {
-    if (!info.has(key)) info.set(key, { file, name, line });
-  };
+  const b = new SymbolGraphBuilder();
 
   for (const node of graph.nodes.values()) {
     const lang = node.language;
@@ -55,7 +39,7 @@ export function computeTreeSitterConnections(graph: DependencyGraph): SymbolGrap
     }
     const tree = parseSource(lang, code);
     if (!tree) continue;
-    covered.add(node.path);
+    b.covered.add(node.path);
 
     // Resolution maps: a used name -> the symbol key it binds to.
     const localResolve = new Map<string, string>(); // named import: local -> `${file}#${imported}`
@@ -71,7 +55,7 @@ export function computeTreeSitterConnections(graph: DependencyGraph): SymbolGrap
     for (const sym of node.symbols ?? []) {
       const key = `${node.path}#${sym.name}`;
       sameFile.set(sym.name, key);
-      setInfo(key, node.path, sym.name, sym.line);
+      b.setInfo(key, node.path, sym.name, sym.line);
     }
     // C++ resolves calls by name against symbols declared in #included files.
     const includeResolve = new Map<string, string>();
@@ -82,7 +66,7 @@ export function computeTreeSitterConnections(graph: DependencyGraph): SymbolGrap
         for (const sym of dn.symbols) {
           const key = `${dep}#${sym.name}`;
           if (!includeResolve.has(sym.name)) includeResolve.set(sym.name, key);
-          setInfo(key, dep, sym.name, sym.line);
+          b.setInfo(key, dep, sym.name, sym.line);
         }
       }
     }
@@ -97,13 +81,12 @@ export function computeTreeSitterConnections(graph: DependencyGraph): SymbolGrap
         for (const sym of target.symbols) {
           const key = `${e.to}#${sym.name}`;
           if (!starResolve.has(sym.name)) starResolve.set(sym.name, key);
-          setInfo(key, e.to, sym.name, sym.line);
+          b.setInfo(key, e.to, sym.name, sym.line);
         }
       }
     }
 
-    const moduleKey = `${node.path}#(module)`;
-    setInfo(moduleKey, node.path, "(module top-level)", 0);
+    const moduleKey = b.moduleKey(node.path);
     const resolveName = (name: string): string | null =>
       localResolve.get(name) ?? sameFile.get(name) ?? includeResolve.get(name) ?? starResolve.get(name) ?? null;
 
@@ -132,13 +115,13 @@ export function computeTreeSitterConnections(graph: DependencyGraph): SymbolGrap
       const tn = topName(n);
       if (tn) {
         encl = `${node.path}#${tn}`;
-        setInfo(encl, node.path, tn, n.startPosition.row + 1);
+        b.setInfo(encl, node.path, tn, n.startPosition.row + 1);
       }
       if (n.type === ATTR) {
         const obj = n.childForFieldName(OBJ);
         const mem = n.childForFieldName(MEM);
         if (obj && obj.type === "identifier" && mem && moduleAlias.has(obj.text)) {
-          addEdge(encl, `${moduleAlias.get(obj.text)}#${mem.text}`);
+          b.addEdge(encl, `${moduleAlias.get(obj.text)}#${mem.text}`);
         }
         // Recurse into the object only — skip the member identifier.
         if (obj) walk(obj, encl);
@@ -146,14 +129,14 @@ export function computeTreeSitterConnections(graph: DependencyGraph): SymbolGrap
       }
       if (n.type === "identifier") {
         const tgt = resolveName(n.text);
-        if (tgt) addEdge(encl, tgt);
+        if (tgt) b.addEdge(encl, tgt);
       }
       for (const c of n.namedChildren) walk(c, encl);
     };
     walk(tree.rootNode, moduleKey);
   }
 
-  return { uses, usedBy, info, covered };
+  return b.result();
 }
 
 // ============================================================
@@ -168,23 +151,7 @@ export function computeTreeSitterConnections(graph: DependencyGraph): SymbolGrap
 // from connection tracing.
 
 export function computeRubyConnections(graph: DependencyGraph): SymbolGraph {
-  const uses = new Map<string, Set<string>>();
-  const usedBy = new Map<string, Set<string>>();
-  const info = new Map<string, { file: string; name: string; line: number }>();
-  const covered = new Set<string>();
-  const ensure = (m: Map<string, Set<string>>, k: string): Set<string> => {
-    let s = m.get(k);
-    if (!s) m.set(k, (s = new Set()));
-    return s;
-  };
-  const addEdge = (from: string, to: string): void => {
-    if (from === to) return;
-    ensure(uses, from).add(to);
-    ensure(usedBy, to).add(from);
-  };
-  const setInfo = (key: string, file: string, name: string, line: number): void => {
-    if (!info.has(key)) info.set(key, { file, name, line });
-  };
+  const b = new SymbolGraphBuilder();
 
   for (const node of graph.nodes.values()) {
     if (node.language !== "ruby" || !node.symbols) continue;
@@ -196,7 +163,7 @@ export function computeRubyConnections(graph: DependencyGraph): SymbolGraph {
     }
     const tree = parseSource("ruby", code);
     if (!tree) continue;
-    covered.add(node.path);
+    b.covered.add(node.path);
 
     // Files this file can see: itself + everything it transitively requires.
     const visible = new Set<string>([node.path, ...getTransitiveDependencies(graph, node.path)]);
@@ -207,7 +174,7 @@ export function computeRubyConnections(graph: DependencyGraph): SymbolGraph {
       for (const sym of fn.symbols) {
         const key = `${f}#${sym.name}`;
         (byName.get(sym.name) ?? byName.set(sym.name, []).get(sym.name)!).push(key);
-        setInfo(key, f, sym.name, sym.line);
+        b.setInfo(key, f, sym.name, sym.line);
       }
     }
     const ownNames = new Set(node.symbols.map((s) => s.name));
@@ -217,30 +184,22 @@ export function computeRubyConnections(graph: DependencyGraph): SymbolGraph {
       return keys && keys.length === 1 ? keys[0] : null;
     };
 
-    const moduleKey = `${node.path}#(module)`;
-    setInfo(moduleKey, node.path, "(module top-level)", 0);
-    const syms = [...node.symbols].sort((a, b) => a.line - b.line);
-    const ownerAt = (line: number): string => {
-      let o = moduleKey;
-      for (const s of syms) {
-        if (s.line <= line) o = `${node.path}#${s.name}`;
-        else break;
-      }
-      return o;
-    };
-
-    const stack: Node[] = [tree.rootNode];
-    while (stack.length > 0) {
-      const n = stack.pop()!;
+    // Attribute each reference to its enclosing class/module/method (structural),
+    // falling back to the file's module-load scope at top level.
+    const moduleKey = b.moduleKey(node.path);
+    const walk = (n: Node, enclosing: string): void => {
+      const declKey = enclosingDeclKey("ruby", n, node.path);
+      const encl = declKey ?? enclosing;
       if ((n.type === "constant" || n.type === "identifier") && n.namedChildCount === 0) {
         const target = resolve(n.text);
-        if (target) addEdge(ownerAt(n.startPosition.row + 1), target);
+        if (target) b.addEdge(encl, target);
       }
-      for (const c of n.namedChildren) stack.push(c);
-    }
+      for (const c of n.namedChildren) walk(c, encl);
+    };
+    walk(tree.rootNode, moduleKey);
   }
 
-  return { uses, usedBy, info, covered };
+  return b.result();
 }
 
 // ============================================================
@@ -254,23 +213,7 @@ export function computeRubyConnections(graph: DependencyGraph): SymbolGraph {
 // name-based fallback it cannot mis-resolve a colliding name in another package.
 
 export function computeGoConnections(graph: DependencyGraph): SymbolGraph {
-  const uses = new Map<string, Set<string>>();
-  const usedBy = new Map<string, Set<string>>();
-  const info = new Map<string, { file: string; name: string; line: number }>();
-  const covered = new Set<string>();
-  const ensure = (m: Map<string, Set<string>>, k: string): Set<string> => {
-    let s = m.get(k);
-    if (!s) m.set(k, (s = new Set()));
-    return s;
-  };
-  const addEdge = (from: string, to: string): void => {
-    if (from === to) return;
-    ensure(uses, from).add(to);
-    ensure(usedBy, to).add(from);
-  };
-  const setInfo = (key: string, file: string, name: string, line: number): void => {
-    if (!info.has(key)) info.set(key, { file, name, line });
-  };
+  const b = new SymbolGraphBuilder();
 
   const moduleName = goModuleName(graph.rootDir);
   // Parse each Go file once; index symbols by directory and record each
@@ -295,7 +238,7 @@ export function computeGoConnections(graph: DependencyGraph): SymbolGraph {
     for (const sym of node.symbols) {
       const key = `${node.path}#${sym.name}`;
       if (!m.has(sym.name)) m.set(sym.name, key);
-      setInfo(key, node.path, sym.name, sym.line);
+      b.setInfo(key, node.path, sym.name, sym.line);
     }
     if (!dirPackageName.has(dir)) {
       const pkg = tree.rootNode.descendantsOfType("package_clause")[0]?.namedChild(0)?.text;
@@ -304,7 +247,7 @@ export function computeGoConnections(graph: DependencyGraph): SymbolGraph {
   }
 
   for (const { node, root } of parsed) {
-    covered.add(node.path);
+    b.covered.add(node.path);
 
     const sameDir = dirSymbols.get(path.dirname(node.path)) ?? new Map<string, string>();
     const aliasDir = new Map<string, Map<string, string>>();
@@ -321,37 +264,28 @@ export function computeGoConnections(graph: DependencyGraph): SymbolGraph {
       if (pkg) aliasDir.set(pkg, syms);
     }
 
-    const moduleKey = `${node.path}#(module)`;
-    setInfo(moduleKey, node.path, "(module top-level)", 0);
-    const syms = [...(node.symbols ?? [])].sort((a, b) => a.line - b.line);
-    const ownerAt = (line: number): string => {
-      let o = moduleKey;
-      for (const s of syms) {
-        if (s.line <= line) o = `${node.path}#${s.name}`;
-        else break;
-      }
-      return o;
-    };
-
-    const walk = (n: Node): void => {
+    const moduleKey = b.moduleKey(node.path);
+    const walk = (n: Node, enclosing: string): void => {
+      const declKey = enclosingDeclKey("go", n, node.path);
+      const encl = declKey ?? enclosing;
       if (n.type === "selector_expression") {
         const operand = n.childForFieldName("operand");
         const field = n.childForFieldName("field");
         if (operand && field && operand.type === "identifier" && aliasDir.has(operand.text)) {
           const target = aliasDir.get(operand.text)!.get(field.text);
-          if (target) addEdge(ownerAt(n.startPosition.row + 1), target);
-          walk(operand);
+          if (target) b.addEdge(encl, target);
+          walk(operand, encl);
           return;
         }
       }
       if (n.type === "identifier") {
         const target = sameDir.get(n.text);
-        if (target) addEdge(ownerAt(n.startPosition.row + 1), target);
+        if (target) b.addEdge(encl, target);
       }
-      for (const c of n.namedChildren) walk(c);
+      for (const c of n.namedChildren) walk(c, encl);
     };
-    walk(root);
+    walk(root, moduleKey);
   }
 
-  return { uses, usedBy, info, covered };
+  return b.result();
 }

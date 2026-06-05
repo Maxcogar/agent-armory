@@ -4,6 +4,7 @@ import Parser from "tree-sitter";
 import { DependencyGraph, Language, SymbolNode, ImportEdge } from "../types.js";
 import { parseSource } from "./parser.js";
 import { rustCrateRoot, rustModulePath } from "../parsers/rust.js";
+import { SymbolGraphBuilder, enclosingDeclKey } from "./graphbuilder.js";
 import type { SymbolGraph } from "../tscompiler/connections.js";
 
 // ============================================================
@@ -155,23 +156,7 @@ const CONFIGS: Partial<Record<Language, NsConfig>> = { java: JAVA, csharp: CSHAR
 const NS_LANGS: ReadonlySet<Language> = new Set<Language>(["java", "csharp", "php", "rust"]);
 
 export function computeNamespacedConnections(graph: DependencyGraph): SymbolGraph {
-  const uses = new Map<string, Set<string>>();
-  const usedBy = new Map<string, Set<string>>();
-  const info = new Map<string, { file: string; name: string; line: number }>();
-  const covered = new Set<string>();
-  const ensure = (m: Map<string, Set<string>>, k: string): Set<string> => {
-    let s = m.get(k);
-    if (!s) m.set(k, (s = new Set()));
-    return s;
-  };
-  const addEdge = (from: string, to: string): void => {
-    if (from === to) return;
-    ensure(uses, from).add(to);
-    ensure(usedBy, to).add(from);
-  };
-  const setInfo = (key: string, file: string, name: string, line: number): void => {
-    if (!info.has(key)) info.set(key, { file, name, line });
-  };
+  const b = new SymbolGraphBuilder();
 
   // Parse each file once; collect namespace + type symbols; build the FQN index.
   interface Parsed {
@@ -206,7 +191,7 @@ export function computeNamespacedConnections(graph: DependencyGraph): SymbolGrap
     const indexKinds = cfg.indexKinds ?? TYPE_KINDS;
     for (const sym of node.symbols) {
       const key = `${node.path}#${sym.name}`;
-      setInfo(key, node.path, sym.name, sym.line);
+      b.setInfo(key, node.path, sym.name, sym.line);
       if (!indexKinds.has(sym.kind)) continue;
       const fqn = joinNs(namespace, sym.name, cfg.sep);
       if (!fqnIndex.has(fqn)) fqnIndex.set(fqn, key);
@@ -240,9 +225,8 @@ export function computeNamespacedConnections(graph: DependencyGraph): SymbolGrap
 
   for (const p of parsed) {
     const cfg = CONFIGS[p.language]!;
-    covered.add(p.file);
-    const moduleKey = `${p.file}#(module)`;
-    setInfo(moduleKey, p.file, "(module top-level)", 0);
+    b.covered.add(p.file);
+    const moduleKey = b.moduleKey(p.file);
 
     // simple name -> key, from same-namespace types, imports, and the file's own
     // declarations (so a method/type referencing another in the same file links).
@@ -259,28 +243,21 @@ export function computeNamespacedConnections(graph: DependencyGraph): SymbolGrap
     for (const s of p.symbols) nameToKey.set(s.name, `${p.file}#${s.name}`);
     if (nameToKey.size === 0) continue;
 
-    const syms = [...p.symbols].sort((a, b) => a.line - b.line);
-    const ownerAt = (line: number): string => {
-      let o = moduleKey;
-      for (const s of syms) {
-        if (s.line <= line) o = `${p.file}#${s.name}`;
-        else break;
-      }
-      return o;
-    };
-
-    const stack: Node[] = [p.root];
-    while (stack.length > 0) {
-      const n = stack.pop()!;
+    // Attribute each leaf type reference to its enclosing declaration (the type,
+    // method, or function it sits in), structurally — not by line proximity.
+    const walk = (n: Node, enclosing: string): void => {
+      const declKey = enclosingDeclKey(p.language, n, p.file);
+      const encl = declKey ?? enclosing;
       if (n.namedChildCount === 0 && cfg.refTypes.has(n.type)) {
         const key = nameToKey.get(n.text);
-        if (key) addEdge(ownerAt(n.startPosition.row + 1), key);
+        if (key) b.addEdge(encl, key);
       }
-      for (const c of n.namedChildren) stack.push(c);
-    }
+      for (const c of n.namedChildren) walk(c, encl);
+    };
+    walk(p.root, moduleKey);
   }
 
-  return { uses, usedBy, info, covered };
+  return b.result();
 }
 
 /**
