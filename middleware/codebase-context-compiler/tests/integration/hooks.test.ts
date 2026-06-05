@@ -114,6 +114,57 @@ describe('native Claude Code hooks', () => {
     expect(injectedContext(out)).toContain('getPreference');
   });
 
+  it('UserPromptSubmit suppresses packages for non-code document and memory workflows', async () => {
+    const root = repo();
+    const out: any = await handleHook('user-prompt', {
+      user_prompt: 'write a handoff document and append the memory file notes for this AgentBoard card',
+      cwd: root,
+      session_id: 'non-code-docs',
+    });
+
+    expect(out.hookSpecificOutput).toBeUndefined();
+    expect(readFileSync(join(root, '.context/.mode-non-code-docs.json'), 'utf8')).toContain('non_code_workflow');
+  });
+
+  it('Non-code workflow mode allows document writes even when an older package exists', async () => {
+    const root = repo();
+    await handleHook('user-prompt', {
+      user_prompt: 'How does getPreference work and what data can it use?',
+      cwd: root,
+      session_id: 'docs-after-code',
+    });
+    await handleHook('user-prompt', {
+      user_prompt: 'write a handoff document and update memory notes for the AgentBoard task',
+      cwd: root,
+      session_id: 'docs-after-code',
+    });
+
+    const writeDoc: any = await handleHook('pre-tool', {
+      tool_name: 'Write',
+      cwd: root,
+      session_id: 'docs-after-code',
+      tool_input: { file_path: join(root, 'docs/HANDOFF.md'), content: 'handoff notes' },
+    });
+    expect(writeDoc.hookSpecificOutput.permissionDecision).toBe('allow');
+
+    const subagent: any = await handleHook('pre-tool', {
+      tool_name: 'Task',
+      cwd: root,
+      session_id: 'docs-after-code',
+      tool_input: { description: 'Write memory file' },
+    });
+    expect(subagent.hookSpecificOutput.permissionDecision).toBe('allow');
+
+    const codeEdit: any = await handleHook('pre-tool', {
+      tool_name: 'Write',
+      cwd: root,
+      session_id: 'docs-after-code',
+      tool_input: { file_path: join(root, 'src/state/store.ts'), content: 'export const x = 1;' },
+    });
+    expect(codeEdit.hookSpecificOutput.permissionDecision).toBe('deny');
+    expect(codeEdit.systemMessage).toContain('document/memory/admin workflow');
+  });
+
   it('Read hooks provide orientation as additionalContext without changing permissions', async () => {
     const root = repo();
     await indexed(root);
