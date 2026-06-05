@@ -43,6 +43,7 @@ import {
   ExportOptions,
 } from "../export.js";
 import { symbolStem, extractUnusedImports } from "../treesitter/symbols.js";
+import { normalizeHttpPath, mqttMatches } from "../treesitter/surface.js";
 import { computeTsLiveness, TsLiveness } from "../tscompiler/liveness.js";
 
 // ============================================================
@@ -1092,6 +1093,102 @@ export function toolVerifyDoc(
   missing.sort((a, b) => a.token.localeCompare(b.token));
   dead.sort((a, b) => a.token.localeCompare(b.token));
   return { doc, checked: candidates.length, missing, dead };
+}
+
+// ============================================================
+// Interface surface: endpoints + cross-language bridges
+// ============================================================
+
+/** codegraph_list_endpoints — every HTTP route defined in the code. */
+export function toolListEndpoints(graph: DependencyGraph): {
+  endpoints: { method: string; route: string; framework: string; relativePath: string; line: number }[];
+  count: number;
+  byFramework: Record<string, number>;
+} {
+  const endpoints: { method: string; route: string; framework: string; relativePath: string; line: number }[] = [];
+  const byFramework: Record<string, number> = {};
+  for (const node of graph.nodes.values()) {
+    if (!node.endpoints) continue;
+    for (const ep of node.endpoints) {
+      endpoints.push({ method: ep.method, route: ep.route, framework: ep.framework, relativePath: node.relativePath, line: ep.line });
+      byFramework[ep.framework] = (byFramework[ep.framework] ?? 0) + 1;
+    }
+  }
+  endpoints.sort((a, b) => a.route.localeCompare(b.route) || a.method.localeCompare(b.method));
+  // "Active vs dead" for endpoints is answered by codegraph_find_bridges: an
+  // endpoint with status "no-consumer" is defined but uncalled in-repo.
+  return { endpoints, count: endpoints.length, byFramework };
+}
+
+interface BridgeSide {
+  relativePath: string;
+  language: Language;
+  line: number;
+}
+
+/** codegraph_find_bridges — cross-language producer/consumer connections. */
+export function toolFindBridges(graph: DependencyGraph): {
+  bridges: {
+    kind: string;
+    key: string;
+    producers: BridgeSide[];
+    consumers: BridgeSide[];
+    status: "connected" | "no-consumer" | "no-producer";
+    crossLanguage: boolean;
+  }[];
+  count: number;
+} {
+  // Collect producers/consumers per (kind,key). HTTP producers come from endpoints.
+  const producers = new Map<string, BridgeSide[]>();
+  const consumers = new Map<string, BridgeSide[]>();
+  const add = (m: Map<string, BridgeSide[]>, key: string, side: BridgeSide) => {
+    const list = m.get(key);
+    if (list) list.push(side);
+    else m.set(key, [side]);
+  };
+
+  for (const node of graph.nodes.values()) {
+    const side = (line: number): BridgeSide => ({ relativePath: node.relativePath, language: node.language, line });
+    for (const ep of node.endpoints ?? []) {
+      add(producers, `http ${normalizeHttpPath(ep.route)}`, side(ep.line));
+    }
+    for (const ch of node.channels ?? []) {
+      const key = `${ch.kind} ${ch.key}`;
+      add(ch.role === "producer" ? producers : consumers, key, side(ch.line));
+    }
+  }
+
+  const keys = new Set([...producers.keys(), ...consumers.keys()]);
+  const bridges: {
+    kind: string;
+    key: string;
+    producers: BridgeSide[];
+    consumers: BridgeSide[];
+    status: "connected" | "no-consumer" | "no-producer";
+    crossLanguage: boolean;
+  }[] = [];
+
+  for (const composite of keys) {
+    const [kind, key] = composite.split(" ");
+    const prod = producers.get(composite) ?? [];
+    let cons = consumers.get(composite) ?? [];
+
+    // MQTT subscriptions may use +/# wildcards — match them to this topic too.
+    if (kind === "mqtt") {
+      for (const [ck, sides] of consumers) {
+        const [ckind, ckey] = ck.split(" ");
+        if (ckind === "mqtt" && ckey !== key && mqttMatches(ckey, key)) cons = cons.concat(sides);
+      }
+    }
+    if (prod.length === 0 && cons.length === 0) continue;
+
+    const langs = new Set([...prod, ...cons].map((s) => s.language));
+    const status = prod.length > 0 && cons.length > 0 ? "connected" : prod.length > 0 ? "no-consumer" : "no-producer";
+    bridges.push({ kind, key, producers: prod, consumers: cons, status, crossLanguage: langs.size > 1 });
+  }
+
+  bridges.sort((a, b) => a.kind.localeCompare(b.kind) || a.key.localeCompare(b.key));
+  return { bridges, count: bridges.length };
 }
 
 // ============================================================

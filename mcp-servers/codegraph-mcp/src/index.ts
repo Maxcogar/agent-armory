@@ -37,6 +37,8 @@ import {
   toolFindUnusedImports,
   toolDiffSurface,
   toolVerifyDoc,
+  toolListEndpoints,
+  toolFindBridges,
   toolExportMermaid,
   toolExportDot,
 } from "./tools/query.js";
@@ -1150,6 +1152,73 @@ Prerequisite: codegraph_scan must be called first.`,
     const result = toolFindUnusedImports(currentGraph, file);
     if (isToolError(result)) return errResponse(result.error);
     return okResponse(result);
+  }
+);
+
+// ============================================================
+// Tool: codegraph_list_endpoints
+// ============================================================
+
+server.registerTool(
+  "codegraph_list_endpoints",
+  {
+    title: "List HTTP Endpoints",
+    description: `Lists every HTTP route defined in the code — Express/Fastify (\`app.get('/x', ...)\`), FastAPI/Flask decorators, and Next.js app-router \`route.ts\` files — with method, path, framework, and location.
+
+For "active vs dead" endpoints, use codegraph_find_bridges: an HTTP bridge with status "no-consumer" is an endpoint defined but called by nothing in the repo (note: a real API's callers are often external clients, so treat "no-consumer" as a prompt to check, not proof of death).
+
+Returns: { endpoints: [{ method, route, framework, relativePath, line }], count, byFramework }
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {},
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async () => {
+    if (!currentGraph) return noGraphError();
+    return okResponse(toolListEndpoints(currentGraph));
+  }
+);
+
+// ============================================================
+// Tool: codegraph_find_bridges
+// ============================================================
+
+server.registerTool(
+  "codegraph_find_bridges",
+  {
+    title: "Find Cross-Language Bridges",
+    description: `Finds connections that span files and languages by matching producers to consumers on a shared key: MQTT topics (publish ↔ subscribe, with +/# wildcard matching), WebSocket events (emit ↔ on), HTTP (a defined endpoint ↔ a fetch/axios/requests call to the same path), and env vars.
+
+Each bridge reports its status:
+  - connected   — has both a producer and a consumer
+  - no-consumer — produced/defined but nothing consumes it (e.g. an endpoint no
+    in-repo client calls, or an MQTT topic published but never subscribed)
+  - no-producer — consumed/called but nothing in the repo produces it (e.g. a
+    fetch() to an endpoint this repo doesn't define — a likely broken call)
+
+This is the IoT/full-stack view: an ESP32 publishing \`sensors/#\`, a Python hub
+subscribing, and a Node backend consuming the same topic show as one bridge.
+\`crossLanguage\` marks bridges whose sides span more than one language.
+
+Returns: { bridges: [{ kind, key, producers, consumers, status, crossLanguage }], count }
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {},
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async () => {
+    if (!currentGraph) return noGraphError();
+    return okResponse(toolFindBridges(currentGraph));
   }
 );
 

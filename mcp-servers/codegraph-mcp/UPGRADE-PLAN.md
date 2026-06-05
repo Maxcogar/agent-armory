@@ -192,7 +192,7 @@ not its reason for existing. Builds on the existing doc index (`DocNode`).
   backbone for catching a wrong doc/audit before acting on it — built entirely
   on the Phase 1 symbol graph.
 
-### Phase 4 — Interface / endpoint & cross-language surface
+### Phase 4 — Interface / endpoint & cross-language surface ✅
 Ideas from the Python tool, rebuilt correctly on tree-sitter.
 - **E1. Endpoint extraction** across frameworks (Express/Fastify/Nest, Flask/
   FastAPI/Django, Next route files) — method + path + handler + location, parsed

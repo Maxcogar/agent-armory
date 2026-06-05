@@ -59,6 +59,9 @@ Automatically ignores: `node_modules`, `.git`, `dist`, `build`, `__pycache__`, `
 | `codegraph_get_external_users` | Which files import a given external package (matches subpaths, e.g. `lodash/fp` under `lodash`) |
 | `codegraph_find_unreachable` | Code files no entry point can reach — true dead code, incl. dead cycles that orphan detection misses |
 | `codegraph_find_clusters` | Weakly-connected islands of related files (distinct from layers/cycles/subgraph) |
+| `codegraph_verify_doc` | Check a doc's symbol claims against the code: invented names (with nearest match) and dead-but-referenced symbols |
+| `codegraph_list_endpoints` | HTTP routes defined in the code (Express/Fastify, FastAPI/Flask, Next.js) with method, path, framework |
+| `codegraph_find_bridges` | Cross-language connections (MQTT topics with `+`/`#` wildcards, WS events, HTTP endpoint↔call, env vars) matched producer↔consumer, with `connected`/`no-consumer`/`no-producer` status |
 | `codegraph_watch_start` | Watch the scanned project and keep the graph current via debounced incremental rescans |
 | `codegraph_watch_stop` | Stop the active file watcher |
 

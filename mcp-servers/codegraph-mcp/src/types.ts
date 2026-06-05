@@ -27,6 +27,10 @@ export interface FileNode {
   imports?: ImportEdge[];
   /** Declared symbols in this file (exports + internals). Optional until populated. */
   symbols?: SymbolNode[];
+  /** HTTP endpoints defined in this file. Optional until populated. */
+  endpoints?: Endpoint[];
+  /** Cross-language channels (mqtt/ws/http/env/serial) in this file. */
+  channels?: Channel[];
   /** True when this file is classified as a test (see test/source partition). */
   isTest?: boolean;
 }
@@ -284,5 +288,34 @@ export interface SymbolNode {
   /** True for type-space declarations (interface, type alias, etc.). */
   isType: boolean;
   /** 1-based line of the declaration. */
+  line: number;
+}
+
+// ============================================================
+// Interface surface: HTTP endpoints + cross-language channels
+// ============================================================
+
+/** An HTTP route handler defined in code (server side). */
+export interface Endpoint {
+  /** Upper-case method, or "ANY" when the framework doesn't pin one. */
+  method: string;
+  /** Route path as written (e.g. "/api/users/:id"). */
+  route: string;
+  framework: "express" | "fastify" | "fastapi" | "flask" | "next";
+  line: number;
+}
+
+export type ChannelKind = "mqtt" | "ws" | "http" | "env" | "serial";
+export type ChannelRole = "producer" | "consumer";
+
+/**
+ * A cross-language connection endpoint: one side of an MQTT topic, WS event,
+ * HTTP call, env var, or serial link, matched to the other side by its `key`.
+ */
+export interface Channel {
+  kind: ChannelKind;
+  /** Topic / event name / URL path / env var / "serial". */
+  key: string;
+  role: ChannelRole;
   line: number;
 }

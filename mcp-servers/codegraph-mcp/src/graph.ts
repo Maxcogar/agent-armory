@@ -276,6 +276,8 @@ export async function buildDependencyGraph(
       const analysis = analyzeFile(filePath, node.language, ctx);
       if (analysis.imports) node.imports = analysis.imports;
       if (analysis.symbols) node.symbols = analysis.symbols;
+      if (analysis.endpoints && analysis.endpoints.length > 0) node.endpoints = analysis.endpoints;
+      if (analysis.channels && analysis.channels.length > 0) node.channels = analysis.channels;
     } catch (err: unknown) {
       parseErrors.push({
         file: filePath,
@@ -385,6 +387,8 @@ export async function incrementalUpdate(
       const analysis = analyzeFile(filePath, node.language, ctx);
       if (analysis.imports) node.imports = analysis.imports;
       if (analysis.symbols) node.symbols = analysis.symbols;
+      if (analysis.endpoints && analysis.endpoints.length > 0) node.endpoints = analysis.endpoints;
+      if (analysis.channels && analysis.channels.length > 0) node.channels = analysis.channels;
     } catch (err: unknown) {
       parseErrors.push({
         file: filePath,

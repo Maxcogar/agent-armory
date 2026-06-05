@@ -22,7 +22,8 @@ import { DependencyGraph, FileNode, DocNode, ParseError } from "./types.js";
 /** Bump whenever the serialized graph shape changes. */
 // v2: FileNode gained optional imports/isTest (tree-sitter import edges).
 // v3: FileNode.symbols now populated (symbol layer) — force rebuild to fill it.
-export const SCHEMA_VERSION = 3;
+// v4: FileNode gained endpoints/channels (interface surface).
+export const SCHEMA_VERSION = 4;
 
 interface SerializedGraph {
   schemaVersion: number;
