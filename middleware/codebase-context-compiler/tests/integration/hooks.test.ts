@@ -70,8 +70,10 @@ describe('native Claude Code hooks', () => {
 
     expect(ctxpack).toHaveLength(1);
     expect(ctxpack[0].matcher).toBe('*');
+    expect(ctxpack[0].hooks[0].timeout).toBe(30);
+    expect(settings.hooks.UserPromptSubmit[0].hooks[0].timeout).toBe(120);
     expect(pre.some((entry: any) => entry.hooks.some((h: any) => h.command === 'echo keep-me'))).toBe(true);
-  });
+  }, 15000);
 
   it('SessionStart injects standing rules for regular Claude Code', async () => {
     expect((await handleHook('session-start', {}) as any).hookSpecificOutput.additionalContext).toContain('ctxpack is active');
@@ -325,6 +327,24 @@ describe('native Claude Code hooks', () => {
     expect(out.hookSpecificOutput.permissionDecision).toBe('deny');
     expect(out.systemMessage).toContain('Explore');
     expect(out.systemMessage).toContain('inspect the source directly');
+  });
+
+  it('PreToolUse blocks MCP subagent dispatch for codebase explanation prompts', async () => {
+    const root = repo();
+    await handleHook('user-prompt', {
+      user_prompt: 'How does getPreference work and what data can it use?',
+      cwd: root,
+      session_id: 'question-mcp-subagent',
+    });
+
+    const out: any = await handleHook('pre-tool', {
+      tool_name: 'mcp__subagent__subagent_dispatch',
+      cwd: root,
+      session_id: 'question-mcp-subagent',
+      tool_input: { agent: 'Explore', prompt: 'Find getPreference details' },
+    });
+    expect(out.hookSpecificOutput.permissionDecision).toBe('deny');
+    expect(out.systemMessage).toContain('Do not delegate');
   });
 
   it('PreToolUse blocks broad search for explanation prompts until initial leads are read', async () => {

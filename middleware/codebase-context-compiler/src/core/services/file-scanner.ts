@@ -5,7 +5,7 @@
  * different working-tree states cannot collide.
  */
 import fg from 'fast-glob';
-import { readFileSync, statSync } from 'node:fs';
+import { closeSync, openSync, readFileSync, readSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { relative, sep } from 'node:path';
 import { execSync } from 'node:child_process';
@@ -63,10 +63,10 @@ export function scanRepository(root: string, repoName: string, opts: ScanOptions
     try { size = statSync(abs).size; } catch { continue; }
     let content = '';
     try {
-      const buf = readFileSync(abs);
+      const buf = readFilePrefix(abs, Math.min(size, maxBytes));
       // Skip likely-binary files (NUL byte in first 4KB).
       if (buf.subarray(0, 4096).includes(0)) continue;
-      content = buf.subarray(0, maxBytes).toString('utf8');
+      content = buf.toString('utf8');
     } catch { continue; }
 
     const path = rel.split(sep).join('/');
@@ -102,3 +102,15 @@ export function scanRepository(root: string, repoName: string, opts: ScanOptions
 }
 
 export { relative };
+
+function readFilePrefix(path: string, bytes: number): Buffer {
+  if (bytes <= 0) return Buffer.alloc(0);
+  const fd = openSync(path, 'r');
+  try {
+    const buf = Buffer.allocUnsafe(bytes);
+    const read = readSync(fd, buf, 0, bytes, 0);
+    return read === bytes ? buf : buf.subarray(0, read);
+  } finally {
+    closeSync(fd);
+  }
+}

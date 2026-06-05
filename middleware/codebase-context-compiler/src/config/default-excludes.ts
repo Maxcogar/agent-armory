@@ -16,13 +16,22 @@ export const DEFAULT_EXCLUDES: string[] = [
   '**/.venv/**',
   '**/venv/**',
   '**/__pycache__/**',
+  '**/.codememory/**',
   '**/.context/**',
+  '**/.pio/**',
+  '**/.platformio/**',
+  '**/rag/**',
+  '**/chroma_db/**',
+  '**/volumes/**',
+  '**/backend/logs/**',
   '**/*.min.js',
+  '**/*.log',
   '**/*.lock',
   '**/package-lock.json',
   '**/pnpm-lock.yaml',
   '**/*.png', '**/*.jpg', '**/*.jpeg', '**/*.gif', '**/*.ico', '**/*.pdf',
   '**/*.zip', '**/*.gz', '**/*.tar', '**/*.wasm', '**/*.so', '**/*.dll', '**/*.node',
+  '**/*.exe', '**/*.sqlite', '**/*.sqlite3', '**/*.db', '**/*.data',
 ];
 
 const LANGUAGE_BY_EXT: Record<string, string> = {

@@ -242,12 +242,15 @@ export async function handleHook(event: string, input: any): Promise<Record<stri
       try {
         writeSessionMode(ctx.contextDir, sessionId, 'ctxpack_active', resolution.kind === 'continuation' ? 'conversation continuation' : 'codebase task');
         writeChangeBaseline(ctx.contextDir, sessionId, changedFiles(root) ?? []);
-        const idx = await ctx.indexer.index(ctx.root, ctx.repoName, {
-          excludes: ctx.config.excludes,
-          maxBytes: ctx.config.maxBytes,
-          staticAnalysis: ctx.config.staticAnalysis,
-        });
-        const snapshot = ctx.storage.getSnapshot(idx.snapshotId)!;
+        let snapshot = ctx.storage.getLatestSnapshot(ctx.root);
+        if (!snapshot) {
+          const idx = await ctx.indexer.index(ctx.root, ctx.repoName, {
+            excludes: ctx.config.excludes,
+            maxBytes: ctx.config.maxBytes,
+            staticAnalysis: ctx.config.staticAnalysis,
+          });
+          snapshot = ctx.storage.getSnapshot(idx.snapshotId)!;
+        }
         const pkg = buildPackage(ctx.storage, snapshot, taskPrompt, { injectionScanner: ctx.injectionScanner });
         const validation = ctx.validator.validatePackage(pkg);
         if (!validation.valid) {
@@ -272,7 +275,7 @@ export async function handleHook(event: string, input: any): Promise<Record<stri
       const tool: string = input.tool_name ?? '';
       const isRead = READ_TOOLS.has(tool);
       const isEdit = EDIT_TOOLS.has(tool);
-      const isSubagent = SUBAGENT_TOOLS.has(tool);
+      const isSubagent = isSubagentTool(tool);
       const isSearch = SEARCH_TOOLS.has(tool);
       if (!isRead && !isEdit && !isSubagent && !isSearch) return {};
 
@@ -445,6 +448,11 @@ function resolvePrompt(prompt: string, transcriptPath: string | undefined, conte
   if (looksLikeCodingTask(trimmed)) return { kind: 'direct', prompt: trimmed };
 
   return { kind: 'ignore' };
+}
+
+function isSubagentTool(tool: string): boolean {
+  if (SUBAGENT_TOOLS.has(tool)) return true;
+  return /^mcp__.*subagent.*__(subagent_)?dispatch(_parallel)?$/i.test(tool);
 }
 
 function isAffirmingFollowUp(prompt: string): boolean {
