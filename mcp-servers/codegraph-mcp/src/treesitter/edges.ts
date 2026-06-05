@@ -70,6 +70,19 @@ export function resolveImports(
         resolution = dir ? "internal" : "external";
         break;
       }
+      case "ruby": {
+        // require_relative (marked with a leading ".") resolves to a file;
+        // require '<gem>' is external.
+        if (imp.raw.startsWith(".")) {
+          let p = path.resolve(fromDir, imp.raw);
+          if (!p.endsWith(".rb")) p += ".rb";
+          to = fs.existsSync(p) ? p : null;
+          resolution = to ? "internal" : "unresolved";
+        } else {
+          resolution = "external";
+        }
+        break;
+      }
       default:
         continue;
     }

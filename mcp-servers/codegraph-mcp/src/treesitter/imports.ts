@@ -220,9 +220,30 @@ export function extractImportsFromTree(language: Language, root: Node): RawImpor
       return extractCppImports(root);
     case "go":
       return extractGoImports(root);
+    case "ruby":
+      return extractRubyImports(root);
     default:
       return [];
   }
+}
+
+// ---------- Ruby ----------
+
+function extractRubyImports(root: Node): RawImport[] {
+  const out: RawImport[] = [];
+  for (const call of root.descendantsOfType("call")) {
+    const fn = call.childForFieldName("method") ?? call.namedChildren.find((c) => c.type === "identifier");
+    const name = fn?.text;
+    if (name !== "require" && name !== "require_relative") continue;
+    const args = call.childForFieldName("arguments") ?? call.namedChildren.find((c) => c.type === "argument_list");
+    const content = args?.descendantsOfType("string_content")[0];
+    if (!content) continue;
+    // Mark require_relative as a relative path so resolution treats it as a file.
+    let raw = content.text;
+    if (name === "require_relative" && !raw.startsWith(".")) raw = "./" + raw;
+    out.push({ raw, kind: "value", specifiers: [], line: lineOf(call) });
+  }
+  return out;
 }
 
 export function extractImports(language: Language, code: string): RawImport[] {

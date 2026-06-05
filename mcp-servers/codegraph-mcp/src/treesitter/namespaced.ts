@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import Parser from "tree-sitter";
 
-import { DependencyGraph, Language, SymbolNode } from "../types.js";
+import { DependencyGraph, Language, SymbolNode, ImportEdge } from "../types.js";
 import { parseSource } from "./parser.js";
 import { rustCrateRoot, rustModulePath } from "../parsers/rust.js";
 import type { SymbolGraph } from "../tscompiler/connections.js";
@@ -257,6 +257,66 @@ export function computeNamespacedConnections(graph: DependencyGraph): SymbolGrap
   }
 
   return { uses, usedBy, info, covered };
+}
+
+/**
+ * Populate `node.imports` for the FQN languages (Java/C#/PHP/Rust) with
+ * internal/external resolution, so list_external_dependencies and
+ * find_broken_imports cover them. An import that resolves to a project type
+ * (via the FQN index) or namespace is internal; otherwise it is external
+ * (stdlib/third-party). Mutates the nodes.
+ */
+export function resolveNamespacedImports(graph: DependencyGraph): void {
+  const crateRoot = rustCrateRoot(
+    [...graph.nodes.values()].filter((n) => n.language === "rust").map((n) => n.path)
+  );
+  const fqnToFile = new Map<string, string>();
+  const namespaces = new Set<string>();
+  const parsed: { node: { path: string }; root: Node; cfg: NsConfig; imports?: ImportEdge[] }[] = [];
+
+  for (const node of graph.nodes.values()) {
+    const cfg = CONFIGS[node.language];
+    if (!cfg || !node.symbols) continue;
+    let code: string;
+    try {
+      code = fs.readFileSync(node.path, "utf-8");
+    } catch {
+      continue;
+    }
+    const tree = parseSource(node.language, code);
+    if (!tree) continue;
+    const namespace = cfg.namespaceOf(tree.rootNode, { filePath: node.path, crateRoot }) ?? "";
+    namespaces.add(namespace);
+    parsed.push({ node, root: tree.rootNode, cfg });
+    const indexKinds = cfg.indexKinds ?? TYPE_KINDS;
+    for (const sym of node.symbols) {
+      if (!indexKinds.has(sym.kind)) continue;
+      const fqn = joinNs(namespace, sym.name, cfg.sep);
+      if (!fqnToFile.has(fqn)) fqnToFile.set(fqn, node.path);
+    }
+  }
+
+  for (const p of parsed) {
+    const edges: ImportEdge[] = [];
+    for (const imp of p.cfg.importsOf(p.root)) {
+      let to: string | null = null;
+      let resolution: ImportEdge["resolution"];
+      let raw: string;
+      if (imp.fqn) {
+        raw = imp.fqn;
+        to = fqnToFile.get(imp.fqn) ?? null;
+        resolution = to ? "internal" : "external";
+      } else if (imp.namespace) {
+        raw = imp.namespace;
+        resolution = namespaces.has(imp.namespace) ? "internal" : "external";
+      } else {
+        continue;
+      }
+      if (to === p.node.path) continue;
+      edges.push({ raw, kind: "value", specifiers: [], line: 0, to, resolution });
+    }
+    (graph.nodes.get(p.node.path) as { imports?: ImportEdge[] }).imports = edges;
+  }
 }
 
 export { NS_LANGS };

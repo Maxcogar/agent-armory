@@ -482,10 +482,11 @@ export function toolGetLayers(graph: DependencyGraph): LayersResult {
 // Import-edge tools (broken imports / external dependencies)
 // ============================================================
 
-/** Aggregate an external specifier to its package root ("lodash/fn" -> "lodash"). */
+/** Aggregate an external specifier to its package root ("lodash/fn" -> "lodash",
+ *  "serde::Serialize" -> "serde", "App\\Support\\Str" -> "App"). */
 function externalName(spec: string): string {
   if (spec.startsWith("@")) return spec.split("/").slice(0, 2).join("/");
-  return spec.split(/[/.]/)[0];
+  return spec.split(/::|[/.\\]/)[0];
 }
 
 /** codegraph_find_broken_imports — relative/local imports that resolved to nothing. */

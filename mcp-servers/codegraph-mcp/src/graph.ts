@@ -20,7 +20,7 @@ import { parseGoDependencies, clearGoModuleCache } from "./parsers/golang.js";
 import { parseRustDependencies } from "./parsers/rust.js";
 import { parseRubyDependencies } from "./parsers/ruby.js";
 import { analyzeFile } from "./treesitter/analyze.js";
-import { computeNamespacedConnections, NS_LANGS } from "./treesitter/namespaced.js";
+import { computeNamespacedConnections, resolveNamespacedImports, NS_LANGS } from "./treesitter/namespaced.js";
 
 // ============================================================
 // Language Detection
@@ -330,6 +330,7 @@ export async function buildDependencyGraph(
   // Reverse edges (dependents) are derived from the forward edges in one pass.
   computeDependents(nodes);
   addFqnFileEdges(normalizedRoot, nodes);
+  resolveNamespacedImports({ rootDir: normalizedRoot, nodes } as DependencyGraph);
   computeDependents(nodes);
 
   // Third pass: discover and scan documentation files for code references
@@ -456,6 +457,7 @@ export async function incrementalUpdate(
 
   computeDependents(nodes);
   addFqnFileEdges(rootDir, nodes);
+  resolveNamespacedImports({ rootDir, nodes } as DependencyGraph);
   computeDependents(nodes);
   const docNodes = await buildDocNodes(rootDir, nodes, ignorePatterns);
 
