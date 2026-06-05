@@ -279,6 +279,12 @@ export function computeGoConnections(graph: DependencyGraph): SymbolGraph {
         }
       }
       if (n.type === "identifier") {
+        // A bare identifier matching a package-level name is a use of it. A local
+        // variable that shadows that name would be counted here too, but only in
+        // the safe direction: at worst it over-counts a use (making a symbol look
+        // live), which can never produce a *false dead* — the one verdict this
+        // tool guarantees. Disambiguating would need full local-scope tracking,
+        // which precise dead-code detection does not require.
         const target = sameDir.get(n.text);
         if (target) b.addEdge(encl, target);
       }
