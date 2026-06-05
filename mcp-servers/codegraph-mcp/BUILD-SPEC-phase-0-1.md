@@ -112,16 +112,18 @@ keeps operating on the same field with no change.
 | F6 clusters | `codegraph_find_clusters({ minSize?, includeTests? })` | `{ clusters: {id, size, files: FileRef[]}[], count }` |
 
 Notes:
-- **F4 reachability semantics (fixed):** a file is *live* iff reachable by
-  following `dependencies` forward (importer → imported) starting from the entry
-  set. The entry set is exactly: files with zero internal dependents (graph
-  roots) ∪ files classified `isTest` ∪ manifest entries (npm `package.json`
-  `main`/`bin`, Python files with `if __name__ == "__main__"` or named
-  `__main__.py`, C/C++ files defining `main(`, all Arduino `.ino`). When
-  `includeTests:false`, test files are dropped from both the entry set and the
-  result. A no-importer cycle has no zero-dependent member and no outside
-  importer → unreachable → reported dead. An explicit `entryPoints` argument
-  replaces the default set entirely.
+- **F4 reachability semantics (as implemented):** a file is *live* iff reachable
+  by following `dependencies` forward (importer → imported) from the entry set.
+  The default entry set is: files with zero internal dependents (graph roots) ∪
+  Arduino sketches (`.ino`) ∪ `__main__.py`, plus test files only when
+  `includeTests`. When `includeTests:false`, tests are dropped from both the
+  entry set and the result (so a prod file reached only by a test is reported
+  dead). A no-importer cycle has no zero-dependent member and no outside importer
+  → unreachable → reported dead. An explicit `entry_points` argument replaces the
+  default set entirely. *(npm `main`/`bin` and Python `if __name__` were
+  deliberately left out of the default: `main`/`bin` usually point at build
+  output that isn't a graph node, and such entries, when they are source, are
+  already graph roots.)*
 - **F1:** `excludeTypeOnly` recomputes the blast radius ignoring `kind:"type"`
   edges — type-only imports are not runtime coupling. Default `false` (current
   behavior preserved).
@@ -207,7 +209,9 @@ Plus: re-run the existing 8 suites unchanged after Step 1 (regression gate).
 3. ✅ Python + C++ import resolution on the shared model; F2 broken-imports, F3
    externals (`list_external_dependencies` + `get_external_users`) tools; F5
    test classification (`isTest`). *(F1 `excludeTypeOnly` folded into step 4.)*
-4. F1 `excludeTypeOnly` on change-impact; F4 reachability dead-code; F6 clusters.
+4. ✅ F1 `exclude_type_only` on change-impact (type-only-aware reverse traversal);
+   F4 `find_unreachable` (reachability dead-code, catches dead cycles); F6
+   `find_clusters` (weakly-connected components).
 5. S1/S2 symbol + specifier extraction; `get_symbol`, `find_symbol_dependents`.
 6. S3/S4 dead-exports + unused-imports + calibrated verdicts; S5 siblings.
 7. S6 surface diff.
@@ -224,7 +228,8 @@ specced separately once these land.
 - **`diff_surface` compares against the previously persisted symbol snapshot**
   in the on-disk cache (i.e. "what changed since the last scan"). Git-ref
   baselines are out of scope for Phase 1 and are a named later item.
-- **F4 entry set is fixed as defined in §2** (roots ∪ tests ∪ manifest entries);
-  no further confirmation needed before coding.
+- **F4 entry set** = roots ∪ Arduino `.ino` ∪ `__main__.py` (∪ tests when
+  `includeTests`) — see §2. npm `main`/`bin` and `if __name__` were left out of
+  the default (build-output targets aren't graph nodes; source entries are roots).
 - **Test exclusion is the default** for dead-code/orphan/diff results, via
   `includeTests` (default `false`).

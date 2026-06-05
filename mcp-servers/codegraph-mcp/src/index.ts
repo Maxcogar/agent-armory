@@ -29,6 +29,8 @@ import {
   toolFindBrokenImports,
   toolListExternalDependencies,
   toolGetExternalUsers,
+  toolFindUnreachable,
+  toolFindClusters,
   toolExportMermaid,
   toolExportDot,
 } from "./tools/query.js";
@@ -345,6 +347,13 @@ Prerequisite: codegraph_scan must be called first.`,
         .min(1)
         .max(20)
         .describe("Array of file paths to analyze for change impact"),
+      exclude_type_only: z
+        .boolean()
+        .optional()
+        .describe(
+          "When true, ignore type-only imports (TS `import type`) so the blast " +
+          "radius reflects runtime coupling only. Default false."
+        ),
     },
     annotations: {
       readOnlyHint: true,
@@ -353,9 +362,9 @@ Prerequisite: codegraph_scan must be called first.`,
       openWorldHint: false,
     },
   },
-  async ({ files }) => {
+  async ({ files, exclude_type_only }) => {
     if (!currentGraph) return noGraphError();
-    const result = toolGetChangeImpact(currentGraph, files);
+    const result = toolGetChangeImpact(currentGraph, files, exclude_type_only ?? false);
     if (isToolError(result)) return errResponse(result.error);
     return okResponse(result);
   }
@@ -969,6 +978,100 @@ Returns: { status, wasWatching }`,
       wasWatching,
       message: wasWatching ? "Watcher stopped." : "No watcher was active.",
     });
+  }
+);
+
+// ============================================================
+// Tool: codegraph_find_unreachable
+// ============================================================
+
+server.registerTool(
+  "codegraph_find_unreachable",
+  {
+    title: "Find Unreachable (Dead) Code",
+    description: `Finds code files that no entry point can reach by following imports — true dead code.
+
+Unlike codegraph_find_orphans (which only catches fully isolated, zero-edge files), this catches dead *clusters*: a group of files that import each other but that nothing live imports. Reachability starts from the entry set: graph roots (nothing imports them), Arduino sketches (.ino), and __main__.py — plus test files when include_tests is true. A file reachable only from tests is reported as dead unless include_tests is set.
+
+Args:
+  - entry_points (string[], optional): use these files as the entry set instead of the default.
+  - include_tests (boolean, optional): treat tests as entries and include them in results. Default false.
+
+Returns:
+  - unreachable: code files no entry point reaches
+  - entryPoints: the entry set used
+  - count
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {
+      entry_points: z
+        .array(z.string())
+        .optional()
+        .describe("Optional explicit entry files (replaces the default entry set)"),
+      include_tests: z
+        .boolean()
+        .optional()
+        .describe("Treat test files as entries and include them in results (default false)"),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ entry_points, include_tests }) => {
+    if (!currentGraph) return noGraphError();
+    const result = toolFindUnreachable(currentGraph, entry_points, include_tests ?? false);
+    if (isToolError(result)) return errResponse(result.error);
+    return okResponse(result);
+  }
+);
+
+// ============================================================
+// Tool: codegraph_find_clusters
+// ============================================================
+
+server.registerTool(
+  "codegraph_find_clusters",
+  {
+    title: "Find File Clusters",
+    description: `Groups files into clusters — weakly-connected components of the import graph (islands of files that reach each other if you ignore edge direction).
+
+Distinct from codegraph_get_layers (topological tiers), codegraph_find_cycles (strongly-connected rings), and codegraph_get_subgraph (one file's neighbourhood): clusters reveal disjoint islands, e.g. unrelated feature areas or a detached subsystem.
+
+Args:
+  - min_size (number, optional): minimum files per cluster (default 2).
+  - include_tests (boolean, optional): include test files in clusters. Default false.
+
+Returns:
+  - clusters: { id, size, files }[] sorted largest first
+  - count
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {
+      min_size: z
+        .number()
+        .int()
+        .min(1)
+        .max(1000)
+        .default(2)
+        .describe("Minimum files per cluster (default 2)"),
+      include_tests: z
+        .boolean()
+        .optional()
+        .describe("Include test files in clusters (default false)"),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ min_size, include_tests }) => {
+    if (!currentGraph) return noGraphError();
+    return okResponse(toolFindClusters(currentGraph, min_size, include_tests ?? false));
   }
 );
 

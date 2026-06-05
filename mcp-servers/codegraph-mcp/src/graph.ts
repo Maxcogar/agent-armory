@@ -594,8 +594,10 @@ async function buildDocNodes(
  */
 export function getTransitiveDependents(
   graph: DependencyGraph,
-  filePathSet: Set<string>
+  filePathSet: Set<string>,
+  opts?: { excludeTypeOnly?: boolean }
 ): Set<string> {
+  const excludeType = opts?.excludeTypeOnly === true;
   const visited = new Set<string>();
   const queue = [...filePathSet];
 
@@ -607,9 +609,14 @@ export function getTransitiveDependents(
     const node = graph.nodes.get(current);
     if (node) {
       for (const dep of node.dependents) {
-        if (!visited.has(dep)) {
-          queue.push(dep);
+        if (visited.has(dep)) continue;
+        // When excluding type-only coupling, skip an importer that only imports
+        // `current` in type position (no runtime dependency).
+        if (excludeType) {
+          const importer = graph.nodes.get(dep);
+          if (importer && isTypeOnlyEdge(importer, current)) continue;
         }
+        queue.push(dep);
       }
     }
   }
@@ -620,6 +627,134 @@ export function getTransitiveDependents(
   }
 
   return visited;
+}
+
+/**
+ * True when `importer` imports `target` only in type position — every import
+ * edge it has to `target` is `kind: "type"`. Such an edge is erased at compile
+ * time and is not runtime coupling. Returns false when import-kind data is
+ * absent (treated as a real dependency, the safe default).
+ */
+export function isTypeOnlyEdge(importer: FileNode, target: string): boolean {
+  if (!importer.imports) return false;
+  let sawEdge = false;
+  let sawRuntime = false;
+  for (const edge of importer.imports) {
+    if (edge.to !== target) continue;
+    sawEdge = true;
+    if (edge.kind !== "type") sawRuntime = true;
+  }
+  return sawEdge && !sawRuntime;
+}
+
+/**
+ * The set of files treated as program entry points for reachability: graph
+ * roots (nothing imports them), Arduino sketches (`.ino`), and `__main__.py`.
+ * Test files are entries only when `includeTests` is set.
+ */
+export function computeEntrySet(graph: DependencyGraph, includeTests: boolean): Set<string> {
+  const entries = new Set<string>();
+  for (const [filePath, node] of graph.nodes) {
+    if (node.isTest && !includeTests) continue;
+    if (
+      node.dependents.length === 0 ||
+      node.language === "arduino" ||
+      path.basename(filePath) === "__main__.py"
+    ) {
+      entries.add(filePath);
+    }
+  }
+  return entries;
+}
+
+const CODE_LANGUAGES: ReadonlySet<Language> = new Set<Language>([
+  "typescript",
+  "javascript",
+  "python",
+  "cpp",
+  "arduino",
+]);
+
+/**
+ * Code files not reachable from any entry point by following imports forward.
+ * This catches dead clusters that degree-zero orphan detection misses (e.g. a
+ * group of files that import each other but that nothing outside imports).
+ * Only code files are reported; tests are excluded unless `includeTests`.
+ */
+export function findUnreachable(
+  graph: DependencyGraph,
+  entryPaths: string[] | null,
+  includeTests: boolean
+): { unreachable: string[]; entryPoints: string[] } {
+  const entries =
+    entryPaths && entryPaths.length > 0
+      ? new Set(entryPaths)
+      : computeEntrySet(graph, includeTests);
+
+  const live = new Set<string>();
+  const queue = [...entries];
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (live.has(current)) continue;
+    live.add(current);
+    const node = graph.nodes.get(current);
+    if (node) for (const dep of node.dependencies) if (!live.has(dep)) queue.push(dep);
+  }
+
+  const unreachable: string[] = [];
+  for (const [filePath, node] of graph.nodes) {
+    if (!CODE_LANGUAGES.has(node.language)) continue;
+    if (node.isTest && !includeTests) continue;
+    if (!live.has(filePath)) unreachable.push(filePath);
+  }
+  unreachable.sort((a, b) =>
+    graph.nodes.get(a)!.relativePath.localeCompare(graph.nodes.get(b)!.relativePath)
+  );
+  return { unreachable, entryPoints: [...entries] };
+}
+
+/**
+ * Weakly-connected components (treating imports as undirected): islands of
+ * related files. Distinct from layers (topological tiers), cycles (SCCs), and
+ * subgraph (one neighbourhood). Only components with >= minSize are returned;
+ * test files are excluded unless `includeTests`.
+ */
+export function findClusters(
+  graph: DependencyGraph,
+  minSize: number,
+  includeTests: boolean
+): string[][] {
+  const included = (p: string): boolean => {
+    const n = graph.nodes.get(p);
+    return !!n && (includeTests || !n.isTest);
+  };
+
+  const visited = new Set<string>();
+  const clusters: string[][] = [];
+  for (const start of graph.nodes.keys()) {
+    if (visited.has(start) || !included(start)) continue;
+    const component: string[] = [];
+    const queue = [start];
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      if (visited.has(current) || !included(current)) continue;
+      visited.add(current);
+      component.push(current);
+      const node = graph.nodes.get(current);
+      if (!node) continue;
+      for (const neighbour of [...node.dependencies, ...node.dependents]) {
+        if (!visited.has(neighbour) && included(neighbour)) queue.push(neighbour);
+      }
+    }
+    if (component.length >= minSize) {
+      component.sort((a, b) =>
+        graph.nodes.get(a)!.relativePath.localeCompare(graph.nodes.get(b)!.relativePath)
+      );
+      clusters.push(component);
+    }
+  }
+  clusters.sort((a, b) => b.length - a.length || a[0].localeCompare(b[0]));
+  return clusters;
 }
 
 /**

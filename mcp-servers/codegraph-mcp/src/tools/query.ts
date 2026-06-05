@@ -27,6 +27,9 @@ import {
   collectSubgraph,
   getTransitiveDependents,
   getTransitiveDependencies,
+  isTypeOnlyEdge,
+  findUnreachable,
+  findClusters,
 } from "../graph.js";
 import {
   exportMermaid,
@@ -112,7 +115,8 @@ export function toolGetDependents(
 /** codegraph_get_change_impact */
 export function toolGetChangeImpact(
   graph: DependencyGraph,
-  fileQueries: string[]
+  fileQueries: string[],
+  excludeTypeOnly: boolean = false
 ): ChangeImpact | { error: string } {
   const changedFilePaths: string[] = [];
 
@@ -129,14 +133,18 @@ export function toolGetChangeImpact(
   for (const filePath of changedFilePaths) {
     const node = graph.nodes.get(filePath)!;
     for (const dep of node.dependents) {
-      if (!changedSet.has(dep)) {
-        directlyAffectedSet.add(dep);
+      if (changedSet.has(dep)) continue;
+      // Skip importers coupled only via type-only imports when requested.
+      if (excludeTypeOnly) {
+        const importer = graph.nodes.get(dep);
+        if (importer && isTypeOnlyEdge(importer, filePath)) continue;
       }
+      directlyAffectedSet.add(dep);
     }
   }
 
   // Transitive dependents (all hops)
-  const allAffected = getTransitiveDependents(graph, changedSet);
+  const allAffected = getTransitiveDependents(graph, changedSet, { excludeTypeOnly });
   const transitiveOnly = new Set([...allAffected].filter((f) => !directlyAffectedSet.has(f)));
 
   const totalImpacted = allAffected.size;
@@ -525,6 +533,49 @@ export function toolGetExternalUsers(
   }
   users.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
   return { name, users, count: users.length };
+}
+
+// ============================================================
+// Reachability & clustering tools
+// ============================================================
+
+/** codegraph_find_unreachable — code files no entry point can reach (true dead code). */
+export function toolFindUnreachable(
+  graph: DependencyGraph,
+  entryQueries?: string[],
+  includeTests: boolean = false
+): { unreachable: FileRef[]; entryPoints: FileRef[]; count: number } | { error: string } {
+  let entryPaths: string[] | null = null;
+  if (entryQueries && entryQueries.length > 0) {
+    entryPaths = [];
+    for (const q of entryQueries) {
+      const { resolved, error } = resolveSingleFile(graph, q);
+      if (error || !resolved) return { error: error! };
+      entryPaths.push(resolved);
+    }
+  }
+  const { unreachable, entryPoints } = findUnreachable(graph, entryPaths, includeTests);
+  return {
+    unreachable: unreachable.map((f) => toFileRef(f, graph)),
+    entryPoints: entryPoints
+      .map((f) => toFileRef(f, graph))
+      .sort((a, b) => a.relativePath.localeCompare(b.relativePath)),
+    count: unreachable.length,
+  };
+}
+
+/** codegraph_find_clusters — weakly-connected islands of related files. */
+export function toolFindClusters(
+  graph: DependencyGraph,
+  minSize: number = 2,
+  includeTests: boolean = false
+): { clusters: { id: number; size: number; files: FileRef[] }[]; count: number } {
+  const clusters = findClusters(graph, minSize, includeTests).map((files, id) => ({
+    id,
+    size: files.length,
+    files: files.map((f) => toFileRef(f, graph)),
+  }));
+  return { clusters, count: clusters.length };
 }
 
 // ============================================================
