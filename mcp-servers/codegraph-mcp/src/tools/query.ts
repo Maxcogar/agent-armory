@@ -46,7 +46,7 @@ import { symbolStem, extractUnusedImports } from "../treesitter/symbols.js";
 import { normalizeHttpPath, mqttMatches } from "../treesitter/surface.js";
 import { computeTsLiveness, TsLiveness } from "../tscompiler/liveness.js";
 import { computeSymbolConnections, SymbolGraph } from "../tscompiler/connections.js";
-import { computeTreeSitterConnections, computeGenericConnections } from "../treesitter/connections.js";
+import { computeTreeSitterConnections, computeGenericConnections, computeGoConnections } from "../treesitter/connections.js";
 
 // ============================================================
 // Helpers
@@ -752,6 +752,12 @@ export function toolGetSymbol(
   return { name, found: definitions.length > 0, definitions, siblings };
 }
 
+// Languages whose references resolve precisely enough to trust a "dead" verdict
+// (compiler for TS/JS, imports for Python, includes for C++, package scope for Go).
+const PRECISE_DEAD_LANGS: ReadonlySet<Language> = new Set<Language>([
+  "typescript", "javascript", "python", "cpp", "arduino", "go",
+]);
+
 /** codegraph_find_dead_exports — exported symbols with no live importer. */
 export function toolFindDeadExports(
   graph: DependencyGraph,
@@ -761,6 +767,8 @@ export function toolFindDeadExports(
   dead: (SymbolRef & { liveness: Liveness })[];
   count: number;
   ambiguousCount: number;
+  skippedLanguages?: string[];
+  note?: string;
 } | { error: string } {
   let fileFilter: string | null = null;
   if (fileQuery) {
@@ -773,11 +781,18 @@ export function toolFindDeadExports(
   const sg = getSymbolGraph(graph);
   const dead: (SymbolRef & { liveness: Liveness })[] = [];
   let ambiguousCount = 0;
+  const skipped = new Set<string>();
 
   for (const node of graph.nodes.values()) {
     if (!node.symbols) continue;
     if (fileFilter && node.path !== fileFilter) continue;
     if (node.isTest && !includeTests) continue;
+    // Only claim "dead" where references resolve precisely. The name-based
+    // languages can miss a use on a name collision, which would be a false dead.
+    if (!PRECISE_DEAD_LANGS.has(node.language)) {
+      skipped.add(node.language);
+      continue;
+    }
     for (const sym of node.symbols) {
       if (!sym.exported) continue;
       const liveness = livenessFor(sym.name, node, tsLiveness, sg);
@@ -787,7 +802,18 @@ export function toolFindDeadExports(
   }
 
   dead.sort((a, b) => a.relativePath.localeCompare(b.relativePath) || a.line - b.line);
-  return { dead, count: dead.length, ambiguousCount };
+  const result: {
+    dead: (SymbolRef & { liveness: Liveness })[];
+    count: number;
+    ambiguousCount: number;
+    skippedLanguages?: string[];
+    note?: string;
+  } = { dead, count: dead.length, ambiguousCount };
+  if (skipped.size > 0) {
+    result.skippedLanguages = [...skipped].sort();
+    result.note = `Dead-export detection is skipped for ${[...skipped].sort().join(", ")} — their references are resolved by name only, which can't yet prove a symbol is unused without risking a false "dead". Use codegraph_trace_symbol to inspect their connections.`;
+  }
+  return result;
 }
 
 /** codegraph_find_unused_imports — specifiers imported but never referenced. */
@@ -862,8 +888,9 @@ function getSymbolGraph(graph: DependencyGraph): SymbolGraph {
     // TS/JS from the compiler (precise); Python/C++ from tree-sitter (imports/
     // includes); Go/Rust/Java/Ruby/C#/PHP from name-based resolution.
     cached = computeSymbolConnections(graph.rootDir, tsJs);
-    mergeInto(cached, computeTreeSitterConnections(graph));
-    mergeInto(cached, computeGenericConnections(graph));
+    mergeInto(cached, computeTreeSitterConnections(graph)); // python, c++
+    mergeInto(cached, computeGoConnections(graph)); // go (package-scoped, precise)
+    mergeInto(cached, computeGenericConnections(graph)); // rust/java/ruby/c#/php (name-based)
     symbolGraphCache.set(graph, cached);
   }
   return cached;

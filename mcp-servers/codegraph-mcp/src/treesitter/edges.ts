@@ -6,6 +6,7 @@ import { extractImports } from "./imports.js";
 import { resolveJsModule } from "../parsers/javascript.js";
 import { resolvePythonModule } from "../parsers/python.js";
 import { resolveCppModule } from "../parsers/cpp.js";
+import { goModuleName, resolveGoPackageDir } from "../parsers/golang.js";
 
 // ============================================================
 // Resolved import edges (tree-sitter extraction + shared resolvers)
@@ -60,6 +61,15 @@ export function resolveImports(
       case "arduino":
         ({ to, resolution } = resolveCppModule(imp.raw, fromDir, ctx.cppSearchDirs));
         break;
+      case "go": {
+        // A Go import targets a package directory, not a single file, so `to`
+        // stays null; resolution distinguishes in-module (internal) from
+        // stdlib/third-party (external).
+        const dir = resolveGoPackageDir(imp.raw, ctx.rootDir, goModuleName(ctx.rootDir));
+        to = null;
+        resolution = dir ? "internal" : "external";
+        break;
+      }
       default:
         continue;
     }

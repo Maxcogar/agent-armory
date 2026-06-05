@@ -1,9 +1,11 @@
 import * as fs from "fs";
+import * as path from "path";
 import Parser from "tree-sitter";
 
 import { DependencyGraph, Language } from "../types.js";
 import { parseSource } from "./parser.js";
 import { cppFunctionName } from "./symbols.js";
+import { goModuleName, resolveGoPackageDir } from "../parsers/golang.js";
 import type { SymbolGraph } from "../tscompiler/connections.js";
 
 // ============================================================
@@ -150,7 +152,7 @@ export function computeTreeSitterConnections(graph: DependencyGraph): SymbolGrap
 // keywords don't create noise.
 
 const GENERIC_LANGS: ReadonlySet<Language> = new Set<Language>([
-  "go", "rust", "java", "ruby", "csharp", "php",
+  "rust", "java", "ruby", "csharp", "php",
 ]);
 
 export function computeGenericConnections(graph: DependencyGraph): SymbolGraph {
@@ -230,6 +232,107 @@ export function computeGenericConnections(graph: DependencyGraph): SymbolGraph {
       }
       for (const c of n.namedChildren) stack.push(c);
     }
+  }
+
+  return { uses, usedBy, info, covered };
+}
+
+// ============================================================
+// Precise Go connections (package-scoped — no global collisions)
+// ============================================================
+//
+// Go references resolve by package: identifiers in the same directory share the
+// package scope (so a call to another file's function in the same package
+// resolves precisely), and `alias.Member` resolves to `Member` in the imported
+// package's directory. Resolution is scoped to the package, so unlike the
+// name-based fallback it cannot mis-resolve a colliding name in another package.
+
+export function computeGoConnections(graph: DependencyGraph): SymbolGraph {
+  const uses = new Map<string, Set<string>>();
+  const usedBy = new Map<string, Set<string>>();
+  const info = new Map<string, { file: string; name: string; line: number }>();
+  const covered = new Set<string>();
+  const ensure = (m: Map<string, Set<string>>, k: string): Set<string> => {
+    let s = m.get(k);
+    if (!s) m.set(k, (s = new Set()));
+    return s;
+  };
+  const addEdge = (from: string, to: string): void => {
+    if (from === to) return;
+    ensure(uses, from).add(to);
+    ensure(usedBy, to).add(from);
+  };
+  const setInfo = (key: string, file: string, name: string, line: number): void => {
+    if (!info.has(key)) info.set(key, { file, name, line });
+  };
+
+  const moduleName = goModuleName(graph.rootDir);
+  // package directory -> (symbol name -> key)
+  const dirSymbols = new Map<string, Map<string, string>>();
+  for (const node of graph.nodes.values()) {
+    if (node.language !== "go" || !node.symbols) continue;
+    const dir = path.dirname(node.path);
+    let m = dirSymbols.get(dir);
+    if (!m) dirSymbols.set(dir, (m = new Map()));
+    for (const sym of node.symbols) {
+      const key = `${node.path}#${sym.name}`;
+      if (!m.has(sym.name)) m.set(sym.name, key);
+      setInfo(key, node.path, sym.name, sym.line);
+    }
+  }
+
+  for (const node of graph.nodes.values()) {
+    if (node.language !== "go" || !node.symbols) continue;
+    let code: string;
+    try {
+      code = fs.readFileSync(node.path, "utf-8");
+    } catch {
+      continue;
+    }
+    const tree = parseSource("go", code);
+    if (!tree) continue;
+    covered.add(node.path);
+
+    const sameDir = dirSymbols.get(path.dirname(node.path)) ?? new Map<string, string>();
+    const aliasDir = new Map<string, Map<string, string>>();
+    for (const e of node.imports ?? []) {
+      if (e.resolution !== "internal") continue;
+      const d = resolveGoPackageDir(e.raw, graph.rootDir, moduleName);
+      const syms = d ? dirSymbols.get(d) : undefined;
+      const alias = e.specifiers[0]?.local;
+      if (syms && alias) aliasDir.set(alias, syms);
+    }
+
+    const moduleKey = `${node.path}#(module)`;
+    setInfo(moduleKey, node.path, "(module top-level)", 0);
+    const syms = [...node.symbols].sort((a, b) => a.line - b.line);
+    const ownerAt = (line: number): string => {
+      let o = moduleKey;
+      for (const s of syms) {
+        if (s.line <= line) o = `${node.path}#${s.name}`;
+        else break;
+      }
+      return o;
+    };
+
+    const walk = (n: Node): void => {
+      if (n.type === "selector_expression") {
+        const operand = n.childForFieldName("operand");
+        const field = n.childForFieldName("field");
+        if (operand && field && operand.type === "identifier" && aliasDir.has(operand.text)) {
+          const target = aliasDir.get(operand.text)!.get(field.text);
+          if (target) addEdge(ownerAt(n.startPosition.row + 1), target);
+          walk(operand);
+          return;
+        }
+      }
+      if (n.type === "identifier") {
+        const target = sameDir.get(n.text);
+        if (target) addEdge(ownerAt(n.startPosition.row + 1), target);
+      }
+      for (const c of n.namedChildren) walk(c);
+    };
+    walk(tree.rootNode);
   }
 
   return { uses, usedBy, info, covered };

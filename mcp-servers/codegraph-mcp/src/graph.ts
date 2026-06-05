@@ -16,6 +16,7 @@ import { parseCppDependencies, collectCppSearchDirs } from "./parsers/cpp.js";
 import { parsePackageJsonDependencies } from "./parsers/packagejson.js";
 import { parseRequirementsTxtDependencies } from "./parsers/requirementstxt.js";
 import { parseGoModDependencies } from "./parsers/gomod.js";
+import { parseGoDependencies, clearGoModuleCache } from "./parsers/golang.js";
 import { analyzeFile } from "./treesitter/analyze.js";
 
 // ============================================================
@@ -190,6 +191,8 @@ function parseNodeDependencies(
     case "cpp":
     case "arduino":
       return parseCppDependencies(filePath, ctx.cppSearchDirs);
+    case "go":
+      return parseGoDependencies(filePath, ctx.rootDir);
     case "config":
       return parseManifestDependencies(filePath, ctx.localPackages);
     default:
@@ -233,6 +236,7 @@ export async function buildDependencyGraph(
 
   // Clear tsconfig cache on each scan to pick up config changes
   clearTsConfigCache();
+  clearGoModuleCache();
 
   const ignorePatterns = resolveIgnorePatterns(options);
 
@@ -335,6 +339,7 @@ export async function incrementalUpdate(
 ): Promise<{ graph: DependencyGraph; delta: IncrementalDelta }> {
   const rootDir = previous.rootDir;
   clearTsConfigCache();
+  clearGoModuleCache();
 
   const ignorePatterns = resolveIgnorePatterns(options);
   const files = await discoverFiles(rootDir, ignorePatterns);

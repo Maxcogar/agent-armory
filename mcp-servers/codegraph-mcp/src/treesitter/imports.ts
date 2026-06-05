@@ -187,6 +187,27 @@ function extractCppImports(root: Node): RawImport[] {
  * specifier + kind + named specifiers), before any path resolution. Returns []
  * for languages without a tree-sitter grammar.
  */
+// ---------- Go ----------
+
+function extractGoImports(root: Node): RawImport[] {
+  const out: RawImport[] = [];
+  for (const spec of root.descendantsOfType("import_spec")) {
+    const pathNode = spec.childForFieldName("path");
+    if (!pathNode) continue;
+    const raw = unquote(pathNode.text);
+    const nameNode = spec.childForFieldName("name");
+    const explicit = nameNode && nameNode.text !== "_" && nameNode.text !== "." ? nameNode.text : null;
+    const alias = explicit ?? raw.split("/").pop() ?? raw;
+    out.push({
+      raw,
+      kind: "value",
+      specifiers: [{ imported: "*", local: alias, kind: "namespace", isType: false }],
+      line: lineOf(spec),
+    });
+  }
+  return out;
+}
+
 export function extractImportsFromTree(language: Language, root: Node): RawImport[] {
   switch (language) {
     case "typescript":
@@ -197,6 +218,8 @@ export function extractImportsFromTree(language: Language, root: Node): RawImpor
     case "cpp":
     case "arduino":
       return extractCppImports(root);
+    case "go":
+      return extractGoImports(root);
     default:
       return [];
   }
