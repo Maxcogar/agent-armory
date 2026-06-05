@@ -36,6 +36,7 @@ import {
   toolFindDeadExports,
   toolFindUnusedImports,
   toolDiffSurface,
+  toolVerifyDoc,
   toolExportMermaid,
   toolExportDot,
 } from "./tools/query.js";
@@ -1147,6 +1148,53 @@ Prerequisite: codegraph_scan must be called first.`,
   async ({ file }) => {
     if (!currentGraph) return noGraphError();
     const result = toolFindUnusedImports(currentGraph, file);
+    if (isToolError(result)) return errResponse(result.error);
+    return okResponse(result);
+  }
+);
+
+// ============================================================
+// Tool: codegraph_verify_doc
+// ============================================================
+
+server.registerTool(
+  "codegraph_verify_doc",
+  {
+    title: "Verify a Document's Symbol Claims Against the Code",
+    description: `Checks the symbol-level claims a documentation file makes against the actual code. For each code-like identifier the doc mentions (in inline code, fenced blocks, or dotted access like \`plantInfo.commonName\`), it reports:
+
+  - missing — the doc names a symbol/object that exists nowhere in the code (an
+    invented or stale name). Each comes with the nearest real symbol names.
+  - dead    — the doc references a symbol that IS defined but is a dead export
+    (no live importer) — e.g. a doc describing dead code as the active flow.
+
+This is deterministic and catches the failure mode where an audit/migration doc
+describes the code wrong: invented field names, or a dead interface presented as
+live (often while a live sibling under a different name is the real one — see
+codegraph_get_symbol for sibling surfacing).
+
+It checks top-level symbol names (types/classes/functions/consts), not object
+field names, so a bare field reference is not flagged; a dotted-access *root* is.
+
+Args:
+  - doc (string): the documentation file (relative path, basename, or absolute).
+
+Returns: { doc, checked, missing: [{ token, nearest }], dead: [{ token, symbol, reason }] }
+
+Prerequisite: codegraph_scan must be called first (it scans docs too).`,
+    inputSchema: {
+      doc: z.string().describe("Documentation file to verify (path or basename)"),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ doc }) => {
+    if (!currentGraph) return noGraphError();
+    const result = toolVerifyDoc(currentGraph, doc);
     if (isToolError(result)) return errResponse(result.error);
     return okResponse(result);
   }

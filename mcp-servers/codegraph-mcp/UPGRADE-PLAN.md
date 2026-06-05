@@ -181,7 +181,7 @@ re-export barrels and namespace imports, run true find-all-references. Most
 `ambiguous` TS/JS verdicts become `used`/`unused`. Python and C++ stay on the
 calibrated substrate (honest about it).
 
-### Phase 3 — Document ↔ code consistency
+### Phase 3 — Document ↔ code consistency ✅
 One concrete application of the symbol graph (the active doc-audit example) —
 not its reason for existing. Builds on the existing doc index (`DocNode`).
 - **D1. Symbol-level doc references** — extend doc scanning to extract the

@@ -951,6 +951,150 @@ export function toolDiffSurface(
 }
 
 // ============================================================
+// Document <-> code consistency (verify_doc)
+// ============================================================
+
+const DOC_STOPWORDS = new Set([
+  "This", "That", "These", "Note", "Returns", "Example", "Args", "Type", "Types",
+  "None", "True", "False", "Object", "Array", "String", "Number", "Boolean",
+  "Promise", "Record", "Partial", "Phase", "Step", "Code", "File", "Files",
+  "Used", "Usage", "Input", "Output", "Json", "Http", "Https",
+]);
+
+/** A doc token that plausibly names a code symbol (PascalCase or camelCase). */
+function isCandidateName(t: string): boolean {
+  if (t.length < 4 || DOC_STOPWORDS.has(t)) return false;
+  return /[a-z][A-Z]/.test(t) || /^[A-Z][a-z]+$/.test(t);
+}
+
+/** Extract symbol-like tokens a doc claims about: code-span/fenced identifiers,
+ *  dotted-access roots (`plantInfo.x` -> plantInfo), and standalone Pascal types. */
+function extractDocCandidates(content: string): string[] {
+  const spans: string[] = [];
+  for (const m of content.matchAll(/`([^`\n]+)`/g)) spans.push(m[1]);
+  for (const m of content.matchAll(/```[a-zA-Z0-9]*\n([\s\S]*?)```/g)) spans.push(m[1]);
+
+  const out = new Set<string>();
+  for (const span of spans) {
+    for (const m of span.matchAll(/\b([A-Za-z_]\w*)(?:\.\w+)+/g)) {
+      if (isCandidateName(m[1])) out.add(m[1]);
+    }
+    for (const m of span.matchAll(/(?<!\.)\b[A-Z][a-z][A-Za-z0-9]{2,}\b/g)) {
+      if (isCandidateName(m[0])) out.add(m[0]);
+    }
+  }
+  return [...out];
+}
+
+function sharedPrefixLen(a: string, b: string): number {
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  return i;
+}
+
+/** Real symbols whose names are closest to an unknown token (for suggestions). */
+function nearestSymbols(token: string, allNames: string[]): string[] {
+  const lt = token.toLowerCase();
+  const key = lt.slice(0, Math.min(5, lt.length));
+  const scored: { name: string; score: number }[] = [];
+  for (const name of allNames) {
+    const ln = name.toLowerCase();
+    if (ln === lt) continue;
+    let score = 0;
+    if (ln.startsWith(key) || lt.startsWith(ln.slice(0, 5))) score = sharedPrefixLen(lt, ln) + 2;
+    else if (ln.includes(key) || lt.includes(ln.slice(0, 5))) score = 1;
+    if (score > 0) scored.push({ name, score });
+  }
+  scored.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const s of scored) {
+    if (seen.has(s.name)) continue;
+    seen.add(s.name);
+    out.push(s.name);
+    if (out.length >= 3) break;
+  }
+  return out;
+}
+
+function resolveDoc(graph: DependencyGraph, query: string): { path: string; relativePath: string } | null {
+  const q = query.replace(/\\/g, "/").toLowerCase();
+  for (const doc of graph.docNodes.values()) {
+    const rel = doc.relativePath.replace(/\\/g, "/").toLowerCase();
+    if (rel === q || rel.endsWith("/" + q) || path.basename(rel) === q || doc.path.toLowerCase() === q) {
+      return { path: doc.path, relativePath: doc.relativePath };
+    }
+  }
+  return null;
+}
+
+/** codegraph_verify_doc — check the symbol claims a doc makes against the code. */
+export function toolVerifyDoc(
+  graph: DependencyGraph,
+  docQuery: string
+): {
+  doc: { path: string; relativePath: string };
+  checked: number;
+  missing: { token: string; nearest: string[] }[];
+  dead: { token: string; symbol: SymbolRef; reason: string }[];
+} | { error: string } {
+  const doc = resolveDoc(graph, docQuery);
+  if (!doc) {
+    return { error: `Documentation file not found in graph: "${docQuery}". Use codegraph_list_docs to see scanned docs.` };
+  }
+  let content: string;
+  try {
+    content = fs.readFileSync(doc.path, "utf-8");
+  } catch {
+    return { error: `Could not read documentation file: ${doc.relativePath}` };
+  }
+
+  const byName = new Map<string, { node: FileNode; sym: SymbolNode }[]>();
+  const fileBasenames = new Set<string>();
+  for (const node of graph.nodes.values()) {
+    fileBasenames.add(path.basename(node.relativePath).replace(/\.[^.]+$/, "").toLowerCase());
+    if (!node.symbols) continue;
+    for (const sym of node.symbols) {
+      const list = byName.get(sym.name);
+      if (list) list.push({ node, sym });
+      else byName.set(sym.name, [{ node, sym }]);
+    }
+  }
+  const allNames = [...byName.keys()];
+
+  const consumers = computeConsumers(graph);
+  const tsLiveness = getTsLiveness(graph);
+  const missing: { token: string; nearest: string[] }[] = [];
+  const dead: { token: string; symbol: SymbolRef; reason: string }[] = [];
+
+  const candidates = extractDocCandidates(content);
+  for (const token of candidates) {
+    const entries = byName.get(token);
+    if (entries) {
+      const exported = entries.filter((e) => e.sym.exported);
+      if (exported.length > 0) {
+        const anyLive = exported.some(
+          (e) => livenessFor(e.sym.name, e.node, consumers, tsLiveness).verdict !== "unused"
+        );
+        if (!anyLive) {
+          dead.push({
+            token,
+            symbol: toSymbolRef(exported[0].node, exported[0].sym),
+            reason: "the doc references this symbol, but it is a dead export (no live importer)",
+          });
+        }
+      }
+    } else if (!fileBasenames.has(token.toLowerCase())) {
+      missing.push({ token, nearest: nearestSymbols(token, allNames) });
+    }
+  }
+
+  missing.sort((a, b) => a.token.localeCompare(b.token));
+  dead.sort((a, b) => a.token.localeCompare(b.token));
+  return { doc, checked: candidates.length, missing, dead };
+}
+
+// ============================================================
 // Visualization export tools
 // ============================================================
 
