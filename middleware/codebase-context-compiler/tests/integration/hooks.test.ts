@@ -165,6 +165,116 @@ describe('native Claude Code hooks', () => {
     expect(codeEdit.systemMessage).toContain('document/memory/admin workflow');
   });
 
+  it('UserPromptSubmit treats AgentBoard implementation prompts as code work', async () => {
+    const root = repo();
+    const out: any = await handleHook('user-prompt', {
+      user_prompt: 'implement the AgentBoard card by updating getPreference behavior',
+      cwd: root,
+      session_id: 'agentboard-code',
+    });
+
+    expect(injectedContext(out)).toContain('CTXPACK MANDATORY CONTEXT');
+    expect(readFileSync(join(root, '.context/.mode-agentboard-code.json'), 'utf8')).toContain('ctxpack_active');
+  });
+
+  it('UserPromptSubmit resolves an affirmative follow-up from the previous assistant proposal', async () => {
+    const root = repo();
+    const out: any = await handleHook('user-prompt', {
+      user_prompt: 'yes',
+      cwd: root,
+      session_id: 'followup-yes',
+      transcript_path: transcript(root, 'I found a real issue in the preference flow. Want me to fix getPreference defaults in src/state/store.ts?'),
+    });
+
+    expect(injectedContext(out)).toContain('CTXPACK MANDATORY CONTEXT');
+    expect(injectedContext(out)).toContain('getPreference');
+    expect(out.systemMessage).toContain('resolved "yes" to previous assistant proposal');
+    const pkg = JSON.parse(readFileSync(join(root, '.context/task-context.json'), 'utf8'));
+    expect(pkg.task.normalized_task).toContain('getPreference');
+    expect(readFileSync(join(root, '.context/.mode-followup-yes.json'), 'utf8')).toContain('ctxpack_active');
+  });
+
+  it('Stop records pending assistant actions so bare yes can continue without prompt keywords', async () => {
+    const root = repo();
+    await handleHook('stop', {
+      cwd: root,
+      session_id: 'stateful-followup',
+      last_assistant_message: 'I found a real issue: getPreference can return undefined for dark mode. Want me to fix that?',
+    });
+
+    const stateBefore = JSON.parse(readFileSync(join(root, '.context/.mode-stateful-followup.json'), 'utf8'));
+    expect(stateBefore.pending_action.task).toContain('getPreference');
+
+    const out: any = await handleHook('user-prompt', {
+      user_prompt: 'yes',
+      cwd: root,
+      session_id: 'stateful-followup',
+    });
+
+    expect(injectedContext(out)).toContain('CTXPACK MANDATORY CONTEXT');
+    const pkg = JSON.parse(readFileSync(join(root, '.context/task-context.json'), 'utf8'));
+    expect(pkg.task.normalized_task).toContain('getPreference');
+    const stateAfter = JSON.parse(readFileSync(join(root, '.context/.mode-stateful-followup.json'), 'utf8'));
+    expect(stateAfter.pending_action).toBeUndefined();
+    expect(stateAfter.active_task).toContain('getPreference');
+  });
+
+  it('UserPromptSubmit resolves an affirmative deferral as non-code workflow', async () => {
+    const root = repo();
+    const out: any = await handleHook('user-prompt', {
+      user_prompt: 'yes',
+      cwd: root,
+      session_id: 'followup-defer',
+      transcript_path: transcript(root, 'Want me to add this to ROADMAP.md so we can work on it later?'),
+    });
+
+    expect(out.hookSpecificOutput).toBeUndefined();
+    expect(readFileSync(join(root, '.context/.mode-followup-defer.json'), 'utf8')).toContain('non_code_workflow');
+  });
+
+  it('UserPromptSubmit ignores bare yes when there is no pending assistant action', async () => {
+    const root = repo();
+    await handleHook('user-prompt', {
+      user_prompt: 'implement getPreference dark mode behavior',
+      cwd: root,
+      session_id: 'bare-yes-safe',
+    });
+
+    const out: any = await handleHook('user-prompt', {
+      user_prompt: 'yes',
+      cwd: root,
+      session_id: 'bare-yes-safe',
+    });
+
+    expect(out.hookSpecificOutput).toBeUndefined();
+  });
+
+  it('Coding prompts reset prior non-code workflow mode and allow normal edit gating', async () => {
+    const root = repo();
+    await handleHook('user-prompt', {
+      user_prompt: 'write a handoff document and append memory file notes',
+      cwd: root,
+      session_id: 'non-code-then-code',
+    });
+    await handleHook('user-prompt', {
+      user_prompt: 'implement the AgentBoard card by updating getPreference behavior',
+      cwd: root,
+      session_id: 'non-code-then-code',
+    });
+
+    const out: any = await handleHook('pre-tool', {
+      tool_name: 'Edit',
+      cwd: root,
+      session_id: 'non-code-then-code',
+      transcript_path: transcript(root, '<CTXPACK_PLAN>Modify src/state/store.ts and src/routes/SettingsPage.tsx.</CTXPACK_PLAN>'),
+      tool_input: { file_path: join(root, 'src/state/store.ts'), new_string: 'export function getPreference(k){return k}' },
+    });
+
+    expect(readFileSync(join(root, '.context/.mode-non-code-then-code.json'), 'utf8')).toContain('ctxpack_active');
+    expect(out.hookSpecificOutput.permissionDecision).toBe('allow');
+    expect(out.systemMessage ?? '').not.toContain('document/memory/admin workflow');
+  });
+
   it('Read hooks provide orientation as additionalContext without changing permissions', async () => {
     const root = repo();
     await indexed(root);

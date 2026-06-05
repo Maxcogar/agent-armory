@@ -8,7 +8,7 @@
  * transcript contains a <CTXPACK_PLAN>...</CTXPACK_PLAN> block that passes the
  * assumption firewall for that package.
  */
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { join } from 'node:path';
 import { openContext, loadPackageFile, PKG_JSON, PKG_MD } from '../app-context.js';
@@ -49,8 +49,14 @@ function readStdin(): any {
 
 function looksLikeCodingTask(prompt: string): boolean {
   if (!prompt || prompt.trim().split(/\s+/).length < 3) return false;
+  const lower = prompt.toLowerCase();
   const c = classifyTask(prompt);
-  return c.task.task_types.some((t) => t !== 'general_change') || c.mentionedPaths.length > 0 || c.mentionedSymbols.length > 0;
+  return c.task.task_types.some((t) => t !== 'general_change')
+    || c.task.intent !== 'general_change'
+    || c.mentionedPaths.length > 0
+    || c.mentionedSymbols.length > 0
+    || /\b(implement|fix|debug|refactor|patch|wire|build|add|change|update|modify)\b/.test(lower)
+    || /\b(do|start|continue|resume|finish|complete|work\s+on|execute)\b.{0,80}\b(card|task|ticket|issue|plan|implementation|feature|bug)\b/.test(lower);
 }
 
 function looksLikeNonCodeWorkflowPrompt(prompt: string): boolean {
@@ -62,7 +68,11 @@ function looksLikeNonCodeWorkflowPrompt(prompt: string): boolean {
   if (/\b(implement|fix|debug|refactor|patch|wire)\b.{0,80}\b(code|function|component|endpoint|route|api|schema|migration|bug|feature)\b/.test(lower)) {
     return false;
   }
-  if (/\b(agentboard|workspace card|board card|artifact|memory file|memory files|observation log|skill-observations|handoff|session summary|core ingest)\b/.test(lower)) {
+  if (/\b(memory file|memory files|observation log|skill-observations|handoff|session summary|core ingest)\b/.test(lower)) {
+    return true;
+  }
+  if (/\b(add|write|record|put|append)\b.{0,80}\b(to|in|into)\b.{0,80}\b(file|doc|document|markdown|roadmap|todo|notes?|handoff)\b/.test(lower)
+    && /\b(later|defer|deferred|parking|park|backlog|remember|record|note|work on it later)\b/.test(lower)) {
     return true;
   }
   if (/\b(write|create|draft|append|record|log|make|update)\b.{0,100}\b(doc|document|documentation|markdown|readme|changelog|roadmap|plan|note|notes|report|write[- ]?up|brief|proposal)\b/.test(lower)) {
@@ -103,13 +113,39 @@ function markSeen(file: string, key: string): void {
 
 type SessionMode = 'ctxpack_active' | 'non_code_workflow';
 
+interface PendingAction {
+  kind: 'code' | 'non_code' | 'unknown';
+  task: string;
+  source_excerpt: string;
+  created_at: string;
+}
+
+interface SessionState {
+  mode?: SessionMode;
+  reason?: string;
+  updated_at?: string;
+  active_task?: string;
+  active_package_id?: string;
+  pending_action?: PendingAction;
+}
+
+type PromptResolution =
+  | { kind: 'direct'; prompt: string }
+  | { kind: 'continuation'; prompt: string }
+  | { kind: 'defer'; reason: string }
+  | { kind: 'reject' }
+  | { kind: 'ignore' };
+
 function sessionModePath(contextDir: string, session: string): string {
   return join(contextDir, `.mode-${session.replace(/[^\w.-]/g, '_')}.json`);
 }
 
 function writeSessionMode(contextDir: string, session: string, mode: SessionMode, reason: string): void {
   try {
+    const state = readSessionState(contextDir, session) ?? {};
+    delete state.pending_action;
     writeFileSync(sessionModePath(contextDir, session), JSON.stringify({
+      ...state,
       mode,
       reason,
       updated_at: new Date().toISOString(),
@@ -117,12 +153,48 @@ function writeSessionMode(contextDir: string, session: string, mode: SessionMode
   } catch { /* optional session state */ }
 }
 
+function clearSessionMode(contextDir: string, session: string): void {
+  try { unlinkSync(sessionModePath(contextDir, session)); } catch { /* optional session state */ }
+}
+
 function isNonCodeWorkflowSession(contextDir: string, session: string): boolean {
   try {
-    const parsed = JSON.parse(readFileSync(sessionModePath(contextDir, session), 'utf8')) as { mode?: string };
+    const parsed = readSessionState(contextDir, session) ?? {};
     return parsed.mode === 'non_code_workflow';
   } catch {
     return false;
+  }
+}
+
+function readSessionState(contextDir: string, session: string): SessionState | null {
+  try { return JSON.parse(readFileSync(sessionModePath(contextDir, session), 'utf8')) as SessionState; } catch { return null; }
+}
+
+function writePendingAction(contextDir: string, session: string, pending: PendingAction): void {
+  try {
+    mkdirSync(contextDir, { recursive: true });
+    const state = readSessionState(contextDir, session) ?? {};
+    writeFileSync(sessionModePath(contextDir, session), JSON.stringify({
+      ...state,
+      pending_action: pending,
+      updated_at: new Date().toISOString(),
+    }, null, 2));
+  } catch {
+    // Optional continuation state; direct prompt classification still works.
+  }
+}
+
+function clearPendingAction(contextDir: string, session: string): void {
+  try {
+    const state = readSessionState(contextDir, session);
+    if (!state?.pending_action) return;
+    delete state.pending_action;
+    writeFileSync(sessionModePath(contextDir, session), JSON.stringify({
+      ...state,
+      updated_at: new Date().toISOString(),
+    }, null, 2));
+  } catch {
+    // Optional continuation state.
   }
 }
 
@@ -146,19 +218,29 @@ export async function handleHook(event: string, input: any): Promise<Record<stri
       const prompt: string = input.prompt ?? input.user_prompt ?? '';
       const root: string = input.cwd ?? process.cwd();
       const sessionId: string = input.session_id ?? 'nosession';
-      if (looksLikeNonCodeWorkflowPrompt(prompt)) {
-        const contextDir = join(root, '.context');
+      const contextDir = join(root, '.context');
+      const resolution = resolvePrompt(prompt, input.transcript_path, contextDir, sessionId);
+
+      if (resolution.kind === 'reject') {
+        clearSessionMode(contextDir, sessionId);
+        return {};
+      }
+
+      if (resolution.kind === 'defer') {
         try {
           mkdirSync(contextDir, { recursive: true });
-          writeSessionMode(contextDir, sessionId, 'non_code_workflow', 'document/memory/admin workflow');
+          writeSessionMode(contextDir, sessionId, 'non_code_workflow', resolution.reason);
         } catch { /* optional session state */ }
         return {};
       }
-      if (!looksLikeCodingTask(prompt)) return {};
+
+      if (resolution.kind === 'ignore') return {};
+
+      const taskPrompt = resolution.prompt;
 
       const ctx = openContext(root);
       try {
-        writeSessionMode(ctx.contextDir, sessionId, 'ctxpack_active', 'codebase task');
+        writeSessionMode(ctx.contextDir, sessionId, 'ctxpack_active', resolution.kind === 'continuation' ? 'conversation continuation' : 'codebase task');
         writeChangeBaseline(ctx.contextDir, sessionId, changedFiles(root) ?? []);
         const idx = await ctx.indexer.index(ctx.root, ctx.repoName, {
           excludes: ctx.config.excludes,
@@ -166,7 +248,7 @@ export async function handleHook(event: string, input: any): Promise<Record<stri
           staticAnalysis: ctx.config.staticAnalysis,
         });
         const snapshot = ctx.storage.getSnapshot(idx.snapshotId)!;
-        const pkg = buildPackage(ctx.storage, snapshot, prompt, { injectionScanner: ctx.injectionScanner });
+        const pkg = buildPackage(ctx.storage, snapshot, taskPrompt, { injectionScanner: ctx.injectionScanner });
         const validation = ctx.validator.validatePackage(pkg);
         if (!validation.valid) {
           return { decision: 'block', reason: `ctxpack generated an invalid Context Package: ${validation.errors.join('; ')}` };
@@ -174,9 +256,12 @@ export async function handleHook(event: string, input: any): Promise<Record<stri
         ctx.storage.savePackage(pkg);
         writeFileSync(join(ctx.contextDir, PKG_JSON), JSON.stringify(pkg, null, 2));
         writeFileSync(join(ctx.contextDir, PKG_MD), renderPackageMarkdown(pkg));
-        new AuditLog(ctx.storage, 'hook:user-prompt').record('package', `id=${pkg.package_id} task="${prompt.slice(0, 80)}"`);
+        writeActivePackage(ctx.contextDir, sessionId, taskPrompt, pkg.package_id);
+        new AuditLog(ctx.storage, 'hook:user-prompt').record('package', `id=${pkg.package_id} task="${taskPrompt.slice(0, 80)}"`);
         return contextFor('UserPromptSubmit', buildInjectionBlock(pkg), {
-          systemMessage: `ctxpack injected Context Package ${pkg.package_id} with ${pkg.relevant_files.length} relevant file(s).`,
+          systemMessage: resolution.kind === 'continuation'
+            ? `ctxpack resolved "${prompt.slice(0, 40)}" to previous assistant proposal and injected Context Package ${pkg.package_id} with ${pkg.relevant_files.length} relevant file(s).`
+            : `ctxpack injected Context Package ${pkg.package_id} with ${pkg.relevant_files.length} relevant file(s).`,
         });
       } finally {
         ctx.storage.close();
@@ -278,6 +363,7 @@ export async function handleHook(event: string, input: any): Promise<Record<stri
       const root: string = input.cwd ?? process.cwd();
       const contextDir = join(root, '.context');
       const sessionId: string = input.session_id ?? 'nosession';
+      updatePendingActionFromAssistant(contextDir, sessionId, input.last_assistant_message, input.transcript_path);
       const baseline = readChangeBaseline(contextDir, sessionId);
       const changed = changedFiles(root, baseline);
       if (!changed || changed.length === 0) return {};
@@ -324,6 +410,194 @@ export async function handleHook(event: string, input: any): Promise<Record<stri
     return {};
   } catch (e) {
     return { systemMessage: `ctxpack hook failed closed for safety: ${(e as Error).message}` };
+  }
+}
+
+function resolvePrompt(prompt: string, transcriptPath: string | undefined, contextDir: string, sessionId: string): PromptResolution {
+  const trimmed = prompt.trim();
+  if (!trimmed) return { kind: 'ignore' };
+
+  if (isRejectingFollowUp(trimmed)) return { kind: 'reject' };
+
+  const pendingAction = isAffirmingFollowUp(trimmed) ? readSessionState(contextDir, sessionId)?.pending_action ?? null : null;
+  if (pendingAction) {
+    if (pendingAction.kind === 'non_code' || looksLikeNonCodeWorkflowPrompt(pendingAction.task)) {
+      return { kind: 'defer', reason: 'conversation follow-up requested document/memory/admin workflow' };
+    }
+    return {
+      kind: 'continuation',
+      prompt: pendingAction.task,
+    };
+  }
+
+  const assistantAction = isAffirmingFollowUp(trimmed) ? previousAssistantAction(transcriptPath) : null;
+  if (assistantAction) {
+    if (assistantAction.kind === 'non_code' || looksLikeNonCodeWorkflowPrompt(assistantAction.task)) {
+      return { kind: 'defer', reason: 'conversation follow-up requested document/memory/admin workflow' };
+    }
+    return {
+      kind: 'continuation',
+      prompt: assistantAction.task,
+    };
+  }
+
+  if (looksLikeNonCodeWorkflowPrompt(trimmed)) return { kind: 'defer', reason: 'document/memory/admin workflow' };
+  if (looksLikeCodingTask(trimmed)) return { kind: 'direct', prompt: trimmed };
+
+  return { kind: 'ignore' };
+}
+
+function isAffirmingFollowUp(prompt: string): boolean {
+  const lower = prompt.toLowerCase().replace(/[.!?,]+$/g, '').replace(/,/g, '').trim();
+  return /^(yes|yeah|yep|yup|sure|ok|okay|go ahead|do it|do that|please do|proceed|sounds good|that one|continue|carry on)(\s+please)?$/.test(lower)
+    || /^(yes|yeah|yep|yup|sure|ok|okay)\s+(do that|go ahead|proceed|please)$/.test(lower);
+}
+
+function isRejectingFollowUp(prompt: string): boolean {
+  const lower = prompt.toLowerCase().replace(/[.!?]+$/g, '').trim();
+  return /^(no|nope|nah|not now|leave it|skip it|cancel|stop|never mind|nevermind)$/.test(lower);
+}
+
+function previousAssistantAction(transcriptPath: string | undefined): PendingAction | null {
+  if (!transcriptPath || !existsSync(transcriptPath)) return null;
+  const assistantText = latestAssistantText(readFileSync(transcriptPath, 'utf8'));
+  if (!assistantText) return null;
+  return actionableProposalFromAssistant(assistantText);
+}
+
+function updatePendingActionFromAssistant(
+  contextDir: string,
+  sessionId: string,
+  lastAssistantMessage?: string,
+  transcriptPath?: string,
+): void {
+  const fromMessage = typeof lastAssistantMessage === 'string' ? actionableProposalFromAssistant(lastAssistantMessage) : null;
+  const pending = fromMessage ?? previousAssistantAction(transcriptPath);
+  if (pending) {
+    writePendingAction(contextDir, sessionId, pending);
+  } else {
+    clearPendingAction(contextDir, sessionId);
+  }
+}
+
+function latestAssistantText(rawTranscript: string): string | null {
+  let latest: string | null = null;
+  for (const line of rawTranscript.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try {
+      const obj = JSON.parse(trimmed) as Record<string, unknown>;
+      const message = obj['message'] as Record<string, unknown> | undefined;
+      const role = typeof message?.['role'] === 'string' ? message['role'] : obj['type'];
+      if (role !== 'assistant') continue;
+      const parts: string[] = [];
+      collectTranscriptText(message ?? obj, parts);
+      const text = parts.join('\n').trim();
+      if (text) latest = text;
+    } catch {
+      // Ignore non-JSON transcript noise.
+    }
+  }
+  return latest;
+}
+
+function collectTranscriptText(value: unknown, out: string[]): void {
+  if (typeof value === 'string') {
+    out.push(value);
+    return;
+  }
+  if (!value || typeof value !== 'object') return;
+  if (Array.isArray(value)) {
+    for (const item of value) collectTranscriptText(item, out);
+    return;
+  }
+
+  const obj = value as Record<string, unknown>;
+  if (typeof obj['text'] === 'string') out.push(obj['text']);
+  collectTranscriptText(obj['content'], out);
+}
+
+function actionableProposalFromAssistant(text: string): PendingAction | null {
+  const candidates = text
+    .split(/\r?\n|(?<=[.!?])\s+/)
+    .map((line) => line.replace(/^[-*]\s*/, '').trim())
+    .filter(Boolean);
+
+  for (let i = candidates.length - 1; i >= 0; i -= 1) {
+    const line = candidates[i];
+    if (!line) continue;
+    const context = previousContextSentence(candidates, i);
+    const question = line.match(/\b(?:want me to|would you like me to|do you want me to|should I|shall I)\s+(.+?)(?:\?|$)/i)?.[1];
+    if (question) return pendingAction(question, context, line);
+
+    const offer = line.match(/\b(?:I can|I could)\s+(.+?)(?:[.?]|$)/i)?.[1];
+    if (offer && /\b(investigate|look|dig|fix|implement|wire|add|update|change|confirm|trace|check|write|record|append)\b/i.test(offer)) {
+      return pendingAction(offer, context, line);
+    }
+  }
+  return null;
+}
+
+function pendingAction(action: string, context: string | null, source: string): PendingAction {
+  const task = normalizeAssistantAction(action, context);
+  return {
+    kind: classifyPendingAction(task),
+    task,
+    source_excerpt: source.slice(0, 500),
+    created_at: new Date().toISOString(),
+  };
+}
+
+function previousContextSentence(sentences: string[], actionIndex: number): string | null {
+  for (let i = actionIndex - 1; i >= Math.max(0, actionIndex - 5); i -= 1) {
+    const candidate = sentences[i];
+    if (!candidate) continue;
+    if (/\b(issue|bug|gap|problem|caveat|finding|likely|probably|not|fails?|mismatch|blocked|breaking|doesn'?t|won'?t|never|error|cause)\b/i.test(candidate)) {
+      return candidate;
+    }
+  }
+  return actionIndex > 0 ? sentences[actionIndex - 1] ?? null : null;
+}
+
+function normalizeAssistantAction(action: string, context: string | null): string {
+  const cleaned = action
+    .replace(/\s+/g, ' ')
+    .replace(/^either\s+/i, '')
+    .replace(/^also\s+/i, '')
+    .trim()
+    .replace(/[.!?]+$/g, '');
+
+  if (context && /\b(that|this|it|#\d+)\b/i.test(cleaned)) {
+    return `Continue previous assistant proposal about: ${context}. Requested action: ${cleaned}`;
+  }
+  if (/^investigate\b/i.test(cleaned)) return cleaned;
+  const investigative = cleaned.match(/^(dig into|look into|look at|confirm|check|trace)\s+(.+)/i)?.[2];
+  if (investigative) return `Investigate ${investigative}`;
+  if (/^(fix|implement|wire|add|update|change|modify|refactor|patch|debug)\b/i.test(cleaned)) return cleaned;
+  if (/^(write|record|append|put)\b/i.test(cleaned)) return cleaned;
+  return `Continue previous assistant proposal: ${cleaned}`;
+}
+
+function classifyPendingAction(task: string): PendingAction['kind'] {
+  if (looksLikeNonCodeWorkflowPrompt(task)) return 'non_code';
+  if (looksLikeCodingTask(task)) return 'code';
+  if (/\b(investigate|look into|dig into|trace|check|confirm)\b/i.test(task)) return 'code';
+  if (/\b(write|record|append|put)\b.{0,80}\b(roadmap|doc|document|note|handoff|file)\b/i.test(task)) return 'non_code';
+  return 'unknown';
+}
+
+function writeActivePackage(contextDir: string, sessionId: string, task: string, packageId: string): void {
+  try {
+    const state = readSessionState(contextDir, sessionId) ?? {};
+    delete state.pending_action;
+    writeFileSync(sessionModePath(contextDir, sessionId), JSON.stringify({
+      ...state,
+      active_task: task,
+      active_package_id: packageId,
+      updated_at: new Date().toISOString(),
+    }, null, 2));
+  } catch {
+    // Optional continuation state.
   }
 }
 
