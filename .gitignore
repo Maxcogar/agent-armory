@@ -57,3 +57,6 @@ genkit-flow-snapshot.txt
 # Auto-bootstrap docs (per CLAUDE.md: never commit passive-bootstrap output)
 implementation-plan-agent/ARCHITECTURE.yml
 implementation-plan-agent/docs/patterns/
+
+# skill-creator eval scratch (run transcripts, benchmark outputs, review HTML)
+skills/*-workspace/
