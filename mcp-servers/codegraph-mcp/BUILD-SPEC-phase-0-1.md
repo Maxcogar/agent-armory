@@ -220,7 +220,8 @@ Plus: re-run the existing 8 suites unchanged after Step 1 (regression gate).
    pre-scan baseline.
 
 **Phase 0 + Phase 1 complete** — all seven units landed, 100/100 tests pass,
-11 new MCP tools. Phase 2 (TS-compiler enrichment) upgrades step 6's `ambiguous`
+10 new MCP tools (+ `exclude_type_only` on change-impact). Phase 2 (TS-compiler
+enrichment) upgrades step 6's `ambiguous`
 verdicts to authoritative ones and is specced separately.
 
 ## 7. Decisions (resolved)
