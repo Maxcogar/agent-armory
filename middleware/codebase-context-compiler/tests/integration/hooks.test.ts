@@ -72,6 +72,8 @@ describe('native Claude Code hooks', () => {
     expect(ctxpack[0].matcher).toBe('*');
     expect(ctxpack[0].hooks[0].timeout).toBe(30);
     expect(settings.hooks.UserPromptSubmit[0].hooks[0].timeout).toBe(120);
+    expect(settings.hooks.PermissionRequest[0].hooks[0].command).toContain('hook permission-request');
+    expect(settings.hooks.SubagentStart[0].hooks[0].command).toContain('hook subagent-start');
     expect(pre.some((entry: any) => entry.hooks.some((h: any) => h.command === 'echo keep-me'))).toBe(true);
   }, 15000);
 
@@ -108,6 +110,16 @@ describe('native Claude Code hooks', () => {
     expect(injectedContext(out)).not.toMatch(/Task types: .*test_creation/);
     expect(injectedContext(out)).toContain('Relevant files to inspect');
     expect(injectedContext(out).length).toBeLessThan(10000);
+  });
+
+  it('UserPromptSubmit treats unwired-code discovery prompts as investigation context', async () => {
+    const out: any = await handleHook('user-prompt', {
+      user_prompt: 'There are some files/functions in this app that are supposed to be wired in but never were. Particularly im interested in one related to the plant doctor, the telemetry for the plants in my collection, and the journal entries',
+      cwd: repo(),
+    });
+    expect(injectedContext(out)).toContain('Task types: codebase_question');
+    expect(injectedContext(out)).toContain('Relevant files to inspect');
+    expect(injectedContext(out)).not.toContain('Required files (in scope)');
   });
 
   it('UserPromptSubmit also fires for symbol-heavy prompts without obvious task keywords', async () => {
@@ -327,6 +339,61 @@ describe('native Claude Code hooks', () => {
     expect(out.hookSpecificOutput.permissionDecision).toBe('deny');
     expect(out.systemMessage).toContain('Explore');
     expect(out.systemMessage).toContain('inspect the source directly');
+  });
+
+  it('PreToolUse blocks Agent Explore for unwired-code discovery prompts', async () => {
+    const root = repo();
+    await handleHook('user-prompt', {
+      user_prompt: 'There are some files/functions in this app that are supposed to be wired in but never were. Particularly im interested in one related to the plant doctor, the telemetry for the plants in my collection, and the journal entries',
+      cwd: root,
+      session_id: 'unwired-agent-explore',
+    });
+
+    const out: any = await handleHook('pre-tool', {
+      tool_name: 'Agent',
+      cwd: root,
+      session_id: 'unwired-agent-explore',
+      tool_input: { subagent_type: 'Explore', description: 'Find unwired files and functions' },
+    });
+    expect(out.hookSpecificOutput.permissionDecision).toBe('deny');
+    expect(out.systemMessage).toContain('Explore');
+    expect(out.systemMessage).toContain('inspect the source directly');
+  });
+
+  it('PermissionRequest blocks Agent Explore for direct-investigation packages', async () => {
+    const root = repo();
+    await handleHook('user-prompt', {
+      user_prompt: 'There are some files/functions in this app that are supposed to be wired in but never were. Particularly im interested in one related to the plant doctor, the telemetry for the plants in my collection, and the journal entries',
+      cwd: root,
+      session_id: 'permission-agent-explore',
+    });
+
+    const out: any = await handleHook('permission-request', {
+      tool_name: 'Agent',
+      cwd: root,
+      session_id: 'permission-agent-explore',
+      tool_input: { subagent_type: 'Explore', description: 'Find unwired files and functions' },
+    });
+    expect(out.hookSpecificOutput.hookEventName).toBe('PermissionRequest');
+    expect(out.hookSpecificOutput.decision.behavior).toBe('deny');
+    expect(out.hookSpecificOutput.decision.message).toContain('Do not delegate');
+  });
+
+  it('SubagentStart injects a fallback stop instruction for direct investigations', async () => {
+    const root = repo();
+    await handleHook('user-prompt', {
+      user_prompt: 'How does getPreference work and what data can it use?',
+      cwd: root,
+      session_id: 'subagent-start-fallback',
+    });
+
+    const out: any = await handleHook('subagent-start', {
+      cwd: root,
+      session_id: 'subagent-start-fallback',
+      agent_type: 'Explore',
+    });
+    expect(injectedContext(out)).toContain('Do not delegate');
+    expect(injectedContext(out)).toContain('Return immediately');
   });
 
   it('PreToolUse blocks MCP subagent dispatch for codebase explanation prompts', async () => {

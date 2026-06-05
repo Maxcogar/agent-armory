@@ -32,7 +32,8 @@ ctxpack init
 
 - `UserPromptSubmit` indexes the repository, generates `.context/task-context.json`, renders `.context/task-context.md`, and injects the package into regular Claude Code as hook context.
 - `PreToolUse` blocks `Edit`, `Write`, `MultiEdit`, and notebook edits until the transcript contains a plan wrapped in `<CTXPACK_PLAN>...</CTXPACK_PLAN>` that passes the assumption firewall.
-- For explanation/investigation prompts, `PreToolUse` blocks `Task` / `Explore` delegation so Claude Code inspects the relevant source directly in the current conversation.
+- For explanation/investigation prompts, `PreToolUse` and `PermissionRequest` block `Task` / `Explore` delegation so Claude Code inspects the relevant source directly in the current conversation.
+- `SubagentStart` injects a fallback direct-investigation instruction if a subagent still starts before a blocker catches it.
 - `PreToolUse` also blocks generated/vendor/build-output files from hand edits.
 - `Stop` reports changed-file impact and likely verification commands.
 

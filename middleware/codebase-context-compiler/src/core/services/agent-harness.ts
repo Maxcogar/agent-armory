@@ -13,11 +13,12 @@ import {
 } from '../ports/agent-injection-adapter.js';
 import { AssumptionFirewall } from './assumption-firewall.js';
 import { CTXPACK_PLAN_CLOSE, CTXPACK_PLAN_OPEN } from './plan-transcript.js';
+import { profileForTask } from './task-profiles.js';
 
 const MAX_HOOK_CONTEXT_CHARS = 9000;
 
 export function buildInjectionBlock(pkg: ContextPackage): string {
-  if (pkg.task.task_types.includes('codebase_question')) {
+  if (profileForTask(pkg.task).intent === 'locate_understand') {
     return capHookContext(buildQuestionInjectionBlock(pkg));
   }
 

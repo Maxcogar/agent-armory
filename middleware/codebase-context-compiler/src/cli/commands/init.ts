@@ -5,6 +5,8 @@
  *   - SessionStart     -> standing rules
  *   - UserPromptSubmit -> compile and inject the task Context Package
  *   - PreToolUse       -> deny edit tools until a ctxpack plan passes
+ *   - PermissionRequest -> deny subagent permission prompts for direct investigations
+ *   - SubagentStart    -> fallback context if a subagent is still spawned
  *   - Stop             -> impact and verification wrap-up
  */
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
@@ -32,6 +34,8 @@ export async function runInit(rootArg?: string): Promise<number> {
   addHook(settings.hooks, 'SessionStart', '*', cmd('session-start'), 30);
   addHook(settings.hooks, 'UserPromptSubmit', '*', cmd('user-prompt'), 120);
   addHook(settings.hooks, 'PreToolUse', '*', cmd('pre-tool'), 30);
+  addHook(settings.hooks, 'PermissionRequest', '*', cmd('permission-request'), 30);
+  addHook(settings.hooks, 'SubagentStart', '*', cmd('subagent-start'), 30);
   addHook(settings.hooks, 'Stop', '*', cmd('stop'), 30);
 
   writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
@@ -57,7 +61,8 @@ export async function runInit(rootArg?: string): Promise<number> {
   console.log('Regular Claude Code is now guarded by ctxpack:');
   console.log('  - coding prompts generate and inject an evidence-backed Context Package;');
   console.log('  - Claude Code must emit a <CTXPACK_PLAN>...</CTXPACK_PLAN> block before edit tools run;');
-  console.log('  - PreToolUse denies unsupported plans, stale packages, generated/vendor/build edits, and explanation-task delegation;');
+  console.log('  - PreToolUse and PermissionRequest deny unsupported plans, stale packages, generated/vendor/build edits, and explanation-task delegation;');
+  console.log('  - SubagentStart injects a fallback direct-investigation instruction if a subagent still starts;');
   console.log('  - read/edit hooks can add orientation cards, and Stop reports impact + verification for files changed after the prompt started.');
   console.log('(Restart the Claude Code session to load the hooks.)');
   return 0;

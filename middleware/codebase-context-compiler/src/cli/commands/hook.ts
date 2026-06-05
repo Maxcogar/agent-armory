@@ -18,6 +18,7 @@ import { renderPackageMarkdown } from '../../adapters/markdown/package-markdown-
 import { classifyTask } from '../../core/services/task-classifier.js';
 import { buildReadCard, buildEditCard } from '../../core/services/context-card.js';
 import { forbiddenBoundary } from '../../core/services/live-grounding.js';
+import { profileForTask } from '../../core/services/task-profiles.js';
 import { TreeSitterParserAdapter } from '../../adapters/tree-sitter/index.js';
 import { AuditLog } from '../../security/audit-log.js';
 import { EDIT_TOOLS } from '../../core/ports/agent-injection-adapter.js';
@@ -271,6 +272,34 @@ export async function handleHook(event: string, input: any): Promise<Record<stri
       }
     }
 
+    if (event === 'permission-request') {
+      const tool: string = input.tool_name ?? '';
+      if (!isSubagentTool(tool)) return {};
+
+      const root: string = input.cwd ?? process.cwd();
+      const sessionId: string = input.session_id ?? 'nosession';
+      const contextDir = join(root, '.context');
+      if (isNonCodeWorkflowSession(contextDir, sessionId)) return {};
+
+      const gate = validateSubagentGate(root, input.tool_input ?? {}, tool);
+      if (gate.decision === 'deny') return denyPermission(gate.message);
+      return {};
+    }
+
+    if (event === 'subagent-start') {
+      const root: string = input.cwd ?? process.cwd();
+      const sessionId: string = input.session_id ?? 'nosession';
+      const contextDir = join(root, '.context');
+      if (isNonCodeWorkflowSession(contextDir, sessionId)) return {};
+
+      const agent = input.agent_type ?? 'subagent';
+      const gate = validateSubagentGate(root, { subagent_type: agent }, agent);
+      if (gate.decision === 'deny') {
+        return contextFor('SubagentStart', `${gate.message}\n\nThis subagent should not perform the investigation. Return immediately and tell the parent conversation to inspect the ctxpack initial leads directly.`);
+      }
+      return {};
+    }
+
     if (event === 'pre-tool') {
       const tool: string = input.tool_name ?? '';
       const isRead = READ_TOOLS.has(tool);
@@ -294,20 +323,9 @@ export async function handleHook(event: string, input: any): Promise<Record<stri
         if (isNonCodeWorkflowSession(contextDir, sessionId)) {
           return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow' } };
         }
-        const ctx = openContext(root);
-        try {
-          const pkgPath = join(ctx.contextDir, PKG_JSON);
-          if (existsSync(pkgPath)) {
-            const pkg = loadPackageFile(pkgPath);
-            if (pkg.task.task_types.includes('codebase_question')) {
-              const agent = toolInput.subagent_type ?? toolInput.agent_type ?? tool;
-              return denyEdit(`ctxpack: this is an investigation/explanation request. Do not delegate the core codebase investigation to ${agent}; inspect the source directly so the details stay in this conversation.`);
-            }
-          }
-          return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow' } };
-        } finally {
-          ctx.storage.close();
-        }
+        const gate = validateSubagentGate(root, toolInput, tool);
+        if (gate.decision === 'deny') return denyEdit(gate.message);
+        return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow' } };
       }
 
       const rawPath: string = toolInput.file_path ?? toolInput.path ?? toolInput.notebook_path ?? '';
@@ -624,13 +642,31 @@ function contextFor(
   };
 }
 
+function validateSubagentGate(root: string, toolInput: Record<string, unknown>, fallbackAgent: string): GateResult {
+  const packagePath = join(root, '.context', PKG_JSON);
+  if (!existsSync(packagePath)) return { decision: 'allow' };
+
+  const pkg = loadPackageFile(packagePath);
+  if (!isDirectInvestigationPackage(pkg)) return { decision: 'allow' };
+
+  const agent = String(toolInput.subagent_type ?? toolInput.agent_type ?? toolInput.agent ?? fallbackAgent);
+  return {
+    decision: 'deny',
+    message: `ctxpack: this is an investigation/explanation request. Do not delegate the core codebase investigation to ${agent}; inspect the source directly so the details stay in this conversation.`,
+  };
+}
+
+function isDirectInvestigationPackage(pkg: ReturnType<typeof loadPackageFile>): boolean {
+  return profileForTask(pkg.task).enforcement.blockSubagents;
+}
+
 function validateQuestionSearchGate(root: string, sessionId: string): GateResult {
   const contextDir = join(root, '.context');
   const packagePath = join(contextDir, PKG_JSON);
   if (!existsSync(packagePath)) return { decision: 'allow' };
 
   const pkg = loadPackageFile(packagePath);
-  if (!pkg.task.task_types.includes('codebase_question')) return { decision: 'allow' };
+  if (!profileForTask(pkg.task).enforcement.requirePrimaryReadsBeforeSearch) return { decision: 'allow' };
 
   const leads = primaryQuestionLeads(pkg);
   if (leads.length === 0) return { decision: 'allow' };
@@ -708,6 +744,20 @@ function denyEdit(message: string): Record<string, unknown> {
       hookEventName: 'PreToolUse',
       permissionDecision: 'deny',
       permissionDecisionReason: message,
+    },
+    systemMessage: message,
+  };
+}
+
+function denyPermission(message: string): Record<string, unknown> {
+  return {
+    hookSpecificOutput: {
+      hookEventName: 'PermissionRequest',
+      decision: {
+        behavior: 'deny',
+        message,
+        interrupt: false,
+      },
     },
     systemMessage: message,
   };
