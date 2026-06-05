@@ -216,10 +216,12 @@ Plus: re-run the existing 8 suites unchanged after Step 1 (regression gate).
    `find_symbol_dependents`.
 6. ✅ S3/S4 `find_dead_exports` + `find_unused_imports` + calibrated verdicts
    (used/unused/ambiguous, never a false dead); S5 sibling surfacing.
-7. S6 surface diff.
+7. ✅ S6 `diff_surface` — exported-symbol added/removed/kind-changed vs the
+   pre-scan baseline.
 
-Phase 2 (TS-compiler enrichment) upgrades step 6's `ambiguous` verdicts and is
-specced separately once these land.
+**Phase 0 + Phase 1 complete** — all seven units landed, 100/100 tests pass,
+11 new MCP tools. Phase 2 (TS-compiler enrichment) upgrades step 6's `ambiguous`
+verdicts to authoritative ones and is specced separately.
 
 ## 7. Decisions (resolved)
 

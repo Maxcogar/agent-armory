@@ -2,7 +2,7 @@
 
 A deterministic static analysis MCP server that builds real dependency graphs for your codebases and exposes them as queryable tools in Claude Code.
 
-No AI guessing — pure AST/regex parsing to map actual import/include relationships.
+No AI guessing — tree-sitter parsing (with the existing resolvers) maps actual import/include relationships **and** file-level symbols. Beyond the file graph it answers symbol-level questions: is this *export* used, who imports this *symbol*, what's dead, what's the external/broken-import surface.
 
 ## Supported Languages
 
@@ -36,7 +36,7 @@ Automatically ignores: `node_modules`, `.git`, `dist`, `build`, `__pycache__`, `
 | `codegraph_scan` | **Call first.** Scans a directory and builds the graph in memory. Reuses an on-disk cache for an incremental rescan when one exists (pass `force: true` for a full rebuild). Also scans doc files (`.md`, `.mdx`, `.rst`, `.txt`) for code references. |
 | `codegraph_get_dependencies` | What does file X import? |
 | `codegraph_get_dependents` | What files import file X? |
-| `codegraph_get_change_impact` | Full blast radius if file(s) change (direct + transitive) |
+| `codegraph_get_change_impact` | Full blast radius if file(s) change (direct + transitive); `exclude_type_only` ignores TS `import type` edges for runtime-only coupling |
 | `codegraph_get_subgraph` | Local neighborhood around a file (configurable depth) |
 | `codegraph_find_entry_points` | Files at the top of the tree (nothing imports them) |
 | `codegraph_find_cycles` | Circular dependencies (SCC analysis), each ring reported once |
@@ -49,6 +49,16 @@ Automatically ignores: `node_modules`, `.git`, `dist`, `build`, `__pycache__`, `
 | `codegraph_list_docs` | All **documentation** files (`.md`, `.mdx`, `.rst`, `.txt`) scanned, with reference counts + pagination |
 | `codegraph_get_stats` | Codebase overview: most connected, most depended-on, etc. |
 | `codegraph_find_related_docs` | Find all documentation files affected by code changes |
+| `codegraph_get_symbol` | Look up a symbol: definition(s), references, a calibrated liveness verdict, and same-stem **siblings** (surfaces a live sibling next to a dead symbol) |
+| `codegraph_find_symbol_dependents` | Who imports a **specific symbol** of a file (symbol-level, finer than file dependents) |
+| `codegraph_find_dead_exports` | Exported symbols no file imports. Calibrated: a symbol reachable only via a barrel/namespace/dynamic import is `ambiguous`, never falsely "dead" |
+| `codegraph_find_unused_imports` | Import specifiers whose local binding is never referenced (JS/TS + Python) |
+| `codegraph_diff_surface` | Exported-symbol changes (added / removed / kind-changed) vs the pre-scan baseline — breaking-change review |
+| `codegraph_find_broken_imports` | Relative/local imports that resolved to nothing (bugs hiding among external specifiers) |
+| `codegraph_list_external_dependencies` | Third-party/builtin packages used, by importer count (supply-chain view) |
+| `codegraph_get_external_users` | Which files import a given external package (matches subpaths, e.g. `lodash/fp` under `lodash`) |
+| `codegraph_find_unreachable` | Code files no entry point can reach — true dead code, incl. dead cycles that orphan detection misses |
+| `codegraph_find_clusters` | Weakly-connected islands of related files (distinct from layers/cycles/subgraph) |
 | `codegraph_watch_start` | Watch the scanned project and keep the graph current via debounced incremental rescans |
 | `codegraph_watch_stop` | Stop the active file watcher |
 

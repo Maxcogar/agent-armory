@@ -35,6 +35,7 @@ import {
   toolFindSymbolDependents,
   toolFindDeadExports,
   toolFindUnusedImports,
+  toolDiffSurface,
   toolExportMermaid,
   toolExportDot,
 } from "./tools/query.js";
@@ -74,6 +75,9 @@ function isToolError(result: unknown): result is { error: string } {
 // ============================================================
 
 let currentGraph: DependencyGraph | null = null;
+// The graph as it was immediately before the most recent scan (the cache/in-
+// memory base). Kept so codegraph_diff_surface can report what the scan changed.
+let previousGraph: DependencyGraph | null = null;
 // Build options from the most recent scan, replayed by incremental rescans and
 // the file watcher so they discover the same file set.
 let lastBuildOptions: BuildGraphOptions | undefined;
@@ -175,6 +179,9 @@ Returns:
       (currentGraph && currentGraph.rootDir === normalizedRoot
         ? currentGraph
         : loadCache(normalizedRoot));
+
+    // Snapshot the pre-scan surface for codegraph_diff_surface.
+    previousGraph = base || null;
 
     let mode: "full" | "incremental";
     let delta: { added: number; changed: number; removed: number; reused: number } | undefined;
@@ -1142,6 +1149,37 @@ Prerequisite: codegraph_scan must be called first.`,
     const result = toolFindUnusedImports(currentGraph, file);
     if (isToolError(result)) return errResponse(result.error);
     return okResponse(result);
+  }
+);
+
+// ============================================================
+// Tool: codegraph_diff_surface
+// ============================================================
+
+server.registerTool(
+  "codegraph_diff_surface",
+  {
+    title: "Diff Exported-Symbol Surface",
+    description: `Reports how the exported-symbol surface changed between the previous scan and the current one — added exports, removed exports, and exports whose kind changed (e.g. interface -> type). Useful for breaking-change review.
+
+The baseline is the graph as it was immediately before the most recent codegraph_scan (the in-memory or cached state). On the first scan in a session there is no baseline, and hasBaseline is false. Re-scan after making changes, then call this to see the delta.
+
+Args: none.
+
+Returns: { hasBaseline, added, removed, signatureChanged, addedCount, removedCount, changedCount }
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {},
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async () => {
+    if (!currentGraph) return noGraphError();
+    return okResponse(toolDiffSurface(currentGraph, previousGraph));
   }
 );
 

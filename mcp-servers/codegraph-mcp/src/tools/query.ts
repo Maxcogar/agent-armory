@@ -826,6 +826,97 @@ export function toolFindUnusedImports(
 }
 
 // ============================================================
+// Surface diff (exported-symbol changes between two scans)
+// ============================================================
+
+interface SurfaceEntry {
+  relativePath: string;
+  name: string;
+  kind: SymbolKind;
+  line: number;
+}
+
+function exportedSurface(graph: DependencyGraph): Map<string, SurfaceEntry> {
+  const surface = new Map<string, SurfaceEntry>();
+  for (const node of graph.nodes.values()) {
+    if (!node.symbols) continue;
+    for (const sym of node.symbols) {
+      if (!sym.exported) continue;
+      surface.set(`${node.relativePath}#${sym.name}`, {
+        relativePath: node.relativePath,
+        name: sym.name,
+        kind: sym.kind,
+        line: sym.line,
+      });
+    }
+  }
+  return surface;
+}
+
+/** codegraph_diff_surface — exported-symbol changes vs the pre-scan baseline. */
+export function toolDiffSurface(
+  graph: DependencyGraph,
+  baseline: DependencyGraph | null
+): {
+  hasBaseline: boolean;
+  added: SurfaceEntry[];
+  removed: SurfaceEntry[];
+  signatureChanged: { relativePath: string; name: string; before: SymbolKind; after: SymbolKind }[];
+  addedCount: number;
+  removedCount: number;
+  changedCount: number;
+  message?: string;
+} {
+  if (!baseline) {
+    return {
+      hasBaseline: false,
+      added: [],
+      removed: [],
+      signatureChanged: [],
+      addedCount: 0,
+      removedCount: 0,
+      changedCount: 0,
+      message:
+        "No prior scan to diff against in this session. Re-scan after a change; " +
+        "the surface before each scan is kept as the baseline.",
+    };
+  }
+
+  const current = exportedSurface(graph);
+  const base = exportedSurface(baseline);
+  const added: SurfaceEntry[] = [];
+  const removed: SurfaceEntry[] = [];
+  const signatureChanged: { relativePath: string; name: string; before: SymbolKind; after: SymbolKind }[] = [];
+
+  for (const [key, entry] of current) {
+    const prev = base.get(key);
+    if (!prev) added.push(entry);
+    else if (prev.kind !== entry.kind) {
+      signatureChanged.push({ relativePath: entry.relativePath, name: entry.name, before: prev.kind, after: entry.kind });
+    }
+  }
+  for (const [key, entry] of base) {
+    if (!current.has(key)) removed.push(entry);
+  }
+
+  const byLoc = (a: SurfaceEntry, b: SurfaceEntry) =>
+    a.relativePath.localeCompare(b.relativePath) || a.name.localeCompare(b.name);
+  added.sort(byLoc);
+  removed.sort(byLoc);
+  signatureChanged.sort((a, b) => a.relativePath.localeCompare(b.relativePath) || a.name.localeCompare(b.name));
+
+  return {
+    hasBaseline: true,
+    added,
+    removed,
+    signatureChanged,
+    addedCount: added.length,
+    removedCount: removed.length,
+    changedCount: signatureChanged.length,
+  };
+}
+
+// ============================================================
 // Visualization export tools
 // ============================================================
 
