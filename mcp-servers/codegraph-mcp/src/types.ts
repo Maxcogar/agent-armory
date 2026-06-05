@@ -2,7 +2,10 @@
 // Core Graph Types
 // ============================================================
 
-export type Language = "javascript" | "typescript" | "python" | "cpp" | "arduino" | "config" | "unknown";
+export type Language =
+  | "javascript" | "typescript" | "python" | "cpp" | "arduino"
+  | "go" | "rust" | "java" | "ruby" | "csharp" | "php"
+  | "config" | "unknown";
 
 export interface FileNode {
   /** Normalized absolute path */
@@ -19,6 +22,20 @@ export interface FileNode {
   sizeBytes: number;
   /** Last modified timestamp */
   lastModified: number;
+  /**
+   * Rich import edges from the tree-sitter pass (kind + specifiers + resolution).
+   * Supplements `dependencies` (which stays the resolved-internal file list every
+   * existing algorithm reads). Optional until the symbol layer populates it.
+   */
+  imports?: ImportEdge[];
+  /** Declared symbols in this file (exports + internals). Optional until populated. */
+  symbols?: SymbolNode[];
+  /** HTTP endpoints defined in this file. Optional until populated. */
+  endpoints?: Endpoint[];
+  /** Cross-language channels (mqtt/ws/http/env/serial) in this file. */
+  channels?: Channel[];
+  /** True when this file is classified as a test (see test/source partition). */
+  isTest?: boolean;
 }
 
 export interface DependencyGraph {
@@ -213,4 +230,95 @@ export interface RelatedDocsResult {
   totalDocsToReview: number;
   /** Total doc files in the project (for context) */
   totalDocsInProject: number;
+}
+
+// ============================================================
+// Symbol & Import Layer (tree-sitter substrate)
+// ============================================================
+
+/** How an import couples the importer to its target. */
+export type ImportKind = "value" | "type" | "dynamic" | "re-export" | "side-effect";
+
+/** Whether an import's `raw` specifier resolved to an in-graph file. */
+export type ImportResolution = "internal" | "external" | "unresolved";
+
+/** One name brought in by an import or re-export. */
+export interface ImportSpecifier {
+  /** Name in the source module; "default" for a default import, "*" for a namespace. */
+  imported: string;
+  /** Local binding name (equals `imported` when not aliased). */
+  local: string;
+  kind: "named" | "default" | "namespace";
+  /** True for `import type {X}` or `import {type X}` — TS type-only specifiers. */
+  isType: boolean;
+}
+
+/**
+ * A syntactic import as read straight from the parse tree, before path
+ * resolution. `raw` is the module specifier exactly as written.
+ */
+export interface RawImport {
+  raw: string;
+  kind: ImportKind;
+  specifiers: ImportSpecifier[];
+  /** 1-based line of the import/require/re-export statement. */
+  line: number;
+}
+
+/** A {@link RawImport} whose `raw` specifier has been resolved against the graph. */
+export interface ImportEdge extends RawImport {
+  /** Resolved absolute path (internal), an external package id, or null. */
+  to: string | null;
+  resolution: ImportResolution;
+}
+
+export type SymbolKind =
+  | "function" | "class" | "interface" | "type"
+  | "enum" | "const" | "variable" | "method";
+
+export type LivenessVerdict = "used" | "unused" | "ambiguous";
+
+export interface Liveness {
+  verdict: LivenessVerdict;
+  /** Why, when the verdict is `ambiguous` (e.g. "re-exported via barrel"). */
+  reason?: string;
+}
+
+export interface SymbolNode {
+  name: string;
+  kind: SymbolKind;
+  exported: boolean;
+  /** True for type-space declarations (interface, type alias, etc.). */
+  isType: boolean;
+  /** 1-based line of the declaration. */
+  line: number;
+}
+
+// ============================================================
+// Interface surface: HTTP endpoints + cross-language channels
+// ============================================================
+
+/** An HTTP route handler defined in code (server side). */
+export interface Endpoint {
+  /** Upper-case method, or "ANY" when the framework doesn't pin one. */
+  method: string;
+  /** Route path as written (e.g. "/api/users/:id"). */
+  route: string;
+  framework: "express" | "fastify" | "fastapi" | "flask" | "next";
+  line: number;
+}
+
+export type ChannelKind = "mqtt" | "ws" | "http" | "env" | "serial";
+export type ChannelRole = "producer" | "consumer";
+
+/**
+ * A cross-language connection endpoint: one side of an MQTT topic, WS event,
+ * HTTP call, env var, or serial link, matched to the other side by its `key`.
+ */
+export interface Channel {
+  kind: ChannelKind;
+  /** Topic / event name / URL path / env var / "serial". */
+  key: string;
+  role: ChannelRole;
+  line: number;
 }

@@ -12,12 +12,22 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "glob": "^13.0.5",
+    "tree-sitter": "0.21.1",
+    "tree-sitter-c-sharp": "0.21.3",
+    "tree-sitter-cpp": "0.22.0",
+    "tree-sitter-go": "0.21.2",
+    "tree-sitter-java": "0.21.0",
+    "tree-sitter-php": "0.23.7",
+    "tree-sitter-python": "0.21.0",
+    "tree-sitter-ruby": "0.21.0",
+    "tree-sitter-rust": "0.21.0",
+    "tree-sitter-typescript": "0.21.2",
+    "typescript": "^5.9.3",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^20.19.37",
-    "ts-node": "^10.9.0",
-    "typescript": "^5.9.3"
+    "ts-node": "^10.9.0"
   },
   "engines": {
     "node": ">=18.0.0"

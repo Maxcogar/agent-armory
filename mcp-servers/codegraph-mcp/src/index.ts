@@ -26,6 +26,20 @@ import {
   toolGetPathBetween,
   toolFindOrphans,
   toolGetLayers,
+  toolFindBrokenImports,
+  toolListExternalDependencies,
+  toolGetExternalUsers,
+  toolFindUnreachable,
+  toolFindClusters,
+  toolGetSymbol,
+  toolTraceSymbol,
+  toolFindSymbolDependents,
+  toolFindDeadExports,
+  toolFindUnusedImports,
+  toolDiffSurface,
+  toolVerifyDoc,
+  toolListEndpoints,
+  toolFindBridges,
   toolExportMermaid,
   toolExportDot,
 } from "./tools/query.js";
@@ -65,6 +79,9 @@ function isToolError(result: unknown): result is { error: string } {
 // ============================================================
 
 let currentGraph: DependencyGraph | null = null;
+// The graph as it was immediately before the most recent scan (the cache/in-
+// memory base). Kept so codegraph_diff_surface can report what the scan changed.
+let previousGraph: DependencyGraph | null = null;
 // Build options from the most recent scan, replayed by incremental rescans and
 // the file watcher so they discover the same file set.
 let lastBuildOptions: BuildGraphOptions | undefined;
@@ -75,6 +92,12 @@ const LANGUAGE_VALUES = [
   "python",
   "cpp",
   "arduino",
+  "go",
+  "rust",
+  "java",
+  "ruby",
+  "csharp",
+  "php",
   "config",
   "unknown",
 ] as const;
@@ -166,6 +189,9 @@ Returns:
       (currentGraph && currentGraph.rootDir === normalizedRoot
         ? currentGraph
         : loadCache(normalizedRoot));
+
+    // Snapshot the pre-scan surface for codegraph_diff_surface.
+    previousGraph = base || null;
 
     let mode: "full" | "incremental";
     let delta: { added: number; changed: number; removed: number; reused: number } | undefined;
@@ -342,6 +368,13 @@ Prerequisite: codegraph_scan must be called first.`,
         .min(1)
         .max(20)
         .describe("Array of file paths to analyze for change impact"),
+      exclude_type_only: z
+        .boolean()
+        .optional()
+        .describe(
+          "When true, ignore type-only imports (TS `import type`) so the blast " +
+          "radius reflects runtime coupling only. Default false."
+        ),
     },
     annotations: {
       readOnlyHint: true,
@@ -350,9 +383,9 @@ Prerequisite: codegraph_scan must be called first.`,
       openWorldHint: false,
     },
   },
-  async ({ files }) => {
+  async ({ files, exclude_type_only }) => {
     if (!currentGraph) return noGraphError();
-    const result = toolGetChangeImpact(currentGraph, files);
+    const result = toolGetChangeImpact(currentGraph, files, exclude_type_only ?? false);
     if (isToolError(result)) return errResponse(result.error);
     return okResponse(result);
   }
@@ -966,6 +999,562 @@ Returns: { status, wasWatching }`,
       wasWatching,
       message: wasWatching ? "Watcher stopped." : "No watcher was active.",
     });
+  }
+);
+
+// ============================================================
+// Tool: codegraph_get_symbol
+// ============================================================
+
+server.registerTool(
+  "codegraph_get_symbol",
+  {
+    title: "Get Symbol (definition, references, liveness, siblings)",
+    description: `Looks up a declared symbol by name across the graph and reports, for each definition: where it is defined, who references it, a calibrated liveness verdict, and any same-stem sibling symbols (with their own liveness).
+
+The verdict is one of:
+  - used      — a file imports this symbol by name
+  - unused    — no importer, and no namespace/star/dynamic path could carry it
+  - ambiguous — not directly imported, but reachable via a namespace import,
+                an \`export *\` barrel, or a dynamic import (cannot prove unused)
+
+Siblings surface the case where a dead symbol sits next to a live one under a
+related name (e.g. asking about \`FooResponse\` shows a live \`FooResult\`).
+
+Args:
+  - name (string): the symbol name (e.g. an interface, function, class, const).
+  - file (string, optional): restrict the definition lookup to this file.
+
+Symbol resolution is syntactic (Phase 1): re-export barrels and namespace
+imports yield \`ambiguous\` rather than a resolved verdict.
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {
+      name: z.string().describe("Symbol name to look up"),
+      file: z.string().optional().describe("Optional: restrict to a defining file"),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ name, file }) => {
+    if (!currentGraph) return noGraphError();
+    const result = toolGetSymbol(currentGraph, name, file);
+    if (isToolError(result)) return errResponse(result.error);
+    return okResponse(result);
+  }
+);
+
+// ============================================================
+// Tool: codegraph_trace_symbol
+// ============================================================
+
+server.registerTool(
+  "codegraph_trace_symbol",
+  {
+    title: "Trace a Symbol's Full Connection Chain",
+    description: `Walks the symbol-to-symbol connection chain in both directions, so you can see the whole path a thing connects through — and where it goes cold.
+
+  - usedBy (upstream): what uses this symbol, what uses *those*, and so on, all the
+    way up. Its "terminals" are where the chains end going up (the ultimate callers
+    — e.g. module-level code that runs, or a function nothing else calls).
+  - uses (downstream): what this symbol uses, transitively, down to the leaves.
+
+Each entry has a depth (hops from the symbol). This is finer than
+codegraph_find_symbol_dependents (which is file-level): it tells you the specific
+function/component/interface in the chain, not just the file. Use it to see
+whether a symbol's chain ultimately reaches live code or dead-ends in a pocket
+nothing real touches.
+
+Works for TypeScript, JavaScript, Python, and C++/Arduino. (TS/JS references are
+resolved by the TypeScript compiler; Python and C++ by their imports/includes.)
+
+Args:
+  - name (string): the symbol to trace.
+  - file (string, optional): disambiguate when the name is defined in several files.
+  - max_depth (number, optional): max hops each direction (default 25).
+
+Returns: { symbol, usedBy: { chain, terminals, count }, uses: { chain, terminals, count } }
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {
+      name: z.string().describe("Symbol name to trace"),
+      file: z.string().optional().describe("Optional: the file that defines it (to disambiguate)"),
+      max_depth: z.number().int().min(1).max(100).default(25).describe("Max hops per direction (default 25)"),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ name, file, max_depth }) => {
+    if (!currentGraph) return noGraphError();
+    const result = toolTraceSymbol(currentGraph, name, file, max_depth);
+    if (isToolError(result)) return errResponse(result.error);
+    return okResponse(result);
+  }
+);
+
+// ============================================================
+// Tool: codegraph_find_symbol_dependents
+// ============================================================
+
+server.registerTool(
+  "codegraph_find_symbol_dependents",
+  {
+    title: "Find Symbol Dependents",
+    description: `Returns every file that imports a specific symbol from a given file — symbol-level "who uses this", finer than codegraph_get_dependents (which is file-level).
+
+A dependent reached only through a namespace import (\`import * as ns\`) is included and flagged \`throughNamespace\`, since the specific symbol cannot be confirmed syntactically.
+
+Args:
+  - file (string): the file that defines/exports the symbol.
+  - symbol (string): the symbol name.
+
+Returns: { symbol, file, definedAt, dependents: [{ file, via, line, throughNamespace }], count }
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {
+      file: z.string().describe("File that defines the symbol"),
+      symbol: z.string().describe("Symbol name"),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ file, symbol }) => {
+    if (!currentGraph) return noGraphError();
+    const result = toolFindSymbolDependents(currentGraph, file, symbol);
+    if (isToolError(result)) return errResponse(result.error);
+    return okResponse(result);
+  }
+);
+
+// ============================================================
+// Tool: codegraph_find_dead_exports
+// ============================================================
+
+server.registerTool(
+  "codegraph_find_dead_exports",
+  {
+    title: "Find Dead (Unused) Exports",
+    description: `Finds exported symbols that no other file imports — candidates for removal or for being made non-exported.
+
+Verdicts are calibrated so this never reports a false dead: a symbol reachable only via a namespace import, an \`export *\` barrel, or a dynamic import is counted as ambiguous (in ambiguousCount), NOT as dead. (Phase 2's TypeScript-compiler pass resolves those barrels/namespaces to firm verdicts.)
+
+Note: this checks cross-file *export* usage; a symbol used only inside its own file still counts as a dead export. It does not yet account for symbols consumed only by an \`export *\` chain (those are ambiguous).
+
+Args:
+  - file (string, optional): restrict to one file.
+  - include_tests (boolean, optional): include test files. Default false.
+
+Returns: { dead: [{ relativePath, name, kind, line, liveness }], count, ambiguousCount }
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {
+      file: z.string().optional().describe("Optional: restrict to one file"),
+      include_tests: z.boolean().optional().describe("Include test files (default false)"),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ file, include_tests }) => {
+    if (!currentGraph) return noGraphError();
+    const result = toolFindDeadExports(currentGraph, file, include_tests ?? false);
+    if (isToolError(result)) return errResponse(result.error);
+    return okResponse(result);
+  }
+);
+
+// ============================================================
+// Tool: codegraph_find_unused_imports
+// ============================================================
+
+server.registerTool(
+  "codegraph_find_unused_imports",
+  {
+    title: "Find Unused Imports",
+    description: `Finds import specifiers whose local binding is never referenced in the file body (JS/TS and Python). Side-effect, dynamic, and re-export imports are skipped (they bind no local name).
+
+This is syntactic: a binding used only via reflection/eval would be a false positive, as it is for any linter.
+
+Args:
+  - file (string, optional): restrict to one file; otherwise scans all JS/TS/Python files.
+
+Returns: { unused: [{ relativePath, imported, local, line }], count }
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {
+      file: z.string().optional().describe("Optional: restrict to one file"),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ file }) => {
+    if (!currentGraph) return noGraphError();
+    const result = toolFindUnusedImports(currentGraph, file);
+    if (isToolError(result)) return errResponse(result.error);
+    return okResponse(result);
+  }
+);
+
+// ============================================================
+// Tool: codegraph_list_endpoints
+// ============================================================
+
+server.registerTool(
+  "codegraph_list_endpoints",
+  {
+    title: "List HTTP Endpoints",
+    description: `Lists every HTTP route defined in the code — Express/Fastify (\`app.get('/x', ...)\`), FastAPI/Flask decorators, and Next.js app-router \`route.ts\` files — with method, path, framework, and location.
+
+For "active vs dead" endpoints, use codegraph_find_bridges: an HTTP bridge with status "no-consumer" is an endpoint defined but called by nothing in the repo (note: a real API's callers are often external clients, so treat "no-consumer" as a prompt to check, not proof of death).
+
+Returns: { endpoints: [{ method, route, framework, relativePath, line }], count, byFramework }
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {},
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async () => {
+    if (!currentGraph) return noGraphError();
+    return okResponse(toolListEndpoints(currentGraph));
+  }
+);
+
+// ============================================================
+// Tool: codegraph_find_bridges
+// ============================================================
+
+server.registerTool(
+  "codegraph_find_bridges",
+  {
+    title: "Find Cross-Language Bridges",
+    description: `Finds connections that span files and languages by matching producers to consumers on a shared key: MQTT topics (publish ↔ subscribe, with +/# wildcard matching), WebSocket events (emit ↔ on), HTTP (a defined endpoint ↔ a fetch/axios/requests call to the same path), and env vars.
+
+Each bridge reports its status:
+  - connected   — has both a producer and a consumer
+  - no-consumer — produced/defined but nothing consumes it (e.g. an endpoint no
+    in-repo client calls, or an MQTT topic published but never subscribed)
+  - no-producer — consumed/called but nothing in the repo produces it (e.g. a
+    fetch() to an endpoint this repo doesn't define — a likely broken call)
+
+This is the IoT/full-stack view: an ESP32 publishing \`sensors/#\`, a Python hub
+subscribing, and a Node backend consuming the same topic show as one bridge.
+\`crossLanguage\` marks bridges whose sides span more than one language.
+
+Returns: { bridges: [{ kind, key, producers, consumers, status, crossLanguage }], count }
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {},
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async () => {
+    if (!currentGraph) return noGraphError();
+    return okResponse(toolFindBridges(currentGraph));
+  }
+);
+
+// ============================================================
+// Tool: codegraph_verify_doc
+// ============================================================
+
+server.registerTool(
+  "codegraph_verify_doc",
+  {
+    title: "Verify a Document's Symbol Claims Against the Code",
+    description: `Checks the symbol-level claims a documentation file makes against the actual code. For each code-like identifier the doc mentions (in inline code, fenced blocks, or dotted access like \`plantInfo.commonName\`), it reports:
+
+  - missing — the doc names a symbol/object that exists nowhere in the code (an
+    invented or stale name). Each comes with the nearest real symbol names.
+  - dead    — the doc references a symbol that IS defined but is a dead export
+    (no live importer) — e.g. a doc describing dead code as the active flow.
+
+This is deterministic and catches the failure mode where an audit/migration doc
+describes the code wrong: invented field names, or a dead interface presented as
+live (often while a live sibling under a different name is the real one — see
+codegraph_get_symbol for sibling surfacing).
+
+It checks top-level symbol names (types/classes/functions/consts), not object
+field names, so a bare field reference is not flagged; a dotted-access *root* is.
+
+Args:
+  - doc (string): the documentation file (relative path, basename, or absolute).
+
+Returns: { doc, checked, missing: [{ token, nearest }], dead: [{ token, symbol, reason }] }
+
+Prerequisite: codegraph_scan must be called first (it scans docs too).`,
+    inputSchema: {
+      doc: z.string().describe("Documentation file to verify (path or basename)"),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ doc }) => {
+    if (!currentGraph) return noGraphError();
+    const result = toolVerifyDoc(currentGraph, doc);
+    if (isToolError(result)) return errResponse(result.error);
+    return okResponse(result);
+  }
+);
+
+// ============================================================
+// Tool: codegraph_diff_surface
+// ============================================================
+
+server.registerTool(
+  "codegraph_diff_surface",
+  {
+    title: "Diff Exported-Symbol Surface",
+    description: `Reports how the exported-symbol surface changed between the previous scan and the current one — added exports, removed exports, and exports whose kind changed (e.g. interface -> type). Useful for breaking-change review.
+
+The baseline is the graph as it was immediately before the most recent codegraph_scan (the in-memory or cached state). On the first scan in a session there is no baseline, and hasBaseline is false. Re-scan after making changes, then call this to see the delta.
+
+Args: none.
+
+Returns: { hasBaseline, added, removed, signatureChanged, addedCount, removedCount, changedCount }
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {},
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async () => {
+    if (!currentGraph) return noGraphError();
+    return okResponse(toolDiffSurface(currentGraph, previousGraph));
+  }
+);
+
+// ============================================================
+// Tool: codegraph_find_unreachable
+// ============================================================
+
+server.registerTool(
+  "codegraph_find_unreachable",
+  {
+    title: "Find Unreachable (Dead) Code",
+    description: `Finds code files that no entry point can reach by following imports — true dead code.
+
+Unlike codegraph_find_orphans (which only catches fully isolated, zero-edge files), this catches dead *clusters*: a group of files that import each other but that nothing live imports. Reachability starts from the entry set: graph roots (nothing imports them), Arduino sketches (.ino), and __main__.py — plus test files when include_tests is true. A file reachable only from tests is reported as dead unless include_tests is set.
+
+Args:
+  - entry_points (string[], optional): use these files as the entry set instead of the default.
+  - include_tests (boolean, optional): treat tests as entries and include them in results. Default false.
+
+Returns:
+  - unreachable: code files no entry point reaches
+  - entryPoints: the entry set used
+  - count
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {
+      entry_points: z
+        .array(z.string())
+        .optional()
+        .describe("Optional explicit entry files (replaces the default entry set)"),
+      include_tests: z
+        .boolean()
+        .optional()
+        .describe("Treat test files as entries and include them in results (default false)"),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ entry_points, include_tests }) => {
+    if (!currentGraph) return noGraphError();
+    const result = toolFindUnreachable(currentGraph, entry_points, include_tests ?? false);
+    if (isToolError(result)) return errResponse(result.error);
+    return okResponse(result);
+  }
+);
+
+// ============================================================
+// Tool: codegraph_find_clusters
+// ============================================================
+
+server.registerTool(
+  "codegraph_find_clusters",
+  {
+    title: "Find File Clusters",
+    description: `Groups files into clusters — weakly-connected components of the import graph (islands of files that reach each other if you ignore edge direction).
+
+Distinct from codegraph_get_layers (topological tiers), codegraph_find_cycles (strongly-connected rings), and codegraph_get_subgraph (one file's neighbourhood): clusters reveal disjoint islands, e.g. unrelated feature areas or a detached subsystem.
+
+Args:
+  - min_size (number, optional): minimum files per cluster (default 2).
+  - include_tests (boolean, optional): include test files in clusters. Default false.
+
+Returns:
+  - clusters: { id, size, files }[] sorted largest first
+  - count
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {
+      min_size: z
+        .number()
+        .int()
+        .min(1)
+        .max(1000)
+        .default(2)
+        .describe("Minimum files per cluster (default 2)"),
+      include_tests: z
+        .boolean()
+        .optional()
+        .describe("Include test files in clusters (default false)"),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ min_size, include_tests }) => {
+    if (!currentGraph) return noGraphError();
+    return okResponse(toolFindClusters(currentGraph, min_size, include_tests ?? false));
+  }
+);
+
+// ============================================================
+// Tool: codegraph_find_broken_imports
+// ============================================================
+
+server.registerTool(
+  "codegraph_find_broken_imports",
+  {
+    title: "Find Broken Imports",
+    description: `Lists imports that resolved to nothing — a relative/local import or include whose target file does not exist (a typo, a moved/deleted file, a bad path alias).
+
+These are distinct from external packages: an unresolved import is almost always a bug, whereas a bare package specifier (express, lodash) is expected and is reported by codegraph_list_external_dependencies instead.
+
+Returns:
+  - broken: { relativePath, raw, line } for each unresolved import
+  - count: total broken imports
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {},
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async () => {
+    if (!currentGraph) return noGraphError();
+    return okResponse(toolFindBrokenImports(currentGraph));
+  }
+);
+
+// ============================================================
+// Tool: codegraph_list_external_dependencies
+// ============================================================
+
+server.registerTool(
+  "codegraph_list_external_dependencies",
+  {
+    title: "List External Dependencies",
+    description: `Lists the third-party / built-in packages the code imports (npm, PyPI, system headers) — every import specifier that did not resolve to a project file — aggregated to the package root and ranked by how many files import it.
+
+This is the supply-chain view: "which external packages does this codebase actually use in source, and how widely?" Use codegraph_get_external_users to see which files use a specific one.
+
+Args:
+  - language (string, optional): only count imports from files of this language.
+
+Returns:
+  - externals: { name, importerCount }[] sorted by importerCount
+  - count: number of distinct external packages
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {
+      language: z
+        .enum(LANGUAGE_VALUES)
+        .optional()
+        .describe("Optional: only count imports from files of this language"),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ language }) => {
+    if (!currentGraph) return noGraphError();
+    return okResponse(toolListExternalDependencies(currentGraph, language as Language | undefined));
+  }
+);
+
+// ============================================================
+// Tool: codegraph_get_external_users
+// ============================================================
+
+server.registerTool(
+  "codegraph_get_external_users",
+  {
+    title: "Get Files Using an External Package",
+    description: `Lists every file that imports a given external package. Matches by package root, so "lodash" also matches "lodash/fp" and "@scope/pkg" matches its subpaths.
+
+Use this for impact/audit questions like "which files use this deprecated library?" or "what would a CVE in package X touch?".
+
+Args:
+  - name (string): the external package name (e.g. "express", "@scope/pkg", "numpy").
+
+Returns:
+  - name, users: FileRef[], count
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {
+      name: z.string().describe("External package name (package root, e.g. \"express\")"),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ name }) => {
+    if (!currentGraph) return noGraphError();
+    return okResponse(toolGetExternalUsers(currentGraph, name));
   }
 );
 

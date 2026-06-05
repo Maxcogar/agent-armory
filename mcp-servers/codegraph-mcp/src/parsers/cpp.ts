@@ -1,6 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
 
+import { ImportResolution } from "../types.js";
+
 /**
  * Extracts all #include paths from C++/Arduino files.
  * Handles: #include "local.h" (relative includes only — skips system includes like <Arduino.h>)
@@ -66,6 +68,22 @@ export function resolveCppInclude(
   }
 
   return null;
+}
+
+/**
+ * Resolve a single quoted #include specifier against the file's directory and
+ * the project search dirs, classifying the result. Only quoted (local) includes
+ * reach here; one that resolves to nothing is `unresolved` (a broken include).
+ */
+export function resolveCppModule(
+  raw: string,
+  fileDir: string,
+  searchDirs: string[]
+): { to: string | null; resolution: ImportResolution } {
+  const resolved = resolveCppInclude(raw, fileDir, searchDirs);
+  return resolved
+    ? { to: resolved, resolution: "internal" }
+    : { to: null, resolution: "unresolved" };
 }
 
 /**

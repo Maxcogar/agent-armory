@@ -16,6 +16,11 @@ import { parseCppDependencies, collectCppSearchDirs } from "./parsers/cpp.js";
 import { parsePackageJsonDependencies } from "./parsers/packagejson.js";
 import { parseRequirementsTxtDependencies } from "./parsers/requirementstxt.js";
 import { parseGoModDependencies } from "./parsers/gomod.js";
+import { parseGoDependencies, clearGoModuleCache } from "./parsers/golang.js";
+import { parseRustDependencies } from "./parsers/rust.js";
+import { parseRubyDependencies } from "./parsers/ruby.js";
+import { analyzeFile } from "./treesitter/analyze.js";
+import { computeNamespacedConnections, resolveNamespacedImports, NS_LANGS } from "./treesitter/namespaced.js";
 
 // ============================================================
 // Language Detection
@@ -46,6 +51,12 @@ export function detectLanguage(filePath: string): Language {
   if ([".ts", ".tsx"].includes(ext)) return "typescript";
   if ([".js", ".jsx", ".mjs", ".cjs"].includes(ext)) return "javascript";
   if (ext === ".py") return "python";
+  if (ext === ".go") return "go";
+  if (ext === ".rs") return "rust";
+  if (ext === ".java") return "java";
+  if (ext === ".rb") return "ruby";
+  if (ext === ".cs") return "csharp";
+  if ([".php", ".phtml"].includes(ext)) return "php";
   if ([".ino"].includes(ext)) return "arduino";
   if ([".cpp", ".cc", ".cxx", ".c"].includes(ext)) return "cpp";
   if ([".h", ".hpp", ".hh"].includes(ext)) {
@@ -56,12 +67,28 @@ export function detectLanguage(filePath: string): Language {
   return "unknown";
 }
 
+/**
+ * Classify a file as a test by conventional path/name patterns:
+ * a `test/`, `tests/`, or `__tests__/` directory, a `*.test.*` / `*.spec.*`
+ * file, or Python `test_*.py` / `*_test.py`. Used so dead-code/orphan/impact
+ * queries can optionally treat test-only references as non-production.
+ */
+export function isTestFile(relativePath: string): boolean {
+  const p = relativePath.replace(/\\/g, "/");
+  return (
+    /(^|\/)(__tests__|tests?)\//.test(p) ||
+    /\.(test|spec)\.[cm]?[jt]sx?$/.test(p) ||
+    /(^|\/)test_[^/]+\.py$/.test(p) ||
+    /_test\.py$/.test(p)
+  );
+}
+
 // ============================================================
 // File Discovery
 // ============================================================
 
 const SUPPORTED_EXTENSIONS_GLOB =
-  "**/*.{ts,tsx,js,jsx,mjs,cjs,py,cpp,cc,cxx,c,h,hpp,ino}";
+  "**/*.{ts,tsx,js,jsx,mjs,cjs,py,cpp,cc,cxx,c,h,hpp,ino,go,rs,java,rb,cs,php,phtml}";
 
 // Dependency manifests, matched by name rather than extension. The default
 // ignore patterns (node_modules, dist, .venv, ...) keep this from sweeping up
@@ -167,6 +194,12 @@ function parseNodeDependencies(
     case "cpp":
     case "arduino":
       return parseCppDependencies(filePath, ctx.cppSearchDirs);
+    case "go":
+      return parseGoDependencies(filePath, ctx.rootDir);
+    case "rust":
+      return parseRustDependencies(filePath);
+    case "ruby":
+      return parseRubyDependencies(filePath);
     case "config":
       return parseManifestDependencies(filePath, ctx.localPackages);
     default:
@@ -201,6 +234,30 @@ function resolveIgnorePatterns(options?: BuildGraphOptions): string[] | undefine
   return undefined;
 }
 
+/**
+ * Add file-level dependency edges for the FQN languages (Java/C#/PHP/Rust),
+ * derived from their precise symbol resolution: if a symbol in file F references
+ * a symbol in file G, then F depends on G. These languages resolve cross-file
+ * references by namespace/module rather than by a path-mapped import, so their
+ * file edges can't be produced per-file — they fall out of the symbol graph.
+ */
+function addFqnFileEdges(rootDir: string, nodes: Map<string, FileNode>): void {
+  if (![...nodes.values()].some((n) => NS_LANGS.has(n.language))) return;
+  const sg = computeNamespacedConnections({ rootDir, nodes } as DependencyGraph);
+  const fileOf = (key: string): string => key.slice(0, key.lastIndexOf("#"));
+  for (const [userKey, used] of sg.uses) {
+    const uf = fileOf(userKey);
+    const un = nodes.get(uf);
+    if (!un || !NS_LANGS.has(un.language)) continue;
+    const deps = new Set(un.dependencies);
+    for (const usedKey of used) {
+      const gf = fileOf(usedKey);
+      if (gf !== uf && nodes.has(gf)) deps.add(gf);
+    }
+    un.dependencies = [...deps];
+  }
+}
+
 export async function buildDependencyGraph(
   rootDir: string,
   options?: BuildGraphOptions
@@ -210,6 +267,7 @@ export async function buildDependencyGraph(
 
   // Clear tsconfig cache on each scan to pick up config changes
   clearTsConfigCache();
+  clearGoModuleCache();
 
   const ignorePatterns = resolveIgnorePatterns(options);
 
@@ -230,14 +288,16 @@ export async function buildDependencyGraph(
     }
 
     const lang = detectLanguage(filePath);
+    const relativePath = path.relative(normalizedRoot, filePath);
     nodes.set(filePath, {
       path: filePath,
-      relativePath: path.relative(normalizedRoot, filePath),
+      relativePath,
       language: lang,
       dependencies: [],
       dependents: [],
       sizeBytes: stat.size,
       lastModified: stat.mtimeMs,
+      isTest: isTestFile(relativePath),
     });
   }
 
@@ -252,6 +312,13 @@ export async function buildDependencyGraph(
       const rawDeps = parseNodeDependencies(filePath, node.language, ctx);
       // Only keep deps that are in the graph (i.e., part of the project).
       node.dependencies = rawDeps.filter((dep) => nodes.has(dep));
+      // Additively attach rich import edges + declared symbols (one parse).
+      // `dependencies` stays the source of truth; parity is asserted in tests.
+      const analysis = analyzeFile(filePath, node.language, ctx);
+      if (analysis.imports) node.imports = analysis.imports;
+      if (analysis.symbols) node.symbols = analysis.symbols;
+      if (analysis.endpoints && analysis.endpoints.length > 0) node.endpoints = analysis.endpoints;
+      if (analysis.channels && analysis.channels.length > 0) node.channels = analysis.channels;
     } catch (err: unknown) {
       parseErrors.push({
         file: filePath,
@@ -261,6 +328,9 @@ export async function buildDependencyGraph(
   }
 
   // Reverse edges (dependents) are derived from the forward edges in one pass.
+  computeDependents(nodes);
+  addFqnFileEdges(normalizedRoot, nodes);
+  resolveNamespacedImports({ rootDir: normalizedRoot, nodes } as DependencyGraph);
   computeDependents(nodes);
 
   // Third pass: discover and scan documentation files for code references
@@ -303,6 +373,7 @@ export async function incrementalUpdate(
 ): Promise<{ graph: DependencyGraph; delta: IncrementalDelta }> {
   const rootDir = previous.rootDir;
   clearTsConfigCache();
+  clearGoModuleCache();
 
   const ignorePatterns = resolveIgnorePatterns(options);
   const files = await discoverFiles(rootDir, ignorePatterns);
@@ -328,14 +399,16 @@ export async function incrementalUpdate(
       nodes.set(filePath, { ...prev, dependents: [] });
       reused++;
     } else {
+      const relativePath = path.relative(rootDir, filePath);
       nodes.set(filePath, {
         path: filePath,
-        relativePath: path.relative(rootDir, filePath),
+        relativePath,
         language: detectLanguage(filePath),
         dependencies: [],
         dependents: [],
         sizeBytes: stat.size,
         lastModified: stat.mtimeMs,
+        isTest: isTestFile(relativePath),
       });
       if (prev) changed++;
       else added++;
@@ -356,6 +429,11 @@ export async function incrementalUpdate(
     try {
       const rawDeps = parseNodeDependencies(filePath, node.language, ctx);
       node.dependencies = rawDeps.filter((dep) => nodes.has(dep));
+      const analysis = analyzeFile(filePath, node.language, ctx);
+      if (analysis.imports) node.imports = analysis.imports;
+      if (analysis.symbols) node.symbols = analysis.symbols;
+      if (analysis.endpoints && analysis.endpoints.length > 0) node.endpoints = analysis.endpoints;
+      if (analysis.channels && analysis.channels.length > 0) node.channels = analysis.channels;
     } catch (err: unknown) {
       parseErrors.push({
         file: filePath,
@@ -377,6 +455,9 @@ export async function incrementalUpdate(
     if (!reparsed.has(pe.file) && nodes.has(pe.file)) parseErrors.push(pe);
   }
 
+  computeDependents(nodes);
+  addFqnFileEdges(rootDir, nodes);
+  resolveNamespacedImports({ rootDir, nodes } as DependencyGraph);
   computeDependents(nodes);
   const docNodes = await buildDocNodes(rootDir, nodes, ignorePatterns);
 
@@ -567,8 +648,10 @@ async function buildDocNodes(
  */
 export function getTransitiveDependents(
   graph: DependencyGraph,
-  filePathSet: Set<string>
+  filePathSet: Set<string>,
+  opts?: { excludeTypeOnly?: boolean }
 ): Set<string> {
+  const excludeType = opts?.excludeTypeOnly === true;
   const visited = new Set<string>();
   const queue = [...filePathSet];
 
@@ -580,9 +663,14 @@ export function getTransitiveDependents(
     const node = graph.nodes.get(current);
     if (node) {
       for (const dep of node.dependents) {
-        if (!visited.has(dep)) {
-          queue.push(dep);
+        if (visited.has(dep)) continue;
+        // When excluding type-only coupling, skip an importer that only imports
+        // `current` in type position (no runtime dependency).
+        if (excludeType) {
+          const importer = graph.nodes.get(dep);
+          if (importer && isTypeOnlyEdge(importer, current)) continue;
         }
+        queue.push(dep);
       }
     }
   }
@@ -593,6 +681,131 @@ export function getTransitiveDependents(
   }
 
   return visited;
+}
+
+/**
+ * True when `importer` imports `target` only in type position — every import
+ * edge it has to `target` is `kind: "type"`. Such an edge is erased at compile
+ * time and is not runtime coupling. Returns false when import-kind data is
+ * absent (treated as a real dependency, the safe default).
+ */
+export function isTypeOnlyEdge(importer: FileNode, target: string): boolean {
+  if (!importer.imports) return false;
+  let sawEdge = false;
+  let sawRuntime = false;
+  for (const edge of importer.imports) {
+    if (edge.to !== target) continue;
+    sawEdge = true;
+    if (edge.kind !== "type") sawRuntime = true;
+  }
+  return sawEdge && !sawRuntime;
+}
+
+/**
+ * The set of files treated as program entry points for reachability: graph
+ * roots (nothing imports them), Arduino sketches (`.ino`), and `__main__.py`.
+ * Test files are entries only when `includeTests` is set.
+ */
+export function computeEntrySet(graph: DependencyGraph, includeTests: boolean): Set<string> {
+  const entries = new Set<string>();
+  for (const [filePath, node] of graph.nodes) {
+    if (node.isTest && !includeTests) continue;
+    if (
+      node.dependents.length === 0 ||
+      node.language === "arduino" ||
+      path.basename(filePath) === "__main__.py"
+    ) {
+      entries.add(filePath);
+    }
+  }
+  return entries;
+}
+
+const CODE_LANGUAGES: ReadonlySet<Language> = new Set<Language>([
+  "typescript", "javascript", "python", "cpp", "arduino",
+  "go", "rust", "java", "ruby", "csharp", "php",
+]);
+
+/**
+ * Code files not reachable from any entry point by following imports forward.
+ * This catches dead clusters that degree-zero orphan detection misses (e.g. a
+ * group of files that import each other but that nothing outside imports).
+ * Only code files are reported; tests are excluded unless `includeTests`.
+ */
+export function findUnreachable(
+  graph: DependencyGraph,
+  entryPaths: string[] | null,
+  includeTests: boolean
+): { unreachable: string[]; entryPoints: string[] } {
+  const entries =
+    entryPaths && entryPaths.length > 0
+      ? new Set(entryPaths)
+      : computeEntrySet(graph, includeTests);
+
+  const live = new Set<string>();
+  const queue = [...entries];
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (live.has(current)) continue;
+    live.add(current);
+    const node = graph.nodes.get(current);
+    if (node) for (const dep of node.dependencies) if (!live.has(dep)) queue.push(dep);
+  }
+
+  const unreachable: string[] = [];
+  for (const [filePath, node] of graph.nodes) {
+    if (!CODE_LANGUAGES.has(node.language)) continue;
+    if (node.isTest && !includeTests) continue;
+    if (!live.has(filePath)) unreachable.push(filePath);
+  }
+  unreachable.sort((a, b) =>
+    graph.nodes.get(a)!.relativePath.localeCompare(graph.nodes.get(b)!.relativePath)
+  );
+  return { unreachable, entryPoints: [...entries] };
+}
+
+/**
+ * Weakly-connected components (treating imports as undirected): islands of
+ * related files. Distinct from layers (topological tiers), cycles (SCCs), and
+ * subgraph (one neighbourhood). Only components with >= minSize are returned;
+ * test files are excluded unless `includeTests`.
+ */
+export function findClusters(
+  graph: DependencyGraph,
+  minSize: number,
+  includeTests: boolean
+): string[][] {
+  const included = (p: string): boolean => {
+    const n = graph.nodes.get(p);
+    return !!n && (includeTests || !n.isTest);
+  };
+
+  const visited = new Set<string>();
+  const clusters: string[][] = [];
+  for (const start of graph.nodes.keys()) {
+    if (visited.has(start) || !included(start)) continue;
+    const component: string[] = [];
+    const queue = [start];
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      if (visited.has(current) || !included(current)) continue;
+      visited.add(current);
+      component.push(current);
+      const node = graph.nodes.get(current);
+      if (!node) continue;
+      for (const neighbour of [...node.dependencies, ...node.dependents]) {
+        if (!visited.has(neighbour) && included(neighbour)) queue.push(neighbour);
+      }
+    }
+    if (component.length >= minSize) {
+      component.sort((a, b) =>
+        graph.nodes.get(a)!.relativePath.localeCompare(graph.nodes.get(b)!.relativePath)
+      );
+      clusters.push(component);
+    }
+  }
+  clusters.sort((a, b) => b.length - a.length || a[0].localeCompare(b[0]));
+  return clusters;
 }
 
 /**
