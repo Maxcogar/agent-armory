@@ -140,6 +140,10 @@ Cheap, independently valuable, and prerequisites for trustworthy symbol work.
   the no-importer-cycle blind spot.
 - **F5. Test/source partition** — classify test files; dead-code/orphans/blast
   radius can exclude tests (a symbol used only by a test is prod-dead).
+- **F6. Connected-components / clusters** — `codegraph_find_clusters` groups
+  weakly-connected islands of related files (the Python tool's `file_clusters`,
+  done on the real graph). Distinct from layers (topological tiers), cycles
+  (SCCs), and subgraph (neighborhood) — none of which surface disjoint islands.
 
 ### Phase 1 — Symbol layer (tree-sitter substrate) — flagship
 - **S1. Symbol extraction** per file (exported + internal declarations, kind,
@@ -153,6 +157,8 @@ Cheap, independently valuable, and prerequisites for trustworthy symbol work.
     thing impossible in the incident).
   - `codegraph_find_dead_exports(file?, { excludeTests })` → exported symbols
     with no live importer, each verdict-tagged with its reason.
+  - `codegraph_find_unused_imports(file?)` → specifiers imported but never
+    referenced in the file body (falls straight out of S1+S2).
 - **S4. Calibrated verdicts** — barrels / namespace imports / dynamic access →
   `ambiguous` in this tier, with the reason named (never a false `unused`).
 - **S5. Sibling / near-name surfacing** — when reporting on a symbol, also
@@ -160,6 +166,10 @@ Cheap, independently valuable, and prerequisites for trustworthy symbol work.
   "`…Response` is dead" into "`…Response` is dead, but live sibling `…Result`
   exists at X" — useful for refactors, comprehension, and (one case) the catch a
   human had to make by hand in the active example.
+- **S6. Symbol / API surface diff** — `codegraph_diff_surface(baseRef?)` compares
+  the exported-symbol set against a prior scan (or a git ref) and reports
+  added / removed / signature-changed exports. Breaking-change detection for PR
+  review, built on the persisted symbol graph.
 
 ### Phase 2 — TS/JS semantic enrichment (TypeScript compiler)
 Upgrade TS/JS verdicts from calibrated-syntactic to authoritative: follow
