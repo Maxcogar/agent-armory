@@ -43,6 +43,7 @@ import {
   ExportOptions,
 } from "../export.js";
 import { symbolStem, extractUnusedImports } from "../treesitter/symbols.js";
+import { computeTsLiveness, TsLiveness } from "../tscompiler/liveness.js";
 
 // ============================================================
 // Helpers
@@ -644,13 +645,44 @@ function computeConsumers(graph: DependencyGraph): Map<string, Consumer> {
   return map;
 }
 
+// Building a TypeScript Program is expensive; memoize the authoritative liveness
+// per graph (a rescan produces a new graph object, invalidating the entry).
+const tsLivenessCache = new WeakMap<DependencyGraph, TsLiveness>();
+
+function getTsLiveness(graph: DependencyGraph): TsLiveness {
+  let cached = tsLivenessCache.get(graph);
+  if (!cached) {
+    const tsJs = [...graph.nodes.values()]
+      .filter((n) => n.language === "typescript" || n.language === "javascript")
+      .map((n) => n.path);
+    cached = computeTsLiveness(graph.rootDir, tsJs);
+    tsLivenessCache.set(graph, cached);
+  }
+  return cached;
+}
+
 /**
- * Calibrated liveness for an exported symbol. Only ever `unused` when there is
- * no named importer AND no namespace/star/dynamic path that could carry it —
- * the asymmetry that prevents a false "dead".
+ * Liveness for an exported symbol. For TS/JS files the TypeScript compiler
+ * resolves it authoritatively (used/unused, following barrels and namespaces).
+ * Otherwise it is calibrated: only ever `unused` when there is no named importer
+ * AND no namespace/star/dynamic path that could carry it — the asymmetry that
+ * prevents a false "dead".
  */
-function livenessFor(name: string, filePath: string, consumers: Map<string, Consumer>): Liveness {
-  const rec = consumers.get(filePath);
+function livenessFor(
+  name: string,
+  node: FileNode,
+  consumers: Map<string, Consumer>,
+  tsLiveness: TsLiveness
+): Liveness {
+  if (
+    (node.language === "typescript" || node.language === "javascript") &&
+    tsLiveness.covered.has(node.path)
+  ) {
+    return tsLiveness.usedExternally.has(`${node.path}#${name}`)
+      ? { verdict: "used" }
+      : { verdict: "unused" };
+  }
+  const rec = consumers.get(node.path);
   if (rec && rec.named.has(name)) return { verdict: "used" };
   if (rec && rec.ambiguous) return { verdict: "ambiguous", reason: rec.reason };
   return { verdict: "unused" };
@@ -723,6 +755,7 @@ export function toolGetSymbol(
   }
 
   const consumers = computeConsumers(graph);
+  const tsLiveness = getTsLiveness(graph);
   const definitions: (SymbolRef & { liveness: Liveness; references: FileRef[] })[] = [];
   const stem = symbolStem(name);
   const siblings: { name: string; relativePath: string; line: number; liveness: Liveness }[] = [];
@@ -733,7 +766,7 @@ export function toolGetSymbol(
       if (sym.name === name && (!fileFilter || node.path === fileFilter)) {
         definitions.push({
           ...toSymbolRef(node, sym),
-          liveness: sym.exported ? livenessFor(name, node.path, consumers) : { verdict: "used" },
+          liveness: sym.exported ? livenessFor(name, node, consumers, tsLiveness) : { verdict: "used" },
           references: symbolImporters(graph, node.path, name).map((d) => d.file),
         });
       } else if (sym.name !== name && symbolStem(sym.name) === stem) {
@@ -741,7 +774,7 @@ export function toolGetSymbol(
           name: sym.name,
           relativePath: node.relativePath,
           line: sym.line,
-          liveness: sym.exported ? livenessFor(sym.name, node.path, consumers) : { verdict: "used" },
+          liveness: sym.exported ? livenessFor(sym.name, node, consumers, tsLiveness) : { verdict: "used" },
         });
       }
     }
@@ -770,6 +803,7 @@ export function toolFindDeadExports(
   }
 
   const consumers = computeConsumers(graph);
+  const tsLiveness = getTsLiveness(graph);
   const dead: (SymbolRef & { liveness: Liveness })[] = [];
   let ambiguousCount = 0;
 
@@ -779,7 +813,7 @@ export function toolFindDeadExports(
     if (node.isTest && !includeTests) continue;
     for (const sym of node.symbols) {
       if (!sym.exported) continue;
-      const liveness = livenessFor(sym.name, node.path, consumers);
+      const liveness = livenessFor(sym.name, node, consumers, tsLiveness);
       if (liveness.verdict === "unused") dead.push({ ...toSymbolRef(node, sym), liveness });
       else if (liveness.verdict === "ambiguous") ambiguousCount++;
     }

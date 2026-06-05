@@ -56,28 +56,41 @@ test("get_symbol: dead symbol surfaces its live sibling (the audit case)", async
   assert.equal(sibling.liveness.verdict, "used", "and it is reported as used");
 });
 
-test("verdict is ambiguous (not dead) through an `export *` barrel", async () => {
+test("export * barrel (Phase 2): unconsumed re-export resolves to unused, not ambiguous", async () => {
   const root = writeProject({
     "contracts.ts": `export interface Bar { n: number }`,
     "index.ts": `export * from './contracts';`,
   });
   const graph = await buildDependencyGraph(root);
   const res = toolGetSymbol(graph, "Bar");
-  assert.equal(res.definitions[0].liveness.verdict, "ambiguous", "a star re-export could carry Bar");
+  assert.equal(res.definitions[0].liveness.verdict, "unused", "nothing consumes Bar through the barrel");
 
-  const dead = toolFindDeadExports(graph);
-  assert.ok(!dead.dead.some((d) => d.name === "Bar"), "ambiguous is never reported as dead");
-  assert.ok(dead.ambiguousCount >= 1);
+  const dead = toolFindDeadExports(graph, "contracts.ts");
+  assert.ok(dead.dead.some((d) => d.name === "Bar"));
+  assert.equal(dead.ambiguousCount, 0, "the TS compiler resolves barrels, so no ambiguity");
 });
 
-test("verdict is ambiguous through a namespace import", async () => {
+test("export * barrel (Phase 2): a name consumed through the barrel is used", async () => {
+  const root = writeProject({
+    "contracts.ts": `export interface Used { n: number }\nexport interface Dead { n: number }`,
+    "index.ts": `export * from './contracts';`,
+    "app.ts": `import { Used } from './index';\nexport const x: Used = { n: 1 };`,
+  });
+  const graph = await buildDependencyGraph(root);
+  const dead = toolFindDeadExports(graph, "contracts.ts");
+  const names = dead.dead.map((d) => d.name);
+  assert.ok(names.includes("Dead"), "Dead is genuinely unused");
+  assert.ok(!names.includes("Used"), "Used is reached through the barrel");
+});
+
+test("namespace import (Phase 2): member usage resolves used vs unused", async () => {
   const root = writeProject({
     "util.ts": `export const helper = 1;\nexport const other = 2;`,
     "app.ts": `import * as U from './util';\nexport const x = U.helper;`,
   });
   const graph = await buildDependencyGraph(root);
-  const res = toolGetSymbol(graph, "helper");
-  assert.equal(res.definitions[0].liveness.verdict, "ambiguous");
+  assert.equal(toolGetSymbol(graph, "helper").definitions[0].liveness.verdict, "used");
+  assert.equal(toolGetSymbol(graph, "other").definitions[0].liveness.verdict, "unused");
 });
 
 test("find_symbol_dependents: who imports a specific symbol", async () => {

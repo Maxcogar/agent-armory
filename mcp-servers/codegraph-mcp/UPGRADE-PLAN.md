@@ -175,7 +175,7 @@ Cheap, independently valuable, and prerequisites for trustworthy symbol work.
   added / removed / signature-changed exports. Breaking-change detection for PR
   review, built on the persisted symbol graph.
 
-### Phase 2 — TS/JS semantic enrichment (TypeScript compiler)
+### Phase 2 — TS/JS semantic enrichment (TypeScript compiler) ✅
 Upgrade TS/JS verdicts from calibrated-syntactic to authoritative: follow
 re-export barrels and namespace imports, run true find-all-references. Most
 `ambiguous` TS/JS verdicts become `used`/`unused`. Python and C++ stay on the
