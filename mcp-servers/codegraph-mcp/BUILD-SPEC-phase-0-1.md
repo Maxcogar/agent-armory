@@ -94,16 +94,21 @@ keeps operating on the same field with no change.
 | F1 edge kind | enrich existing edges; new opt on impact | `codegraph_get_change_impact({ files, excludeTypeOnly?: bool })`; subgraph/dependents edges gain `kind` |
 | F2 broken imports | `codegraph_find_broken_imports()` | `{ broken: {file, raw, line}[], count }` |
 | F3 externals | `codegraph_list_external_dependencies({language?})` + `codegraph_get_external_users({name})` | `{ externals: {name, importerCount}[] }` / `{ name, users: FileRef[] }` |
-| F4 dead code | `codegraph_find_unreachable({ entryPoints?, excludeTests? })` | `{ unreachable: FileRef[], entryPointsUsed: FileRef[], count }` |
-| F5 test split | `isTest` on nodes; `excludeTests` opt on dead/orphan/impact | classification by path: `**/test/**`, `*.test.*`, `*.spec.*`, `**/__tests__/**`, `*_test.py`, `test_*.py` |
-| F6 clusters | `codegraph_find_clusters({ minSize?, excludeTests? })` | `{ clusters: {id, size, files: FileRef[]}[], count }` |
+| F4 dead code | `codegraph_find_unreachable({ entryPoints?, includeTests? })` | `{ unreachable: FileRef[], entryPointsUsed: FileRef[], count }` |
+| F5 test split | `isTest` on nodes; `includeTests` opt (default false) on dead/orphan/impact | classification by path: `**/test/**`, `*.test.*`, `*.spec.*`, `**/__tests__/**`, `*_test.py`, `test_*.py` |
+| F6 clusters | `codegraph_find_clusters({ minSize?, includeTests? })` | `{ clusters: {id, size, files: FileRef[]}[], count }` |
 
 Notes:
-- **F4 reachability semantics:** a file is *live* if reachable by following
-  `dependencies` **from** an entry node. Default entry set = current
-  entry-points (zero dependents) ∪ test files ∪ manifest `bin`/`main`. A
-  no-importer cycle has no zero-dependent member and nothing outside reaches it
-  → correctly reported dead. Explicit `entryPoints` overrides the default.
+- **F4 reachability semantics (fixed):** a file is *live* iff reachable by
+  following `dependencies` forward (importer → imported) starting from the entry
+  set. The entry set is exactly: files with zero internal dependents (graph
+  roots) ∪ files classified `isTest` ∪ manifest entries (npm `package.json`
+  `main`/`bin`, Python files with `if __name__ == "__main__"` or named
+  `__main__.py`, C/C++ files defining `main(`, all Arduino `.ino`). When
+  `includeTests:false`, test files are dropped from both the entry set and the
+  result. A no-importer cycle has no zero-dependent member and no outside
+  importer → unreachable → reported dead. An explicit `entryPoints` argument
+  replaces the default set entirely.
 - **F1:** `excludeTypeOnly` recomputes the blast radius ignoring `kind:"type"`
   edges — type-only imports are not runtime coupling. Default `false` (current
   behavior preserved).
@@ -118,14 +123,15 @@ codegraph_get_symbol({ symbol, file? })
 codegraph_find_symbol_dependents({ file, symbol })
   → { symbol: SymbolRef, dependents: { file: FileRef, via: ImportKind, line }[] }
 
-codegraph_find_dead_exports({ file?, excludeTests? })
+codegraph_find_dead_exports({ file?, includeTests? })   // includeTests default false
   → { dead: { symbol: SymbolRef, liveness: Liveness }[], count,
       ambiguousCount }      // ambiguous never counted as dead
 
 codegraph_find_unused_imports({ file? })
   → { unused: { file: FileRef, imported: string, local: string, line }[], count }
 
-codegraph_diff_surface({ baseRef? })   // baseRef = git ref or prior cache
+codegraph_diff_surface()    // compares the current scan to the previously
+                            // persisted symbol snapshot in the on-disk cache
   → { added: SymbolRef[], removed: SymbolRef[],
       signatureChanged: { symbol: SymbolRef, before, after }[] }
 ```
@@ -164,8 +170,8 @@ A new fixture project `tests/fixtures/symbols/` plus suites:
 
 | Fixture | Asserts |
 |---|---|
-| `barrel/` — `index.ts` does `export * from './contracts'`, consumer imports from `index` | dead-export of a re-exported symbol → **ambiguous** (P1), **used** (P2) |
-| `namespace/` — `import * as ns; ns.Foo()` | `Foo` → **ambiguous** (P1), **used** (P2) |
+| `barrel/` — `index.ts` does `export * from './contracts'`, consumer imports from `index` | re-exported symbol → Phase 1 returns **ambiguous** (reason: barrel); Phase 2 returns **used**. Never **unused**. |
+| `namespace/` — `import * as ns; ns.Foo()` | `Foo` → Phase 1 **ambiguous** (reason: namespace import); Phase 2 **used** |
 | `type-only/` — `import type {T}` + `import {type U}` | edges `kind:"type"`; `excludeTypeOnly` drops them from impact |
 | `dynamic/` — `await import('./x')` | edge `kind:"dynamic"` |
 | `side-effect/` — `import './polyfill'` | edge `kind:"side-effect"`, no specifiers |
@@ -190,11 +196,15 @@ Plus: re-run the existing 8 suites unchanged after Step 1 (regression gate).
 Phase 2 (TS-compiler enrichment) upgrades step 6's `ambiguous` verdicts and is
 specced separately once these land.
 
-## 7. Open implementation questions (defaults in **bold**)
+## 7. Decisions (resolved)
 
-- WASM grammar delivery: **vendor the `.wasm` files in-repo** (deterministic,
-  offline) vs. depend on `tree-sitter-wasms` npm. Vendor avoids a moving dep.
-- `diff_surface` baseline: **prior on-disk cache** by default; `baseRef` (git)
-  optional, needs a worktree/checkout to parse the old tree.
-- Reachability default entry set heuristic (§2 F4) — confirm the
-  entry-points ∪ tests ∪ manifest-main definition before coding F4.
+- **WASM grammars are vendored in-repo** under `grammars/` (pinned
+  `tree-sitter-{tsx,javascript,python,cpp}.wasm`), loaded via
+  `Parser.Language.load(path)`. Deterministic, offline, no moving npm dep.
+- **`diff_surface` compares against the previously persisted symbol snapshot**
+  in the on-disk cache (i.e. "what changed since the last scan"). Git-ref
+  baselines are out of scope for Phase 1 and are a named later item.
+- **F4 entry set is fixed as defined in §2** (roots ∪ tests ∪ manifest entries);
+  no further confirmation needed before coding.
+- **Test exclusion is the default** for dead-code/orphan/diff results, via
+  `includeTests` (default `false`).

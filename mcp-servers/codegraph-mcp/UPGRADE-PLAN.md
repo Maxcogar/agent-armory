@@ -228,13 +228,14 @@ Ideas from the Python tool, rebuilt correctly on tree-sitter.
   inherently unprovable from static single-repo analysis; they are labeled, not
   guessed.
 
-## 9. For the user to weigh in on (defaults in **bold**)
+## 9. Decisions (resolved)
 
-These are product calls, not engineering ones — I'll default unless you say
-otherwise:
-- Dead-code / dead-export: **exclude tests by default** (toggle available)?
-- Phase order after Phase 1: **Phase 2 (max TS accuracy) next** — it sharpens
-  the core symbol verdicts that every workflow relies on — or jump to Phase 3/4?
-- Endpoint frameworks to prioritize first (**Express + FastAPI + Next**)?
-- Should `codegraph_verify_doc` eventually run as a completion hook (like the
-  existing doc-sync idea), or stay an on-demand tool (**on-demand first**)?
+Settled, not deferred:
+- **Tests are excluded from dead-code / dead-export / orphan results by
+  default.** An `includeTests: true` flag overrides per-call.
+- **Phase 2 (TS-compiler enrichment) is the phase after Phase 1.** It sharpens
+  the core symbol verdicts every workflow relies on; Phases 3 and 4 follow it.
+- **First endpoint frameworks (Phase 4) are Express, FastAPI, and Next.js**
+  (app-router `route.ts` + `pages/api`). Others are added after these land.
+- **`codegraph_verify_doc` ships as an on-demand tool, not a hook.** Hook
+  wiring is a separate, later decision once the tool exists and is trusted.
