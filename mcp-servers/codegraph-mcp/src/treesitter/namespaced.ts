@@ -3,6 +3,7 @@ import Parser from "tree-sitter";
 
 import { DependencyGraph, Language, SymbolNode } from "../types.js";
 import { parseSource } from "./parser.js";
+import { rustCrateRoot, rustModulePath } from "../parsers/rust.js";
 import type { SymbolGraph } from "../tscompiler/connections.js";
 
 // ============================================================
@@ -20,16 +21,24 @@ import type { SymbolGraph } from "../tscompiler/connections.js";
 
 type Node = Parser.SyntaxNode;
 
+interface NsCtx {
+  filePath: string;
+  crateRoot: string | null;
+}
+
 interface NsConfig {
   sep: string;
   /** Node types whose text is a leaf identifier that may name a type. */
   refTypes: ReadonlySet<string>;
-  namespaceOf(root: Node): string | null;
-  /** Imports as { fqn } (single type) or { namespace, wildcard:true }. */
+  /** Symbol kinds to put in the cross-file index (types; Rust adds functions). */
+  indexKinds?: ReadonlySet<string>;
+  namespaceOf(root: Node, ctx: NsCtx): string | null;
+  /** Imports as { fqn } (single name) or { namespace } (whole namespace/wildcard). */
   importsOf(root: Node): { fqn?: string; namespace?: string; alias?: string }[];
 }
 
 const TYPE_KINDS: ReadonlySet<string> = new Set(["class", "interface", "enum", "type"]);
+const RUST_INDEX_KINDS: ReadonlySet<string> = new Set(["class", "interface", "enum", "type", "function", "const"]);
 
 function joinNs(ns: string, name: string, sep: string): string {
   return ns ? ns + sep + name : name;
@@ -88,9 +97,62 @@ const PHP: NsConfig = {
   },
 };
 
-const CONFIGS: Partial<Record<Language, NsConfig>> = { java: JAVA, csharp: CSHARP, php: PHP };
+function collectRustUse(
+  node: Node,
+  prefix: string,
+  out: { fqn?: string; namespace?: string; alias?: string }[]
+): void {
+  const withPrefix = (s: string): string => (prefix ? `${prefix}::${s}` : s);
+  switch (node.type) {
+    case "identifier":
+    case "scoped_identifier":
+    case "crate":
+      out.push({ fqn: withPrefix(node.text) });
+      break;
+    case "use_as_clause": {
+      const pathNode = node.childForFieldName("path") ?? node.namedChild(0);
+      if (pathNode) out.push({ fqn: withPrefix(pathNode.text), alias: node.childForFieldName("alias")?.text });
+      break;
+    }
+    case "use_wildcard": {
+      const p = node.namedChild(0);
+      out.push({ namespace: p ? withPrefix(p.text) : prefix });
+      break;
+    }
+    case "scoped_use_list": {
+      const pathNode = node.childForFieldName("path");
+      const list = node.childForFieldName("list") ?? node.namedChildren.find((c) => c.type === "use_list");
+      const base = pathNode ? withPrefix(pathNode.text) : prefix;
+      if (list) for (const item of list.namedChildren) collectRustUse(item, base, out);
+      break;
+    }
+    case "use_list":
+      for (const item of node.namedChildren) collectRustUse(item, prefix, out);
+      break;
+    case "self":
+      if (prefix) out.push({ namespace: prefix });
+      break;
+  }
+}
 
-const NS_LANGS: ReadonlySet<Language> = new Set<Language>(["java", "csharp", "php"]);
+const RUST: NsConfig = {
+  sep: "::",
+  refTypes: new Set(["identifier", "type_identifier"]),
+  indexKinds: RUST_INDEX_KINDS,
+  namespaceOf: (_root, ctx) => rustModulePath(ctx.filePath, ctx.crateRoot),
+  importsOf: (root) => {
+    const out: { fqn?: string; namespace?: string; alias?: string }[] = [];
+    for (const use of root.descendantsOfType("use_declaration")) {
+      const arg = use.namedChildren.find((c) => c.type !== "visibility_modifier");
+      if (arg) collectRustUse(arg, "", out);
+    }
+    return out;
+  },
+};
+
+const CONFIGS: Partial<Record<Language, NsConfig>> = { java: JAVA, csharp: CSHARP, php: PHP, rust: RUST };
+
+const NS_LANGS: ReadonlySet<Language> = new Set<Language>(["java", "csharp", "php", "rust"]);
 
 export function computeNamespacedConnections(graph: DependencyGraph): SymbolGraph {
   const uses = new Map<string, Set<string>>();
@@ -123,6 +185,10 @@ export function computeNamespacedConnections(graph: DependencyGraph): SymbolGrap
   const fqnIndex = new Map<string, string>(); // fully-qualified type name -> key
   const nsTypes = new Map<string, { name: string; key: string }[]>(); // namespace -> types
 
+  const crateRoot = rustCrateRoot(
+    [...graph.nodes.values()].filter((n) => n.language === "rust").map((n) => n.path)
+  );
+
   for (const node of graph.nodes.values()) {
     const cfg = CONFIGS[node.language];
     if (!cfg || !node.symbols) continue;
@@ -134,13 +200,14 @@ export function computeNamespacedConnections(graph: DependencyGraph): SymbolGrap
     }
     const tree = parseSource(node.language, code);
     if (!tree) continue;
-    const namespace = cfg.namespaceOf(tree.rootNode) ?? "";
+    const namespace = cfg.namespaceOf(tree.rootNode, { filePath: node.path, crateRoot }) ?? "";
     parsed.push({ file: node.path, language: node.language, root: tree.rootNode, namespace, symbols: node.symbols });
 
+    const indexKinds = cfg.indexKinds ?? TYPE_KINDS;
     for (const sym of node.symbols) {
       const key = `${node.path}#${sym.name}`;
       setInfo(key, node.path, sym.name, sym.line);
-      if (!TYPE_KINDS.has(sym.kind)) continue;
+      if (!indexKinds.has(sym.kind)) continue;
       const fqn = joinNs(namespace, sym.name, cfg.sep);
       if (!fqnIndex.has(fqn)) fqnIndex.set(fqn, key);
       (nsTypes.get(namespace) ?? nsTypes.set(namespace, []).get(namespace)!).push({ name: sym.name, key });

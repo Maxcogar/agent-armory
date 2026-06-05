@@ -63,12 +63,12 @@ test("Go: file-level dependency edges resolve package imports", async () => {
   );
 });
 
-test("find_dead_exports skips name-based languages (no false deads)", async () => {
+test("find_dead_exports skips Ruby (runtime dynamism) — no false deads", async () => {
   const root = writeProject({
-    "a.rs": `pub fn used() -> i32 { helper() }\npub fn helper() -> i32 { 1 }\n`,
+    "a.rb": `class Used\nend\nclass Unused\nend\n`,
   });
   const graph = await buildDependencyGraph(root);
   const dead = toolFindDeadExports(graph);
-  assert.ok(dead.skippedLanguages && dead.skippedLanguages.includes("rust"), "rust is skipped");
-  assert.ok(!dead.dead.some((d) => d.relativePath === "a.rs"), "no rust symbol is claimed dead");
+  assert.ok(dead.skippedLanguages && dead.skippedLanguages.includes("ruby"), "ruby is skipped");
+  assert.ok(!dead.dead.some((d) => d.relativePath === "a.rb"), "no ruby symbol is claimed dead");
 });

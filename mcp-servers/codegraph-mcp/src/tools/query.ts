@@ -46,8 +46,8 @@ import { symbolStem, extractUnusedImports } from "../treesitter/symbols.js";
 import { normalizeHttpPath, mqttMatches } from "../treesitter/surface.js";
 import { computeTsLiveness, TsLiveness } from "../tscompiler/liveness.js";
 import { computeSymbolConnections, SymbolGraph } from "../tscompiler/connections.js";
-import { computeTreeSitterConnections, computeGenericConnections, computeGoConnections } from "../treesitter/connections.js";
-import { computeNamespacedConnections, NS_LANGS } from "../treesitter/namespaced.js";
+import { computeTreeSitterConnections, computeRubyConnections, computeGoConnections } from "../treesitter/connections.js";
+import { computeNamespacedConnections } from "../treesitter/namespaced.js";
 
 // ============================================================
 // Helpers
@@ -753,14 +753,18 @@ export function toolGetSymbol(
   return { name, found: definitions.length > 0, definitions, siblings };
 }
 
-// Languages whose references resolve precisely enough to trust a "dead" verdict
-// (compiler for TS/JS, imports for Python, includes for C++, package scope for Go,
-// fully-qualified names for Java/C#/PHP).
+// Languages whose references resolve precisely enough to trust a "dead" verdict.
+// (Ruby is deliberately excluded — its runtime metaprogramming makes a sound
+// "dead" verdict impossible to guarantee; it still gets connection tracing.)
 const PRECISE_DEAD_LANGS: ReadonlySet<Language> = new Set<Language>([
-  "typescript", "javascript", "python", "cpp", "arduino", "go", "java", "csharp", "php",
+  "typescript", "javascript", "python", "cpp", "arduino", "go", "java", "csharp", "php", "rust",
 ]);
 
-/** Type-kind symbols (the resolvable surface for namespace languages). */
+/** Languages where only type declarations resolve cross-file (so dead-code is
+ *  reported for types only — Java/C#/PHP reference types, not free functions). */
+const FQN_TYPE_ONLY: ReadonlySet<Language> = new Set<Language>(["java", "csharp", "php"]);
+
+/** Type-kind symbols (the resolvable surface for FQN-type languages). */
 const TYPE_KINDS: ReadonlySet<string> = new Set(["class", "interface", "enum", "type"]);
 
 /** codegraph_find_dead_exports — exported symbols with no live importer. */
@@ -803,7 +807,7 @@ export function toolFindDeadExports(
       // Instance methods need type inference to resolve cross-file — never claim
       // them dead. For namespace languages, only types resolve precisely.
       if (sym.kind === "method") continue;
-      if (NS_LANGS.has(node.language) && !TYPE_KINDS.has(sym.kind)) continue;
+      if (FQN_TYPE_ONLY.has(node.language) && !TYPE_KINDS.has(sym.kind)) continue;
       const liveness = livenessFor(sym.name, node, tsLiveness, sg);
       if (liveness.verdict === "unused") dead.push({ ...toSymbolRef(node, sym), liveness });
       else if (liveness.verdict === "ambiguous") ambiguousCount++;
@@ -899,8 +903,8 @@ function getSymbolGraph(graph: DependencyGraph): SymbolGraph {
     cached = computeSymbolConnections(graph.rootDir, tsJs);
     mergeInto(cached, computeTreeSitterConnections(graph)); // python, c++
     mergeInto(cached, computeGoConnections(graph)); // go (package-scoped, precise)
-    mergeInto(cached, computeNamespacedConnections(graph)); // java/c#/php (FQN, precise)
-    mergeInto(cached, computeGenericConnections(graph)); // rust/ruby (name-based, for now)
+    mergeInto(cached, computeNamespacedConnections(graph)); // java/c#/php/rust (FQN/module, precise)
+    mergeInto(cached, computeRubyConnections(graph)); // ruby (require-closure)
     symbolGraphCache.set(graph, cached);
   }
   return cached;

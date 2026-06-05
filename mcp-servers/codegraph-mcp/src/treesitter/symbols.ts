@@ -210,6 +210,13 @@ function isExported(language: Language, node: Node, name: string): boolean {
   }
 }
 
+function hasAncestorType(node: Node, types: ReadonlySet<string>): boolean {
+  for (let p = node.parent; p; p = p.parent) if (types.has(p.type)) return true;
+  return false;
+}
+
+const RUST_METHOD_PARENTS: ReadonlySet<string> = new Set(["impl_item", "trait_item"]);
+
 function extractTableSymbols(language: Language, root: Node): SymbolNode[] {
   const specs = LANG_DECLS[language];
   if (!specs) return [];
@@ -220,7 +227,13 @@ function extractTableSymbols(language: Language, root: Node): SymbolNode[] {
       const name = node.childForFieldName("name")?.text;
       if (!name || seen.has(name)) continue;
       seen.add(name);
-      out.push({ name, kind: spec.kind, exported: isExported(language, node, name), isType: spec.isType ?? false, line: lineOf(node) });
+      // A Rust fn inside an impl/trait is a method (called via an instance —
+      // cross-file resolution needs type inference), so keep it out of dead-code.
+      const kind =
+        language === "rust" && node.type === "function_item" && hasAncestorType(node, RUST_METHOD_PARENTS)
+          ? "method"
+          : spec.kind;
+      out.push({ name, kind, exported: isExported(language, node, name), isType: spec.isType ?? false, line: lineOf(node) });
     }
   }
   return out;

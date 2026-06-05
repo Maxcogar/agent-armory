@@ -73,3 +73,18 @@ test("PHP: use-statement resolves across a name collision; dead-code is precise"
   assert.ok(!dead.includes("Store.php#Store"), "imported App\\Store\\Store is live");
   assert.ok(dead.includes("CacheStore.php#Store"), "the colliding App\\Cache\\Store is dead");
 });
+
+test("FQN languages get derived file-level edges (blast-radius parity)", async () => {
+  const { toolGetDependencies } = require("../dist/tools/query.js");
+  const root = writeProject({
+    "store/Store.java": `package store;\npublic class Store {}\n`,
+    "web/Handler.java": `package web;\nimport store.Store;\npublic class Handler { void run() { new Store(); } }\n`,
+    "App.cs": `namespace A.Store { public class Store {} }\n`,
+    "Use.cs": `using A.Store;\nnamespace A.Web { class Use { void m() { new Store(); } } }\n`,
+  });
+  const graph = await buildDependencyGraph(root);
+  const jdeps = toolGetDependencies(graph, "web/Handler.java").dependencies.map((d) => d.relativePath);
+  assert.ok(jdeps.includes(path.join("store", "Store.java")), "Java import yields a file edge");
+  const cdeps = toolGetDependencies(graph, "Use.cs").dependencies.map((d) => d.relativePath);
+  assert.ok(cdeps.includes("App.cs"), "C# using yields a file edge (derived from the namespace resolution)");
+});

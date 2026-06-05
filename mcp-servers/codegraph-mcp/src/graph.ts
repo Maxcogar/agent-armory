@@ -17,7 +17,10 @@ import { parsePackageJsonDependencies } from "./parsers/packagejson.js";
 import { parseRequirementsTxtDependencies } from "./parsers/requirementstxt.js";
 import { parseGoModDependencies } from "./parsers/gomod.js";
 import { parseGoDependencies, clearGoModuleCache } from "./parsers/golang.js";
+import { parseRustDependencies } from "./parsers/rust.js";
+import { parseRubyDependencies } from "./parsers/ruby.js";
 import { analyzeFile } from "./treesitter/analyze.js";
+import { computeNamespacedConnections, NS_LANGS } from "./treesitter/namespaced.js";
 
 // ============================================================
 // Language Detection
@@ -193,6 +196,10 @@ function parseNodeDependencies(
       return parseCppDependencies(filePath, ctx.cppSearchDirs);
     case "go":
       return parseGoDependencies(filePath, ctx.rootDir);
+    case "rust":
+      return parseRustDependencies(filePath);
+    case "ruby":
+      return parseRubyDependencies(filePath);
     case "config":
       return parseManifestDependencies(filePath, ctx.localPackages);
     default:
@@ -225,6 +232,30 @@ function resolveIgnorePatterns(options?: BuildGraphOptions): string[] | undefine
     return [...DEFAULT_IGNORE_PATTERNS, ...options.additionalIgnorePatterns];
   }
   return undefined;
+}
+
+/**
+ * Add file-level dependency edges for the FQN languages (Java/C#/PHP/Rust),
+ * derived from their precise symbol resolution: if a symbol in file F references
+ * a symbol in file G, then F depends on G. These languages resolve cross-file
+ * references by namespace/module rather than by a path-mapped import, so their
+ * file edges can't be produced per-file — they fall out of the symbol graph.
+ */
+function addFqnFileEdges(rootDir: string, nodes: Map<string, FileNode>): void {
+  if (![...nodes.values()].some((n) => NS_LANGS.has(n.language))) return;
+  const sg = computeNamespacedConnections({ rootDir, nodes } as DependencyGraph);
+  const fileOf = (key: string): string => key.slice(0, key.lastIndexOf("#"));
+  for (const [userKey, used] of sg.uses) {
+    const uf = fileOf(userKey);
+    const un = nodes.get(uf);
+    if (!un || !NS_LANGS.has(un.language)) continue;
+    const deps = new Set(un.dependencies);
+    for (const usedKey of used) {
+      const gf = fileOf(usedKey);
+      if (gf !== uf && nodes.has(gf)) deps.add(gf);
+    }
+    un.dependencies = [...deps];
+  }
 }
 
 export async function buildDependencyGraph(
@@ -297,6 +328,8 @@ export async function buildDependencyGraph(
   }
 
   // Reverse edges (dependents) are derived from the forward edges in one pass.
+  computeDependents(nodes);
+  addFqnFileEdges(normalizedRoot, nodes);
   computeDependents(nodes);
 
   // Third pass: discover and scan documentation files for code references
@@ -421,6 +454,8 @@ export async function incrementalUpdate(
     if (!reparsed.has(pe.file) && nodes.has(pe.file)) parseErrors.push(pe);
   }
 
+  computeDependents(nodes);
+  addFqnFileEdges(rootDir, nodes);
   computeDependents(nodes);
   const docNodes = await buildDocNodes(rootDir, nodes, ignorePatterns);
 
