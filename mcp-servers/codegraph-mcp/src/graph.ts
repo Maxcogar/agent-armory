@@ -47,6 +47,12 @@ export function detectLanguage(filePath: string): Language {
   if ([".ts", ".tsx"].includes(ext)) return "typescript";
   if ([".js", ".jsx", ".mjs", ".cjs"].includes(ext)) return "javascript";
   if (ext === ".py") return "python";
+  if (ext === ".go") return "go";
+  if (ext === ".rs") return "rust";
+  if (ext === ".java") return "java";
+  if (ext === ".rb") return "ruby";
+  if (ext === ".cs") return "csharp";
+  if ([".php", ".phtml"].includes(ext)) return "php";
   if ([".ino"].includes(ext)) return "arduino";
   if ([".cpp", ".cc", ".cxx", ".c"].includes(ext)) return "cpp";
   if ([".h", ".hpp", ".hh"].includes(ext)) {
@@ -78,7 +84,7 @@ export function isTestFile(relativePath: string): boolean {
 // ============================================================
 
 const SUPPORTED_EXTENSIONS_GLOB =
-  "**/*.{ts,tsx,js,jsx,mjs,cjs,py,cpp,cc,cxx,c,h,hpp,ino}";
+  "**/*.{ts,tsx,js,jsx,mjs,cjs,py,cpp,cc,cxx,c,h,hpp,ino,go,rs,java,rb,cs,php,phtml}";
 
 // Dependency manifests, matched by name rather than extension. The default
 // ignore patterns (node_modules, dist, .venv, ...) keep this from sweeping up
@@ -674,11 +680,8 @@ export function computeEntrySet(graph: DependencyGraph, includeTests: boolean): 
 }
 
 const CODE_LANGUAGES: ReadonlySet<Language> = new Set<Language>([
-  "typescript",
-  "javascript",
-  "python",
-  "cpp",
-  "arduino",
+  "typescript", "javascript", "python", "cpp", "arduino",
+  "go", "rust", "java", "ruby", "csharp", "php",
 ]);
 
 /**

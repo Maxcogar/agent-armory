@@ -2,6 +2,12 @@ import Parser from "tree-sitter";
 import TypeScript from "tree-sitter-typescript";
 import Python from "tree-sitter-python";
 import Cpp from "tree-sitter-cpp";
+import Go from "tree-sitter-go";
+import Rust from "tree-sitter-rust";
+import Java from "tree-sitter-java";
+import Ruby from "tree-sitter-ruby";
+import CSharp from "tree-sitter-c-sharp";
+import Php from "tree-sitter-php";
 
 import { Language } from "../types.js";
 
@@ -17,6 +23,8 @@ import { Language } from "../types.js";
 // tree-sitter-typescript exports both `typescript` and `tsx`; the runtime shape
 // isn't reflected in its node-types .d.ts, so narrow it explicitly.
 const TSX = (TypeScript as unknown as { tsx: unknown }).tsx;
+// tree-sitter-php exports { php, php_only }; use the full php grammar.
+const PHP = (Php as unknown as { php?: unknown }).php ?? Php;
 
 type Grammar = unknown;
 
@@ -31,6 +39,18 @@ export function grammarFor(language: Language): Grammar | null {
     case "cpp":
     case "arduino":
       return Cpp as unknown as Grammar;
+    case "go":
+      return Go as unknown as Grammar;
+    case "rust":
+      return Rust as unknown as Grammar;
+    case "java":
+      return Java as unknown as Grammar;
+    case "ruby":
+      return Ruby as unknown as Grammar;
+    case "csharp":
+      return CSharp as unknown as Grammar;
+    case "php":
+      return PHP as Grammar;
     default:
       return null;
   }

@@ -137,3 +137,100 @@ export function computeTreeSitterConnections(graph: DependencyGraph): SymbolGrap
 
   return { uses, usedBy, info, covered };
 }
+
+// ============================================================
+// Generic name-based connections (Go / Rust / Java / Ruby / C# / PHP)
+// ============================================================
+//
+// These languages don't have precise import resolution wired yet, so the chain
+// is resolved by name: an identifier usage links to a symbol if it's the same
+// name in this file, or a globally-unique declaration. The using symbol is the
+// nearest declaration at/above the usage line. Approximate but uniform — and it
+// only links names that actually resolve to a declared symbol, so locals and
+// keywords don't create noise.
+
+const GENERIC_LANGS: ReadonlySet<Language> = new Set<Language>([
+  "go", "rust", "java", "ruby", "csharp", "php",
+]);
+
+export function computeGenericConnections(graph: DependencyGraph): SymbolGraph {
+  const uses = new Map<string, Set<string>>();
+  const usedBy = new Map<string, Set<string>>();
+  const info = new Map<string, { file: string; name: string; line: number }>();
+  const covered = new Set<string>();
+  const ensure = (m: Map<string, Set<string>>, k: string): Set<string> => {
+    let s = m.get(k);
+    if (!s) m.set(k, (s = new Set()));
+    return s;
+  };
+  const addEdge = (from: string, to: string): void => {
+    if (from === to) return;
+    ensure(uses, from).add(to);
+    ensure(usedBy, to).add(from);
+  };
+  const setInfo = (key: string, file: string, name: string, line: number): void => {
+    if (!info.has(key)) info.set(key, { file, name, line });
+  };
+
+  // Global name index across these languages.
+  const byName = new Map<string, string[]>();
+  for (const node of graph.nodes.values()) {
+    if (!node.symbols || !GENERIC_LANGS.has(node.language)) continue;
+    for (const sym of node.symbols) {
+      const key = `${node.path}#${sym.name}`;
+      (byName.get(sym.name) ?? byName.set(sym.name, []).get(sym.name)!).push(key);
+      setInfo(key, node.path, sym.name, sym.line);
+    }
+  }
+  const globalUnique = (name: string): string | null => {
+    const keys = byName.get(name);
+    return keys && keys.length === 1 ? keys[0] : null;
+  };
+
+  for (const node of graph.nodes.values()) {
+    if (!node.symbols || !GENERIC_LANGS.has(node.language)) continue;
+    let code: string;
+    try {
+      code = fs.readFileSync(node.path, "utf-8");
+    } catch {
+      continue;
+    }
+    const tree = parseSource(node.language, code);
+    if (!tree) continue;
+    covered.add(node.path);
+
+    const moduleKey = `${node.path}#(module)`;
+    setInfo(moduleKey, node.path, "(module top-level)", 0);
+    const syms = [...node.symbols].sort((a, b) => a.line - b.line);
+    const ownerAt = (line: number): string => {
+      let owner = moduleKey;
+      for (const s of syms) {
+        if (s.line <= line) owner = `${node.path}#${s.name}`;
+        else break;
+      }
+      return owner;
+    };
+    const sameFile = new Set(node.symbols.map((s) => s.name));
+    const localResolve = new Map<string, string>();
+    for (const e of node.imports ?? []) {
+      if (e.resolution !== "internal" || !e.to) continue;
+      for (const s of e.specifiers) if (s.kind === "named") localResolve.set(s.local, `${e.to}#${s.imported}`);
+    }
+
+    const stack: Node[] = [tree.rootNode];
+    while (stack.length > 0) {
+      const n = stack.pop()!;
+      if (n.namedChildCount === 0 && n.isNamed && /^[A-Za-z_]\w*$/.test(n.text)) {
+        const name = n.text;
+        const target =
+          localResolve.get(name) ??
+          (sameFile.has(name) ? `${node.path}#${name}` : null) ??
+          globalUnique(name);
+        if (target) addEdge(ownerAt(n.startPosition.row + 1), target);
+      }
+      for (const c of n.namedChildren) stack.push(c);
+    }
+  }
+
+  return { uses, usedBy, info, covered };
+}

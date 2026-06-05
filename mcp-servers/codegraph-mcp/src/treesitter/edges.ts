@@ -23,11 +23,8 @@ export interface ImportResolveContext {
 }
 
 const GRAMMAR_LANGUAGES: ReadonlySet<Language> = new Set<Language>([
-  "typescript",
-  "javascript",
-  "python",
-  "cpp",
-  "arduino",
+  "typescript", "javascript", "python", "cpp", "arduino",
+  "go", "rust", "java", "ruby", "csharp", "php",
 ]);
 
 export function isGrammarLanguage(language: Language): boolean {

@@ -46,7 +46,7 @@ import { symbolStem, extractUnusedImports } from "../treesitter/symbols.js";
 import { normalizeHttpPath, mqttMatches } from "../treesitter/surface.js";
 import { computeTsLiveness, TsLiveness } from "../tscompiler/liveness.js";
 import { computeSymbolConnections, SymbolGraph } from "../tscompiler/connections.js";
-import { computeTreeSitterConnections } from "../treesitter/connections.js";
+import { computeTreeSitterConnections, computeGenericConnections } from "../treesitter/connections.js";
 
 // ============================================================
 // Helpers
@@ -613,40 +613,6 @@ function toSymbolRef(node: FileNode, sym: SymbolNode): SymbolRef {
   };
 }
 
-/** Per-target-file consumption: which named symbols are imported, and whether
- *  any namespace/star/dynamic path makes consumption unprovable (ambiguous). */
-interface Consumer {
-  named: Set<string>;
-  ambiguous: boolean;
-  reason?: string;
-}
-
-function computeConsumers(graph: DependencyGraph): Map<string, Consumer> {
-  const map = new Map<string, Consumer>();
-  for (const node of graph.nodes.values()) {
-    if (!node.imports) continue;
-    for (const e of node.imports) {
-      if (e.resolution !== "internal" || !e.to) continue;
-      let rec = map.get(e.to);
-      if (!rec) map.set(e.to, (rec = { named: new Set(), ambiguous: false }));
-      for (const s of e.specifiers) {
-        if (s.kind === "named") rec.named.add(s.imported);
-        else if (s.kind === "namespace") {
-          rec.ambiguous = true;
-          rec.reason =
-            e.kind === "re-export"
-              ? "re-exported via `export *`"
-              : "imported via a namespace (`import * as`)";
-        }
-      }
-      if (e.kind === "dynamic") {
-        rec.ambiguous = true;
-        rec.reason = rec.reason ?? "the module is loaded via dynamic import()";
-      }
-    }
-  }
-  return map;
-}
 
 // Building a TypeScript Program is expensive; memoize the authoritative liveness
 // per graph (a rescan produces a new graph object, invalidating the entry).
@@ -665,17 +631,17 @@ function getTsLiveness(graph: DependencyGraph): TsLiveness {
 }
 
 /**
- * Liveness for an exported symbol. For TS/JS files the TypeScript compiler
- * resolves it authoritatively (used/unused, following barrels and namespaces).
- * Otherwise it is calibrated: only ever `unused` when there is no named importer
- * AND no namespace/star/dynamic path that could carry it — the asymmetry that
- * prevents a false "dead".
+ * Liveness for an exported symbol. For TS/JS the TypeScript compiler resolves it
+ * authoritatively across modules (following barrels and namespaces). For every
+ * other language it is read from the symbol-connection graph: a symbol with no
+ * incoming use is unused, otherwise used. Only ever `unused` when nothing
+ * references it — the asymmetry that prevents a false "dead".
  */
 function livenessFor(
   name: string,
   node: FileNode,
-  consumers: Map<string, Consumer>,
-  tsLiveness: TsLiveness
+  tsLiveness: TsLiveness,
+  symbolGraph: SymbolGraph
 ): Liveness {
   if (
     (node.language === "typescript" || node.language === "javascript") &&
@@ -685,10 +651,8 @@ function livenessFor(
       ? { verdict: "used" }
       : { verdict: "unused" };
   }
-  const rec = consumers.get(node.path);
-  if (rec && rec.named.has(name)) return { verdict: "used" };
-  if (rec && rec.ambiguous) return { verdict: "ambiguous", reason: rec.reason };
-  return { verdict: "unused" };
+  const users = symbolGraph.usedBy.get(`${node.path}#${name}`);
+  return users && users.size > 0 ? { verdict: "used" } : { verdict: "unused" };
 }
 
 /** Files that import `name` from `targetFile`. */
@@ -757,8 +721,8 @@ export function toolGetSymbol(
     fileFilter = resolved;
   }
 
-  const consumers = computeConsumers(graph);
   const tsLiveness = getTsLiveness(graph);
+  const sg = getSymbolGraph(graph);
   const definitions: (SymbolRef & { liveness: Liveness; references: FileRef[] })[] = [];
   const stem = symbolStem(name);
   const siblings: { name: string; relativePath: string; line: number; liveness: Liveness }[] = [];
@@ -769,7 +733,7 @@ export function toolGetSymbol(
       if (sym.name === name && (!fileFilter || node.path === fileFilter)) {
         definitions.push({
           ...toSymbolRef(node, sym),
-          liveness: sym.exported ? livenessFor(name, node, consumers, tsLiveness) : { verdict: "used" },
+          liveness: sym.exported ? livenessFor(name, node, tsLiveness, sg) : { verdict: "used" },
           references: symbolImporters(graph, node.path, name).map((d) => d.file),
         });
       } else if (sym.name !== name && symbolStem(sym.name) === stem) {
@@ -777,7 +741,7 @@ export function toolGetSymbol(
           name: sym.name,
           relativePath: node.relativePath,
           line: sym.line,
-          liveness: sym.exported ? livenessFor(sym.name, node, consumers, tsLiveness) : { verdict: "used" },
+          liveness: sym.exported ? livenessFor(sym.name, node, tsLiveness, sg) : { verdict: "used" },
         });
       }
     }
@@ -805,8 +769,8 @@ export function toolFindDeadExports(
     fileFilter = resolved;
   }
 
-  const consumers = computeConsumers(graph);
   const tsLiveness = getTsLiveness(graph);
+  const sg = getSymbolGraph(graph);
   const dead: (SymbolRef & { liveness: Liveness })[] = [];
   let ambiguousCount = 0;
 
@@ -816,7 +780,7 @@ export function toolFindDeadExports(
     if (node.isTest && !includeTests) continue;
     for (const sym of node.symbols) {
       if (!sym.exported) continue;
-      const liveness = livenessFor(sym.name, node, consumers, tsLiveness);
+      const liveness = livenessFor(sym.name, node, tsLiveness, sg);
       if (liveness.verdict === "unused") dead.push({ ...toSymbolRef(node, sym), liveness });
       else if (liveness.verdict === "ambiguous") ambiguousCount++;
     }
@@ -895,9 +859,11 @@ function getSymbolGraph(graph: DependencyGraph): SymbolGraph {
     const tsJs = [...graph.nodes.values()]
       .filter((n) => n.language === "typescript" || n.language === "javascript")
       .map((n) => n.path);
-    // TS/JS from the compiler (precise); Python/C++ from tree-sitter.
+    // TS/JS from the compiler (precise); Python/C++ from tree-sitter (imports/
+    // includes); Go/Rust/Java/Ruby/C#/PHP from name-based resolution.
     cached = computeSymbolConnections(graph.rootDir, tsJs);
     mergeInto(cached, computeTreeSitterConnections(graph));
+    mergeInto(cached, computeGenericConnections(graph));
     symbolGraphCache.set(graph, cached);
   }
   return cached;
@@ -1201,8 +1167,8 @@ export function toolVerifyDoc(
   }
   const allNames = [...byName.keys()];
 
-  const consumers = computeConsumers(graph);
   const tsLiveness = getTsLiveness(graph);
+  const sg = getSymbolGraph(graph);
   const missing: { token: string; nearest: string[] }[] = [];
   const dead: { token: string; symbol: SymbolRef; reason: string }[] = [];
 
@@ -1213,7 +1179,7 @@ export function toolVerifyDoc(
       const exported = entries.filter((e) => e.sym.exported);
       if (exported.length > 0) {
         const anyLive = exported.some(
-          (e) => livenessFor(e.sym.name, e.node, consumers, tsLiveness).verdict !== "unused"
+          (e) => livenessFor(e.sym.name, e.node, tsLiveness, sg).verdict !== "unused"
         );
         if (!anyLive) {
           dead.push({

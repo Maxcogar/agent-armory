@@ -92,6 +92,12 @@ const LANGUAGE_VALUES = [
   "python",
   "cpp",
   "arduino",
+  "go",
+  "rust",
+  "java",
+  "ruby",
+  "csharp",
+  "php",
   "config",
   "unknown",
 ] as const;

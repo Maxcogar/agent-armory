@@ -147,6 +147,82 @@ function extractCppSymbols(root: Node): SymbolNode[] {
   return symbols;
 }
 
+// ---------- Go / Rust / Java / Ruby / C# / PHP (table-driven) ----------
+
+interface DeclSpec {
+  types: string[];
+  kind: SymbolKind;
+  isType?: boolean;
+}
+
+const LANG_DECLS: Partial<Record<Language, DeclSpec[]>> = {
+  go: [
+    { types: ["function_declaration", "method_declaration"], kind: "function" },
+    { types: ["type_spec"], kind: "class" },
+  ],
+  rust: [
+    { types: ["function_item"], kind: "function" },
+    { types: ["struct_item", "enum_item", "union_item"], kind: "class" },
+    { types: ["trait_item"], kind: "interface", isType: true },
+    { types: ["type_item"], kind: "type", isType: true },
+    { types: ["const_item", "static_item"], kind: "const" },
+    { types: ["mod_item"], kind: "class" },
+  ],
+  java: [
+    { types: ["class_declaration", "record_declaration"], kind: "class" },
+    { types: ["interface_declaration"], kind: "interface", isType: true },
+    { types: ["enum_declaration"], kind: "enum" },
+    { types: ["method_declaration"], kind: "method" },
+  ],
+  ruby: [
+    { types: ["class", "module"], kind: "class" },
+    { types: ["method", "singleton_method"], kind: "method" },
+  ],
+  csharp: [
+    { types: ["class_declaration", "record_declaration", "struct_declaration"], kind: "class" },
+    { types: ["interface_declaration"], kind: "interface", isType: true },
+    { types: ["enum_declaration"], kind: "enum" },
+    { types: ["method_declaration"], kind: "method" },
+  ],
+  php: [
+    { types: ["function_definition"], kind: "function" },
+    { types: ["class_declaration", "trait_declaration"], kind: "class" },
+    { types: ["interface_declaration"], kind: "interface", isType: true },
+    { types: ["enum_declaration"], kind: "enum" },
+    { types: ["method_declaration"], kind: "method" },
+  ],
+};
+
+function isExported(language: Language, node: Node, name: string): boolean {
+  switch (language) {
+    case "go":
+      return /^[A-Z]/.test(name); // Go: capitalized identifiers are exported
+    case "rust":
+      return node.children.some((c) => c.type === "visibility_modifier");
+    case "java":
+    case "csharp":
+      return /(^|\W)public(\W|$)/.test(node.text.slice(0, 160));
+    default:
+      return true; // Ruby, PHP, etc. — top-level is callable
+  }
+}
+
+function extractTableSymbols(language: Language, root: Node): SymbolNode[] {
+  const specs = LANG_DECLS[language];
+  if (!specs) return [];
+  const out: SymbolNode[] = [];
+  const seen = new Set<string>();
+  for (const spec of specs) {
+    for (const node of root.descendantsOfType(spec.types)) {
+      const name = node.childForFieldName("name")?.text;
+      if (!name || seen.has(name)) continue;
+      seen.add(name);
+      out.push({ name, kind: spec.kind, exported: isExported(language, node, name), isType: spec.isType ?? false, line: lineOf(node) });
+    }
+  }
+  return out;
+}
+
 export function extractSymbolsFromTree(language: Language, root: Node): SymbolNode[] {
   switch (language) {
     case "typescript":
@@ -157,6 +233,13 @@ export function extractSymbolsFromTree(language: Language, root: Node): SymbolNo
     case "cpp":
     case "arduino":
       return extractCppSymbols(root);
+    case "go":
+    case "rust":
+    case "java":
+    case "ruby":
+    case "csharp":
+    case "php":
+      return extractTableSymbols(language, root);
     default:
       return [];
   }
