@@ -1,7 +1,7 @@
 import * as path from "path";
 import ts from "typescript";
 
-import { loadCompilerOptions, isDeclarationName } from "./liveness.js";
+import { createTsProgram, isDeclarationName } from "./liveness.js";
 
 // ============================================================
 // Symbol-to-symbol reference graph (TypeScript compiler)
@@ -27,21 +27,20 @@ export interface SymbolGraph {
 
 const MODULE = "(module)";
 
-export function computeSymbolConnections(rootDir: string, tsJsFiles: string[]): SymbolGraph {
+export function computeSymbolConnections(
+  rootDir: string,
+  tsJsFiles: string[],
+  sharedProgram?: ts.Program | null
+): SymbolGraph {
   const covered = new Set(tsJsFiles.map((f) => path.resolve(f)));
   const uses = new Map<string, Set<string>>();
   const usedBy = new Map<string, Set<string>>();
   const info = new Map<string, { file: string; name: string; line: number }>();
   if (tsJsFiles.length === 0) return { uses, usedBy, info, covered };
 
-  let program: ts.Program;
-  let checker: ts.TypeChecker;
-  try {
-    program = ts.createProgram(tsJsFiles, loadCompilerOptions(rootDir));
-    checker = program.getTypeChecker();
-  } catch {
-    return { uses, usedBy, info, covered };
-  }
+  const program = sharedProgram ?? createTsProgram(rootDir, tsJsFiles);
+  if (!program) return { uses, usedBy, info, covered };
+  const checker = program.getTypeChecker();
 
   const ensure = (m: Map<string, Set<string>>, k: string): Set<string> => {
     let s = m.get(k);

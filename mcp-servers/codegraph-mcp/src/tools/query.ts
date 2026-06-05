@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import ts from "typescript";
 import {
   DependencyGraph,
   FileNode,
@@ -44,7 +45,7 @@ import {
 } from "../export.js";
 import { symbolStem, extractUnusedImports } from "../treesitter/symbols.js";
 import { normalizeHttpPath, mqttMatches } from "../treesitter/surface.js";
-import { computeTsLiveness, TsLiveness } from "../tscompiler/liveness.js";
+import { computeTsLiveness, createTsProgram, TsLiveness } from "../tscompiler/liveness.js";
 import { computeSymbolConnections, SymbolGraph } from "../tscompiler/connections.js";
 import { computeTreeSitterConnections, computeRubyConnections, computeGoConnections } from "../treesitter/connections.js";
 import { computeNamespacedConnections } from "../treesitter/namespaced.js";
@@ -616,17 +617,36 @@ function toSymbolRef(node: FileNode, sym: SymbolNode): SymbolRef {
 }
 
 
-// Building a TypeScript Program is expensive; memoize the authoritative liveness
-// per graph (a rescan produces a new graph object, invalidating the entry).
+// Building a TypeScript Program is expensive, and `find_dead_exports` needs it
+// twice (cross-file liveness *and* the symbol-connection graph). Build it once
+// per graph and share it across both passes. A rescan produces a new graph
+// object, so the WeakMap entry is invalidated automatically.
+const tsProgramCache = new WeakMap<DependencyGraph, ts.Program | null>();
 const tsLivenessCache = new WeakMap<DependencyGraph, TsLiveness>();
+
+/** Absolute paths of the TS/JS files in the graph (the Program's input set). */
+function tsJsPaths(graph: DependencyGraph): string[] {
+  return [...graph.nodes.values()]
+    .filter((n) => n.language === "typescript" || n.language === "javascript")
+    .map((n) => n.path);
+}
+
+/** The shared TypeScript Program for this graph, or null if there is no TS/JS
+ *  (or the build failed). `createTsProgram` legitimately returns null, so the
+ *  cache miss is keyed on `undefined`, not on falsiness. */
+function getTsProgram(graph: DependencyGraph): ts.Program | null {
+  let program = tsProgramCache.get(graph);
+  if (program === undefined) {
+    program = createTsProgram(graph.rootDir, tsJsPaths(graph));
+    tsProgramCache.set(graph, program);
+  }
+  return program;
+}
 
 function getTsLiveness(graph: DependencyGraph): TsLiveness {
   let cached = tsLivenessCache.get(graph);
   if (!cached) {
-    const tsJs = [...graph.nodes.values()]
-      .filter((n) => n.language === "typescript" || n.language === "javascript")
-      .map((n) => n.path);
-    cached = computeTsLiveness(graph.rootDir, tsJs);
+    cached = computeTsLiveness(graph.rootDir, tsJsPaths(graph), getTsProgram(graph));
     tsLivenessCache.set(graph, cached);
   }
   return cached;
@@ -909,12 +929,9 @@ function mergeInto(target: SymbolGraph, src: SymbolGraph): void {
 function getSymbolGraph(graph: DependencyGraph): SymbolGraph {
   let cached = symbolGraphCache.get(graph);
   if (!cached) {
-    const tsJs = [...graph.nodes.values()]
-      .filter((n) => n.language === "typescript" || n.language === "javascript")
-      .map((n) => n.path);
     // TS/JS from the compiler (precise); Python/C++ from tree-sitter (imports/
     // includes); Go/Rust/Java/Ruby/C#/PHP from name-based resolution.
-    cached = computeSymbolConnections(graph.rootDir, tsJs);
+    cached = computeSymbolConnections(graph.rootDir, tsJsPaths(graph), getTsProgram(graph));
     mergeInto(cached, computeTreeSitterConnections(graph)); // python, c++
     mergeInto(cached, computeGoConnections(graph)); // go (package-scoped, precise)
     mergeInto(cached, computeNamespacedConnections(graph)); // java/c#/php/rust (FQN/module, precise)

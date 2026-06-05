@@ -56,19 +56,30 @@ export function isDeclarationName(id: ts.Identifier): boolean {
  * referenced cross-file. Defensive: any failure yields an empty result so the
  * caller falls back to the syntactic verdict rather than crashing.
  */
-export function computeTsLiveness(rootDir: string, tsJsFiles: string[]): TsLiveness {
+/** Build a TypeScript Program over the given files, or null on failure. Exposed
+ *  so callers can build it once and share it across the liveness + connection
+ *  passes instead of paying for two full programs. */
+export function createTsProgram(rootDir: string, tsJsFiles: string[]): ts.Program | null {
+  if (tsJsFiles.length === 0) return null;
+  try {
+    return ts.createProgram(tsJsFiles, loadCompilerOptions(rootDir));
+  } catch {
+    return null;
+  }
+}
+
+export function computeTsLiveness(
+  rootDir: string,
+  tsJsFiles: string[],
+  sharedProgram?: ts.Program | null
+): TsLiveness {
   const covered = new Set(tsJsFiles.map((f) => path.resolve(f)));
   const usedExternally = new Set<string>();
   if (tsJsFiles.length === 0) return { usedExternally, covered };
 
-  let program: ts.Program;
-  let checker: ts.TypeChecker;
-  try {
-    program = ts.createProgram(tsJsFiles, loadCompilerOptions(rootDir));
-    checker = program.getTypeChecker();
-  } catch {
-    return { usedExternally, covered };
-  }
+  const program = sharedProgram ?? createTsProgram(rootDir, tsJsFiles);
+  if (!program) return { usedExternally, covered };
+  const checker = program.getTypeChecker();
 
   const record = (id: ts.Identifier, curFile: string): void => {
     let sym = checker.getSymbolAtLocation(id);
