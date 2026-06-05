@@ -16,7 +16,7 @@ import { parseCppDependencies, collectCppSearchDirs } from "./parsers/cpp.js";
 import { parsePackageJsonDependencies } from "./parsers/packagejson.js";
 import { parseRequirementsTxtDependencies } from "./parsers/requirementstxt.js";
 import { parseGoModDependencies } from "./parsers/gomod.js";
-import { parseFileImports } from "./treesitter/edges.js";
+import { analyzeFile } from "./treesitter/analyze.js";
 
 // ============================================================
 // Language Detection
@@ -271,10 +271,11 @@ export async function buildDependencyGraph(
       const rawDeps = parseNodeDependencies(filePath, node.language, ctx);
       // Only keep deps that are in the graph (i.e., part of the project).
       node.dependencies = rawDeps.filter((dep) => nodes.has(dep));
-      // Additively attach rich import edges (kind + specifiers + resolution).
+      // Additively attach rich import edges + declared symbols (one parse).
       // `dependencies` stays the source of truth; parity is asserted in tests.
-      const imports = parseFileImports(filePath, node.language, ctx);
-      if (imports) node.imports = imports;
+      const analysis = analyzeFile(filePath, node.language, ctx);
+      if (analysis.imports) node.imports = analysis.imports;
+      if (analysis.symbols) node.symbols = analysis.symbols;
     } catch (err: unknown) {
       parseErrors.push({
         file: filePath,
@@ -381,8 +382,9 @@ export async function incrementalUpdate(
     try {
       const rawDeps = parseNodeDependencies(filePath, node.language, ctx);
       node.dependencies = rawDeps.filter((dep) => nodes.has(dep));
-      const imports = parseFileImports(filePath, node.language, ctx);
-      if (imports) node.imports = imports;
+      const analysis = analyzeFile(filePath, node.language, ctx);
+      if (analysis.imports) node.imports = analysis.imports;
+      if (analysis.symbols) node.symbols = analysis.symbols;
     } catch (err: unknown) {
       parseErrors.push({
         file: filePath,

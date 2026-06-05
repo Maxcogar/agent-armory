@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 
-import { Language, ImportEdge } from "../types.js";
+import { Language, ImportEdge, RawImport } from "../types.js";
 import { extractImports } from "./imports.js";
 import { resolveJsModule } from "../parsers/javascript.js";
 import { resolvePythonModule } from "../parsers/python.js";
@@ -30,20 +30,22 @@ const GRAMMAR_LANGUAGES: ReadonlySet<Language> = new Set<Language>([
   "arduino",
 ]);
 
+export function isGrammarLanguage(language: Language): boolean {
+  return GRAMMAR_LANGUAGES.has(language);
+}
+
 /**
- * Resolved import edges for a file, or `null` when the language has no
- * tree-sitter grammar (config/unknown). A grammar language with no imports
- * returns `[]` — distinguishing "analyzed, none found" from "not analyzed".
+ * Resolve already-extracted raw imports into edges, reusing the per-language
+ * resolvers. Shared by {@link parseFileImports} and the combined single-parse
+ * analyzer so resolution lives in one place. Self-imports are dropped.
  */
-export function parseFileImports(
+export function resolveImports(
   filePath: string,
   language: Language,
+  raws: RawImport[],
   ctx: ImportResolveContext
-): ImportEdge[] | null {
-  if (!GRAMMAR_LANGUAGES.has(language)) return null;
-
+): ImportEdge[] {
   const fromDir = path.dirname(filePath);
-  const raws = extractImports(language, code(filePath));
   const edges: ImportEdge[] = [];
   for (const imp of raws) {
     let to: string | null = null;
@@ -65,17 +67,28 @@ export function parseFileImports(
         continue;
     }
 
-    // A file importing itself is not a dependency edge (matches the legacy path).
     if (to === filePath) continue;
     edges.push({ ...imp, to, resolution });
   }
   return edges;
 }
 
-function code(filePath: string): string {
+/**
+ * Resolved import edges for a file, or `null` when the language has no
+ * tree-sitter grammar (config/unknown). A grammar language with no imports
+ * returns `[]` — distinguishing "analyzed, none found" from "not analyzed".
+ */
+export function parseFileImports(
+  filePath: string,
+  language: Language,
+  ctx: ImportResolveContext
+): ImportEdge[] | null {
+  if (!GRAMMAR_LANGUAGES.has(language)) return null;
+  let code: string;
   try {
-    return fs.readFileSync(filePath, "utf-8");
+    code = fs.readFileSync(filePath, "utf-8");
   } catch {
-    return "";
+    return [];
   }
+  return resolveImports(filePath, language, extractImports(language, code), ctx);
 }

@@ -212,8 +212,10 @@ Plus: re-run the existing 8 suites unchanged after Step 1 (regression gate).
 4. ✅ F1 `exclude_type_only` on change-impact (type-only-aware reverse traversal);
    F4 `find_unreachable` (reachability dead-code, catches dead cycles); F6
    `find_clusters` (weakly-connected components).
-5. S1/S2 symbol + specifier extraction; `get_symbol`, `find_symbol_dependents`.
-6. S3/S4 dead-exports + unused-imports + calibrated verdicts; S5 siblings.
+5. ✅ S1/S2 symbol extraction (single-parse analyzer); `get_symbol`,
+   `find_symbol_dependents`.
+6. ✅ S3/S4 `find_dead_exports` + `find_unused_imports` + calibrated verdicts
+   (used/unused/ambiguous, never a false dead); S5 sibling surfacing.
 7. S6 surface diff.
 
 Phase 2 (TS-compiler enrichment) upgrades step 6's `ambiguous` verdicts and is

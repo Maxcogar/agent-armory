@@ -31,6 +31,10 @@ import {
   toolGetExternalUsers,
   toolFindUnreachable,
   toolFindClusters,
+  toolGetSymbol,
+  toolFindSymbolDependents,
+  toolFindDeadExports,
+  toolFindUnusedImports,
   toolExportMermaid,
   toolExportDot,
 } from "./tools/query.js";
@@ -978,6 +982,166 @@ Returns: { status, wasWatching }`,
       wasWatching,
       message: wasWatching ? "Watcher stopped." : "No watcher was active.",
     });
+  }
+);
+
+// ============================================================
+// Tool: codegraph_get_symbol
+// ============================================================
+
+server.registerTool(
+  "codegraph_get_symbol",
+  {
+    title: "Get Symbol (definition, references, liveness, siblings)",
+    description: `Looks up a declared symbol by name across the graph and reports, for each definition: where it is defined, who references it, a calibrated liveness verdict, and any same-stem sibling symbols (with their own liveness).
+
+The verdict is one of:
+  - used      — a file imports this symbol by name
+  - unused    — no importer, and no namespace/star/dynamic path could carry it
+  - ambiguous — not directly imported, but reachable via a namespace import,
+                an \`export *\` barrel, or a dynamic import (cannot prove unused)
+
+Siblings surface the case where a dead symbol sits next to a live one under a
+related name (e.g. asking about \`FooResponse\` shows a live \`FooResult\`).
+
+Args:
+  - name (string): the symbol name (e.g. an interface, function, class, const).
+  - file (string, optional): restrict the definition lookup to this file.
+
+Symbol resolution is syntactic (Phase 1): re-export barrels and namespace
+imports yield \`ambiguous\` rather than a resolved verdict.
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {
+      name: z.string().describe("Symbol name to look up"),
+      file: z.string().optional().describe("Optional: restrict to a defining file"),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ name, file }) => {
+    if (!currentGraph) return noGraphError();
+    const result = toolGetSymbol(currentGraph, name, file);
+    if (isToolError(result)) return errResponse(result.error);
+    return okResponse(result);
+  }
+);
+
+// ============================================================
+// Tool: codegraph_find_symbol_dependents
+// ============================================================
+
+server.registerTool(
+  "codegraph_find_symbol_dependents",
+  {
+    title: "Find Symbol Dependents",
+    description: `Returns every file that imports a specific symbol from a given file — symbol-level "who uses this", finer than codegraph_get_dependents (which is file-level).
+
+A dependent reached only through a namespace import (\`import * as ns\`) is included and flagged \`throughNamespace\`, since the specific symbol cannot be confirmed syntactically.
+
+Args:
+  - file (string): the file that defines/exports the symbol.
+  - symbol (string): the symbol name.
+
+Returns: { symbol, file, definedAt, dependents: [{ file, via, line, throughNamespace }], count }
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {
+      file: z.string().describe("File that defines the symbol"),
+      symbol: z.string().describe("Symbol name"),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ file, symbol }) => {
+    if (!currentGraph) return noGraphError();
+    const result = toolFindSymbolDependents(currentGraph, file, symbol);
+    if (isToolError(result)) return errResponse(result.error);
+    return okResponse(result);
+  }
+);
+
+// ============================================================
+// Tool: codegraph_find_dead_exports
+// ============================================================
+
+server.registerTool(
+  "codegraph_find_dead_exports",
+  {
+    title: "Find Dead (Unused) Exports",
+    description: `Finds exported symbols that no other file imports — candidates for removal or for being made non-exported.
+
+Verdicts are calibrated so this never reports a false dead: a symbol reachable only via a namespace import, an \`export *\` barrel, or a dynamic import is counted as ambiguous (in ambiguousCount), NOT as dead. (Phase 2's TypeScript-compiler pass resolves those barrels/namespaces to firm verdicts.)
+
+Note: this checks cross-file *export* usage; a symbol used only inside its own file still counts as a dead export. It does not yet account for symbols consumed only by an \`export *\` chain (those are ambiguous).
+
+Args:
+  - file (string, optional): restrict to one file.
+  - include_tests (boolean, optional): include test files. Default false.
+
+Returns: { dead: [{ relativePath, name, kind, line, liveness }], count, ambiguousCount }
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {
+      file: z.string().optional().describe("Optional: restrict to one file"),
+      include_tests: z.boolean().optional().describe("Include test files (default false)"),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ file, include_tests }) => {
+    if (!currentGraph) return noGraphError();
+    const result = toolFindDeadExports(currentGraph, file, include_tests ?? false);
+    if (isToolError(result)) return errResponse(result.error);
+    return okResponse(result);
+  }
+);
+
+// ============================================================
+// Tool: codegraph_find_unused_imports
+// ============================================================
+
+server.registerTool(
+  "codegraph_find_unused_imports",
+  {
+    title: "Find Unused Imports",
+    description: `Finds import specifiers whose local binding is never referenced in the file body (JS/TS and Python). Side-effect, dynamic, and re-export imports are skipped (they bind no local name).
+
+This is syntactic: a binding used only via reflection/eval would be a false positive, as it is for any linter.
+
+Args:
+  - file (string, optional): restrict to one file; otherwise scans all JS/TS/Python files.
+
+Returns: { unused: [{ relativePath, imported, local, line }], count }
+
+Prerequisite: codegraph_scan must be called first.`,
+    inputSchema: {
+      file: z.string().optional().describe("Optional: restrict to one file"),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async ({ file }) => {
+    if (!currentGraph) return noGraphError();
+    const result = toolFindUnusedImports(currentGraph, file);
+    if (isToolError(result)) return errResponse(result.error);
+    return okResponse(result);
   }
 );
 

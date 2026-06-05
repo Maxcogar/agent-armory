@@ -187,10 +187,7 @@ function extractCppImports(root: Node): RawImport[] {
  * specifier + kind + named specifiers), before any path resolution. Returns []
  * for languages without a tree-sitter grammar.
  */
-export function extractImports(language: Language, code: string): RawImport[] {
-  const tree = parseSource(language, code);
-  if (!tree) return [];
-  const root = tree.rootNode;
+export function extractImportsFromTree(language: Language, root: Node): RawImport[] {
   switch (language) {
     case "typescript":
     case "javascript":
@@ -203,4 +200,10 @@ export function extractImports(language: Language, code: string): RawImport[] {
     default:
       return [];
   }
+}
+
+export function extractImports(language: Language, code: string): RawImport[] {
+  const tree = parseSource(language, code);
+  if (!tree) return [];
+  return extractImportsFromTree(language, tree.rootNode);
 }

@@ -1,6 +1,8 @@
+import * as fs from "fs";
 import * as path from "path";
 import {
   DependencyGraph,
+  FileNode,
   FileRef,
   FileDependencies,
   FileDependents,
@@ -16,6 +18,9 @@ import {
   PathBetweenResult,
   OrphansResult,
   LayersResult,
+  Liveness,
+  SymbolKind,
+  SymbolNode,
 } from "../types.js";
 import {
   findFileInGraph,
@@ -37,6 +42,7 @@ import {
   ExportResult,
   ExportOptions,
 } from "../export.js";
+import { symbolStem, extractUnusedImports } from "../treesitter/symbols.js";
 
 // ============================================================
 // Helpers
@@ -576,6 +582,247 @@ export function toolFindClusters(
     files: files.map((f) => toFileRef(f, graph)),
   }));
   return { clusters, count: clusters.length };
+}
+
+// ============================================================
+// Symbol-level tools (Phase 1)
+// ============================================================
+
+export interface SymbolRef {
+  [key: string]: unknown;
+  file: string;
+  relativePath: string;
+  name: string;
+  kind: SymbolKind;
+  line: number;
+  exported: boolean;
+}
+
+function toSymbolRef(node: FileNode, sym: SymbolNode): SymbolRef {
+  return {
+    file: node.path,
+    relativePath: node.relativePath,
+    name: sym.name,
+    kind: sym.kind,
+    line: sym.line,
+    exported: sym.exported,
+  };
+}
+
+/** Per-target-file consumption: which named symbols are imported, and whether
+ *  any namespace/star/dynamic path makes consumption unprovable (ambiguous). */
+interface Consumer {
+  named: Set<string>;
+  ambiguous: boolean;
+  reason?: string;
+}
+
+function computeConsumers(graph: DependencyGraph): Map<string, Consumer> {
+  const map = new Map<string, Consumer>();
+  for (const node of graph.nodes.values()) {
+    if (!node.imports) continue;
+    for (const e of node.imports) {
+      if (e.resolution !== "internal" || !e.to) continue;
+      let rec = map.get(e.to);
+      if (!rec) map.set(e.to, (rec = { named: new Set(), ambiguous: false }));
+      for (const s of e.specifiers) {
+        if (s.kind === "named") rec.named.add(s.imported);
+        else if (s.kind === "namespace") {
+          rec.ambiguous = true;
+          rec.reason =
+            e.kind === "re-export"
+              ? "re-exported via `export *`"
+              : "imported via a namespace (`import * as`)";
+        }
+      }
+      if (e.kind === "dynamic") {
+        rec.ambiguous = true;
+        rec.reason = rec.reason ?? "the module is loaded via dynamic import()";
+      }
+    }
+  }
+  return map;
+}
+
+/**
+ * Calibrated liveness for an exported symbol. Only ever `unused` when there is
+ * no named importer AND no namespace/star/dynamic path that could carry it —
+ * the asymmetry that prevents a false "dead".
+ */
+function livenessFor(name: string, filePath: string, consumers: Map<string, Consumer>): Liveness {
+  const rec = consumers.get(filePath);
+  if (rec && rec.named.has(name)) return { verdict: "used" };
+  if (rec && rec.ambiguous) return { verdict: "ambiguous", reason: rec.reason };
+  return { verdict: "unused" };
+}
+
+/** Files that import `name` from `targetFile`. */
+function symbolImporters(
+  graph: DependencyGraph,
+  targetFile: string,
+  name: string
+): { file: FileRef; via: string; line: number; throughNamespace: boolean }[] {
+  const out: { file: FileRef; via: string; line: number; throughNamespace: boolean }[] = [];
+  for (const node of graph.nodes.values()) {
+    if (!node.imports) continue;
+    for (const e of node.imports) {
+      if (e.to !== targetFile) continue;
+      const named = e.specifiers.some((s) => s.kind === "named" && s.imported === name);
+      const namespace = e.specifiers.some((s) => s.kind === "namespace");
+      if (named || namespace) {
+        out.push({ file: toFileRef(node.path, graph), via: e.kind, line: e.line, throughNamespace: namespace && !named });
+      }
+    }
+  }
+  out.sort((a, b) => a.file.relativePath.localeCompare(b.file.relativePath) || a.line - b.line);
+  return out;
+}
+
+/** codegraph_find_symbol_dependents — who imports a specific symbol of a file. */
+export function toolFindSymbolDependents(
+  graph: DependencyGraph,
+  fileQuery: string,
+  symbol: string
+): {
+  symbol: string;
+  file: FileRef;
+  definedAt: number | null;
+  dependents: { file: FileRef; via: string; line: number; throughNamespace: boolean }[];
+  count: number;
+} | { error: string } {
+  const { resolved, error } = resolveSingleFile(graph, fileQuery);
+  if (error || !resolved) return { error: error! };
+  const node = graph.nodes.get(resolved)!;
+  const def = node.symbols?.find((s) => s.name === symbol);
+  const dependents = symbolImporters(graph, resolved, symbol);
+  return {
+    symbol,
+    file: toFileRef(resolved, graph),
+    definedAt: def ? def.line : null,
+    dependents,
+    count: dependents.length,
+  };
+}
+
+/** codegraph_get_symbol — definition(s), references, verdict, and live siblings. */
+export function toolGetSymbol(
+  graph: DependencyGraph,
+  name: string,
+  fileQuery?: string
+): {
+  name: string;
+  found: boolean;
+  definitions: (SymbolRef & { liveness: Liveness; references: FileRef[] })[];
+  siblings: { name: string; relativePath: string; line: number; liveness: Liveness }[];
+} | { error: string } {
+  let fileFilter: string | null = null;
+  if (fileQuery) {
+    const { resolved, error } = resolveSingleFile(graph, fileQuery);
+    if (error || !resolved) return { error: error! };
+    fileFilter = resolved;
+  }
+
+  const consumers = computeConsumers(graph);
+  const definitions: (SymbolRef & { liveness: Liveness; references: FileRef[] })[] = [];
+  const stem = symbolStem(name);
+  const siblings: { name: string; relativePath: string; line: number; liveness: Liveness }[] = [];
+
+  for (const node of graph.nodes.values()) {
+    if (!node.symbols) continue;
+    for (const sym of node.symbols) {
+      if (sym.name === name && (!fileFilter || node.path === fileFilter)) {
+        definitions.push({
+          ...toSymbolRef(node, sym),
+          liveness: sym.exported ? livenessFor(name, node.path, consumers) : { verdict: "used" },
+          references: symbolImporters(graph, node.path, name).map((d) => d.file),
+        });
+      } else if (sym.name !== name && symbolStem(sym.name) === stem) {
+        siblings.push({
+          name: sym.name,
+          relativePath: node.relativePath,
+          line: sym.line,
+          liveness: sym.exported ? livenessFor(sym.name, node.path, consumers) : { verdict: "used" },
+        });
+      }
+    }
+  }
+
+  definitions.sort((a, b) => a.relativePath.localeCompare(b.relativePath) || a.line - b.line);
+  siblings.sort((a, b) => a.relativePath.localeCompare(b.relativePath) || a.line - b.line);
+  return { name, found: definitions.length > 0, definitions, siblings };
+}
+
+/** codegraph_find_dead_exports — exported symbols with no live importer. */
+export function toolFindDeadExports(
+  graph: DependencyGraph,
+  fileQuery?: string,
+  includeTests: boolean = false
+): {
+  dead: (SymbolRef & { liveness: Liveness })[];
+  count: number;
+  ambiguousCount: number;
+} | { error: string } {
+  let fileFilter: string | null = null;
+  if (fileQuery) {
+    const { resolved, error } = resolveSingleFile(graph, fileQuery);
+    if (error || !resolved) return { error: error! };
+    fileFilter = resolved;
+  }
+
+  const consumers = computeConsumers(graph);
+  const dead: (SymbolRef & { liveness: Liveness })[] = [];
+  let ambiguousCount = 0;
+
+  for (const node of graph.nodes.values()) {
+    if (!node.symbols) continue;
+    if (fileFilter && node.path !== fileFilter) continue;
+    if (node.isTest && !includeTests) continue;
+    for (const sym of node.symbols) {
+      if (!sym.exported) continue;
+      const liveness = livenessFor(sym.name, node.path, consumers);
+      if (liveness.verdict === "unused") dead.push({ ...toSymbolRef(node, sym), liveness });
+      else if (liveness.verdict === "ambiguous") ambiguousCount++;
+    }
+  }
+
+  dead.sort((a, b) => a.relativePath.localeCompare(b.relativePath) || a.line - b.line);
+  return { dead, count: dead.length, ambiguousCount };
+}
+
+/** codegraph_find_unused_imports — specifiers imported but never referenced. */
+export function toolFindUnusedImports(
+  graph: DependencyGraph,
+  fileQuery?: string
+): {
+  unused: { file: FileRef; imported: string; local: string; line: number }[];
+  count: number;
+} | { error: string } {
+  let targets: FileNode[];
+  if (fileQuery) {
+    const { resolved, error } = resolveSingleFile(graph, fileQuery);
+    if (error || !resolved) return { error: error! };
+    targets = [graph.nodes.get(resolved)!];
+  } else {
+    targets = [...graph.nodes.values()];
+  }
+
+  const unused: { file: FileRef; imported: string; local: string; line: number }[] = [];
+  for (const node of targets) {
+    if (node.language !== "typescript" && node.language !== "javascript" && node.language !== "python") {
+      continue;
+    }
+    let code: string;
+    try {
+      code = fs.readFileSync(node.path, "utf-8");
+    } catch {
+      continue;
+    }
+    for (const u of extractUnusedImports(node.language, code)) {
+      unused.push({ file: toFileRef(node.path, graph), imported: u.imported, local: u.local, line: u.line });
+    }
+  }
+  unused.sort((a, b) => a.file.relativePath.localeCompare(b.file.relativePath) || a.line - b.line);
+  return { unused, count: unused.length };
 }
 
 // ============================================================
