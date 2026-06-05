@@ -61,3 +61,28 @@ test("trace_symbol: downstream shows what a symbol uses", async () => {
   const res = toolTraceSymbol(graph, "run", "main.ts");
   assert.ok(res.uses.chain.some((c) => c.name === "helper"), "run uses helper (downstream)");
 });
+
+test("trace_symbol works for Python (imports resolve the chain)", async () => {
+  const root = writeProject({
+    "models.py": `class Plant:\n    pass\n`,
+    "service.py": `from .models import Plant\n\ndef identify():\n    return Plant()\n`,
+    "main.py": `from .service import identify\n\nidentify()\n`,
+  });
+  const graph = await buildDependencyGraph(root);
+  const res = toolTraceSymbol(graph, "Plant");
+  assert.ok(!res.error, "Python symbol resolves");
+  const names = res.usedBy.chain.map((c) => c.name);
+  assert.ok(names.includes("identify"), "identify() uses Plant (upstream, Python)");
+});
+
+test("trace_symbol works for C++ (includes resolve the chain)", async () => {
+  const root = writeProject({
+    "sensor.h": `int readSensor();\n`,
+    "main.cpp": `#include "sensor.h"\nvoid loop() {\n  int v = readSensor();\n}\n`,
+  });
+  const graph = await buildDependencyGraph(root);
+  const res = toolTraceSymbol(graph, "readSensor", "sensor.h");
+  assert.ok(!res.error, "C++ symbol resolves");
+  const names = res.usedBy.chain.map((c) => c.name);
+  assert.ok(names.includes("loop"), "loop() calls readSensor (upstream, C++)");
+});

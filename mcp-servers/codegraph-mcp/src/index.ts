@@ -1063,8 +1063,8 @@ function/component/interface in the chain, not just the file. Use it to see
 whether a symbol's chain ultimately reaches live code or dead-ends in a pocket
 nothing real touches.
 
-Resolved with the TypeScript compiler — works for TypeScript and JavaScript. For
-other languages use codegraph_find_symbol_dependents (file-level).
+Works for TypeScript, JavaScript, Python, and C++/Arduino. (TS/JS references are
+resolved by the TypeScript compiler; Python and C++ by their imports/includes.)
 
 Args:
   - name (string): the symbol to trace.

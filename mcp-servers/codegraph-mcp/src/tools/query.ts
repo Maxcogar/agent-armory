@@ -46,6 +46,7 @@ import { symbolStem, extractUnusedImports } from "../treesitter/symbols.js";
 import { normalizeHttpPath, mqttMatches } from "../treesitter/surface.js";
 import { computeTsLiveness, TsLiveness } from "../tscompiler/liveness.js";
 import { computeSymbolConnections, SymbolGraph } from "../tscompiler/connections.js";
+import { computeTreeSitterConnections } from "../treesitter/connections.js";
 
 // ============================================================
 // Helpers
@@ -873,13 +874,30 @@ interface SymbolRef2 {
 
 const symbolGraphCache = new WeakMap<DependencyGraph, SymbolGraph>();
 
+function mergeInto(target: SymbolGraph, src: SymbolGraph): void {
+  for (const [k, v] of src.uses) {
+    const s = target.uses.get(k) ?? new Set<string>();
+    for (const x of v) s.add(x);
+    target.uses.set(k, s);
+  }
+  for (const [k, v] of src.usedBy) {
+    const s = target.usedBy.get(k) ?? new Set<string>();
+    for (const x of v) s.add(x);
+    target.usedBy.set(k, s);
+  }
+  for (const [k, v] of src.info) if (!target.info.has(k)) target.info.set(k, v);
+  for (const c of src.covered) target.covered.add(c);
+}
+
 function getSymbolGraph(graph: DependencyGraph): SymbolGraph {
   let cached = symbolGraphCache.get(graph);
   if (!cached) {
     const tsJs = [...graph.nodes.values()]
       .filter((n) => n.language === "typescript" || n.language === "javascript")
       .map((n) => n.path);
+    // TS/JS from the compiler (precise); Python/C++ from tree-sitter.
     cached = computeSymbolConnections(graph.rootDir, tsJs);
+    mergeInto(cached, computeTreeSitterConnections(graph));
     symbolGraphCache.set(graph, cached);
   }
   return cached;
@@ -936,16 +954,16 @@ export function toolTraceSymbol(
   }
 
   const starts: string[] = [];
+  const startFiles: string[] = [];
   let symbolRef = { name, relativePath: "", line: 0 };
-  let nonTs = false;
   for (const node of graph.nodes.values()) {
     if (!node.symbols) continue;
     if (fileFilter && node.path !== fileFilter) continue;
     for (const sym of node.symbols) {
       if (sym.name !== name) continue;
       starts.push(`${node.path}#${name}`);
+      startFiles.push(node.path);
       symbolRef = { name, relativePath: node.relativePath, line: sym.line };
-      if (node.language !== "typescript" && node.language !== "javascript") nonTs = true;
     }
   }
   if (starts.length === 0) {
@@ -974,8 +992,8 @@ export function toolTraceSymbol(
     usedBy: { count: up.reached.length, terminals: up.terminals.map(ref), chain: toRefs(up.reached), truncated: up.truncated },
     uses: { count: down.reached.length, terminals: down.terminals.map(ref), chain: toRefs(down.reached), truncated: down.truncated },
   };
-  if (nonTs || sg.covered.size === 0) {
-    result.note = "Symbol-to-symbol chains are resolved for TypeScript/JavaScript. For other languages, use codegraph_find_symbol_dependents (file-level).";
+  if (!startFiles.some((f) => sg.covered.has(f))) {
+    result.note = "Symbol-to-symbol chains are resolved for TS/JS, Python, and C++. This symbol's file is not covered; use codegraph_find_symbol_dependents (file-level).";
   }
   return result;
 }

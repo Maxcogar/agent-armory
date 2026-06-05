@@ -109,7 +109,7 @@ function extractPySymbols(root: Node): SymbolNode[] {
 
 // ---------- C / C++ / Arduino (best-effort) ----------
 
-function cppFunctionName(declarator: Node | null): string | undefined {
+export function cppFunctionName(declarator: Node | null): string | undefined {
   if (!declarator) return undefined;
   const fd =
     declarator.type === "function_declarator"
@@ -123,13 +123,26 @@ function cppFunctionName(declarator: Node | null): string | undefined {
 
 function extractCppSymbols(root: Node): SymbolNode[] {
   const symbols: SymbolNode[] = [];
+  const seen = new Set<string>();
+  const push = (name: string | undefined, kind: SymbolKind, line: number): void => {
+    if (name && !seen.has(name)) {
+      seen.add(name);
+      symbols.push({ name, kind, exported: true, isType: false, line });
+    }
+  };
   for (const fn of root.descendantsOfType("function_definition")) {
-    const name = cppFunctionName(fn.childForFieldName("declarator"));
-    if (name) symbols.push({ name, kind: "function", exported: true, isType: false, line: lineOf(fn) });
+    push(cppFunctionName(fn.childForFieldName("declarator")), "function", lineOf(fn));
+  }
+  // Function prototypes in headers: a `declaration` whose declarator is a
+  // function_declarator (e.g. `int readSensor();`). These are the header's API.
+  for (const decl of root.descendantsOfType("declaration")) {
+    const d = decl.childForFieldName("declarator");
+    if (d && (d.type === "function_declarator" || d.descendantsOfType("function_declarator").length > 0)) {
+      push(cppFunctionName(d), "function", lineOf(decl));
+    }
   }
   for (const spec of root.descendantsOfType(["class_specifier", "struct_specifier"])) {
-    const name = spec.childForFieldName("name")?.text;
-    if (name) symbols.push({ name, kind: "class", exported: true, isType: false, line: lineOf(spec) });
+    push(spec.childForFieldName("name")?.text, "class", lineOf(spec));
   }
   return symbols;
 }
