@@ -9,8 +9,9 @@
  */
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, join } from 'node:path';
+import { openContext } from '../app-context.js';
 
-interface HookCmd { type: 'command'; command: string }
+interface HookCmd { type: 'command'; command: string; timeout?: number }
 interface HookEntry { matcher: string; hooks: HookCmd[] }
 
 export async function runInit(rootArg?: string): Promise<number> {
@@ -28,12 +29,29 @@ export async function runInit(rootArg?: string): Promise<number> {
     : {};
   settings.hooks ??= {};
 
-  addHook(settings.hooks, 'SessionStart', '*', cmd('session-start'));
-  addHook(settings.hooks, 'UserPromptSubmit', '*', cmd('user-prompt'));
-  addHook(settings.hooks, 'PreToolUse', '*', cmd('pre-tool'));
-  addHook(settings.hooks, 'Stop', '*', cmd('stop'));
+  addHook(settings.hooks, 'SessionStart', '*', cmd('session-start'), 30);
+  addHook(settings.hooks, 'UserPromptSubmit', '*', cmd('user-prompt'), 120);
+  addHook(settings.hooks, 'PreToolUse', '*', cmd('pre-tool'), 30);
+  addHook(settings.hooks, 'Stop', '*', cmd('stop'), 30);
 
   writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+
+  try {
+    console.log('Building initial ctxpack index...');
+    const ctx = openContext(root);
+    try {
+      const idx = await ctx.indexer.index(ctx.root, ctx.repoName, {
+        excludes: ctx.config.excludes,
+        maxBytes: ctx.config.maxBytes,
+        staticAnalysis: ctx.config.staticAnalysis,
+      });
+      console.log(`Initial ctxpack index ready (${idx.fileCount} file(s)).`);
+    } finally {
+      ctx.storage.close();
+    }
+  } catch (e) {
+    console.log(`Initial ctxpack index skipped: ${(e as Error).message}`);
+  }
 
   console.log(`Installed ctxpack hooks into ${settingsPath}`);
   console.log('Regular Claude Code is now guarded by ctxpack:');
@@ -45,13 +63,13 @@ export async function runInit(rootArg?: string): Promise<number> {
   return 0;
 }
 
-function addHook(hooks: Record<string, HookEntry[]>, event: string, matcher: string, command: string): void {
+function addHook(hooks: Record<string, HookEntry[]>, event: string, matcher: string, command: string, timeout: number): void {
   hooks[event] ??= [];
   const hookName = command.split('hook ')[1] ?? '';
   hooks[event] = hooks[event]
     .map((entry) => ({ ...entry, hooks: (entry.hooks ?? []).filter((h) => !isCtxpackHook(h.command, hookName)) }))
     .filter((entry) => entry.hooks.length > 0);
-  hooks[event].push({ matcher, hooks: [{ type: 'command', command }] });
+  hooks[event].push({ matcher, hooks: [{ type: 'command', command, timeout }] });
 }
 
 function isCtxpackHook(command: string | undefined, hookName: string): boolean {
