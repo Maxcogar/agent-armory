@@ -88,3 +88,21 @@ test("FQN languages get derived file-level edges (blast-radius parity)", async (
   const cdeps = toolGetDependencies(graph, "Use.cs").dependencies.map((d) => d.relativePath);
   assert.ok(cdeps.includes("App.cs"), "C# using yields a file edge (derived from the namespace resolution)");
 });
+
+test("PHP and Rust also get derived file-level edges (full FQN-language parity)", async () => {
+  const { toolGetDependencies } = require("../dist/tools/query.js");
+  const root = writeProject({
+    // PHP: a `use` of a project type yields a file edge to its declaration.
+    "Store.php": `<?php\nnamespace App\\Store;\nclass Store {}\n`,
+    "Handler.php": `<?php\nnamespace App\\Web;\nuse App\\Store\\Store;\nclass Handler { function run() { new Store(); } }\n`,
+    // Rust: a `use crate::...` path yields a file edge to the module file.
+    "src/lib.rs": `pub mod store;\npub mod app;\n`,
+    "src/store.rs": `pub struct Store {}\n`,
+    "src/app.rs": `use crate::store::Store;\npub fn run() { let _ = Store {}; }\n`,
+  });
+  const graph = await buildDependencyGraph(root);
+  const pdeps = toolGetDependencies(graph, "Handler.php").dependencies.map((d) => d.relativePath);
+  assert.ok(pdeps.includes("Store.php"), "PHP `use` yields a file edge to the declaring file");
+  const rdeps = toolGetDependencies(graph, path.join("src", "app.rs")).dependencies.map((d) => d.relativePath);
+  assert.ok(rdeps.includes(path.join("src", "store.rs")), "Rust `use crate::...` yields a file edge to the module file");
+});

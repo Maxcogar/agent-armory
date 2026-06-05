@@ -47,3 +47,41 @@ test("broken imports: a missing require_relative is flagged", async () => {
   const broken = toolFindBrokenImports(graph).broken.map((b) => b.raw);
   assert.ok(broken.some((r) => r.includes("does_not_exist")), "the missing require_relative is reported broken");
 });
+
+// A *local* import that points at nothing is a genuine bug; an import of a
+// third-party/stdlib name is not. These pin that distinction per language:
+// only the unambiguously-local, unresolvable references are reported.
+test("broken imports: local references to missing files are flagged per language", async () => {
+  const root = writeProject({
+    "main.cpp": `#include "missing.h"\n#include <vector>\nint main() { return 0; }\n`,
+    "pkg/__init__.py": ``,
+    "pkg/mod.py": `from .gone import thing\nimport os\n`,
+    "src/a.ts": `import { x } from "./nope";\nimport { join } from "path";\nexport const y = x;\n`,
+  });
+  const graph = await buildDependencyGraph(root);
+  const broken = toolFindBrokenImports(graph).broken;
+  const raws = broken.map((b) => b.raw);
+
+  assert.ok(raws.includes("missing.h"), "C++: a quoted include of a missing header is broken");
+  assert.ok(raws.includes(".gone"), "Python: a relative import of a missing module is broken");
+  assert.ok(raws.includes("./nope"), "TS: a relative import of a missing file is broken");
+
+  // The well-formed third-party/stdlib references must NOT be reported broken.
+  assert.ok(!raws.includes("vector"), "C++ <vector> is a system include, not broken");
+  assert.ok(!raws.includes("os"), "Python stdlib `os` is not broken");
+  assert.ok(!raws.includes("path"), "TS bare `path` import is external, not broken");
+  assert.equal(broken.length, 3, "exactly the three local-but-missing imports are flagged");
+});
+
+// FQN languages name a type by namespace; an import that resolves to no project
+// type is treated as third-party (external), never as a false "broken". This
+// pins the conservative classification that keeps the report trustworthy.
+test("broken imports: an unresolvable FQN import is external, not falsely broken", async () => {
+  const root = writeProject({
+    "Handler.php": `<?php\nnamespace App\\Web;\nuse Vendor\\Lib\\Thing;\nclass Handler { function run() { new Thing(); } }\n`,
+  });
+  const graph = await buildDependencyGraph(root);
+  const ext = toolListExternalDependencies(graph).externals.map((e) => e.name);
+  assert.ok(ext.includes("Vendor"), "the unresolved FQN import is reported as an external dependency");
+  assert.equal(toolFindBrokenImports(graph).count, 0, "no false 'broken' for a third-party FQN import");
+});
