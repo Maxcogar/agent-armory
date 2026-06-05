@@ -813,6 +813,20 @@ export function toolFindDeadExports(
   let ambiguousCount = 0;
   const skipped = new Set<string>();
 
+  // C++ free functions obey the One Definition Rule: a prototype (in a header or
+  // another .cpp) and the definition are the same entity. A call can bind to the
+  // prototype while the definition lives in another translation unit, leaving the
+  // definition with no direct user. So treat a C++ function definition as used
+  // when any C++ symbol of the same name is used anywhere — strictly the safe
+  // direction: it can only withhold a dead claim, never invent one.
+  const cppUsedNames = new Set<string>();
+  for (const n of graph.nodes.values()) {
+    if (n.language !== "cpp" && n.language !== "arduino") continue;
+    for (const s of n.symbols ?? []) {
+      if (sg.usedBy.get(`${n.path}#${s.name}`)?.size) cppUsedNames.add(s.name);
+    }
+  }
+
   for (const node of graph.nodes.values()) {
     if (!node.symbols) continue;
     if (fileFilter && node.path !== fileFilter) continue;
@@ -842,6 +856,7 @@ export function toolFindDeadExports(
       if (sym.kind === "method") continue;
       if (FQN_TYPE_ONLY.has(node.language) && !TYPE_KINDS.has(sym.kind)) continue;
       if (cppHeaderDeclared && cppHeaderDeclared.has(sym.name)) continue;
+      if (cppUsedNames.has(sym.name) && (node.language === "cpp" || node.language === "arduino")) continue;
       const liveness = livenessFor(sym.name, node, tsLiveness, sg);
       if (liveness.verdict === "unused") dead.push({ ...toSymbolRef(node, sym), liveness });
       else if (liveness.verdict === "ambiguous") ambiguousCount++;
@@ -1031,7 +1046,7 @@ export function toolTraceSymbol(
     uses: { count: down.reached.length, terminals: down.terminals.map(ref), chain: toRefs(down.reached), truncated: down.truncated },
   };
   if (!startFiles.some((f) => sg.covered.has(f))) {
-    result.note = "Symbol-to-symbol chains are resolved for TS/JS, Python, and C++. This symbol's file is not covered; use codegraph_find_symbol_dependents (file-level).";
+    result.note = "This symbol's file is not covered by symbol-level tracing; use codegraph_find_symbol_dependents (file-level) instead.";
   }
   return result;
 }

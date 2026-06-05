@@ -31,6 +31,10 @@ interface NsConfig {
   sep: string;
   /** Node types whose text is a leaf identifier that may name a type. */
   refTypes: ReadonlySet<string>;
+  /** Node types whose *whole text* is an inline fully-qualified path used without
+   *  an import (e.g. Rust `crate::m::Thing`, C#/PHP `App.Store.Store`). Resolved
+   *  through the FQN index so such references aren't missed. */
+  scopedTypes?: ReadonlySet<string>;
   /** Symbol kinds to put in the cross-file index (types; Rust adds functions). */
   indexKinds?: ReadonlySet<string>;
   namespaceOf(root: Node, ctx: NsCtx): string | null;
@@ -50,6 +54,7 @@ function joinNs(ns: string, name: string, sep: string): string {
 const JAVA: NsConfig = {
   sep: ".",
   refTypes: new Set(["type_identifier", "identifier"]),
+  scopedTypes: new Set(["scoped_type_identifier"]),
   namespaceOf: (root) => root.descendantsOfType("package_declaration")[0]?.namedChild(0)?.text ?? null,
   importsOf: (root) => {
     const out: { fqn?: string; namespace?: string }[] = [];
@@ -66,6 +71,7 @@ const JAVA: NsConfig = {
 const CSHARP: NsConfig = {
   sep: ".",
   refTypes: new Set(["identifier"]),
+  scopedTypes: new Set(["qualified_name"]),
   namespaceOf: (root) => {
     const ns = root.descendantsOfType(["namespace_declaration", "file_scoped_namespace_declaration"])[0];
     return ns?.childForFieldName("name")?.text ?? null;
@@ -83,6 +89,7 @@ const CSHARP: NsConfig = {
 const PHP: NsConfig = {
   sep: "\\",
   refTypes: new Set(["name"]),
+  scopedTypes: new Set(["qualified_name"]),
   namespaceOf: (root) => root.descendantsOfType("namespace_definition")[0]?.childForFieldName("name")?.text ?? null,
   importsOf: (root) => {
     const out: { fqn?: string; alias?: string }[] = [];
@@ -139,6 +146,7 @@ function collectRustUse(
 const RUST: NsConfig = {
   sep: "::",
   refTypes: new Set(["identifier", "type_identifier"]),
+  scopedTypes: new Set(["scoped_identifier", "scoped_type_identifier"]),
   indexKinds: RUST_INDEX_KINDS,
   namespaceOf: (_root, ctx) => rustModulePath(ctx.filePath, ctx.crateRoot),
   importsOf: (root) => {
@@ -241,13 +249,30 @@ export function computeNamespacedConnections(graph: DependencyGraph): SymbolGrap
       }
     }
     for (const s of p.symbols) nameToKey.set(s.name, `${p.file}#${s.name}`);
-    if (nameToKey.size === 0) continue;
 
-    // Attribute each leaf type reference to its enclosing declaration (the type,
-    // method, or function it sits in), structurally — not by line proximity.
+    // An inline fully-qualified path (no import): resolve its whole text through
+    // the FQN index, trying it absolutely and relative to this file's namespace
+    // (so `crate::m::Thing`, `App.Store.Store`, and a relative `Sub\Thing` all
+    // resolve). A leading separator (PHP `\App\...`) is stripped first.
+    const resolveScoped = (text: string): string | null => {
+      const t = text.startsWith(cfg.sep) ? text.slice(cfg.sep.length) : text;
+      return resolveFqn(t, cfg.sep) ?? resolveFqn(joinNs(p.namespace, t, cfg.sep), cfg.sep);
+    };
+
+    // Attribute each reference to its enclosing declaration (the type, method, or
+    // function it sits in), structurally — not by line proximity.
     const walk = (n: Node, enclosing: string): void => {
       const declKey = enclosingDeclKey(p.language, n, p.file);
       const encl = declKey ?? enclosing;
+      if (cfg.scopedTypes?.has(n.type)) {
+        const key = resolveScoped(n.text);
+        // On a hit, stop — its leaves are just the path prefix. On a miss, fall
+        // through so inner leaves (e.g. `self::Thing`) can resolve via nameToKey.
+        if (key) {
+          b.addEdge(encl, key);
+          return;
+        }
+      }
       if (n.namedChildCount === 0 && cfg.refTypes.has(n.type)) {
         const key = nameToKey.get(n.text);
         if (key) b.addEdge(encl, key);

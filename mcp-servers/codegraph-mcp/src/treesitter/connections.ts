@@ -265,26 +265,31 @@ export function computeGoConnections(graph: DependencyGraph): SymbolGraph {
     }
 
     const moduleKey = b.moduleKey(node.path);
+    const childByType = (n: Node, type: string): Node | null =>
+      n.namedChildren.find((c) => c.type === type) ?? null;
     const walk = (n: Node, enclosing: string): void => {
       const declKey = enclosingDeclKey("go", n, node.path);
       const encl = declKey ?? enclosing;
-      if (n.type === "selector_expression") {
-        const operand = n.childForFieldName("operand");
-        const field = n.childForFieldName("field");
-        if (operand && field && operand.type === "identifier" && aliasDir.has(operand.text)) {
+      // `pkg.Member` — a value selector (`pkg.Func()`) or a qualified type
+      // (`pkg.Type` in a field/param/return/var). Both resolve `Member` in the
+      // imported package's directory; descend no further into the leaves.
+      if (n.type === "selector_expression" || n.type === "qualified_type") {
+        const operand = n.childForFieldName("operand") ?? childByType(n, "package_identifier");
+        const field = n.childForFieldName("field") ?? childByType(n, "type_identifier");
+        if (operand && field && (operand.type === "identifier" || operand.type === "package_identifier") && aliasDir.has(operand.text)) {
           const target = aliasDir.get(operand.text)!.get(field.text);
           if (target) b.addEdge(encl, target);
-          walk(operand, encl);
           return;
         }
       }
-      if (n.type === "identifier") {
-        // A bare identifier matching a package-level name is a use of it. A local
-        // variable that shadows that name would be counted here too, but only in
-        // the safe direction: at worst it over-counts a use (making a symbol look
-        // live), which can never produce a *false dead* — the one verdict this
-        // tool guarantees. Disambiguating would need full local-scope tracking,
-        // which precise dead-code detection does not require.
+      // A bare value identifier OR a same-package type reference (`type_identifier`
+      // in a field/param/return/var/composite literal). Both resolve to a
+      // package-level symbol in this directory. A local variable that shadows the
+      // name would be counted too, but only in the safe direction: at worst it
+      // over-counts a use (a symbol looks live), which can never produce a *false
+      // dead* — the one verdict this tool guarantees. Disambiguating would need
+      // full local-scope tracking, which precise dead-code detection doesn't need.
+      if (n.type === "identifier" || n.type === "type_identifier") {
         const target = sameDir.get(n.text);
         if (target) b.addEdge(encl, target);
       }

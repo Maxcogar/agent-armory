@@ -63,3 +63,72 @@ test("Rust: a symbol in an inline `mod {}` used via `use` is NOT dead", async ()
   // module declarations are namespaces, not dead-code candidates
   assert.ok(!dead.some((k) => /#(helpers|app|inner)$/.test(k)), "Rust `mod` declarations are not flagged dead");
 });
+
+// A type used purely in a type position (field, parameter, return, var,
+// composite literal) — never "called" — must still count as used. These pin the
+// Go type-node and inline-FQN-path resolution that earlier missed such uses.
+
+test("Go: an exported type used only as a parameter type + composite literal is NOT dead", async () => {
+  const dead = await deadKeys({
+    "go.mod": `module example.com/app\n\ngo 1.21\n`,
+    "model.go": `package app\ntype User struct { Name string }\n`,
+    "service.go": `package app\nfunc Greet(u User) string { return u.Name }\n`,
+    "main.go": `package app\nfunc Run() { u := User{Name: "x"}; _ = Greet(u) }\n`,
+  });
+  assert.ok(!dead.includes("model.go#User"), "User is used as a param type and composite literal");
+});
+
+test("Go: an exported type used only across packages as a qualified type is NOT dead", async () => {
+  const dead = await deadKeys({
+    "go.mod": `module example.com/app\n\ngo 1.21\n`,
+    "store/store.go": `package store\ntype Widget struct{}\n`,
+    "main.go": `package main\nimport "example.com/app/store"\nfunc Build() store.Widget { return store.Widget{} }\n`,
+  });
+  assert.ok(!dead.includes(path.join("store", "store.go") + "#Widget"), "Widget is used as store.Widget");
+});
+
+test("Rust: symbols referenced via an inline `crate::` path with no `use` are NOT dead", async () => {
+  const dead = await deadKeys({
+    "src/lib.rs": `pub mod util;\npub mod m;\npub mod app;\n`,
+    "src/util.rs": `pub fn helper() -> i32 { 1 }\n`,
+    "src/m.rs": `pub struct Inner { pub x: i32 }\n`,
+    "src/app.rs": `pub fn run() { let _ = crate::util::helper(); }\npub fn make() -> crate::m::Inner { crate::m::Inner { x: 1 } }\n`,
+  });
+  assert.ok(!dead.includes(path.join("src", "util.rs") + "#helper"), "helper is used via crate::util::helper()");
+  assert.ok(!dead.includes(path.join("src", "m.rs") + "#Inner"), "Inner is used via crate::m::Inner");
+});
+
+test("Java: a type referenced by inline package-qualified name with no import is NOT dead", async () => {
+  const dead = await deadKeys({
+    "store/Store.java": `package store;\npublic class Store {}\n`,
+    "web/H.java": `package web;\npublic class H { public void run() { store.Store s = new store.Store(); } }\n`,
+  });
+  assert.ok(!dead.includes(path.join("store", "Store.java") + "#Store"), "Store is used via the inline FQN store.Store");
+});
+
+test("PHP: a class referenced by inline absolute FQN with no `use` is NOT dead", async () => {
+  const dead = await deadKeys({
+    "Store.php": `<?php\nnamespace App\\Store;\nclass Store {}\n`,
+    "H.php": `<?php\nnamespace App\\Web;\nclass H { function run() { $s = new \\App\\Store\\Store(); } }\n`,
+  });
+  assert.ok(!dead.includes("Store.php#Store"), "Store is used via the inline absolute FQN");
+});
+
+test("C++: a definition called via a forward declaration in another .cpp is NOT dead", async () => {
+  // No shared header; main.cpp forward-declares helper() and calls it, while the
+  // definition lives in a.cpp. The call binds to the prototype, so the definition
+  // would look dead without the One-Definition-Rule name guard.
+  const dead = await deadKeys({
+    "a.cpp": `int helper() { return 1; }\n`,
+    "main.cpp": `int helper();\nint main() { return helper(); }\n`,
+  });
+  assert.ok(!dead.includes("a.cpp#helper"), "the definition of a forward-declared, called function is not dead");
+});
+
+test("C++: a genuinely unused function IS still flagged (the name guard doesn't over-suppress)", async () => {
+  const dead = await deadKeys({
+    "lib.cpp": `int reallyUnused() { return 7; }\nint usedOne() { return 1; }\n`,
+    "main.cpp": `int usedOne();\nint main() { return usedOne(); }\n`,
+  });
+  assert.ok(dead.includes("lib.cpp#reallyUnused"), "an uncalled function with no same-named use is still dead");
+});
