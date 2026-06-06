@@ -424,6 +424,30 @@ describe('native Claude Code hooks', () => {
     expect(injectedContext(good)).toMatch(/Dependents to account for|before changing/);
   });
 
+  it('Edit hooks automatically refresh stale packages before validating the plan', async () => {
+    const root = repo(true);
+    await handleHook('user-prompt', {
+      user_prompt: 'add a dark mode toggle to the SettingsPage',
+      cwd: root,
+      session_id: 'stale-refresh',
+    });
+    const before = JSON.parse(readFileSync(join(root, '.context/task-context.json'), 'utf8'));
+    writeFileSync(join(root, 'src/components/NewWidget.tsx'), 'export function NewWidget(){ return null; }\n');
+
+    const out: any = await handleHook('pre-tool', {
+      tool_name: 'Edit',
+      cwd: root,
+      session_id: 'stale-refresh',
+      transcript_path: transcript(root, '<CTXPACK_PLAN>Modify src/state/store.ts and src/routes/SettingsPage.tsx.</CTXPACK_PLAN>'),
+      tool_input: { file_path: join(root, 'src/state/store.ts'), new_string: 'export function getPreference(k){return k}' },
+    });
+    const after = JSON.parse(readFileSync(join(root, '.context/task-context.json'), 'utf8'));
+
+    expect(out.hookSpecificOutput.permissionDecision).toBe('allow');
+    expect(after.package_id).not.toBe(before.package_id);
+    expect(after.repository.snapshot_id).not.toBe(before.repository.snapshot_id);
+  });
+
   it('protects generated/build files from hand edits before plan validation', async () => {
     const out: any = await handleHook('pre-tool', {
       tool_name: 'Write',
