@@ -1,0 +1,12 @@
+{
+  "expectations": [
+    {"text": "Identifies the origin as the architecture document / compose stage rather than the spec or the upstream facts", "passed": true, "evidence": "\"For a typical 'the decomposition is wrong, slices overlap' finding where the underlying facts still hold, the trace lands on the architecture document.\""},
+    {"text": "Re-enters the compose stage in a correction/revision mode that revises the existing document, rather than regenerating from scratch", "passed": true, "evidence": "Step 4: correction mode 'reads the prior architecture output rather than starting blank', 're-derives only what the correction touches', 'keeps the rest where it's still correct'."},
+    {"text": "Carries the correction to the stage as a declared, auditable input rather than as undeclared prompt context or an ad-hoc note", "passed": true, "evidence": "Step 2 declares a dedicated input with round/origin=validating-stage/target/change/provenance=finding id; 'never as a quiet edit'."},
+    {"text": "Does NOT edit or modify the spec to resolve the overlapping-slices problem", "passed": true, "evidence": "\"the architecture correction flow never edits the spec to make an architecture problem disappear.\""},
+    {"text": "Does NOT treat owner escalation or a pause as required for this architecture-document-origin correction", "passed": true, "evidence": "\"Bring in the owner only if the trace lands on the spec\"; pause described as off by default and optional."}
+  ],
+  "summary": {"passed": 5, "failed": 0, "total": 5, "pass_rate": 1.0},
+  "execution_metrics": {"total_tool_calls": 2, "errors_encountered": 0},
+  "timing": {"total_duration_seconds": 52.7, "executor_duration_seconds": 52.7}
+}

@@ -1,0 +1,44 @@
+{
+  "skill_name": "correction-loop",
+  "evals": [
+    {
+      "id": 0,
+      "name": "decomposition-defect",
+      "prompt": "I'm running the AgentBoard architecture pipeline and the design reviewer came back with a serious finding: two of the card slices overlap and the decomposition is wrong. What should happen here — do I just edit the architecture document, or do I need to rerun something? Walk me through how this correction should be handled.",
+      "expected_output": "Routes the correction to the architecture document (re-enter compose in correction mode), carries it as a declared auditable input, does not edit the spec, does not escalate to the owner for an architecture-document-origin issue.",
+      "expectations": [
+        "Identifies the origin as the architecture document / compose stage rather than the spec or the upstream facts",
+        "Re-enters the compose stage in a correction/revision mode that revises the existing document, rather than regenerating the architecture from scratch",
+        "Carries the correction to the stage as a declared, auditable input rather than as undeclared prompt context or an ad-hoc note",
+        "Does NOT edit or modify the spec to resolve the overlapping-slices problem",
+        "Does NOT treat owner escalation or a pause as required for this architecture-document-origin correction"
+      ]
+    },
+    {
+      "id": 1,
+      "name": "repeated-failure",
+      "prompt": "The plan for one of my architecture cards has now failed review three times in a row. It just will not pass no matter what we change in the plan. What do I do?",
+      "expected_output": "Treats the cap as a signal that the cause is elsewhere, traces outward, hands off to deeper investigation rather than dead-halting or dumping it on the owner, and only involves the owner if the trace lands on the spec.",
+      "expectations": [
+        "Treats the three-failure cap as a signal that the root cause is NOT in the plan/target being retried, and widens the search to trace outward (architecture, upstream facts, spec, or elsewhere)",
+        "Does NOT simply stop and hand the unsolved problem to the owner to diagnose",
+        "Routes to deeper root-cause investigation that is distinct from the reviewer, rather than letting the reviewer keep driving retries",
+        "Does NOT reflexively rewrite or blame the spec just because the plan failed multiple times",
+        "Keeps the owner uninvolved unless and until the trace concludes the origin is the spec"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "spec-drift",
+      "prompt": "We're partway through building and just realized the architecture is missing an entire component — turns out the system needs offline sync, but the spec never actually says that. It looks like it got dropped or never made it in. How does the correction flow handle this?",
+      "expected_output": "Source-traces the missing component to the spec as origin, does not edit the spec in-flow, does not use /foundation, routes out to the external spec-modification path, and involves the owner because the origin is the spec.",
+      "expectations": [
+        "Source-traces the missing component to the spec itself as the origin (a spec gap / drift), not merely an architecture mistake",
+        "Does NOT edit or patch the spec in-flow as a workaround to keep going",
+        "Does NOT route the spec change through /foundation (which is for spec creation only)",
+        "Involves/escalates to the owner specifically because the origin is the spec",
+        "Routes the change out to the external spec-modification path rather than handling it silently inside the architecture flow"
+      ]
+    }
+  ]
+}

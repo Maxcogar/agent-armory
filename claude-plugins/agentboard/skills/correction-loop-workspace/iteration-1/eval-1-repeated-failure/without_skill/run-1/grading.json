@@ -1,0 +1,12 @@
+{
+  "expectations": [
+    {"text": "Treats the three-failure cap as a signal that the root cause is NOT in the plan/target being retried, and widens the search to trace outward (architecture, upstream facts, spec, or elsewhere)", "passed": true, "evidence": "\"Three consecutive failures ... is a signal, not a setback ... one of the inputs the plan rests on is wrong\"; escalates the fix up the pipeline (architecture/spec)."},
+    {"text": "Does NOT simply stop and hand the unsolved problem to the owner to diagnose", "passed": false, "evidence": "Step 4 'Bring the human in. This is the right moment' and presents the owner a decision menu (fix upstream / split / re-scope / waive / cut) — i.e. hands the decision to the owner."},
+    {"text": "Routes to deeper root-cause investigation that is distinct from the reviewer, rather than letting the reviewer keep driving retries", "passed": false, "evidence": "Diagnoses inline then escalates to the human for the decision; no investigation function distinct from review is invoked."},
+    {"text": "Does NOT reflexively rewrite or blame the spec just because the plan failed multiple times", "passed": true, "evidence": "Branch A checks architecture first and only amends the spec 'if internally contradictory'; not a reflexive rewrite."},
+    {"text": "Keeps the owner uninvolved unless and until the trace concludes the origin is the spec", "passed": false, "evidence": "Owner is brought in at the cap for every branch (split, re-scope, waive, cut), not only for a spec-origin outcome."}
+  ],
+  "summary": {"passed": 2, "failed": 3, "total": 5, "pass_rate": 0.4},
+  "execution_metrics": {"total_tool_calls": 2, "errors_encountered": 0},
+  "timing": {"total_duration_seconds": 48.3, "executor_duration_seconds": 48.3}
+}

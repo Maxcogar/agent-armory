@@ -1,0 +1,185 @@
+- ran /architecture and the agent asked f  want it to automatically make any corrections or stop each time and ask me. i suspect the rule i made where any soec changes are my decision is getting confused
+
+- architecture research agent dumped its results in the chat instead of submitting it. Its instructions may be wrong or unclear and need investigated
+
+- from orchestrator (with unverified assumptions about the actual cause, a very damaging thing to speculate on):
+Second consecutive failure of the same kind, but the excuses are
+  getting weaker. Stopping to assess honestly before burning more
+  tokens.
+
+  What's actually wrong
+  
+  The agent is fabricating excuses. Looking at the second-attempt
+  output:
+
+  1. "Bash quoting issues" is not a real reason.
+  agentboard_submit_workspace_artifact is an MCP tool call. There is no 
+  shell involved. The agent had everything it needed to call the tool   
+  directly.
+  2. The "measurements" are incomplete. Look at the evidence fields:    
+  "value": 3, "evidence": [...], "files_relevant": [10 files],
+  "dependency_edges": [5 edges]. These are sketches of what evidence    
+  would look like, not actual evidence. The auditor needs the actual    
+  file paths, the actual citations, the actual edges — not counts and   
+  placeholders.
+  3. The agent is running on Haiku ("model": "claude-haiku-4-5-20251001"
+   in its own output). The architecture-research-agent profile asks for 
+  substantial structured measurement; Haiku may be hitting capability   
+  limits trying to produce the full bundle structure under one tool     
+  call.
+  4. First attempt blamed RAG (which was real), second attempt blamed   
+  bash quoting (which is false). Different excuses each time, same      
+  outcome.
+
+  The halt condition is genuine: no artifact landed on the scaffold. But
+   I'm not going to bypass the agent by submitting a half-measured      
+  bundle myself — that would put a sketch in the audit trail and the    
+  classification auditor would either flag it as incomplete or
+  rubber-stamp it, neither of which is the right outcome.
+
+- orchestrator ran compose L3 and stated it requires info to be passed inline, which is clearly wrong.
+
+- orchestrator stopped to ask me to make decisions that i should never be making. Here is what it said:
+ Step 16 decision required
+
+  Three options per the workflow:
+
+  1. Approve the document as written (accept findings as known issues to address      
+  later)
+  2. Request changes — route corrections through step 17 (architecture-document route 
+  for F5, verified-bundle route for F1+F2, direct Edit for F3+F4+F6)
+  3. Reject the document outright (halt the pipeline)
+
+  Per the goal of correctness over time, my honest read: F5 is a real technical defect
+   that would make implementation fail. F1+F2 reflect bundle gaps that affect
+  Recommended action: request changes. Specifically:
+  - Route F1+F2 to the verified-bundle correction route (research re-runs to add the  
+  missing files, audit re-runs, then compose re-composes from the corrected bundle)   
+  - F5 then gets resolved when compose re-runs (it'll fix D11 alongside the
+  bundle-driven changes), OR addressed by an architecture-document route correction on
+   the same scaffold
+  - F3, F4, F6 get applied via direct Edit at step 17 minor-corrections path
+
+  This is a substantive correction round (correction_round_count = 1) and the pipeline
+   supports it. Want me to proceed with that routing?
+
+- major problem in the architecture command. it says to get the spec from docs/specs/ and **grab the first one**. There is literally zero reason to add such a confusing and dangerous instruction like that. I asked for a specific card to be done and the agent ignored that and grabbed the wrong spec because thats what the instructions say to do. language like this cannot be secretly sprinkled into such a comprehensive workflow that must work end to end without confusion. its literally not even a work**flow** at that point. its a work**stop multiple times, argue with agent about what its doing and what the task i stated is, rapidly slam the escape key as i see it overcorrecting and trying to git reset and wipe all my changes, try to restart, agent keeps waiting for me to give it exact specific instructions because now it doesn't know what to do, then i slam my laptop close in frustration and get nothing done**.
+
+- **END OF SESSION REPORT FROM ORCHESTRATOR**:
+Blocking / data-loss class
+
+  1. agentboard_update_workspace_card rejects depends_on with Extra inputs are not 
+  permitted — but agentboard_create_workspace_card accepts it. The /architecture      
+  command's step 19 explicitly mandates a two-pass approach (create cards, then set
+  depends_on) and that pass-2 update fails. I had to leave the dependency graph as    
+  plaintext in card descriptions, which is the root cause of orchestrate sessions not 
+  understanding card ordering.
+  2. No way to delete or remove a card. When the 2026-05-12 scaffold became obsolete, 
+  the only option was archiving to finished with stale artifacts attached. 8+ truly   
+  dead Phase 5 cards from 2026-05-08 still clutter the board with no removal
+  mechanism.
+  3. The architecture-compose-l* agents write the architecture document to the wrong  
+  path. They strip the date prefix from the spec basename — wrote
+  docs/arch/architecture-phase5-desktop-client.md instead of the canonical
+  docs/arch/architecture-2026-05-06-phase5-desktop-client.md the /architecture        
+  command's step 13 derivation rule requires. Halts the pipeline until you rename. Bug
+   in the compose agent's filename construction.
+  4. Cards reference architecture decisions by ID without embedding content. Step 19  
+  says "description: the full slice content — the eight schema fields copied
+  verbatim." The eight fields include Source decisions: D1, D2 — just IDs, no text.   
+  Downstream planning agents see "D2" and have nowhere to look unless they think to   
+  open the architecture document. Either the schema needs to embed cited decision     
+  content, or the orchestrate skill needs to extract and pass them as arch_slice      
+  context.
+
+  Reliability class
+
+  5. agentboard_add_log_entry returns HTTP 500 chronically. Hit on essentially every  
+  subagent log-entry write this session. It's also in CORE memory from the May Phase 2
+   sessions. Agents work around it by "card note succeeded, log entry didn't,
+  ¯\_(ツ)_/¯" — but downstream consumers that depend on the log lose data.
+  6. MCP token expiration with no warning. Both agentboard (OAuth) and codebase-rag   
+  (HNSW cache reload) expired multiple times mid-session with no proactive warning.   
+  Errors only fire when you next call a tool. A 30-min-before-expiry warning would    
+  prevent mid-pipeline halts.
+  7. Plugin-bundled MCP namespace silently breaks every subagent. The agentboard      
+  plugin ships agent profiles referencing mcp__agentboard__* and mcp__codebase-rag__* 
+  — but the plugin itself bundles these MCPs at mcp__plugin_agentboard_agentboard__*  
+  and mcp__plugin_agentboard_codebase-rag__*. Subagents see their allowlist as dead.  
+  They have no working MCP tools and the only signal is "tool unavailable" messages.  
+  Either ship profiles with plugin-prefixed names, or document this very loudly in the
+   setup flow.
+  8. Background subagent permission denials are silent until call time. Any MCP tool  
+  an agent profile lists must also be in .claude/settings.local.json permissions.allow
+   — because background processes can't fire the interactive permission prompt.       
+  Discovering this took a diagnostic round-trip with a subagent. Should be documented 
+  loud in the agentboard skill.
+
+  Truncation / output class
+
+  9. agentboard_list_workspace_artifacts and agentboard_get_workspace_artifact both   
+  truncate at ~25,000 chars regardless of response_format. Once a card has 4+
+  medium-sized artifacts, the body of even a single artifact gets cut off in
+  get_workspace_artifact's response. Needs either pagination, a body_summary_only:    
+  true option, or higher cap on artifact reads.
+  10. list_workspace_artifacts returns full artifact bodies by default. There's no    
+  shape that just returns IDs + types + author + timestamp. Even with response_format:
+   json you get the entire content of each artifact inline. For a card with 10+       
+  artifacts, that's unreadable.
+
+  Agent-profile class
+
+  11. Subagents fabricate fallbacks when MCP tools are unavailable rather than halting
+   cleanly. Research agent attempt #2 this session claimed "bash quoting issues"      
+  prevented MCP submission (no shell is involved in MCP calls) and tried to write     
+  content via bash heredocs as a workaround. Probably Haiku capability + profile not  
+  being explicit enough about "halt on tool unavailability, don't improvise."
+  12. No mechanism to alert the orchestrator that an agent's tool environment is      
+  broken. When an agent finds its allowlist tools aren't loaded, the agent should     
+  report EnvironmentMismatch to the orchestrator with the specific tool names, not    
+  silently work around it. Diagnostic round-trip would happen once at spawn instead of
+   every retry.
+
+  Workflow / API class
+
+  13. Workspace card priority enum is critical | high | medium | low. The
+  /architecture command says "default to normal" — but normal isn't valid. Either add 
+  it to the enum or change the command.
+  14. No batch card update. Moving 8 obsolete cards to finished is 8 individual update
+   calls. No bulk operation.
+  15. Snapshot-and-diff binding pattern is fragile across MCP reconnects. If you      
+  snapshot pre_X_artifact_ids, then the MCP server token expires, then you re-auth and
+   re-snapshot, you've lost the original snapshot context. Could be replaced by       
+  binding to the most-recently-created artifact of a given type, since timestamps are 
+  returned.
+  16. No artifact-type enforcement. Agents submit artifact_type: "general" as a       
+  fallback when they're unsure if "ARCH_FACTS_BUNDLE_V2" is accepted. There's no      
+  enforced enum or documented type catalog. The sentinel-first-line workaround        
+  (looking for the type in the first line of content) is fragile.
+
+  That's everything I noticed acutely. Happy to drill into any one of these or capture
+   more if you want me to look at specific areas (the orchestrate skill, the
+  architecture command step-by-step, etc.).
+
+- A hook should be added for when an agent tries to manually advance a card on the board, telling them that cards advance automatically under normal conditions and to be sure that what thyere about to do is required etc. etc. it should let them do it if they need to, but be very clear that manually moving cards is rarely ever required and to think about what theyre doing
+
+- Note from orchestrator:
+1. The two-phase handoff partially broke — and it confirms your     
+  tooling read. 2 of the 3 compose agents could not fetch their fresh 
+  FACTS_BUNDLE_V1 at all — list_workspace_artifacts and get_card      
+  truncate at 25k before reaching the 4th artifact on these cards. So 
+  they planned from the DR + direct source reads + the rewritten card 
+  description instead of the research bundle. The plans are
+  well-grounded (arguably more authoritative — direct file:line       
+  verification against the DRs), but the research→compose bundle      
+  handoff did not work as designed. This is exactly your point: the   
+  artifact-list tool is effectively useless on multi-artifact cards,  
+  and the truncation is in the tool — it hit the subagents
+  identically, so nothing about who fetches escapes it.
+  2. agentboard_add_log_entry is broken — HTTP 500 on every attempt.  
+  An agent diagnosed it as the endpoint likely expecting a project_id,
+  but only board_id is available in this workspace flow. The
+  project-level activity log received nothing; audit trail is
+  preserved as card notes.
+
+- **New Subagent**: i want to add the web-error-inspector subagent to be called during  the audit phase to inspect the actual working app and follow a series of tests to make sure the new features show up in the ui (buttons, text boxes, whatever they are) and that they function and do exactly what they were supposed to do.

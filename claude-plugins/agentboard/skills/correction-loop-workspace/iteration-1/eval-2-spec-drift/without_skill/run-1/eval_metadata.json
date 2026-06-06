@@ -1,0 +1,12 @@
+{
+  "eval_id": 2,
+  "eval_name": "spec-drift",
+  "prompt": "We're partway through building and just realized the architecture is missing an entire component — turns out the system needs offline sync, but the spec never actually says that. It looks like it got dropped or never made it in. How does the correction flow handle this?",
+  "assertions": [
+    "Source-traces the missing component to the spec itself as the origin (a spec gap / drift), not merely an architecture mistake",
+    "Does NOT edit or patch the spec in-flow as a workaround to keep going",
+    "Does NOT route the spec change through /foundation (which is for spec creation only)",
+    "Involves/escalates to the owner specifically because the origin is the spec",
+    "Routes the change out to the external spec-modification path rather than handling it silently inside the architecture flow"
+  ]
+}
