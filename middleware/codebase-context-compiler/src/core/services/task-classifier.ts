@@ -9,7 +9,16 @@ import type { RuntimeDomain, Task, TaskIntent, TaskModifier, TaskType } from '..
 interface Rule { type: TaskType; patterns: RegExp[] }
 
 const RULES: Rule[] = [
-  { type: 'codebase_question', patterns: [/\b(how|where|why)\s+(does|do|is|are|can|could)\b/i, /\bwhat\b.{0,120}\b(can|could|does|do|is|are|seen|used|available|happens|data)\b/i, /\b(explain|trace|walk\s+through|show\s+me|understand|investigate|look\s+into)\b/i, /\bhow\s+.*\s+work(s|ed)?\b/i] },
+  { type: 'codebase_question', patterns: [
+    /\b(how|where|why)\s+(does|do|is|are|can|could)\b/i,
+    /\bwhat\b.{0,120}\b(can|could|does|do|is|are|seen|used|available|happens|data)\b/i,
+    /\b(explain|trace|walk\s+through|show\s+me|understand|investigate|look\s+into)\b/i,
+    /\bhow\s+.*\s+work(s|ed)?\b/i,
+    /\b(files?|functions?|components?|handlers?|endpoints?|code)\b.{0,140}\b(wired|unwired|dead|orphaned|unused|unreachable|connected|live\s+callers?)\b/i,
+    /\b(supposed|intended)\s+to\s+be\b.{0,120}\b(wired|connected|used|reachable|live)\b/i,
+    /\b(never|not)\s+(were|was|actually\s+)?\s*(wired|connected|used|called|reachable)\b/i,
+    /\b(find|locate|identify|catalog|inventory)\b.{0,120}\b(dead|orphaned|unwired|unused|unreachable|not\s+connected|not\s+wired)\b/i,
+  ] },
   { type: 'frontend_ui_change', patterns: [/\b(ui|component|button|page|theme|dark\s*mode|light\s*mode|css|styl(e|ing)|render|layout|modal|dialog|form|view|screen|navbar|sidebar|toggle)\b/i, /\.(tsx|jsx|css|scss)\b/i] },
   { type: 'backend_api_change', patterns: [/\b(api|endpoint|route|handler|controller|request|response|rest|graphql|server|middleware)\b/i] },
   { type: 'database_schema_change', patterns: [/\b(schema|migration|table|column|model|database|db|sql|orm|query|index)\b/i] },
@@ -29,6 +38,9 @@ const STOPWORDS = new Set([
   'how','does','do','did','what','why','where','can','could','would','work','works','worked',
   'just','dont','answer','question','codebase','help','test',
   'okay','then','ill','ask','you','your','me','any','its','have','about','see','gave',
+  'there','are','was','were','some','but','im','i','one','related','particularly','interested',
+  'files','file','functions','function','app','supposed','intended','wired','wire','wiring','unwired',
+  'connected','used','called','reachable','never','not',
 ]);
 
 const DOMAIN_BY_TYPE: Partial<Record<string, RuntimeDomain>> = {

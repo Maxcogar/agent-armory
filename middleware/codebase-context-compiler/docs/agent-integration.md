@@ -9,7 +9,8 @@ The MVP integration target is regular Claude Code, not a custom agent runtime.
 - `SessionStart` injects standing rules.
 - `UserPromptSubmit` indexes the repository, generates the task Context Package, writes `.context/task-context.{json,md}`, and passes the mandatory package block to Claude Code with `hookSpecificOutput.additionalContext`.
 - `PreToolUse` blocks edit tools until the current transcript contains a `<CTXPACK_PLAN>...</CTXPACK_PLAN>` block that passes the assumption firewall.
-- `PreToolUse` blocks `Task` / `Explore` delegation for codebase explanation prompts so the main Claude Code conversation inspects source files directly.
+- `PreToolUse` and `PermissionRequest` block `Task` / `Explore` delegation for direct investigation prompts so the main Claude Code conversation inspects source files directly.
+- `SubagentStart` injects a fallback direct-investigation instruction if a subagent still starts before a blocker catches it.
 - `PreToolUse` also blocks generated/vendor/build-output files from hand edits.
 - `Stop` reports changed-file impact and likely verification commands.
 
@@ -33,7 +34,7 @@ The `PreToolUse` hook reads Claude Code's `transcript_path`, extracts the latest
 - the plan contains unsupported repository facts,
 - the plan proposes a forbidden move.
 
-For `codebase_question` packages, the same hook denies subagent delegation tools (`Task` / `Explore`) with a direct-investigation instruction. This is intentionally narrower than edit gating: read/search tools remain allowed.
+For packages whose task profile requires direct investigation, the same hook denies subagent delegation tools (`Task` / `Explore`) with a direct-investigation instruction. `PermissionRequest` applies the same denial when Claude Code reaches the permission-dialog path. This is intentionally narrower than edit gating: read/search tools remain allowed after the package's initial leads have been read.
 
 ## Secondary SDK runner
 

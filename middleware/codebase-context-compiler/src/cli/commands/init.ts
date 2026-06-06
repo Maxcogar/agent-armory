@@ -5,12 +5,15 @@
  *   - SessionStart     -> standing rules
  *   - UserPromptSubmit -> compile and inject the task Context Package
  *   - PreToolUse       -> deny edit tools until a ctxpack plan passes
+ *   - PermissionRequest -> deny subagent permission prompts for direct investigations
+ *   - SubagentStart    -> fallback context if a subagent is still spawned
  *   - Stop             -> impact and verification wrap-up
  */
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, join } from 'node:path';
+import { openContext } from '../app-context.js';
 
-interface HookCmd { type: 'command'; command: string }
+interface HookCmd { type: 'command'; command: string; timeout?: number }
 interface HookEntry { matcher: string; hooks: HookCmd[] }
 
 export async function runInit(rootArg?: string): Promise<number> {
@@ -28,30 +31,50 @@ export async function runInit(rootArg?: string): Promise<number> {
     : {};
   settings.hooks ??= {};
 
-  addHook(settings.hooks, 'SessionStart', '*', cmd('session-start'));
-  addHook(settings.hooks, 'UserPromptSubmit', '*', cmd('user-prompt'));
-  addHook(settings.hooks, 'PreToolUse', '*', cmd('pre-tool'));
-  addHook(settings.hooks, 'Stop', '*', cmd('stop'));
+  addHook(settings.hooks, 'SessionStart', '*', cmd('session-start'), 30);
+  addHook(settings.hooks, 'UserPromptSubmit', '*', cmd('user-prompt'), 120);
+  addHook(settings.hooks, 'PreToolUse', '*', cmd('pre-tool'), 30);
+  addHook(settings.hooks, 'PermissionRequest', '*', cmd('permission-request'), 30);
+  addHook(settings.hooks, 'SubagentStart', '*', cmd('subagent-start'), 30);
+  addHook(settings.hooks, 'Stop', '*', cmd('stop'), 30);
 
   writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+
+  try {
+    console.log('Building initial ctxpack index...');
+    const ctx = openContext(root);
+    try {
+      const idx = await ctx.indexer.index(ctx.root, ctx.repoName, {
+        excludes: ctx.config.excludes,
+        maxBytes: ctx.config.maxBytes,
+        staticAnalysis: ctx.config.staticAnalysis,
+      });
+      console.log(`Initial ctxpack index ready (${idx.fileCount} file(s)).`);
+    } finally {
+      ctx.storage.close();
+    }
+  } catch (e) {
+    console.log(`Initial ctxpack index skipped: ${(e as Error).message}`);
+  }
 
   console.log(`Installed ctxpack hooks into ${settingsPath}`);
   console.log('Regular Claude Code is now guarded by ctxpack:');
   console.log('  - coding prompts generate and inject an evidence-backed Context Package;');
   console.log('  - Claude Code must emit a <CTXPACK_PLAN>...</CTXPACK_PLAN> block before edit tools run;');
-  console.log('  - PreToolUse denies unsupported plans, stale packages, generated/vendor/build edits, and explanation-task delegation;');
+  console.log('  - PreToolUse and PermissionRequest deny unsupported plans, stale packages, generated/vendor/build edits, and explanation-task delegation;');
+  console.log('  - SubagentStart injects a fallback direct-investigation instruction if a subagent still starts;');
   console.log('  - read/edit hooks can add orientation cards, and Stop reports impact + verification for files changed after the prompt started.');
   console.log('(Restart the Claude Code session to load the hooks.)');
   return 0;
 }
 
-function addHook(hooks: Record<string, HookEntry[]>, event: string, matcher: string, command: string): void {
+function addHook(hooks: Record<string, HookEntry[]>, event: string, matcher: string, command: string, timeout: number): void {
   hooks[event] ??= [];
   const hookName = command.split('hook ')[1] ?? '';
   hooks[event] = hooks[event]
     .map((entry) => ({ ...entry, hooks: (entry.hooks ?? []).filter((h) => !isCtxpackHook(h.command, hookName)) }))
     .filter((entry) => entry.hooks.length > 0);
-  hooks[event].push({ matcher, hooks: [{ type: 'command', command }] });
+  hooks[event].push({ matcher, hooks: [{ type: 'command', command, timeout }] });
 }
 
 function isCtxpackHook(command: string | undefined, hookName: string): boolean {

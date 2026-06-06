@@ -144,6 +144,58 @@ describe('index + expand pipeline (FR1, FR5)', () => {
     rmSync(tmp, { recursive: true, force: true });
   });
 
+  it('keeps unwired-code investigation prompts focused on feature nouns instead of artifact noise', async () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'ctxpack-unwired-rank-'));
+    mkdirSync(join(tmp, '_recycle_bin'), { recursive: true });
+    mkdirSync(join(tmp, 'components'), { recursive: true });
+    mkdirSync(join(tmp, 'backend/routes'), { recursive: true });
+    writeFileSync(join(tmp, '_recycle_bin/test-vite-source-trace.cjs'), `
+      module.exports = 'files functions supposed wired never plant doctor telemetry journal entries';
+    `);
+    writeFileSync(join(tmp, 'auto_fill_system_map.js'), `
+      export const map = 'files functions supposed wired never plant doctor telemetry journal entries';
+    `);
+    writeFileSync(join(tmp, 'components/PlantDoctor.tsx'), `
+      export function PlantDoctor({ plant }) {
+        return plant.journalEntries?.slice(0, 3).map((entry) => entry.content).join(' plant doctor diagnosis ');
+      }
+    `);
+    writeFileSync(join(tmp, 'components/TelemetryDetailCards.tsx'), `
+      export function TelemetryDetailCards({ plant }) {
+        return plant.telemetry.map((reading) => reading.sensorKind).join(' telemetry plants collection ');
+      }
+    `);
+    writeFileSync(join(tmp, 'components/JournalEntries.tsx'), `
+      export function JournalEntries({ plant }) {
+        return plant.journalEntries.map((entry) => entry.content).join(' journal entries ');
+      }
+    `);
+    writeFileSync(join(tmp, 'backend/routes/plant-doctor.js'), `
+      const express = require('express');
+      const router = express.Router();
+      router.post('/diagnose', async (req, res) => res.json({ diagnosis: 'ok' }));
+      module.exports = router;
+    `);
+
+    const storage = new SqliteStorage(':memory:'); open = storage;
+    const indexer = new Indexer(storage, [new TreeSitterParserAdapter()], new SecretScanner());
+    const indexResult = await indexer.index(tmp, 'sample-app');
+    const snapshot = storage.getSnapshot(indexResult.snapshotId)!;
+    const indexedPaths = storage.listFiles(snapshot.snapshot_id).map((f) => f.path);
+    const pkg = buildPackage(storage, snapshot, 'There are some files/functions in this app that are supposed to be wired in but never were. Particularly im interested in one related to the plant doctor, the telemetry for the plants in my collection, and the journal entries');
+    const topPaths = pkg.relevant_files.slice(0, 5).map((f) => f.path);
+
+    expect(indexedPaths).not.toContain('_recycle_bin/test-vite-source-trace.cjs');
+    expect(topPaths).toEqual(expect.arrayContaining([
+      'components/PlantDoctor.tsx',
+      'components/TelemetryDetailCards.tsx',
+      'components/JournalEntries.tsx',
+    ]));
+    expect(topPaths).not.toContain('auto_fill_system_map.js');
+
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
   it('pulls matching backend routes across API client contracts for explanation tasks', async () => {
     const tmp = mkdtempSync(join(tmpdir(), 'ctxpack-api-contract-'));
     mkdirSync(join(tmp, 'components'), { recursive: true });

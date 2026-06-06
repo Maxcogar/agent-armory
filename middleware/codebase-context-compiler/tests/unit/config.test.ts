@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { loadConfig } from '../../src/config/config-schema.js';
+import { DEFAULT_EXCLUDES } from '../../src/config/default-excludes.js';
 
 describe('ctxpack config', () => {
   it('loads user config with safe defaults for omitted fields', () => {
@@ -42,5 +43,12 @@ describe('ctxpack config', () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+
+  it('excludes recycled and backup folders by default', () => {
+    expect(DEFAULT_EXCLUDES).toEqual(expect.arrayContaining([
+      '**/_recycle_bin/**',
+      '**/backup-*/**',
+    ]));
   });
 });

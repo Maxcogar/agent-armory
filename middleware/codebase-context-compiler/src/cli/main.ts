@@ -77,7 +77,7 @@ program.command('init')
 
 program.command('hook')
   .description('Internal: Claude Code hook bridge (reads stdin, writes hook JSON).')
-  .argument('<event>', 'session-start | user-prompt | pre-tool')
+  .argument('<event>', 'session-start | user-prompt | pre-tool | permission-request | subagent-start | stop')
   .action(async (event) => { process.exit(await runHook(event)); });
 
 program.parseAsync(process.argv).catch((e) => { console.error(e instanceof Error ? e.message : e); process.exit(1); });

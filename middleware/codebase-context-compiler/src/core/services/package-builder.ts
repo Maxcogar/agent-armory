@@ -608,7 +608,7 @@ function estimateTokens(files: RelevantFile[], facts: KnownFact[]): number {
 }
 
 function isCodebaseQuestion(cls: Classification): boolean {
-  return cls.task.task_types.includes('codebase_question');
+  return cls.task.intent === 'locate_understand';
 }
 
 interface ScoredPath { path: string; score: number }
@@ -621,7 +621,10 @@ function rankedKeywordSeeds(storage: Storage, snap: string, cls: Classification)
   const add = (path: string, score: number) => {
     const f = storage.getFile(snap, path);
     if (!f || !['source', 'config', 'test'].includes(f.boundary)) return;
-    if (looksLikeDumpOrArtifact(path)) score -= 4;
+    if (looksLikeDumpOrArtifact(path)) {
+      if (isCodebaseQuestion(cls)) return;
+      score -= 8;
+    }
     if (isCodebaseQuestion(cls)) score += questionFileShapeScore(path, f.boundary);
     if (f.boundary === 'source') score += 1;
     if (f.boundary === 'test') score -= 1;
@@ -702,6 +705,8 @@ function questionFileShapeScore(path: string, boundary: string): number {
   const lower = path.toLowerCase();
   let score = 0;
   if (/\/components?\//.test(lower) || lower.startsWith('components/')) score += 5;
+  if (/(^|\/)(backend\/routes?|routes?|api)\//.test(lower)) score += 4;
+  if (/(^|\/)lib\/api\//.test(lower)) score += 3;
   if (/\.(tsx|jsx)$/.test(lower)) score += 3;
   if (/\/(app|index|main)\.(tsx|jsx|ts|js)$/.test(lower) || /^(app|index|main)\.(tsx|jsx|ts|js)$/.test(lower)) score -= 15;
   if (/\/(migrations?|seeds?|fixtures?|__tests__|tests?)\//.test(lower) || /(^|\/)seed[-_.]/.test(lower)) score -= 20;
@@ -719,8 +724,9 @@ function wordsForPath(path: string): Set<string> {
 }
 
 function looksLikeDumpOrArtifact(path: string): boolean {
-  return /(^|\/|\\)(temp|tmp|logs?|backup|report|reports?|coverage|fixture|fixtures?)(_|-|\/|\\|\.)/i.test(path)
-    || /(^|\/)(api-endpoint-report|.*logs?\.json)$/i.test(path);
+  return /(^|\/|\\)(_?recycle_?bin|temp|tmp|logs?|backup|backups?|report|reports?|coverage|fixture|fixtures?)(_|-|\/|\\|\.)/i.test(path)
+    || /(^|\/)(api-endpoint-report|.*logs?\.json)$/i.test(path)
+    || /(^|\/)(auto[_-]?fill[_-]?system[_-]?map|.*source[_-]?trace|test[_-]?vite|test[_-]?loadenv|test[_-]?env[_-]?inheritance)\.[cm]?[jt]s$/i.test(path);
 }
 
 function looksLikeWeakQuestionSeed(path: string): boolean {

@@ -82,6 +82,6 @@ Supported actions are `add_known_fact`, `add_relevant_file`, `add_forbidden_move
 
 ## Regular Claude Code AIR1 Path
 
-`ctxpack init` installs hooks. On a coding prompt, `UserPromptSubmit` generates and injects the Context Package with `hookSpecificOutput.additionalContext`. Before edits, `PreToolUse` reads the transcript and denies edit tools until a `<CTXPACK_PLAN>...</CTXPACK_PLAN>` block passes the assumption firewall.
+`ctxpack init` installs hooks. On a coding prompt, `UserPromptSubmit` generates and injects the Context Package with `hookSpecificOutput.additionalContext`. Before edits, `PreToolUse` reads the transcript and denies edit tools until a `<CTXPACK_PLAN>...</CTXPACK_PLAN>` block passes the assumption firewall. For direct investigation tasks, `PreToolUse` and `PermissionRequest` block `Task` / `Explore` delegation, with `SubagentStart` providing fallback context if a subagent still starts.
 
 The persisted files are audit artifacts and adapter inputs. They are not, by themselves, the enforcement mechanism.

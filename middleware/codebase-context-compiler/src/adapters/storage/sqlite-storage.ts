@@ -173,7 +173,7 @@ export class SqliteStorage implements Storage {
 
   getFileContent(snapshotId: string, path: string): string | null {
     const row = this.db.prepare(
-      `SELECT content FROM file_content WHERE snapshot_id = ? AND path = ?`
+      `SELECT content FROM file_content_lookup WHERE snapshot_id = ? AND path = ?`
     ).get(snapshotId, path) as any;
     return row ? row.content : null;
   }
@@ -181,6 +181,9 @@ export class SqliteStorage implements Storage {
   putFileContent(snapshotId: string, path: string, content: string): void {
     this.db.prepare(
       `INSERT INTO file_content (snapshot_id, path, content) VALUES (?, ?, ?)`
+    ).run(snapshotId, path, content);
+    this.db.prepare(
+      `INSERT OR REPLACE INTO file_content_lookup (snapshot_id, path, content) VALUES (?, ?, ?)`
     ).run(snapshotId, path, content);
   }
 
