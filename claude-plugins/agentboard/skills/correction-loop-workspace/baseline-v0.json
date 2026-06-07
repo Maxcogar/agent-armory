@@ -1,0 +1,170 @@
+{
+  "passed": 11,
+  "total": 20,
+  "pos_pass": 1,
+  "pos_total": 10,
+  "neg_pass": 10,
+  "neg_total": 10,
+  "results": [
+    {
+      "query": "the design reviewer just flagged that two of my card slices overlap and the decomposition is wrong \u2014 do i hand-edit the arch doc or rerun something?",
+      "should_trigger": true,
+      "triggers": 3,
+      "runs": 3,
+      "rate": 1.0,
+      "pass": true
+    },
+    {
+      "query": "a card's plan has failed review three times in a row in my agentboard architecture run and it just won't pass, what now",
+      "should_trigger": true,
+      "triggers": 1,
+      "runs": 3,
+      "rate": 0.3333333333333333,
+      "pass": false
+    },
+    {
+      "query": "we're mid-build and realized the architecture is missing an offline-sync component but the spec never actually mentioned it \u2014 how should this get corrected?",
+      "should_trigger": true,
+      "triggers": 0,
+      "runs": 3,
+      "rate": 0.0,
+      "pass": false
+    },
+    {
+      "query": "how does a correction get routed back to the right stage in the architecture pipeline when a review finds something wrong",
+      "should_trigger": true,
+      "triggers": 0,
+      "runs": 3,
+      "rate": 0.0,
+      "pass": false
+    },
+    {
+      "query": "an upstream failure traced back to an architecture decision \u2014 where does the fix go and how do i pass it into the stage that has to redo the work?",
+      "should_trigger": true,
+      "triggers": 0,
+      "runs": 3,
+      "rate": 0.0,
+      "pass": false
+    },
+    {
+      "query": "the classification audit facts the architecture rests on turned out to be wrong. do i rerun research or just patch the architecture document?",
+      "should_trigger": true,
+      "triggers": 0,
+      "runs": 3,
+      "rate": 0.0,
+      "pass": false
+    },
+    {
+      "query": "i don't want corrections in /architecture to just stop and dump everything on me when something fails repeatedly. how should that be handled",
+      "should_trigger": true,
+      "triggers": 0,
+      "runs": 3,
+      "rate": 0.0,
+      "pass": false
+    },
+    {
+      "query": "should the architecture flow ever edit the spec directly when a review finding points at a missing requirement, or does that go somewhere else?",
+      "should_trigger": true,
+      "triggers": 0,
+      "runs": 3,
+      "rate": 0.0,
+      "pass": false
+    },
+    {
+      "query": "the reviewer keeps bouncing this card back. at what point does it stop retrying and actually start investigating the real root cause?",
+      "should_trigger": true,
+      "triggers": 0,
+      "runs": 3,
+      "rate": 0.0,
+      "pass": false
+    },
+    {
+      "query": "need to rework a design decision in the arch doc after the review pass \u2014 whats the right way to feed that correction back in instead of just editing the file by hand",
+      "should_trigger": true,
+      "triggers": 1,
+      "runs": 3,
+      "rate": 0.3333333333333333,
+      "pass": false
+    },
+    {
+      "query": "run the architecture pipeline on docs/specs/2026-05-23-checkout.md and create the cards",
+      "should_trigger": false,
+      "triggers": 0,
+      "runs": 3,
+      "rate": 0.0,
+      "pass": true
+    },
+    {
+      "query": "write me a spec for a new offline-sync feature, we haven't started anything yet",
+      "should_trigger": false,
+      "triggers": 0,
+      "runs": 3,
+      "rate": 0.0,
+      "pass": true
+    },
+    {
+      "query": "the build is failing with a typescript error in src/sync/queue.ts (Property 'flush' does not exist), can you fix it",
+      "should_trigger": false,
+      "triggers": 0,
+      "runs": 3,
+      "rate": 0.0,
+      "pass": true
+    },
+    {
+      "query": "how many cards are left on the cleanup board and how many are finished?",
+      "should_trigger": false,
+      "triggers": 0,
+      "runs": 3,
+      "rate": 0.0,
+      "pass": true
+    },
+    {
+      "query": "review this pull request for correctness bugs and security issues",
+      "should_trigger": false,
+      "triggers": 0,
+      "runs": 3,
+      "rate": 0.0,
+      "pass": true
+    },
+    {
+      "query": "there's a typo in the architecture document's overview heading, just fix the spelling",
+      "should_trigger": false,
+      "triggers": 0,
+      "runs": 3,
+      "rate": 0.0,
+      "pass": true
+    },
+    {
+      "query": "explain how the classification audit decides whether work is L1, L2, or L3",
+      "should_trigger": false,
+      "triggers": 0,
+      "runs": 3,
+      "rate": 0.0,
+      "pass": true
+    },
+    {
+      "query": "orchestrate the board \u2014 kick off planning and review on the cards that are ready",
+      "should_trigger": false,
+      "triggers": 0,
+      "runs": 3,
+      "rate": 0.0,
+      "pass": true
+    },
+    {
+      "query": "i want to rewrite the whole requirements spec from scratch, the requirements changed a lot since we started",
+      "should_trigger": false,
+      "triggers": 0,
+      "runs": 3,
+      "rate": 0.0,
+      "pass": true
+    },
+    {
+      "query": "whats the difference between the design reviewer and the classification auditor in the architecture pipeline?",
+      "should_trigger": false,
+      "triggers": 0,
+      "runs": 3,
+      "rate": 0.0,
+      "pass": true
+    }
+  ]
+}

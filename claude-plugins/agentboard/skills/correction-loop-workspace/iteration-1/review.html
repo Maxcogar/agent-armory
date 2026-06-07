@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eval Review</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600&family=Lora:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --bg: #faf9f5;
+      --surface: #ffffff;
+      --border: #e8e6dc;
+      --text: #141413;
+      --text-muted: #b0aea5;
+      --accent: #d97757;
+      --accent-hover: #c4613f;
+      --green: #788c5d;
+      --green-bg: #eef2e8;
+      --red: #c44;
+      --red-bg: #fceaea;
+      --header-bg: #141413;
+      --header-text: #faf9f5;
+      --radius: 6px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Lora', Georgia, serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ---- Header ---- */
+    .header {
+      background: var(--header-bg);
+      color: var(--header-text);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .header h1 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+    .header .instructions {
+      font-size: 0.8rem;
+      opacity: 0.7;
+      margin-top: 0.25rem;
+    }
+    .header .progress {
+      font-size: 0.875rem;
+      opacity: 0.8;
+      text-align: right;
+    }
+
+    /* ---- Main content ---- */
+    .main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* ---- Sections ---- */
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      flex-shrink: 0;
+    }
+    .section-header {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.75rem 1rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .section-body {
+      padding: 1rem;
+    }
+
+    /* ---- Config badge ---- */
+    .config-badge {
+      display: inline-block;
+      padding: 0.2rem 0.625rem;
+      border-radius: 9999px;
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-left: 0.75rem;
+      vertical-align: middle;
+    }
+    .config-badge.config-primary {
+      background: rgba(33, 150, 243, 0.12);
+      color: #1976d2;
+    }
+    .config-badge.config-baseline {
+      background: rgba(255, 193, 7, 0.15);
+      color: #f57f17;
+    }
+
+    /* ---- Prompt ---- */
+    .prompt-text {
+      white-space: pre-wrap;
+      font-size: 0.9375rem;
+      line-height: 1.6;
+    }
+
+    /* ---- Outputs ---- */
+    .output-file {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .output-file + .output-file {
+      margin-top: 1rem;
+    }
+    .output-file-header {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      font-family: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .output-file-header .dl-btn {
+      font-size: 0.7rem;
+      color: var(--accent);
+      text-decoration: none;
+      cursor: pointer;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-weight: 500;
+      opacity: 0.8;
+    }
+    .output-file-header .dl-btn:hover {
+      opacity: 1;
+      text-decoration: underline;
+    }
+    .output-file-content {
+      padding: 0.75rem;
+      overflow-x: auto;
+    }
+    .output-file-content pre {
+      font-size: 0.8125rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+    }
+    .output-file-content img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 4px;
+    }
+    .output-file-content iframe {
+      width: 100%;
+      height: 600px;
+      border: none;
+    }
+    .output-file-content table {
+      border-collapse: collapse;
+      font-size: 0.8125rem;
+      width: 100%;
+    }
+    .output-file-content table td,
+    .output-file-content table th {
+      border: 1px solid var(--border);
+      padding: 0.375rem 0.5rem;
+      text-align: left;
+    }
+    .output-file-content table th {
+      background: var(--bg);
+      font-weight: 600;
+    }
+    .output-file-content .download-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.875rem;
+      cursor: pointer;
+    }
+    .output-file-content .download-link:hover {
+      background: var(--border);
+    }
+    .empty-state {
+      color: var(--text-muted);
+      font-style: italic;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    /* ---- Feedback ---- */
+    .prev-feedback {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.625rem 0.75rem;
+      margin-top: 0.75rem;
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .prev-feedback-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.25rem;
+      color: var(--text-muted);
+    }
+    .feedback-textarea {
+      width: 100%;
+      min-height: 100px;
+      padding: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 0.9375rem;
+      line-height: 1.5;
+      resize: vertical;
+      color: var(--text);
+    }
+    .feedback-textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    .feedback-status {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+      min-height: 1.1em;
+    }
+
+    /* ---- Grades (collapsible) ---- */
+    .grades-toggle {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    .grades-toggle:hover {
+      color: var(--accent);
+    }
+    .grades-toggle .arrow {
+      margin-right: 0.5rem;
+      transition: transform 0.15s;
+      font-size: 0.75rem;
+    }
+    .grades-toggle .arrow.open {
+      transform: rotate(90deg);
+    }
+    .grades-content {
+      display: none;
+      margin-top: 0.75rem;
+    }
+    .grades-content.open {
+      display: block;
+    }
+    .grades-summary {
+      font-size: 0.875rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .grade-badge {
+      display: inline-block;
+      padding: 0.125rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .grade-pass { background: var(--green-bg); color: var(--green); }
+    .grade-fail { background: var(--red-bg); color: var(--red); }
+    .assertion-list {
+      list-style: none;
+    }
+    .assertion-item {
+      padding: 0.625rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8125rem;
+    }
+    .assertion-item:last-child { border-bottom: none; }
+    .assertion-status {
+      font-weight: 600;
+      margin-right: 0.5rem;
+    }
+    .assertion-status.pass { color: var(--green); }
+    .assertion-status.fail { color: var(--red); }
+    .assertion-evidence {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      margin-top: 0.25rem;
+      padding-left: 1.5rem;
+    }
+
+    /* ---- View tabs ---- */
+    .view-tabs {
+      display: flex;
+      gap: 0;
+      padding: 0 2rem;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .view-tab {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.625rem 1.25rem;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      background: none;
+      color: var(--text-muted);
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .view-tab:hover { color: var(--text); }
+    .view-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    .view-panel { display: none; }
+    .view-panel.active { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+    /* ---- Benchmark view ---- */
+    .benchmark-view {
+      padding: 1.5rem 2rem;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .benchmark-table {
+      border-collapse: collapse;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 0.8125rem;
+      width: 100%;
+      margin-bottom: 1.5rem;
+    }
+    .benchmark-table th, .benchmark-table td {
+      padding: 0.625rem 0.75rem;
+      text-align: left;
+      border: 1px solid var(--border);
+    }
+    .benchmark-table th {
+      font-family: 'Poppins', sans-serif;
+      background: var(--header-bg);
+      color: var(--header-text);
+      font-weight: 500;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .benchmark-table tr:hover { background: var(--bg); }
+    .benchmark-table tr.benchmark-row-with { background: rgba(33, 150, 243, 0.06); }
+    .benchmark-table tr.benchmark-row-without { background: rgba(255, 193, 7, 0.06); }
+    .benchmark-table tr.benchmark-row-with:hover { background: rgba(33, 150, 243, 0.12); }
+    .benchmark-table tr.benchmark-row-without:hover { background: rgba(255, 193, 7, 0.12); }
+    .benchmark-table tr.benchmark-row-avg { font-weight: 600; border-top: 2px solid var(--border); }
+    .benchmark-table tr.benchmark-row-avg.benchmark-row-with { background: rgba(33, 150, 243, 0.12); }
+    .benchmark-table tr.benchmark-row-avg.benchmark-row-without { background: rgba(255, 193, 7, 0.12); }
+    .benchmark-delta-positive { color: var(--green); font-weight: 600; }
+    .benchmark-delta-negative { color: var(--red); font-weight: 600; }
+    .benchmark-notes {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+    }
+    .benchmark-notes h3 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.875rem;
+      margin-bottom: 0.75rem;
+    }
+    .benchmark-notes ul {
+      list-style: disc;
+      padding-left: 1.25rem;
+    }
+    .benchmark-notes li {
+      font-size: 0.8125rem;
+      line-height: 1.6;
+      margin-bottom: 0.375rem;
+    }
+    .benchmark-empty {
+      color: var(--text-muted);
+      font-style: italic;
+      text-align: center;
+      padding: 3rem;
+    }
+
+    /* ---- Navigation ---- */
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 2rem;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+    .nav-btn {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.5rem 1.25rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text);
+      transition: all 0.15s;
+    }
+    .nav-btn:hover:not(:disabled) {
+      background: var(--bg);
+      border-color: var(--text-muted);
+    }
+    .nav-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .done-btn {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.5rem 1.5rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+    .done-btn:hover {
+      background: var(--bg);
+      border-color: var(--text-muted);
+    }
+    .done-btn.ready {
+      border: none;
+      background: var(--accent);
+      color: white;
+      font-weight: 600;
+    }
+    .done-btn.ready:hover {
+      background: var(--accent-hover);
+    }
+    /* ---- Done overlay ---- */
+    .done-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+    }
+    .done-overlay.visible {
+      display: flex;
+    }
+    .done-card {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 2rem 3rem;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 500px;
+    }
+    .done-card h2 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .done-card p {
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+    .done-card .btn-row {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+    }
+    .done-card button {
+      padding: 0.5rem 1.25rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 0.875rem;
+    }
+    .done-card button:hover {
+      background: var(--bg);
+    }
+    /* ---- Toast ---- */
+    .toast {
+      position: fixed;
+      bottom: 5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--header-bg);
+      color: var(--header-text);
+      padding: 0.625rem 1.25rem;
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 200;
+    }
+    .toast.visible {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div id="app" style="height:100vh; display:flex; flex-direction:column;">
+    <div class="header">
+      <div>
+        <h1>Eval Review: <span id="skill-name"></span></h1>
+        <div class="instructions">Review each output and leave feedback below. Navigate with arrow keys or buttons. When done, copy feedback and paste into Claude Code.</div>
+      </div>
+      <div class="progress" id="progress"></div>
+    </div>
+
+    <!-- View tabs (only shown when benchmark data exists) -->
+    <div class="view-tabs" id="view-tabs" style="display:none;">
+      <button class="view-tab active" onclick="switchView('outputs')">Outputs</button>
+      <button class="view-tab" onclick="switchView('benchmark')">Benchmark</button>
+    </div>
+
+    <!-- Outputs panel (qualitative review) -->
+    <div class="view-panel active" id="panel-outputs">
+    <div class="main">
+      <!-- Prompt -->
+      <div class="section">
+        <div class="section-header">Prompt <span class="config-badge" id="config-badge" style="display:none;"></span></div>
+        <div class="section-body">
+          <div class="prompt-text" id="prompt-text"></div>
+        </div>
+      </div>
+
+      <!-- Outputs -->
+      <div class="section">
+        <div class="section-header">Output</div>
+        <div class="section-body" id="outputs-body">
+          <div class="empty-state">No output files found</div>
+        </div>
+      </div>
+
+      <!-- Previous Output (collapsible) -->
+      <div class="section" id="prev-outputs-section" style="display:none;">
+        <div class="section-header">
+          <div class="grades-toggle" onclick="togglePrevOutputs()">
+            <span class="arrow" id="prev-outputs-arrow">&#9654;</span>
+            Previous Output
+          </div>
+        </div>
+        <div class="grades-content" id="prev-outputs-content"></div>
+      </div>
+
+      <!-- Grades (collapsible) -->
+      <div class="section" id="grades-section" style="display:none;">
+        <div class="section-header">
+          <div class="grades-toggle" onclick="toggleGrades()">
+            <span class="arrow" id="grades-arrow">&#9654;</span>
+            Formal Grades
+          </div>
+        </div>
+        <div class="grades-content" id="grades-content"></div>
+      </div>
+
+      <!-- Feedback -->
+      <div class="section">
+        <div class="section-header">Your Feedback</div>
+        <div class="section-body">
+          <textarea
+            class="feedback-textarea"
+            id="feedback"
+            placeholder="What do you think of this output? Any issues, suggestions, or things that look great?"
+          ></textarea>
+          <div class="feedback-status" id="feedback-status"></div>
+          <div class="prev-feedback" id="prev-feedback" style="display:none;">
+            <div class="prev-feedback-label">Previous feedback</div>
+            <div id="prev-feedback-text"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav" id="outputs-nav">
+      <button class="nav-btn" id="prev-btn" onclick="navigate(-1)">&#8592; Previous</button>
+      <button class="done-btn" id="done-btn" onclick="showDoneDialog()">Submit All Reviews</button>
+      <button class="nav-btn" id="next-btn" onclick="navigate(1)">Next &#8594;</button>
+    </div>
+    </div><!-- end panel-outputs -->
+
+    <!-- Benchmark panel (quantitative stats) -->
+    <div class="view-panel" id="panel-benchmark">
+      <div class="benchmark-view" id="benchmark-content">
+        <div class="benchmark-empty">No benchmark data available. Run a benchmark to see quantitative results here.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Done overlay -->
+  <div class="done-overlay" id="done-overlay">
+    <div class="done-card">
+      <h2>Review Complete</h2>
+      <p>Your feedback has been saved. Go back to your Claude Code session and tell Claude you're done reviewing.</p>
+      <div class="btn-row">
+        <button onclick="closeDoneDialog()">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ---- Embedded data (injected by generate_review.py) ----
+    const EMBEDDED_DATA = {"skill_name": "correction-loop", "runs": [{"id": "eval-0-decomposition-defect-with_skill-run-1", "prompt": "I'm running the AgentBoard architecture pipeline and the design reviewer came back with a serious finding: two of the card slices overlap and the decomposition is wrong. What should happen here \u00e2\u20ac\u201d do I just edit the architecture document, or do I need to rerun something? Walk me through how this correction should be handled.", "eval_id": 0, "outputs": [{"name": "response.md", "type": "text", "content": "# How to handle this correction: design reviewer flagged overlapping card slices / wrong decomposition\n\nShort answer: **No, you do not just edit the architecture document by hand, and you do not blindly rerun a stage either.** This is a *substantive* correction, so it goes through the correction loop. You source-trace it to its real origin, carry it as a declared input into a correction-mode re-run of the right stage, and only widen the search or involve the owner if the evidence points there. Here is the full walk-through.\n\n## First: confirm this is a correction-loop case, not a plain edit\n\nOverlapping card slices and a wrong decomposition are exactly the kind of work the loop exists for. A \"different decomposition\" and \"an added or removed Card Slice\" are explicitly called out as **substantive rework**. So this is *not* a one-line reword or a missed traceability row that you fix in place \u00e2\u20ac\u201d it routes through this loop. Don't open the architecture document and start hand-editing slice boundaries to make the finding go away; that's the silent-edit anti-pattern the loop is built to prevent.\n\n## Step 1 \u00e2\u20ac\u201d Source-trace to the real origin (do this before touching anything)\n\nThe correction arrived from **direction 1: a validating stage caught a defect** \u00e2\u20ac\u201d the design reviewer, which stands to the architecture document the way review stands to a plan. Note that, but do not stop there. The critical rule here is **judge in the moment; do not pattern-match** \"decomposition problem \u00e2\u2020\u2019 recompose stage.\" That shortcut is precisely what sends fixes to the wrong place.\n\nSo ask, from the evidence actually in front of you, *where did the overlap really come from?* For two slices overlapping there are genuinely different possible origins:\n\n- **The architecture document itself** \u00e2\u20ac\u201d the upstream facts are sound, but the compose stage drew the slice boundaries wrong, double-covered a responsibility, or reasoned the decomposition incorrectly. This is the most likely origin for a \"two slices overlap\" finding, because slicing is the compose stage's job and the defect is in *how the work was carved up*, not in the facts it was carved from.\n- **The upstream facts** \u00e2\u20ac\u201d the research/audit produced a component map or dependency picture that was itself muddled or double-counted, so any decomposition built on it would overlap. If the reviewer's finding shows the overlap is forced by bad inputs (the facts themselves don't cleanly separate the two concerns), the origin is upstream, not the compose stage.\n- **The spec** \u00e2\u20ac\u201d the spec defines the two concerns so vaguely, or so entangled, that no clean decomposition is possible. If you cannot draw a non-overlapping boundary because the spec never actually separated these two things, the origin is the spec.\n\nUse the finding text, the current pipeline state, and the chosen level (L1/L2/L3) to decide which of these it is. For a typical \"the decomposition is wrong, slices overlap\" finding where the underlying facts still hold, the trace lands on **the architecture document**.\n\n## Step 2 \u00e2\u20ac\u201d Carry the correction as a declared, auditable input\n\nWhichever origin you land on, hand the correction to the receiving stage as a **dedicated, explicit, declared input** \u00e2\u20ac\u201d not as extra prose stuffed into a prompt, and never as a quiet edit to the document or the spec. The record must capture:\n\n- **round** \u00e2\u20ac\u201d which attempt this is on this target (start at round 1 here),\n- **origin** \u00e2\u20ac\u201d `validating-stage` (the design reviewer raised it),\n- **target** \u00e2\u20ac\u201d the stage you're routing to (the compose stage, if the trace landed on the architecture document),\n- **change** \u00e2\u20ac\u201d \"two card slices overlap; redraw the decomposition so the boundary between them is clean and each responsibility lives in exactly one slice,\" carrying the specifics the reviewer gave,\n- **provenance** \u00e2\u20ac\u201d the design-review **finding id** that justifies it.\n\nThe exact field shape is defined where the consuming stage declares the input; what matters is that it is declared and carries those five things so the correction is reviewable later.\n\n## Step 3 \u00e2\u20ac\u201d Route to the origin you traced\n\n- If the trace landed on **the architecture document** (most likely here): re-enter the **compose stage in correction mode** (Step 4 below). Do *not* go back to research/audit \u00e2\u20ac\u201d the facts still hold; only the slicing reasoning was wrong.\n- If the trace landed on **the upstream facts**: re-run the **upstream research/audit stage** for fresh facts first, then compose again on top of corrected facts.\n- If the trace landed on **the spec**: this is the one case that leaves the in-flow architecture path. The spec may be changed, but **never in-flow** and **never through `/foundation`** (which only creates specs) \u00e2\u20ac\u201d it routes out to the external spec-modification path, and it brings in the owner (Step 7).\n\nThe non-negotiable thread: the architecture correction flow **never edits the spec to make an architecture problem disappear**. An overlapping-slice defect that is genuinely an architecture-reasoning problem must be fixed in the architecture, not papered over by quietly rewriting the spec.\n\n## Step 4 \u00e2\u20ac\u201d Work in correction mode, not from scratch\n\nAssuming the compose stage is the target, it runs its **correction-mode** process, which is deliberately different from generating an architecture from scratch. In correction mode the stage:\n\n- treats your declared correction (the overlapping-slices finding) as the **authoritative statement of what must change**,\n- reads the **prior architecture output** rather than starting blank,\n- **re-derives only what the correction touches** \u00e2\u20ac\u201d the two overlapping slices and the boundary between them \u00e2\u20ac\u201d and keeps the rest of the decomposition where it's still correct,\n- **re-validates the whole result**, not just the two slices it redrew (redrawing a boundary can ripple into adjacent slices and traceability),\n- and **stops to report rather than guessing** if the finding is underspecified \u00e2\u20ac\u201d e.g. if it's not clear which responsibility should land in which slice, it surfaces that instead of inventing an answer.\n\nThe stage's normal from-scratch inputs do not carry the correction and are not a substitute for the declared input from Step 2.\n\n## Step 5 \u00e2\u20ac\u201d If it keeps failing, the cap is a signal, not a wall\n\nThe loop allows **at most three attempts on the same target**. If you recompose the decomposition and the design reviewer keeps flagging overlap across three honest attempts, **do not grind a fourth time and do not dump it on the owner**. Reaching the cap is *information*: it means the cause probably isn't in the target you've been hammering (the compose stage). The likely real story is that the overlap is forced from **upstream** \u00e2\u20ac\u201d muddled facts \u00e2\u20ac\u201d or from the **spec** entangling the two concerns. So the search **widens and traces outward**, decided in the moment, and the agents do that tracing themselves.\n\n## Step 6 \u00e2\u20ac\u201d At the cap, hand off to the investigator\n\nWhen the three-attempt cap is hit, the loop **automatically hands off to the external investigator** for root-cause analysis. Root-cause work is a deliberately separate job from review (so the reviewer's corrections don't sprawl past the stage it was reviewing). Note this investigator is a separate surface and **may not exist yet** \u00e2\u20ac\u201d the skill defines the handoff and its trigger condition, not the investigator's internals. If it isn't available in your run, the operative point still holds: at the cap, stop hammering the compose stage and trace outward to find where the overlap is really coming from.\n\n## Step 7 \u00e2\u20ac\u201d Bring in the owner only if the trace lands on the spec\n\nEscalate to the **owner only when the trace (or the investigation) concludes the origin is the spec** \u00e2\u20ac\u201d i.e. the two concerns are entangled or underdefined in the spec such that no clean decomposition exists. That's the one thing agents can't authoritatively settle, because the spec is the owner's. **Every other origin \u00e2\u20ac\u201d architecture reasoning, upstream facts, process \u00e2\u20ac\u201d the agents resolve at the source themselves**, without escalating.\n\n## On the pause\n\nIf your run was started with the optional `/architecture`-layer pause turned **on** (it's **off by default**), you'll get the chance to look at the routed correction before it's applied \u00e2\u20ac\u201d that's an owner convenience, not a gate the loop requires. If the pause is off, the loop proceeds without making you babysit it. Either way, this is separate from the AgentBoard blocking-gate feature and doesn't depend on any board setting.\n\n---\n\n## TL;DR for your specific case\n\n1. This is a **substantive correction** \u00e2\u2020\u2019 goes through the loop, not a manual document edit.\n2. **Source-trace** the overlap: most likely the **architecture document** (compose stage drew the slices wrong); possibly the upstream facts; possibly the spec if the two concerns are genuinely entangled there. Decide from the finding, not from a problem\u00e2\u2020\u2019stage table.\n3. Package the fix as a **declared, auditable correction input** (round, origin=validating-stage, target, change, provenance=finding id).\n4. **Re-run the traced stage in correction mode** \u00e2\u20ac\u201d read prior output, re-derive only the overlapping boundary, keep the rest, re-validate the whole decomposition.\n5. **3 attempts max** on the same target; the cap means trace outward (likely upstream/spec), not retry harder.\n6. At the cap, **hand off to the investigator**.\n7. **Involve the owner only if it traces to the spec.** Never edit the spec to make the overlap disappear.\n"}], "grading": {"expectations": [{"text": "Identifies the origin as the architecture document / compose stage rather than the spec or the upstream facts", "passed": true, "evidence": "\"For a typical 'the decomposition is wrong, slices overlap' finding where the underlying facts still hold, the trace lands on the architecture document.\""}, {"text": "Re-enters the compose stage in a correction/revision mode that revises the existing document, rather than regenerating from scratch", "passed": true, "evidence": "Step 4: correction mode 'reads the prior architecture output rather than starting blank', 're-derives only what the correction touches', 'keeps the rest where it's still correct'."}, {"text": "Carries the correction to the stage as a declared, auditable input rather than as undeclared prompt context or an ad-hoc note", "passed": true, "evidence": "Step 2 declares a dedicated input with round/origin=validating-stage/target/change/provenance=finding id; 'never as a quiet edit'."}, {"text": "Does NOT edit or modify the spec to resolve the overlapping-slices problem", "passed": true, "evidence": "\"the architecture correction flow never edits the spec to make an architecture problem disappear.\""}, {"text": "Does NOT treat owner escalation or a pause as required for this architecture-document-origin correction", "passed": true, "evidence": "\"Bring in the owner only if the trace lands on the spec\"; pause described as off by default and optional."}], "summary": {"passed": 5, "failed": 0, "total": 5, "pass_rate": 1.0}, "execution_metrics": {"total_tool_calls": 2, "errors_encountered": 0}, "timing": {"total_duration_seconds": 52.7, "executor_duration_seconds": 52.7}}}, {"id": "eval-0-decomposition-defect-without_skill-run-1", "prompt": "I'm running the AgentBoard architecture pipeline and the design reviewer came back with a serious finding: two of the card slices overlap and the decomposition is wrong. What should happen here \u00e2\u20ac\u201d do I just edit the architecture document, or do I need to rerun something? Walk me through how this correction should be handled.", "eval_id": 0, "outputs": [{"name": "response.md", "type": "text", "content": "# Handling a Decomposition Defect from Design Review\n\n## Short answer\n\nDo **not** just hand-edit the architecture document. A \"two card slices overlap / the decomposition is wrong\" finding is a **structural defect**, not a wording defect. It means an upstream stage produced a bad result, so you have to go back to the stage that *owns decomposition*, fix the input that caused it, and re-run forward from there \u00e2\u20ac\u201d then re-review. Patching the doc by hand papers over the defect and leaves every artifact derived from the bad decomposition (the cards) silently wrong.\n\nThe rest of this walks through *why*, *where to re-enter the pipeline*, and *exactly what to do*.\n\n---\n\n## 1. First, classify the finding correctly\n\nDesign-review findings fall into two very different buckets, and the correct handling depends entirely on which one you have:\n\n| Class | Example | What it means | How to fix |\n|---|---|---|---|\n| **Cosmetic / local** | A heading is wrong, a sentence is ambiguous, a dependency note is missing, a diagram label is off | The decomposition is *sound*; the prose describing it is imperfect | Edit the architecture document in place, re-review the changed section |\n| **Structural** | Two slices overlap, a slice spans two concerns, a boundary is in the wrong place, a slice has no clear owner of some behavior | The decomposition *itself* is wrong; the document is a faithful record of a bad decision | Re-run the decomposition; do **not** hand-patch |\n\n\"Two of the card slices overlap and the decomposition is wrong\" is unambiguously **structural**. Overlap means the boundary between two slices was drawn in the wrong place: some behavior or responsibility is claimed by both. That is exactly the thing the compose stage is supposed to get right, so the compose stage is where the bug lives.\n\nWhy this distinction matters: a structural defect has *downstream blast radius*. The doc is not the only artifact \u00e2\u20ac\u201d the pipeline produces **one card per Card Slice**. If two slices overlap, then the cards you'd create from them overlap too: two work items that both touch the same responsibility, leading to merge conflicts, double implementation, or a gap nobody owns. Editing only the document does not fix the cards, and it does not fix whatever made the composer draw the boundary wrong in the first place.\n\n---\n\n## 2. Why hand-editing the document is the wrong move\n\nThree concrete reasons:\n\n1. **It treats a symptom, not the cause.** The document is an *output* of the compose stage. If the slices overlap, the composer's boundary logic was wrong (or it was fed an ambiguous classification). Editing the rendered output leaves the faulty reasoning in place and unrecorded.\n\n2. **It desynchronizes the artifacts.** A pipeline's value is that the document, the slice list, and the cards are all derived from one coherent decomposition. The moment you redraw slice boundaries by hand in the prose, the document says one thing and the (eventual) cards say another. The pipeline's internal consistency guarantee is broken, and nothing downstream knows it.\n\n3. **Re-drawing a boundary by hand is genuinely hard and easy to get wrong.** Fixing an overlap isn't \"delete a sentence.\" You have to decide where the responsibility *actually* belongs, move it cleanly to exactly one slice, check that you didn't open a *gap* (the opposite failure: behavior now owned by neither slice), and re-verify that every other slice's interfaces still line up. That is the compose stage's whole job. Doing it ad hoc in a text editor, under no checklist, is how you turn one overlap into a gap plus a new overlap.\n\nSo: the question \"do I just edit the doc, or rerun something?\" \u00e2\u20ac\u201d the answer is **rerun**. The doc edit, if any, falls out of the rerun, not the other way around.\n\n---\n\n## 3. Where to re-enter the pipeline\n\nThe pipeline stages are: **research \u00e2\u2020\u2019 classification audit \u00e2\u2020\u2019 compose (L1/L2/L3) \u00e2\u2020\u2019 design review.**\n\nThe right re-entry point is the **earliest stage whose output is implicated by the finding**, not necessarily the stage that raised it (design review) and not the very first stage (research). Walk it back:\n\n- **Is the research wrong?** Only if the overlap exists because a whole domain area was misunderstood or missing context made the boundary unknowable. Usually not \u00e2\u20ac\u201d overlap is a *boundary-drawing* error, not a *missing-facts* error. Don't blow away good research unless the finding actually points at a factual gap.\n\n- **Is the classification wrong?** This is the **most likely real culprit.** Overlapping slices very often trace back to an ambiguous or incorrect classification: two responsibilities were classified as the same concern (so the composer reasonably bundled them and then re-split badly), or one responsibility was classified into two categories (so it landed in two slices). **Before re-composing, check the classification audit output for the two responsibilities that overlap.** If the classification is ambiguous, fix that first \u00e2\u20ac\u201d re-composing on top of a bad classification will just reproduce the overlap.\n\n- **Is it purely a compose error?** If classification is clean and unambiguous but the composer still drew the boundary wrong, re-enter at **compose** and re-run it.\n\n**Decision rule:**\n> Re-enter at **classification audit** if the overlap is rooted in how the two responsibilities were categorized. Re-enter at **compose** if classification is sound but the slicing is wrong. Re-enter at **research** only if the finding reveals the boundary was undrawable from the facts gathered.\n\nFor the case as described \u00e2\u20ac\u201d \"the decomposition is wrong\" with no mention of missing facts \u00e2\u20ac\u201d start by inspecting the classification audit, then re-run compose. Treat research as fixed unless you find a factual hole.\n\n---\n\n## 4. Re-run forward, don't re-run sideways\n\nWhichever stage you re-enter, you must re-run **all stages after it**, in order, because each consumes the previous one's output:\n\n- Re-run from **classification audit** \u00e2\u2020\u2019 re-run audit, then compose, then design review.\n- Re-run from **compose** \u00e2\u2020\u2019 re-run compose, then design review.\n\nThe critical, non-negotiable part: **design review must run again on the new decomposition.** You do not get to fix the slices and declare victory. The whole reason you caught this was that design review is the gate. A correction that skips re-review is a correction you have not validated \u00e2\u20ac\u201d and structural fixes are exactly the ones that introduce new structural problems (the overlap-becomes-a-gap failure mode). Re-running design review confirms (a) the original overlap is gone, and (b) you didn't create a new defect.\n\nAlso: **re-compose at the level the document was composed at** (L1/L2/L3). The level controls decomposition granularity. If you composed at L2, fix and re-run at L2 \u00e2\u20ac\u201d don't quietly drop to L1 to make the overlap disappear, because that just hides the problem under coarser slices.\n\n---\n\n## 5. Feed the finding back in as input \u00e2\u20ac\u201d don't make the composer rediscover the bug\n\nWhen you re-run compose (or re-run the audit), pass the design-review finding *into* that stage as an explicit constraint. The composer should not be left to independently re-derive a clean boundary and hope it lands differently this time. Give it the specifics:\n\n- which two slices overlap,\n- what responsibility/behavior is double-claimed,\n- and the reviewer's reasoning for why it's wrong.\n\nThat turns a blind re-run (which may reproduce the same boundary) into a *directed* correction. The composer now knows it must place the contested responsibility in exactly one slice and justify the choice.\n\n---\n\n## 6. Only create cards after the loop closes\n\nThe pipeline commits the architecture document and creates **one card per Card Slice**. Sequencing matters:\n\n- **If cards have not been created yet:** good \u00e2\u20ac\u201d that's the normal case for a finding raised at the design-review stage. Just complete the correction loop (re-classify if needed \u00e2\u2020\u2019 re-compose \u00e2\u2020\u2019 re-review \u00e2\u2020\u2019 pass) *before* the document is committed and cards are generated. The bad decomposition never reaches the board.\n\n- **If cards were already created** (e.g., this overlap was caught late, after cards existed): the corrected decomposition changes the slice set, so the cards are now stale. You must **reconcile the board**: remove/merge the cards for the two overlapping slices and create cards for the corrected slices. Do not leave the old overlapping cards sitting on the board next to the new ones \u00e2\u20ac\u201d that re-introduces the exact double-ownership the fix was meant to eliminate. Cards are derived artifacts; they follow the decomposition, never lead it.\n\n---\n\n## 7. Record the correction\n\nCapture, in the architecture document's decision/change record (or the equivalent rationale section):\n\n- the design-review finding (the overlap and why it was wrong),\n- the root cause (ambiguous classification vs. compose-stage slicing error),\n- where you re-entered the pipeline and why,\n- and the new boundary decision \u00e2\u20ac\u201d which slice now owns the contested responsibility and why.\n\nThis matters because the *why* of a boundary is the part nobody can recover later by reading the slices. A future reader (or a re-run) needs to know this overlap was already adjudicated, or it risks being \"fixed\" back to the broken state.\n\n---\n\n## Walkthrough summary\n\n1. **Classify the finding.** Overlapping slices = structural decomposition defect, not a prose defect. Hand-editing the document is the wrong tool.\n2. **Find the root cause.** Inspect the classification audit for the two overlapping responsibilities. Overlap usually traces to ambiguous classification; if not, it's a compose-stage slicing error.\n3. **Re-enter at the earliest implicated stage** \u00e2\u20ac\u201d classification audit if the categories are the cause, otherwise compose. Leave research alone unless facts are actually missing.\n4. **Feed the reviewer's finding in as an explicit constraint** so the re-run is directed, not a blind retry.\n5. **Re-run forward through every later stage**, re-composing at the same level (L1/L2/L3).\n6. **Re-run design review** on the new decomposition \u00e2\u20ac\u201d confirm the overlap is gone and no gap was introduced. Do not skip this gate.\n7. **Only then** commit the document and create one card per (corrected) slice. If cards already existed, reconcile the board to match the new slices.\n8. **Record the finding, root cause, re-entry point, and new boundary decision** in the document's rationale.\n\nBottom line: this is a **rerun**, not an edit. The document edit is a *consequence* of re-running the stage that owns decomposition and passing design review again \u00e2\u20ac\u201d never a substitute for it.\n"}], "grading": {"expectations": [{"text": "Identifies the origin as the architecture document / compose stage rather than the spec or the upstream facts", "passed": false, "evidence": "Names the classification audit (an upstream stage) as 'the most likely real culprit' and its decision rule re-enters at classification audit, i.e. routes upstream rather than to the architecture document."}, {"text": "Re-enters the compose stage in a correction/revision mode that revises the existing document, rather than regenerating from scratch", "passed": false, "evidence": "Frames the fix as 're-run forward through every later stage' and 're-compose at the level'; treats it as a directed re-run of the stage, not a correction-mode that revises the existing document preserving correct material."}, {"text": "Carries the correction to the stage as a declared, auditable input rather than as undeclared prompt context or an ad-hoc note", "passed": true, "evidence": "Section 5 'Feed the finding back in as input ... as an explicit constraint' and Section 7 'Record the correction' with provenance."}, {"text": "Does NOT edit or modify the spec to resolve the overlapping-slices problem", "passed": true, "evidence": "No spec edit proposed; the fix stays in classification/compose. Spec mentioned only as a later fallback to check, not edited."}, {"text": "Does NOT treat owner escalation or a pause as required for this architecture-document-origin correction", "passed": true, "evidence": "No owner escalation or pause is invoked for this case."}], "summary": {"passed": 3, "failed": 2, "total": 5, "pass_rate": 0.6}, "execution_metrics": {"total_tool_calls": 1, "errors_encountered": 0}, "timing": {"total_duration_seconds": 63.5, "executor_duration_seconds": 63.5}}}, {"id": "eval-1-repeated-failure-with_skill-run-1", "prompt": "The plan for one of my architecture cards has now failed review three times in a row. It just will not pass no matter what we change in the plan. What do I do?", "eval_id": 1, "outputs": [{"name": "response.md", "type": "text", "content": "# Recommended handling: a card plan that has failed review three times\n\nShort version: three failures on the same target is not a reason to keep grinding on that plan, and it is not a reason to dump it on you. Per the correction-loop, three honest attempts hitting the cap is a *signal* \u00e2\u20ac\u201d the cause almost certainly lives somewhere other than the plan you've been hammering. So the correct move is to stop re-editing the plan, widen the search outward, and let the system trace to the real origin. Here is exactly how that should go.\n\n## 1. Recognize what the cap means\n\nThe loop runs at most **three attempts on the same card / target**. You're at that cap. The skill is explicit that reaching the cap is *not* a wall that ends the loop and dumps the problem on the owner \u00e2\u20ac\u201d it's the evidence that **the problem probably isn't in that target**. \"A stuck loop is information.\" If three honest passes couldn't make the plan pass, that's telling us the defect originates upstream of the plan, not inside it. Continuing to change \"what we change in the plan\" is precisely the trap the loop is built to stop, because fixing a symptom at the wrong stage just reproduces the failure on the next pass.\n\nSo the first thing that should happen: **stop the in-place plan edits.** A fourth from-scratch rework of the same plan is off the table.\n\n## 2. Hand off to the investigator for root-cause analysis (automatic)\n\nAt the cap, the loop **hands off automatically to the external investigator** for root-cause analysis. This is deliberately a different job than the design review that's been bouncing the plan \u00e2\u20ac\u201d deeper root-cause work is kept separate so the reviewer's corrections don't sprawl past the stage it was reviewing. The investigator may draw on chat logs, the card's information, the prior three attempts and their findings, and whatever else is relevant, to work out where the defect *actually* originates.\n\nOne honest caveat: the external investigator is a **separate surface and may not exist yet**. The skill defines the handoff and the trigger condition, not the investigator's internals. So if that surface isn't available in your run, the *agents themselves* do the outward trace \u00e2\u20ac\u201d the system does not freeze and wait for you to diagnose it. Either way, the diagnostic step is owned by the agents/investigator, not by you.\n\n## 3. Source-trace to the real origin, then route there\n\nThe investigation (or the agents' direct trace) decides \u00e2\u20ac\u201d *in the moment, from the evidence*, not from any fixed problem-to-stage table \u00e2\u20ac\u201d where this correction truly originates. There are three possible destinations, and the right one is chosen by the trace:\n\n- **The architecture document** \u00e2\u20ac\u201d if the reasoning, decomposition, traceability, slice boundaries, or a review resolution is what's wrong but the upstream facts still hold. Re-enter the compose stage in **correction mode** (revise the existing output against a declared correction; don't regenerate from scratch).\n- **The upstream facts** \u00e2\u20ac\u201d if the research/audit facts the plan rests on are wrong or stale. Re-run the upstream stage for fresh facts *before* composing again. (This is a very common reason a plan \"just won't pass no matter what we change in the plan\" \u00e2\u20ac\u201d the plan can't be made correct on top of wrong facts.)\n- **The spec** \u00e2\u20ac\u201d if the trace lands on the spec itself: vague, underdefined, or quietly drifted from what you actually meant.\n\nWhatever the destination, the correction is carried as a **declared, auditable input** to the stage that redoes the work \u00e2\u20ac\u201d capturing the round, the origin (validating-stage / owner-directed / traced-upstream-failure), the target stage, the change being asked for, and the provenance (the review finding ids from the three failures, the failure trace). It must not be dropped in as loose prose or applied as a silent file edit, so the routing decision can be reviewed later.\n\nCritically: **the loop never edits the spec to make this architecture problem disappear.** If the origin is the architecture or the upstream facts, those get fixed at their source and the spec is left alone.\n\n## 4. You only get pulled in if the origin is the spec\n\nHere's the part that answers \"what do I do\": for most outcomes \u00e2\u20ac\u201d architecture-document origin, upstream-facts origin, a process issue \u00e2\u20ac\u201d **the agents resolve it at the source themselves and you don't have to do anything.** That's the whole design intent: you shouldn't have to babysit a correction loop.\n\nYou are brought in **only if** the trace concludes the origin is the **spec**. That's the one thing the agents can't authoritatively settle, because the spec is yours \u00e2\u20ac\u201d you own the *what*, the agents own the *how*. If it lands there, the recommendation is concrete: the spec gets changed on that basis, but **never in-flow and never through `/foundation`** (which only creates specs). It routes out to the external spec-modification path, which is where your input is needed to say what you actually meant.\n\nSo the realistic outcomes for you are:\n- **Most likely:** the investigator/agents trace the failure to the architecture or the upstream facts, fix it there, and re-run the right stage in correction mode. You're informed, not conscripted.\n- **If it's a spec problem:** you'll be escalated, and the fix happens through the external spec-modification path \u00e2\u20ac\u201d not by quietly editing the spec mid-run.\n\n## What I would *not* do\n\n- **Don't attempt a fourth direct rewrite of the plan.** Three failures is the signal to trace outward, not to try harder on the same target.\n- **Don't reflexively rewrite the spec** because \"it failed three times.\" There is no \"failed N times, so edit the spec\" rule \u00e2\u20ac\u201d that hardcoded reflex is exactly what the loop forbids. The spec is touched only if the trace genuinely lands there.\n- **Don't paper over it** by tweaking the spec to make the architecture defect vanish. Spec and architecture are separate authorities; collapsing them buries the real cause.\n\n## The one-line recommendation\n\nStop editing the plan. You've hit the three-attempt cap, which means the cause is upstream of the plan \u00e2\u20ac\u201d hand off to the investigator (or have the agents trace outward) to find the true origin, fix it at that origin in correction mode, and re-run the correct stage. You should only need to get personally involved if the trace concludes your **spec** is the root cause, in which case it's handled through the external spec-modification path rather than any in-flow edit.\n"}], "grading": {"expectations": [{"text": "Treats the three-failure cap as a signal that the root cause is NOT in the plan/target being retried, and widens the search to trace outward (architecture, upstream facts, spec, or elsewhere)", "passed": true, "evidence": "\"reaching the cap is ... the evidence that the problem probably isn't in that target\"; 'the search widens and traces outward'."}, {"text": "Does NOT simply stop and hand the unsolved problem to the owner to diagnose", "passed": true, "evidence": "\"it is not a reason to dump it on you\"; \"for most outcomes ... the agents resolve it at the source themselves and you don't have to do anything.\""}, {"text": "Routes to deeper root-cause investigation that is distinct from the reviewer, rather than letting the reviewer keep driving retries", "passed": true, "evidence": "\"hands off automatically to the external investigator ... deliberately a different job than the design review that's been bouncing the plan\"."}, {"text": "Does NOT reflexively rewrite or blame the spec just because the plan failed multiple times", "passed": true, "evidence": "\"Don't reflexively rewrite the spec ... There is no 'failed N times, so edit the spec' rule.\""}, {"text": "Keeps the owner uninvolved unless and until the trace concludes the origin is the spec", "passed": true, "evidence": "\"You are brought in only if the trace concludes the origin is the spec.\""}], "summary": {"passed": 5, "failed": 0, "total": 5, "pass_rate": 1.0}, "execution_metrics": {"total_tool_calls": 2, "errors_encountered": 0}, "timing": {"total_duration_seconds": 42.3, "executor_duration_seconds": 42.3}}}, {"id": "eval-1-repeated-failure-without_skill-run-1", "prompt": "The plan for one of my architecture cards has now failed review three times in a row. It just will not pass no matter what we change in the plan. What do I do?", "eval_id": 1, "outputs": [{"name": "response.md", "type": "text", "content": "# When a card's plan fails review three times in a row\n\nThree consecutive failures on the same plan is a signal, not a setback. It almost never means the plan is \"one more tweak\" away from passing. It means one of the inputs the plan rests on is wrong, and you are editing the wrong layer. Stop iterating on the plan and diagnose *why* it keeps failing first.\n\nHere is the concrete sequence I recommend.\n\n## Step 1 \u00e2\u20ac\u201d Stop. Declare a correction loop and freeze plan edits.\n\nDo not attempt a fourth revision in the same shape. A fourth pass that tweaks the same plan against the same reviewer almost always fails the same way, because the third failure already told you the problem isn't in the words of the plan. Continuing to edit burns time and erodes signal. Explicitly mark this card as \"in correction\" so it is treated differently from a normal first-pass review.\n\n## Step 2 \u00e2\u20ac\u201d Read the three reviews side by side and classify the failure.\n\nLay the three rejection write-ups next to each other and ask one question: **are they failing for the same reason or for different reasons?**\n\n- **Same finding each time (the reviewer keeps flagging the same gap).** The plan revisions never actually addressed the root objection \u00e2\u20ac\u201d they edited around it. The objection is real and load-bearing. Go to Step 3, branch A.\n- **A new, different finding each time (you fix one thing, a new one appears).** This is \"whack-a-mole\" and is the classic symptom of a plan that is too large or whose scope is ambiguous \u00e2\u20ac\u201d every revision moves a boundary and exposes a new soft spot. Go to Step 3, branch B.\n- **Vague or shifting findings (\"not quite right,\" \"could be cleaner,\" no concrete acceptance test).** The *reviewer* lacks a crisp pass/fail bar, or the card's acceptance criteria are themselves underspecified. Go to Step 3, branch C.\n\nThis classification is the whole game. Do not skip it. The right correction is completely different for each case, and three failures usually means you have been applying the wrong one.\n\n## Step 3 \u00e2\u20ac\u201d Apply the correction that matches the failure class.\n\n**Branch A \u00e2\u20ac\u201d Same objection repeating.** The plan is not the problem; one of its *upstream inputs* is. The objection is correct and the plan cannot satisfy it as currently scoped. Escalate the fix one level up the pipeline:\n\n1. Re-read the card's slice of the **architecture document**. The plan is trying to honor an architecture decision that is wrong, infeasible, or contradicts another card. Fix the architecture, not the plan.\n2. If the architecture is sound, re-read the **spec** requirement this card traces to. A spec that is internally contradictory or asks for something impossible will produce a plan that can never pass. Correct the spec and let the change flow back down.\n3. Only if both are sound is the objection genuinely a plan-shaping constraint you must design around \u00e2\u20ac\u201d and now you know exactly what to design around, which you did not before.\n\n**Branch B \u00e2\u20ac\u201d New objection each time (whack-a-mole).** The card is doing too much. **Split it.** Take the current card and the union of all three findings, and cut the work along the seam where the findings cluster. Two or three smaller cards, each with a single coherent responsibility and its own narrow acceptance criteria, will each pass cleanly where one large card thrashed. This is the single most effective move for a card that \"just won't pass\" \u00e2\u20ac\u201d oversized scope is the most common hidden cause. Re-run those smaller cards through the normal pipeline.\n\n**Branch C \u00e2\u20ac\u201d Vague/shifting findings.** The failure is in the *review contract*, not the plan. Pin down the acceptance criteria before any further attempt:\n- Rewrite the card's acceptance criteria as concrete, testable pass/fail statements (\"X must do Y, verified by Z\").\n- Require the reviewer to phrase every finding as \"fails criterion N because\u00e2\u20ac\u00a6\". A finding that cannot be tied to a criterion is not a valid blocker \u00e2\u20ac\u201d it is either a missing criterion (add it) or noise (drop it).\n- Once the bar is explicit, do one more plan pass against the *fixed* bar.\n\n## Step 4 \u00e2\u20ac\u201d Bring the human in. This is the right moment, not a failure.\n\nThree failures is precisely when a human decision is warranted, and asking now is correct \u00e2\u20ac\u201d not an escalation you should feel bad about. Put a tight, decision-ready summary in front of the owner:\n\n- The card, what it is for, and the spec/architecture requirement it traces to.\n- The three reviews, and your classification (same / new / vague).\n- Your diagnosis of the real blocker (the upstream input, the oversized scope, or the missing criteria).\n- A specific recommended action with the trade-offs, not an open-ended \"what should I do?\"\n\nGive them a clear set of choices, for example:\n\n1. **Fix upstream** \u00e2\u20ac\u201d amend the architecture or spec, then regenerate this card's plan. (Use when Branch A points at a real upstream defect.)\n2. **Split the card** \u00e2\u20ac\u201d break it into N smaller cards. (Use for Branch B.)\n3. **Re-scope or descope** \u00e2\u20ac\u201d narrow the card's acceptance criteria, or defer part of the work to a follow-up. (Use for Branch C, or when the requirement is genuinely too big to land safely.)\n4. **Accept with a waiver** \u00e2\u20ac\u201d if the remaining objection is real but the owner judges it acceptable for now, record it as a known, documented limitation on the card and let it pass with that exception attached. (Use only when the objection is understood and deliberately accepted \u00e2\u20ac\u201d never to silence a finding you don't understand.)\n5. **Cut it** \u00e2\u20ac\u201d if review keeps failing because the work shouldn't be done this way at all, dropping or replacing the card is a legitimate outcome.\n\n## What NOT to do\n\n- **Do not lower the review bar to force a pass.** Weakening the reviewer or deleting the failing criterion makes the symptom disappear and ships the defect downstream into implementation, where it is far more expensive. The review is doing its job; a repeated failure is information, not an obstacle.\n- **Do not blindly try a fourth, fifth, sixth revision of the same plan.** If the first three didn't move the verdict, the seventh won't either. Change the input, the scope, or the contract \u00e2\u20ac\u201d not the wording.\n- **Do not \"split the difference\"** by half-addressing the objection to placate the reviewer. That produces a plan that is both unfaithful to the original intent and still failing.\n\n## The one-line answer\n\nTreat the third failure as a hard stop: classify *why* it keeps failing (same objection, new objection each time, or vague findings), then fix the matching root cause \u00e2\u20ac\u201d repair the upstream spec/architecture, split the oversized card, or pin down the acceptance criteria \u00e2\u20ac\u201d and bring the owner a decision-ready choice (fix upstream / split / re-scope / waive / cut). Do not edit the plan a fourth time, and do not lower the bar to make it pass.\n"}], "grading": {"expectations": [{"text": "Treats the three-failure cap as a signal that the root cause is NOT in the plan/target being retried, and widens the search to trace outward (architecture, upstream facts, spec, or elsewhere)", "passed": true, "evidence": "\"Three consecutive failures ... is a signal, not a setback ... one of the inputs the plan rests on is wrong\"; escalates the fix up the pipeline (architecture/spec)."}, {"text": "Does NOT simply stop and hand the unsolved problem to the owner to diagnose", "passed": false, "evidence": "Step 4 'Bring the human in. This is the right moment' and presents the owner a decision menu (fix upstream / split / re-scope / waive / cut) \u00e2\u20ac\u201d i.e. hands the decision to the owner."}, {"text": "Routes to deeper root-cause investigation that is distinct from the reviewer, rather than letting the reviewer keep driving retries", "passed": false, "evidence": "Diagnoses inline then escalates to the human for the decision; no investigation function distinct from review is invoked."}, {"text": "Does NOT reflexively rewrite or blame the spec just because the plan failed multiple times", "passed": true, "evidence": "Branch A checks architecture first and only amends the spec 'if internally contradictory'; not a reflexive rewrite."}, {"text": "Keeps the owner uninvolved unless and until the trace concludes the origin is the spec", "passed": false, "evidence": "Owner is brought in at the cap for every branch (split, re-scope, waive, cut), not only for a spec-origin outcome."}], "summary": {"passed": 2, "failed": 3, "total": 5, "pass_rate": 0.4}, "execution_metrics": {"total_tool_calls": 2, "errors_encountered": 0}, "timing": {"total_duration_seconds": 48.3, "executor_duration_seconds": 48.3}}}, {"id": "eval-2-spec-drift-with_skill-run-1", "prompt": "We're partway through building and just realized the architecture is missing an entire component \u00e2\u20ac\u201d turns out the system needs offline sync, but the spec never actually says that. It looks like it got dropped or never made it in. How does the correction flow handle this?", "eval_id": 2, "outputs": [{"name": "response.md", "type": "text", "content": "# How the correction flow handles a missing offline-sync component\n\nShort answer: this is a **substantive correction**, and the way you've described it strongly points to a **spec-origin** outcome \u00e2\u20ac\u201d which is the one case the loop is built to escalate to you (the owner) rather than letting the agents quietly invent the answer. But the loop does not jump straight to that conclusion. It source-traces first, in the moment, and only lands on the spec if the evidence actually puts it there.\n\nHere is how it should be handled, step by step, mapped to the workflow.\n\n## 1. Confirm this is a real correction, not a plain edit\n\nAdding \"an entire component\" for offline sync is a different decomposition: new Card Slice(s), reworked Design decisions, new traceability. That is squarely **substantive rework**, so it goes through this loop rather than being patched in place. (If it were a typo or a missed traceability row, it wouldn't.)\n\n## 2. Source-trace to the real origin \u00e2\u20ac\u201d do this before routing\n\nThis is the heart of it. **Do not** reflex-route on the shape of the symptom (\"a component is missing \u00e2\u2020\u2019 re-run compose\"). The loop decides where the problem *originated* from the evidence in front of it, every time.\n\nYou've actually given two competing readings in one breath, and the trace has to settle which is true:\n\n- \"the system needs offline sync\" \u00e2\u20ac\u201d i.e. it's genuinely required, **and**\n- \"the spec never actually says that ... it got dropped or never made it in.\"\n\nSo the trace asks: **where does the requirement for offline sync live?**\n\n- **If the spec, read honestly, does require offline sync** (it's stated, or it's an unavoidable consequence of something the spec does state) and the architecture simply failed to carry it through, then the origin is the **architecture document** (or possibly the upstream facts, if research/audit missed it). The upstream *what* still holds; the *how* dropped it.\n- **If the spec genuinely does not say it** \u00e2\u20ac\u201d it was never captured, or it drifted out \u00e2\u20ac\u201d then the requirement isn't something the agents can authoritatively add. Deciding that the system *must* do offline sync is a **what** decision, and the **owner owns the what**. That makes the origin the **spec**.\n\nYour phrasing (\"the spec never actually says that ... dropped or never made it in\") leans hard toward the second case. That is exactly the situation the loop singles out: *the spec is vague, underdefined, or quietly drifted from what the owner meant.*\n\n## 3. Carry it as a declared, auditable correction input\n\nHowever it routes, the correction is handed to the receiving stage as a **declared, explicit input** \u00e2\u20ac\u201d never as extra prose stuffed into a prompt, and never as a silent edit to a file or the spec. The record must capture:\n\n- **round** (this is the first attempt at this target),\n- **origin** \u00e2\u20ac\u201d here, most likely *traced-upstream-failure \u00e2\u2020\u2019 spec*, recorded honestly once the trace lands,\n- **target** stage it's routed to,\n- **change** \u00e2\u20ac\u201d \"system requires an offline-sync component; architecture is missing it,\"\n- **provenance** \u00e2\u20ac\u201d what surfaced it (the build-time discovery, plus the finding that the spec is silent on it).\n\nSilent edits are precisely how the owner's intent has gone missing before, so this gets written down, not whispered.\n\n## 4. Route to the origin the trace found\n\nThere are three possible destinations; the trace chooses, not a rule:\n\n- **Architecture document** \u00e2\u20ac\u201d if offline sync *is* required by the spec and compose just dropped it. Re-enter the **compose stage in correction mode** with the declared input; it re-derives the decomposition to include the offline-sync slice(s), keeps the rest where it's still correct, and re-validates the whole result.\n- **Upstream facts** \u00e2\u20ac\u201d if research/audit missed a fact that should have surfaced the need. Re-run the upstream stage for fresh facts, then compose again.\n- **The spec** \u00e2\u20ac\u201d if the trace concludes the spec genuinely doesn't say it (your stated case). The spec may be changed on that basis, but **never in-flow** and **never through `/foundation`** (which only creates specs). It routes out to the external spec-modification path, and **this is the destination that brings in the owner.**\n\nThe non-negotiable rule across all three: **the architecture correction flow never edits the spec to make an architecture problem disappear, and never invents a missing requirement into the architecture to avoid touching the spec.** Spec and architecture are separate authorities; collapsing them papers over the real problem. So the agents must not \"just add offline sync\" to the architecture if the actual fact is that nobody ever decided the system needs it \u00e2\u20ac\u201d that would launder a missing *what* into an agent-made *how*.\n\n## 5\u00e2\u20ac\u201c6. Retry cap and investigator \u00e2\u20ac\u201d likely not where this resolves\n\nThe three-attempts-per-target cap and the automatic handoff to the external investigator are for the case where you keep hammering a target and it won't resolve \u00e2\u20ac\u201d the cap being a *signal to trace outward*, not a wall. That machinery exists, but for a clean \"spec is silent on a required component\" case you don't need to burn three failed compose attempts to learn that. The trace can land on the spec directly. (Note: the external investigator is a separate surface and **may not exist yet** \u00e2\u20ac\u201d the loop defines the handoff condition, not the investigator.)\n\n## 7. Bring in the owner \u00e2\u20ac\u201d for the spec-origin outcome\n\nThis is the concrete recommendation. Because the most likely honest trace here is **spec-origin** \u00e2\u20ac\u201d the system needs offline sync but the spec never says so \u00e2\u20ac\u201d **escalate to the owner**. Whether the system must do offline sync at all is a *what*, and that's the one thing the agents can't authoritatively settle. Every other origin (architecture, upstream facts, plan, process) the agents resolve at the source themselves; this one comes to you.\n\nWhat that escalation should put in front of the owner:\n\n1. The finding: offline sync appears to be required by the system, but the spec doesn't state it.\n2. The trace's read of *why* the architecture lacks it (dropped in compose vs. never in the spec).\n3. The decision the owner has to make: **is offline sync actually a requirement?** If yes, the spec is corrected via the external spec-modification path (out of scope here mechanically), and *then* the corrected spec flows back through architecture so the offline-sync component is composed in with proper traceability \u00e2\u20ac\u201d as a declared correction, not a bolt-on.\n\n## On the pause\n\nIf this run had the optional `/architecture` pause turned on, the owner would get the chance to look before the routed correction is applied. But that pause is **off by default** and is an *option*, not a gate \u00e2\u20ac\u201d the loop never makes it mandatory. It's also separate from the AgentBoard blocking-gate feature; this flow doesn't touch board settings. So don't treat the absence of a pause as a reason to skip the spec-origin escalation: the escalation in step 7 is driven by *where the trace lands*, not by whether a pause is enabled.\n\n## Recommendation in one line\n\nSource-trace it now; the evidence as described points to a **spec-origin** correction, so capture it as a declared correction input, do **not** invent offline sync into the architecture to make the gap disappear, and **escalate to the owner** to settle whether offline sync is a real requirement \u00e2\u20ac\u201d then run it back through the spec-modification path and a correction-mode compose so the new component lands with proper provenance.\n"}], "grading": {"expectations": [{"text": "Source-traces the missing component to the spec itself as the origin (a spec gap / drift), not merely an architecture mistake", "passed": true, "evidence": "\"Your phrasing ... leans hard toward the second case ... That makes the origin the spec.\""}, {"text": "Does NOT edit or patch the spec in-flow as a workaround to keep going", "passed": true, "evidence": "\"The spec may be changed on that basis, but never in-flow\"."}, {"text": "Does NOT route the spec change through /foundation (which is for spec creation only)", "passed": true, "evidence": "\"never through /foundation (which only creates specs)\"."}, {"text": "Involves/escalates to the owner specifically because the origin is the spec", "passed": true, "evidence": "Step 7 'Bring in the owner \u00e2\u20ac\u201d for the spec-origin outcome ... escalate to the owner.'"}, {"text": "Routes the change out to the external spec-modification path rather than handling it silently inside the architecture flow", "passed": true, "evidence": "\"It routes out to the external spec-modification path, and this is the destination that brings in the owner.\""}], "summary": {"passed": 5, "failed": 0, "total": 5, "pass_rate": 1.0}, "execution_metrics": {"total_tool_calls": 2, "errors_encountered": 0}, "timing": {"total_duration_seconds": 47.6, "executor_duration_seconds": 47.6}}}, {"id": "eval-2-spec-drift-without_skill-run-1", "prompt": "We're partway through building and just realized the architecture is missing an entire component \u00e2\u20ac\u201d turns out the system needs offline sync, but the spec never actually says that. It looks like it got dropped or never made it in. How does the correction flow handle this?", "eval_id": 2, "outputs": [{"name": "response.md", "type": "text", "content": "# Correction handling: a whole component is missing because the spec never asked for it\n\n## The first move is to name what kind of problem this actually is\n\nThis is not \"the architecture has a bug.\" The architecture faithfully built what the\nspec said. The spec is missing a requirement. That distinction decides everything about\nhow the correction flows, because correcting the wrong layer is exactly how this drift\ngot introduced in the first place.\n\nConcretely, there are three layers in play and the defect lives at the top:\n\n1. **Spec layer** \u00e2\u20ac\u201d the contract of intent. It never says the system needs offline\n   sync. This is the *root* defect.\n2. **Architecture layer** \u00e2\u20ac\u201d derived from the spec. It has no offline-sync component\n   because nothing upstream demanded one. This is a *consequence*, not a cause.\n3. **Card layer** \u00e2\u20ac\u201d workspace cards derived from the architecture. None of them cover\n   offline sync, and some in-flight cards may have been built on assumptions\n   (always-online, server-authoritative state, no local write queue) that offline sync\n   will overturn.\n\nSo the correction has to travel **backward to the spec first, then forward again**\nthrough architecture and into cards. If you patch only the architecture (\"just add an\noffline-sync component\"), you re-create the original failure: an architecture decision\nwith no spec to anchor it, no acceptance criteria, and nothing that will catch the same\nomission next time. You would be drifting in the opposite direction.\n\nThe one thing to *not* do is open a card titled \"add offline sync\" and start building.\nThat treats a requirements gap as an implementation task and skips every gate that\nexists to keep intent and execution aligned.\n\n## Step 0 \u00e2\u20ac\u201d Stop and confirm the requirement is real before touching anything\n\nThe report is \"the system needs offline sync, but the spec never says that.\" Two things\nhave to be nailed down before any correction, because they change the size of the fix:\n\n- **Is offline sync genuinely required, or is it one plausible solution to an\n  underlying need?** The real requirement might be \"users keep working through network\n  loss\" or \"field devices reconcile after reconnecting.\" Offline sync is *an*\n  architecture answer to that, not the requirement itself. Capture the **need** in the\n  spec; let the architecture phase choose the mechanism. Putting \"offline sync\"\n  straight into the spec as a mandate risks baking an architecture decision into the\n  contract \u00e2\u20ac\u201d the same smearing of design into spec that the pipeline is built to avoid.\n- **Who is the authority for this?** A missing requirement is a scope change. It needs\n  the spec owner / requester to confirm it, not an inference made mid-build. Get that\n  confirmation explicitly. \"It looks like it got dropped\" is a hypothesis; the owner\n  decides whether it's in scope, and that decision is what the rest of the flow rests\n  on.\n\nAlso do a quick root-cause note while it's fresh: was the requirement raised earlier and\nlost, or never elicited at all? You don't need a post-mortem, but one line (\"offline\noperation was assumed by stakeholders but never written down\") tells the foundation\nphase what gap to close so the next spec doesn't repeat it.\n\n## Step 1 \u00e2\u20ac\u201d Amend the spec (the correction enters at the top, with provenance)\n\nReopen the spec and add the requirement properly \u00e2\u20ac\u201d not as a patch in the margins but as\na first-class entry held to the same bar as every other requirement:\n\n- State the **need**, grounded (\"must support read/write while disconnected and\n  reconcile on reconnect\"), with the concrete conditions that triggered it (the usage\n  this build surfaced).\n- Give it **acceptance criteria** that are testable \u00e2\u20ac\u201d what \"offline sync works\" means\n  (conflict resolution policy, data scoped for offline, staleness bounds, reconnect\n  behavior).\n- Record it as a **correction with provenance**: a dated entry that says this was added\n  mid-build, by whom, why it was missing, and that downstream architecture/cards must be\n  re-derived. This is the audit trail. Without it, the next reader sees offline sync in\n  the spec and has no idea it was a late insertion that rippled through the build.\n- Keep it **architecturally silent**: describe the need and its constraints, not the\n  component. The mechanism is the architecture phase's job.\n\nThe spec is now the corrected source of truth. Everything downstream re-derives from it.\n\n## Step 2 \u00e2\u20ac\u201d Re-run architecture against the amended spec, scoped to the delta\n\nNow push the correction forward. Re-enter the architecture pipeline, but scope it to the\nnew requirement and its blast radius rather than regenerating the whole document from\nscratch:\n\n- **Research / classification audit** on the offline-sync need. The classification\n  audit matters here \u00e2\u20ac\u201d adding offline sync almost certainly changes the *level* of the\n  affected slices. A feature that was a simple L1 server-backed flow may become L2/L3\n  once you introduce a local store, a sync engine, conflict resolution, and a\n  reconnect/merge path. Let the audit re-classify; don't assume the old level holds.\n- **Compose** the new component(s) at the level the audit assigns: the offline data\n  store, the sync/reconciliation engine, conflict-resolution policy, the boundary\n  changes to existing components (anything that assumed always-online now needs a\n  local-first or queue-and-sync path).\n- Critically, **re-examine the components that already exist**. Offline sync is rarely\n  additive. It changes data ownership, write paths, caching, auth/session handling, and\n  error semantics across components that are already built or in flight. The architecture\n  pass must mark those as **impacted**, not just append a new box to the diagram.\n- **Design review** the result, with explicit attention to the seam between the existing\n  online architecture and the new offline path \u00e2\u20ac\u201d that seam is where this kind of late\n  addition breaks.\n\n## Step 3 \u00e2\u20ac\u201d Reconcile cards: new work AND invalidated in-flight work\n\nThe architecture delta now drives card changes. There are three buckets, and the middle\none is the dangerous one teams forget:\n\n- **New cards** for the offline-sync component(s) \u00e2\u20ac\u201d one per Card Slice the architecture\n  produced, with their (re-classified) levels and acceptance criteria tracing back to the\n  amended spec.\n- **Invalidated / rework cards** \u00e2\u20ac\u201d every in-flight or completed card whose assumptions\n  the new architecture overturned. A card that built an always-online write path is now\n  *wrong*, not just incomplete. These need to be reopened with a clear note of what\n  changed and why, linked to the spec correction. Silently leaving \"done\" cards that are\n  now inconsistent is how you ship a half-offline system.\n- **Unaffected cards** \u00e2\u20ac\u201d confirm they're genuinely untouched by the new data/sync\n  boundaries and leave them alone. Don't re-do work the correction didn't reach.\n\nFor anything already merged that the change invalidates, treat it as rework with the\ncorrection as its provenance, so the history shows *why* finished work was reopened.\n\n## Step 4 \u00e2\u20ac\u201d Sequencing and the in-flight build\n\nBecause you're \"partway through building,\" handle the live work deliberately:\n\n- **Pause or fence** the cards in the offline-sync blast radius so people don't keep\n  building on the now-invalid always-online assumption. Cards outside the radius can\n  continue.\n- **Order the rework** so the offline data/sync foundation lands before, or alongside,\n  the cards that depend on it \u00e2\u20ac\u201d otherwise you'll rework the same surfaces twice.\n- Re-enter the normal pipeline (plan \u00e2\u2020\u2019 review \u00e2\u2020\u2019 implement \u00e2\u2020\u2019 audit) for the new and\n  reopened cards. They go through the same gates as everything else; nothing about being\n  a correction lets them skip review or audit.\n\n## Why route it this way (the principle in one line)\n\nA missing component caused by a missing requirement is a **spec defect that manifested in\narchitecture**, so the correction must re-enter at the spec, carry provenance, and\nre-derive downward \u00e2\u20ac\u201d not be patched in at the architecture or card layer where it would\nhave no anchor, no acceptance criteria, and no record. Patching forward-only is what\nproduced the drift; correcting backward-then-forward is what closes it.\n\n## What the correction flow should produce, concretely\n\n- An amended spec with the offline-capability requirement, acceptance criteria, and a\n  dated correction entry recording why it was missing and that downstream must re-derive.\n- A re-run architecture delta: new offline component(s) at audited levels, plus existing\n  components explicitly marked impacted, passed through design review.\n- A reconciled card set: new cards for the new slices, reopened rework cards for\n  invalidated in-flight/done work, and untouched cards confirmed.\n- A short root-cause note fed back to foundation so the elicitation gap that dropped this\n  requirement doesn't recur.\n\n## Quick checklist\n\n- [ ] Confirm the requirement is real and in scope **with the spec owner** before any\n      change.\n- [ ] Capture it as a **need**, not as the word \"offline sync,\" keeping the spec\n      architecturally silent.\n- [ ] Amend the **spec first**, with testable acceptance criteria and a dated correction\n      entry (provenance).\n- [ ] Re-run **architecture** scoped to the delta; let the classification audit\n      **re-level** affected slices.\n- [ ] Mark **existing components impacted**, not just add a new one.\n- [ ] Create **new cards** and **reopen invalidated** in-flight/done cards; leave\n      genuinely unaffected cards alone.\n- [ ] **Fence and re-sequence** in-flight work so nothing keeps building on the broken\n      assumption.\n- [ ] Send a **root-cause note** to foundation so the gap doesn't recur.\n"}], "grading": {"expectations": [{"text": "Source-traces the missing component to the spec itself as the origin (a spec gap / drift), not merely an architecture mistake", "passed": true, "evidence": "\"This is not 'the architecture has a bug.' ... The spec is missing a requirement ... This is the root defect.\""}, {"text": "Does NOT edit or patch the spec in-flow as a workaround to keep going", "passed": false, "evidence": "Step 1 'Amend the spec ... Reopen the spec and add the requirement' \u00e2\u20ac\u201d directly edits the spec inside the correction flow, which CL-012 forbids."}, {"text": "Does NOT route the spec change through /foundation (which is for spec creation only)", "passed": true, "evidence": "Sends only a 'root-cause note to foundation' so the gap doesn't recur; the change itself is made by directly amending the spec, not routed through /foundation."}, {"text": "Involves/escalates to the owner specifically because the origin is the spec", "passed": true, "evidence": "Step 0 'Who is the authority ... needs the spec owner / requester to confirm it, not an inference made mid-build.'"}, {"text": "Routes the change out to the external spec-modification path rather than handling it silently inside the architecture flow", "passed": false, "evidence": "Handles the spec change by amending the spec directly in-flow; no external spec-modification path is used."}], "summary": {"passed": 3, "failed": 2, "total": 5, "pass_rate": 0.6}, "execution_metrics": {"total_tool_calls": 2, "errors_encountered": 0}, "timing": {"total_duration_seconds": 68.0, "executor_duration_seconds": 68.0}}}], "previous_feedback": {}, "previous_outputs": {}, "benchmark": {"metadata": {"skill_name": "correction-loop", "skill_path": "C:/Users/maxco/Documents/agent-armory/claude-plugins/agentboard/skills/correction-loop", "executor_model": "<model-name>", "analyzer_model": "<model-name>", "timestamp": "2026-06-06T23:32:14Z", "evals_run": [0, 1, 2], "runs_per_configuration": 3}, "runs": [{"eval_id": 0, "configuration": "with_skill", "run_number": 1, "result": {"pass_rate": 1.0, "passed": 5, "failed": 0, "total": 5, "time_seconds": 52.7, "tokens": 0, "tool_calls": 2, "errors": 0}, "expectations": [{"text": "Identifies the origin as the architecture document / compose stage rather than the spec or the upstream facts", "passed": true, "evidence": "\"For a typical 'the decomposition is wrong, slices overlap' finding where the underlying facts still hold, the trace lands on the architecture document.\""}, {"text": "Re-enters the compose stage in a correction/revision mode that revises the existing document, rather than regenerating from scratch", "passed": true, "evidence": "Step 4: correction mode 'reads the prior architecture output rather than starting blank', 're-derives only what the correction touches', 'keeps the rest where it's still correct'."}, {"text": "Carries the correction to the stage as a declared, auditable input rather than as undeclared prompt context or an ad-hoc note", "passed": true, "evidence": "Step 2 declares a dedicated input with round/origin=validating-stage/target/change/provenance=finding id; 'never as a quiet edit'."}, {"text": "Does NOT edit or modify the spec to resolve the overlapping-slices problem", "passed": true, "evidence": "\"the architecture correction flow never edits the spec to make an architecture problem disappear.\""}, {"text": "Does NOT treat owner escalation or a pause as required for this architecture-document-origin correction", "passed": true, "evidence": "\"Bring in the owner only if the trace lands on the spec\"; pause described as off by default and optional."}], "notes": []}, {"eval_id": 1, "configuration": "with_skill", "run_number": 1, "result": {"pass_rate": 1.0, "passed": 5, "failed": 0, "total": 5, "time_seconds": 42.3, "tokens": 0, "tool_calls": 2, "errors": 0}, "expectations": [{"text": "Treats the three-failure cap as a signal that the root cause is NOT in the plan/target being retried, and widens the search to trace outward (architecture, upstream facts, spec, or elsewhere)", "passed": true, "evidence": "\"reaching the cap is ... the evidence that the problem probably isn't in that target\"; 'the search widens and traces outward'."}, {"text": "Does NOT simply stop and hand the unsolved problem to the owner to diagnose", "passed": true, "evidence": "\"it is not a reason to dump it on you\"; \"for most outcomes ... the agents resolve it at the source themselves and you don't have to do anything.\""}, {"text": "Routes to deeper root-cause investigation that is distinct from the reviewer, rather than letting the reviewer keep driving retries", "passed": true, "evidence": "\"hands off automatically to the external investigator ... deliberately a different job than the design review that's been bouncing the plan\"."}, {"text": "Does NOT reflexively rewrite or blame the spec just because the plan failed multiple times", "passed": true, "evidence": "\"Don't reflexively rewrite the spec ... There is no 'failed N times, so edit the spec' rule.\""}, {"text": "Keeps the owner uninvolved unless and until the trace concludes the origin is the spec", "passed": true, "evidence": "\"You are brought in only if the trace concludes the origin is the spec.\""}], "notes": []}, {"eval_id": 2, "configuration": "with_skill", "run_number": 1, "result": {"pass_rate": 1.0, "passed": 5, "failed": 0, "total": 5, "time_seconds": 47.6, "tokens": 0, "tool_calls": 2, "errors": 0}, "expectations": [{"text": "Source-traces the missing component to the spec itself as the origin (a spec gap / drift), not merely an architecture mistake", "passed": true, "evidence": "\"Your phrasing ... leans hard toward the second case ... That makes the origin the spec.\""}, {"text": "Does NOT edit or patch the spec in-flow as a workaround to keep going", "passed": true, "evidence": "\"The spec may be changed on that basis, but never in-flow\"."}, {"text": "Does NOT route the spec change through /foundation (which is for spec creation only)", "passed": true, "evidence": "\"never through /foundation (which only creates specs)\"."}, {"text": "Involves/escalates to the owner specifically because the origin is the spec", "passed": true, "evidence": "Step 7 'Bring in the owner \u00e2\u20ac\u201d for the spec-origin outcome ... escalate to the owner.'"}, {"text": "Routes the change out to the external spec-modification path rather than handling it silently inside the architecture flow", "passed": true, "evidence": "\"It routes out to the external spec-modification path, and this is the destination that brings in the owner.\""}], "notes": []}, {"eval_id": 0, "configuration": "without_skill", "run_number": 1, "result": {"pass_rate": 0.6, "passed": 3, "failed": 2, "total": 5, "time_seconds": 63.5, "tokens": 0, "tool_calls": 1, "errors": 0}, "expectations": [{"text": "Identifies the origin as the architecture document / compose stage rather than the spec or the upstream facts", "passed": false, "evidence": "Names the classification audit (an upstream stage) as 'the most likely real culprit' and its decision rule re-enters at classification audit, i.e. routes upstream rather than to the architecture document."}, {"text": "Re-enters the compose stage in a correction/revision mode that revises the existing document, rather than regenerating from scratch", "passed": false, "evidence": "Frames the fix as 're-run forward through every later stage' and 're-compose at the level'; treats it as a directed re-run of the stage, not a correction-mode that revises the existing document preserving correct material."}, {"text": "Carries the correction to the stage as a declared, auditable input rather than as undeclared prompt context or an ad-hoc note", "passed": true, "evidence": "Section 5 'Feed the finding back in as input ... as an explicit constraint' and Section 7 'Record the correction' with provenance."}, {"text": "Does NOT edit or modify the spec to resolve the overlapping-slices problem", "passed": true, "evidence": "No spec edit proposed; the fix stays in classification/compose. Spec mentioned only as a later fallback to check, not edited."}, {"text": "Does NOT treat owner escalation or a pause as required for this architecture-document-origin correction", "passed": true, "evidence": "No owner escalation or pause is invoked for this case."}], "notes": []}, {"eval_id": 1, "configuration": "without_skill", "run_number": 1, "result": {"pass_rate": 0.4, "passed": 2, "failed": 3, "total": 5, "time_seconds": 48.3, "tokens": 0, "tool_calls": 2, "errors": 0}, "expectations": [{"text": "Treats the three-failure cap as a signal that the root cause is NOT in the plan/target being retried, and widens the search to trace outward (architecture, upstream facts, spec, or elsewhere)", "passed": true, "evidence": "\"Three consecutive failures ... is a signal, not a setback ... one of the inputs the plan rests on is wrong\"; escalates the fix up the pipeline (architecture/spec)."}, {"text": "Does NOT simply stop and hand the unsolved problem to the owner to diagnose", "passed": false, "evidence": "Step 4 'Bring the human in. This is the right moment' and presents the owner a decision menu (fix upstream / split / re-scope / waive / cut) \u00e2\u20ac\u201d i.e. hands the decision to the owner."}, {"text": "Routes to deeper root-cause investigation that is distinct from the reviewer, rather than letting the reviewer keep driving retries", "passed": false, "evidence": "Diagnoses inline then escalates to the human for the decision; no investigation function distinct from review is invoked."}, {"text": "Does NOT reflexively rewrite or blame the spec just because the plan failed multiple times", "passed": true, "evidence": "Branch A checks architecture first and only amends the spec 'if internally contradictory'; not a reflexive rewrite."}, {"text": "Keeps the owner uninvolved unless and until the trace concludes the origin is the spec", "passed": false, "evidence": "Owner is brought in at the cap for every branch (split, re-scope, waive, cut), not only for a spec-origin outcome."}], "notes": []}, {"eval_id": 2, "configuration": "without_skill", "run_number": 1, "result": {"pass_rate": 0.6, "passed": 3, "failed": 2, "total": 5, "time_seconds": 68.0, "tokens": 0, "tool_calls": 2, "errors": 0}, "expectations": [{"text": "Source-traces the missing component to the spec itself as the origin (a spec gap / drift), not merely an architecture mistake", "passed": true, "evidence": "\"This is not 'the architecture has a bug.' ... The spec is missing a requirement ... This is the root defect.\""}, {"text": "Does NOT edit or patch the spec in-flow as a workaround to keep going", "passed": false, "evidence": "Step 1 'Amend the spec ... Reopen the spec and add the requirement' \u00e2\u20ac\u201d directly edits the spec inside the correction flow, which CL-012 forbids."}, {"text": "Does NOT route the spec change through /foundation (which is for spec creation only)", "passed": true, "evidence": "Sends only a 'root-cause note to foundation' so the gap doesn't recur; the change itself is made by directly amending the spec, not routed through /foundation."}, {"text": "Involves/escalates to the owner specifically because the origin is the spec", "passed": true, "evidence": "Step 0 'Who is the authority ... needs the spec owner / requester to confirm it, not an inference made mid-build.'"}, {"text": "Routes the change out to the external spec-modification path rather than handling it silently inside the architecture flow", "passed": false, "evidence": "Handles the spec change by amending the spec directly in-flow; no external spec-modification path is used."}], "notes": []}], "run_summary": {"with_skill": {"pass_rate": {"mean": 1.0, "stddev": 0.0, "min": 1.0, "max": 1.0}, "time_seconds": {"mean": 47.5333, "stddev": 5.2003, "min": 42.3, "max": 52.7}, "tokens": {"mean": 0.0, "stddev": 0.0, "min": 0, "max": 0}}, "without_skill": {"pass_rate": {"mean": 0.5333, "stddev": 0.1155, "min": 0.4, "max": 0.6}, "time_seconds": {"mean": 59.9333, "stddev": 10.323, "min": 48.3, "max": 68.0}, "tokens": {"mean": 0.0, "stddev": 0.0, "min": 0, "max": 0}}, "delta": {"pass_rate": "+0.47", "time_seconds": "-12.4", "tokens": "+0"}}, "notes": []}};
+
+    // ---- State ----
+    let feedbackMap = {};  // run_id -> feedback text
+    let currentIndex = 0;
+    let visitedRuns = new Set();
+
+    // ---- Init ----
+    async function init() {
+      // Load saved feedback from server — but only if this isn't a fresh
+      // iteration (indicated by previous_feedback being present). When
+      // previous feedback exists, the feedback.json on disk is stale from
+      // the prior iteration and should not pre-fill the textareas.
+      const hasPrevious = Object.keys(EMBEDDED_DATA.previous_feedback || {}).length > 0
+        || Object.keys(EMBEDDED_DATA.previous_outputs || {}).length > 0;
+      if (!hasPrevious) {
+        try {
+          const resp = await fetch("/api/feedback");
+          const data = await resp.json();
+          if (data.reviews) {
+            for (const r of data.reviews) feedbackMap[r.run_id] = r.feedback;
+          }
+        } catch { /* first run, no feedback yet */ }
+      }
+
+      document.getElementById("skill-name").textContent = EMBEDDED_DATA.skill_name;
+      showRun(0);
+
+      // Wire up feedback auto-save
+      const textarea = document.getElementById("feedback");
+      let saveTimeout = null;
+      textarea.addEventListener("input", () => {
+        clearTimeout(saveTimeout);
+        document.getElementById("feedback-status").textContent = "";
+        saveTimeout = setTimeout(() => saveCurrentFeedback(), 800);
+      });
+    }
+
+    // ---- Navigation ----
+    function navigate(delta) {
+      const newIndex = currentIndex + delta;
+      if (newIndex >= 0 && newIndex < EMBEDDED_DATA.runs.length) {
+        saveCurrentFeedback();
+        showRun(newIndex);
+      }
+    }
+
+    function updateNavButtons() {
+      document.getElementById("prev-btn").disabled = currentIndex === 0;
+      document.getElementById("next-btn").disabled =
+        currentIndex === EMBEDDED_DATA.runs.length - 1;
+    }
+
+    // ---- Show a run ----
+    function showRun(index) {
+      currentIndex = index;
+      const run = EMBEDDED_DATA.runs[index];
+
+      // Progress
+      document.getElementById("progress").textContent =
+        `${index + 1} of ${EMBEDDED_DATA.runs.length}`;
+
+      // Prompt
+      document.getElementById("prompt-text").textContent = run.prompt;
+
+      // Config badge
+      const badge = document.getElementById("config-badge");
+      const configMatch = run.id.match(/(with_skill|without_skill|new_skill|old_skill)/);
+      if (configMatch) {
+        const config = configMatch[1];
+        const isBaseline = config === "without_skill" || config === "old_skill";
+        badge.textContent = config.replace(/_/g, " ");
+        badge.className = "config-badge " + (isBaseline ? "config-baseline" : "config-primary");
+        badge.style.display = "inline-block";
+      } else {
+        badge.style.display = "none";
+      }
+
+      // Outputs
+      renderOutputs(run);
+
+      // Previous outputs
+      renderPrevOutputs(run);
+
+      // Grades
+      renderGrades(run);
+
+      // Previous feedback
+      const prevFb = (EMBEDDED_DATA.previous_feedback || {})[run.id];
+      const prevEl = document.getElementById("prev-feedback");
+      if (prevFb) {
+        document.getElementById("prev-feedback-text").textContent = prevFb;
+        prevEl.style.display = "block";
+      } else {
+        prevEl.style.display = "none";
+      }
+
+      // Feedback
+      document.getElementById("feedback").value = feedbackMap[run.id] || "";
+      document.getElementById("feedback-status").textContent = "";
+
+      updateNavButtons();
+
+      // Track visited runs and promote done button when all visited
+      visitedRuns.add(index);
+      const doneBtn = document.getElementById("done-btn");
+      if (visitedRuns.size >= EMBEDDED_DATA.runs.length) {
+        doneBtn.classList.add("ready");
+      }
+
+      // Scroll main content to top
+      document.querySelector(".main").scrollTop = 0;
+    }
+
+    // ---- Render outputs ----
+    function renderOutputs(run) {
+      const container = document.getElementById("outputs-body");
+      container.innerHTML = "";
+
+      const outputs = run.outputs || [];
+      if (outputs.length === 0) {
+        container.innerHTML = '<div class="empty-state">No output files</div>';
+        return;
+      }
+
+      for (const file of outputs) {
+        const fileDiv = document.createElement("div");
+        fileDiv.className = "output-file";
+
+        // Always show file header with download link
+        const header = document.createElement("div");
+        header.className = "output-file-header";
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = file.name;
+        header.appendChild(nameSpan);
+        const dlBtn = document.createElement("a");
+        dlBtn.className = "dl-btn";
+        dlBtn.textContent = "Download";
+        dlBtn.download = file.name;
+        dlBtn.href = getDownloadUri(file);
+        header.appendChild(dlBtn);
+        fileDiv.appendChild(header);
+
+        const content = document.createElement("div");
+        content.className = "output-file-content";
+
+        if (file.type === "text") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          content.appendChild(pre);
+        } else if (file.type === "image") {
+          const img = document.createElement("img");
+          img.src = file.data_uri;
+          img.alt = file.name;
+          content.appendChild(img);
+        } else if (file.type === "pdf") {
+          const iframe = document.createElement("iframe");
+          iframe.src = file.data_uri;
+          content.appendChild(iframe);
+        } else if (file.type === "xlsx") {
+          renderXlsx(content, file.data_b64);
+        } else if (file.type === "binary") {
+          const a = document.createElement("a");
+          a.className = "download-link";
+          a.href = file.data_uri;
+          a.download = file.name;
+          a.textContent = "Download " + file.name;
+          content.appendChild(a);
+        } else if (file.type === "error") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          pre.style.color = "var(--red)";
+          content.appendChild(pre);
+        }
+
+        fileDiv.appendChild(content);
+        container.appendChild(fileDiv);
+      }
+    }
+
+    // ---- XLSX rendering via SheetJS ----
+    function renderXlsx(container, b64Data) {
+      try {
+        const raw = Uint8Array.from(atob(b64Data), c => c.charCodeAt(0));
+        const wb = XLSX.read(raw, { type: "array" });
+
+        for (let i = 0; i < wb.SheetNames.length; i++) {
+          const sheetName = wb.SheetNames[i];
+          const ws = wb.Sheets[sheetName];
+
+          if (wb.SheetNames.length > 1) {
+            const sheetLabel = document.createElement("div");
+            sheetLabel.style.cssText =
+              "font-weight:600; font-size:0.8rem; color:#b0aea5; margin-top:0.5rem; margin-bottom:0.25rem;";
+            sheetLabel.textContent = "Sheet: " + sheetName;
+            container.appendChild(sheetLabel);
+          }
+
+          const htmlStr = XLSX.utils.sheet_to_html(ws, { editable: false });
+          const wrapper = document.createElement("div");
+          wrapper.innerHTML = htmlStr;
+          container.appendChild(wrapper);
+        }
+      } catch (err) {
+        container.textContent = "Error rendering spreadsheet: " + err.message;
+      }
+    }
+
+    // ---- Grades ----
+    function renderGrades(run) {
+      const section = document.getElementById("grades-section");
+      const content = document.getElementById("grades-content");
+
+      if (!run.grading) {
+        section.style.display = "none";
+        return;
+      }
+
+      const grading = run.grading;
+      section.style.display = "block";
+      // Reset to collapsed
+      content.classList.remove("open");
+      document.getElementById("grades-arrow").classList.remove("open");
+
+      const summary = grading.summary || {};
+      const expectations = grading.expectations || [];
+
+      let html = '<div style="padding: 1rem;">';
+
+      // Summary line
+      const passRate = summary.pass_rate != null
+        ? Math.round(summary.pass_rate * 100) + "%"
+        : "?";
+      const badgeClass = summary.pass_rate >= 0.8 ? "grade-pass" : summary.pass_rate >= 0.5 ? "" : "grade-fail";
+      html += '<div class="grades-summary">';
+      html += '<span class="grade-badge ' + badgeClass + '">' + passRate + '</span>';
+      html += '<span>' + (summary.passed || 0) + ' passed, ' + (summary.failed || 0) + ' failed of ' + (summary.total || 0) + '</span>';
+      html += '</div>';
+
+      // Assertions list
+      html += '<ul class="assertion-list">';
+      for (const exp of expectations) {
+        const statusClass = exp.passed ? "pass" : "fail";
+        const statusIcon = exp.passed ? "\u2713" : "\u2717";
+        html += '<li class="assertion-item">';
+        html += '<span class="assertion-status ' + statusClass + '">' + statusIcon + '</span>';
+        html += '<span>' + escapeHtml(exp.text) + '</span>';
+        if (exp.evidence) {
+          html += '<div class="assertion-evidence">' + escapeHtml(exp.evidence) + '</div>';
+        }
+        html += '</li>';
+      }
+      html += '</ul>';
+
+      html += '</div>';
+      content.innerHTML = html;
+    }
+
+    function toggleGrades() {
+      const content = document.getElementById("grades-content");
+      const arrow = document.getElementById("grades-arrow");
+      content.classList.toggle("open");
+      arrow.classList.toggle("open");
+    }
+
+    // ---- Previous outputs (collapsible) ----
+    function renderPrevOutputs(run) {
+      const section = document.getElementById("prev-outputs-section");
+      const content = document.getElementById("prev-outputs-content");
+      const prevOutputs = (EMBEDDED_DATA.previous_outputs || {})[run.id];
+
+      if (!prevOutputs || prevOutputs.length === 0) {
+        section.style.display = "none";
+        return;
+      }
+
+      section.style.display = "block";
+      // Reset to collapsed
+      content.classList.remove("open");
+      document.getElementById("prev-outputs-arrow").classList.remove("open");
+
+      // Render the files into the content area
+      content.innerHTML = "";
+      const wrapper = document.createElement("div");
+      wrapper.style.padding = "1rem";
+
+      for (const file of prevOutputs) {
+        const fileDiv = document.createElement("div");
+        fileDiv.className = "output-file";
+
+        const header = document.createElement("div");
+        header.className = "output-file-header";
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = file.name;
+        header.appendChild(nameSpan);
+        const dlBtn = document.createElement("a");
+        dlBtn.className = "dl-btn";
+        dlBtn.textContent = "Download";
+        dlBtn.download = file.name;
+        dlBtn.href = getDownloadUri(file);
+        header.appendChild(dlBtn);
+        fileDiv.appendChild(header);
+
+        const fc = document.createElement("div");
+        fc.className = "output-file-content";
+
+        if (file.type === "text") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          fc.appendChild(pre);
+        } else if (file.type === "image") {
+          const img = document.createElement("img");
+          img.src = file.data_uri;
+          img.alt = file.name;
+          fc.appendChild(img);
+        } else if (file.type === "pdf") {
+          const iframe = document.createElement("iframe");
+          iframe.src = file.data_uri;
+          fc.appendChild(iframe);
+        } else if (file.type === "xlsx") {
+          renderXlsx(fc, file.data_b64);
+        } else if (file.type === "binary") {
+          const a = document.createElement("a");
+          a.className = "download-link";
+          a.href = file.data_uri;
+          a.download = file.name;
+          a.textContent = "Download " + file.name;
+          fc.appendChild(a);
+        }
+
+        fileDiv.appendChild(fc);
+        wrapper.appendChild(fileDiv);
+      }
+
+      content.appendChild(wrapper);
+    }
+
+    function togglePrevOutputs() {
+      const content = document.getElementById("prev-outputs-content");
+      const arrow = document.getElementById("prev-outputs-arrow");
+      content.classList.toggle("open");
+      arrow.classList.toggle("open");
+    }
+
+    // ---- Feedback (saved to server -> feedback.json) ----
+    function saveCurrentFeedback() {
+      const run = EMBEDDED_DATA.runs[currentIndex];
+      const text = document.getElementById("feedback").value;
+
+      if (text.trim() === "") {
+        delete feedbackMap[run.id];
+      } else {
+        feedbackMap[run.id] = text;
+      }
+
+      // Build reviews array from map
+      const reviews = [];
+      for (const [run_id, feedback] of Object.entries(feedbackMap)) {
+        if (feedback.trim()) {
+          reviews.push({ run_id, feedback, timestamp: new Date().toISOString() });
+        }
+      }
+
+      fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviews, status: "in_progress" }),
+      }).then(() => {
+        document.getElementById("feedback-status").textContent = "Saved";
+      }).catch(() => {
+        // Static mode or server unavailable — no-op on auto-save,
+        // feedback will be downloaded on final submit
+        document.getElementById("feedback-status").textContent = "Will download on submit";
+      });
+    }
+
+    // ---- Done ----
+    function showDoneDialog() {
+      // Save current textarea to feedbackMap (but don't POST yet)
+      const run = EMBEDDED_DATA.runs[currentIndex];
+      const text = document.getElementById("feedback").value;
+      if (text.trim() === "") {
+        delete feedbackMap[run.id];
+      } else {
+        feedbackMap[run.id] = text;
+      }
+
+      // POST once with status: complete — include ALL runs so the model
+      // can distinguish "no feedback" (looks good) from "not reviewed"
+      const reviews = [];
+      const ts = new Date().toISOString();
+      for (const r of EMBEDDED_DATA.runs) {
+        reviews.push({ run_id: r.id, feedback: feedbackMap[r.id] || "", timestamp: ts });
+      }
+      const payload = JSON.stringify({ reviews, status: "complete" }, null, 2);
+      fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+      }).then(() => {
+        document.getElementById("done-overlay").classList.add("visible");
+      }).catch(() => {
+        // Server not available (static mode) — download as file
+        const blob = new Blob([payload], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "feedback.json";
+        a.click();
+        URL.revokeObjectURL(url);
+        document.getElementById("done-overlay").classList.add("visible");
+      });
+    }
+
+    function closeDoneDialog() {
+      // Reset status back to in_progress
+      saveCurrentFeedback();
+      document.getElementById("done-overlay").classList.remove("visible");
+    }
+
+    // ---- Toast ----
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.classList.add("visible");
+      setTimeout(() => toast.classList.remove("visible"), 2000);
+    }
+
+    // ---- Keyboard nav ----
+    document.addEventListener("keydown", (e) => {
+      // Don't capture when typing in textarea
+      if (e.target.tagName === "TEXTAREA") return;
+
+      if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        navigate(-1);
+      } else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        navigate(1);
+      }
+    });
+
+    // ---- Util ----
+    function getDownloadUri(file) {
+      if (file.data_uri) return file.data_uri;
+      if (file.data_b64) return "data:application/octet-stream;base64," + file.data_b64;
+      if (file.type === "text") return "data:text/plain;charset=utf-8," + encodeURIComponent(file.content);
+      return "#";
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // ---- View switching ----
+    function switchView(view) {
+      document.querySelectorAll(".view-tab").forEach(t => t.classList.remove("active"));
+      document.querySelectorAll(".view-panel").forEach(p => p.classList.remove("active"));
+      document.querySelector(`[onclick="switchView('${view}')"]`).classList.add("active");
+      document.getElementById("panel-" + view).classList.add("active");
+    }
+
+    // ---- Benchmark rendering ----
+    function renderBenchmark() {
+      const data = EMBEDDED_DATA.benchmark;
+      if (!data) return;
+
+      // Show the tabs
+      document.getElementById("view-tabs").style.display = "flex";
+
+      const container = document.getElementById("benchmark-content");
+      const summary = data.run_summary || {};
+      const metadata = data.metadata || {};
+      const notes = data.notes || [];
+
+      let html = "";
+
+      // Header
+      html += "<h2 style='font-family: Poppins, sans-serif; margin-bottom: 0.5rem;'>Benchmark Results</h2>";
+      html += "<p style='color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.25rem;'>";
+      if (metadata.skill_name) html += "<strong>" + escapeHtml(metadata.skill_name) + "</strong> &mdash; ";
+      if (metadata.timestamp) html += metadata.timestamp + " &mdash; ";
+      if (metadata.evals_run) html += "Evals: " + metadata.evals_run.join(", ") + " &mdash; ";
+      html += (metadata.runs_per_configuration || "?") + " runs per configuration";
+      html += "</p>";
+
+      // Summary table
+      html += '<table class="benchmark-table">';
+
+      function fmtStat(stat, pct) {
+        if (!stat) return "—";
+        const suffix = pct ? "%" : "";
+        const m = pct ? (stat.mean * 100).toFixed(0) : stat.mean.toFixed(1);
+        const s = pct ? (stat.stddev * 100).toFixed(0) : stat.stddev.toFixed(1);
+        return m + suffix + " ± " + s + suffix;
+      }
+
+      function deltaClass(val) {
+        if (!val) return "";
+        const n = parseFloat(val);
+        if (n > 0) return "benchmark-delta-positive";
+        if (n < 0) return "benchmark-delta-negative";
+        return "";
+      }
+
+      // Discover config names dynamically (everything except "delta")
+      const configs = Object.keys(summary).filter(k => k !== "delta");
+      const configA = configs[0] || "config_a";
+      const configB = configs[1] || "config_b";
+      const labelA = configA.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      const labelB = configB.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      const a = summary[configA] || {};
+      const b = summary[configB] || {};
+      const delta = summary.delta || {};
+
+      html += "<thead><tr><th>Metric</th><th>" + escapeHtml(labelA) + "</th><th>" + escapeHtml(labelB) + "</th><th>Delta</th></tr></thead>";
+      html += "<tbody>";
+
+      html += "<tr><td><strong>Pass Rate</strong></td>";
+      html += "<td>" + fmtStat(a.pass_rate, true) + "</td>";
+      html += "<td>" + fmtStat(b.pass_rate, true) + "</td>";
+      html += '<td class="' + deltaClass(delta.pass_rate) + '">' + (delta.pass_rate || "—") + "</td></tr>";
+
+      // Time (only show row if data exists)
+      if (a.time_seconds || b.time_seconds) {
+        html += "<tr><td><strong>Time (s)</strong></td>";
+        html += "<td>" + fmtStat(a.time_seconds, false) + "</td>";
+        html += "<td>" + fmtStat(b.time_seconds, false) + "</td>";
+        html += '<td class="' + deltaClass(delta.time_seconds) + '">' + (delta.time_seconds ? delta.time_seconds + "s" : "—") + "</td></tr>";
+      }
+
+      // Tokens (only show row if data exists)
+      if (a.tokens || b.tokens) {
+        html += "<tr><td><strong>Tokens</strong></td>";
+        html += "<td>" + fmtStat(a.tokens, false) + "</td>";
+        html += "<td>" + fmtStat(b.tokens, false) + "</td>";
+        html += '<td class="' + deltaClass(delta.tokens) + '">' + (delta.tokens || "—") + "</td></tr>";
+      }
+
+      html += "</tbody></table>";
+
+      // Per-eval breakdown (if runs data available)
+      const runs = data.runs || [];
+      if (runs.length > 0) {
+        const evalIds = [...new Set(runs.map(r => r.eval_id))].sort((a, b) => a - b);
+
+        html += "<h3 style='font-family: Poppins, sans-serif; margin-bottom: 0.75rem;'>Per-Eval Breakdown</h3>";
+
+        const hasTime = runs.some(r => r.result && r.result.time_seconds != null);
+        const hasErrors = runs.some(r => r.result && r.result.errors > 0);
+
+        for (const evalId of evalIds) {
+          const evalRuns = runs.filter(r => r.eval_id === evalId);
+          const evalName = evalRuns[0] && evalRuns[0].eval_name ? evalRuns[0].eval_name : "Eval " + evalId;
+
+          html += "<h4 style='font-family: Poppins, sans-serif; margin: 1rem 0 0.5rem; color: var(--text);'>" + escapeHtml(evalName) + "</h4>";
+          html += '<table class="benchmark-table">';
+          html += "<thead><tr><th>Config</th><th>Run</th><th>Pass Rate</th>";
+          if (hasTime) html += "<th>Time (s)</th>";
+          if (hasErrors) html += "<th>Crashes During Execution</th>";
+          html += "</tr></thead>";
+          html += "<tbody>";
+
+          // Group by config and render with average rows
+          const configGroups = [...new Set(evalRuns.map(r => r.configuration))];
+          for (let ci = 0; ci < configGroups.length; ci++) {
+            const config = configGroups[ci];
+            const configRuns = evalRuns.filter(r => r.configuration === config);
+            if (configRuns.length === 0) continue;
+
+            const rowClass = ci === 0 ? "benchmark-row-with" : "benchmark-row-without";
+            const configLabel = config.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+
+            for (const run of configRuns) {
+              const r = run.result || {};
+              const prClass = r.pass_rate >= 0.8 ? "benchmark-delta-positive" : r.pass_rate < 0.5 ? "benchmark-delta-negative" : "";
+              html += '<tr class="' + rowClass + '">';
+              html += "<td>" + configLabel + "</td>";
+              html += "<td>" + run.run_number + "</td>";
+              html += '<td class="' + prClass + '">' + ((r.pass_rate || 0) * 100).toFixed(0) + "% (" + (r.passed || 0) + "/" + (r.total || 0) + ")</td>";
+              if (hasTime) html += "<td>" + (r.time_seconds != null ? r.time_seconds.toFixed(1) : "—") + "</td>";
+              if (hasErrors) html += "<td>" + (r.errors || 0) + "</td>";
+              html += "</tr>";
+            }
+
+            // Average row
+            const rates = configRuns.map(r => (r.result || {}).pass_rate || 0);
+            const avgRate = rates.reduce((a, b) => a + b, 0) / rates.length;
+            const avgPrClass = avgRate >= 0.8 ? "benchmark-delta-positive" : avgRate < 0.5 ? "benchmark-delta-negative" : "";
+            html += '<tr class="benchmark-row-avg ' + rowClass + '">';
+            html += "<td>" + configLabel + "</td>";
+            html += "<td>Avg</td>";
+            html += '<td class="' + avgPrClass + '">' + (avgRate * 100).toFixed(0) + "%</td>";
+            if (hasTime) {
+              const times = configRuns.map(r => (r.result || {}).time_seconds).filter(t => t != null);
+              html += "<td>" + (times.length ? (times.reduce((a, b) => a + b, 0) / times.length).toFixed(1) : "—") + "</td>";
+            }
+            if (hasErrors) html += "<td></td>";
+            html += "</tr>";
+          }
+          html += "</tbody></table>";
+
+          // Per-assertion detail for this eval
+          const runsWithExpectations = {};
+          for (const config of configGroups) {
+            runsWithExpectations[config] = evalRuns.filter(r => r.configuration === config && r.expectations && r.expectations.length > 0);
+          }
+          const hasAnyExpectations = Object.values(runsWithExpectations).some(runs => runs.length > 0);
+          if (hasAnyExpectations) {
+            // Collect all unique assertion texts across all configs
+            const allAssertions = [];
+            const seen = new Set();
+            for (const config of configGroups) {
+              for (const run of runsWithExpectations[config]) {
+                for (const exp of (run.expectations || [])) {
+                  if (!seen.has(exp.text)) {
+                    seen.add(exp.text);
+                    allAssertions.push(exp.text);
+                  }
+                }
+              }
+            }
+
+            html += '<table class="benchmark-table" style="margin-top: 0.5rem;">';
+            html += "<thead><tr><th>Assertion</th>";
+            for (const config of configGroups) {
+              const label = config.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+              html += "<th>" + escapeHtml(label) + "</th>";
+            }
+            html += "</tr></thead><tbody>";
+
+            for (const assertionText of allAssertions) {
+              html += "<tr><td>" + escapeHtml(assertionText) + "</td>";
+
+              for (const config of configGroups) {
+                html += "<td>";
+                for (const run of runsWithExpectations[config]) {
+                  const exp = (run.expectations || []).find(e => e.text === assertionText);
+                  if (exp) {
+                    const cls = exp.passed ? "benchmark-delta-positive" : "benchmark-delta-negative";
+                    const icon = exp.passed ? "\u2713" : "\u2717";
+                    html += '<span class="' + cls + '" title="Run ' + run.run_number + ': ' + escapeHtml(exp.evidence || "") + '">' + icon + "</span> ";
+                  } else {
+                    html += "— ";
+                  }
+                }
+                html += "</td>";
+              }
+              html += "</tr>";
+            }
+            html += "</tbody></table>";
+          }
+        }
+      }
+
+      // Notes
+      if (notes.length > 0) {
+        html += '<div class="benchmark-notes">';
+        html += "<h3>Analysis Notes</h3>";
+        html += "<ul>";
+        for (const note of notes) {
+          html += "<li>" + escapeHtml(note) + "</li>";
+        }
+        html += "</ul></div>";
+      }
+
+      container.innerHTML = html;
+    }
+
+    // ---- Start ----
+    init();
+    renderBenchmark();
+  </script>
+</body>
+</html>

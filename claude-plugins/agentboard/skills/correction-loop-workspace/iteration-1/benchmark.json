@@ -1,0 +1,323 @@
+{
+  "metadata": {
+    "skill_name": "correction-loop",
+    "skill_path": "C:/Users/maxco/Documents/agent-armory/claude-plugins/agentboard/skills/correction-loop",
+    "executor_model": "<model-name>",
+    "analyzer_model": "<model-name>",
+    "timestamp": "2026-06-06T23:32:14Z",
+    "evals_run": [
+      0,
+      1,
+      2
+    ],
+    "runs_per_configuration": 3
+  },
+  "runs": [
+    {
+      "eval_id": 0,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 52.7,
+        "tokens": 0,
+        "tool_calls": 2,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Identifies the origin as the architecture document / compose stage rather than the spec or the upstream facts",
+          "passed": true,
+          "evidence": "\"For a typical 'the decomposition is wrong, slices overlap' finding where the underlying facts still hold, the trace lands on the architecture document.\""
+        },
+        {
+          "text": "Re-enters the compose stage in a correction/revision mode that revises the existing document, rather than regenerating from scratch",
+          "passed": true,
+          "evidence": "Step 4: correction mode 'reads the prior architecture output rather than starting blank', 're-derives only what the correction touches', 'keeps the rest where it's still correct'."
+        },
+        {
+          "text": "Carries the correction to the stage as a declared, auditable input rather than as undeclared prompt context or an ad-hoc note",
+          "passed": true,
+          "evidence": "Step 2 declares a dedicated input with round/origin=validating-stage/target/change/provenance=finding id; 'never as a quiet edit'."
+        },
+        {
+          "text": "Does NOT edit or modify the spec to resolve the overlapping-slices problem",
+          "passed": true,
+          "evidence": "\"the architecture correction flow never edits the spec to make an architecture problem disappear.\""
+        },
+        {
+          "text": "Does NOT treat owner escalation or a pause as required for this architecture-document-origin correction",
+          "passed": true,
+          "evidence": "\"Bring in the owner only if the trace lands on the spec\"; pause described as off by default and optional."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 42.3,
+        "tokens": 0,
+        "tool_calls": 2,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Treats the three-failure cap as a signal that the root cause is NOT in the plan/target being retried, and widens the search to trace outward (architecture, upstream facts, spec, or elsewhere)",
+          "passed": true,
+          "evidence": "\"reaching the cap is ... the evidence that the problem probably isn't in that target\"; 'the search widens and traces outward'."
+        },
+        {
+          "text": "Does NOT simply stop and hand the unsolved problem to the owner to diagnose",
+          "passed": true,
+          "evidence": "\"it is not a reason to dump it on you\"; \"for most outcomes ... the agents resolve it at the source themselves and you don't have to do anything.\""
+        },
+        {
+          "text": "Routes to deeper root-cause investigation that is distinct from the reviewer, rather than letting the reviewer keep driving retries",
+          "passed": true,
+          "evidence": "\"hands off automatically to the external investigator ... deliberately a different job than the design review that's been bouncing the plan\"."
+        },
+        {
+          "text": "Does NOT reflexively rewrite or blame the spec just because the plan failed multiple times",
+          "passed": true,
+          "evidence": "\"Don't reflexively rewrite the spec ... There is no 'failed N times, so edit the spec' rule.\""
+        },
+        {
+          "text": "Keeps the owner uninvolved unless and until the trace concludes the origin is the spec",
+          "passed": true,
+          "evidence": "\"You are brought in only if the trace concludes the origin is the spec.\""
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 47.6,
+        "tokens": 0,
+        "tool_calls": 2,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Source-traces the missing component to the spec itself as the origin (a spec gap / drift), not merely an architecture mistake",
+          "passed": true,
+          "evidence": "\"Your phrasing ... leans hard toward the second case ... That makes the origin the spec.\""
+        },
+        {
+          "text": "Does NOT edit or patch the spec in-flow as a workaround to keep going",
+          "passed": true,
+          "evidence": "\"The spec may be changed on that basis, but never in-flow\"."
+        },
+        {
+          "text": "Does NOT route the spec change through /foundation (which is for spec creation only)",
+          "passed": true,
+          "evidence": "\"never through /foundation (which only creates specs)\"."
+        },
+        {
+          "text": "Involves/escalates to the owner specifically because the origin is the spec",
+          "passed": true,
+          "evidence": "Step 7 'Bring in the owner \u00e2\u20ac\u201d for the spec-origin outcome ... escalate to the owner.'"
+        },
+        {
+          "text": "Routes the change out to the external spec-modification path rather than handling it silently inside the architecture flow",
+          "passed": true,
+          "evidence": "\"It routes out to the external spec-modification path, and this is the destination that brings in the owner.\""
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 0,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.6,
+        "passed": 3,
+        "failed": 2,
+        "total": 5,
+        "time_seconds": 63.5,
+        "tokens": 0,
+        "tool_calls": 1,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Identifies the origin as the architecture document / compose stage rather than the spec or the upstream facts",
+          "passed": false,
+          "evidence": "Names the classification audit (an upstream stage) as 'the most likely real culprit' and its decision rule re-enters at classification audit, i.e. routes upstream rather than to the architecture document."
+        },
+        {
+          "text": "Re-enters the compose stage in a correction/revision mode that revises the existing document, rather than regenerating from scratch",
+          "passed": false,
+          "evidence": "Frames the fix as 're-run forward through every later stage' and 're-compose at the level'; treats it as a directed re-run of the stage, not a correction-mode that revises the existing document preserving correct material."
+        },
+        {
+          "text": "Carries the correction to the stage as a declared, auditable input rather than as undeclared prompt context or an ad-hoc note",
+          "passed": true,
+          "evidence": "Section 5 'Feed the finding back in as input ... as an explicit constraint' and Section 7 'Record the correction' with provenance."
+        },
+        {
+          "text": "Does NOT edit or modify the spec to resolve the overlapping-slices problem",
+          "passed": true,
+          "evidence": "No spec edit proposed; the fix stays in classification/compose. Spec mentioned only as a later fallback to check, not edited."
+        },
+        {
+          "text": "Does NOT treat owner escalation or a pause as required for this architecture-document-origin correction",
+          "passed": true,
+          "evidence": "No owner escalation or pause is invoked for this case."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.4,
+        "passed": 2,
+        "failed": 3,
+        "total": 5,
+        "time_seconds": 48.3,
+        "tokens": 0,
+        "tool_calls": 2,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Treats the three-failure cap as a signal that the root cause is NOT in the plan/target being retried, and widens the search to trace outward (architecture, upstream facts, spec, or elsewhere)",
+          "passed": true,
+          "evidence": "\"Three consecutive failures ... is a signal, not a setback ... one of the inputs the plan rests on is wrong\"; escalates the fix up the pipeline (architecture/spec)."
+        },
+        {
+          "text": "Does NOT simply stop and hand the unsolved problem to the owner to diagnose",
+          "passed": false,
+          "evidence": "Step 4 'Bring the human in. This is the right moment' and presents the owner a decision menu (fix upstream / split / re-scope / waive / cut) \u00e2\u20ac\u201d i.e. hands the decision to the owner."
+        },
+        {
+          "text": "Routes to deeper root-cause investigation that is distinct from the reviewer, rather than letting the reviewer keep driving retries",
+          "passed": false,
+          "evidence": "Diagnoses inline then escalates to the human for the decision; no investigation function distinct from review is invoked."
+        },
+        {
+          "text": "Does NOT reflexively rewrite or blame the spec just because the plan failed multiple times",
+          "passed": true,
+          "evidence": "Branch A checks architecture first and only amends the spec 'if internally contradictory'; not a reflexive rewrite."
+        },
+        {
+          "text": "Keeps the owner uninvolved unless and until the trace concludes the origin is the spec",
+          "passed": false,
+          "evidence": "Owner is brought in at the cap for every branch (split, re-scope, waive, cut), not only for a spec-origin outcome."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.6,
+        "passed": 3,
+        "failed": 2,
+        "total": 5,
+        "time_seconds": 68.0,
+        "tokens": 0,
+        "tool_calls": 2,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Source-traces the missing component to the spec itself as the origin (a spec gap / drift), not merely an architecture mistake",
+          "passed": true,
+          "evidence": "\"This is not 'the architecture has a bug.' ... The spec is missing a requirement ... This is the root defect.\""
+        },
+        {
+          "text": "Does NOT edit or patch the spec in-flow as a workaround to keep going",
+          "passed": false,
+          "evidence": "Step 1 'Amend the spec ... Reopen the spec and add the requirement' \u00e2\u20ac\u201d directly edits the spec inside the correction flow, which CL-012 forbids."
+        },
+        {
+          "text": "Does NOT route the spec change through /foundation (which is for spec creation only)",
+          "passed": true,
+          "evidence": "Sends only a 'root-cause note to foundation' so the gap doesn't recur; the change itself is made by directly amending the spec, not routed through /foundation."
+        },
+        {
+          "text": "Involves/escalates to the owner specifically because the origin is the spec",
+          "passed": true,
+          "evidence": "Step 0 'Who is the authority ... needs the spec owner / requester to confirm it, not an inference made mid-build.'"
+        },
+        {
+          "text": "Routes the change out to the external spec-modification path rather than handling it silently inside the architecture flow",
+          "passed": false,
+          "evidence": "Handles the spec change by amending the spec directly in-flow; no external spec-modification path is used."
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {
+        "mean": 1.0,
+        "stddev": 0.0,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 47.5333,
+        "stddev": 5.2003,
+        "min": 42.3,
+        "max": 52.7
+      },
+      "tokens": {
+        "mean": 0.0,
+        "stddev": 0.0,
+        "min": 0,
+        "max": 0
+      }
+    },
+    "without_skill": {
+      "pass_rate": {
+        "mean": 0.5333,
+        "stddev": 0.1155,
+        "min": 0.4,
+        "max": 0.6
+      },
+      "time_seconds": {
+        "mean": 59.9333,
+        "stddev": 10.323,
+        "min": 48.3,
+        "max": 68.0
+      },
+      "tokens": {
+        "mean": 0.0,
+        "stddev": 0.0,
+        "min": 0,
+        "max": 0
+      }
+    },
+    "delta": {
+      "pass_rate": "+0.47",
+      "time_seconds": "-12.4",
+      "tokens": "+0"
+    }
+  },
+  "notes": []
+}

@@ -1,0 +1,12 @@
+{
+  "expectations": [
+    {"text": "Source-traces the missing component to the spec itself as the origin (a spec gap / drift), not merely an architecture mistake", "passed": true, "evidence": "\"This is not 'the architecture has a bug.' ... The spec is missing a requirement ... This is the root defect.\""},
+    {"text": "Does NOT edit or patch the spec in-flow as a workaround to keep going", "passed": false, "evidence": "Step 1 'Amend the spec ... Reopen the spec and add the requirement' — directly edits the spec inside the correction flow, which CL-012 forbids."},
+    {"text": "Does NOT route the spec change through /foundation (which is for spec creation only)", "passed": true, "evidence": "Sends only a 'root-cause note to foundation' so the gap doesn't recur; the change itself is made by directly amending the spec, not routed through /foundation."},
+    {"text": "Involves/escalates to the owner specifically because the origin is the spec", "passed": true, "evidence": "Step 0 'Who is the authority ... needs the spec owner / requester to confirm it, not an inference made mid-build.'"},
+    {"text": "Routes the change out to the external spec-modification path rather than handling it silently inside the architecture flow", "passed": false, "evidence": "Handles the spec change by amending the spec directly in-flow; no external spec-modification path is used."}
+  ],
+  "summary": {"passed": 3, "failed": 2, "total": 5, "pass_rate": 0.6},
+  "execution_metrics": {"total_tool_calls": 2, "errors_encountered": 0},
+  "timing": {"total_duration_seconds": 68.0, "executor_duration_seconds": 68.0}
+}

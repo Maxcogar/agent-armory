@@ -1,0 +1,12 @@
+{
+  "eval_id": 1,
+  "eval_name": "repeated-failure",
+  "prompt": "The plan for one of my architecture cards has now failed review three times in a row. It just will not pass no matter what we change in the plan. What do I do?",
+  "assertions": [
+    "Treats the three-failure cap as a signal that the root cause is NOT in the plan/target being retried, and widens the search to trace outward (architecture, upstream facts, spec, or elsewhere)",
+    "Does NOT simply stop and hand the unsolved problem to the owner to diagnose",
+    "Routes to deeper root-cause investigation that is distinct from the reviewer, rather than letting the reviewer keep driving retries",
+    "Does NOT reflexively rewrite or blame the spec just because the plan failed multiple times",
+    "Keeps the owner uninvolved unless and until the trace concludes the origin is the spec"
+  ]
+}

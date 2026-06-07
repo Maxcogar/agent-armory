@@ -1,0 +1,12 @@
+{
+  "eval_id": 0,
+  "eval_name": "decomposition-defect",
+  "prompt": "I'm running the AgentBoard architecture pipeline and the design reviewer came back with a serious finding: two of the card slices overlap and the decomposition is wrong. What should happen here — do I just edit the architecture document, or do I need to rerun something? Walk me through how this correction should be handled.",
+  "assertions": [
+    "Identifies the origin as the architecture document / compose stage rather than the spec or the upstream facts",
+    "Re-enters the compose stage in a correction/revision mode that revises the existing document, rather than regenerating the architecture from scratch",
+    "Carries the correction to the stage as a declared, auditable input rather than as undeclared prompt context or an ad-hoc note",
+    "Does NOT edit or modify the spec to resolve the overlapping-slices problem",
+    "Does NOT treat owner escalation or a pause as required for this architecture-document-origin correction"
+  ]
+}
