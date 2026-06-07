@@ -38,8 +38,8 @@ test("Java: FQN import resolves across a name collision; dead-code is precise", 
   assert.ok(trace.usedBy.chain.some((c) => c.name === "run"), "web.Handler.run uses store.Store");
 
   const dead = deadKeys(toolFindDeadExports(graph));
-  assert.ok(!dead.includes(path.join("store", "Store.java") + "#Store"), "imported store.Store is live");
-  assert.ok(dead.includes(path.join("cache", "Store.java") + "#Store"), "the colliding cache.Store is dead");
+  assert.ok(!dead.includes("store/Store.java#Store"), "imported store.Store is live");
+  assert.ok(dead.includes("cache/Store.java#Store"), "the colliding cache.Store is dead");
 });
 
 test("C#: using-directive resolves across a name collision; dead-code is precise", async () => {
@@ -84,7 +84,7 @@ test("FQN languages get derived file-level edges (blast-radius parity)", async (
   });
   const graph = await buildDependencyGraph(root);
   const jdeps = toolGetDependencies(graph, "web/Handler.java").dependencies.map((d) => d.relativePath);
-  assert.ok(jdeps.includes(path.join("store", "Store.java")), "Java import yields a file edge");
+  assert.ok(jdeps.includes("store/Store.java"), "Java import yields a file edge");
   const cdeps = toolGetDependencies(graph, "Use.cs").dependencies.map((d) => d.relativePath);
   assert.ok(cdeps.includes("App.cs"), "C# using yields a file edge (derived from the namespace resolution)");
 });
@@ -103,6 +103,6 @@ test("PHP and Rust also get derived file-level edges (full FQN-language parity)"
   const graph = await buildDependencyGraph(root);
   const pdeps = toolGetDependencies(graph, "Handler.php").dependencies.map((d) => d.relativePath);
   assert.ok(pdeps.includes("Store.php"), "PHP `use` yields a file edge to the declaring file");
-  const rdeps = toolGetDependencies(graph, path.join("src", "app.rs")).dependencies.map((d) => d.relativePath);
-  assert.ok(rdeps.includes(path.join("src", "store.rs")), "Rust `use crate::...` yields a file edge to the module file");
+  const rdeps = toolGetDependencies(graph, "src/app.rs").dependencies.map((d) => d.relativePath);
+  assert.ok(rdeps.includes("src/store.rs"), "Rust `use crate::...` yields a file edge to the module file");
 });

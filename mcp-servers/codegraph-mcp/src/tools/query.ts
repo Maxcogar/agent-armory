@@ -36,6 +36,7 @@ import {
   isTypeOnlyEdge,
   findUnreachable,
   findClusters,
+  toPosix,
 } from "../graph.js";
 import {
   exportMermaid,
@@ -58,7 +59,9 @@ function toFileRef(absPath: string, graph: DependencyGraph): FileRef {
   const node = graph.nodes.get(absPath);
   return {
     path: absPath,
-    relativePath: node?.relativePath ?? path.relative(graph.rootDir, absPath),
+    // relativePath is the portable POSIX-slashed identifier; normalize the
+    // fallback so it matches node-sourced relativePaths on Windows.
+    relativePath: node?.relativePath ?? toPosix(path.relative(graph.rootDir, absPath)),
     language: node?.language ?? "unknown",
   };
 }
