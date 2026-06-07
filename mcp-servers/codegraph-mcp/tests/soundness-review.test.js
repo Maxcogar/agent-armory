@@ -42,7 +42,7 @@ test("Go: a symbol in a package whose name != dir name is NOT dead", async () =>
     "utilpkg/u.go": `package fancy\nfunc DoWork() int { return 1 }\n`,
     "main.go": `package main\n\nimport "example.com/app/utilpkg"\n\nfunc main() { fancy.DoWork() }\n`,
   });
-  assert.ok(!dead.includes(path.join("utilpkg", "u.go") + "#DoWork"), "DoWork is used via fancy.DoWork()");
+  assert.ok(!dead.includes("utilpkg/u.go#DoWork"), "DoWork is used via fancy.DoWork()");
 });
 
 test("Python: a symbol used via `from mod import *` is NOT dead", async () => {
@@ -59,7 +59,7 @@ test("Rust: a symbol in an inline `mod {}` used via `use` is NOT dead", async ()
     "src/helpers.rs": `pub mod inner { pub struct Thing { pub x: i32 } }\n`,
     "src/app.rs": `use crate::helpers::inner::Thing;\npub fn run() { let _ = Thing { x: 1 }; }\n`,
   });
-  assert.ok(!dead.includes(path.join("src", "helpers.rs") + "#Thing"), "Thing is used via the inline-mod use path");
+  assert.ok(!dead.includes("src/helpers.rs#Thing"), "Thing is used via the inline-mod use path");
   // module declarations are namespaces, not dead-code candidates
   assert.ok(!dead.some((k) => /#(helpers|app|inner)$/.test(k)), "Rust `mod` declarations are not flagged dead");
 });
@@ -84,7 +84,7 @@ test("Go: an exported type used only across packages as a qualified type is NOT 
     "store/store.go": `package store\ntype Widget struct{}\n`,
     "main.go": `package main\nimport "example.com/app/store"\nfunc Build() store.Widget { return store.Widget{} }\n`,
   });
-  assert.ok(!dead.includes(path.join("store", "store.go") + "#Widget"), "Widget is used as store.Widget");
+  assert.ok(!dead.includes("store/store.go#Widget"), "Widget is used as store.Widget");
 });
 
 test("Rust: symbols referenced via an inline `crate::` path with no `use` are NOT dead", async () => {
@@ -94,8 +94,8 @@ test("Rust: symbols referenced via an inline `crate::` path with no `use` are NO
     "src/m.rs": `pub struct Inner { pub x: i32 }\n`,
     "src/app.rs": `pub fn run() { let _ = crate::util::helper(); }\npub fn make() -> crate::m::Inner { crate::m::Inner { x: 1 } }\n`,
   });
-  assert.ok(!dead.includes(path.join("src", "util.rs") + "#helper"), "helper is used via crate::util::helper()");
-  assert.ok(!dead.includes(path.join("src", "m.rs") + "#Inner"), "Inner is used via crate::m::Inner");
+  assert.ok(!dead.includes("src/util.rs#helper"), "helper is used via crate::util::helper()");
+  assert.ok(!dead.includes("src/m.rs#Inner"), "Inner is used via crate::m::Inner");
 });
 
 test("Java: a type referenced by inline package-qualified name with no import is NOT dead", async () => {
@@ -103,7 +103,7 @@ test("Java: a type referenced by inline package-qualified name with no import is
     "store/Store.java": `package store;\npublic class Store {}\n`,
     "web/H.java": `package web;\npublic class H { public void run() { store.Store s = new store.Store(); } }\n`,
   });
-  assert.ok(!dead.includes(path.join("store", "Store.java") + "#Store"), "Store is used via the inline FQN store.Store");
+  assert.ok(!dead.includes("store/Store.java#Store"), "Store is used via the inline FQN store.Store");
 });
 
 test("PHP: a class referenced by inline absolute FQN with no `use` is NOT dead", async () => {

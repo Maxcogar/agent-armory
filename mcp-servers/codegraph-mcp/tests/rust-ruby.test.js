@@ -33,8 +33,8 @@ test("Rust: `use` resolves across a module name collision; dead-code is precise"
   assert.ok(trace.usedBy.chain.some((c) => c.name === "run"), "app::run uses crate::store::Store");
 
   const dead = toolFindDeadExports(graph).dead.map((d) => `${d.relativePath}#${d.name}`);
-  assert.ok(!dead.includes(path.join("src", "store.rs") + "#Store"), "imported store::Store is live");
-  assert.ok(dead.includes(path.join("src", "cache.rs") + "#Store"), "the colliding cache::Store is dead");
+  assert.ok(!dead.includes("src/store.rs#Store"), "imported store::Store is live");
+  assert.ok(dead.includes("src/cache.rs#Store"), "the colliding cache::Store is dead");
 });
 
 test("Rust: file-level edges from `mod` and `use`", async () => {
@@ -45,9 +45,9 @@ test("Rust: file-level edges from `mod` and `use`", async () => {
   });
   const graph = await buildDependencyGraph(root);
   const libDeps = toolGetDependencies(graph, "lib.rs").dependencies.map((d) => d.relativePath);
-  assert.ok(libDeps.includes(path.join("src", "util.rs")), "lib.rs depends on util.rs via `mod util`");
+  assert.ok(libDeps.includes("src/util.rs"), "lib.rs depends on util.rs via `mod util`");
   const appDeps = toolGetDependencies(graph, "app.rs").dependencies.map((d) => d.relativePath);
-  assert.ok(appDeps.includes(path.join("src", "util.rs")), "app.rs depends on util.rs via `use`");
+  assert.ok(appDeps.includes("src/util.rs"), "app.rs depends on util.rs via `use`");
 });
 
 test("Ruby: require_relative scopes resolution; the chain crosses files", async () => {

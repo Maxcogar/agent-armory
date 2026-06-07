@@ -60,8 +60,10 @@ test("watch: a burst of changes triggers a single debounced rescan that updates 
     w(root, "b.ts", "import './a';\n");
     w(root, "c.ts", "export const z = 1;\n");
 
+    // Absolute graph keys are host-native (backslashes on Windows); compare on
+    // a POSIX-normalized form so the suffix check is cross-platform.
     const picked = await waitFor(() =>
-      [...graph.nodes.keys()].some((k) => k.endsWith("/b.ts"))
+      [...graph.nodes.keys()].some((k) => k.replace(/\\/g, "/").endsWith("/b.ts"))
     );
     assert.ok(picked, "graph should pick up the new file");
     assert.equal(rescans, 1, "burst should debounce to a single rescan");

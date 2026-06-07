@@ -35,12 +35,12 @@ test("Go: cross-package import resolves precisely despite a name collision", asy
   const dead = toolFindDeadExports(graph);
   const deadKeys = dead.dead.map((d) => `${d.relativePath}#${d.name}`);
   assert.ok(
-    !deadKeys.includes(path.join("store", "store.go") + "#Process"),
+    !deadKeys.includes("store/store.go#Process"),
     "store.Process is used by main and must not be flagged dead (no false dead via collision)"
   );
   // cache.Process is genuinely unused -> dead.
   assert.ok(
-    deadKeys.includes(path.join("cache", "cache.go") + "#Process"),
+    deadKeys.includes("cache/cache.go#Process"),
     "cache.Process is unused and should be dead"
   );
 
@@ -58,7 +58,7 @@ test("Go: file-level dependency edges resolve package imports", async () => {
   const graph = await buildDependencyGraph(root);
   const deps = toolGetDependencies(graph, "main.go");
   assert.ok(
-    deps.dependencies.some((d) => d.relativePath === path.join("util", "util.go")),
+    deps.dependencies.some((d) => d.relativePath === "util/util.go"),
     "main.go depends on util/util.go via the Go import"
   );
 });

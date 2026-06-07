@@ -29,12 +29,15 @@ function w(root, rel, content) {
   return p;
 }
 // Local dependency edges of a node identified by its relative path suffix.
+// Absolute graph keys are host-native (backslashes on Windows), so match and
+// report on POSIX-normalized forms to keep these assertions cross-platform.
+const posix = (p) => p.replace(/\\/g, "/");
 function depsOf(graph, relSuffix) {
-  const abs = [...graph.nodes.keys()].find((k) => k.endsWith("/" + relSuffix));
+  const abs = [...graph.nodes.keys()].find((k) => posix(k).endsWith("/" + relSuffix));
   assert.ok(abs, `node ${relSuffix} not found in graph`);
   return graph.nodes
     .get(abs)
-    .dependencies.map((d) => path.relative(graph.rootDir, d))
+    .dependencies.map((d) => posix(path.relative(graph.rootDir, d)))
     .sort();
 }
 

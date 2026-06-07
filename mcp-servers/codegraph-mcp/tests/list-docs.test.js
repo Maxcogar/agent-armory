@@ -35,7 +35,7 @@ test("toolListDocs enumerates markdown-only projects that list_files cannot", as
   assert.equal(docs.total, 3, "expected all three doc files to be listed");
   assert.deepEqual(
     docs.docs.map((d) => d.relativePath).sort(),
-    ["GUIDE.md", "README.md", path.join("docs", "intro.rst")].sort()
+    ["GUIDE.md", "README.md", "docs/intro.rst"].sort()
   );
   for (const d of docs.docs) {
     assert.equal(typeof d.referencedCodeFileCount, "number");

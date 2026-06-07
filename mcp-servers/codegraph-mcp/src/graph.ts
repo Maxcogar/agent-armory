@@ -23,6 +23,24 @@ import { analyzeFile } from "./treesitter/analyze.js";
 import { computeNamespacedConnections, resolveNamespacedImports, NS_LANGS } from "./treesitter/namespaced.js";
 
 // ============================================================
+// Path normalization
+// ============================================================
+
+/**
+ * Normalize a path to forward-slash (POSIX) separators. `relativePath` is the
+ * portable, public identifier for a file: it is embedded in Mermaid/DOT exports,
+ * matched against documentation text, split on "/" for directory detection, and
+ * compared by tools and tests that assume "/" regardless of host OS. Several
+ * call sites already `.replace(/\\/g, "/")` defensively, so forward-slash IS the
+ * intended contract — this makes it true at the source. Absolute graph keys are
+ * deliberately left host-native (and self-consistent with glob/path.resolve);
+ * only the public relative form is normalized.
+ */
+export function toPosix(p: string): string {
+  return p.replace(/\\/g, "/");
+}
+
+// ============================================================
 // Language Detection
 // ============================================================
 
@@ -288,7 +306,7 @@ export async function buildDependencyGraph(
     }
 
     const lang = detectLanguage(filePath);
-    const relativePath = path.relative(normalizedRoot, filePath);
+    const relativePath = toPosix(path.relative(normalizedRoot, filePath));
     nodes.set(filePath, {
       path: filePath,
       relativePath,
@@ -399,7 +417,7 @@ export async function incrementalUpdate(
       nodes.set(filePath, { ...prev, dependents: [] });
       reused++;
     } else {
-      const relativePath = path.relative(rootDir, filePath);
+      const relativePath = toPosix(path.relative(rootDir, filePath));
       nodes.set(filePath, {
         path: filePath,
         relativePath,
@@ -630,7 +648,7 @@ async function buildDocNodes(
 
     docNodes.set(docPath, {
       path: docPath,
-      relativePath: path.relative(rootDir, docPath),
+      relativePath: toPosix(path.relative(rootDir, docPath)),
       referencedCodeFiles,
     });
   }
