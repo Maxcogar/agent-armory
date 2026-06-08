@@ -320,8 +320,9 @@ complete-ring assertions are the load-bearing ones.
 
 ---
 
-### WP-15 — Minors (m1–m14)
-Closes the `m*` list in the review. Single cleanup PR; no behavior change beyond
+### WP-15 — Minors (m1–m10, m12–m14)
+Closes the remaining `m*` list in the review — every minor **except m11**, which
+WP-9 owns (signal-safe cache write). Single cleanup PR; no behavior change beyond
 each item's stated fix. Group by file. Each gets at most a one-line test or a
 code comment; skip tests where the fix is a pure readability change (m1, m3, m4).
 
@@ -333,14 +334,14 @@ WP-14).
 
 ## Sequencing summary
 
-```
+```text
 Phase 1  WP-1 ─┬─ WP-2
                ├─ WP-3
                ├─ WP-4
                └─ WP-5         (WP-2..5 all depend on WP-1)
 Phase 2  WP-6, WP-7, WP-8      (independent of each other; after Phase 1)
 Phase 3  WP-9, WP-10, WP-11    (independent; can overlap Phase 2)
-Phase 4  WP-12, WP-13          (independent; needs nothing from 2–3)
+Phase 4  WP-12 (independent); WP-13 (depends on WP-6 cache-root memoization)
 Phase 5  WP-14, WP-15          (last; WP-14 benefits from WP-1's helper)
 ```
 
@@ -365,4 +366,4 @@ Suggested checklist to paste into the tracking issue/PR description:
 - [ ] WP-12 O(n) BFS (M6)
 - [ ] WP-13 hot-path indexing (M7, M8, M9, M10)
 - [ ] WP-14 output consistency (M12–M16)
-- [ ] WP-15 minors (m1–m14)
+- [ ] WP-15 minors (m1–m10, m12–m14)
