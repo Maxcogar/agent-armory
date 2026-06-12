@@ -44,7 +44,7 @@ Every query tool operates on an in-memory graph built by `codegraph_scan`.
 Without a prior scan they return a "no graph loaded" error. So the first action
 in any codegraph workflow is always:
 
-```
+```text
 codegraph_scan({ root_dir: "/abs/path/to/project" })
 ```
 
@@ -59,7 +59,7 @@ newly-resolvable import to a *newly-added* file — or an edit to a non-tracked
 config like `tsconfig.json` — is not picked up until the importer itself is
 touched. When in doubt, force a clean rebuild:
 
-```
+```text
 codegraph_scan({ root_dir: "...", force: true })
 ```
 
@@ -104,7 +104,7 @@ This is codegraph's primary use. Do not start changing a shared file until you
 know its blast radius — that knowledge changes *how* you make the edit (e.g.
 keeping a signature backward-compatible because 14 files depend on it).
 
-```
+```text
 1. codegraph_scan({ root_dir })                       # if not already scanned
 2. codegraph_get_change_impact({ files: ["src/api.ts"] })
        → directlyAffected, transitivelyAffected, totalImpacted,
@@ -118,7 +118,7 @@ Then make the change informed by what you found, and re-run
 
 ### "Is this safe to delete?" / "What uses this?"
 
-```
+```text
 codegraph_get_dependents({ file: "src/legacy/helper.ts" })
 ```
 
@@ -132,7 +132,7 @@ isolated dead-code candidates in one shot.
 When you — or another agent — claim a change was isolated, check it against the
 real graph instead of asserting it from memory:
 
-```
+```text
 codegraph_get_change_impact({ files: ["<the files that changed>"] })
 ```
 
@@ -142,7 +142,7 @@ left stale. This is exactly the check a completion-verification hook should run.
 
 ### Architecture review of an unfamiliar codebase
 
-```
+```text
 1. codegraph_get_stats()        # size, languages, most-depended-on (core) files
 2. codegraph_get_layers()       # tiers: layer 0 = leaf deps, up to entry points
 3. codegraph_find_cycles()      # circular dependencies (each ring reported once)
@@ -155,7 +155,7 @@ tell you how tangled vs. cleanly-tiered the architecture is.
 
 ### "Why does A depend on B?"
 
-```
+```text
 codegraph_get_path_between({ from: "src/index.ts", to: "src/db/pool.ts" })
 ```
 
@@ -165,7 +165,7 @@ instead).
 
 ### Visualize the graph
 
-```
+```text
 codegraph_export_mermaid({ file: "src/api.ts", depth: 2 })   # paste into Markdown/GitHub
 codegraph_export_dot({ max_nodes: 300 })                     # pipe to `dot -Tsvg`
 ```
