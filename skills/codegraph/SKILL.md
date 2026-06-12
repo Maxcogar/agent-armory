@@ -1,24 +1,29 @@
 ---
 name: codegraph
 description: >-
-  Trigger on the SITUATION, not on keywords — the user will almost never name a
-  tool, "dependency analysis", or "codegraph". Use this whenever a task turns on
-  how a codebase is wired together by its imports. Concretely, reach for it when:
-  the user is about to edit, rename, move, refactor, or delete a file, function,
-  or exported symbol and could break callers ("what'll break if I change this");
-  they ask what uses / imports / calls / depends on something, or whether it's
-  still used, safe to remove, orphaned, or dead code (especially when they
-  mention grep being unreliable); they're new to or lost in a repo and want to
-  see how it's structured, which modules are core, or how deep it goes; they
-  suspect circular imports or want architectural layers; they want to know what
-  breaks or which docs go stale after a change; they want a dependency / import
-  diagram; or they're about to hand-trace imports across files. Works on JS/TS,
-  Python, and C++/Arduino by parsing real import/require/include edges
-  (deterministic — catches transitive, re-exported, path-aliased, and dynamic
-  links that grep and manual tracing miss), so prefer it over grepping for
-  who-uses-what, and ESPECIALLY before claiming a change is isolated or safe. Do
-  NOT use it for semantic "find the code that does X", runtime/logic behavior, or
-  external-package vulnerability questions.
+  Reach for this whenever doing a task well depends on knowing how the codebase
+  actually fits together — and getting that wrong would mean reasoning from a
+  guess. The need is almost always buried inside a larger task, never asked for
+  directly, so recognize it from the work you're doing:
+  — Exploring or scoping a new feature or change: where it would hook in, what it
+  would touch, what already depends on the areas involved, before settling on an
+  approach.
+  — Assessing or reviewing something — a plan, an architecture or design doc, a
+  PR, or a stretch of code — where the judgment hinges on whether its claims
+  about how the parts depend on each other actually hold up against the real
+  structure.
+  — Debugging and problem-solving: tracing how a failure or a change propagates,
+  or working from a symptom back to the code that feeds into it.
+  — Any moment you are about to assert what uses what, what a change affects, or
+  how pieces connect, where the alternative is inferring it from memory, a
+  partial read, or grep.
+  Across all of these the user will describe the bigger task, not the dependency
+  question inside it — grounding that reasoning in the real wiring is your job,
+  not theirs to ask for. codegraph answers it deterministically from actual
+  import/require/include edges (JS/TS, Python, C++/Arduino), catching transitive,
+  re-exported, path-aliased, and dynamic links that hand-tracing and grep miss.
+  Treat it as the source of truth for how the code is wired before you reason
+  from assumptions.
 ---
 
 # codegraph
