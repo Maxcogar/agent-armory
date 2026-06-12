@@ -1,18 +1,24 @@
 ---
 name: codegraph
 description: >-
-  Drive the codegraph MCP server — a deterministic static-analysis dependency
-  graph for JS/TS, Python, and C++/Arduino codebases (plus npm/pip/Go manifests)
-  — to answer questions about imports, dependents, change impact (blast radius),
-  circular dependencies, architectural layers, dead code, entry points, and
-  which docs need updating after a code change. Use this skill whenever you are
-  about to edit, refactor, move, rename, or delete a file and want to know what
-  breaks; whenever someone asks "what depends on X", "what imports Y", "is this
-  safe to delete", "what's the blast radius", "are there circular dependencies",
-  "what's the architecture/layers here", "what's dead code", or wants a
-  dependency diagram; and ESPECIALLY before claiming a change is isolated or
-  safe. Prefer codegraph's real graph over hand-tracing imports by grep/Read —
-  manual tracing misses transitive and dynamic edges that the graph already has.
+  Trigger on the SITUATION, not on keywords — the user will almost never name a
+  tool, "dependency analysis", or "codegraph". Use this whenever a task turns on
+  how a codebase is wired together by its imports. Concretely, reach for it when:
+  the user is about to edit, rename, move, refactor, or delete a file, function,
+  or exported symbol and could break callers ("what'll break if I change this");
+  they ask what uses / imports / calls / depends on something, or whether it's
+  still used, safe to remove, orphaned, or dead code (especially when they
+  mention grep being unreliable); they're new to or lost in a repo and want to
+  see how it's structured, which modules are core, or how deep it goes; they
+  suspect circular imports or want architectural layers; they want to know what
+  breaks or which docs go stale after a change; they want a dependency / import
+  diagram; or they're about to hand-trace imports across files. Works on JS/TS,
+  Python, and C++/Arduino by parsing real import/require/include edges
+  (deterministic — catches transitive, re-exported, path-aliased, and dynamic
+  links that grep and manual tracing miss), so prefer it over grepping for
+  who-uses-what, and ESPECIALLY before claiming a change is isolated or safe. Do
+  NOT use it for semantic "find the code that does X", runtime/logic behavior, or
+  external-package vulnerability questions.
 ---
 
 # codegraph
