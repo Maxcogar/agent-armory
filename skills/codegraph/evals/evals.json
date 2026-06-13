@@ -1,0 +1,58 @@
+{
+  "skill_name": "codegraph",
+  "notes": "Evals run against evals/files/tangled-app — a deliberately grep-HOSTILE fixture (a re-export barrel at src/api/index.ts plus tsconfig path aliases @db/@api) so that hand-tracing imports gives an incomplete or wrong answer. The codegraph MCP server is attached in BOTH configurations; the skill's job is to make the agent reach for the real graph (and get the complete transitive answer) on prompts that actively tempt a grep shortcut. Iteration 1's evals on the simpler sample-app fixture were non-discriminating (a strong model passed them with or without the skill); these replace them.",
+  "evals": [
+    {
+      "id": 0,
+      "name": "barrel-delete-trap",
+      "prompt": "Is src/api/format.ts safe to delete? When I grep for \"format\" the only hit besides the file itself is the barrel src/api/index.ts, so it looks unused to me.",
+      "expected_output": "NOT safe. format.ts is re-exported by the barrel src/api/index.ts, and its fmtDate is actually consumed by src/services/userService.ts (and so, transitively, by projectService.ts and index.ts). A grep on the filename misses this; the graph shows a 4-file blast radius.",
+      "files": ["files/tangled-app"],
+      "expectations": [
+        "Calls codegraph_scan before any other codegraph query",
+        "Uses codegraph_get_dependents or codegraph_get_change_impact on src/api/format.ts rather than concluding from grep alone",
+        "Concludes the file is NOT safe to delete / is still in use (does not call it dead code)",
+        "Explains it is consumed transitively through the barrel src/api/index.ts by the service layer (e.g. src/services/userService.ts), which a filename grep does not reveal"
+      ]
+    },
+    {
+      "id": 1,
+      "name": "transitive-blast-radius-via-barrel",
+      "prompt": "What breaks if I change the signature of getUser in src/api/users.ts? Nothing seems to import users.ts directly except a barrel file, so is it basically safe?",
+      "expected_output": "Not basically safe. users.ts is re-exported by src/api/index.ts (direct dependent), and the impact propagates through the barrel to src/services/userService.ts, src/services/projectService.ts, and src/index.ts — totalImpacted 4.",
+      "files": ["files/tangled-app"],
+      "expectations": [
+        "Calls codegraph_scan first",
+        "Uses codegraph_get_change_impact or codegraph_get_dependents on src/api/users.ts",
+        "Reports that the barrel src/api/index.ts propagates the change onward to src/services/userService.ts, src/services/projectService.ts, and src/index.ts",
+        "Corrects the user's 'basically safe' assumption using the graph's transitive dependents rather than agreeing based on the lack of direct importers"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "doc-sync-transitive",
+      "prompt": "I just changed src/api/users.ts. Which docs do I need to review? I already checked docs/guide.md since it mentions users.ts — is that all of them?",
+      "expected_output": "No. docs/services.md also needs review: it references src/services/userService.ts, which is in the blast radius of users.ts, even though services.md never names users.ts. codegraph_find_related_docs returns both guide.md and services.md.",
+      "files": ["files/tangled-app"],
+      "expectations": [
+        "Calls codegraph_scan first",
+        "Uses codegraph_find_related_docs with src/api/users.ts",
+        "Returns docs/guide.md",
+        "ALSO surfaces docs/services.md and explains it matched transitively (it references src/services/userService.ts, a dependent of users.ts) — correcting the user's assumption that guide.md was the only doc"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "dependency-chain",
+      "prompt": "Why does src/index.ts end up depending on src/db/pool.ts? They're in different layers and index.ts doesn't import pool directly. Trace the actual chain for me.",
+      "expected_output": "A concrete multi-hop import chain from src/index.ts to src/db/pool.ts, e.g. src/index.ts → src/services/projectService.ts → src/api/index.ts (barrel) → src/api/users.ts → src/db/pool.ts, obtained from codegraph_get_path_between rather than asserted.",
+      "files": ["files/tangled-app"],
+      "expectations": [
+        "Calls codegraph_scan first",
+        "Uses codegraph_get_path_between (from src/index.ts to src/db/pool.ts)",
+        "Produces an actual multi-hop import chain from src/index.ts to src/db/pool.ts that passes through the src/api barrel",
+        "Shows the concrete intermediate files rather than just asserting that a dependency exists"
+      ]
+    }
+  ]
+}
