@@ -1,0 +1,21 @@
+{
+  "$schema": "https://raw.githubusercontent.com/anthropics/mcpb/main/schemas/mcpb-manifest-v0.4.schema.json",
+  "manifest_version": "0.4",
+  "name": "powermill",
+  "version": "0.2.0",
+  "description": "Drive Autodesk PowerMill (CAM software) from Claude. Open projects, list/calculate toolpaths, post NC programs, run arbitrary macros.",
+  "author": { "name": "Max Cogar" },
+  "server": {
+    "type": "binary",
+    "entry_point": "server/PowerMillMcpServer.exe",
+    "mcp_config": {
+      "command": "${__dirname}/server/PowerMillMcpServer.exe",
+      "args": [],
+      "env": {}
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": ["win32"]
+  }
+}
