@@ -4,7 +4,7 @@ An MCP server that drives **Autodesk PowerMill** from Claude. Wraps the Autodesk
 
 ## Status
 
-**v0.2.0** — 38 tools spanning project lifecycle, setup, tooling, drive geometry, toolpaths, NC programs, and escape hatches.
+**v0.3.0** — 46 tools spanning project lifecycle, setup, tooling, drive geometry, toolpaths, discovery, NC programs, and escape hatches.
 
 ## Tools by category
 
@@ -20,9 +20,11 @@ An MCP server that drives **Autodesk PowerMill** from Claude. Wraps the Autodesk
 
 **Toolpaths (6)** — `list_toolpaths`, `create_toolpath`, `create_toolpath_from_template`, `set_toolpath_links`, `calculate_toolpath`, `verify_toolpath`
 
-**NC programs (7)** — `create_nc_program`, `add_toolpaths_to_nc_program`, `configure_nc_program`, `set_nc_tool_handling`, `write_nc_program`, `batch_post`, `list_post_processors`
+**Discovery (5)** — `list_models`, `list_workplanes`, `list_setups`, `list_stock_models`, `list_machine_tools`
 
-**Escape hatches (2)** — `run_macro`, `query_parameter`
+**NC programs (8)** — `list_nc_programs`, `create_nc_program`, `add_toolpaths_to_nc_program`, `configure_nc_program`, `set_nc_tool_handling`, `write_nc_program`, `batch_post`, `list_post_processors`
+
+**Escape hatches & macros (4)** — `run_macro`, `query_parameter`, `start_macro_recording`, `stop_macro_recording`
 
 ## Architecture
 
@@ -58,7 +60,7 @@ Requires .NET 8 SDK (`dotnet --version` ≥ 8.0).
 What it does:
 1. `dotnet build -c Release` — server + tests + Delcam refs.
 2. `dotnet test -c Release` — 93+ unit tests covering SafePath, OutputCap, JsonRpcEnvelope, RootsRegistry, MacroConfirm, Logger (file + in-memory), strategy allowlist, vec3 readers, ToolDeps wiring, ProtocolVersion negotiation, InitializationGate, McpServerCancellation, OutboundRequestTimeout, ToolRegistry serialization, plus the path-rejection tests for OpenProjectTool, CreateBlockTool, CreateToolpathTool, DeleteEntityTool.
-3. Stdio smoke test — pipes `initialize` + `notifications/initialized` + `tools/list` through the built exe and asserts `protocolVersion` echoed and 38 tools registered.
+3. Stdio smoke test — pipes `initialize` + `notifications/initialized` + `tools/list` through the built exe and asserts `protocolVersion` echoed and 46 tools registered.
 4. Print artifact path + SHA256.
 
 Output: `bin\Release\net48\win-x64\PowerMillMcpServer.exe` plus dependent DLLs.
