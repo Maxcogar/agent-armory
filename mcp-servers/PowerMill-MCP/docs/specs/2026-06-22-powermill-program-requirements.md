@@ -4,7 +4,7 @@
 > Phase: **Define** (problem → requirements). Per the project-lifecycle skill,
 > this precedes Design (architecture). No architecture or implementation is
 > decided here — only *what must be true* of any acceptable solution.
-> Status: **Draft for owner review.**
+> Status: **Owner answers recorded (2026-06-27) — OQ-1/2/3 resolved; gate to Design cleared.** OQ-4/5 remain (scoped to subsystem B and posting).
 > Method: ISO/IEC/IEEE 29148 requirements discipline as prescribed by
 > `skills/project-lifecycle/references/phase-define.md` — every requirement is a
 > property (not a recipe), traces to a source, is testable, unambiguous, and
@@ -60,6 +60,38 @@ program architecture are approved:
 authoring; GUI/visual simulation playback; DNC/machine connectivity; turning or
 mill-turn unless shop scope (OQ-1) includes it. Non-goals may be revisited in a
 later cycle but are explicitly out of this one.
+
+## 3.1 Shop profile (resolves OQ-1)
+
+The in-scope machining space is bounded by the owner's actual shop:
+
+- **Machine:** 3/4-axis milling machine; ~20 hp, 12,000 rpm Kessler spindle;
+  Renishaw part and tool probes.
+- **Multi-orientation via a high-speed angle head — positional only.** A
+  CAT40-held, coolant-driven high-speed angle head (ER32 coolant-sealed collet)
+  provides off-axis machining: the **tilt off Z is set manually** at the head's
+  joint and locked (mostly 90°, sometimes arbitrary), while the **clocking — which
+  wall the tilted tool points at — is set by a commanded spindle orientation** that
+  rotates and holds. Both are **positional/indexed only**; neither the head nor the
+  spindle is usable as a continuous/interpolating cutting axis. Consequences:
+  - Tool-axis support = **positional 3+2-style multi-orientation at arbitrary fixed
+    angles**, programmed via workplanes. **No continuous simultaneous 5-axis**
+    (lead/lean/swarf tool-axis control) is in scope.
+  - The angle head is a **distinct tooling concept** the system must model: its
+    geometry (tilt + gauge-line-to-cutter offset) for correct toolpaths and
+    collision checks, and a **decoupled speed regime** (cutter RPM comes from
+    coolant pressure, not the machine's commanded spindle RPM).
+  - NC output for angle-head ops is **workplane-oriented 3-axis plus an emitted
+    spindle-orient command** for the clocking; the machine is otherwise unaware of
+    the head.
+- **Materials:** aluminum (various alloys), mild/carbon steel, stainless (304,
+  17-4 hardened, 316), chromoly, AR steel — a wide hardness/toughness range. This
+  makes **material-aware strategy/feeds/speeds a core requirement** (subsystem B
+  keyed by material; adaptive/trochoidal roughing for the hard/tough end).
+- **Work type:** prototypes, single parts, **and** full production runs — both
+  ad-hoc and repeatable/templated workflows are in scope.
+- **Renishaw probing:** present; whether probing cycles are emitted in CAM output
+  or handled at the control is deferred (a later clarification, not blocking).
 
 ## 4. Actors
 
@@ -191,11 +223,15 @@ verification note.
   overridable, and reversible.
   *Source:* memory-separation rule. *Verify:* every learned item is
   distinguishable from curated data and can be rolled back.
-- **R-LEARN-3 (Should).** A human-in-the-loop promotion step gates a learned
-  heuristic before it becomes a default; the owner can review "what the system
-  wants to learn."
+- **R-LEARN-3 (Must).** *(Resolved by OQ-2; confirms ADR-0004.)* The system never
+  auto-promotes. It **proposes** candidate defaults to the owner, each tagged with
+  an evidence tier — (1) owner approved the result, (2) also simulation-verified,
+  (3) backed by a real machining result (good part, no crash, acceptable tool
+  life) — and a learned heuristic becomes a default **only on the owner's explicit
+  approval.** The owner can review "what the system wants to learn" and accept or
+  reject.
   *Source:* correctness; owner control. *Verify:* promotion to default requires
-  recorded human approval.
+  recorded human approval; no default exists without it.
 - **R-LEARN-4 (Must).** Learning is auditable: each learned item records origin,
   evidence, and time.
   *Source:* governance. *Verify:* audit trail exists per learned item.
@@ -287,6 +323,33 @@ verification note.
   *Source:* safety; reliability. *Verify:* every macro-backed capability presents
   a typed, validated tool surface.
 
+### 6.12 Plan and approval checkpoints (resolves OQ-3)
+
+- **R-PLAN-1 (Must).** Before building any toolpaths, the agent presents a
+  **machining plan** and waits for owner approval. The plan must contain, as an
+  output contract (not "looks done"): an approach summary in plain language; the
+  setups and orientations (incl. angle-head tilt + spindle-orient clocking and
+  which features each reaches); an ordered operation scaffold where **each**
+  operation states what it does and where, the strategy and *why*, the tool from
+  the library and *why*, the orientation it runs in, and the stock left for the
+  next op; an explicit **areas-of-concern / risk** section (thin walls, reach, hard
+  material, collision-prone zones, angle-head reach, uncertainties); and the
+  assumptions plus anything needing an owner decision.
+  *Source:* owner control; non-expert supervisability (OQ-3). *Verify:* the plan
+  contains every listed element; building is blocked until the owner approves.
+- **R-PLAN-2 (Must).** After programming and verification, the agent presents the
+  **verified result** and holds the NC output as not-ready-to-run until the owner
+  approves; the first physical cut is always the owner's call. Work *between* the
+  two checkpoints (creating toolpaths, dialing parameters, running checks, retrying
+  failures) is autonomous; the agent returns only when stuck or when a check will
+  not pass.
+  *Source:* owner control; physical-damage risk (OQ-3). *Verify:* no NC is marked
+  ready without owner approval at this gate (ties to R-SAFE-1 / R-SEC-5).
+- **R-PLAN-3 (Should).** Checkpoint strictness is adjustable per job (a hard 17-4
+  part may warrant more gates than an aluminum bracket) and may be loosened over
+  time as trust builds; the conservative two-gate model above is the default.
+  *Source:* usability. *Verify:* checkpoint policy is configurable per job.
+
 ---
 
 ## 7. Threat model (precedes the security requirements)
@@ -348,30 +411,34 @@ Fusion sync ingest; local file system access.
 
 ## 10. Open questions — owner decisions needed (these BOUND the scope; they do not narrow it)
 
-These are about your shop and your preferences, not PowerMill expertise. Answering
-them widens our target to cover *all* of your space instead of guessing.
+These bound our target so we cover *all* the owner's space. OQ-1/2/3 are answered
+(2026-06-27) and recorded in the requirements above; OQ-4/5 remain open, scoped to
+subsystem B and the posting end, and do not block program-level Design.
 
-- **OQ-1.** What does your shop physically run and make, in broad strokes —
-  machine types (3-axis / 3+2 indexed / full 5-axis), typical materials,
-  prototype vs. production? *(Sets the breadth target for R-CAP-2.)*
-- **OQ-2.** For "verified outcome" (R-LEARN-1), which signals should count —
-  simulation only, your sign-off, and/or actual machining results? *(Sets how
-  fast vs. how safely it learns.)*
-- **OQ-3.** Default autonomy vs. checkpoints — should the agent pause for your
-  approval at key gates (posting, first cut), or run further on its own? *(Sets
-  R-SAFE / R-SEC-5 gate placement.)*
-- **OQ-4.** Fusion 360 tooling — is your tool library exportable, and roughly how
-  many tools/holders? *(Confirms R-KNOW-1 feasibility and shape.)*
-- **OQ-5.** Which machine controls / post-processors do you actually post to?
-  *(Sets the posting/verification target.)*
+- **OQ-1 — ANSWERED.** Shop profile recorded in §3.1: 3/4-axis ~20 hp / 12k Kessler
+  mill with Renishaw probing; positional-only multi-orientation via a manual-tilt +
+  commanded-spindle-orient high-speed angle head (no continuous 5-axis); aluminum
+  through hard/tough steels (17-4 H, AR, chromoly, 316); prototypes, one-offs, and
+  production runs.
+- **OQ-2 — ANSWERED.** Verified-outcome + promotion policy recorded in R-LEARN-3:
+  the system proposes candidates with evidence tiers; nothing becomes a default
+  without the owner's explicit approval.
+- **OQ-3 — ANSWERED.** Autonomy/checkpoints recorded in §6.12 (R-PLAN-1/2/3):
+  plan-approval before building (with a full plan output contract), then
+  verified-output approval before run; autonomous in between.
+- **OQ-4 (open).** Fusion 360 tooling — is the tool library exportable, and roughly
+  how many tools/holders? *(Confirms R-KNOW-1 feasibility; needed for subsystem B,
+  not for program Design.)*
+- **OQ-5 (open).** Which machine controls / post-processors are actually posted to?
+  *(Sets the posting/verification target; needed for the posting end.)*
 
 ## 11. Gaps and pending items
 
-- The breadth taxonomy in §6.1 is bounded by OQ-1; until answered, "in-scope
-  machining space" is provisional.
-- The exact "verified outcome" definition (R-LEARN-1) is provisional pending OQ-2.
-- Machine-collision verification (R-SAFE-1) depends on whether machine models
-  exist for the owner's machines — pending OQ-1/OQ-5.
+- The in-scope machining space is now bounded by §3.1 (OQ-1 answered).
+- The "verified outcome" + promotion policy is fixed by R-LEARN-3 (OQ-2 answered).
+- Machine-collision verification (R-SAFE-1) depends on whether a machine model
+  exists for the owner's mill — still pending OQ-5 / subsystem E.
+- Fusion tool-library shape (subsystem B) pending OQ-4.
 
 ## 12. Quality gate to Design (self-check)
 
@@ -382,7 +449,7 @@ them widens our target to cover *all* of your space instead of guessing.
 - [x] Threat model precedes security requirements.
 - [x] Judgment calls and open gaps surfaced in this document.
 
-**Blocking before Design:** OQ-1 through OQ-5 are owner decisions that several
-requirements depend on. Design should not begin until at least OQ-1, OQ-2, and
-OQ-3 are answered, since they set breadth, the learning signal, and gate
-placement respectively.
+**Gate status (2026-06-27): CLEARED for Design.** The blocking owner decisions
+OQ-1, OQ-2, OQ-3 are answered (§10) and recorded in §3.1, R-LEARN-3, and §6.12.
+OQ-4 and OQ-5 remain open but are scoped to subsystem B and the posting end, not
+program-level Design.
