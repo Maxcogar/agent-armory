@@ -1,6 +1,8 @@
 # The Context Oracle — a fundamental rethink of the codebase context compiler
 
-**Status**: foundational rethink, pre-spec. This document deliberately sets aside
+**Status**: foundational rethink. The open decisions in §12 were resolved by the
+owner on 2026-07-13; the spec derived from them is `SPEC.md` in this directory.
+This document deliberately sets aside
 the existing implementation (`middleware/codebase-context-compiler-sandbox/`) and
 its spec/architecture docs. Nothing in them is treated as presumptively correct.
 The old material was consulted only far enough to name what it was reaching for.
@@ -297,25 +299,35 @@ tool grading its own paperwork. An oracle is measured on:
 - **Companion skill**: §7.
 - **Distiller**: §8, runs post-session.
 
-## 12. Open decisions for the owner
+## 12. Decisions — resolved by the owner, 2026-07-13
 
-1. **Name.** "Context compiler" encodes the wrong model. Proposal: *Context
-   Oracle* (`ctxoracle`, or just `oracle`). Your call.
-2. **Model in the loop.** Accept a small-model call per hook event (better
-   judgment, some cost/latency, needs network) with deterministic fallback — or
-   launch deterministic-only and add the judgment layer after? Recommendation:
-   design for the model, ship the fallback first.
-3. **The one hard block.** Generated/vendored file edits: hard block, or loud
-   whisper? Recommendation: loud whisper; reserve blocks until the objective
-   case proves itself.
-4. **Fate of the sandbox build.** Archive `codebase-context-compiler-sandbox/`
-   as reference and build the oracle fresh, or strip-mine it for substrate
-   (tree-sitter indexing, sqlite store) during implementation? No part of it is
-   presumed correct either way; substrate reuse is a build-time economy
-   decision, not an endorsement.
-5. **Audience.** Main agent only, or do subagents (Task/Explore workers) also
-   get whispers? Recommendation: main agent first; subagent injection is a
-   natural follow-on.
-6. **Team scope.** Is the knowledge store per-developer or shared/committed for
-   a team? Recommendation: per-developer local until the learning loop is
-   proven, since a shared store amplifies both signal and noise.
+1. **Name**: **Context Oracle**, CLI name `ctxoracle`.
+2. **Model in the loop**: yes — and the sandbox concern dissolves, because the
+   oracle piggybacks on the host harness's own model access instead of needing
+   its own API key. Wherever the oracle runs, Claude Code is by definition
+   already talking to a model with working credentials; the judgment layer uses
+   that same path (Agent SDK / headless CLI with a small fast model). MCP
+   sampling is the protocol-level version of the same idea, to adopt if/when
+   host support is solid. A deterministic-only degraded mode remains mandatory
+   for true air-gap.
+3. **No hard blocks. None, anywhere.** The owner's explicit position: the
+   gatekeeper design was never wanted — prior agent sessions fixated on
+   armoring against specific past failure cases, and the result blocked
+   legitimate work half the time while solving nothing worthwhile. Every
+   intervention, including generated-file protection, is a **loud warning
+   whisper**. False fires are tracked (warning emitted → agent proceeded →
+   outcome, plus narration corrections) and warnings are tuned from that data.
+   Corollary: the oracle must be safe to run on real projects *by
+   construction* — it never mutates the repo and never prevents an action; its
+   worst case is a wasted sentence.
+4. **Sandbox compatibility is required.** The old sandbox build is archived as
+   read-only reference; the new spec and data model are written with it closed,
+   and specific functions may be cherry-picked during implementation only where
+   they fit the new model — never the reverse.
+5. **Main agent only in v1.** Subagent whispers are a natural follow-on once
+   whisper quality is measured.
+6. **Two stores, no team scope** (the owner works solo): a **per-project
+   store** — co-change graph, exemplars, landmines, invariants, task recipes
+   for that repo — and a **per-user global store** — cross-project lessons,
+   whisper-efficacy statistics, threshold tuning, general conventions. Both
+   live outside the repo tree. Team sharing is out of scope.
