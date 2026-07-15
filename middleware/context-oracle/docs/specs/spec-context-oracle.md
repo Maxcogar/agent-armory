@@ -50,11 +50,14 @@ after the fact, everything the oracle said and the evidence it said it from.
 
 ## 2. Scope
 
-**In scope (v1)**: observation of a single main-agent Claude Code session via
-hooks; per-repository and per-user knowledge stores; whisper delivery via hook
-context injection; a model-assisted judgment layer with a mandatory
-deterministic degraded mode; post-session learning; a companion skill; a CLI
-for init/index/status/export/inspection.
+**In scope (v1)**: observation of a Claude Code session *including its
+subagents* via hooks `[OWNER-8]`; per-repository and per-user knowledge
+stores; whisper delivery via hook context injection; a model-assisted
+judgment layer with a mandatory deterministic degraded mode; session-conduct
+genres (process conformance, answer drift) `[OWNER-9]`; a self-observability
+layer that detects and surfaces the oracle's own failures `[OWNER-10]`;
+post-session learning; a companion skill; a CLI for
+init/index/status/export/inspection.
 
 **Out of scope, with reasons**:
 
@@ -73,8 +76,9 @@ for init/index/status/export/inspection.
   pull interaction is the narration address (FR-S3). `[RETHINK §9]`
 - **Team distribution** — the owner works solo; the store format must not
   preclude later merging (FR-K6 provenance suffices). `[OWNER-6]`
-- **Subagent whispers** — deferred until whisper quality is measured on the
-  main agent; the event contract must not preclude them. `[OWNER-5]`
+- ~~Subagent whispers~~ — originally deferred `[OWNER-5]`; moved into v1
+  scope by the owner on 2026-07-15 `[OWNER-8]` (see FR-O6). Listed here so
+  the reversal is visible rather than silent.
 - **Countermeasures to specific remembered incidents** — requirements shaped
   as armor against one past failure are rejected on sight (P9). `[OWNER-3]`
 
@@ -104,7 +108,8 @@ for init/index/status/export/inspection.
 | `[OWASP-PI]` | OWASP LLM Prompt Injection Prevention Cheat Sheet | Repo text (code comments, commit messages) as indirect-injection surface; instruction/data separation |
 | `[OWASP-SM]` | OWASP Secrets Management Cheat Sheet §8 | Scanner-grade secret detection; never log/store plaintext secrets |
 | `[NODE]` | nodejs.org API docs + nodejs/node source (v22.x/v24.x heads) | `node:sqlite` availability: unflagged since v22.13.0/v23.4.0; release candidate on v24 LTS; FTS5 compiled in on both LTS lines (build-config fact, not a documented API contract) |
-| `[OWNER-1..6]` | RETHINK §12, resolved 2026-07-13 | Name; model-in-the-loop via host piggyback; no hard blocks anywhere; sandbox compatibility; main agent only; two stores, solo scope |
+| `[OWNER-1..6]` | RETHINK §12, resolved 2026-07-13 | Name; model-in-the-loop via host piggyback; no hard blocks anywhere; sandbox compatibility; main agent only (revised by OWNER-8); two stores, solo scope |
+| `[OWNER-7..11]` | RETHINK §12 addendum, resolved 2026-07-15 | No separate credentials ever; subagent delivery in v1; session-conduct genres; mandatory self-observability; agent-led project governance |
 
 The numeric thresholds adopted from `[TRICORDER-15]`/`[CACM-18]`/`[CB-16]`/
 `[COVERITY-10]`/`[ROSE-05]` were measured on human developers and human code
@@ -273,6 +278,15 @@ of stores and whisper logs (FR-X6). Init/deinit contract is C-4.
   never timers or idle detection. Task-boundary intervention is the measured
   sweet spot for proactive assistance; idle-time triggering interrupts
   thinking, not waiting. `[CHI-25]`
+- **FR-O6** — **Subagents are consumers too.** `[OWNER-8]` The oracle
+  observes subagent lifecycle and tool events (`SubagentStart`/`SubagentStop`
+  exist in the verified event list `[HOOKS]`); Tier 3 state (files seen,
+  whispers sent, dedup, budgets) is kept per consumer, keyed by the event's
+  session/agent identity; a whisper is delivered to the consumer whose event
+  fired. Per-consumer budgets roll up into the session total (FR-A3).
+  Whether tool hooks fire inside subagent contexts and whether
+  `additionalContext` reaches the *subagent's* context is **unverified** —
+  routed to §14 with AC-21 contingent on the answer. `[D-16]`
 
 ### 7.2 Knowledge
 
@@ -344,8 +358,10 @@ of stores and whisper logs (FR-X6). Init/deinit contract is C-4.
   | Verification | stop | the verification command for the changed region |
   | Answer | narration addresses the oracle | best-effort answer or an honest "don't know" |
   | Unknown | task depends on something the repo doesn't determine | names the gap as a product/human decision |
+  | Process | a loaded skill/workflow's stated steps depart from observed activity | the departed-from step, with a pointer to the governing skill/workflow line |
+  | Answer drift | a direct user question goes unaddressed across successive turns | names the open question and where it was asked |
 
-  `[RETHINK §5]`
+  `[RETHINK §5]` (Process and Answer drift: `[OWNER-9]`, FR-A8/FR-A9)
 - **FR-A3** — Budgets: at most one whisper per event (§6.1); a per-session
   injected-token budget — hard caps per `[RETHINK §5]`, with the 2,000-token
   default a spec judgment `[D-10]`, configurable; orientation counts against
@@ -371,6 +387,22 @@ of stores and whisper logs (FR-X6). Init/deinit contract is C-4.
 - **FR-A7** — First impressions: in a project's first sessions (configurable
   count), only highest-confidence genres speak. The first few reports set the
   tool's credibility disproportionately. `[COVERITY-10]`
+- **FR-A8** — **Process conformance.** `[OWNER-9]` When a skill or workflow
+  is loaded (its text is visible in the transcript, §6.1), its stated steps
+  become session-scoped expectations in Tier 3. Observed departures — a
+  skipped required step, a completion claim with no verification activity, a
+  fabricated-looking output for a step whose tool calls never ran — produce
+  an advisory Process whisper naming the specific step, with a pointer to
+  the governing line. Never a block (P2); detection is judgment-layer work
+  (model path required — not in the FR-J3 degraded set), and the genre lives
+  under the §9.2 enforcement ladder like every warning-adjacent channel.
+- **FR-A9** — **Answer drift.** `[OWNER-9]` Direct user questions are
+  tracked as open items in Tier 3. If successive assistant turns (default 2,
+  tunable `[D-17]`) fail to address an open question, the oracle whispers
+  the question back — verbatim, with its location — so the agent can answer
+  it or say why it can't. Adopted without published grounding as an
+  owner-directed innovation with the §9.2 kill-switch as the safety net
+  `[D-18]`.
 
 ### 7.4 Delivery (whispers)
 
@@ -471,8 +503,40 @@ of stores and whisper logs (FR-X6). Init/deinit contract is C-4.
 - **FR-L6** — Human statements in chat are recorded as facts with human
   provenance — no override ritual; the user saying it is the authority.
   `[RETHINK §8]`
+- **FR-L7** — Interaction-failure patterns (answer-drift instances, process
+  departures, conduct-genre efficacy) are learned to the global store, so
+  recurring failure shapes raise the matching genre's priority across
+  projects. `[OWNER-9]` `[OWNER-6]`
 
-## 8. Security
+### 7.8 Self-observability (diagnostics)
+
+The owner cannot be the failure detector: the project's operating model is
+lights-out, agent-led work, and "it could fail a hundred ways in front of me
+and I wouldn't know." `[OWNER-10]` The whisper channel stays in-workflow; the
+diagnostic channel exists for the tool's own maintainers — the same split
+Google found (in-workflow results for consumers, dashboards useful precisely
+and only for the people improving the analyzers). `[TRICORDER-15]`
+
+- **FR-M1** — Every component emits structured diagnostic events to a local
+  diagnostic log, separate from the whisper audit log (FR-X6): hook
+  invocations with latency and outcome (whisper/silence/timeout/error),
+  model-call attempts and results, store read/write failures, index refresh
+  runs, degraded-mode transitions, and delivery results. Secrets rules
+  (FR-X1) and locality rules (FR-X7) apply to this log in full.
+- **FR-M2** — The oracle detects its own failure classes from that log
+  without human observation: hooks not firing (expected-event gaps), latency
+  budget breaches, persistent model-path failure, store corruption, index
+  staleness beyond FR-K7 bounds, and whispers produced but not delivered.
+  `ctxoracle status` surfaces current health and recent anomalies in plain
+  language readable by a non-programmer. `[OWNER-10]`
+- **FR-M3** — The distiller consumes diagnostics: detected failures become
+  findings alongside regrets and false fires, and recurring failures
+  generate an actionable self-report that the next working agent (or the
+  owner) reads at session start — the mechanism by which improvement stops
+  depending on what the human notices. `[OWNER-10]`
+- **FR-M4** — Diagnostics never touch agent context and never leave the
+  machine; a broken oracle degrades to silence in the agent's session (FR-O3)
+  while saying exactly what broke on its own channel.
 
 ### 8.1 Threat model
 
@@ -685,24 +749,51 @@ decision and reasoning are recorded here.
   owner's active stacks; a scope judgment pending owner confirmation,
   isolated behind FR-K1's language-agnostic interface so widening it later
   is additive.
+- **D-16 — Subagent delivery mechanics.** OWNER-8 puts subagents in scope
+  but not how; the spec chooses per-consumer Tier 3 state with delivery to
+  the consumer whose event fired, because whisper relevance is
+  consumer-local (a coupling fact matters to whoever holds the editing
+  context). Contingent on the unverified subagent hook contract (§14); if
+  the harness can't inject into subagent contexts, the architect proposes a
+  fallback and the owner accepts or descopes.
+- **D-17 — Answer-drift threshold defaults to 2 unresponsive turns.** One
+  turn is legitimate re-framing; waiting longer than two multiplies the
+  owner's cost of being ignored. No published figure exists; tunable.
+- **D-18 — Conduct genres adopted without published grounding.** No
+  peer-reviewed evidence exists that advisory whispers correct process
+  departures or answer drift in agents; the genres are owner-directed
+  innovation `[OWNER-9]` shipped under the §9.2 enforcement ladder, so if
+  they misfire they demote themselves like any other warning channel.
+- **D-19 — Diagnostic layer shape.** OWNER-10 fixes the property (failures
+  detected and surfaced without human observation); the split into a
+  structured diagnostic log, self-checks, plain-language `status`, and a
+  distiller self-report is spec judgment, patterned on the consumer/author
+  channel split `[TRICORDER-15]`.
+- **D-20 — Governance doc lives at `middleware/context-oracle/CLAUDE.md`.**
+  OWNER-11 requires written agent guidelines; placing them in the
+  directory's CLAUDE.md makes them load automatically for any agent working
+  the project, rather than relying on agents finding a doc.
 
 ## 12. MVP boundary and build order
 
 - **Phase 0 — deterministic spine.** Shims + session service + Tier 2 index +
-  co-change miner (with FR-K2 hygiene). Genres: the FR-J3 degraded set
-  (deterministic minimal orientation, coupling, generated-file warning,
-  verification, completeness). Degraded mode *is* the product at this phase.
-  Exit: AC-1..AC-5, AC-12, AC-14, AC-17 pass; the owner runs it on a real
-  project without incident.
+  co-change miner (with FR-K2 hygiene) + the diagnostic core (FR-M1, FR-M2).
+  Genres: the FR-J3 degraded set (deterministic minimal orientation,
+  coupling, generated-file warning, verification, completeness). Degraded
+  mode *is* the product at this phase. Exit: AC-1..AC-5, AC-12, AC-14,
+  AC-17, AC-18 pass; the owner runs it on a real project without incident.
 - **Phase 1 — judgment.** §6.2 model access incl. recursion guard; narration
   intent tracking; assumption-check, steering, consequence, answer genres;
-  companion skill; the §14 Phase 1 verifications (piggyback credential
-  coverage, transcript freshness). Exit: AC-6..AC-8, AC-11, AC-16 pass;
-  measured silence and hit rates reviewed against the bar.
+  conduct genres (FR-A8, FR-A9); subagent delivery (FR-O6); companion skill;
+  the §14 Phase 1 verifications (piggyback credential coverage, transcript
+  freshness, subagent hook contract). Exit: AC-6..AC-8, AC-11, AC-16,
+  AC-19, AC-20 pass (AC-21 contingent per §14); measured silence and hit
+  rates reviewed against the bar.
 - **Phase 2 — learning.** Distiller, false-fire ladder, landmine and
-  invariant mining, recipes, global-store tuning, export/import. Exit:
-  AC-9..AC-10, AC-13, AC-15 pass; a demonstrated case of the oracle
-  measurably improving between sessions on the same repo.
+  invariant mining, recipes, interaction-pattern learning (FR-L7),
+  diagnostics self-report (FR-M3), global-store tuning, export/import.
+  Exit: AC-9..AC-10, AC-13, AC-15, AC-22 pass; a demonstrated case of the
+  oracle measurably improving between sessions on the same repo.
 
 ## 13. Acceptance criteria
 
@@ -765,6 +856,27 @@ Each criterion names the requirements it verifies.
 - **AC-17 (staleness → FR-K7)** — With a deliberately stale index, events
   yield silence or reduced-confidence whispers (never errors or spam), and a
   background refresh is triggered.
+- **AC-18 (self-detection → FR-M1, FR-M2, FR-M4)** — Induced failures —
+  broken hook wiring, blocked model path, corrupted store, service killed
+  mid-session — are each recorded in the diagnostic log and surfaced by
+  `ctxoracle status` in plain language, with zero errors or added output in
+  the agent's session.
+- **AC-19 (process conformance → FR-A8)** — In a fixture session that loads
+  a skill requiring a verification step, an agent completion claim with no
+  verification activity draws a Process whisper naming the skipped step with
+  a pointer to the governing skill line; the claimed action itself proceeds
+  unimpeded.
+- **AC-20 (answer drift → FR-A9)** — In a fixture transcript where a direct
+  user question is followed by two non-responsive turns, the oracle whispers
+  the open question verbatim with its location.
+- **AC-21 (subagent delivery → FR-O6; contingent per §14)** — An edit event
+  inside a subagent receives a coupling whisper in that subagent's context,
+  and dedup is per-consumer: the same fact may reach the main agent and that
+  subagent once each, and never twice to either.
+- **AC-22 (self-report → FR-M3)** — After sessions containing an induced
+  recurring failure, the distiller's self-report names the failure class and
+  its frequency, and the report is present for reading at next session
+  start.
 
 ## 14. Unresolved
 
@@ -783,9 +895,16 @@ Each criterion names the requirements it verifies.
   the transcript lags the live turn, the narration genres (assumption check,
   steering, answer) would fire on stale text — the architect proposes a
   mitigation and the owner decides whether those genres ship enabled.
-- **Subagent whisper delivery** (deferred, `[OWNER-5]`): when it lands,
-  Tier 3 state becomes per-consumer; the event contract already carries
-  `session_id` to key on.
+- **Subagent hook contract** (FR-O6, AC-21): whether tool hooks fire inside
+  subagent contexts and whether `additionalContext` reaches the *subagent's*
+  context is unverified. Verify in Phase 1; if the harness doesn't support
+  injection there, the architect proposes the closest fallback and the owner
+  accepts it or descopes subagent delivery.
+- **Conduct-genre detection quality** (FR-A8, FR-A9): no published base
+  rates exist for false fires on process/answer-drift detection. They ship
+  under the §9.2 enforcement ladder; the owner reviews measured rates after
+  the first instrumented sessions and decides whether they stay enabled by
+  default.
 - **`additionalContext` merge order** (§6.1): concatenation order across
   multiple hooks on one event is unspecified in the docs; moot while the
   oracle registers a single hook per event, revisit if that changes.

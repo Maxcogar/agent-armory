@@ -332,3 +332,28 @@ tool grading its own paperwork. An oracle is measured on:
    for that repo — and a **per-user global store** — cross-project lessons,
    whisper-efficacy statistics, threshold tuning, general conventions. Both
    live outside the repo tree. Team sharing is out of scope.
+
+### §12 addendum — decisions resolved by the owner, 2026-07-15
+
+7. **No separate credentials, ever.** The explicit-API-key fallback that
+   appeared in the first spec draft is rejected. Model access is the host-CLI
+   piggyback or the deterministic degraded mode; the oracle never requires,
+   requests, or stores API credentials of its own.
+8. **Subagent whisper delivery moves into v1 scope** (revises decision 5).
+   The owner's real work runs through workflows that fan out to subagents; a
+   main-agent-only oracle misses most of the decisions that matter.
+9. **Session-conduct genres are in scope**: process conformance (does the
+   agent follow the skill/workflow it loaded — skipped steps, faked output,
+   unverified completion claims) and answer drift (the user's direct question
+   going unaddressed across successive turns). Advisory whispers like every
+   other genre — no blocks.
+10. **Self-observability is required.** The oracle must detect, log, and
+    surface its own failures — hooks not firing, latency breaches, model-path
+    failures, store corruption, silent whisper loss — without depending on the
+    owner noticing anything. The owner's words: it could fail a hundred ways
+    in front of me and I wouldn't know.
+11. **The project is agent-led.** The owner starts and ends sessions, suggests
+    features, and speeds up testing; everything between — design, build,
+    verification, diagnosis, documentation, roadmap — is owned by the agents
+    working the project, under written guidelines (`CLAUDE.md` in this
+    directory). The owner is a non-programmer and this is by design, not a gap.
