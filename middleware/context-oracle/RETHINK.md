@@ -1,7 +1,8 @@
 # The Context Oracle — a fundamental rethink of the codebase context compiler
 
 **Status**: foundational rethink. The open decisions in §12 were resolved by the
-owner on 2026-07-13; the spec derived from them is `SPEC.md` in this directory.
+owner on 2026-07-13; the spec derived from them is
+`docs/specs/spec-context-oracle.md` in this directory.
 This document deliberately sets aside
 the existing implementation (`middleware/codebase-context-compiler-sandbox/`) and
 its spec/architecture docs. Nothing in them is treated as presumptively correct.
