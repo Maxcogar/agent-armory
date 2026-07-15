@@ -7,7 +7,9 @@ owner decisions in its §12. Supersedes
 
 Every external fact this spec relies on — the hooks contract, model access,
 protocol status, runtime capabilities, and the published research behind the
-guidance thresholds — was verified against the primary source on 2026-07-13.
+guidance thresholds — was verified against the primary source on 2026-07-13,
+except where a fact is explicitly marked unverified where it appears and
+routed to §14.
 Source keys like `[TRICORDER-15]` resolve in §3. Requirements sourced from an
 owner decision cite `[OWNER-n]` (decision *n* in RETHINK §12); requirements
 that rest on a judgment call made while writing this spec cite `[D-n]` and are
@@ -82,7 +84,7 @@ for init/index/status/export/inspection.
 |---|---|---|
 | `[HOOKS]` | Claude Code hooks guide & reference, code.claude.com/docs/en/hooks-guide.md and /hooks.md (fetched 2026-07-13) | The observation/injection interface: events, I/O schemas, exit codes, timeouts, parallelism (§6.1) |
 | `[CLI]` | Claude Code CLI reference, code.claude.com/docs/en/cli-reference.md | Headless model access: `claude -p`, `--model`, `--output-format json`, `--max-turns`, tool restriction flags (§6.2) |
-| `[SDK]` | Claude Agent SDK docs, code.claude.com/docs/en/agent-sdk/ | Secondary model access; credential model (API key / Bedrock / Vertex env; claude.ai OAuth explicitly disallowed for programmatic use) (§6.2) |
+| `[SDK]` | Claude Agent SDK docs, code.claude.com/docs/en/agent-sdk/ | Why the piggyback is the installed CLI and not the SDK: the SDK reads only API-key/Bedrock/Vertex env vars, and claude.ai OAuth is explicitly disallowed for programmatic use (§6.2) |
 | `[MCP-DEP]` | MCP specification, sampling (draft) + SEP-2577, modelcontextprotocol.io | Sampling is deprecated as of protocol 2026-07-28 and unsupported by Claude Code (anthropics/claude-code#1785) — removed from the design `[D-1]` |
 | `[RSSE-10]` | Robillard, Walker, Zimmermann, "Recommendation Systems for Software Engineering," IEEE Software 27(4), 2010 | Product category; push-mode restraint |
 | `[TRICORDER-15]` | Sadowski et al., "Tricorder: Building a Program Analysis Ecosystem," ICSE 2015 | Effective-false-positive definition; the not-useful-rate feedback ladder; in-workflow delivery; timeliness |
@@ -142,7 +144,8 @@ principle is a change to this spec, not an implementation detail.
   `[TRICORDER-15]` `[CACM-18]`
 - **P8 — The repo tree stays pristine.** All oracle state lives outside the
   repository. The only in-tree write, ever, is hook wiring in
-  `.claude/settings.json` during an explicit `ctxoracle init`. `[OWNER-4]`
+  `.claude/settings.json` during an explicit `ctxoracle init`. `[OWNER-3]`
+  ("it never mutates the repo") `[OWNER-6]` (stores live outside the tree)
   `[CLAUDE.md standing rule]`
 - **P9 — General guidance, not incident armor.** Requirements shaped as
   countermeasures to one specific remembered failure are rejected on sight.
@@ -180,7 +183,9 @@ whisper — advice alongside an unimpeded pending edit — expressible. `[HOOKS]
 **Inputs relied on**: `session_id`, `cwd`, `transcript_path` (present on all
 events — the narration-reading channel FR-O1 needs), `prompt_text`
 (UserPromptSubmit), `tool_name`/`tool_input` (PreToolUse), plus tool output
-(PostToolUse). `[HOOKS]`
+(PostToolUse). `[HOOKS]` Whether the transcript file is current as of the
+firing event is not documented — an assumption the narration genres depend
+on, routed to §14.
 
 **Output discipline**: shims emit exit code 0 with either no output or a JSON
 body containing only `hookSpecificOutput.additionalContext` (and
@@ -194,29 +199,35 @@ not policy. `[HOOKS]` `[OWNER-3]`
 - Harness-side timeouts: 10 min default for command hooks, but **30 s for
   `UserPromptSubmit`** — the orientation whisper must fit well inside that;
   FR-O3's 3 s ceiling already does.
-- `additionalContext` from multiple hooks on one event is concatenated in
-  non-deterministic order; the oracle therefore registers a single hook per
-  event and emits at most one whisper per event (FR-A3).
+- `additionalContext` from multiple hooks on one event is concatenated, with
+  merge order unspecified in the docs; the oracle therefore registers a
+  single hook per event and emits at most one whisper per event (FR-A3).
 - Injected text arrives to the model as a system-reminder-style plain-text
   block; the `[oracle]` prefix (FR-D1) is what keeps it attributable.
 
 ### 6.2 Model access (judgment layer)
 
-Ladder, tried in order per session `[OWNER-2]` `[D-1]`:
+Two modes, tried in order per session `[OWNER-2]` `[D-1]`:
 
-1. **Host-harness piggyback** (primary): invoke the installed Claude Code CLI
-   in print mode — `claude -p` with `--model` (Haiku-class, currently
-   `claude-haiku-4-5`), `--output-format json`, `--max-turns 1`, and tools
-   disallowed — which reuses whatever credentials the host installation
-   already has (subscription login or API key/Bedrock/Vertex env). All flags
-   verified against `[CLI]`. This is what makes the judgment layer work in
-   sandboxes where no separate key exists.
-2. **Explicit API credentials**, if configured: direct API or Agent SDK,
-   which reads `ANTHROPIC_API_KEY` / Bedrock / Vertex env vars. Note the SDK
-   explicitly does **not** ride claude.ai OAuth logins — Anthropic disallows
-   third-party products using claude.ai login. `[SDK]`
-3. **Deterministic degraded mode** — mandatory, automatic when 1–2 fail
-   (FR-J3). `[OWNER-2]`
+1. **Host-harness piggyback** (the only model path): invoke the installed
+   Claude Code CLI in print mode — `claude -p` with `--model` (Haiku-class,
+   currently `claude-haiku-4-5`), `--output-format json`, `--max-turns 1`,
+   and tools disallowed — reusing whatever authentication the host
+   installation already carries, subscription login or environment-provided
+   keys alike. The flag surface is verified against `[CLI]`; that a spawned
+   print-mode process inherits a *subscription login* (as opposed to
+   API-key/Bedrock/Vertex env vars, which the CLI reads directly) is
+   **unverified** and is Phase 1's first validation task (§14). The
+   piggyback is the installed CLI and not the Agent SDK because the SDK
+   reads only API-key/Bedrock/Vertex env vars and explicitly does **not**
+   ride claude.ai OAuth logins `[SDK]` — the CLI is the only component that
+   can carry the host's subscription auth.
+2. **Deterministic degraded mode** — mandatory, automatic whenever the
+   piggyback fails (FR-J3). `[OWNER-2]`
+
+The oracle never requires, requests, or stores API credentials of its own:
+if the host's model access isn't usable, the answer is degraded mode, not a
+second credential. `[OWNER-2]` `[D-1]`
 
 MCP sampling — the RETHINK's conditional third path — is removed: the MCP
 spec deprecated sampling as of protocol 2026-07-28 (SEP-2577, "new
@@ -252,8 +263,9 @@ of stores and whisper logs (FR-X6). Init/deinit contract is C-4.
   missing store yields silence — never an error in the agent's flow. Added
   latency: p95 ≤ 1.5 s per event, hard ceiling 3 s, after which the event
   resolves to silence (the candidate may carry to the next event). Budget
-  motivated by hooks being turn-blocking `[HOOKS]`; values are owner-set
-  targets `[RETHINK §5]`.
+  motivated by hooks being turn-blocking `[HOOKS]`; the p95 target
+  implements the owner's "~1–2 s or stay silent" bound `[RETHINK §5]`; the
+  3 s ceiling is a spec judgment `[D-11]`.
 - **FR-O4** — **No deny path exists, structurally.** Shims are incapable of
   returning a blocking decision (§6.1 output discipline); asserted by test
   (AC-3), not policy. `[OWNER-3]`
@@ -266,9 +278,9 @@ of stores and whisper logs (FR-X6). Init/deinit contract is C-4.
 
 - **FR-K1** — *Tier 2 structural index*: files, symbols, import/reference
   edges, directory topology, generated/vendored/build-output zones, test
-  topology, per-region verification commands. Incremental; languages start
-  with the owner's stacks (TS/JS/TSX, Python) behind a language-agnostic
-  interface. `[RETHINK §4 T2]`
+  topology, per-region verification commands. Incremental; index content per
+  `[RETHINK §4 T2]`; v1 language scope is TS/JS/TSX and Python behind a
+  language-agnostic interface `[D-15]`.
 - **FR-K2** — *Co-change graph*, mined from git history at file and symbol
   granularity `[ROSE-05]`, with mining hygiene as requirements, not options:
   - exclude merge commits (they duplicate and falsely relate changes)
@@ -302,9 +314,11 @@ of stores and whisper logs (FR-X6). Init/deinit contract is C-4.
 - **FR-K7** — Staleness never blocks and never spams: a stale index lowers
   confidence (usually to silence) and triggers background refresh. Predictive
   power measurably decays on outdated history. `[ROSE-05]`
-- **FR-K8** — Store locations: project store `~/.ctxoracle/projects/<repo-key>/`,
-  global store `~/.ctxoracle/global/`. Nothing is written into the repository
-  tree (P8). `[OWNER-6]`
+- **FR-K8** — Stores are per-repository (keyed by repository identity) and
+  per-user (global), both outside the repository tree (P8). `[OWNER-6]`
+  Default layout `~/.ctxoracle/projects/<repo-key>/` and
+  `~/.ctxoracle/global/` is a discoverability default, not a requirement
+  `[D-13]`.
 - **FR-K9** — `ctxoracle export`/`import` round-trips a project store to a
   single file so learned knowledge survives ephemeral containers; export is
   user-initiated and the oracle never commits its own state anywhere.
@@ -333,9 +347,9 @@ of stores and whisper logs (FR-X6). Init/deinit contract is C-4.
 
   `[RETHINK §5]`
 - **FR-A3** — Budgets: at most one whisper per event (§6.1); a per-session
-  injected-token budget (default 2,000, configurable `[RETHINK §5]`);
-  orientation counts against it; warnings get priority within the budget,
-  not exemption from it.
+  injected-token budget — hard caps per `[RETHINK §5]`, with the 2,000-token
+  default a spec judgment `[D-10]`, configurable; orientation counts against
+  it; warnings get priority within the budget, not exemption from it.
 - **FR-A4** — Dedup against Tier 3 state: never tell the agent what it has
   already read, been told, or visibly acted on; orientation-genre candidates
   decay out of consideration once the agent is deep in the task.
@@ -344,8 +358,9 @@ of stores and whisper logs (FR-X6). Init/deinit contract is C-4.
   estimated decision-impact; only the top candidate above the bar is spoken.
   The bar is configurable, ships high, and rises further in degraded mode
   (FR-J3). History-backed genres additionally respect evidence floors:
-  warn-grade claims (Warning, Completeness-as-warning) require co-change
-  support ≥ 3 and confidence ≥ 0.9 by default — the operating point at which
+  warn-grade claims — any whisper delivered in the FR-D3 ⚠ format, i.e. the
+  Warning genre and completeness whispers escalated to warnings — require
+  co-change support ≥ 3 and confidence ≥ 0.9 by default — the operating point at which
   history-mined warnings showed >66% precision with a 2% false-alarm rate —
   while suggestion-grade coupling may run looser but never below pruned-
   heuristic levels (support ≥ 2 plus a confidence threshold), because raw
@@ -400,13 +415,15 @@ of stores and whisper logs (FR-X6). Init/deinit contract is C-4.
   (fast, always available), then judgment selection of zero-or-one whisper.
   Purely mechanical candidates with objective evidence (e.g. generated-file
   warnings) may bypass model judgment. `[RETHINK §11]`
-- **FR-J2** — Model access follows the §6.2 ladder; the judgment call uses a
-  small fast model (Haiku-class) for intent tracking, ranking, and drafting.
-  `[OWNER-2]` `[CLI]`
-- **FR-J3** — Degraded mode (no model path available): mechanical-evidence
-  genres only (coupling, generated-file warning, verification, completeness),
-  raised confidence bar, announced once per session on the human channel and
-  never into agent context. `[OWNER-2]` `[RETHINK §11]`
+- **FR-J2** — Model access follows §6.2: host piggyback, else degraded mode;
+  the judgment call uses a small fast model (Haiku-class) for intent
+  tracking, ranking, and drafting. `[OWNER-2]` `[CLI]`
+- **FR-J3** — Degraded mode (no model path available): deterministic genres
+  only — minimal orientation (structural entry points and literal-match
+  landmines, no model intent inference), coupling, generated-file warning,
+  verification, completeness — with a raised confidence bar, announced once
+  per session on the human channel and never into agent context. `[OWNER-2]`
+  `[RETHINK §11]`
 - **FR-J4** — Judgment fits the FR-O3 latency budget: candidates precomputed
   or asynchronous wherever possible; the model call gets one shot within
   budget or the event resolves to silence. `[RETHINK §5]`
@@ -583,8 +600,9 @@ trust collapses above ~30% `[COVERITY-10]`.
   other-harness support open, §2). `[RETHINK §11]`
 - **C-4** — `ctxoracle init` is explicit and minimal: wire hooks, create the
   out-of-tree store, nothing else; `deinit` removes the wiring cleanly.
-  Passive auto-bootstrap writing files into a project tree is prohibited.
-  `[OWNER-4]` `[CLAUDE.md standing rule]`
+  Passive auto-bootstrap writing files into a project tree is prohibited
+  `[CLAUDE.md standing rule]`; the explicit init/deinit contract shape is a
+  spec judgment `[D-12]`.
 - **C-5** — The hooks contract facts in §6.1 are version-bound (verified
   2026-07-13); implementation re-verifies against current docs, and shims
   degrade to silence on any contract drift they detect (FR-O3). `[HOOKS]`
@@ -598,8 +616,10 @@ decision and reasoning are recorded here.
   kept it conditionally ("if/when host support is solid"). The condition is
   now resolved by evidence: the MCP spec deprecated sampling (SEP-2577,
   protocol 2026-07-28; "new implementations SHOULD NOT adopt it") and Claude
-  Code never supported it. `[MCP-DEP]` The ladder is now piggyback → explicit
-  key → degraded.
+  Code never supported it. `[MCP-DEP]` Model access is now piggyback →
+  degraded, nothing else: an explicit-API-key middle rung that appeared in
+  the superseded SPEC.md draft was rejected by the owner on 2026-07-15 —
+  the oracle never holds credentials of its own.
 - **D-2 — Advisory-only stands despite evidence that non-blocking warnings
   get ignored.** The literature cuts both ways: Google found build warnings
   "often ignored" and made Clang diagnostics errors `[CACM-18]`, but blocking
@@ -642,22 +662,47 @@ decision and reasoning are recorded here.
 - **D-9 — Spec relocated and renamed.** `SPEC.md` (repo-style ad-hoc
   location) is replaced by this document at `docs/specs/spec-context-oracle.md`,
   the project's default spec location and naming convention.
+- **D-10 — Session token budget defaulted to 2,000.** RETHINK §5 requires
+  hard per-session caps but sets no number; 2,000 ≈ five orientation-size
+  whispers at the owner's ~400-token orientation bound. Configurable; the
+  learning loop tunes it.
+- **D-11 — 3 s hard latency ceiling.** The owner set "~1–2 s or stay
+  silent" (the p95 ≤ 1.5 s target implements it); the 3 s kill-switch is a
+  spec judgment giving slow events a bounded grace well inside the
+  harness's own 30 s UserPromptSubmit cap `[HOOKS]`.
+- **D-12 — Explicit init/deinit contract shape.** The no-auto-bootstrap
+  rule is the CLAUDE.md standing rule; shaping it as a minimal, cleanly
+  reversible `init`/`deinit` pair is spec judgment.
+- **D-13 — Default store layout is a CLI default, not a requirement.**
+  OWNER-6 fixes the properties (per-repo and per-user stores, outside the
+  repo tree); the `~/.ctxoracle/` layout is a discoverability default the
+  architect may revise.
+- **D-14 — AC-2 whisper-rate threshold defaulted to ≤ 10% of events.** No
+  published figure maps to per-event whisper rates for agent sessions; 10%
+  operationalizes "most events are silent" and is tunable with fixture
+  experience.
+- **D-15 — v1 language scope: TS/JS/TSX and Python.** Chosen from the
+  owner's active stacks; a scope judgment pending owner confirmation,
+  isolated behind FR-K1's language-agnostic interface so widening it later
+  is additive.
 
 ## 12. MVP boundary and build order
 
 - **Phase 0 — deterministic spine.** Shims + session service + Tier 2 index +
-  co-change miner (with FR-K2 hygiene). Genres: minimal orientation,
-  coupling, generated-file warning, verification. Degraded mode *is* the
-  product at this phase. Exit: AC-1..AC-5 pass; the owner runs it on a real
+  co-change miner (with FR-K2 hygiene). Genres: the FR-J3 degraded set
+  (deterministic minimal orientation, coupling, generated-file warning,
+  verification, completeness). Degraded mode *is* the product at this phase.
+  Exit: AC-1..AC-5, AC-12, AC-14, AC-17 pass; the owner runs it on a real
   project without incident.
-- **Phase 1 — judgment.** §6.2 model ladder incl. recursion guard; narration
-  intent tracking; assumption-check, steering, consequence, reuse, answer
-  genres; companion skill. Exit: AC-6..AC-8 and AC-11 pass; measured silence
-  and hit rates reviewed against the bar.
+- **Phase 1 — judgment.** §6.2 model access incl. recursion guard; narration
+  intent tracking; assumption-check, steering, consequence, answer genres;
+  companion skill; the §14 Phase 1 verifications (piggyback credential
+  coverage, transcript freshness). Exit: AC-6..AC-8, AC-11, AC-16 pass;
+  measured silence and hit rates reviewed against the bar.
 - **Phase 2 — learning.** Distiller, false-fire ladder, landmine and
   invariant mining, recipes, global-store tuning, export/import. Exit:
-  AC-9..AC-10 pass; a demonstrated case of the oracle measurably improving
-  between sessions on the same repo.
+  AC-9..AC-10, AC-13, AC-15 pass; a demonstrated case of the oracle
+  measurably improving between sessions on the same repo.
 
 ## 13. Acceptance criteria
 
@@ -668,8 +713,8 @@ Each criterion names the requirements it verifies.
   whisper naming the other, stating its evidence ratio, with a git-history
   pointer, within the latency budget.
 - **AC-2 (silence → P1, FR-A1)** — Replaying a recorded session of routine
-  events produces whispers on only a small fraction of events (threshold set
-  with the fixture; the assertion is that most events are silent).
+  events produces whispers on at most 10% of events (default threshold,
+  tunable with fixture experience `[D-14]`).
 - **AC-3 (no deny → FR-O4, FR-O3)** — No shim code path can return a blocking
   decision (no `permissionDecision`/`decision` fields, no exit 2); induced
   service failure and timeout both yield silence and an unimpeded agent.
@@ -703,20 +748,44 @@ Each criterion names the requirements it verifies.
 - **AC-12 (secrets → FR-X1)** — Fixture secrets (API-key-shaped strings in
   tracked files and git history) never appear in plaintext in any store
   file, whisper, log, or captured model-call prompt.
+- **AC-13 (trust origin → FR-X4, FR-K6)** — After distillation over a
+  session that ingested repo-derived text, every resulting learned record
+  still carries its untrusted/repo origin label; no pipeline stage yields a
+  repo-derived record bearing human or mechanical provenance.
+- **AC-14 (least privilege & locality → FR-X5, FR-X7)** — An instrumented
+  fixture run shows oracle processes perform no writes inside the repository
+  tree, open no network connections other than the §6.2 model call, and emit
+  no outbound traffic at all when the model path is disabled.
+- **AC-15 (export round-trip → FR-K9)** — `export` → store wipe → `import`
+  yields a store that produces equivalent whispers on session replay.
+- **AC-16 (attention discipline → FR-A4, FR-A6, FR-A7)** — Session replay
+  asserts: no whisper repeats after its content is visibly incorporated;
+  history-backed genres stay silent below the FR-A6 history floor; only
+  highest-confidence genres fire within the FR-A7 first-sessions window.
+- **AC-17 (staleness → FR-K7)** — With a deliberately stale index, events
+  yield silence or reduced-confidence whispers (never errors or spam), and a
+  background refresh is triggered.
 
 ## 14. Unresolved
 
 - **Export-file format** (FR-K9): single-file archive vs mergeable log —
-  decide in Phase 2 when the distiller's record shapes are settled. Blocked
-  decision: none until Phase 2.
+  the architect proposes in Phase 2 when the distiller's record shapes are
+  settled; the owner approves. Blocks nothing until Phase 2.
 - **Piggyback credential coverage** (§6.2): verify during Phase 1, per
   environment, that `claude -p` inherits the host session's auth in
   subscription-login sandboxes (documented for API-key/Bedrock/Vertex env;
-  subscription-login inheritance is observed behavior, not a documented
-  contract). Owner decides fallback posture if an environment fails.
+  subscription-login inheritance is assumed and unverified — nothing in the
+  evidence base confirms it). If an environment fails, that environment runs
+  degraded (FR-J3) — no credential fallback exists; the owner decides
+  whether degraded-only is acceptable there.
+- **Transcript freshness** (§6.1, FR-O1): whether `transcript_path` content
+  is current at hook-execution time is undocumented; verify in Phase 1. If
+  the transcript lags the live turn, the narration genres (assumption check,
+  steering, answer) would fire on stale text — the architect proposes a
+  mitigation and the owner decides whether those genres ship enabled.
 - **Subagent whisper delivery** (deferred, `[OWNER-5]`): when it lands,
   Tier 3 state becomes per-consumer; the event contract already carries
   `session_id` to key on.
 - **`additionalContext` merge order** (§6.1): concatenation order across
-  multiple hooks on one event is documented as non-deterministic; moot while
-  the oracle registers a single hook per event, revisit if that changes.
+  multiple hooks on one event is unspecified in the docs; moot while the
+  oracle registers a single hook per event, revisit if that changes.
