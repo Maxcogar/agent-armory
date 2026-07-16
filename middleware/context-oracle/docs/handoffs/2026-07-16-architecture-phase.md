@@ -35,12 +35,10 @@ then the architecture document. No implementation code.**
   `memory_search` with: "What is the current state of the Context Oracle
   project in Maxcogar/agent-armory and what decisions govern the
   architecture phase?"
-- Git: work on branch `claude/context-compiler-rethink-9ybsac`. First check
-  whether pull request https://github.com/Maxcogar/agent-armory/pull/44 is
-  merged. If merged: `git fetch origin main && git checkout -B
-  claude/context-compiler-rethink-9ybsac origin/main`. If still open:
-  continue on the branch as it stands — do not reset it (you would destroy
-  the unmerged commits).
+- Git: you are reading this file, which means everything it arrived with is
+  already on `main`. Start clean on the designated branch:
+  `git fetch origin main && git checkout -B
+  claude/context-compiler-rethink-9ybsac origin/main`.
 
 ## 3. Task A — the two validation spikes (before any design freeze)
 

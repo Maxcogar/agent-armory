@@ -61,6 +61,16 @@ hooks, system prompts, and workflows.
 recently modified one before doing anything that overlaps an active
 thread.
 
+**Handoff-writing rule (mandatory).** A handoff committed to the repo is
+read by the next session only after the branch carrying it has merged —
+by construction. Therefore a handoff must NEVER describe its own PR or
+branch as possibly unmerged, tell the reader to check whether it merged,
+or describe any repo state that will be false by the time the file is
+readable. Write every handoff from the reader's reality: this file is on
+`main`, and so is everything committed alongside it. A handoff that
+hedges about its own delivery sends the next agent hunting for missing
+work that isn't missing.
+
 ## CORE Memory ingestion protocol (mandatory — not a preference)
 
 The CORE knowledge graph can only use what is written the way it expects.
