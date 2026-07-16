@@ -20,6 +20,26 @@ hooks, system prompts, and workflows.
 - **Out of scope** for this thread: `claude-plugins/agentboard/`,
   `claude-plugins/.claude-plugin/marketplace.json`, `skills/codebase-rag-enforcer/`.
 
+### Context Oracle (rethink of the context compiler)
+- **Branch**: `claude/context-compiler-rethink-9ybsac` (PR #42)
+- **Where**: `middleware/context-oracle/`
+- **Status**: design phase — spec complete and adversarially reviewed;
+  Phase 0 (deterministic spine) not started.
+- **Authoritative documents, in order of authority**:
+  1. `middleware/context-oracle/RETHINK.md` §12 + addendum — the owner's
+     locked decisions. Nothing overrides these except the owner.
+  2. `middleware/context-oracle/docs/specs/spec-context-oracle.md` — the v1
+     spec (requirements, threat model, decisions D-1..D-20, acceptance
+     criteria).
+  3. `middleware/context-oracle/CLAUDE.md` — working-agent guidelines
+     (auto-loads when working in that directory). Read it before touching
+     the project.
+  Plain-language state lives in `middleware/context-oracle/docs/STATUS.md`.
+- **The old `ctxpack` compiler/gatekeeper design is dead.** Its three
+  directories (`middleware/codebase-context-compiler/`, `…-sandbox/`,
+  `middleware/Gemini-context-compiler/`) are archived reference only and
+  carry ARCHIVED banners. Do not implement, extend, or cite them as current.
+
 ## Standing rules for this repo
 
 - The user holds work to the Expert Standard skill. Evaluate against

@@ -1,3 +1,15 @@
+> [!WARNING]
+> **ARCHIVED — do not build from this document.** This is the retired
+> compiler/gatekeeper design (`ctxpack`). It was superseded on 2026-07-13 by
+> the **Context Oracle** rethink, and its core model (compiled context
+> packages, plan gates, blocking) was explicitly rejected by the owner.
+> Authoritative documents:
+> `middleware/context-oracle/RETHINK.md` (decision ledger: §12 + addendum),
+> `middleware/context-oracle/docs/specs/spec-context-oracle.md` (v1 spec),
+> `middleware/context-oracle/CLAUDE.md` (working-agent guidelines).
+> This directory is read-only reference; code may be cherry-picked only
+> where it fits the oracle model (RETHINK §12.4).
+
 # Codebase Context Compiler (`ctxpack`)
 
 `ctxpack` builds a versioned, evidence-backed repository map and compiles the smallest complete task-specific Context Package that regular Claude Code needs before it edits. The package separates repository facts, unknowns, allowed creation points, forbidden moves, verification guidance, and checked-but-rejected context so Claude Code cannot quietly fill gaps with guesses.
