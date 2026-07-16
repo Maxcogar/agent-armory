@@ -23,8 +23,10 @@ hooks, system prompts, and workflows.
 ### Context Oracle (rethink of the context compiler)
 - **Branch**: `claude/context-compiler-rethink-9ybsac` (PR #42)
 - **Where**: `middleware/context-oracle/`
-- **Status**: design phase — spec complete and adversarially reviewed;
-  Phase 0 (deterministic spine) not started.
+- **Status**: spec merged (PR #42, 2026-07-15). Next step is the
+  architecture document + validation spikes — **no build before it**; the
+  lifecycle (spec → architecture → plan → build) is binding and written
+  into the project CLAUDE.md.
 - **Authoritative documents, in order of authority**:
   1. `middleware/context-oracle/RETHINK.md` §12 + addendum — the owner's
      locked decisions. Nothing overrides these except the owner.
