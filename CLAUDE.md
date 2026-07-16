@@ -61,15 +61,16 @@ hooks, system prompts, and workflows.
 recently modified one before doing anything that overlaps an active
 thread.
 
-**Handoff-writing rule (mandatory).** A handoff committed to the repo is
-read by the next session only after the branch carrying it has merged —
-by construction. Therefore a handoff must NEVER describe its own PR or
-branch as possibly unmerged, tell the reader to check whether it merged,
-or describe any repo state that will be false by the time the file is
-readable. Write every handoff from the reader's reality: this file is on
-`main`, and so is everything committed alongside it. A handoff that
-hedges about its own delivery sends the next agent hunting for missing
-work that isn't missing.
+**Handoff-writing rule (mandatory).** Workflow invariant: Max Cogar
+merges a finished session's pull request(s) before starting the next
+session — always. Every handoff and session-end document is therefore
+read by an agent whose `main` already contains everything the writing
+session produced. Write from that reality: never describe any of the
+session's PRs, branches, or commits as unmerged, open, or pending; never
+tell the reader to check merge state; never describe repo state that
+will be false once the session's PRs are merged. A handoff that hedges
+about merge state sends the next agent hunting for missing work that
+isn't missing.
 
 ## CORE Memory ingestion protocol (mandatory — not a preference)
 
