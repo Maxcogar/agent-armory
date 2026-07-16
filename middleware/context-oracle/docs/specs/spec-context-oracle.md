@@ -1,9 +1,12 @@
 # Spec: Context Oracle (`ctxoracle`) — v1
 
-**Status**: draft for owner review. Derived from `../../RETHINK.md` and the six
-owner decisions in its §12. Supersedes
-`middleware/Gemini-context-compiler/spec-codebase-context-compiler(1).md`;
-`middleware/codebase-context-compiler-sandbox/` is archived reference only.
+**Status**: draft for owner review. Derived from `../../RETHINK.md` and the
+owner decisions in its §12 and §12 addendum. Supersedes the retired `ctxpack`
+design everywhere it lives — `middleware/Gemini-context-compiler/` (old spec
+and architecture), `middleware/codebase-context-compiler/` (local build), and
+`middleware/codebase-context-compiler-sandbox/` (sandbox build) — all
+archived read-only reference, each carrying an ARCHIVED banner pointing back
+here.
 
 Every external fact this spec relies on — the hooks contract, model access,
 protocol status, runtime capabilities, and the published research behind the
