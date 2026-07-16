@@ -34,8 +34,6 @@ then the architecture document. No implementation code.**
   `memory_search` with: "What is the current state of the Context Oracle
   project in Maxcogar/agent-armory and what decisions govern the
   architecture phase?"
-- Git: `git fetch origin main && git checkout -B
-  claude/context-compiler-rethink-9ybsac origin/main`.
 
 ## 3. Task A — the two validation spikes (before any design freeze)
 
@@ -107,7 +105,7 @@ the result to Max Cogar.
 - `middleware/context-oracle/docs/architecture-context-oracle.md` written,
   adversarially reviewed, all findings applied.
 - `middleware/context-oracle/docs/STATUS.md` updated in plain language.
-- Everything committed and pushed on `claude/context-compiler-rethink-9ybsac`
-  with a draft pull request open for Max Cogar.
+- All work committed and pushed, with a draft pull request open for
+  Max Cogar.
 - CORE Memory ingestion done per the root `CLAUDE.md` protocol (exact text
   shown to Max Cogar for explicit approval before `memory_ingest`).

@@ -70,7 +70,11 @@ session's PRs, branches, or commits as unmerged, open, or pending; never
 tell the reader to check merge state; never describe repo state that
 will be false once the session's PRs are merged. A handoff that hedges
 about merge state sends the next agent hunting for missing work that
-isn't missing.
+isn't missing. Likewise, a fresh session starts on current `main`
+automatically and the platform assigns it its own working branch —
+handoffs contain NO git mechanics: no fetch, no checkout, no branch
+names. State what to read and what to do; the environment handles the
+rest.
 
 ## CORE Memory ingestion protocol (mandatory — not a preference)
 
