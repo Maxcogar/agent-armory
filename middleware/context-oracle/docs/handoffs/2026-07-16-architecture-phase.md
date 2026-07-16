@@ -1,7 +1,6 @@
 # Handoff — Context Oracle architecture phase
 
-**Date**: 2026-07-16. **From**: the session that produced the merged rethink,
-spec, and governance (pull requests #42, #43). **To**: a fresh-session agent.
+**Date**: 2026-07-16. **To**: a fresh-session agent.
 
 You are starting the **architecture phase** of the Context Oracle. Nothing is
 built yet, and that is correct — the lifecycle is binding (spec →
@@ -35,9 +34,7 @@ then the architecture document. No implementation code.**
   `memory_search` with: "What is the current state of the Context Oracle
   project in Maxcogar/agent-armory and what decisions govern the
   architecture phase?"
-- Git: you are reading this file, which means everything it arrived with is
-  already on `main`. Start clean on the designated branch:
-  `git fetch origin main && git checkout -B
+- Git: `git fetch origin main && git checkout -B
   claude/context-compiler-rethink-9ybsac origin/main`.
 
 ## 3. Task A — the two validation spikes (before any design freeze)
