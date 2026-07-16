@@ -25,8 +25,15 @@ fact-checked, adversarially reviewed, and pushed on PR #42.
   its own failures instead of relying on the owner to notice; and the
   project is formally agent-led, with the working rules in `CLAUDE.md`.
 
-**What works right now:** nothing is built yet — that's expected; Phase 0
-(the deterministic spine) is the next milestone.
+**What works right now:** nothing is built yet — that's expected. PR #42
+(rethink + spec + governance) was merged by the owner on 2026-07-15.
+
+**Next step — and it is not building.** The lifecycle is spec →
+architecture → plan → build (now written into `CLAUDE.md`). The next
+session's job is the architecture document plus the two cheap validation
+experiments the design depends on (does the borrowed-login trick work in
+the sandboxes; can whispers reach subagent contexts). Building Phase 0
+starts only after that document survives its own adversarial review.
 
 **Broken / unknown:**
 - Two things the design assumes are still unverified and are Phase 1's

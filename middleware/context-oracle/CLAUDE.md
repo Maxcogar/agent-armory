@@ -46,6 +46,32 @@ rejected — do not reintroduce in any form:
 If new evidence genuinely contradicts a locked decision, surface it to the
 owner as a question with the evidence — never resolve it yourself.
 
+## Lifecycle — no shortcuts
+
+**Spec → architecture → plan → build.** The spec
+(`docs/specs/spec-context-oracle.md`) constrains the solution space; it
+deliberately leaves the design open. Writing code straight from the spec
+means the builder invents architecture inline — the exact failure mode that
+produced the archived `ctxpack` mess. Therefore:
+
+- **No implementation work before an approved architecture document**
+  (`docs/architecture-context-oracle.md`), derived from the spec, resolving
+  the design questions the spec assigns to the architect — component
+  boundaries, store schemas, IPC/daemon shape, judgment-prompt
+  construction, recursion-guard mechanism, diagnostic log format — and
+  adversarially reviewed with all findings applied, same discipline as the
+  spec.
+- **Spikes before design-freeze**: the spec-§14 assumptions that gate the
+  design (piggyback credential inheritance, subagent injection) are
+  validated with cheap throwaway experiments before the architecture is
+  finalized. A design resting on an unverified assumption is a guess with
+  diagrams.
+- **Then a plan** (executable steps consuming spec + architecture), **then
+  build**, phase by phase against the spec's §12 exits and §13 acceptance
+  criteria.
+- Skipping a stage requires the owner saying so explicitly, in this
+  project, in writing.
+
 ## Engineering standard
 
 - The Expert Standard applies: evaluate against established engineering
