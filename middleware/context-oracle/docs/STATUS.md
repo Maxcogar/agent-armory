@@ -34,6 +34,8 @@ session's job is the architecture document plus the two cheap validation
 experiments the design depends on (does the borrowed-login trick work in
 the sandboxes; can whispers reach subagent contexts). Building Phase 0
 starts only after that document survives its own adversarial review.
+The complete handoff for that session is
+`docs/handoffs/2026-07-16-architecture-phase.md`.
 
 **Broken / unknown:**
 - Two things the design assumes are still unverified and are Phase 1's
