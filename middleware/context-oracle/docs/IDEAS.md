@@ -51,3 +51,15 @@ Seeded 2026-07-15, all entries **unvalidated** unless noted.
 10. **Whisper A/B self-tuning.** Where volume permits, vary phrasing (with
     fixed facts) and measure uptake, letting the oracle learn how to be
     heeded, not just when to speak. Long-horizon; needs FR-L7 data first.
+
+Added 2026-07-16 (architecture-phase session):
+
+11. **Async observation profile.** *(researched)* Claude Code command hooks
+    now document an `async: true` mode — the hook runs in the background
+    and cannot inject context for that event (hooks reference, fetched
+    2026-07-16). If a real environment ever breaches the FR-O3 latency
+    budget despite the warm-service design, a per-event-type fallback
+    profile could mark pure-observation events async (zero added latency,
+    observation preserved) while keeping delivery-capable events
+    synchronous. Costs whisper opportunities; worth having on the shelf
+    only as a measured response to a real breach, never as a default.
