@@ -1,0 +1,264 @@
+<!doctype html>
+<!--
+  Cross-Section Tool inline view (MCP Apps, spec revision 2026-01-26).
+  Guest lifecycle implemented against the fetched apps spec + fastmcp 3.4.3:
+    -> request  ui/initialize {appCapabilities, clientInfo, protocolVersion}
+    <- result   {hostContext: {theme, styles{variables}, displayMode, ...}}
+    -> notify   ui/notifications/initialized
+    <- notify   ui/notifications/tool-input   (params.arguments)
+    <- notify   ui/notifications/tool-result  (params: CallToolResult)
+    <- notify   ui/notifications/host-context-changed (partial merge)
+    <- request  ui/resource-teardown          (must respond with a result)
+    -> notify   ui/notifications/size-changed {width?, height?}
+  Default CSP permits inline script for text/html;profile=mcp-app resources.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Cross-Section</title>
+<style>
+  :root {
+    --bg: var(--color-background-primary, #ffffff);
+    --fg: var(--color-text-primary, #1f2328);
+    --fg2: var(--color-text-secondary, #59636e);
+    --border: var(--color-border-primary, #d1d9e0);
+    --warn-bg: #fff8e5;
+    --warn-fg: #7a5b00;
+    --font: var(--font-family-sans, system-ui, sans-serif);
+    --mono: var(--font-family-mono, ui-monospace, Menlo, monospace);
+  }
+  html, body { margin: 0; padding: 0; background: transparent; color: var(--fg);
+               font-family: var(--font); font-size: 13px; }
+  #banner { display: none; padding: 8px 10px; border: 1px solid var(--warn-fg);
+            background: var(--warn-bg); color: var(--warn-fg); border-radius: 6px;
+            margin: 8px; font-weight: 600; }
+  #toolbar { display: flex; gap: 12px; align-items: center; padding: 6px 10px;
+             flex-wrap: wrap; color: var(--fg2); }
+  #toolbar label { user-select: none; cursor: pointer; }
+  #stage { border: 1px solid var(--border); border-radius: 6px; margin: 0 8px;
+           overflow: hidden; background: var(--bg); min-height: 220px;
+           touch-action: none; }
+  #stage svg { display: block; width: 100%; height: auto; cursor: grab; }
+  #status { padding: 6px 10px; color: var(--fg2); font-family: var(--mono); }
+  #evidence { margin: 8px; }
+  #evidence table { border-collapse: collapse; width: 100%; font-family: var(--mono);
+                    font-size: 12px; }
+  #evidence th, #evidence td { border-bottom: 1px solid var(--border);
+                               padding: 3px 6px; text-align: left; }
+  #evidence th { color: var(--fg2); font-weight: 600; }
+  .tier-assumed  { color: #b35900; }
+  .tier-recalled { color: #8250df; }
+  .tier-measured { color: #1a7f37; }
+  .tier-derived  { color: inherit; }
+  details.chain { margin: 0; }
+  details.chain summary { cursor: pointer; color: var(--fg2); }
+  .drv { font-weight: 700; }
+</style>
+</head>
+<body>
+<div id="banner" role="alert"></div>
+<div id="toolbar">
+  <label><input type="checkbox" id="tg-hatch" checked> hatch</label>
+  <label><input type="checkbox" id="tg-centerlines" checked> centerlines</label>
+  <label><input type="checkbox" id="tg-annotations" checked> annotations</label>
+  <span id="zoomhint">wheel = zoom, drag = pan, dblclick = reset</span>
+</div>
+<div id="stage" aria-label="cross-section drawing"></div>
+<div id="status">waiting for a render…</div>
+<div id="evidence"></div>
+<script>
+(function () {
+  "use strict";
+  var nextId = 1;
+  var pending = {};
+  var hostContext = null;
+  var baseViewBox = null;
+
+  function post(msg) { window.parent.postMessage(msg, "*"); }
+  function request(method, params, cb) {
+    var id = nextId++;
+    pending[id] = cb || function () {};
+    post({ jsonrpc: "2.0", id: id, method: method, params: params });
+  }
+  function notify(method, params) {
+    post({ jsonrpc: "2.0", method: method, params: params || {} });
+  }
+  function respond(id, result) {
+    post({ jsonrpc: "2.0", id: id, result: result });
+  }
+
+  function applyHostContext(ctx) {
+    if (!ctx) return;
+    hostContext = Object.assign({}, hostContext || {}, ctx);
+    var vars = (hostContext.styles && hostContext.styles.variables) || {};
+    var root = document.documentElement;
+    Object.keys(vars).forEach(function (k) {
+      root.style.setProperty(k.charAt(0) === "-" ? k : "--" + k, String(vars[k]));
+    });
+    if (hostContext.theme) {
+      root.setAttribute("data-theme", String(hostContext.theme));
+    }
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function setSvg(svgText) {
+    var stage = document.getElementById("stage");
+    stage.textContent = "";
+    if (!svgText) return;
+    // Server-side escaping is the primary defense; DOMParser as strict SVG is
+    // the secondary layer — malformed markup is rejected, nothing executes.
+    var doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+    if (doc.querySelector("parsererror") || !doc.documentElement ||
+        doc.documentElement.nodeName.toLowerCase() !== "svg") {
+      stage.textContent = "renderer returned malformed SVG";
+      return;
+    }
+    var svg = document.adoptNode(doc.documentElement);
+    stage.appendChild(svg);
+    baseViewBox = svg.getAttribute("viewBox").split(/\s+/).map(Number);
+    wireZoomPan(svg);
+    applyToggles();
+  }
+
+  function applyToggles() {
+    var map = { "tg-hatch": "xs-hatch", "tg-centerlines": "xs-centerlines",
+                "tg-annotations": "xs-annotations" };
+    Object.keys(map).forEach(function (cb) {
+      var g = document.querySelector("#stage svg #" + map[cb]);
+      if (g) g.style.display = document.getElementById(cb).checked ? "" : "none";
+    });
+  }
+  ["tg-hatch", "tg-centerlines", "tg-annotations"].forEach(function (id) {
+    document.getElementById(id).addEventListener("change", applyToggles);
+  });
+
+  function wireZoomPan(svg) {
+    var vb = baseViewBox.slice();
+    function setVB() { svg.setAttribute("viewBox", vb.join(" ")); }
+    svg.addEventListener("wheel", function (ev) {
+      ev.preventDefault();
+      var scale = ev.deltaY > 0 ? 1.15 : 1 / 1.15;
+      var rect = svg.getBoundingClientRect();
+      var fx = (ev.clientX - rect.left) / rect.width;
+      var fy = (ev.clientY - rect.top) / rect.height;
+      var nw = vb[2] * scale, nh = vb[3] * scale;
+      vb[0] += (vb[2] - nw) * fx; vb[1] += (vb[3] - nh) * fy;
+      vb[2] = nw; vb[3] = nh; setVB();
+    }, { passive: false });
+    var drag = null;
+    svg.addEventListener("pointerdown", function (ev) {
+      drag = { x: ev.clientX, y: ev.clientY }; svg.setPointerCapture(ev.pointerId);
+    });
+    svg.addEventListener("pointermove", function (ev) {
+      if (!drag) return;
+      var rect = svg.getBoundingClientRect();
+      vb[0] -= (ev.clientX - drag.x) * (vb[2] / rect.width);
+      vb[1] -= (ev.clientY - drag.y) * (vb[3] / rect.height);
+      drag = { x: ev.clientX, y: ev.clientY }; setVB();
+    });
+    svg.addEventListener("pointerup", function () { drag = null; });
+    svg.addEventListener("dblclick", function () { vb = baseViewBox.slice(); setVB(); });
+  }
+
+  function renderEvidence(report) {
+    var host = document.getElementById("evidence");
+    host.textContent = "";
+    if (!report || !report.rows) return;
+    var rows = report.rows.map(function (r) {
+      var eff = r.effective_tier !== r.tier
+        ? ' <span class="tier-' + esc(r.effective_tier) + '">&rarr; ' + esc(r.effective_tier) + "</span>"
+        : "";
+      var chain = r.chain && r.chain.length
+        ? '<details class="chain"><summary>chain (' + r.chain.length + ')</summary>' +
+          r.chain.map(function (c) { return "<div>" + esc(c) + "</div>"; }).join("") +
+          "</details>"
+        : "";
+      return "<tr>" +
+        '<td class="' + (r.driving ? "drv" : "") + '">' + esc(r.name) + "</td>" +
+        "<td>" + esc(r.value) + " " + esc(r.unit) + "</td>" +
+        '<td><span class="tier-' + esc(r.tier) + '">' + esc(r.tier) + "</span>" + eff + "</td>" +
+        "<td>" + esc(r.provenance) + chain + "</td></tr>";
+    }).join("");
+    host.innerHTML =
+      "<table><thead><tr><th>dimension</th><th>value</th><th>tier</th>" +
+      "<th>provenance</th></tr></thead><tbody>" + rows + "</tbody></table>";
+  }
+
+  function onToolResult(result) {
+    var sc = (result && (result.structuredContent || result.structured_content)) || {};
+    var banner = document.getElementById("banner");
+    var ev = sc.evidence_report || {};
+    if (ev.banner_text) {
+      banner.style.display = "block";
+      banner.textContent = ev.banner_text;
+    } else {
+      banner.style.display = "none";
+    }
+    setSvg(sc.svg || null);
+    renderEvidence(ev);
+    var st = sc.constraint_state || {};
+    document.getElementById("status").textContent =
+      "placement: " + (st.status || "?") + (st.dof ? " (dof " + st.dof + ")" : "") +
+      (st.failed_constraint_ids && st.failed_constraint_ids.length
+        ? " — failed: " + st.failed_constraint_ids.join(", ") : "");
+    reportSize();
+  }
+
+  var sizeTimer = null;
+  function reportSize() {
+    if (sizeTimer) return;
+    sizeTimer = setTimeout(function () {
+      sizeTimer = null;
+      notify("ui/notifications/size-changed", {
+        height: document.documentElement.scrollHeight
+      });
+    }, 80);
+  }
+  new ResizeObserver(reportSize).observe(document.body);
+
+  window.addEventListener("message", function (ev) {
+    var msg = ev.data;
+    if (!msg || msg.jsonrpc !== "2.0") return;
+    if (msg.id !== undefined && (msg.result !== undefined || msg.error !== undefined)) {
+      var cb = pending[msg.id];
+      if (cb) { delete pending[msg.id]; cb(msg.result, msg.error); }
+      return;
+    }
+    switch (msg.method) {
+      case "ui/notifications/tool-result":
+        onToolResult(msg.params || {});
+        break;
+      case "ui/notifications/tool-input":
+        break; // arguments arrive before the result; nothing to show yet
+      case "ui/notifications/host-context-changed":
+        applyHostContext((msg.params && msg.params.hostContext) || msg.params);
+        break;
+      case "ui/resource-teardown":
+        respond(msg.id, {});
+        break;
+      default:
+        if (msg.id !== undefined) {
+          post({ jsonrpc: "2.0", id: msg.id,
+                 error: { code: -32601, message: "method not found" } });
+        }
+    }
+  });
+
+  request("ui/initialize", {
+    protocolVersion: "2026-01-26",
+    appCapabilities: { availableDisplayModes: ["inline"] },
+    clientInfo: { name: "xsect-view", version: "1.0.0" }
+  }, function (result) {
+    applyHostContext(result && result.hostContext);
+    notify("ui/notifications/initialized");
+    reportSize();
+  });
+})();
+</script>
+</body>
+</html>
