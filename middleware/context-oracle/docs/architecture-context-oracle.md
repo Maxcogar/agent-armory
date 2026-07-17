@@ -3,7 +3,7 @@
 **Status**: draft for adversarial review, then owner presentation. Derived from
 `docs/specs/spec-context-oracle.md` (the v1 spec) under the owner's locked
 decisions in `RETHINK.md` §12 + addendum. Written 2026-07-17 following the
-expert-architecture-greenfield process; validation-spike evidence is embedded
+expert-architecture-greenfield-portable process; validation-spike evidence is embedded
 in §"Validation spikes" below. This document resolves the design questions the
 spec assigns to the architect (spec preamble, §10, §11 D-6/D-13/D-16, §14) and
 re-decides nothing the spec fixes.
@@ -483,7 +483,7 @@ warm-spare model processes' value (deferred to measurement — IDEAS ledger).
    /websites/nodejs_latest-v22_x_api, accessed 2026-07-17): IPC via UDS and
    Windows named pipes with `server.listen(path)`; UDS paths truncated at
    OS-dependent length → short hashed names above. Spec C-2 read at lines
-   662–664. Addresses: C-2, NF-1, FR-O3, FR-X5.
+   661–663. Addresses: C-2, NF-1, FR-O3, FR-X5.
 
 ### D3 — Runtime: Node ≥ 22.13, TypeScript strict, zero native runtime deps
 
@@ -493,28 +493,34 @@ warm-spare model processes' value (deferred to measurement — IDEAS ledger).
    may contain native code or a postinstall script**; the only substantive
    runtime deps are `web-tree-sitter` + `tree-sitter-wasms` (D16). Tests use
    built-in `node:test`.
-2. **Standard.** C-1 (governing constraint). Matrix (same criteria):
-   RT-A Node+TS **8.45**; RT-B Python 6.4 (python3 not guaranteed in every
-   harness environment; tree-sitter wheels are native prebuilts — exactly
-   C-1's exclusion); RT-C Rust/Go static binary 6.25 (per-platform prebuilt
-   download is C-1's named exclusion, despite best latency); RT-D Bun 6.75
-   (runtime itself not guaranteed present; its install is a binary
-   download). Per-cell reasoning recorded in the Clear Thought decision
-   session 2026-07-17.
+2. **Standard.** C-1 (governing constraint) plus ISO/IEC 25010
+   quality-attribute weighting; the full weighted decision matrix
+   (Reasoning discipline) lands in element 4.
 3. **Why here.** C-1 names Node ≥ 22.13 as the known satisfying stack
    (spec: "names a satisfying stack, not a mandate") — the matrix confirms
    rather than assumes it: the deciding cells are C-1 fit and the built-in
    SQLite (D4). TypeScript over plain JS: the contract/DAO layers carry the
    security invariants (D6, D8); static types make "provenance-less record"
    and "malformed envelope" compile-time errors — analysability per 25010.
-4. **Rejected (the default named).** This *is* my training-default stack —
-   the trap is real. It survives because the alternatives lose on the spec's
-   own constraint, not because it is familiar: Python (guaranteed-presence +
-   native-wheel failures), compiled binaries (distribution model violates
-   C-1), Bun (presence + install). Also rejected: shipping TypeScript
-   sources executed via a loader at runtime (adds a runtime dep and startup
-   cost to every shim invocation; `tsc`-built JS keeps the shim cold path
-   minimal).
+4. **What this decision is NOT — and why.** The rejected alternatives,
+   scored against the Phase 3 prioritized quality attributes (weights from
+   the drivers, identical to D2; one reason per cell):
+
+   | Criterion (weight) | RT-A Node+TS | RT-B Python | RT-C Rust/Go binary | RT-D Bun |
+   |---|---|---|---|---|
+   | Cold-container fit C-1 (.30) | 9 — Node is the harness's own runtime, present by definition; zero native deps via `node:sqlite` + WASM grammars | 4 — `python3` not guaranteed in every harness env; tree-sitter needs native wheels (C-1 exclusion) | 3 — per-platform prebuilt-binary download is C-1's named exclusion | 4 — Bun not guaranteed present; its install is a binary download |
+   | Latency NF-1 (.20) | 7 — warm-service startup + WASM load acceptable, not fastest | 6 — fine warm | 10 — no runtime, fastest | 9 — fast startup |
+   | Fail-open FR-O3 (.20) | 8 — mature async error handling | 7 | 8 | 7 — younger runtime, rougher edges |
+   | Least privilege FR-X5/X7 (.15) | 8 — standard fs/process controls | 8 | 9 | 8 |
+   | Maintainability / zero-dep (.15) | 8 — TS types carry the D6/D8 security invariants; agent-led legibility | 7 | 4 — a compiled toolchain raises the diagnosis bar in a non-programmer-owned, agent-led project | 6 — smaller ecosystem, less mature tooling |
+   | **Weighted total** | **8.1** | **6.05** | **6.45** | **6.5** |
+
+   The winner *is* my training-default stack — the trap is real — but it
+   wins on C-1 (the .30 criterion), not familiarity: RT-C beats it on
+   latency yet loses C-1 decisively, which is the honest deciding cell.
+   Also rejected outside the matrix: shipping TypeScript sources executed
+   via a runtime loader (adds a runtime dep and startup cost to every shim
+   invocation; `tsc`-built JS keeps the shim cold path minimal).
 5. **Premise verification.** Node presence: Claude Code environments — the
    harness itself does not guarantee a user-visible `node`; therefore the
    floor is *checked, not assumed*: `init` refuses with plain language if
@@ -543,13 +549,24 @@ warm-spare model processes' value (deferred to measurement — IDEAS ledger).
    with zero install; the adapter quarantines the module's Experimental
    status (observed warning) the same way shims quarantine the hooks
    contract.
-4. **Rejected.** ST-B `better-sqlite3` (native prebuilds — C-1 exclusion,
-   despite maturity); ST-C JSONL + in-memory indexes (no query power for
-   co-change joins; full rewrite on update; kept *only* for diagnostics
-   where independence from SQLite is the point, D21); LevelDB-family
-   (native); `sql.js` (WASM SQLite — viable fallback if `node:sqlite` were
-   removed, but as a runtime dep it loses to the built-in; recorded as the
-   engine-level contingency inside the adapter's design notes).
+4. **What this decision is NOT — and why.** Alternatives scored against the
+   same Phase 3 quality attributes (one reason per cell):
+
+   | Criterion (weight) | ST-A `node:sqlite` | ST-B better-sqlite3 | ST-C JSONL + in-memory |
+   |---|---|---|---|
+   | Cold-container fit C-1 (.30) | 10 — built-in, zero dep; FTS5+WAL empirically verified this session | 3 — native prebuilds / node-gyp (C-1 exclusion) | 9 — zero dep |
+   | Latency NF-1 (.20) | 8 — synchronous prepared statements, sub-ms at this scale | 9 — fastest binding | 4 — full scans for co-change joins + FTS; rebuild on update |
+   | Fail-open FR-O3 (.20) | 8 — WAL recovery + `integrity_check`; adapter isolates experimental status | 8 | 7 — simple but no integrity guarantees; partial-write risk |
+   | Least privilege FR-X5/X7 (.15) | 9 — local file, user perms | 9 | 9 |
+   | Maintainability / zero-dep (.15) | 7 — experimental warning is a watch item, contained by the adapter | 7 — mature, but native-build failures are a support burden | 5 — hand-rolled indexing/query is more code to misdiagnose |
+   | **Weighted total** | **8.6** | **6.7** | **7.0** |
+
+   ST-C is kept *only* as the diagnostics format (D21), where independence
+   from SQLite is the whole point — not as the knowledge store, where its
+   4/10 on join/FTS latency is disqualifying. Also rejected: LevelDB-family
+   (native); `sql.js` (WASM SQLite — the viable engine-level contingency if
+   `node:sqlite` were ever removed, recorded inside the adapter's design
+   notes, but as a runtime dep it loses to the built-in today).
 5. **Premise verification.** Empirical, this machine, pasted this session:
    FTS5 virtual table + MATCH query and `journal_mode=WAL` both succeed on
    Node v22.22.2; ExperimentalWarning observed and mitigated by the adapter
@@ -666,7 +683,7 @@ warm-spare model processes' value (deferred to measurement — IDEAS ledger).
    SQLite-independence matters, D21); symbol-level edges as JSON arrays
    (kills the join the coupling genre runs per event).
 5. **Premise verification.** Spec FR-K1..K6, FR-L1..L6, FR-X4, FR-X6 read at
-   lines 294–343, 484–512, 589–604. STRICT tables + CHECK constraints:
+   lines 296–330, 484–512, 589–604. STRICT tables + CHECK constraints:
    `node:sqlite` executes standard SQLite DDL (empirical FTS5/WAL run this
    session; STRICT is core SQLite ≥ 3.37, present in Node 22's bundled
    SQLite — verified by the successful `STRICT` example in Node's own docs,
@@ -758,7 +775,7 @@ warm-spare model processes' value (deferred to measurement — IDEAS ledger).
    framing (adds a dependency for no measurable win at ~1 KB payloads);
    bidirectional streaming (nothing in the requirement set needs
    mid-event server push — one request, one reply, then close or reuse).
-5. **Premise verification.** Spec C-3/C-5 read at lines 665–675; hook input
+5. **Premise verification.** Spec C-3 read at lines 664–667, C-5 at 673–675; hook input
    fields verified against current docs (fetch 2026-07-17) and empirically
    (Spike 2 hook-log paste). Addresses: C-3, C-5, FR-O2, FR-O6, FR-X1.
 
@@ -789,7 +806,7 @@ warm-spare model processes' value (deferred to measurement — IDEAS ledger).
    is where silent breakage lives; and Node is already the floor);
    returning hook *errors* on internal failure (violates FR-O3 — silence is
    the contract).
-5. **Premise verification.** FR-O2/O3/O4 read at lines 269–283; hook output
+5. **Premise verification.** FR-O2 read at lines 268–269, FR-O3 at 270–276, FR-O4 at 277–279; hook output
    fields verified (docs fetch 2026-07-17); Spike 2 demonstrates the exact
    output shape reaching a subagent. Addresses: FR-O2, FR-O3, FR-O4, FR-D4,
    AC-3.
@@ -856,7 +873,7 @@ warm-spare model processes' value (deferred to measurement — IDEAS ledger).
    Rejected: per-genre worker processes (process-per-genre buys isolation
    nothing needs and spends memory the sandbox may not have).
 5. **Premise verification.** Latency measured this session (pasted);
-   FR-J1..J4 and FR-A1..A9 read at lines 344–464, FR-O5 at 281–283;
+   FR-A1..A9 read at lines 344–408, FR-J1..J4 at 449–464, FR-O5 at 280–283;
    thresholds inherited
    with their spec sources (`[spec D-5]`, `[spec D-10]`, `[spec D-14]`).
    Addresses: FR-J1..J4, FR-A1..A9, FR-O3, FR-O5, NF-1, NF-2, AC-2, AC-16.
@@ -905,7 +922,7 @@ warm-spare model processes' value (deferred to measurement — IDEAS ledger).
    background prefetches, keychain reads, and CLAUDE.md auto-discovery";
    `--session-id`, `--json-schema`, `--system-prompt` present in the same
    capture; session-id inheritance observed empirically (Spike 1 result
-   carried the parent's session id). Spec §6.2/D-6 read at lines 216–258,
+   carried the parent's session id). Spec §6.2 read at lines 216–250, D-6 at
    716–719. Addresses: §6.2, `[spec D-6]`, FR-J2, AC-11, C-5.
 
 ### D12 — Judgment-prompt construction and verdict validation (FR-J5)
@@ -973,7 +990,7 @@ warm-spare model processes' value (deferred to measurement — IDEAS ledger).
 4. **Rejected.** Free-form model phrasing (D12); markdown-rich whispers
    (hook context is plain text; formatting spends tokens against FR-A3's
    budget); multiple whispers per event (spec fixes one, §6.1).
-5. **Premise verification.** FR-D1..D5 read at lines 410–446; systemMessage
+5. **Premise verification.** FR-D1..D5 read at lines 412–445; systemMessage
    verified current (docs fetch 2026-07-17). Addresses: FR-D1..D5, FR-M4,
    AC-5, AC-6.
 
@@ -1017,7 +1034,7 @@ warm-spare model processes' value (deferred to measurement — IDEAS ledger).
 5. **Premise verification.** Freshness measurement pasted above (beacon
    offset 48,264 > firing-time size 45,458); subagent transcript path
    observed in Spike 2 (file listing pasted); FR-O1/A8/A9/[spec D-17] read
-   at lines 261–268, 393–408, 763–765. Addresses: FR-O1, FR-A8, FR-A9,
+   at lines 263–267, 393–408, 763–765. Addresses: FR-O1, FR-A8, FR-A9,
    §14(freshness), AC-19, AC-20.
 
 ### D15 — Tier 3 per-consumer state and subagent delivery (confirms [spec D-16])
@@ -1057,7 +1074,7 @@ warm-spare model processes' value (deferred to measurement — IDEAS ledger).
    input; injection reached subagent only; main-agent firing carried no
    agent_id); docs fetch 2026-07-17 (`agent_id`/`agent_type` documented;
    SubagentStart context placement). FR-O6/[spec D-16] read at lines
-   284–293, 755–762. Addresses: FR-O6, FR-A3, FR-A4, AC-21.
+   284–292, 755–762. Addresses: FR-O6, FR-A3, FR-A4, AC-21.
 
 ### D16 — Tier 2 indexer
 
@@ -1099,7 +1116,7 @@ warm-spare model processes' value (deferred to measurement — IDEAS ledger).
    `out/tree-sitter-{javascript,python,typescript,tsx}.wasm`; native
    prebuilds in per-language packages verified by `npm pack --dry-run`
    listings (pasted this session). FR-K1/[spec D-15] read at lines
-   296–301, 751–754. Addresses: FR-K1, C-1, FR-K7, NF-3.
+   296–300, 751–754. Addresses: FR-K1, C-1, FR-K7, NF-3.
 
 ### D17 — Co-change miner: storage and refresh (FR-K2)
 
@@ -1139,7 +1156,7 @@ warm-spare model processes' value (deferred to measurement — IDEAS ledger).
    mining); recency *pruning* of old pairs (HH-04 found pruning
    disappointing — the spec chose horizon-capping + recorded recency
    instead; this design implements exactly that split).
-5. **Premise verification.** FR-K2 read at lines 302–315 (hygiene list,
+5. **Premise verification.** FR-K2 read at lines 301–315 (hygiene list,
    thresholds, horizon, incremental refresh all spec-stated); `git log
    --no-merges --numstat -M` is standard git (used locally this session).
    Addresses: FR-K2, FR-A5, FR-A6, FR-D5, AC-1.
@@ -1167,7 +1184,7 @@ warm-spare model processes' value (deferred to measurement — IDEAS ledger).
    Phase 2; unverified heuristics would ship warn-grade genres without
    their evidence floors); folding landmines into a generic notes table
    (D6's rejection of schema-less facts applies).
-5. **Premise verification.** FR-K3..K5 read at lines 316–330; §12 read at
+5. **Premise verification.** FR-K3..K5 read at lines 316–325; §12 read at
    lines 780–799. No external premises — design choice within spec
    phasing. Addresses: FR-K3, FR-K4, FR-K5, FR-L6, §12.
 
@@ -1229,7 +1246,7 @@ warm-spare model processes' value (deferred to measurement — IDEAS ledger).
    burn; 3-strikes + cooldown is enough); per-call probing (token cost);
    treating CLI absence as an error (it's a supported environment state —
    degraded *is* the product then, spec §12 Phase 0).
-5. **Premise verification.** FR-J3 read at lines 457–462; §14 piggyback
+5. **Premise verification.** FR-J3 read at lines 456–461; §14 piggyback
    entry at 889–895; probe shape = Spike 1 evidence. Addresses: FR-J3,
    FR-D4, AC-10, §14.
 
@@ -1268,7 +1285,7 @@ warm-spare model processes' value (deferred to measurement — IDEAS ledger).
    corruption — the class it must detect); OS syslog (not portable to
    sandboxes; not owner-readable); metrics daemons/OpenTelemetry (network
    + dependency surface for a single-user local tool — T4).
-5. **Premise verification.** FR-M1..M4 read at lines 514–542;
+5. **Premise verification.** FR-M1..M4 read at lines 523–542;
    [spec D-19] at 770–774; AC-18 at 862–866. Addresses: FR-M1, FR-M2,
    FR-M4, AC-18, and the FR-M3 input contract.
 
@@ -1311,7 +1328,7 @@ warm-spare model processes' value (deferred to measurement — IDEAS ledger).
    machine — init is per-project consent, C-4's explicitness); marker
    comments in settings JSON (JSON has no comments; command-path matching
    is the honest mechanism).
-5. **Premise verification.** C-4/[spec D-12] read at lines 668–675,
+5. **Premise verification.** C-4 read at lines 668–672, [spec D-12] at
    740–742; FR-S1..S3 at 470–482; AC-4 at 815–817; settings scopes from
    docs fetch 2026-07-17. Addresses: C-4, P8, FR-S1..S3, FR-K9 (surface),
    FR-L3 (surface), AC-4, AC-8, AC-9.
@@ -1473,6 +1490,98 @@ untested, thresholds human-derived); the spike section states what was and
 wasn't proven about auth. One stakeholder-visible decision needs the owner's
 eyes and is flagged in STATUS: narration genres ship-enabled recommendation
 (D14). No unstated costs found on the third pass.
+
+### Before-delivery verification — Gate B (auditability)
+
+Each question answered by pointing to a specific section/row/annotation; a
+question not answerable from the document alone is a failure that produced a
+fix, not a note.
+
+- *Which named standards govern this, and what does each govern?* →
+  Standards governing this architecture table (every row carries a "what it
+  governed" cell; verified none is empty).
+- *Which spec requirements/quality attributes is it built to serve?* →
+  Architectural drivers (stakeholders, ASRs, prioritized 25010 attributes).
+- *Where does each non-trivial decision come from?* → Design decisions
+  element 2 (named standard or first-principles anchor) on D1–D26.
+- *What alternatives were rejected, and why?* → element 4 on each decision;
+  D2/D3/D4 carry full weighted grids, the rest carry named rejections.
+- *What premises was each verified against, and how?* → element 5 (spec
+  file:line, primary-source/Context7 with access date, or empirical paste).
+- *Which decisions used structured reasoning, and what did it produce?* →
+  Knowledge-state baseline; D2/D3/D4 matrices; D10 numbered chain; the
+  six-part threat entries.
+- *What gets built first, in what order?* → Foundation and build order.
+- *What couldn't be grounded/verified?* → Limitations and trade-offs.
+- *Is every FR/NF accounted for?* → Traceability matrix.
+- *Security in scope — every applicable ASVS chapter mapped or deferred?* →
+  ASVS verification mapping table.
+
+Gate B outcome: **pass**, after this session's citation corrections (below).
+
+### Before-delivery verification — Gate C (structural checklist)
+
+- Five-part format on every non-trivial decision (D1–D26): **present**.
+- Library premises cite library + version + source + access date: D2, D4,
+  D16 cite Context7 library IDs / npm listings with the 2026-07-17 access
+  date and the specific behavior; the hooks contract cites the fetched
+  `code.claude.com/docs/en/hooks.md` URL. **Methodology note added** (below)
+  because verification here used Context7 and live fetches, not raw-page
+  reads for every library.
+- Spec-citing premise slots cite path + line range + what the content
+  showed: **corrected this pass** — 15 line-range citations were re-checked
+  against the spec; the D10 range (`344–464`, which conflated FR-A 344–408
+  with FR-J 449–468 and swallowed §7.4) and off-by-a-few ranges in D2, D6,
+  D8, D9, D11, D13, D14, D15, D16, D17, D18, D20, D21, D22 were fixed.
+- Mandatory reasoning structures present in required shape: Knowledge-state
+  baseline ✓; weighted decision matrix for style (D1 alternatives) + stack
+  (D2, D3) + store (D4) — **D3/D4 built out to full grids this pass**;
+  first-principles articulations (D5, D18, D25) carry goal / local-optimum
+  shortcut / why-chosen; numbered reasoning chain (D10) with its in-place
+  revision (step 6); six-part threat entries (T1–T4); three-role Gate A
+  review ✓. No hard contradiction or fundamental gap arose, so no
+  dialectical resolution is required — stated explicitly here rather than
+  omitted.
+- Threat model + ASVS mapping present (security in scope); Inheritance
+  section omitted with attestation (no family precedent). Traceability total
+  over FR/NF/C/P and §14; Scope names in/deferred/out with reasons; Standards
+  table complete.
+
+Gate C outcome: **pass**, after the matrix build-out and citation fixes.
+
+### Before-delivery verification — six-trap audit (binary)
+
+- **Default-stack trap** — *no.* D2/D3/D4 now anchor the Node/TS/SQLite
+  choice to C-1 via scored grids, naming RT-C's latency win and why C-1
+  overrides it; the default is named and rejected, not assumed.
+- **Spec-gap-filling trap** — *no.* The two silent-gap risks (target OS set;
+  narration ship-enabled) are surfaced in the readiness check and
+  Limitations with stated assumptions and basis.
+- **Pattern-cloning trap** — *no.* The non-precedent note records that no
+  structure is inherited from the archived `ctxpack` directories or sibling
+  architectures; each element is derived from this spec.
+- **Decision-hiding trap** — *fixed this pass.* The D3/D4 matrix reasoning
+  previously lived only in the Clear Thought session, not the document; the
+  grids are now in the document. No other non-trivial decision's reasoning
+  is off-document.
+- **Standards-decoration trap** — *no.* Every Standards-table row names the
+  decision(s) it governs; re-checked each — none is decorative.
+- **Deferred-decision trap** — *no.* Project structure, conventions,
+  process model, schemas, and build order are all resolved here; the only
+  deferrals (export-file format; Phase 2 mining logic) are spec-sanctioned
+  (§14, §12) and recorded in Scope/Deferred.
+
+### Premise-verification methodology note
+
+Library and framework premises were verified using the Context7 MCP server
+(current documentation, cited by library ID with the 2026-07-17 access date)
+and direct `WebFetch` of primary sources (the Claude Code hooks reference),
+supplemented by empirical execution on this machine (Node v22.22.2 —
+`node:sqlite` FTS5/WAL, `claude -p` spikes, npm tarball listings) with output
+pasted in the Validation spikes section. No library premise rests on training
+memory; where a fact is environment-specific or undocumented (subscription-
+login inheritance, subagent transcript layout), it is marked unverified and
+carried to Limitations.
 
 ## Threat model
 
@@ -1743,9 +1852,18 @@ the traceability matrix is total over the spec's FRs, NFs, constraints,
 principles, spec judgments, §14 items, and ACs; the foundation and build
 order are established and mapped to the spec's phase exits.
 
-Adversarial review: pending (next step in this session — a fresh subagent
-reviews this document against the spec, RETHINK §12 + addendum, and
-established practice; all findings will be applied).
+Before-delivery gates (per the greenfield-portable process): Gate A
+(three-role review) — pass, synthesis recorded above; Gate B (auditability)
+— pass; Gate C (structural checklist) — pass; six-trap audit — clean. The
+gate pass drove real fixes into this document: the D3 and D4 stack/store
+matrices were built out to full weighted grids (previously prose summaries —
+a decision-hiding finding), and fifteen spec line-range citations were
+corrected against source (most notably D10, which had conflated the
+Attention and Judgment requirement ranges).
+
+Adversarial review: a fresh independent subagent reviews this document
+against the spec, RETHINK §12 + addendum, and established practice; its
+findings are held for the owner's review before any are applied.
 
 What comes next after review: the implementation plan (spec + this
 document → file-level steps), then Phase 0 per the build order above.
