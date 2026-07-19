@@ -28,6 +28,58 @@ described one. Therefore:
   strictly worse than no work at all, because it poisons every decision
   built on it.
 
+## The second dominating rule: no hollow decisions — and the owner never catches them
+
+Companion to the rule above. The failures that have repeatedly stalled this
+project are **not** false test reports or drift from locked decisions — those
+are guarded above. They are **hollow decisions**: choices that are fully
+sourced, follow the lifecycle, cite the spec, pass a citation review — and
+still collapse the instant someone asks what mission-need they actually serve.
+Every prior attempt reached the owner with plausible-shaped filler in a
+load-bearing place, and the **owner** — a non-programmer — was the one who
+found it by asking one hard question. Making him the substance-reviewer is the
+exact failure this project is designed to prevent.
+
+Every load-bearing decision (a wrong version of which causes rework, a security
+failure, or a tool that doesn't work) must pass **the collapse test**, in
+writing, before it is accepted and again in review:
+
+1. **State the decision's job in one sentence, in terms of the mission** —
+   "deliver the fact that would change the agent's next decision" — *not* in
+   terms of how the mechanism works. If the only sentence you can write
+   describes the mechanism, not the mission-need it serves, it is filler. Cut it.
+2. **Write the single hardest question a mission-literate skeptic would ask to
+   expose it as hollow** — the question the owner would ask. (Real ones, from
+   2026-07-17: *"if none of the generated candidates are relevant, what does the
+   tool actually do?"* · *"checking that the fact exists — why is existence the
+   right thing to check?"* · *"this corrects the agent, but the tool is a guide —
+   why is correction here at all?"*)
+3. **Answer it with a citation to a spec/mission line.** If the honest answer is
+   "I can't," the decision is hollow: rebuild or remove it. Do **not** ship it
+   with a hedge — a hedge is how hollowness reaches the owner.
+4. **Name what it steers the agent toward, and confirm that is the mission's
+   direction** — a guide that informs, never a gate that polices.
+
+To stop this from becoming its own ritual:
+
+- **The collapse-hunt is adversarial and independent.** A separate pass (fresh
+  subagent or session, never the author) does nothing but attack each decision's
+  step-2 question harder and find *new* collapse-questions the author did not
+  write. This is a different axis from citation/structure review — which has
+  repeatedly missed conceptual collapse — and both are required.
+- **The owner is never the collapse-tester.** If a hollow decision reaches the
+  owner and he is the one who collapses it, that is a process failure — log it,
+  because the mechanism exists so he is never the last line of defense.
+- **Record every collapse in `docs/collapse-log.md`** — the decision, the
+  question that collapsed it, the class of hollowness, the fix. It is cumulative
+  across sessions; read it before designing, so the recurring traps are
+  inherited, not rediscovered.
+
+This does not guarantee no hollow decision ever ships — no mechanism does. It
+moves the hunt off the owner onto an adversarial peer and turns each collapse
+into a durable lesson. Enforce it even when a decision "feels obviously right" —
+*especially* then, because that is when hollowness hides.
+
 ## Decisions are locked in writing, nowhere else
 
 The authorities are RETHINK §12 (+ addendum) and spec §11. Do not
