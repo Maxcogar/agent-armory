@@ -51,3 +51,21 @@ Seeded 2026-07-15, all entries **unvalidated** unless noted.
 10. **Whisper A/B self-tuning.** Where volume permits, vary phrasing (with
     fixed facts) and measure uptake, letting the oracle learn how to be
     heeded, not just when to speak. Long-horizon; needs FR-L7 data first.
+
+Added 2026-07-17 (architecture session):
+
+11. **Subagent orientation at spawn.** **Researched.** The current hooks
+    contract (verified 2026-07-17) documents `additionalContext` on
+    `SubagentStart`, delivered into the subagent's own transcript — a
+    direct channel for a small task-scoped orientation whisper the moment
+    a subagent starts, before its first tool call. Adopted as an optional
+    path in architecture D15; the idea worth exploring further is
+    task-shape matching: using the parent's Task prompt (visible in the
+    parent transcript) to pick which facts the subagent gets.
+12. **Warm-spare judgment process.** **Researched** (flag verified in CLI
+    v2.1.212: `--input-format stream-json` with `-p`). Keep one pre-spawned
+    judgment process ready to cut the measured ~2 s spawn overhead from
+    Lane 2 latency. Rejected for v1 in architecture D10 (cross-judgment
+    context contamination in one growing session; benefit unmeasured —
+    P7 says tune from measurement). Revisit once the D26 replay harness
+    can measure Lane 2 turnaround against real sessions.
