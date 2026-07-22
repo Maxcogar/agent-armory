@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "expert-dev-tools/ledger.schema.json",
+  "title": "expert-dev-tools lifecycle ledger",
+  "description": "Durable per-project lifecycle state for the expert-dev-tools plugin. Single-writer (the /expert command). See architecture D3/D6/D9/D15.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "revision",
+    "task",
+    "phase",
+    "artifact_index",
+    "gate_history",
+    "amendments",
+    "escalations",
+    "budget",
+    "feedback_marker",
+    "signature_history"
+  ],
+  "properties": {
+    "revision": {
+      "description": "Monotonically increasing; bumped on every command-side write (T3 tamper detection).",
+      "type": "integer",
+      "minimum": 0
+    },
+    "task": {
+      "description": "The owner's task statement that opened this lifecycle.",
+      "type": "string"
+    },
+    "phase": {
+      "description": "Current lifecycle phase. F-1 routing may take the spec->plan short path.",
+      "type": "string",
+      "enum": [
+        "intake",
+        "spec",
+        "architecture",
+        "plan",
+        "implement",
+        "implementation_review",
+        "ground_truth",
+        "closeout",
+        "complete"
+      ]
+    },
+    "artifact_index": {
+      "description": "Every governing artifact with its content hash and owner-approval state (D9).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role", "path", "sha256", "approved_by_owner"],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": ["spec", "architecture", "plan", "implementation", "report", "status"]
+          },
+          "path": { "type": "string" },
+          "sha256": {
+            "description": "Hex SHA-256 of the artifact at last command-side write.",
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "approved_by_owner": { "type": "boolean" },
+          "approval_segment": { "type": ["integer", "null"] }
+        }
+      }
+    },
+    "gate_history": {
+      "description": "One entry per review round at each gate (F-5).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["gate", "round", "verdict"],
+        "properties": {
+          "gate": { "type": "string" },
+          "round": { "type": "integer", "minimum": 1 },
+          "verdict": {
+            "description": "Binary per expert-review; no middle verdict exists.",
+            "type": "string",
+            "enum": ["PASS", "NEEDS_FIXES"]
+          },
+          "findings_count": { "type": "integer", "minimum": 0 },
+          "tokens": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "amendments": {
+      "description": "Artifact amendments that triggered downstream re-validation (F-8/D9).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["artifact", "cause", "segment"],
+        "properties": {
+          "artifact": { "type": "string" },
+          "cause": { "type": "string" },
+          "segment": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "escalations": {
+      "description": "Owner escalations raised; gate_type is one of the six in spec 3.4.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["gate_type", "segment"],
+        "properties": {
+          "gate_type": {
+            "type": "string",
+            "enum": ["intent", "spec_traceable", "business", "risk_override", "non_convergence", "core_approval"]
+          },
+          "segment": { "type": "integer", "minimum": 0 },
+          "resolved": { "type": "boolean" }
+        }
+      }
+    },
+    "budget": {
+      "description": "Token spend tracked per phase (F-11).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total_tokens"],
+      "properties": {
+        "total_tokens": { "type": "integer", "minimum": 0 },
+        "per_phase": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "feedback_marker": {
+      "description": "How far the feedback sweep has read this project's transcripts (F-14).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["session_file", "line"],
+      "properties": {
+        "session_file": { "type": ["string", "null"] },
+        "line": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "signature_history": {
+      "description": "Project-scoped complaint signatures (D15). Shared-machinery signatures live in the plugin-data defect store, which reuses the same record shape ($defs.signature_record).",
+      "type": "array",
+      "items": { "$ref": "#/$defs/signature_record" }
+    }
+  },
+  "$defs": {
+    "signature_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["signature", "description", "responsible_component", "occurrences", "state"],
+      "properties": {
+        "signature": { "type": "string" },
+        "description": { "type": "string" },
+        "responsible_component": { "type": "string" },
+        "occurrences": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["project", "session_file", "date"],
+            "properties": {
+              "project": { "type": "string" },
+              "session_file": { "type": "string" },
+              "date": { "type": "string" },
+              "plugin_version": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "state": {
+          "type": "string",
+          "enum": ["open", "corrected"]
+        },
+        "correction": {
+          "description": "Present when state is 'corrected'. fixed_in_version drives the failed_correction vs stale_deployment split (D15).",
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["artifact", "change", "fixed_in_version"],
+          "properties": {
+            "artifact": { "type": "string" },
+            "change": { "type": "string" },
+            "fixed_in_version": { "type": "string" },
+            "commit": { "type": ["string", "null"] }
+          }
+        }
+      }
+    }
+  }
+}
