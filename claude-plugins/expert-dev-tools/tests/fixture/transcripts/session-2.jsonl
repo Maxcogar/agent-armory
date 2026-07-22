@@ -1,0 +1,2 @@
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Plan drafted for the new change."}]}}
+{"type":"user","message":{"role":"user","content":"the planner left a TODO placeholder again — this is the second time it deferred a decision"}}
