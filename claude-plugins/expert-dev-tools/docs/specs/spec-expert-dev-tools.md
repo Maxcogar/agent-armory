@@ -57,8 +57,11 @@ approval.
 - Marketplace publication and installs outside the owner's machines. Not
   requested; portability beyond declared MCP handling is not a v1 requirement.
 - Hard-gating hooks that block tool use outside the lifecycle (the "governance
-  layer"). Deliberately deferred until the workflow has run real tasks;
-  designing enforcement before first use is designing from imagination.
+  layer"). Out of scope — owner decision 2026-07-22: the workflow's own
+  deterministic gates enforce lifecycle order for all work run through
+  `/expert`, and global hard-gating of edits made outside the workflow was
+  judged unwanted friction. This is not a deferral; out-of-band enforcement is
+  simply not this plugin's job.
 - Changes to other plugins, marketplace configs, or `skills/Expert-Skills/`
   (the source copies stay untouched; the plugin carries its own repaired
   copies). Per repo standing rules.
@@ -409,5 +412,5 @@ claude-plugins/expert-dev-tools/
 
 Architecture document for the plugin (component design of the workflow script,
 schemas, agent contracts, ledger format), then plan, then build — per the
-lifecycle this plugin itself enforces. The deferred governance-hook layer
-(§2 out-of-scope) is revisited after the plugin has run real tasks.
+lifecycle this plugin itself enforces. There is no pending governance-hook
+layer: out-of-band enforcement is out of scope (§2), not deferred.

@@ -24,11 +24,15 @@ schema, workflow args/return protocol, gate report protocol), control flow for
 all twelve spec functions, packaging layout, security controls mapped to
 threats, testing architecture for the spec's acceptance criteria.
 
-**Deferred to plan:** exact JSON Schema field definitions beyond the
-load-bearing fields named here; prompt text of agent definitions; the fixture
-project's content; per-file implementation order. Reasoning: these are
-implementation artifacts the plan derives mechanically from the contracts
-fixed here — no cross-component consequence rides on them.
+**Plan and implementation scope (not architecture's to decide, so not
+deferred):** the exact JSON Schema syntax for the ledger fields named above,
+the prose of each agent's system prompt, the fixture project's content, and
+per-file implementation order. Architecture fixes the design contracts — the
+component boundaries, the ledger's fields and their meaning, the agent output
+schemas' shape. Rendering those into exact syntax, prompt prose, and build
+order is the plan's and implementer's normal work, carrying no cross-component
+design consequence. Naming them here is a scope boundary, not a punt: there is
+nothing architecture owed here and held back.
 
 **Out of scope:** governance hooks (spec §2), marketplace publication,
 orchestration of expert-mcp-overhaul/frontend-standards lifecycles (spec §2),
@@ -655,7 +659,7 @@ orchestration system is mapped honestly rather than decoratively:
 | §3.4 escalations 1–6 | SEGMENT_REPORT.gate.type enum — exactly six values |
 | §8 NFRs (honesty, resumability, legibility, budget) | D12, D2+D9, C2/F-9, F-11 rows above |
 | A-1..A-9 acceptance | Testing architecture (below); A-7 asserts each A-4 forced failure yields a diagnosis naming the planted defect with a correction draft that would remove it; A-8 asserts repeat-complaint detection with uninterrupted phase execution; A-9 asserts cross-project signature visibility and the failed-correction escalation path |
-| R-1 repairs | C5 packaging step; deferred detail to plan (mechanical) |
+| R-1 repairs | C5 packaging step; exact transformation is plan/implementation scope (the decision — unescape to load — is made here) |
 | D-1..D-9 (spec-locked) | Inherited verbatim (Design decisions preamble) |
 
 **Testing architecture (A-1..A-6).** A fixture project under
