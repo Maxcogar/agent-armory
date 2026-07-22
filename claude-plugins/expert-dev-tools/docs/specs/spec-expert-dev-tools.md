@@ -134,6 +134,12 @@ The owner is interrupted for exactly these, and nothing else:
 Engineering questions are never escalated. They are bin-1: the phase agent's
 job, per expert-plan's own rule.
 
+**Every escalation arrives diagnosed.** No gate reaches the owner as a bare
+problem report: per F-13, escalations 2–5 carry the root-cause diagnosis and
+a drafted correction, so the owner approves or rejects a proposed fix rather
+than researching a failure. (Gate 1 carries the spec itself; gate 6 carries
+the drafted ingestion — both are already draft-shaped.)
+
 ## 4. Functional requirements — the twelve functions
 
 - **F-1 Intake and routing.** Classify the task: new work, resume, or
@@ -186,6 +192,66 @@ job, per expert-plan's own rule.
   dead/stalled agents retried once then escalated; MCP loss mid-phase is a
   structured halt, not silent degradation; recovery always from the ledger
   plus workflow-native run resume so paid work never repeats.
+- **F-13 Diagnosis and correction drafting.** Every non-routine failure —
+  review-loop non-convergence, a caught fabricated verification, a
+  ground-truth criterion failure, an environment block, a ledger integrity
+  failure, a blast-radius stop, chain incoherence after an amendment — is
+  diagnosed before it is routed: a dedicated diagnostic pass gathers the
+  evidence (ledger, run journal, artifacts, the failing output), identifies
+  the root cause with evidence rather than restating the symptom, and drafts
+  the specific correction that removes it. Corrections are classified:
+  machine-applicable ones route automatically through the normal
+  amend → review path; owner-owned ones (spec-traceable, business, risk,
+  environment) escalate. Routine review findings are not double-diagnosed —
+  the review loop already carries its own findings-to-remediation path.
+  Corrections are bound by doctrine: applied only through the planned,
+  reviewed amend path (no quick-fix tier); applied at the artifact where the
+  root cause lives, never patched downstream; never permitted to weaken the
+  mechanism that caught the failure (tests, criteria, schemas, gates — any
+  such change is owner-owned by definition); verified by re-executing the
+  exact originally-failing check; and a recurring failure signature after a
+  correction escalates with both diagnoses rather than retrying.
+- **F-14 Systemic-defect detection from owner feedback.** At segment
+  boundaries — never mid-phase, never in the owner's prompt path — the
+  diagnostic layer reads the project's existing session transcripts from the
+  last processed position forward, and identifies statements where the owner
+  flagged a problem. Statements are clustered by complaint signature across
+  the whole transcript history; a signature occurring more than once
+  (including across sessions) is a systemic defect: it enters the F-13
+  pipeline with the responsible plugin/process component as the diagnosis
+  target, and its correction follows the full correction doctrine.
+
+  **Scope of the defect history.** Complaints about the plugin's own shared
+  machinery (agent definitions, packaged skills, the command, routing) recur
+  across *projects*, because the machinery is shared. The signature history
+  for those is therefore plugin-scoped and persistent across projects and
+  plugin updates, not stored per project. Complaints scoped to one project's
+  work stay in that project's ledger. Read-position markers are per project.
+  No transcript content is copied into either store — only signatures,
+  occurrence records, and dispositions.
+
+  **Correction state, versioning, and failed corrections.** Corrections to
+  the plugin's own machinery are changes to the plugin source, applied through
+  the reviewed amend path and released as a committed, version-bumped change —
+  never patched into the replaceable installed copy. Every signature carries
+  its state: `open`, or `corrected` with the plugin version the fix landed in.
+  A signature recurring after it was corrected is classified by the running
+  plugin's version: if the running version already contains the fix, it is a
+  **failed correction** — the strongest defect signal the system produces,
+  escalated immediately with the original diagnosis and the applied fix, never
+  re-entering the automatic correction path; if the running version predates
+  the fix, it is a **stale deployment** — the disposition is "update the
+  plugin," not a new correction. Versioning is what makes this distinction
+  exact and is why an update can never silently lose a fix: the fix is part of
+  the version being installed. This is the correction doctrine's recurrence
+  tripwire applied to owner feedback.
+
+  Only a read-position marker and these signature records are persisted; no
+  separate feedback store is created, because transcripts already contain the
+  statements plus the surrounding context that makes clustering accurate.
+  Nothing about this function touches the owner's turn: no hook, no capture
+  step, no added latency. Dispositions surface in STATUS.md and, when
+  owner-owned, attach to gates the owner was already going to see.
 
 ## 5. Plugin components and repairs
 
@@ -248,6 +314,26 @@ claude-plugins/expert-dev-tools/
   PASS is expected behavior, now machine-operated with fresh reviewers,
   round caps, and a multi-lens final round. Rationale: the practice is proven;
   its cost was the owner's manual operation, which is what this removes.
+- **D-11 Repeat-complaint detection reads existing transcripts** *(owner-directed
+  addition, 2026-07-21; revised same day)*. The owner having to say the same
+  thing twice is itself a defect signal the system must consume. Detection
+  runs only at segment boundaries and reads the project's session transcripts
+  from a persisted read-position marker. Rationale: transcripts already hold
+  every owner statement plus the context around it, permanently and per
+  project — a capture hook writing a parallel register would duplicate that
+  data in a strictly poorer form (isolated statements, no context) while
+  adding a component and a synchronization burden. Reading the existing
+  record satisfies the requirement with less machinery, and processing at
+  boundaries honors the owner's requirement that primary work is never
+  interrupted or distracted by the correction process.
+- **D-10 Diagnostic and correction layer** *(owner-directed addition,
+  2026-07-21)*. Non-routine failures are root-caused and arrive with drafted
+  corrections; machine-applicable corrections apply automatically through
+  amend → review. Rationale: the owner is not a developer and his standing
+  response to problems is "go figure it out" — a system that escalates
+  undiagnosed problems is delegating its diagnosis to the one participant
+  least positioned to do it. Problems must arrive solved-pending-approval or
+  not arrive at all.
 
 ## 7. Constraints
 
@@ -294,6 +380,28 @@ claude-plugins/expert-dev-tools/
   and escalates.
 - **A-5 Resume:** a run killed mid-lifecycle resumes from the ledger without
   repeating completed phases (verified by run journal).
+- **A-8 Feedback loop:** a repeated owner complaint present in two fixture
+  transcripts is detected at the next segment boundary, produces a
+  systemic-defect diagnosis naming the responsible component, and does not
+  interrupt the in-flight phase (verified by the run journal showing
+  uninterrupted phase execution). A single-occurrence complaint in the same
+  fixture is correctly classified as a course correction, not a defect.
+- **A-9 Cross-project recurrence and failed corrections:** (a) a signature
+  recorded against the plugin's shared machinery while running the fixture in
+  one project is visible when the fixture is run in a second, different
+  project — one occurrence in each is detected as a repeat; (b) a signature
+  marked `corrected` recurring on a plugin version ≥ its fix version is
+  classified as a failed correction, escalates with the original diagnosis
+  plus the applied correction, and does **not** re-enter the automatic
+  correction path (verified by the run journal showing no remediation
+  dispatch); (c) the same signature recurring on a plugin version older than
+  its fix version is classified as a stale deployment ("update the plugin"),
+  not a failed correction and not a new defect.
+- **A-7 Diagnosis quality:** each A-4 forced failure produces a diagnosis
+  whose root cause names the planted defect (not a symptom restatement) and
+  whose correction draft, if applied, would remove it; the A-4d
+  non-convergence escalation reaches the owner carrying diagnosis and drafted
+  correction.
 - **A-6** Escalation messages contain what/options/recommendation and no
   unexplained engineering jargon (owner spot-check).
 
