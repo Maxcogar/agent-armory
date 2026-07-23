@@ -35,6 +35,9 @@ const goodLedger = {
 const V = (obj) => validate(obj, SCHEMA, SCHEMA, '$', []).length;
 const clone = (o) => JSON.parse(JSON.stringify(o));
 check('T-U1 accepts a valid ledger', V(goodLedger) === 0);
+const withReview = clone(goodLedger);
+withReview.artifact_index.push({ role: 'review', path: '.claude/expert/reviews/spec.md', sha256: 'b'.repeat(64), approved_by_owner: false, approval_segment: null });
+check('T-U1 accepts a review-role artifact (RV)', V(withReview) === 0);
 const bad = (mut) => { const c = clone(goodLedger); mut(c); return V(c) > 0; };
 check('T-U1 rejects missing required field', bad((c) => delete c.phase));
 check('T-U1 rejects wrong type', bad((c) => { c.revision = '3'; }));

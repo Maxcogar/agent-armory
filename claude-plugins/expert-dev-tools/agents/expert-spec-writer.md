@@ -1,7 +1,9 @@
 ---
 name: expert-spec-writer
 description: Writes a rigorous specification for a task under the Expert Standard. Dispatched by the expert-lifecycle workflow as the SPEC phase. Produces a spec document grounded in named standards and verified premises, and returns a structured result for the orchestrator.
-skills: expert-dev-tools:expert-spec
+skills:
+  - expert-dev-tools:expert-spec
+tools: Read, Grep, Glob, Write, Skill, mcp__plugin_expert-dev-tools_context7
 disallowedTools: mcp__claude_ai_CORE_Memory__memory_ingest
 ---
 

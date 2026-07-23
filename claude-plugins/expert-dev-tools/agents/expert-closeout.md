@@ -1,7 +1,9 @@
 ---
 name: expert-closeout
 description: Closeout for the expert-lifecycle workflow — writes the final report against the spec, commits the verified work and opens a PR per repo conventions, and drafts (never sends) a CORE ingestion message for the owner's approval. Returns a structured completion record for the orchestrator.
-skills: expert-dev-tools:expert-standard
+skills:
+  - expert-dev-tools:expert-standard
+tools: Read, Grep, Glob, Write, Bash, Skill
 disallowedTools: mcp__claude_ai_CORE_Memory__memory_ingest
 ---
 

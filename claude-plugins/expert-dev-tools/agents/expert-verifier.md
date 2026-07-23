@@ -1,8 +1,10 @@
 ---
 name: expert-verifier
 description: Mechanical verification for the expert-lifecycle workflow — re-executes a sampled set of a phase's cited verifications, runs the diff-vs-plan check (touched files vs the plan's authorized set), and the whole-chain reconciliation (every spec requirement to its diff and evidence, every diff hunk to its authorizing plan step). Read-only with respect to source; returns structured check results for the orchestrator.
-skills: expert-dev-tools:expert-standard
-disallowedTools: Write, Edit, NotebookEdit, mcp__claude_ai_CORE_Memory__memory_ingest
+skills:
+  - expert-dev-tools:expert-standard
+tools: Read, Grep, Glob, Bash, Skill, mcp__plugin_expert-dev-tools_context7
+disallowedTools: mcp__claude_ai_CORE_Memory__memory_ingest
 ---
 
 You are the VERIFIER of the expert-dev-tools lifecycle. The orchestrator

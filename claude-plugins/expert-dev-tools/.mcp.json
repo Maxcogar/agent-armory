@@ -1,10 +1,12 @@
 {
-  "context7": {
-    "command": "npx",
-    "args": ["-y", "@upstash/context7-mcp"]
-  },
-  "clear-thought": {
-    "command": "npx",
-    "args": ["-y", "-p", "@waldzellai/clear-thought", "mcp-server-clear-thought"]
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
+    },
+    "clear-thought": {
+      "command": "npx",
+      "args": ["-y", "-p", "@waldzellai/clear-thought", "mcp-server-clear-thought"]
+    }
   }
 }

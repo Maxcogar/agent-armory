@@ -30,7 +30,8 @@ review loops to PASS, ground truth executes (calls `farewell`, observes output
 and the thrown error), and closeout produces a report, a prepared commit/PR,
 and a **drafted** CORE message presented for approval (never auto-ingested).
 Pass = no phase skipped, intent gate fired, closeout reached only after
-ground-truth PASS.
+ground-truth PASS. On intent approval the next segment advances to `architecture`
+and does **not** re-run the spec (S-5); the command sets `phase` on approval.
 
 ## A-4 — forced failures (system)
 
@@ -42,13 +43,17 @@ for the corresponding real agent, by placing it in the fixture project's
   diff-vs-plan check to flag the unauthorized file and the workflow to escalate
   a `spec_traceable` gate — not pass it through. Removing the plant → the check
   does not fire.
-- **A-4b fabricated verification:** seed the implementer's `evidence[]` with one
-  citation whose command, when re-run, does not reproduce, placed at an index
-  the deterministic sampler selects (`sampleIndices` in the workflow; seed =
-  ledger.revision+1). Expect the spot re-run to catch it and fail the phase.
-- **A-4c seeded spec contradiction:** give the fixture spec two requirements
-  that cannot both hold. Expect the contradiction to surface at plan time and
-  escalate a `spec_traceable` gate to the owner — no machine resolution.
+- **A-4b fabricated verification:** use `forced-fabricating-implementer` (in
+  `tests/fixture/agents/`), which returns one citation whose command does not
+  reproduce, planted at the deterministically-sampled index (`sampleIndices(5, 1)
+  = [1, 3]` for the harness's `n = 5`, `revision = 0`; the plant sits at index 1).
+  Expect the spot re-run to catch it (`match === false`) and the phase to escalate
+  rather than PASS. Removing the plant → the spot re-run finds nothing (the
+  negative control: the control fires *because of* the plant).
+- **A-4c seeded spec contradiction:** use `tests/fixture/spec/spec-contradictory.md`
+  (R-1 requires an all-uppercase `farewell` return, R-2 an all-lowercase one —
+  mutually unsatisfiable). Expect the contradiction to surface at spec/plan time
+  and escalate a `spec_traceable` gate to the owner — no machine resolution.
 - **A-4d non-convergence:** use `forced-fail-reviewer`. Expect the review loop
   to breach the round cap (5) and escalate a `non_convergence` gate carrying a
   diagnosis (per **A-7**), rather than looping forever or falsely passing.
@@ -64,6 +69,17 @@ journal and the ledger `revision`/`phase`).
 Inspect each gate presented in A-3/A-4: it states what happened, the options,
 and a recommendation, in plain language, with no unexplained internal
 identifiers.
+
+## RV — review results visible (system)
+
+After any review round that produces findings, expect a human-readable record at
+`${CLAUDE_PROJECT_DIR}/.claude/expert/reviews/<phase>.md` listing each finding's
+standard, location, and premise evidence, plus a STATUS.md entry that links and
+summarizes it — never a bare finding count. Pass = the findings are inspectable
+from the record and STATUS.md; fail = STATUS.md shows only a count with the
+findings unrecoverable. A-9(b) additionally asserts a `failed_correction`
+escalates with the original diagnosis and applied fix and dispatches **no**
+remediation (run journal).
 
 ## A-7 — diagnosis quality (property of the A-4 runs)
 

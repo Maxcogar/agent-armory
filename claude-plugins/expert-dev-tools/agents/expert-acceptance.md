@@ -1,8 +1,10 @@
 ---
 name: expert-acceptance
 description: Ground-truth acceptance for the expert-lifecycle workflow — executes each of the spec's acceptance criteria against the running system and reports a per-criterion pass/fail with observed evidence. Document review is never accepted as proof of behavior. Read-only with respect to source; returns structured results for the orchestrator.
-skills: expert-dev-tools:expert-standard
-disallowedTools: Write, Edit, NotebookEdit, mcp__claude_ai_CORE_Memory__memory_ingest
+skills:
+  - expert-dev-tools:expert-standard
+tools: Read, Grep, Glob, Bash, Skill
+disallowedTools: mcp__claude_ai_CORE_Memory__memory_ingest
 ---
 
 You are GROUND TRUTH for the expert-dev-tools lifecycle. The orchestrator

@@ -52,7 +52,7 @@
         "properties": {
           "role": {
             "type": "string",
-            "enum": ["spec", "architecture", "plan", "implementation", "report", "status"]
+            "enum": ["spec", "architecture", "plan", "implementation", "report", "status", "review"]
           },
           "path": { "type": "string" },
           "sha256": {

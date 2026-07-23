@@ -235,7 +235,7 @@ async function runGate({ reviewFn, remediateFn, multiLens }) {
       verdict = v && v.verdict === 'PASS' ? 'PASS' : 'NEEDS_FIXES'
       findings = (v && v.findings) || []
     }
-    history.push({ round, verdict, findings_count: findings.length })
+    history.push({ round, verdict, findings_count: findings.length, findings })
     if (verdict === 'PASS') return { verdict: 'PASS', rounds: round, history }
     await remediateFn(findings, round)
   }
@@ -253,18 +253,22 @@ async function diagnose(failureDescription, ledger) {
   return out && out.diagnosis ? out.diagnosis : null
 }
 
-async function feedbackSweep(ledger) {
+async function feedbackSweep(ledger, readerScript, transcriptDir) {
   const out = await agent(
-    `Feedback-sweep mode. Read this project's transcripts from the ledger marker via ` +
-      `scripts/extract-owner-turns.mjs, identify owner complaints, cluster by signature ` +
-      `against the provided stores, and classify each. Ledger: ${JSON.stringify(ledger)}`,
+    `Feedback-sweep mode. Read this project's transcripts by running the transcript reader at ` +
+      `"${readerScript}" over the transcript directory "${transcriptDir}", starting from the ledger's ` +
+      `feedback_marker; identify owner complaints, cluster by signature against the provided stores, ` +
+      `and classify each. Ledger: ${JSON.stringify(ledger)}`,
     { agentType: AGENT.diagnostician, schema: FEEDBACK_SCHEMA, phase: 'Feedback sweep', label: 'feedback-sweep' }
   )
   return (out && out.feedback_dispositions) || []
 }
 
 function report(delta, extra) {
-  return Object.assign({ ledger_delta: delta }, extra)
+  return Object.assign(
+    { ledger_delta: delta, review_records: reviewRecords, feedback: dispositions, feedback_escalation: feedbackEsc },
+    extra
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -278,17 +282,34 @@ const specPath = input.spec_path || (input.artifacts && input.artifacts.spec) ||
 const archPath = input.arch_path || (input.artifacts && input.artifacts.architecture) || 'docs/arch/architecture.md'
 const planPath = input.plan_path || (input.artifacts && input.artifacts.plan) || 'docs/plans/plan.md'
 const seed = (ledger.revision | 0) + 1
+const readerScript = input.reader_script || 'scripts/extract-owner-turns.mjs'
+const transcriptDir = input.transcript_dir || ''
 
-const delta = { phase: ledger.phase, gate_history: [], amendments: [], budget: { total_tokens: 0 } }
+const delta = { phase: ledger.phase, artifacts: [], gate_history: [], amendments: [], budget: { total_tokens: 0 } }
+const reviewRecords = []
 function record(gate, gateResult) {
-  for (const h of gateResult.history) delta.gate_history.push({ gate, round: h.round, verdict: h.verdict, findings_count: h.findings_count })
+  for (const h of gateResult.history) {
+    delta.gate_history.push({ gate, round: h.round, verdict: h.verdict, findings_count: h.findings_count })
+    reviewRecords.push({ phase: gate, round: h.round, verdict: h.verdict, findings: h.findings || [] })
+  }
 }
 function finish() { delta.budget.total_tokens = budget.spent ? budget.spent() : 0; return delta }
 
 // The feedback sweep runs once at the segment boundary (never mid-phase).
 phase('Feedback sweep')
-const dispositions = await feedbackSweep(ledger)
-const feedbackEscalation = dispositions.find((d) => d.verdict === 'systemic_defect' || d.verdict === 'failed_correction')
+const dispositions = await feedbackSweep(ledger, readerScript, transcriptDir)
+// Route the feedback escalation (F-14, S-3): a failed correction escalates with NO remediation;
+// a systemic defect enters the F-13 diagnose path with the responsible component as target. Both are
+// owner_owned and ride the terminal report — report() threads feedback + feedback_escalation onto it.
+let feedbackEsc = null
+const failedCorr = dispositions.find((d) => d.verdict === 'failed_correction')
+const sysDefect = dispositions.find((d) => d.verdict === 'systemic_defect')
+if (failedCorr) {
+  feedbackEsc = { kind: 'failed_correction', disposition: failedCorr, responsible_component: failedCorr.responsible_component, remediation: 'none' }
+} else if (sysDefect) {
+  const dg = await diagnose(`Systemic defect from repeat owner feedback: ${JSON.stringify(sysDefect)}`, ledger)
+  feedbackEsc = { kind: 'systemic_defect', disposition: sysDefect, diagnosis: dg, responsible_component: sysDefect.responsible_component }
+}
 
 let cursor = ledger.phase || 'intake'
 if (cursor === 'intake') cursor = 'spec'
@@ -314,12 +335,14 @@ if (cursor === 'spec') {
   if (gate.verdict === 'NON_CONVERGENCE') {
     const dg = await diagnose(`Spec review did not converge in ${ROUND_CAP} rounds.`, ledger)
     delta.phase = 'spec'
-    return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.non_convergence, what_happened: 'Spec review did not converge.', diagnosis: dg, options: ['amend spec', 'revisit task'], recommendation: 'review the diagnosis' } })
+    const lastFindings = (gate.history[gate.history.length - 1] || {}).findings || []
+    return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.non_convergence, what_happened: 'Spec review did not converge.', diagnosis: dg, findings: lastFindings, options: ['amend spec', 'revisit task'], recommendation: 'review the diagnosis' } })
   }
-  // Spec PASS -> the one intent gate. Owner confirms the spec matches intent.
+  // Spec PASS -> the one intent gate. The command advances phase to 'architecture' on owner
+  // approval (S-5); the workflow does not claim the transition here.
   delta.phase = 'spec'
-  delta.spec_ready = true
-  return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.intent, what_happened: `A specification for "${task}" passed independent review. Confirm it is what you meant before design begins.`, artifact: specPath, options: ['approve', 'request changes'], recommendation: 'read the spec and approve if it matches your intent' }, feedback: dispositions })
+  delta.artifacts.push({ role: 'spec', path: specPath })
+  return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.intent, what_happened: `A specification for "${task}" passed independent review. Confirm it is what you meant before design begins.`, artifact: specPath, options: ['approve', 'request changes'], recommendation: 'read the spec and approve if it matches your intent' } })
 }
 
 // After intent approval the command re-invokes with phase='architecture'.
@@ -331,13 +354,14 @@ if (cursor === 'architecture') {
   const out = await agent(`Produce the architecture from the approved spec at ${specPath}.`, { agentType: AGENT.architect, schema: PHASE_SCHEMA, phase: 'Architecture', label: 'architecture' })
   const esc = maybeEscalate(out, 'architecture')
   if (esc) return esc
+  delta.artifacts.push({ role: 'architecture', path: archPath })
   const gate = await runGate({
     reviewFn: (round) => agent(`Review the architecture at ${archPath} against the spec at ${specPath} and named standards. Round ${round}.`, { agentType: AGENT.reviewer, schema: VERDICT_SCHEMA, phase: 'Review', label: `review:arch:r${round}` }),
     remediateFn: (findings) => agent(`Revise the architecture at ${archPath} to resolve these findings: ${JSON.stringify(findings)}`, { agentType: AGENT.architect, schema: PHASE_SCHEMA, phase: 'Architecture', label: 'revise:arch' }),
     multiLens: false,
   })
   record('architecture', gate)
-  const nc = await maybeNonConvergence(gate, 'Architecture', ledger)
+  const nc = await maybeNonConvergence(gate, 'Architecture', 'architecture', ledger)
   if (nc) return nc
   cursor = 'plan'
 }
@@ -348,13 +372,14 @@ if (cursor === 'plan') {
   const out = await agent(`Produce the implementation plan from the spec at ${specPath} and architecture at ${archPath}.`, { agentType: AGENT.planner, schema: PHASE_SCHEMA, phase: 'Plan', label: 'plan' })
   const esc = maybeEscalate(out, 'plan')
   if (esc) return esc
+  delta.artifacts.push({ role: 'plan', path: planPath })
   const gate = await runGate({
     reviewFn: (round) => agent(`Review the plan at ${planPath} against the spec and architecture and named standards. Round ${round}.`, { agentType: AGENT.reviewer, schema: VERDICT_SCHEMA, phase: 'Review', label: `review:plan:r${round}` }),
     remediateFn: (findings) => agent(`Revise the plan at ${planPath} to resolve these findings: ${JSON.stringify(findings)}`, { agentType: AGENT.planner, schema: PHASE_SCHEMA, phase: 'Plan', label: 'revise:plan' }),
     multiLens: false,
   })
   record('plan', gate)
-  const nc = await maybeNonConvergence(gate, 'Plan', ledger)
+  const nc = await maybeNonConvergence(gate, 'Plan', 'plan', ledger)
   if (nc) return nc
   cursor = 'implement'
 }
@@ -387,7 +412,7 @@ if (cursor === 'implement') {
     multiLens: true,
   })
   record('implementation', gate)
-  const nc = await maybeNonConvergence(gate, 'Implementation', ledger)
+  const nc = await maybeNonConvergence(gate, 'Implementation', 'implement', ledger)
   if (nc) return nc
 
   // Anti-fabrication spot re-run over a deterministic sample of cited evidence.
@@ -459,9 +484,10 @@ function maybeEscalate(out, phaseName) {
   }
   return null
 }
-async function maybeNonConvergence(gate, phaseName, led) {
+async function maybeNonConvergence(gate, phaseName, resumePhase, led) {
   if (gate.verdict !== 'NON_CONVERGENCE') return null
-  delta.phase = phaseName.toLowerCase()
+  delta.phase = resumePhase
   const dg = await diagnose(`${phaseName} review did not converge in ${ROUND_CAP} rounds.`, led)
-  return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.non_convergence, what_happened: `${phaseName} review did not converge.`, diagnosis: dg, options: ['amend', 'revisit upstream'], recommendation: 'review the diagnosis' } })
+  const lastFindings = (gate.history[gate.history.length - 1] || {}).findings || []
+  return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.non_convergence, what_happened: `${phaseName} review did not converge.`, diagnosis: dg, findings: lastFindings, options: ['amend', 'revisit upstream'], recommendation: 'review the diagnosis' } })
 }

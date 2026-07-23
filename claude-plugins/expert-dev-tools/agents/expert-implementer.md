@@ -1,7 +1,9 @@
 ---
 name: expert-implementer
 description: Faithfully executes an approved implementation plan end-to-end, making only the changes each step authorizes, under the Expert Standard. Dispatched by the expert-lifecycle workflow as the IMPLEMENT phase. Halts with a structured STOP REPORT on the four divergence categories; returns a structured result for the orchestrator.
-skills: expert-dev-tools:expert-implement
+skills:
+  - expert-dev-tools:expert-implement
+tools: Read, Grep, Glob, Write, Edit, NotebookEdit, Bash, Skill, mcp__plugin_expert-dev-tools_context7
 disallowedTools: mcp__claude_ai_CORE_Memory__memory_ingest
 ---
 

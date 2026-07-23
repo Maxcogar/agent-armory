@@ -837,6 +837,39 @@ accuracy, conservative-escalation bias). Premise verified 2026-07-22:
 version + `gitCommitSha` per install. Gates re-checked: D15 still five-part
 and now more precise; A-9 unchanged in intent; trap audit clean.
 
+**Amendment 2026-07-23 (round-1 remediation, owner-directed).** Three
+implementation-driven refinements landed during round-1 remediation
+(`docs/plans/plan-expert-dev-tools-remediation-r1.md`):
+
+- **Agent tool scoping is a hybrid, not a uniform allowlist (refines D11).**
+  Verified against the Claude Code plugin/sub-agents/permissions reference
+  (Context7 `/websites/code_claude`, 2026-07-23): plugin-bundled MCP tools are
+  named `mcp__plugin_<plugin>_<server>__<tool>`, and a `tools` allowlist's server
+  segment must be specific and glob-free (there is no all-MCP wildcard on the
+  allow side). The three agents whose skills use the host-provided
+  CodeGraph/codebase-RAG servers (`expert-reviewer`, `expert-architect`,
+  `expert-planner`) therefore cannot name those servers in an allowlist, and
+  codebase-RAG cannot be bundled (a local Python/sentence-transformers server,
+  not npm-launchable). They use hardened `disallowedTools` denylists that retain
+  full host MCP; the other six agents, whose complete toolset is nameable, use
+  `tools` allowlists. D11's intent (least privilege as a capability boundary) is
+  preserved: no agent can CORE-ingest, and none can spawn sub-agents (Agent/Task
+  denied on the denylist agents; absent from the allowlists).
+- **The reviewer retains Bash (refines D5/D11).** D5/D11 specified the reviewer
+  as "pure read-only, no Bash." The reviewer's own skill (expert-review) lists a
+  test runner among its verification instruments, so denying Bash degrades it.
+  Per owner directive, the reviewer keeps Bash and its full MCP toolset; review
+  independence is enforced instead by denying Write/Edit/NotebookEdit — it cannot
+  edit the artifact it judges; the nameable WebFetch/WebSearch, outside its instrument roster, are also denied.
+- **Review results are persisted and surfaced (RV, refines D12).** Each review
+  round's findings are written by the command as a `role:"review"` artifact under
+  `.claude/expert/reviews/<phase>.md` and surfaced in STATUS.md — not reduced to a
+  bare finding count. The `artifact_index` `role` enum gains `"review"`.
+
+Gates re-checked against the delta: the scoping change is grounded in the verified
+Context7 facts; the RV change reuses the D9 artifact machinery; no new unverified
+premise; trap audit clean (no decision deferred downstream).
+
 **Design → Build gate: PASS.** Next: `/expert-plan` consumes this document
 plus the spec. The formerly-open `Skill()` premise is closed by executed
 probe (Limitations).

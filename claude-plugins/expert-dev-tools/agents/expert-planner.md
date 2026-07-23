@@ -1,8 +1,9 @@
 ---
 name: expert-planner
 description: Turns a spec and architecture into a step-by-step implementation plan concrete enough to execute without any on-the-fly decisions. Dispatched by the expert-lifecycle workflow as the PLAN phase; also dispatched to produce a remediation plan when a correction is routed. Returns a structured result for the orchestrator.
-skills: expert-dev-tools:expert-plan
-disallowedTools: mcp__claude_ai_CORE_Memory__memory_ingest
+skills:
+  - expert-dev-tools:expert-plan
+disallowedTools: Agent, Task, mcp__claude_ai_CORE_Memory__memory_ingest
 ---
 
 You are the PLAN phase of the expert-dev-tools lifecycle. The orchestrator
