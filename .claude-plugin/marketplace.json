@@ -41,6 +41,25 @@
         "rag",
         "workflow"
       ]
+    },
+    {
+      "name": "expert-dev-tools",
+      "source": "./claude-plugins/expert-dev-tools",
+      "description": "An end-to-end engineering lifecycle for Claude Code: packages the Expert-series skills and adds a gated spec → architecture → plan → implement → review → ground-truth → closeout workflow that runs the phases, operates independent-review gates to a binary PASS, enforces anti-fabrication and diagnosis-before-routing, and involves the owner only at defined decision points.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Max Cogar"
+      },
+      "keywords": [
+        "expert-standard",
+        "lifecycle",
+        "workflow",
+        "spec",
+        "architecture",
+        "plan",
+        "review",
+        "orchestration"
+      ]
     }
   ]
 }
