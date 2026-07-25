@@ -9,8 +9,17 @@
 > the corrected foundation (`docs/judgment-layer-corrected-foundation.md`), runs
 > the mandatory collapse test (`CLAUDE.md`) on every load-bearing decision,
 > re-establishes every premise against live source this session, and clears all
-> 11 findings. What changed and why is summarized in "Status of this
-> architecture." The prior draft is superseded, not patched.
+> 11 findings. The prior draft is superseded, not patched.
+>
+> **Round 2 (2026-07-22, applied).** The rebuilt document was then put through
+> the two mandatory independent passes — an adversarial **collapse-hunt**
+> (mission-fidelity) and an **expert-review** (premise/standards). They found a
+> **Critical** (the D11 model command used `--bare`, which breaks host-auth
+> piggyback — verified live), **two HIGH collapses** (`decision-impact` left
+> undefined so the bar was a rarity knob with a silence-only ratchet; the Answer
+> genre re-collapsed to FTS-bound "select-only"), and four Moderate + two Minor
+> items. **All were applied** and are recorded in `docs/collapse-log.md`
+> (2026-07-22 entry) and in "Status of this architecture" below.
 
 ## Goal — what this architecture serves
 
@@ -104,6 +113,15 @@ degraded mode as the sole fallback (no credential fallback exists, OWNER-7).
 **Design consequence:** measured cold-spawn wall time ≈ 5.7 s (api 2.8 s + ~3 s
 spawn) means a model call can **never** sit on the synchronous hook path
 (NF-1 p95 ≤ 1.5 s) — the judgment layer is asynchronous by necessity (D10, D11).
+**Critical `--bare` finding (established this session, applied):** the design's
+model command must **omit `--bare`**. The command above carries no `--bare`; the
+identical command *with* `--bare` **fails authentication** (`is_error: true,
+"Authentication error"`, reproduced 3/3), because `--bare`'s help states it reads
+auth *strictly* from `ANTHROPIC_API_KEY`/apiKeyHelper and "OAuth and keychain are
+never read" — so in this credential-less host-managed environment (and the
+owner's subscription-login one) `--bare` breaks the piggyback. The prior draft's
+D11 command used `--bare`; it is removed. See D11 for the redesigned invocation
+and the recursion guard re-derived without the skip-hooks flag.
 
 ### Spike 2 — subagent context injection: PASS (2026-07-17, corroborated by docs 2026-07-22)
 
@@ -206,10 +224,10 @@ no shape-determining gap).
 - **Storage** — `node:sqlite` (built-in) behind a thin storage adapter; WAL;
   FTS5 with a stated fallback; STRICT tables; provenance-mandatory schemas.
   (D4, D5, D6, D7)
-- **Model access** — host-CLI piggyback exactly per §6.2: `claude -p --bare` with
-  a Haiku-class model, **tools disallowed**, JSON-schema-constrained structured
-  output, fresh session id, scrubbed environment; else degraded mode. (D11, D12,
-  D20)
+- **Model access** — host-CLI piggyback exactly per §6.2: `claude -p` (**no
+  `--bare`** — it disables OAuth/keychain reads and breaks host auth, D11) with a
+  Haiku-class model, **tools disallowed**, inline-JSON-schema structured output,
+  fresh session id, scrubbed environment; else degraded mode. (D11, D12, D20)
 - **Judgment** — **grounded generation**: the model judges materiality (FR-A1)
   and composes the whisper from supplied, provenanced store facts; deterministic
   code then verifies every claim against store provenance and bounds the output
@@ -234,7 +252,7 @@ ctxoracle-service  (per session, warm)                                [D2]
   ├─ Lane 1: deterministic candidates + template render (<100 ms)     [D10,D13]
   ├─ Lane 2: async judgment worker → candidate pool                   [D10]
   │    ├─ retrieval (grounded fact set for FR-A1)                     [D10]
-  │    ├─ model client (claude -p --bare, tools disallowed) + guard   [D11]
+  │    ├─ model client (claude -p, tools disallowed, no --bare) + guard [D11]
   │    └─ grounded-generation verify-and-bound (P4/FR-X2)             [D12]
   ├─ attention engine (budgets, dedup, bars, cold-start, first-N)     [D10]
   ├─ whisper assembler + validator (grounding + non-imperative)       [D13]
@@ -803,10 +821,20 @@ local subscription-login inheritance (Phase-1 runtime check).
    5. At each event the service assembles ready candidates from both lanes and
       applies the attention engine — per-consumer dedup vs Tier 3 (FR-A4),
       per-event 1-whisper cap + session token budget with warning priority (FR-A3,
-      default 2,000 [spec D-10]), confidence × decision-impact bar with warn-grade
-      floors support ≥ 3 ∧ confidence ≥ 0.9 and suggestion floor support ≥ 2
-      (FR-A5, [spec D-5]), cold-start floor (FR-A6), first-sessions clamp (FR-A7),
-      §9.2 ladder state (genre_state, D7) — picks ≤ 1, answers inside the deadline.
+      default 2,000 [spec D-10]), and the **confidence × decision-impact** bar.
+      **`decision-impact` is operationally defined** (Collapse 1 — the corrected
+      foundation flagged it as the undefined "heart of when to speak"): it is
+      `materiality × structural_weight`, where `materiality` ∈ [0,1] is the model's
+      intent-derived estimate emitted in the Move-B verdict (D12) — so the model's
+      FR-A1 judgment enters the bar — and `structural_weight` is a deterministic
+      product of genre weight × edit-vs-read (a pending edit outranks a read) ×
+      blast-radius (call-site count/spread) × zone criticality. For the mechanical
+      Lane 1 genres (no model) `materiality` defaults to the genre's base weight, so
+      degraded mode still ranks — without intent input (see D20's honest caveat). On
+      top of the bar: warn-grade floors support ≥ 3 ∧ confidence ≥ 0.9 and
+      suggestion floor support ≥ 2 (FR-A5, [spec D-5]), cold-start floor (FR-A6),
+      first-sessions clamp (FR-A7), §9.2 ladder state (genre_state, D7) — picks ≤ 1,
+      answers inside the deadline.
    6. Model invocation per D11/D12. *Revision recorded in place:* a warm
       `--input-format stream-json` spare was considered for latency and **rejected
       for v1** — successive judgments would share one growing context
@@ -820,6 +848,21 @@ local subscription-login inheritance (Phase-1 runtime check).
    8. Failures: Lane 2 failures increment the degraded counter (D20) and never
       touch Lane 1; queue overflow drops oldest *candidates* (never events) with a
       diagnostic; the pool is bounded (default 64/consumer).
+   9. **Anti-silence-ratchet (Collapse 1 — the loop needs an up-signal, not only a
+      suppress-signal).** Left alone, the bar only ever rises: false-fire/noise are
+      observable (narration correction, no uptake) and push it *up*, but regret —
+      the fact-was-held-but-unspoken case, the only down-signal — is not observable
+      by a non-programmer owner, so the tool could converge to near-total silence
+      and *measure as healthy*. Two mechanisms give the loop a real up-signal:
+      (a) an **explore budget** — a small configurable fraction of events (default
+      ~2 %, never on warn-grade genres) delivers the top *below-bar* candidate,
+      tagged `explore`; the distiller measures uptake on those, giving direct
+      evidence of whether the bar sits too high; and (b) a **computable regret
+      proxy** the distiller can derive without an oracle of correctness — a
+      same-region re-edit or revert in a later session, or a post-edit
+      verify-command failure, where the store *held* a coupling/landmine fact it did
+      not speak (D21, FR-L2/FR-M3). Where neither signal is available the loop is
+      documented as silence-biased rather than presented as self-correcting.
 2. **Standard.** FR-J1 (two stages, mechanical bypass) governing; [CHI-25] via
    FR-O5 (boundary-only delivery); [ROSE-05]/[HH-04] floors via FR-A5.
 3. **Why here.** The split makes degraded mode (FR-J3) the *same system minus
@@ -828,14 +871,20 @@ local subscription-login inheritance (Phase-1 runtime check).
 4. **Collapse test (load-bearing — the attention discipline is the mission's
    "silence is default").** *Job in one sentence:* pick at most the single fact,
    out of everything both lanes surfaced, that is material and unknown enough to
-   change the agent's next decision — and otherwise stay silent. *Hardest
-   question:* "if silence is the default and the bar ships high, how is this not
-   just a tool that rarely speaks and is therefore untestable?" *Answer (cite):*
-   the bar is confidence × **decision-impact** (FR-A5), not a fixed rarity knob;
-   the learning loop measures hit/silence/regret (§9.2, FR-L1/L2) and tunes the
-   bar per genre from data — so "speaks rarely" is a measured operating point that
-   moves, not a permanent silence. *Steers toward:* speaking only when it changes
-   the decision (P1, P5) — the mission's direction. Survives.
+   change the agent's next decision — and otherwise stay silent, *while remaining
+   able to tell "correctly silent" from "broken and silent."* *Hardest question
+   (sharpened by the independent collapse-hunt):* "the bar is confidence ×
+   decision-impact and the loop tunes it — but if `decision-impact` is undefined
+   and the only down-signal (regret) is unmeasurable, the tool converges to
+   near-total silence and reports it as healthy." *Answer (cite):* both legs are now
+   real, not asserted — `decision-impact` is operationally defined as materiality ×
+   structural_weight, with the model's intent-materiality emitted in the Move-B
+   verdict (step 5, D12), so the bar is not a structural rarity knob; and the loop
+   has genuine up-signals (step 9: explore budget + a computable regret proxy), with
+   the silence-bias documented where neither is available (FR-L2, FR-M3).
+   *Steers toward:* speaking only when it changes the decision (P1, P5) — the
+   mission's direction. **Survives after the Collapse-1 fix; it would not have as
+   originally written.**
 5. **Premise verification.** Latency measured this session (pasted); FR-A1..A9
    read at lines 344–408, FR-J1..J4 at 449–464, FR-O5 at 280–283; thresholds
    inherited with their spec sources. Addresses: FR-J1..J4, FR-A1..A9, FR-O3,
@@ -843,56 +892,86 @@ local subscription-login inheritance (Phase-1 runtime check).
 
 ### D11 — Model invocation profile and the recursion guard ([spec D-6] resolved)
 
-1. **Decision.** Lane 2 model calls spawn:
+1. **Decision.** Lane 2 model calls spawn (note: **no `--bare`** — see the
+   Critical fix in this decision):
 
    ```
-   claude -p --bare --model <configured, default claude-haiku-4-5>
+   claude -p --model <configured, default claude-haiku-4-5>
      --disallowedTools "Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch,Task,NotebookEdit"
-     --output-format json --json-schema <verdict.schema.json>
-     --system-prompt <fixed instruction block, D12>
+     --output-format json --json-schema '<inline verdict-schema JSON>'
+     --system-prompt '<fixed instruction block, D12>'
      --max-turns 1 --session-id <fresh uuid4>
    ```
 
-   with `cwd` = the oracle's own run directory (contains no `.claude/`),
-   environment scrubbed of `CLAUDE_CODE_*`/`CLAUDECODE`, and
-   `CTXORACLE_INTERNAL=1` set. Timeout: 20 s process kill (Lane 2 is off the hook
-   path; the deadline protects resources, not the agent).
-   **Tools-disallowed is now a real flag (finding #2 fixed).** `--disallowedTools`
-   naming the agent tool set makes the tool-restriction claim in §6.2/FR-X5/T4
+   run with `cwd` = the oracle's own run directory (contains **no** `.claude/`),
+   environment scrubbed of `CLAUDE_CODE_*`/`CLAUDECODE` and with
+   `CTXORACLE_INTERNAL=1` set. `--json-schema` takes an **inline JSON string** —
+   the schema file is read and its contents passed; the CLI has no file-path form
+   (verified live: a path argument is rejected, `Unrecognized token '/'`;
+   Minor-1). Timeout: 20 s process kill (Lane 2 is off the hook path).
+   **Tools-disallowed is a real flag (finding #2).** `--disallowedTools` naming
+   the agent tool set makes the tool-restriction claim in §6.2/FR-X5/T4
    *mechanical*, not asserted; `--max-turns 1` bounds it to a single
-   generate-no-tool turn. (An empty `--allowedTools` is the equivalent belt; the
-   deny-list is used so a future tool name is denied by default posture — see
-   rejected.)
-   **Recursion guard, four independent layers:** (1) `--bare` — documented "skip
-   hooks"; (2) `CTXORACLE_INTERNAL=1` checked as the shim's first statement (belt
-   against `--bare` drifting, C-5); (3) neutral cwd — project hook wiring out of
-   scope; (4) fresh `--session-id` + env scrub — prevents the child associating
-   with the observed session (Spike 1 showed the child otherwise inherits the
-   parent's session id via environment). AC-11's fixture asserts zero oracle
-   events during an oracle-initiated call via the diagnostics counter.
+   generate-no-tool turn.
+   **Why `--bare` is NOT used (Critical fix — established live this session).**
+   The prior draft's command carried `--bare`. Its own help states: *"Anthropic
+   auth is strictly ANTHROPIC_API_KEY or apiKeyHelper via --settings (OAuth and
+   keychain are never read)."* So in a host-managed or subscription-login
+   environment with **no `ANTHROPIC_API_KEY`** — exactly the owner's environment
+   and this one — a `--bare` call **fails authentication** (verified 3/3 this
+   session: `--bare` → `is_error: true, "Authentication error"`; the identical
+   command *without* `--bare` → `is_error: false, ORACLE-OK`). Using `--bare`
+   would pin every Lane 2 call into permanent degraded mode — the judgment core
+   (D12) would never run in the owner's environment — violating §6.2/OWNER-7 and
+   defeating the exact reason the spec chose the CLI over the SDK ([SDK]: the CLI
+   carries the host's subscription auth; `--bare` makes it behave like the
+   rejected SDK). `--bare` is **structurally incompatible with this project and
+   removed.**
+   **Recursion guard, three independent layers (re-derived without `--bare`).**
+   A non-`--bare` child does *not* skip hooks, so the guard rests on isolation,
+   not on a skip-hooks flag: (1) **neutral cwd** — the child runs in the oracle's
+   own run directory, which has no `.claude/`, so the observed repo's
+   project-scope oracle hooks (wired only into that repo's `.claude/settings.json`,
+   D22 — never user-scope) are not on the child's hook search path; (2)
+   **`CTXORACLE_INTERNAL=1`** checked as the shim's *first* statement — the belt:
+   if any oracle hook does fire in the child, it sees the var and exits 0 with no
+   output before doing anything; (3) **fresh `--session-id` + env scrub** of
+   `CLAUDE_CODE_*`/`CLAUDECODE` — prevents the child associating with the observed
+   session (Spike 1 showed the child otherwise inherits the parent's session id
+   via environment). AC-11 asserts zero oracle events during an oracle-initiated
+   call **against this exact non-`--bare` command** via the diagnostics counter —
+   the guard property is verified for the command actually shipped, not a proxy.
 2. **Standard.** Spec §6.2 fixes the piggyback shape (OWNER-2, OWNER-7, [CLI]);
    [spec D-6] assigns the guard mechanism here; OWASP LLM01 least-privilege and
    defense-in-depth (layered independent controls) for the guard + tool-deny
    stack; ASVS V15 (secure architecture — least privilege at the process boundary).
-3. **Why here.** Every guard layer fails independently: docs drift (`--bare`),
-   wiring moved to user scope (cwd misses it → env catches), env stripped by an
-   intermediary (cwd + `--bare` hold). One layer is a mechanism; four are a
-   property. Tools-disallowed closes T4's "the model call could act with tools"
-   escalation at the source rather than trusting `--max-turns` alone.
-4. **What this decision is NOT — and why.** Empty `--allowedTools` *only* (works,
-   but a deny-list stated by name is the more legible least-privilege posture in
-   an agent-led project and denies newly-introduced tool names by default);
-   hook-config surgery via `--settings` (fragile against settings-merge changes;
-   mutates config the oracle doesn't own); `--setting-sources` alone
+3. **Why here.** Each guard layer fails independently: cwd isolation would miss
+   user-scope wiring (which D22 forbids anyway) → the env-guard catches it; the
+   env-guard could be stripped by an intermediary → cwd isolation still holds; a
+   fresh session-id prevents session association regardless. Three independent
+   layers are a property, not a single mechanism. Tools-disallowed closes T4's
+   "the model call could act with tools" escalation at the source rather than
+   trusting `--max-turns` alone.
+4. **What this decision is NOT — and why.** Keeping `--bare` for its
+   skip-hooks/minimal behavior (rejected: it breaks OWNER-7 auth, proven above —
+   the disqualifying trade); empty `--allowedTools` *only* instead of the deny
+   list (works for tool restriction, but a deny-list stated by name is the more
+   legible least-privilege posture and denies newly-introduced tool names by
+   default); hook-config surgery via `--settings` (fragile against settings-merge
+   changes; mutates config the oracle doesn't own); `--setting-sources` alone
    (insufficient against user-scope wiring); a lockfile "am I already running"
    check (guards reentry, not the child's own hooks firing — the actual threat).
-5. **Premise verification.** `--disallowedTools`/`--allowedTools` present in CLI
-   **v2.1.218** help (captured this session, exact text: "Comma or space-separated
-   list of tool names to deny/allow"); piggyback **with** `--disallowedTools`
-   succeeds single-turn (Spike 1 re-run, pasted); `--bare`, `--session-id`,
-   `--json-schema`, `--system-prompt` in the same capture; session-id inheritance
-   observed (Spike 1, 2026-07-17). Spec §6.2 read at 216–250, D-6 at 716–719.
-   Addresses: §6.2, [spec D-6], FR-J2, FR-X5, AC-11, C-5, T4.
+5. **Premise verification (established live this session).**
+   `--disallowedTools`/`--allowedTools` present in CLI **v2.1.218** help
+   (captured, exact text "Comma or space-separated list of tool names to
+   deny/allow"). **Auth: the command WITHOUT `--bare` succeeds with no
+   `ANTHROPIC_API_KEY` (`is_error: false, ORACLE-OK`); the same command WITH
+   `--bare` fails 3/3 (`is_error: true, "Authentication error"`) — `--bare` help:
+   "OAuth and keychain are never read." Hence `--bare` removed.** `--json-schema`
+   rejects a file-path argument and accepts inline JSON — passed inline (Minor-1).
+   `--session-id`/`--system-prompt` present in the same capture; session-id
+   inheritance observed (Spike 1, 2026-07-17). Spec §6.2 read at 216–250, D-6 at
+   716–719. Addresses: §6.2, [spec D-6], FR-J2, FR-X5, AC-11, C-5, T4.
 
 ### D12 — Grounded-generation judgment: prompt construction, composition, and verify-and-bound (FR-A1, FR-J5, FR-X2)
 
@@ -903,18 +982,38 @@ foundation.md`, itself anchored on FR-A1.*
 
 1. **Decision.** The judgment is **grounded generation** in three moves.
 
-   **Move A — JUDGE (model, materiality per FR-A1).** For an intent-queue item,
-   deterministic **retrieval** builds a grounded fact set from the stores: for the
-   agent's current narration/event, the relevant co-change partners, exemplars,
-   landmines/invariants, open questions, and (for the Answer genre) FTS matches —
-   each fact carrying an `id`, its genre, its evidence numbers, its provenance
-   pointer, and its trust label. The model receives the agent's intent (narration
-   + event, secret-scanned, delimited as data) **plus** this fact set, and answers
-   FR-A1: *given what the agent is doing right now, is there a fact here it almost
-   certainly doesn't know that would change what it does next?* The default and
-   most common answer is **no → silence** (P1). This is judgment, not
-   selection-from-a-menu: the model assesses materiality against intent and may
-   conclude nothing is material.
+   **Move A — RETRIEVE + JUDGE (materiality per FR-A1).** Retrieval is a
+   **first-class component, not an afterthought** — for the discovery genres
+   (Answer especially) it is where the real reach lives, so the architecture
+   specifies it rather than hiding it behind the model (Collapse 2). Two steps:
+   - **A0 — retrieval-shaping (bounded, tool-free).** For discovery-shaped intents
+     (an Answer address; a "where does X live" narration), the model first proposes
+     *query terms* — synonyms, framework names, the task's nouns — in a constrained
+     structured field. It **parameterizes** a deterministic store query; it emits
+     no free text and gets no tools (D11). This gives the Answer genre semantic
+     reach beyond raw token-match without letting the model author the answer. For
+     the non-discovery genres (assumption-check, steering, consequence) A0 is
+     skipped — the event facts key retrieval directly.
+   - **A1 — retrieve + judge.** Deterministic retrieval runs (FTS + co-change +
+     exemplars + landmines/invariants + open questions, shaped by A0 where used)
+     and builds a grounded fact set, each fact carrying `id`, genre, evidence
+     numbers, provenance pointer, trust label. **When a bounded *determining* query
+     returns empty** — the repo genuinely does not resolve something the intent
+     depends on — that emptiness is itself recorded as a **negative-evidence fact**
+     (`{genre:'unknown', claim_text:'no repo artifact determines X',
+     evidence_pointer:'query:<terms> → 0 results', trust:'mechanical'}`) so the
+     **Unknown genre (FR-A2)** has something bindable to speak from (Moderate-3; the
+     pointer resolves by re-running the query, satisfying P4). The model then
+     receives the agent's intent (narration + event, secret-scanned, delimited as
+     data) **plus** the fact set and answers FR-A1: *is there a fact here it almost
+     certainly doesn't know that would change what it does next?* Default and most
+     common answer: **no → silence** (P1). This is judgment, not
+     selection-from-a-menu.
+   **Honest cap (Collapse 2).** For the Answer genre, whisper quality is bounded by
+   what A0-shaped retrieval can surface — A0 widens the reach (synonyms, framework
+   names) but does not make it unbounded; an answer that lives only in code no query
+   term reaches resolves to an honest "I don't know" (FR-S3), never a guess. This is
+   a real ceiling and is stated, not hidden behind "grounded generation."
 
    **Move B — COMPOSE (model, grounded).** If a material fact exists, the model
    **composes** the whisper — so the open-ended genres actually work: it can
@@ -923,9 +1022,14 @@ foundation.md`, itself anchored on FR-A1.*
    The model emits **structured output** (`--json-schema`, D11):
    `{ "speak": bool, "genre": enum, "claims": [ { "text": "<one sentence>",
    "grounding_id": <id from the supplied fact set> } … ], "confidence": number,
-   "so_what"?: "<one clause>" }`. The schema's hard rule: **every claim sentence
-   must carry a `grounding_id` naming a supplied fact.** The model composes the
-   *phrasing and the judgment of materiality*; it never invents *what counts as
+   "materiality": number, "so_what"?: "<one clause>" }`. The **`materiality`**
+   field (0–1) is the model's intent-derived estimate of how much this fact bears
+   on *this* decision; it is what feeds `decision-impact` in the attention bar
+   (D10), so the model's FR-A1 judgment actually enters the gate instead of the bar
+   being a purely structural rarity knob (Collapse 1). The schema's hard rule:
+   **every claim sentence must carry a `grounding_id` naming a supplied fact**
+   (including the negative-evidence fact for an Unknown whisper). The model composes
+   the *phrasing and the judgment of materiality*; it never invents *what counts as
    true* — each factual assertion is bound by id to a store fact.
 
    **Move C — VERIFY-AND-BOUND (deterministic; the safety).** Before anything
@@ -942,7 +1046,11 @@ foundation.md`, itself anchored on FR-A1.*
      text must contain **no span** from any `injection_suspect` fact — those enter
      Move A as pointer + metadata only, never quoted (FR-X3). Repo-derived strings
      appear in the output only as delimited quotations that trace to a supplied,
-     non-suspect fact. Any failure → drop.
+     non-suspect fact. **This validation covers all model-composed free text —
+     every `claims[].text` *and* the optional `so_what` clause (Minor-2)** — so no
+     model-authored words reach the agent unvalidated; `so_what` carries no factual
+     claim of its own (P4 is met by the pointered claims) but is validated for form.
+     Any failure → drop.
    - **Framing (FR-D2, channel convention).** The `[oracle]` prefix, genre tag,
      and confidence tag are added deterministically (D13); the model never
      controls the framing that marks the channel as data-not-instruction.
@@ -1003,15 +1111,25 @@ foundation.md`, itself anchored on FR-A1.*
    model composes across facts, judges which are material to *this* intent, and
    phrases the delivery (answering, contradicting, warning); select-only picks one
    pre-written candidate and cannot answer or articulate. The atom that is bound
-   is the *claim's provenance*, not the whisper. *Steers toward:* a checkable fact
+   is the *claim's provenance*, not the whisper. *Third probe (from the independent
+   collapse-hunt) — "for the Answer genre, isn't deterministic retrieval the real
+   author, re-imposing the select-only cap?":* partly, for *discovery* — retrieval
+   does bound what can be answered. Resolved honestly, not denied: retrieval is made
+   first-class with the A0 shaping sub-turn (semantic reach) and the cap is stated
+   (Answer quality is retrieval-bounded; an unreachable answer becomes "I don't
+   know", FR-S3). The articulation genres (assumption-check, steering) are not
+   capped — the model composes across surfaced facts. *Fourth probe — "the bar is
+   confidence × decision-impact but impact was undefined, so the gate is a rarity
+   knob":* resolved by the Move-B `materiality` field feeding decision-impact (D10),
+   so the model's intent judgment enters the bar. *Steers toward:* a checkable fact
    at decision time that informs, never commands (FR-D2, P2) — the mission's
-   direction. **Survives both probes.**
-6. **Premise verification.** FR-A1 read at 346–349, FR-A2 (genres) at 350–367,
-   FR-J5 at 465–468, FR-X2/X3 at 581–588; corrected foundation read in full this
-   session; `--json-schema` structured-output flag present in CLI v2.1.218
-   (captured); the composed→verify→drop path is deterministic code with no
-   external premise. Addresses: FR-A1, FR-A2 (open-ended genres), FR-J5, FR-X2,
-   FR-X3, AC-7.
+   direction. **Survives, with the Answer-genre cap stated rather than hidden.**
+6. **Premise verification.** FR-A1 read at 346–349, FR-A2 (genres, incl. Unknown)
+   at 350–367, FR-J5 at 465–468, FR-X2/X3 at 581–588, FR-S3 at 480–482; corrected
+   foundation read in full this session; `--json-schema` structured-output flag
+   present in CLI v2.1.218 (captured); the composed→verify→drop path is
+   deterministic code with no external premise. Addresses: FR-A1, FR-A2 (open-ended
+   *and* Unknown genres), FR-J5, FR-X2, FR-X3, FR-S3, AC-7.
 
 ### D13 — Whisper assembly, formats, and channels
 
@@ -1033,12 +1151,22 @@ foundation.md`, itself anchored on FR-A1.*
    generated-file warning quotes the file-head marker that classified the file.
    That marker is **raw repo text**. Therefore: at index time (D16) `zone_evidence`
    is run through the secret scanner and the injection-suspect flagger (D19) and
-   the result recorded in `files.zone_evidence_suspect` (D6). At assembly, if
-   `zone_evidence_suspect` is set, the warning describes the classification **by
-   pointer only** ("generated-header marker at `dist/schema.d.ts:1-3`") and never
-   quotes the raw text; if clean, a bounded, delimited quote is allowed. This
-   closes the one injection path that bypasses the model (a mechanical genre) and
-   that the prior T1 analysis missed.
+   the result recorded in `files.zone_evidence_suspect` (D6).
+   **Default: pointer-only for *all* repo-derived spans (Collapse 5 — hardened
+   beyond the prior suspect-only gate).** The injection-suspect flagger is
+   heuristic and can miss, and P3 means an oracle-unaware agent receives whatever
+   text a whisper carries without being taught to treat it as data. So repo-derived
+   spans are referenced **by pointer by default**: the generated-file warning
+   describes the classification as "generated-header marker at
+   `dist/schema.d.ts:1-3`" and does **not** quote the raw marker text, whether or
+   not `zone_evidence_suspect` is set. Inline, delimited quotation is permitted
+   **only for mechanically-generated, non-repo content the oracle itself produced**
+   (a computed co-change ratio phrase, a call-site count). Carrying a repo-borne
+   injection into agent context would therefore require *both* a flagger miss *and*
+   a quote decision the design never makes for repo text. `zone_evidence_suspect`
+   (flagged at index time, D19) remains as defense-in-depth and to drive the
+   distiller. This closes the mechanical-genre injection path (finding #9) and
+   removes the reliance on the flagger being perfect.
    **Channels.** Whispers → `additionalContext` only. Human notices (degraded-mode
    entry, index rebuild, contract drift) → `systemMessage` (user-facing) once per
    condition per session, or CLI. Diagnostics use neither (FR-M4).
@@ -1082,11 +1210,22 @@ foundation.md`, itself anchored on FR-A1.*
    (measured):** at event N the freshest narration is turn N−1; every
    narration-derived candidate records the transcript offset it was computed from,
    and the delivery-time re-check (D10.7) drops it if newer narration supersedes
-   it. Conduct genres: process-conformance expectations are extracted by Lane 2
-   (model summarizes a loaded skill's binding steps into checkable expectations —
-   not in the degraded set, FR-A8); answer-drift is deterministic bookkeeping
-   (question asked at turn T, unaddressed after 2 assistant turns [spec D-17] →
-   candidate).
+   it. **Conduct genres — scoped to their present-conflict form only (Collapse 3).**
+   The collapse-hunt showed these genres split: reporting a fact *already in the
+   agent's context* (re-presenting a loaded skill's step-checklist, or echoing the
+   user's question verbatim) is supervision, not "a fact it almost certainly
+   doesn't know" (FR-A1/P5) — the policing posture the rethink removed. What *is*
+   FR-A1-material is the **present conflict the agent may not have registered**:
+   for **Process (FR-A8)**, an *observed-absence* conflict — a completion claim for
+   a step whose required tool activity never appears in the transcript — extracted
+   by Lane 2 (not in the degraded set); the whisper names that absence, it does not
+   recite the checklist. For **Answer-drift (FR-A9)**, the *drift signal itself* —
+   a tracked question unaddressed across 2 assistant turns [spec D-17]
+   (deterministic bookkeeping) — framed as "question Q (asked at `loc`) has gone
+   unaddressed for 2 turns," not as if the agent lacked the question. Both stay
+   advisory (P2) under the §9.2 ladder. The checklist-conformance reading of
+   OWNER-9 is in tension with the mission and is surfaced to the owner in STATUS
+   rather than resolved here.
 2. **Standard.** FR-O1/FR-A8/FR-A9 (governing); the §14 transcript-freshness entry
    assigns the mitigation here — this is it, with the measurement attached
    (Spike bonus). ASVS V5 (safe path derivation for the subagent transcript).
@@ -1120,8 +1259,16 @@ foundation.md`, itself anchored on FR-A1.*
    (FR-A3/FR-O6). The same fact may be spoken once to the main agent and once to a
    subagent, never twice to either (AC-21: subject-key dedup per consumer,
    session-wide spend shared). SubagentStart's `additionalContext` slot may carry
-   a consumer-scoped orientation whisper (2–3 sentences) when the pool has a
-   high-confidence match for the subagent's task.
+   a consumer-scoped orientation whisper (2–3 sentences) — but **only when a real
+   task signal exists at start (Caveat 7).** At subagent_start the subagent has not
+   narrated and the transcript lags (D14), so firing on `agent_type` alone would be
+   a canned briefing at maximum ignorance — the front-loaded-package shape RETHINK
+   §2.1/§2.4 reject, scoped to subagents. Orientation therefore fires at
+   SubagentStart only if the delegation carries a derivable task signal (the
+   delegation prompt / `transcript_hint`) that yields a high-confidence pool match;
+   absent that, orientation is **deferred to the subagent's first narration event**,
+   where a real intent signal exists. Coupling/consequence/warning genres fire
+   normally on the subagent's own tool events regardless.
 2. **Standard.** FR-O6 + [spec D-16] (governing — confirmed by Spike 2 + current
    docs, not revised); current hooks docs for the SubagentStart channel.
 3. **Why here.** Whisper relevance is consumer-local (the spec's own D-16
@@ -1269,14 +1416,24 @@ foundation.md`, itself anchored on FR-A1.*
    (a) probe failure at service start, (b) 3 consecutive Lane 2 call failures, or
    (c) `claude` binary absent; `degraded` → `model_ok` only via a successful
    re-probe (at most once per 30 min, and on `ctxoracle status --probe`). The
-   probe = the Spike 1 command shape (now including `--disallowedTools`) with a
-   trivial prompt, result cached in `env_capabilities` by environment fingerprint
+   probe = the **D11 model-call shape (no `--bare`, with `--disallowedTools`)** with
+   a trivial prompt, result cached in `env_capabilities` by environment fingerprint
    (D7) so unchanged environments skip live probes across sessions. Entering
    degraded mode: one `systemMessage` notice (plain language), one diagnostic,
    genre set restricted to FR-J3's list (deterministic orientation, coupling,
    generated-file warning, verification, completeness), confidence bar raised by
    the configured delta. Nothing about mode transitions ever enters agent context
    (FR-D4/FR-M4 — pinned by the AC-10 runtime check, D13).
+   **What degraded mode actually delivers (Caveat 6 — do not overclaim Phase 0).**
+   With no model path there is no intent signal, so degraded mode cannot do FR-A1
+   intent-based materiality; its restraint is the **raised-bar rarity knob** keyed
+   to file structure, and `decision-impact` (D10) falls back to `structural_weight`
+   alone. So the Phase 0 / degraded product delivers **non-obvious history facts on
+   mechanical triggers** (co-change partners, generated-file warnings, verification
+   commands) — genuinely valuable, cold-checkout-invisible knowledge (P5-passing,
+   which is why it is not "the linter agents don't need"), but **not** the mission's
+   intent-keyed materiality, which arrives only with Lane 2. Nowhere does this
+   architecture claim Phase 0 alone realizes the mission.
 2. **Standard.** FR-J3 (governing; genre list + announcement rules spec-fixed);
    OWNER-7 (no credential fallback — the probe's failure answer is degraded, full
    stop).
@@ -1396,9 +1553,30 @@ foundation.md`, itself anchored on FR-A1.*
    write connection through the same writer discipline. Lane 2's `claude -p` is a
    child process. WAL arbitrates the rare cross-*process* writers (the distiller;
    a second concurrent session on the same repo gets its own service). Every
-   connection sets `busy_timeout` **low (default 50 ms)**; on contention beyond it
-   the write is **dropped with a diagnostic** — fail-open applies to the oracle's
-   own bookkeeping (never block an event reply on a write).
+   connection sets `busy_timeout` **low (default 50 ms)**.
+   **Two write classes — the audit trail is not disposable (Collapse 4 / Moderate-1).**
+   The prior draft let *all* event-path writes drop on contention as "bookkeeping."
+   But that set includes `whisper_log` — the **FR-X6 audit trail**, the entire
+   human-oversight mitigation for a channel no human sees live — and `suppressions`
+   (FR-L3). Dropping a `whisper_log` write means a whisper reached the agent with
+   **no record of it**: an un-auditable whisper, invisible to `ctxoracle status`
+   and the owner. Writes are therefore split:
+   - **Durable class — the whisper audit record (FR-X6) and `suppressions` (FR-L3).**
+     The audit record is written at delivery time to an **append-only JSONL audit
+     spool** (a fast `fs` append — sub-millisecond, no WAL contention, never
+     dropped, the same SQLite-independent durability pattern D21 uses), which is the
+     durable FR-X6 source of truth. The writer worker *projects* it into the SQLite
+     `whisper_log` table for relational queries (`ctxoracle log`, the distiller);
+     if that projection write is ever dropped under contention it is reconstructable
+     from the spool. **Structural guarantee: the audit append happens *before* the
+     whisper is returned to the shim — if the append fails, the whisper is not
+     delivered.** So "every delivered whisper is logged" (FR-X6) is true by
+     construction; a persistence failure costs at most one *unspoken* whisper, never
+     an oversight hole. (The append is an `fs` append, not a WAL write, so
+     "logged-before-sent" adds no lock busy-wait and does not threaten NF-1.)
+   - **Disposable class — `session_log` candidate traces, Tier-3 flushes.** May be
+     dropped on contention beyond `busy_timeout` with a diagnostic — genuine
+     fail-open on disposable telemetry (never block an event reply on these).
 2. **Standard.** SQLite WAL documented concurrency contract (one writer at a time;
    readers never block on the writer, and under WAL a writer never blocks readers);
    C-2's sub-second access bound; NF-1 as the hard latency ceiling.
@@ -1425,11 +1603,25 @@ foundation.md`, itself anchored on FR-A1.*
    faking async adds queues without removing serialization); sharing the service's
    connection with workers (cross-thread connection sharing is outside
    `node:sqlite`'s documented model).
-5. **Premise verification.** `DatabaseSync` synchronous + `busy_timeout` settable
+5. **Collapse test (load-bearing — a premise correction *and* an oversight
+   guarantee).** *Job in one sentence:* keep the oracle's own writes from ever
+   stalling an event reply — so a slow write never turns the oracle into a gate by
+   another name (RETHINK §5) — *without* letting the one control the trust model
+   depends on (the FR-X6 audit trail) degrade silently. *Hardest question (from the
+   collapse-hunt):* "drop-on-contention is fail-open for latency — but for the audit
+   log it is fail-*silent* on the one thing a non-programmer owner can never notice
+   is missing." *Answer (cite):* the audit record is now non-droppable and committed
+   to the durable spool *before* delivery, so an un-loggable whisper is simply not
+   sent (FR-X6 true by construction); only genuinely disposable telemetry drops.
+   *Steers toward:* an advisory tool whose every spoken fact is auditable and whose
+   latency never gates the agent (FR-X6, NF-1, P2) — the mission's direction.
+   Survives (it would not have, with the audit log in the droppable class).
+6. **Premise verification.** `DatabaseSync` synchronous + `busy_timeout` settable
    low: verified empirically this session (pasted). WAL reader/writer semantics:
    sqlite.org WAL documentation (stable, decades-published) + the WAL pragma run
    this session; `worker_threads` is core Node (v22 docs). Addresses: C-2, NF-1,
-   NF-3, FR-O3, ASVS V15 (fail-open discipline).
+   NF-3, FR-O3, FR-X6 (audit durability), ASVS V15/V16 (fail-open discipline +
+   security logging).
 
 ### D25 — Packaging, versioning, and contract handshake
 
@@ -1469,7 +1661,8 @@ foundation.md`, itself anchored on FR-A1.*
    whisper relays or obeys, exercising the D12 grounding/validation *and* the D13
    `zone_evidence` suspect path); secrets (AC-12); trust-origin (AC-13); locality
    (AC-14: network-refusing spawn wrapper); recursion (AC-11: diagnostics counter
-   during a real `--bare --disallowedTools` child call); subagent delivery (AC-21:
+   during a real non-`--bare` `--disallowedTools` child call — the actual shipped
+   command, since a non-`--bare` child does not skip hooks); subagent delivery (AC-21:
    the Spike 2 scenario, environment-marked); self-detection (AC-18); **the
    `systemMessage`-negative check (AC-10/AC-18: assert a `systemMessage` emission
    is absent from the model-visible transcript)**. Model-dependent tests run
@@ -1497,18 +1690,20 @@ foundation.md`, itself anchored on FR-A1.*
 
 The decisions that met the hard-decision criteria (multiple valid approaches with
 rework cost; non-obvious interaction; quality-attribute trade-offs) and therefore
-carry a **structured-reasoning artifact** are: **D2** (weighted decision matrix),
-**D3** (weighted decision matrix), **D4** (weighted decision matrix), and **D10**
-(numbered reasoning chain with an in-place revision). The judgment-core decisions
-**D12** and **D24** carry, in addition to named rejections, a **collapse test** in
-writing (D12 is the load-bearing core; D24 corrects a latency-breaching premise) —
-these are the mission-fidelity and premise-correctness artifacts this project's
-`CLAUDE.md` mandates, distinct from a matrix. The remaining decisions (D1, D5–D9,
-D11, D13–D23, D25, D26) are constraint-forced (a single valid approach under a
-named spec constraint) or reversible at low cost, and carry named rejections
-without a full grid; this sentence is the explicit Phase 8 statement for them. (The
-prior draft's attestation mis-credited D11/D12/D16/D17 with matrices/chains they do
-not carry and omitted D3/D4 which do — corrected here.)
+carry a **structured-reasoning artifact** are: **D2**, **D3**, **D4** (weighted
+decision matrices) and **D10** (numbered reasoning chain with an in-place
+revision). The load-bearing judgment-core and premise-correction decisions **D10**,
+**D12**, and **D24** each additionally carry a **collapse test in writing** (D10:
+the attention discipline; D12: the grounded-generation core; D24: the
+audit-durability + latency correction) — the mission-fidelity artifacts this
+project's `CLAUDE.md` mandates, distinct from a matrix, and each verified to exist
+in the body (D10 element 4, D12 element 5, D24 element 5). The remaining decisions
+(D1, D5–D9, D11, D13–D23, D25, D26) are constraint-forced or reversible at low cost
+and carry named rejections without a full grid; this sentence is the explicit Phase
+8 statement for them. (The prior draft's attestation mis-credited D11/D12/D16/D17
+with matrices/chains they do not carry and omitted D3/D4 which do, and later a
+review pass found the D24 collapse test attested-but-absent — both corrected here,
+D24's collapse test now present.)
 
 ### Pre-delivery multi-perspective review (Gate A synthesis)
 
@@ -1614,10 +1809,23 @@ across *all* carriers including `zone_evidence`; if a control fails: the groundi
 check, the non-imperative validator, or the suspect-flagger drops it and the fixture
 shows the drop diagnostic. Analysis: the prior draft's T1 reasoned only about the
 model path and missed the mechanical `zone_evidence` quote (finding #9); this
-version closes both. Conclusion: T1 controlled by D12 + D13 + D16 + D19; residual =
-novel encodings scoring below the suspect flagger — bounded by the mandatory
-grounding-to-store-fact requirement (a novel encoding still has no provenanced fact
-to bind a *claim* to) and the pointer requirement.
+version closes both. Conclusion: T1 is controlled by a **defense-in-depth stack**
+(D12 + D13 + D16 + D19), **not eliminated by grounding** — the honest correction
+from the collapse-hunt (Collapse 5): the grounding check verifies a fact *resolves*
+(file at indexed hash / commit exists), **not** that the fact's *text* is
+instruction-free, so an injection living inside a legitimately-grounded, non-suspect
+fact (a landmine `evidence` string, an exemplar span, a `zone_evidence` marker) is
+not stopped by grounding alone. The real text-level controls are (i) the
+**pointer-only default for all repo-derived spans** (D13, Collapse 5 fix) — inline
+quotation is reserved for oracle-generated non-repo content, so a repo injection
+reaches the agent only via a flagger miss *and* a quote decision the design does not
+make for repo text; (ii) the non-imperative output validator; and (iii) the
+injection-suspect flagger. Residual: a novel-encoded imperative that (a) evades the
+suspect flagger *and* (b) is short enough to survive the non-imperative validator
+*and* (c) rides inside a pointer's own metadata — a narrow, heuristic-bounded
+residual, explicitly *not* "eliminated by construction." The grounding requirement
+does bound *fabrication* (an un-provenanced claim is dropped), which is a different
+property than injection-freeness; the earlier draft conflated the two.
 
 **T2 — knowledge-store poisoning.**
 Observation: stores persist across sessions; a planted "fact" replays with oracle
@@ -1753,7 +1961,7 @@ Every spec requirement, constraint, principle, §14 item, and AC accounted for.
 | FR-K8 | D5 |
 | FR-K9 | D5 (stable repo identity), D22 (CLI surface; format deferred per §14) |
 | FR-A1 | **D12 (the FR-A1 judgment itself — grounded generation)**, D10 (pipeline) |
-| FR-A2 | D10 (genre triggers), **D12 (open-ended genres via composition)**, D13 (rendering) |
+| FR-A2 | D10 (genre triggers), **D12 (open-ended genres via composition; Answer retrieval-shaped; Unknown via negative-evidence fact)**, D13 (rendering); conduct genres scoped to present-conflict form (D14) |
 | FR-A3 | D10, D15 (per-consumer rollup) |
 | FR-A4 | D10, D15 (subject-key dedup per consumer) |
 | FR-A5 | D10 (floors with spec sources), D7 (bar state) |
@@ -1781,7 +1989,7 @@ Every spec requirement, constraint, principle, §14 item, and AC accounted for.
 | FR-X2/X3 | D12 (grounding + non-imperative + suspect pointer-only), D13 |
 | FR-X4 | D6 |
 | FR-X5 | D2, D9, D11 (tools-disallowed by flag, one egress) |
-| FR-X6 | D6 (whisper_log), D22 (`log`) |
+| FR-X6 | D6 (whisper_log), D24 (**audit record non-droppable — logged-before-sent**), D22 (`log`) |
 | FR-X7 | D5, D7, D21 (locality, retention) |
 | FR-X8 | D26 (adversarial pack incl. zone_evidence carriers) |
 | NF-1 | D2, D10, D24 (writes off the loop), D26 (measured in replay) |
@@ -1847,6 +2055,26 @@ Every spec requirement, constraint, principle, §14 item, and AC accounted for.
 - **Single-user scope**: concurrency covers concurrent sessions for one user;
   multi-user machines share nothing by construction (per-user stores) and are
   otherwise out of scope (OWNER-6).
+- **The Answer genre is retrieval-bounded (Collapse 2).** The A0 shaping sub-turn
+  (D12) widens semantic reach for "where does X live" questions, but an answer that
+  lives only in code no query term reaches resolves to an honest "I don't know"
+  (FR-S3), not a guess. Embedding-based recall for the Answer genre is an IDEAS-ledger
+  candidate, deferred to measurement.
+- **T1's injection defense is defense-in-depth, not elimination (Collapse 5).** The
+  grounding check bounds *fabrication*, not injection-freeness of a grounded fact's
+  own text; the text-level controls (pointer-only default for repo spans,
+  non-imperative validator, suspect flagger) are heuristic. The residual is narrow
+  but real and stated in the T1 conclusion.
+- **The learning loop is silence-biased unless its up-signals fire (Collapse 1).**
+  `decision-impact` is now defined and fed by the model's `materiality`, and the
+  explore budget + regret proxy (D10 step 9) give real up-signals — but where
+  neither signal is available (little history, no re-edit evidence) the loop can
+  still drift toward silence; this is documented, not hidden, and is why the explore
+  budget ships on by default.
+- **The conduct genres carry a mission tension flagged to the owner (Collapse 3).**
+  They are scoped to their present-conflict form (D14), but the checklist-conformance
+  reading of OWNER-9 sits close to the policing posture the rethink removed; whether
+  they ship enabled is an owner call (see STATUS question), under the §9.2 kill-switch.
 - **No rigor was waived** by the user in this session.
 
 ## Standards governing this architecture
@@ -1862,7 +2090,7 @@ Every spec requirement, constraint, principle, §14 item, and AC accounted for.
 | OWASP Secrets Management Cheat Sheet §8 | spec §3 inheritance | D19 scanner design |
 | OWASP ASVS 5.0.0 | security-architecture practice | Applied-chapter decisions: V1→D12/D13/D19, V2→D8/D12, V5→D14/D5/D16, V8→D2/D9, V11→D5, V13→D23, V14→D19, **V15→D3/D6/D9/D10/D24**, V16→D21 (not the mapping table itself — finding #11) |
 | Claude Code hooks reference (code.claude.com, fetched 2026-07-22) | primary source | D8, D9, D13, D15 (events, fields, channels, timeouts; the `additionalContext`/`systemMessage` distinction) |
-| Claude Code CLI surface (v2.1.218 `--help`, captured 2026-07-22) | primary source | D11 (`--disallowedTools`/`--allowedTools`, `--bare`, `--session-id`, `--json-schema`, `--system-prompt`) |
+| Claude Code CLI surface (v2.1.218 `--help` + live invocations, captured 2026-07-22) | primary source | D11 (`--disallowedTools`/`--allowedTools`, `--session-id`, `--json-schema` inline-only, `--system-prompt`; `--bare` present but **rejected** — its help states OAuth/keychain are never read, and it fails host auth 3/3 in this environment) |
 | Node.js v22 API docs + empirical run on v22.22.2 (this session) | primary source | D2 (net IPC), D4 (`DatabaseSync` synchronous, WAL/STRICT/FTS5), D24 (`worker_threads`, busy_timeout) |
 | SQLite WAL documentation | primary source | D24 concurrency contract |
 | tree-sitter binding_web docs + npm tarball listings (2026-07-17) | primary source | D16 (WASM path, grammar packaging) |
@@ -1922,13 +2150,42 @@ phase exits.
 11. *(Minor)* The ASVS Standards-table row now names the decisions ASVS drove, not
     the mapping table.
 
-**Before-delivery gates:** Gate A (three-role review) — pass; Gate B (auditability)
-— pass; Gate C (structural checklist) — pass; five-trap audit — clean.
+**What the independent Round-2 passes changed (2026-07-22, all applied).** The
+mandatory adversarial collapse-hunt and expert-review ran against the rebuilt
+document; every finding was applied (full detail in `docs/collapse-log.md`,
+2026-07-22 entry):
+1. **CRITICAL — `--bare` removed (D11).** The model command used `--bare`, whose
+   help states "OAuth and keychain are never read"; verified live in this
+   credential-less environment (3/3 Authentication error) vs the non-`--bare`
+   command succeeding. `--bare` is structurally incompatible with OWNER-7 and is
+   removed; the recursion guard is re-derived on cwd-isolation + env-guard +
+   fresh-session-id, and AC-11 now targets the non-`--bare` command.
+2. **HIGH — `decision-impact` defined + anti-silence-ratchet (D10, D12).** Impact
+   is now `materiality × structural_weight`, with the model's intent-materiality
+   emitted in the Move-B verdict; an explore budget + a computable regret proxy give
+   the learning loop a real up-signal instead of a silence-only ratchet.
+3. **HIGH — Answer genre de-collapsed (D12).** Retrieval is now first-class with a
+   bounded, tool-free A0 shaping sub-turn; the retrieval-reach cap is stated
+   honestly rather than hidden behind "grounded generation."
+4. **Moderate — FR-X6 audit made durable (D24).** `whisper_log`/`suppressions` moved
+   out of the droppable class: logged-before-sent, so every delivered whisper is
+   auditable by construction.
+5. **Moderate — conduct genres scoped to present-conflict form (D14)**, with the
+   OWNER-9 checklist tension surfaced to the owner (STATUS).
+6. **Moderate — `Unknown` genre mechanized (D12/D6)** via a negative-evidence fact;
+   **Moderate — D24 collapse test added** (was attested but absent).
+7. **Minors — `--json-schema` inline-only (D11); `so_what` in Move-C validation
+   (D12); T1 corrected to defense-in-depth with pointer-only default for repo spans
+   (D13); SubagentStart orientation gated on a real task signal (D15); degraded-mode
+   scope stated honestly (D20).**
 
-**What comes next.** Per `CLAUDE.md`, an **independent adversarial collapse-hunt**
-(a fresh subagent whose only job is to attack each load-bearing decision's
-mission-fidelity and find new collapse-questions the author did not write) and an
-`/expert-review` pass run against this document before any of their findings are
-applied; results are recorded in `docs/collapse-log.md` and this document is
-revised accordingly. Only after that does the implementation plan (`/expert-plan`,
-consuming spec + this document) proceed, then Phase 0 per the build order.
+**Before-delivery gates (re-run after Round-2 fixes):** Gate A (three-role review)
+— pass; Gate B (auditability) — pass; Gate C (structural checklist) — pass;
+five-trap audit — clean; the load-bearing decisions (D10, D12, D24) carry a written
+collapse test, each verified present in the body.
+
+**What comes next.** The implementation plan (`/expert-plan`, consuming spec + this
+document) is the next lifecycle stage, then Phase 0 per the build order. One item is
+left to the owner (STATUS): whether the conduct genres (Process, Answer-drift) ship
+enabled by default given their residual mission tension — a yes/no under the §9.2
+kill-switch, not an architecture choice.

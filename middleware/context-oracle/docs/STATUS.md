@@ -3,6 +3,56 @@
 *Plain-language project status, updated at the end of every working
 session. Newest entry first.*
 
+## 2026-07-22
+
+**Where the project is:** still design phase, no code — still correct. The
+architecture document was **rebuilt** this session and then hardened by two
+independent checks. It is now in much better shape than the version the last
+session flagged as not-trustworthy, but it has **not yet been through a final
+review of the rebuilt version**, so treat it as "strong draft," not "signed off."
+
+**What got done this session:**
+- The broken heart of the tool — how it decides what to say — was **rebuilt** on
+  the spec's own rule (FR-A1). The old version could only pick from a pre-made
+  list; the new one lets the tool actually reason and compose a whisper, while
+  strict machine checks make sure every claim it makes points at real evidence and
+  no repo text can sneak in as an instruction.
+- Every fact the design leans on was **re-checked by actually running it** this
+  session (not taken on trust). That caught a real, serious problem the old draft
+  had hidden: the exact command the tool would use to reach the model included a
+  flag (`--bare`) that **silently breaks login** on machines like yours (and this
+  one). Proven live — it failed 3 times out of 3 — and fixed by removing the flag.
+- The design was then attacked on purpose by **two independent reviewers** (one
+  hunting for "sounds-right-but-hollow" decisions, one checking every fact and
+  standard). They found the login bug above plus several more real issues — the
+  "when to speak" dial was under-defined, the tool could quietly go silent and look
+  healthy, the "answer a question" feature was weaker than claimed, and the record
+  of what the tool said could be dropped under load. **All of them were fixed** and
+  written down so future sessions inherit the lessons.
+
+**What's broken / not trustworthy yet:**
+- Nothing known-broken in the design right now — but the *rebuilt* document has not
+  had its own final clean review pass yet. The honest state is "all found problems
+  fixed; a fresh reviewer should still confirm the fixes hold together."
+- A few things remain true unknowns by nature and are handled by checks-at-runtime,
+  not promises: whether the login trick works on *your* laptop (only testable
+  there), and one harness detail about whether a user-facing notice can leak into
+  the AI's view.
+
+**The one decision for you (a yes/no, no technical background needed):** the tool
+can watch whether the AI is *following the steps of a skill it loaded* and whether
+it *ignored a question you asked*, and gently point that out. That's genuinely
+useful, but it edges close to "supervising" the AI rather than "handing it a fact"
+— which is the thing this whole tool was built to avoid. I scoped it as tightly as
+I could (it only speaks up when there's a real, present mismatch, never to nag). **Do
+you want these two "conduct" nudges switched on by default, or off until you've seen
+the tool run for a while?** Either is fine; there's an automatic off-switch if they
+get annoying.
+
+**State of the work:** everything this session is committed and pushed (draft
+PR #49). Nothing is merged. The architecture is marked "strong draft, fixes
+applied."
+
 ## 2026-07-17
 
 **Where the project is:** still design phase, no code — and that's still
