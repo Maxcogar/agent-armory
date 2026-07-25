@@ -1210,22 +1210,30 @@ foundation.md`, itself anchored on FR-A1.*
    (measured):** at event N the freshest narration is turn N−1; every
    narration-derived candidate records the transcript offset it was computed from,
    and the delivery-time re-check (D10.7) drops it if newer narration supersedes
-   it. **Conduct genres — scoped to their present-conflict form only (Collapse 3).**
-   The collapse-hunt showed these genres split: reporting a fact *already in the
-   agent's context* (re-presenting a loaded skill's step-checklist, or echoing the
-   user's question verbatim) is supervision, not "a fact it almost certainly
-   doesn't know" (FR-A1/P5) — the policing posture the rethink removed. What *is*
-   FR-A1-material is the **present conflict the agent may not have registered**:
-   for **Process (FR-A8)**, an *observed-absence* conflict — a completion claim for
-   a step whose required tool activity never appears in the transcript — extracted
-   by Lane 2 (not in the degraded set); the whisper names that absence, it does not
-   recite the checklist. For **Answer-drift (FR-A9)**, the *drift signal itself* —
-   a tracked question unaddressed across 2 assistant turns [spec D-17]
-   (deterministic bookkeeping) — framed as "question Q (asked at `loc`) has gone
-   unaddressed for 2 turns," not as if the agent lacked the question. Both stay
-   advisory (P2) under the §9.2 ladder. The checklist-conformance reading of
-   OWNER-9 is in tension with the mission and is surfaced to the owner in STATUS
-   rather than resolved here.
+   it. **Conduct genres (Process FR-A8, Answer-drift FR-A9) — advisory conduct
+   observation, an owner-added feature (OWNER-9), enabled by default.** These apply
+   the mission to the agent's *conduct*: the material fact is the **conflict the
+   agent has not registered** — a completion claim for a step whose required tool
+   activity never appears in the transcript (Process), or a user question still
+   unaddressed after 2 assistant turns [spec D-17] (Answer-drift). This is genuinely
+   FR-A1-material, **not** redundant "already in context" information: the agent's
+   erroneous action *is* the evidence it has not integrated the fact, and an
+   independent external cross-check at the decision moment surfaces exactly what
+   neither the agent nor the non-programmer owner catches — the same rationale by
+   which FR-M has the oracle watch its *own* conduct. It is **not** the gatekeeper
+   posture the rethink removed: that posture was *blocking* (deny paths, plan
+   firewalls); these are advisory whispers (P2) that block nothing and are the
+   sanctioned replacement for a gate (RETHINK §9). Process expectations are
+   extracted by Lane 2 (not in the degraded set); answer-drift is deterministic
+   bookkeeping. The whisper names the **specific conflict with its pointer**
+   ("completion claimed at turn T; loaded skill X requires verification at line L;
+   no matching tool call observed" / "question Q asked at `loc`, unaddressed for 2
+   turns") — it does *not* recite a checklist step-by-step or re-quote the question
+   as if the agent lacked it (that would be noise, not a new fact — the one genuine
+   calibration point). False fires are governed by the §9.2 ladder like every
+   warning-adjacent genre; per spec §14 the owner reviews measured false-fire rates
+   *after* the first instrumented sessions and tunes or disables from data — the
+   single calibration checkpoint, not a design-time posture doubt.
 2. **Standard.** FR-O1/FR-A8/FR-A9 (governing); the §14 transcript-freshness entry
    assigns the mitigation here — this is it, with the measurement attached
    (Spike bonus). ASVS V5 (safe path derivation for the subagent transcript).
@@ -2071,10 +2079,13 @@ Every spec requirement, constraint, principle, §14 item, and AC accounted for.
   neither signal is available (little history, no re-edit evidence) the loop can
   still drift toward silence; this is documented, not hidden, and is why the explore
   budget ships on by default.
-- **The conduct genres carry a mission tension flagged to the owner (Collapse 3).**
-  They are scoped to their present-conflict form (D14), but the checklist-conformance
-  reading of OWNER-9 sits close to the policing posture the rethink removed; whether
-  they ship enabled is an owner call (see STATUS question), under the §9.2 kill-switch.
+- **The conduct genres are enabled by default and are not a mission tension
+  (Collapse 3, corrected).** The collapse-hunt framed them as a "policing posture";
+  the owner overturned that framing — they are advisory (block nothing), owner-added
+  (OWNER-9), and deliver the unregistered conflict as an FR-A1-material fact. The
+  real residual is *noise-calibration* (don't recite checklists), handled by the
+  §9.2 false-fire ladder and the spec-§14 post-measurement review — not an owner
+  on/off decision.
 - **No rigor was waived** by the user in this session.
 
 ## Standards governing this architecture
@@ -2170,8 +2181,12 @@ document; every finding was applied (full detail in `docs/collapse-log.md`,
 4. **Moderate — FR-X6 audit made durable (D24).** `whisper_log`/`suppressions` moved
    out of the droppable class: logged-before-sent, so every delivered whisper is
    auditable by construction.
-5. **Moderate — conduct genres scoped to present-conflict form (D14)**, with the
-   OWNER-9 checklist tension surfaced to the owner (STATUS).
+5. **Moderate — conduct genres kept enabled by default (D14).** The collapse-hunt's
+   "policing posture" framing was an *overcorrection* the owner overturned: these
+   are owner-added (OWNER-9), advisory (block nothing), and deliver the unregistered
+   conflict as an FR-A1-material fact. The genuine residual is noise-calibration
+   (speak the specific conflict, not a checklist recital) under the §9.2 ladder —
+   not an on/off question (see collapse-log 2026-07-22 #3).
 6. **Moderate — `Unknown` genre mechanized (D12/D6)** via a negative-evidence fact;
    **Moderate — D24 collapse test added** (was attested but absent).
 7. **Minors — `--json-schema` inline-only (D11); `so_what` in Move-C validation
@@ -2185,7 +2200,8 @@ five-trap audit — clean; the load-bearing decisions (D10, D12, D24) carry a wr
 collapse test, each verified present in the body.
 
 **What comes next.** The implementation plan (`/expert-plan`, consuming spec + this
-document) is the next lifecycle stage, then Phase 0 per the build order. One item is
-left to the owner (STATUS): whether the conduct genres (Process, Answer-drift) ship
-enabled by default given their residual mission tension — a yes/no under the §9.2
-kill-switch, not an architecture choice.
+document) is the next lifecycle stage, then Phase 0 per the build order. No design
+decision is left to the owner: the conduct genres (Process, Answer-drift) are
+owner-added (OWNER-9), advisory, and **enabled by default**; their only owner
+touchpoint is the spec-§14 review of measured false-fire rates *after* the first
+instrumented sessions, with the §9.2 ladder tuning them from data.

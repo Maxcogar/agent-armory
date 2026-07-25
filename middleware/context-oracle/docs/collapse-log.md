@@ -125,16 +125,43 @@ written are recorded so the traps are inherited.
    honest cap is now stated — Answer quality is bounded by retrieval reach → D10,
    D12.
 
-3. **Conduct genres carried a policing posture on a material sub-case.**
-   Collapsed by: *"a Process 'you skipped step 4' or Answer-drift 'here is your
-   question' whisper reports on things already in the agent's context — that is a
-   supervisor's nag (the posture the whole rethink removed), not 'a fact it
-   almost certainly doesn't know' (FR-A1/P5)."* Splits: the *present-conflict*
-   forms (completion-claim with no observed verification activity; a question
-   unaddressed across N turns) survive; the checklist/re-present forms do not.
-   Class: **posture**. Fix: both conduct genres scoped to their present-conflict
-   form only; the checklist-conformance reading of OWNER-9 flagged to the owner
-   in STATUS → D14, FR-A8/A9 framing.
+3. **Conduct genres — the collapse-hunt's "policing posture" framing was itself an
+   OVERCORRECTION, and Max Cogar overturned it.** The hunt argued a Process/
+   answer-drift whisper "reports things already in the agent's context — a
+   supervisor's nag, the posture the rethink removed." The author (this session)
+   accepted that framing, scoped the genres down, and asked the owner whether to
+   ship them *off by default*. **Max Cogar corrected this on 2026-07-22:** "why
+   would you disable part of this? what's wrong with supervising? … I want this
+   feature specifically."
+   **Why the framing was wrong (the durable lesson):** (a) the rethink removed
+   **gates** — *blocking*, deny paths, plan firewalls (RETHINK §2.2, §9) — **not
+   observation**; a conduct whisper blocks nothing (P2) and advisory conduct
+   observation is the *sanctioned replacement* for a gate, not the gate. (b) These
+   genres are **owner-added and explicitly in scope (OWNER-9)** — flagging an
+   owner-approved feature as a "mission tension" to hand back is the exact reflexive
+   overcorrection Max Cogar has repeatedly rejected. (c) The FR-A1 argument was also
+   wrong: "in the token window" ≠ "known." An agent that claims completion without
+   verifying, or drops the user's question, has *not registered* the conflict — the
+   erroneous action **is** the evidence — so an external cross-check surfacing that
+   specific conflict at the decision moment *is* a material fact it doesn't know
+   (the same logic by which FR-M has the oracle watch its own conduct). Defaulting
+   it off would gut a thing built to solve the owner's core problem: mistakes
+   neither he nor the agent catches.
+   **The one genuinely valid residual (kept):** don't *nag* — speak the specific
+   conflict with its pointer, not a step-by-step checklist recital; that is
+   noise-calibration governed by the §9.2 false-fire ladder, and per spec §14 the
+   owner reviews measured false-fire rates *after* instrumented sessions. That is
+   the only checkpoint, and it is post-measurement, not a design-time on/off doubt.
+   Class of the author's error: **overcorrection/reduction** (narrowing an
+   owner-approved capability and inverting to "maybe off" under a pushback reflex).
+   Fix applied: D14 reframed — conduct genres are advisory, mission-aligned, **enabled
+   by default**; STATUS's misframed yes/no removed. → D14, FR-A8/A9.
+   **Meta-lesson for future agents:** an independent collapse-hunt can *itself*
+   collapse a decision in the wrong direction. A "posture" collapse must distinguish
+   *blocking* (removed) from *observing/informing* (the mission), and must never
+   convert an owner-approved feature into an owner-facing "should we keep it?"
+   question — that makes the owner the substance-reviewer again, the exact failure
+   this mechanism exists to prevent.
 
 4. **The FR-X6 audit log was put in the droppable "bookkeeping" class.**
    Collapsed by: *"D24 drops event-path writes on contention 'fail-open applies

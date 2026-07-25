@@ -39,15 +39,18 @@ review of the rebuilt version**, so treat it as "strong draft," not "signed off.
   there), and one harness detail about whether a user-facing notice can leak into
   the AI's view.
 
-**The one decision for you (a yes/no, no technical background needed):** the tool
-can watch whether the AI is *following the steps of a skill it loaded* and whether
-it *ignored a question you asked*, and gently point that out. That's genuinely
-useful, but it edges close to "supervising" the AI rather than "handing it a fact"
-— which is the thing this whole tool was built to avoid. I scoped it as tightly as
-I could (it only speaks up when there's a real, present mismatch, never to nag). **Do
-you want these two "conduct" nudges switched on by default, or off until you've seen
-the tool run for a while?** Either is fine; there's an automatic off-switch if they
-get annoying.
+**A correction I owe you (no decision needed from you):** during this session I
+briefly asked whether the "conduct" nudges — the tool watching whether the AI
+followed the steps of a skill it loaded, or ignored a question you asked — should be
+*off* by default, because one of the automated reviewers called them "supervising."
+You pushed back, and you were right: that was me reflexively over-narrowing a feature
+**you specifically asked for**. Supervising by a gentle, non-blocking note is exactly
+what this tool is for — it never blocks anything, and pointing out "you said the
+tests pass but I never saw you run them" is precisely a *fact the AI didn't realize*,
+which is the whole mission. These two nudges are **on by default**, as you intended.
+The only real thing to watch is that they don't get *chatty* — and the tool already
+has an automatic dial-down for that, plus a planned check-in where you look at how
+often they fire wrongly *after* it's run for real. Nothing for you to decide now.
 
 **State of the work:** everything this session is committed and pushed (draft
 PR #49). Nothing is merged. The architecture is marked "strong draft, fixes
