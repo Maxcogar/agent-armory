@@ -69,6 +69,12 @@ test. The lifecycle is spec → architecture → plan → build; you are at **pl
 - **Subagent injection works** (`additionalContext` reaches the subagent's own
   context; `agent_id` identifies the consumer); the transcript lags one event
   boundary.
+- **Headless `claude -p` uses the Pro/Max subscription** (Anthropic Help Center,
+  looked up 2026-07-22; the June-15-2026 separate-credit change is paused;
+  `CLAUDE_CODE_OAUTH_TOKEN` is a supported headless auth path). This is the
+  documented basis for the piggyback on the owner's own machine.
+- **The hooks channel taxonomy is documented:** `additionalContext` = model channel,
+  `systemMessage` = user channel. Human notices use `systemMessage` by design.
 
 ## The only things not settled at design time (and why)
 
