@@ -34,10 +34,16 @@ review of the rebuilt version**, so treat it as "strong draft," not "signed off.
 - Nothing known-broken in the design right now — but the *rebuilt* document has not
   had its own final clean review pass yet. The honest state is "all found problems
   fixed; a fresh reviewer should still confirm the fixes hold together."
-- A few things remain true unknowns by nature and are handled by checks-at-runtime,
-  not promises: whether the login trick works on *your* laptop (only testable
-  there), and one harness detail about whether a user-facing notice can leak into
-  the AI's view.
+- I chased down the loose ends this session instead of leaving them vague. Two that
+  I'd earlier called "unknown" are now settled by looking them up: the login trick is
+  **documented** to work with your Claude subscription (a headless call uses your
+  plan; there's just a quick confirm on your own machine at install), and the
+  user-facing notice **stays on your channel, not the AI's**, by how the harness
+  splits those two channels. The last one — an undisclosed internal file layout the
+  subagent-watching feature reads — genuinely can't be *guaranteed* (it's not a
+  documented thing), so instead of letting it fail quietly I made the tool **tell you
+  out loud** if it ever breaks, which is the whole point of the self-watching design.
+  Nothing here is a silent unknown anymore.
 
 **A correction I owe you (no decision needed from you):** during this session I
 briefly asked whether the "conduct" nudges — the tool watching whether the AI

@@ -70,19 +70,35 @@ test. The lifecycle is spec → architecture → plan → build; you are at **pl
   context; `agent_id` identifies the consumer); the transcript lags one event
   boundary.
 
-## What is genuinely still open (runtime checks, not design gaps)
+## The only things not settled at design time (and why)
 
-- **Local subscription-login inheritance** — proven only in the cloud env; the
-  owner's own machine is a Phase-1 runtime check. No credential fallback exists
-  (OWNER-7); a failing environment runs degraded, and the owner decides if that's
-  acceptable there.
-- **The `systemMessage`-never-reaches-the-model negative** — docs support it but
-  don't guarantee it; pinned by an AC-10/AC-18 runtime assertion, not asserted.
-- **Subagent transcript-file layout** — observed once, undocumented; isolated behind
-  a versioned adapter that degrades to skip. Whisper *delivery* to subagents does
-  not depend on it.
-- **Conduct-genre false-fire rates** — reviewed *after* the first instrumented
-  sessions (spec §14). This is calibration, not a design decision.
+Three of the four items an earlier draft of this handoff called "open" were run down
+this session; what's left is genuinely install-time or operate-time by nature, not a
+design gap:
+
+- **Subscription-login inheritance — closed at the documentation level.** Headless
+  `claude -p` draws from the Pro/Max subscription per the Anthropic Help Center (the
+  June-15-2026 separate-credit change is paused; OAuth-token headless auth is
+  supported). All that remains is a per-machine confirmation at `ctxoracle init`
+  (D20 probe) — a check on the owner's box, not an unbacked assumption. No credential
+  fallback exists (OWNER-7); a failing machine runs degraded.
+- **`systemMessage` stays on the user channel — settled by the documented hooks
+  taxonomy** (`additionalContext` = model channel, `systemMessage` = user channel).
+  A runtime assertion (AC-10/AC-18) is kept as a belt because the hooks contract has
+  drifted before, not because the basis is uncertain.
+- **Subagent transcript-file layout — an unpromised harness internal, handled, not
+  hidden.** It can change between Claude Code versions and can't be verified into a
+  guarantee. If it changes, subagent *narration* genres stop working — and the oracle
+  **surfaces that to the owner** as an FR-M2 finding (`subagent_narration_unavailable`)
+  in `status` and the self-report (D14, D21); it is *not* a silent degrade (that would
+  be the OWNER-10 failure). Whisper *delivery* to subagents doesn't depend on the
+  layout at all. Nothing for you to do here beyond keeping the adapter current if a
+  harness update ever trips it.
+
+(The conduct-genre false-fire *rate* is **not** listed here: it is not an open
+architecture question. The design fully handles it — the §9.2 false-fire ladder,
+per-fact suppression, and the kill-switch. A rate is a number that only exists once
+the tool runs; measuring it later is normal operate-phase calibration, not a gap.)
 
 ## The next job, concretely
 

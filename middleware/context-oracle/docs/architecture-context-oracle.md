@@ -107,9 +107,15 @@ using only the host installation's existing authentication — **no separate
 credential of any kind** — *and* the tool-restriction flag (`--disallowedTools`,
 finding #2) is accepted and the call still succeeds single-turn. **Scope caveat
 (honesty):** this environment's auth is host-managed cloud provisioning, *not* a
-subscription login; the subscription-login case on the owner's local machine
-remains the per-environment Phase 1 runtime check spec §14 mandates, with
-degraded mode as the sole fallback (no credential fallback exists, OWNER-7).
+subscription login. The subscription-login case is now **documented, not assumed**
+(looked up this session): the Anthropic Help Center states that "Claude Agent SDK,
+`claude -p`, and third-party app usage still draw from your subscription's usage
+limits" — the June-15-2026 change to a separate metered credit pool was **paused** —
+and headless OAuth-token auth is a supported path (`CLAUDE_CODE_OAUTH_TOKEN`). So on
+a machine logged into Claude Code with Pro/Max, a spawned non-`--bare` `claude -p`
+uses that subscription *by documented behavior*; a per-machine confirmation at
+`init` (D20 probe) remains as a belt, not an unbacked assumption. Degraded mode is
+the sole fallback (no credential fallback exists, OWNER-7).
 **Design consequence:** measured cold-spawn wall time ≈ 5.7 s (api 2.8 s + ~3 s
 spawn) means a model call can **never** sit on the synchronous hook path
 (NF-1 p95 ≤ 1.5 s) — the judgment layer is asynchronous by necessity (D10, D11).
@@ -395,13 +401,16 @@ event-path writes must be off the event loop (D24). Consumer keying =
 
 **Speculations (guarded, not built on).** Stability of the
 `subagents/agent-<id>.jsonl` transcript layout (observed once, undocumented) →
-isolated behind a versioned adapter with graceful skip (D14). Local
-subscription-login inheritance (untested here) → per-environment probe +
-degraded fallback (D20). FTS5 permanence in official Node builds → fallback path
-(D4). The **negative** that `systemMessage` never reaches the model (docs
-establish it is user-shown and do not list it as model-facing, but state no
-explicit guarantee of the negative) → pinned by a runtime assertion, not
-asserted (D13, AC-10, AC-18).
+an unpromised harness internal that cannot be verified into a guarantee; isolated
+behind a versioned adapter whose failure is **surfaced to the owner** as an FR-M2
+finding, never silent (D14, D21). FTS5 permanence in official Node builds → fallback
+path (D4). *(Two items previously listed here as speculation were run down this
+session and are no longer speculation:* local subscription-login inheritance is now
+**documented** — headless `claude -p` draws from the Pro/Max subscription per the
+Anthropic Help Center, June-15 separate-credit change paused — with a per-machine
+`init` probe as belt (D20); and the `systemMessage` channel is user-facing by the
+**documented** hooks channel taxonomy, with a runtime assertion as belt (D13,
+AC-10/AC-18).*)*
 
 **Named biases in play.** Default-stack reflex (Node/TS/SQLite — countered by
 the D2/D3/D4 matrices with real alternatives and honest deciding cells);
@@ -412,8 +421,9 @@ recency bias toward v2.1.218's observed contract (countered by C-5
 drift-to-silence and version-bound adapters).
 
 **Known unknowns the design carries.** Windows-native support surface;
-warm-spare model processes' value (deferred to measurement — IDEAS ledger);
-local subscription-login inheritance (Phase-1 runtime check).
+warm-spare model processes' value (deferred to measurement — IDEAS ledger). (Local
+subscription-login inheritance is no longer a design unknown — documented; only a
+per-machine `init`-time confirmation remains.)
 
 ---
 
@@ -1185,13 +1195,18 @@ foundation.md`, itself anchored on FR-A1.*
    reminder and inserted into the conversation … Claude reads the reminder on the
    next model request" (**model-facing, established**); `systemMessage` = "Warning
    message shown to the user" and is **not listed among the model-facing fields**.
-   The docs establish the *positive* (user-shown) and describe `additionalContext`
-   as the model channel, but state **no explicit guarantee** that `systemMessage`
-   never reaches the model. Because AC-10/FR-D4/FR-M4 depend on that **negative**,
-   it is **not asserted here**: it is pinned by a runtime assertion — AC-10/AC-18
-   fixtures capture the model-visible transcript during a `systemMessage` emission
-   and assert the notice text is absent from it (Phase-1 check; if the harness
-   ever changed this, the fixture fails loudly). FR-D1..D5 read at 412–445.
+   The documented **field taxonomy is the basis**: the hooks contract has two
+   distinct output channels — `additionalContext` is *the* model channel (the docs
+   say the model reads it on the next request) and `systemMessage` is *the* user
+   channel (a "warning message shown to the user"), never listed among the
+   model-facing fields. Using `systemMessage` for human notices is therefore
+   correct by the documented channel design, not a hope. The docs stop short of a
+   sentence *guaranteeing* the negative ("systemMessage is never added to model
+   context"), so — belt-and-suspenders, given the hooks contract has drifted before
+   (C-5) — AC-10/AC-18 also assert it at runtime: a fixture captures the
+   model-visible transcript during a `systemMessage` emission and asserts the notice
+   text is absent. Documented basis + runtime belt, not an assumption.
+   FR-D1..D5 read at 412–445.
    Addresses: FR-D1..D5, FR-M4, AC-5, AC-6, T1(zone_evidence), and the
    `systemMessage`-negative check (AC-10/AC-18).
 
@@ -1203,8 +1218,18 @@ foundation.md`, itself anchored on FR-A1.*
    path `dirname(transcript_path)/<session>/subagents/agent-<agent_id>.jsonl` — an
    **undocumented layout observed under v2.1.x**, isolated in a
    `narration/locate.ts` adapter with version guard: if the file isn't found
-   within 2 events of subagent_start, narration genres are disabled *for that
-   consumer* with one diagnostic (never an error). Extraction per completed turn:
+   within 2 events of subagent_start, subagent narration genres cannot run for
+   that consumer — and **that is a capability failure the oracle must announce,
+   not swallow.** It degrades to silence in the *agent's* flow (never an error,
+   FR-O3), but it is raised as an **FR-M2 self-observability finding** with a
+   stable `finding_code` (`subagent_narration_unavailable`) that `ctxoracle status`
+   surfaces in plain language ("subagent narration is unavailable — the harness's
+   transcript layout changed; subagent assumption-check/steering/answer genres are
+   off until the adapter is updated") and that the distiller's self-report (FR-M3)
+   carries forward. A feature going dark silently is exactly the failure OWNER-10
+   forbids; the fail-open-to-silence rule governs the *agent* channel, while the
+   *owner/maintainer* channel says loudly what broke (FR-M4). Extraction per
+   completed turn:
    assistant prose (intent/assumptions), loaded skill/workflow texts (FR-A8
    expectations), user questions (FR-A9 open-question tracking). **Lag contract
    (measured):** at event N the freshest narration is turn N−1; every
@@ -1471,7 +1496,10 @@ foundation.md`, itself anchored on FR-A1.*
    failure counts + mode transitions; (4) *store integrity* — `PRAGMA
    integrity_check` at open + after crash-flagged sessions; (5) *staleness* — index
    watermark vs HEAD and FR-K7 bounds; (6) *delivery reconciliation* — whispers
-   produced vs shim acks; missing acks ⇒ "produced but not delivered". Findings are
+   produced vs shim acks; missing acks ⇒ "produced but not delivered"; (7)
+   *subagent-narration availability* — the `narration/locate.ts` adapter failed to
+   find a subagent transcript ⇒ `subagent_narration_unavailable` (a real capability
+   loss surfaced to the owner, not a silent degrade — D14). Findings are
    diagnostics records with stable `finding_code`s; `ctxoracle status` renders them
    in plain language (one line each, no jargon) and the distiller consumes them
    (FR-M3, Phase 2).
@@ -2025,25 +2053,32 @@ Every spec requirement, constraint, principle, §14 item, and AC accounted for.
 - **`node:sqlite` is experimental** (observed warning on v22.22.2). Accepted for
   C-1's zero-dependency win; contained by the D4 adapter and the FTS5 fallback;
   named contingency is `sql.js` behind the same adapter.
-- **The subagent transcript layout is undocumented** (observed once, one version).
-  Narration for subagents may silently stop on a harness update — by design it
-  *degrades to skip + diagnostic*, never errors (D14). Whisper *delivery* to
-  subagents does **not** depend on it (documented `agent_id` + firing-event reply
-  carry it, D15).
-- **The `systemMessage`-never-reaches-the-model negative is pinned by test, not by
-  a documented guarantee.** Current hooks docs establish `systemMessage` is
-  user-shown and describe `additionalContext` as the model channel, but state no
-  explicit guarantee that `systemMessage` never enters model context. AC-10/AC-18
-  assert it at runtime; if a harness change ever violated it, the fixture fails
-  loudly rather than the design silently leaking notices into agent context.
+- **The subagent transcript layout is undocumented** (observed once, one version)
+  and cannot be "verified" into a guarantee — it is an unpromised harness internal.
+  If a harness update changes it, subagent *narration* genres genuinely stop
+  working — a real capability loss — but it is **not silent**: the oracle detects it
+  and surfaces it as an FR-M2 finding (`subagent_narration_unavailable`) on the
+  owner's `status` channel and in the self-report (D14, D21), because a feature
+  going dark unannounced is the OWNER-10 failure. It degrades to silence only in the
+  *agent's* flow (FR-O3). Whisper *delivery* to subagents does **not** depend on the
+  layout at all (documented `agent_id` + firing-event reply carry it, D15), so the
+  blast radius is one genre-family on one consumer type, loudly reported.
+- **`systemMessage` is user-facing by the documented channel taxonomy;** the
+  runtime assertion is a belt, not the basis. The hooks contract has two output
+  channels — `additionalContext` (model) and `systemMessage` (user); using
+  `systemMessage` for human notices is correct by design. The docs don't add a
+  sentence *guaranteeing* the negative, so AC-10/AC-18 also assert it at runtime
+  (the contract has drifted before, C-5) — documented basis plus belt.
 - **Narration genres run one event boundary behind** the live turn (measured lag,
   D14). Assumption-check/steering may arrive a beat late; the supersession re-check
   trades recall for correctness. Ship-enabled is a recommendation; the owner
   decides per §14.
-- **Spike 1 proves this environment class only.** Host-managed cloud auth worked
-  with zero credential (re-confirmed 2026-07-22); local subscription-login
-  inheritance remains a per-environment runtime check (D20 probe), exactly as §14
-  requires. No credential fallback exists by owner decision.
+- **Subscription-login inheritance is documented, not assumed.** The Anthropic Help
+  Center confirms `claude -p` draws from the Pro/Max subscription (the June-15-2026
+  separate-credit change is paused), and OAuth-token headless auth is supported;
+  Spike 1 additionally proved the host-managed cloud path with zero credential. What
+  remains is a per-machine confirmation at `init` (D20 probe) — a check, not an
+  unbacked assumption. No credential fallback exists by owner decision (OWNER-7).
 - **Windows support is designed, not tested** (named pipes path in D2; no Windows
   environment in this session). Verification belongs to Phase 0 testing on that
   platform; Linux/macOS are the primary environments.
@@ -2102,6 +2137,7 @@ Every spec requirement, constraint, principle, §14 item, and AC accounted for.
 | OWASP ASVS 5.0.0 | security-architecture practice | Applied-chapter decisions: V1→D12/D13/D19, V2→D8/D12, V5→D14/D5/D16, V8→D2/D9, V11→D5, V13→D23, V14→D19, **V15→D3/D6/D9/D10/D24**, V16→D21 (not the mapping table itself — finding #11) |
 | Claude Code hooks reference (code.claude.com, fetched 2026-07-22) | primary source | D8, D9, D13, D15 (events, fields, channels, timeouts; the `additionalContext`/`systemMessage` distinction) |
 | Claude Code CLI surface (v2.1.218 `--help` + live invocations, captured 2026-07-22) | primary source | D11 (`--disallowedTools`/`--allowedTools`, `--session-id`, `--json-schema` inline-only, `--system-prompt`; `--bare` present but **rejected** — its help states OAuth/keychain are never read, and it fails host auth 3/3 in this environment) |
+| Anthropic Help Center — "Use the Claude Agent SDK with your Claude plan" (looked up 2026-07-22) | primary source | D11/D20/§14 (headless `claude -p` draws from the Pro/Max subscription; June-15-2026 separate-credit change paused; OAuth-token headless auth supported) — closes the subscription-login-inheritance premise at the documentation level |
 | Node.js v22 API docs + empirical run on v22.22.2 (this session) | primary source | D2 (net IPC), D4 (`DatabaseSync` synchronous, WAL/STRICT/FTS5), D24 (`worker_threads`, busy_timeout) |
 | SQLite WAL documentation | primary source | D24 concurrency contract |
 | tree-sitter binding_web docs + npm tarball listings (2026-07-17) | primary source | D16 (WASM path, grammar packaging) |
@@ -2119,10 +2155,16 @@ Every standard above governs at least one named decision; none is decorative.
 with a named standard or first-principles anchor; alternatives are named with
 reasons (including the training-default stack and, for the judgment core, the
 rejected select-only design); premises are verified against primary sources, live
-docs fetches, or this session's pasted empirical evidence — with the three honestly
-unverifiable items (local subscription-login inheritance; subagent transcript
-layout; the `systemMessage` negative) surfaced in Limitations and pinned by runtime
-checks rather than asserted; the load-bearing judgment-core and premise-correction
+docs fetches, or this session's pasted empirical evidence. The items once carried as
+"unverified" were run down this session: subscription-login inheritance and the
+`systemMessage` channel are now grounded in **documented** behavior (Anthropic Help
+Center; the hooks channel taxonomy), each with a runtime check as belt; and the
+subagent transcript layout — an unpromised harness internal that cannot be verified
+into a guarantee — is handled so its failure is **surfaced to the owner** (FR-M2
+`subagent_narration_unavailable`), not silent. What genuinely remains is only
+run-time/operate-phase by nature (a per-machine auth confirmation at `init`; measured
+conduct false-fire rates once the tool runs), not open design questions. The
+load-bearing judgment-core and premise-correction
 decisions (D10, D12, D24) carry the collapse test in writing; the traceability
 matrix is total over FRs, NFs, constraints, principles, spec judgments, §14 items,
 and ACs; the foundation and build order are established and mapped to the spec's
