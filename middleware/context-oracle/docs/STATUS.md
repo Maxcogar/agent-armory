@@ -3,6 +3,65 @@
 *Plain-language project status, updated at the end of every working
 session. Newest entry first.*
 
+## 2026-07-22
+
+**Where the project is:** still design phase, no code — still correct. The
+architecture document was **rebuilt** this session and then hardened by two
+independent checks. It is now in much better shape than the version the last
+session flagged as not-trustworthy, but it has **not yet been through a final
+review of the rebuilt version**, so treat it as "strong draft," not "signed off."
+
+**What got done this session:**
+- The broken heart of the tool — how it decides what to say — was **rebuilt** on
+  the spec's own rule (FR-A1). The old version could only pick from a pre-made
+  list; the new one lets the tool actually reason and compose a whisper, while
+  strict machine checks make sure every claim it makes points at real evidence and
+  no repo text can sneak in as an instruction.
+- Every fact the design leans on was **re-checked by actually running it** this
+  session (not taken on trust). That caught a real, serious problem the old draft
+  had hidden: the exact command the tool would use to reach the model included a
+  flag (`--bare`) that **silently breaks login** on machines like yours (and this
+  one). Proven live — it failed 3 times out of 3 — and fixed by removing the flag.
+- The design was then attacked on purpose by **two independent reviewers** (one
+  hunting for "sounds-right-but-hollow" decisions, one checking every fact and
+  standard). They found the login bug above plus several more real issues — the
+  "when to speak" dial was under-defined, the tool could quietly go silent and look
+  healthy, the "answer a question" feature was weaker than claimed, and the record
+  of what the tool said could be dropped under load. **All of them were fixed** and
+  written down so future sessions inherit the lessons.
+
+**What's broken / not trustworthy yet:**
+- Nothing known-broken in the design right now — but the *rebuilt* document has not
+  had its own final clean review pass yet. The honest state is "all found problems
+  fixed; a fresh reviewer should still confirm the fixes hold together."
+- I chased down the loose ends this session instead of leaving them vague. Two that
+  I'd earlier called "unknown" are now settled by looking them up: the login trick is
+  **documented** to work with your Claude subscription (a headless call uses your
+  plan; there's just a quick confirm on your own machine at install), and the
+  user-facing notice **stays on your channel, not the AI's**, by how the harness
+  splits those two channels. The last one — an undisclosed internal file layout the
+  subagent-watching feature reads — genuinely can't be *guaranteed* (it's not a
+  documented thing), so instead of letting it fail quietly I made the tool **tell you
+  out loud** if it ever breaks, which is the whole point of the self-watching design.
+  Nothing here is a silent unknown anymore.
+
+**A correction I owe you (no decision needed from you):** during this session I
+briefly asked whether the "conduct" nudges — the tool watching whether the AI
+followed the steps of a skill it loaded, or ignored a question you asked — should be
+*off* by default, because one of the automated reviewers called them "supervising."
+You pushed back, and you were right: that was me reflexively over-narrowing a feature
+**you specifically asked for**. Supervising by a gentle, non-blocking note is exactly
+what this tool is for — it never blocks anything, and pointing out "you said the
+tests pass but I never saw you run them" is precisely a *fact the AI didn't realize*,
+which is the whole mission. These two nudges are **on by default**, as you intended.
+The only real thing to watch is that they don't get *chatty* — and the tool already
+has an automatic dial-down for that, plus a planned check-in where you look at how
+often they fire wrongly *after* it's run for real. Nothing for you to decide now.
+
+**State of the work:** everything this session is committed and pushed (draft
+PR #49). Nothing is merged. The architecture is marked "strong draft, fixes
+applied."
+
 ## 2026-07-17
 
 **Where the project is:** still design phase, no code — and that's still
