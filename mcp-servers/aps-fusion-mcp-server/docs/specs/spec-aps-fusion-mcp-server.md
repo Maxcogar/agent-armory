@@ -298,12 +298,24 @@ citable downstream. Each carries its source.
 - **R-REL-7.** A token refresh that rotates the refresh token SHALL be atomic with respect to
   credential state: the server SHALL durably persist the newly issued refresh token before the
   prior token is relied upon as invalid, and SHALL serialize concurrent refresh attempts against
-  the shared credential so that at most one rotation is in flight. Neither a crash between rotation
-  and persistence, nor two callers refreshing near-simultaneously, may leave the server without a
-  usable credential. [reliability; asset A1; constraint C2 (immediate rotation); D-1 (multi-device
-  + scheduled operation makes this a normal-operation hazard, not an edge case)] (this is the
+  the shared credential so that at most one rotation is in flight. **Two callers refreshing
+  near-simultaneously SHALL NOT leave the server without a usable credential.** For a crash
+  occurring between Autodesk's issuance of the rotated token and its durable persistence, the
+  server SHALL (a) hold that window to the minimum achievable — the response bytes SHALL be
+  durably written before any parsing or other work, and a refresh SHALL be attempted only when the
+  access token is actually near expiry, never opportunistically — and (b) on restart, detect the
+  interrupted rotation and report an explicit re-authentication state naming rotation loss as its
+  cause, with the credential store intact and the re-authentication path surfaced by both the
+  auth-state tool and the health signal. It SHALL NOT fail silently, report an ambiguous state, or
+  destroy the credential file. [reliability; asset A1; constraint C2; D-1 (multi-device +
+  scheduled operation makes this a normal-operation hazard, not an edge case)] (this is the
   general form of the credential-bricking that occurred this session and that M-3's one-time
   re-auth exists to recover from — the spec fixes the property so the architect need not discover it)
+  (the crash limb is stated as window-minimization plus detected recovery, rather than as an
+  absolute survival guarantee, because C2 makes survival unachievable by any client: Autodesk
+  invalidates the prior refresh token at the instant it issues the replacement — a process
+  refreshing with a token a sibling had already rotated receives `invalid_grant` — and no client
+  can persist a token it has not yet received)
 
 ### 7.3 Operability
 
@@ -585,8 +597,12 @@ passing sample is necessary, not sufficient.
   billable APS job is submitted for the refused call; the limit holds for an automated,
   human-out-of-the-loop invocation path.
 - **AC-25 (R-REL-7).** Two concurrent refreshes racing on the shared credential leave a usable
-  credential (at most one rotation wins; the loser recovers rather than bricking); and a crash
-  induced between token rotation and its durable persistence leaves a usable credential on restart.
+  credential (at most one rotation wins; the loser recovers rather than bricking). A crash induced
+  between token rotation and its durable persistence yields, on restart, an explicit
+  `reauth-required` state naming rotation loss as its cause, with the credential file intact and
+  the re-authentication path reported by both the auth-state tool and the health signal; and the
+  refresh path is observed to write the response bytes durably before parsing them, and to refresh
+  only when the access token is near expiry rather than opportunistically.
 - **AC-26 (S-13).** A design name, custom-property value, or imported-CAD field carrying
   injection-shaped content is returned neutralized, such that the content cannot act as an
   instruction to the consuming agent.
