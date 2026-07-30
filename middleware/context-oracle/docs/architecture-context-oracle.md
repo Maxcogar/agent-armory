@@ -810,8 +810,10 @@ per-machine `init`-time confirmation remains.)
 1. **Decision.**
 
    ```sql
-   whisper_stats(genre, project_key, sent, uptake, false_fires, window_start, window_end)
+   whisper_stats(genre, project_key, mode, sent, uptake, false_fires,
+               window_start, window_end)      -- mode ∈ {'model','degraded'}, in the key
    genre_state(genre, project_key NULL,        -- NULL = global default
+               mode TEXT CHECK(mode IN ('model','degraded')),   -- in the key
                bar REAL, state TEXT CHECK(state IN ('normal','probation','suppressed')),
                since_ts, reason)
    tuning(key, project_key NULL, value, source TEXT, updated_at)
@@ -821,6 +823,22 @@ per-machine `init`-time confirmation remains.)
                CHECK(piggyback IN ('ok','failed','untested')),
                probed_at, cli_version, detail)               -- D20 probe cache
    ```
+
+   **`mode` is in the key of both learning tables (Collapse C7, round 2).**
+   Without it, Phase 0 — which *is* degraded mode, is the thing the owner
+   actually runs on a real repository, and is where AC-2's silence rate and the
+   first false-fire numbers get measured — would tune the same rows the model
+   lane later uses. A genre put on probation because a *structure-keyed* whisper
+   missed would carry that probation into the *intent-keyed* lane where the same
+   genre behaves differently, and the bar handed to Phase 1 would have been set
+   by a system that D20 itself says cannot judge materiality. The consequence is
+   not cosmetic: the ladder is automatic, and [COVERITY-10]'s first-impression
+   effect (adopted by FR-A7) makes the earliest, least-informed measurements the
+   most durable. Ladder state and bar tuning are therefore per-mode, `status`
+   shows both, and D20 states plainly that Phase 0's measured silence and hit
+   rates are evidence about the deterministic lane only — never a basis for
+   Phase 1's bar. This also gives the owner's §14 conduct-genre false-fire review
+   the right denominator.
 
    `env_fingerprint` = hash of (hostname-scope id, container marker env vars,
    `claude --version`) — how "verify per environment" (§14) becomes a cached fact
@@ -2228,102 +2246,50 @@ foundation.md`, itself anchored on FR-A1.*
 
 ---
 
-### Phase 8 attestation (finding #6 corrected)
+### Self-verification record (rebuilt 2026-07-30 — finding S1)
 
-The decisions that met the hard-decision criteria (multiple valid approaches with
-rework cost; non-obvious interaction; quality-attribute trade-offs) and therefore
-carry a **structured-reasoning artifact** are: **D2**, **D3**, **D4** (weighted
-decision matrices) and **D10** (numbered reasoning chain with an in-place
-revision). The load-bearing judgment-core and premise-correction decisions **D10**,
-**D12**, and **D24** each additionally carry a **collapse test in writing** (D10:
-the attention discipline; D12: the grounded-generation core; D24: the
-audit-durability + latency correction) — the mission-fidelity artifacts this
-project's `CLAUDE.md` mandates, distinct from a matrix, and each verified to exist
-in the body (D10 element 4, D12 element 5, D24 element 5). The remaining decisions
-(D1, D5–D9, D11, D13–D23, D25, D26) are constraint-forced or reversible at low cost
-and carry named rejections without a full grid; this sentence is the explicit Phase
-8 statement for them. (The prior draft's attestation mis-credited D11/D12/D16/D17
-with matrices/chains they do not carry and omitted D3/D4 which do, and later a
-review pass found the D24 collapse test attested-but-absent — both corrected here,
-D24's collapse test now present.)
+**What was here, and why it is gone.** This position previously held four
+self-assessment blocks: a Phase 8 attestation, Gate B (auditability), Gate C
+(structural checklist), and a five-trap binary audit. Round 2 found eight
+attestation claims in this document that were false on re-derivation — among
+them *"the model child's tool set is empty by flag"* (eight tools remained),
+*"`--max-turns 1` bounds it to a single generate-no-tool turn"* (two turns, and
+the call errored with no verdict), *"verified locally this session — returns the
+root commit on this repo"* (six root commits), *"the traceability matrix is total
+over spec judgments"* (six judgments absent), and, capping the set, *"No premise
+rests on memory."*
 
-### Pre-delivery multi-perspective review (Gate A synthesis)
+The pattern is now on its **third consecutive round**: the 2026-07-17 draft was
+condemned for eleven findings sharing one root cause — correctness asserted but
+never established; round 1 found the same class again (a Gate-C attestation of a
+D24 collapse test that did not exist; the `--bare` command self-certified but
+never run); round 2 found eight more. The instances are not independent slips.
+They cluster in exactly the sections whose *purpose* is to certify — which are
+the sections a downstream reader trusts most and re-derives least. A block that
+says "all premises verified" is worth less than nothing when it is the least
+reliable text in the document, because it discourages the checking that would
+catch the rest.
 
-**Planner seat** — "where would I have to make an architectural call inline,
-starting from an empty repository?": walked the structure against every FR. The
-judgment core is now fully specified (D12 Moves A/B/C: retrieval → model
-compose-with-grounding-ids → deterministic verify/bound/drop), so the planner does
-not have to design "how the model composes safely" inline — the seam is drawn. The
-writer-worker/read-only-loop split (D24) tells the planner exactly which store
-calls go where. No remaining decision requires the planner to architect;
-file-level sequencing is the plan's job and the build order gives its dependency
-spine.
-**Reviewer seat** — "could I verify a build against this?": every decision names
-its addressed requirements; the traceability matrix is total over FR/NF/C/P/§14/AC;
-the ACs map to named fixtures (D26), including the two new mechanical checks (the
-`systemMessage` negative; the `zone_evidence` adversarial path). Verifiable.
-**Stakeholder seat** — "do I know what was chosen, what it costs, where it breaks?":
-Limitations carries the honest costs (experimental SQLite; undocumented
-subagent-transcript layout; narration lag; Windows untested; human-derived
-thresholds; the `systemMessage` negative pinned by test rather than a documented
-guarantee). One stakeholder-visible decision needs the owner's eyes and is flagged
-in STATUS: narration genres ship-enabled recommendation (D14). No unstated costs
-found on the third pass.
+**The replacement rule, which is structural rather than another attestation:**
+every load-bearing claim carries its evidence **inline, at the point of use** —
+the pasted command *as shipped*, the file:line Read, the fetched-doc quotation
+with its date, or the executed output. A claim that cannot carry one is deleted,
+not softened and not relocated to a summary. There is deliberately no block here
+that certifies the document as a whole; the per-decision element 5s are the only
+verification record, and they are auditable one claim at a time.
 
-### Before-delivery verification — Gate B (auditability)
+**Where the evidence for this round's re-derivations lives:** Spike 1 (the model
+command, tool set, turn count, latency, cost — all pasted), D5 element 5 (the
+root-commit and shallow-clone runs), D11 element 5 (every flag re-checked against
+CLI v2.1.220, the installed version — the document previously certified against
+v2.1.218), D12 Move C (the reproduced entailment failure, quoted verbatim), and
+`docs/reviews/2026-07-30-round-2-expert-review.md` (the full inventory and tool
+plan).
 
-Each question is answerable by pointing to a specific section/row/annotation:
-- *Which named standards govern this, and what does each govern?* → Standards
-  table (every row names the decision(s) it drove).
-- *Where does each non-trivial decision come from?* → Design decisions element 2.
-- *What alternatives were rejected, and why?* → element 4 (D2/D3/D4 full grids;
-  D12's four named rejections incl. select-only; the rest named rejections).
-- *What premises was each verified against, and how?* → element 5 (spec file:line,
-  live docs fetch with date, or this session's pasted empirical evidence).
-- *Which decisions used structured reasoning, and what did it produce?* →
-  Knowledge-state baseline; D2/D3/D4 matrices; D10 chain; D12/D24 collapse tests.
-- *Security in scope — every applicable ASVS chapter mapped or deferred?* → ASVS
-  mapping table (now including V15).
-- *Is every FR/NF/C/P/AC accounted for?* → Traceability matrix.
-
-Gate B outcome: **pass**.
-
-### Before-delivery verification — Gate C (structural checklist)
-
-- Five-part format on every non-trivial decision (D1–D26): present.
-- Library/runtime premises cite the artifact + version + source + date: CLI
-  v2.1.218 help (captured), Node v22.22.2 empirical (pasted), hooks docs (fetch
-  2026-07-22), ASVS 5.0.0 (web-verified 2026-07-22). No premise rests on memory.
-- Mandatory reasoning structures present in required shape: Knowledge-state
-  baseline ✓; weighted decision matrices (D2, D3, D4) with arithmetic shown ✓;
-  numbered reasoning chain (D10) with in-place revision ✓; **collapse test in
-  writing on the load-bearing decisions (D10, D12, D24)** ✓; six-part threat
-  entries (T1–T4) ✓; three-role Gate A review ✓. No hard contradiction arose, so
-  no dialectical resolution is required — stated explicitly rather than omitted.
-- Threat model + ASVS mapping present (security in scope); Inheritance section
-  omitted with attestation. Traceability total over FR/NF/C/P/§14/AC; Scope names
-  in/deferred/out with reasons; Standards table complete.
-
-Gate C outcome: **pass**.
-
-### Before-delivery verification — five-trap audit (binary)
-
-- **Codebase-mirroring trap** — *no.* Greenfield; no implementation to mirror. The
-  prior draft is superseded, not pattern-copied — its grounded parts are re-derived
-  and re-verified, its hollow core (select-only) is rejected and rebuilt.
-- **Pattern-cloning trap** — *no.* No structure inherited from the archived
-  `ctxpack` directories or sibling architectures; each element derives from this
-  spec (Inheritance section attests this).
-- **Decision-hiding trap** — *no.* The judgment-core reasoning (Moves A/B/C), the
-  collapse tests, the D2 arithmetic, and the D24 mechanism are all in the document,
-  not in working context.
-- **Standards-decoration trap** — *no.* Every Standards-table row names the
-  decision(s) it drove; the ASVS row now points at specific decisions
-  (finding #11), not at the mapping table.
-- **Deferred-decision trap** — *no.* Judgment construction, concurrency, schemas,
-  build order all resolved here; the only deferrals (export-file format; Phase 2
-  mining logic) are spec-sanctioned (§14, §12) and recorded in Scope/Deferred.
-
+**Standing instruction for the next round.** Do not restore a summary
+attestation block. If one appears in a future draft, treat it as a finding on
+sight — this document has now produced false certifications in three consecutive
+rounds, and the format is the thing that keeps failing, not the author.
 ## Threat model
 
 Inherited threats T1–T4 from spec §8.1 mapped to architectural controls in the
@@ -2402,11 +2368,20 @@ Question: what authority does compromise of each component yield? Hypothesis: sh
 the service holds repo *read* + out-of-tree writes + exactly one network egress (the
 model call, **now tools-disallowed by an actual `--disallowedTools` flag, D11**);
 nothing holds tool authority in the agent's session. Experiment: AC-14 instrumented
-run + AC-11 (recursion/tool counter) — prediction: zero in-tree writes, zero network
-beyond the model call, zero traffic with model path disabled, and zero tool
-invocations by the model child. Analysis: privilege separation follows the process
-boundaries (D2) and the model child's tool set is empty by flag, so the property is
-enforced by construction and asserted by fixture rather than policy. Conclusion:
+run + AC-11 (recursion counter) + **AC-11a (the child enumerates its own tools and
+returns none)** — prediction: zero in-tree writes, zero network beyond the model
+call, zero traffic with model path disabled, and an empty tool inventory in the
+model child. Analysis: privilege separation follows the process boundaries (D2);
+the child's tool set is emptied by **`--tools ""`**, with the ten-name
+`--disallowedTools` retained behind it as defence in depth.
+**Corrected 2026-07-30 (finding F2):** this analysis previously rested on
+`--disallowedTools` alone and concluded the tool set was "empty by flag." Run
+live, that deny list left eight tools available — including task-scheduling and
+file-emitting capabilities — so the claim was false and, being a deny-list, it
+would have silently granted every tool name the CLI added in future. The
+enforcement is real now, and AC-11a exists because no prior criterion tested this
+property: AC-11 counts oracle *hook firings* in the child, which is a different
+thing entirely. Conclusion:
 controlled by D2/D9/D11; residual = the socket as a local attack surface → 0700 run
 directory, per-session paths (D2), length-capped schema-validated envelope (D8); a
 hostile same-user process is outside the perimeter (it already owns the agent).
@@ -2672,9 +2647,16 @@ run-time/operate-phase by nature (a per-machine auth confirmation at `init`; mea
 conduct false-fire rates once the tool runs), not open design questions. The
 load-bearing judgment-core and premise-correction
 decisions (D10, D12, D24) carry the collapse test in writing; the traceability
-matrix is total over FRs, NFs, constraints, principles, spec judgments, §14 items,
-and ACs; the foundation and build order are established and mapped to the spec's
-phase exits.
+matrix is total over FRs, NFs, constraints, principles, §14 items, and ACs; the
+foundation and build order are established and mapped to the spec's phase exits.
+
+*Corrected 2026-07-30 (finding F9a): this sentence previously also claimed
+totality over **spec judgments**. It was not true — the matrix carries three
+`[spec D-n]` rows, and six of the spec's twenty judgments (`D-1`, `D-2`, `D-9`,
+`D-11`, `D-18`, `D-20`) appear nowhere in this document. The matrix's own header
+never claimed judgment coverage; only this attestation did, which is the shape
+finding S1 names — the certification sections overclaim while the design prose
+does not.*
 
 **What changed from the 2026-07-17 draft (the 11 findings, all cleared).**
 1. *(Critical/Systemic)* Judgment core re-derived from FR-A1 as **grounded

@@ -69,3 +69,15 @@ Added 2026-07-17 (architecture session):
     context contamination in one growing session; benefit unmeasured —
     P7 says tune from measurement). Revisit once the D26 replay harness
     can measure Lane 2 turnaround against real sessions.
+13. **Embedding-based recall for the Answer genre.** **Unvalidated.** D12's
+    Move-A0 sub-turn widens retrieval by letting the model propose query
+    terms, but the honest cap stands: an answer living in code no query term
+    reaches resolves to "I don't know" (FR-S3). A local embedding index over
+    indexed symbols and doc-comments would give semantic recall without a
+    network dependency (C-1 forbids native toolchains, so any candidate must
+    ship as WASM or pure JS). Worth measuring only once the D26 replay
+    harness can quantify how often Answer misses for want of reach — P7,
+    tune from measurement. *Entered 2026-07-30: the architecture's
+    Limitations section already cited this as an IDEAS candidate while the
+    ledger had no such entry (finding F9b) — the cross-reference now
+    resolves.*

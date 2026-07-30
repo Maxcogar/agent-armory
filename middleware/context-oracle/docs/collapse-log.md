@@ -220,3 +220,128 @@ being that a re-run spike must exercise the **actual** design command, flags and
 all. Future agents: when cleanliness feels earned, check whether it was bought by
 pushing the hard part into a step labeled "deterministic" and left unbuilt, and
 never trust a premise whose validating command differs from the design's.
+
+---
+
+## 2026-07-30 — round-2 review of the rebuilt architecture (independent collapse-hunt + expert-review)
+
+Both mandatory passes were dispatched blind to each other, neither told what the
+author suspected. **The architecture did not survive.** The collapse-hunt found
+five collapses and four partial; the expert-review returned NEEDS FIXES with ten
+findings, two Critical. All were applied. Two were caught by **Max Cogar**, not
+by any safeguard, and are logged as process failures below.
+
+**Class legend addition:** **decision-hiding** — the real deciding step is named
+but never designed, so no one can review it.
+
+1. **The send bar had no term for "could the agent have got this itself?"**
+   Collapsed by: *"`decision-impact` is materiality × structural_weight — every
+   term measures how much a fact MATTERS. Point at the term that measures how
+   cheaply the agent could have got it. RETHINK §2.3 says marginal value over the
+   agent's own abilities is the only relevance metric that matters."*
+   Class: **reduction**. `non-obvious` — criterion 2 of the corrected foundation's
+   five — appeared twice in the document, both times in prose, computed nowhere;
+   the traceability matrix answered P5 with a design intent plus a term meaning
+   something else. Fix: `self_serve_cost` as a third factor, the consumer's
+   read/search set supplied to Move A, `non_obviousness` in the Move-B schema,
+   combined by minimum; AC-16a fixtures it. → D10.5a, D12.
+
+2. **The two owner-added conduct genres were structurally undeliverable.**
+   Collapsed by: *"AC-19 needs a whisper naming a skill step and the absent tool
+   call. Name the store fact it binds to. Skill text lives in the transcript;
+   Tier 3 is in-memory; D6 has no table. And 'no matching tool call observed' is
+   an absence claim — the exact shape that precluded Unknown last round."*
+   Class: **decision-hiding + reduction**. Fix: session-evidence fact class with
+   a transcript-offset resolver, `skill_expectations` in D6, and the Process
+   detector specified to its mechanically decidable subset. → D14, D6, D12, D13.
+
+3. **Lane 2 spends the same subscription the agent is spending, unbounded.**
+   Collapsed by: *"the piggyback reuses the host credential, therefore the host's
+   rate limits. Where is the number bounding calls per session? If the oracle
+   exhausts the quota, it has not wasted a sentence — it has stopped the work,
+   through the one channel NF-1 structurally cannot see."*
+   Class: **mechanism-not-mission**. Fix: intent queue designed (coalescing, not
+   dropping), per-session call budget, announced degradation, and `StopFailure`
+   (`error: rate_limit`) as the detector for the case the budget cannot prevent.
+   → D10.8a/8b.
+
+4. **Which agent gets helped was decided by arrival order.** In a six-way
+   fan-out, consumers 5+ received zero budget. Class: **reduction**. Fix:
+   reservation with reclamation, ceiling scaling with active consumers,
+   cross-consumer warn preemption, FR-M2 finding on budget-denial. → D15.
+
+5. **The injection defence didn't cover paraphrase, which is what composition
+   IS.** Collapsed by: *"pointer-only is a rule about quotation; Move B exists to
+   reword. An instruction inside a flagger-missed fact's `claim_text` binds to
+   the very fact whose text carried it."* The document's own collapse answer was
+   backwards. Class: **unverified/overclaim**. Fix: trust-conditioned composition
+   — `untrusted_repo` facts supply no `claim_text`. → D12, D13, T1.
+
+6. **Move C checked reference, not entailment** — and the document concluded from
+   the reference check that the model "never invents what counts as true."
+   **Reproduced live**: given one fact stating two files co-changed 16/20 times,
+   the model returned claims that the coupling is *"stable"*, *"a standard
+   pattern, not accidental"*, and that a change *"would improve modularity"* —
+   all bound to that fact, all passing. Class: **wrong-check**, and the second
+   recurrence of item 1 of 2026-07-17: existence was moved beneath the *send*
+   gate and reappeared as the *claim* gate. → D12 Move C.
+
+**Also caught by expert-review (premise/standards axis, applied):**
+- **CRITICAL — the shipped model command did not work.** `--max-turns 1` with
+  `--json-schema` returns `error_max_turns` with **no verdict**, because
+  structured output arrives via a tool call. Every Lane 2 call would have failed.
+  Same class as round 1's `--bare` bug, from the same cause: the validating
+  command was not the shipped command — the lesson round 1 wrote into *this file*
+  and the spike section did not apply.
+- **CRITICAL — `--disallowedTools` left eight tools available**, so T4's "empty
+  by flag" was false and the rationale ("denies new tool names by default") was
+  inverted. `--tools ""` returns `NONE` and costs one fewer turn.
+- Repo identity: six root commits on this repository, two contradictory selection
+  rules, and shallow clones silently key a different store.
+- `SessionEnd`'s 1.5 s budget breaks the global shim deadline.
+- Round 1's `so_what` fix created a whole-whisper drop path that fires 4/4 on
+  real output — a regression introduced by a fix.
+
+**Process failures — the owner was the one who caught these (log per `CLAUDE.md`):**
+- **A dispatch brief asserted a required tool was unavailable**, sending the
+  reviewer straight to a fallback. Self-fulfilling: an agent told a tool is absent
+  never attempts it and cannot discover the claim is false. The claim was also
+  unverified — inferred from the dispatcher's own tool list, about a subagent's
+  roster. Durable rule: *a brief states the requirement, never the availability.*
+  (`skill-observations/log.md` observation 13.)
+- **Grep was used as verification.** Two greps in one turn produced a false
+  negative (a verbatim RETHINK quote missed because the sentence wraps a line)
+  and a false positive (`quota` matching inside `quotation` — the evidence the
+  collapse-hunt used to claim "quota appears nowhere"). Durable rule: **search
+  locates, reading verifies**; absence is established by reading the region.
+  This is a defect in `expert-review`'s own SKILL.md, which mandates grep
+  evidence for absence claims in Gate B. (Observation 14.)
+
+**Pattern this round.** 2026-07-17 was *reduction at the model's role*; 2026-07-22
+was *the hard part relocated into an unspecified deterministic step*; this round
+the shape moved once more: **the hard part is a named noun with no producer, and
+every place it is claimed to be handled points at a different place that also
+does not handle it.** `non-obvious` is a criterion, a word in prose, and a matrix
+row that resolves to a design intent — and a computation nowhere. `uptake` is a
+schema column driving automatic genre retirement with no detection rules. The
+`intent queue` is two mentions in a list, and it decides what the model may see.
+The cross-consumer budget is a default with no allocator. The tell is cheap:
+**a citation that lands on a design intent, a schema column, or a component name
+rather than on a per-candidate computation with named inputs is an unfilled
+requirement wearing a reference.** For every principle and every column ask *who
+writes this, in which decision, from what inputs.*
+
+**Two structural lessons for the next round.**
+1. **Everything the previous round touched got a real mechanism; everything it
+   did not touch stayed prose.** Every collapse above sits in a criterion that
+   was never contested. A hunt that starts from the previous hunt's findings will
+   find nothing. Start from the *anchor documents' own enumerated criteria* — the
+   corrected foundation's five conditions, RETHINK §2.3, the twelve genres.
+2. **Every collapse this round lived BETWEEN decisions**, and the collapse test
+   is written per decision, so it structurally cannot see them: conduct genres
+   designed in D14 and gated in D12/D13; budget set in D10 and divided in D15;
+   injection claimed in T1 and implemented in D12/D13 with contradictory rules.
+   **Countermeasure, now required:** in addition to the per-decision test, write
+   **one collapse test per genre that traverses the whole pipeline** — trigger →
+   retrieval → grounding → bar → budget → assembly → delivery → audit → learning
+   — and require each of the twelve FR-A2 genres to survive end to end.
