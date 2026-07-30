@@ -868,8 +868,18 @@ per-machine `init`-time confirmation remains.)
 
 1. **Decision** (numbered reasoning chain; revision noted in step 6).
 
-   1. Measured cold `claude -p` ≈ 5.7 s > 3 s ceiling (Spike 1, this session) ⇒
-      **no model call on the synchronous hook path, ever.**
+   1. Measured `claude -p` judgment call ≈ **10.5 s** ≫ 3 s ceiling (Spike 1,
+      re-run 2026-07-30 as D11's *actual* command) ⇒ **no model call on the
+      synchronous hook path, ever.** *(The prior 5.7 s figure came from a
+      one-word prompt with no schema and no system prompt — not this design's
+      call. The conclusion is unchanged and now holds by ~7× against NF-1's
+      1.5 s p95 rather than ~4×; every other derivation from the old figure is
+      corrected in place, and D11's timeout was re-set from 20 s to 30 s.)*
+   1a. Each judgment costs ≈ **$0.005 and two turns**, drawn from the *same*
+      subscription the observed agent is spending (§6.2, OWNER-7 — the piggyback
+      reuses the host's credential, so it reuses the host's quota). Volume is
+      therefore a first-class design constraint, not an afterthought — see
+      step 8a.
    2. FR-O5 restricts delivery to event boundaries anyway ⇒ asynchronous judgment
       whose result attaches to a *later* event is not a degradation of the spec's
       model — it *is* the spec's model.
@@ -909,6 +919,54 @@ per-machine `init`-time confirmation remains.)
       suggestion floor support ≥ 2 (FR-A5, [spec D-5]), cold-start floor (FR-A6),
       first-sessions clamp (FR-A7), §9.2 ladder state (genre_state, D7) — picks ≤ 1,
       answers inside the deadline.
+
+   5a. **`non_obviousness` — the third factor, and the one the bar was missing
+      (Collapse C1, round 2).** Every term above measures how much a fact
+      *matters*. None measured **how cheaply the agent could have got it
+      itself** — and that is the metric RETHINK §2.3 calls *"the only relevance
+      metric that matters"*, restated as criterion 2 of the corrected
+      foundation's five (*"non-obvious: something a cold checkout can't reveal
+      and the agent can't trivially self-serve"*, P5). Before this fix the phrase
+      appeared twice in this document, both times in prose, and was computed
+      nowhere; the traceability matrix answered P5 with a genre-level design
+      intent plus `materiality`, which measures a different thing. The predicted
+      failure is the tool's most frequent output being *"there is a helper for
+      the symbol you just grepped for"* — precisely the noise RETHINK §2.3 says
+      "crowds out the signal."
+
+      **`decision-impact` = `materiality × structural_weight × self_serve_cost`**,
+      where `self_serve_cost ∈ (0,1]` is deterministic and derived from the
+      fact's own provenance class plus what this consumer has already done:
+      - **High (≈1.0) — cold-checkout-invisible.** Git-history co-change,
+        learned records, landmines, cross-file invariants, human-supplied facts.
+        No amount of reading the current tree reveals these; they are the
+        oracle's actual edge.
+      - **Low (≈0.15) — one tool call away.** Single-file static structure a
+        `Grep` for the same symbol returns: call-site counts, "there is a helper
+        at Z", "this file imports that one."
+      - **Driven to ≈0 by demonstrated reach.** Tier 3 records the consumer's
+        read set and issued search terms; when a fact's location already falls
+        inside a result set this consumer has *seen*, the fact is not
+        non-obvious to it, whatever its provenance class.
+
+      **The model is also given the evidence to judge it.** D12 Move A asks the
+      model FR-A1's full question — *"does it know something material it almost
+      certainly doesn't?"* — but supplied only `{intent, recent_narration,
+      facts}`, which contains nothing about what this consumer has read or
+      searched. It was being asked half of FR-A1 and its answer was recorded as
+      all of it. Move A's data field therefore gains the consumer's read/search
+      set (paths and search terms, capped and secret-scanned per D19), and the
+      Move-B verdict schema gains a `non_obviousness` field beside `materiality`
+      (D12). The deterministic `self_serve_cost` and the model's
+      `non_obviousness` are combined by taking the **minimum** — either signal
+      alone is sufficient to conclude the agent could have got it itself, and
+      silence is the safe direction (P1).
+
+      **Fixture, or it drifts back to prose (AC-16a).** In replay: where the
+      agent has grepped for a symbol and the store holds the "canonical helper"
+      fact for it, **no whisper is emitted**; the same fact *is* emitted to a
+      consumer that has not searched. Criterion 2 spent one full round as prose
+      precisely because nothing tested it.
    6. Model invocation per D11/D12. *Revision recorded in place:* a warm
       `--input-format stream-json` spare was considered for latency and **rejected
       for v1** — successive judgments would share one growing context
@@ -922,6 +980,56 @@ per-machine `init`-time confirmation remains.)
    8. Failures: Lane 2 failures increment the degraded counter (D20) and never
       touch Lane 1; queue overflow drops oldest *candidates* (never events) with a
       diagnostic; the pool is bounded (default 64/consumer).
+
+   8a. **The intent queue, designed (Collapse C3 / finding F6).** Before this
+      round the "intent queue" appeared twice in this document, both times as a
+      name in a component list — yet it is the step that decides *what the model
+      is allowed to see*, which is exactly the "hard part relocated into an
+      unspecified deterministic step" pattern the collapse log warns future
+      agents about. Its policy is now specified:
+      - **One in-flight judgment per consumer.** Not per session — a fan-out
+        must not starve behind one subagent.
+      - **Coalescing, not dropping.** New deltas for a consumer that already has
+        a judgment in flight merge into the pending intent: newest narration
+        wins, superseded content is folded in. Input is never silently
+        discarded, because a dropped intent is an unmeasurable miss.
+      - **Explicit overflow.** If pending intents exceed the per-consumer bound,
+        the *oldest* is dropped **with an FR-M2 diagnostic naming the count** —
+        visible, never silent.
+      - **Queue depth is exported** to diagnostics and `status`.
+
+   8b. **Model-call budget — the oracle spends its consumer's quota
+      (Collapse C3 / finding F6).** The design's whole latency argument is that
+      moving the model off the hook path makes its cost invisible to the agent.
+      That is true for wall-clock and **false for the shared resource**: OWNER-7
+      puts the oracle on the *same* credential, therefore the same rate limits,
+      as the agent it is helping (Spike 1's scope caveat; ≈$0.005 and ~10.5 s per
+      judgment). An oracle issuing one judgment per transcript delta, per loaded
+      skill, and per open question, across every consumer of a fan-out, can
+      exhaust the quota the agent needs — at which point the oracle has not
+      wasted a sentence (P2), it has **stopped the work outright**. That is a
+      strictly worse outcome than the latency stall NF-1 exists to prevent, and
+      it is the failure RETHINK §5 names: *"a hook that slows the agent is a gate
+      by another name."*
+      - **Per-session judgment cap** and **minimum inter-call interval**, both
+        `tuning` rows (D23) so the learning loop can move them; a session-level
+        ceiling dominates the per-consumer caps.
+      - Reaching the cap is an **explicit, announced transition to degraded
+        mode** — one `systemMessage` notice (D13's human channel) plus an FR-M2
+        finding `model_budget_exhausted`. Never silent starvation, which would
+        present exactly as "the oracle is correctly quiet."
+      - **`StopFailure` is the detector for the failure this cannot prevent.**
+        Per the hooks contract that event fires *instead of* `Stop` when a turn
+        dies on an API error, carries an `error` field whose values include
+        `rate_limit`, and has its output ignored — so it is a pure observation
+        with no continuation risk (FR-O4a). An `error: rate_limit` on the
+        observed session means the oracle may now be competing with its own
+        consumer: enter degraded mode immediately and raise FR-M2
+        `host_quota_exhausted`. Without this the failure surfaces only as the
+        *agent's* rate-limit error, where no oracle diagnostic would ever see it
+        — the OWNER-10 silent-failure case.
+      - Calls issued, calls declined by budget, tokens and cost spent, and queue
+        depth all appear in `ctxoracle status` in plain language (D21).
    9. **Anti-silence-ratchet (Collapse 1 — the loop needs an up-signal, not only a
       suppress-signal).** Left alone, the bar only ever rises: false-fire/noise are
       observable (narration correction, no uptake) and push it *up*, but regret —
@@ -935,8 +1043,46 @@ per-machine `init`-time confirmation remains.)
       proxy** the distiller can derive without an oracle of correctness — a
       same-region re-edit or revert in a later session, or a post-edit
       verify-command failure, where the store *held* a coupling/landmine fact it did
-      not speak (D21, FR-L2/FR-M3). Where neither signal is available the loop is
-      documented as silence-biased rather than presented as self-correcting.
+      not speak (D21, FR-L2/FR-M3).
+
+   9a. **Warn-grade gets a down-signal too (Collapse C8).** As written, (a)
+      excluded warn-grade and (b) inspected only facts the store *held and could
+      rank* — but a fact below the support/confidence floor is held-and-unrankable,
+      so nothing recorded that a below-floor fact *would have* covered a regret.
+      Warn-grade floors (support ≥ 3, confidence ≥ 0.9) are human-derived numbers
+      applied to an agent consumer, which [spec D-8] itself flags as a calibrated
+      guess — and they could only ever move up. The old text closed with "where
+      neither signal is available the loop is documented as silence-biased," which
+      is precisely the hedge `CLAUDE.md` step 3 forbids in a load-bearing place:
+      this is the loop that decides whether the tool ever speaks at warn grade.
+      **Fix:** every candidate that failed **only** an evidence floor is logged to
+      `session_log` with `(genre, subject, support, confidence)`, so the distiller
+      can compute how often a below-floor fact coincided with a measured regret
+      event. Floor *lowering* is permitted **only** from that evidence — never
+      from explore delivery, which stays correctly excluded from warn-grade. The
+      below-floor near-miss count appears in `status`: it is the only number that
+      can tell the owner *"this tool is silent because it is calibrated for
+      someone else's repository."*
+
+   9b. **Uptake must measure influence, not compliance (Collapse C6).** §9.2's
+      effective-false-positive metric counts a whisper the consumer "did not act
+      on", and FR-L1 detects acting-on as *pointed file opened / named helper
+      used / suggested command run*. That scores the tool's **best** outcome as a
+      failure: an agent told there is a second write-site, which then edits it
+      directly or simply does not make the mistake, never opens the file the
+      pointer named. At 25 % the §9.2 ladder **auto-suppresses the genre** — so a
+      proxy the document never validated could retire a working genre unattended.
+      Compounding it, `uptake` existed only as a schema column and a statistic
+      with **no named producer**. **Fix, three parts:** (i) uptake detection is
+      specified here and owned by the distiller — the whisper's *subject* being
+      subsequently edited, tested, or referenced by **any** route counts, not only
+      the pointer being followed (the subject key already exists for FR-A4 dedup);
+      (ii) **auto-suppression is restricted to explicitly contradicted warnings**
+      — FR-L3's narration-correction or outcome-contradiction clause. Silent
+      non-uptake may raise a genre's bar, reversibly, and is reported in `status`;
+      it may never auto-retire a genre; (iii) `status` reports hit rate **with its
+      detection method named**, so an owner reading "hit rate 12 %" is not reading
+      an artifact of the detector.
 2. **Standard.** FR-J1 (two stages, mechanical bypass) governing; [CHI-25] via
    FR-O5 (boundary-only delivery); [ROSE-05]/[HH-04] floors via FR-A5.
 3. **Why here.** The split makes degraded mode (FR-J3) the *same system minus
