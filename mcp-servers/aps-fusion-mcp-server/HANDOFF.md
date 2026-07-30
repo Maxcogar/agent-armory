@@ -4,8 +4,10 @@
 
 The specification phase is complete. The **architecture fix cycle is ended, without a formal
 PASS**: the owner directed the cycle to stop on 2026-07-30, during round 20, after the findings
-of rounds 13–19 had all been applied. Treat the architecture as the accepted, buildable design —
-accepted by owner decision, not by a zero-findings verdict.
+of rounds 13–19 had all been applied. On the same date the owner ended **all review activity on
+this project** — the architecture cycle and the spec-amendment review alike. No review round is
+owed by either artifact; both stand by owner acceptance. Treat the architecture as the
+accepted, buildable design — accepted by owner decision, not by a zero-findings verdict.
 
 What that acceptance means, precisely: round 19's two findings were fixed after its review and
 never re-reviewed, and the residual defect class the final five rounds kept surfacing was
@@ -21,9 +23,10 @@ roughly fifty-six MFG schema assertions machine-checked per round with zero disc
    five independent blinded rounds with zero findings. One later change: `R-REL-7`'s crash
    clause and `AC-25` were amended to state achievable properties under Autodesk's token
    rotation (durably write response bytes before parsing; refresh only near expiry; detected,
-   non-destructive, actionable outcomes). **The amendment is unreviewed and owes its own review
-   round.** The spec file's own `Status:` line still reads "Draft for review" — stale governance
-   metadata the owner has not yet resolved.
+   non-destructive, actionable outcomes). **The amendment is unreviewed; on 2026-07-30 the owner
+   directed that it stands as accepted without a review round.** The spec file's own `Status:`
+   line still reads "Draft for review" — stale governance metadata the owner has not yet
+   resolved.
 2. **`docs/architectures/architecture-aps-fusion-mcp-server.md`** — the architecture: 28 design
    decisions, a 37-tool inventory (tool 37 `aps_md_get_derivative` closed the Model Derivative
    retrieval gap round 14 found), threat-control mapping, ASVS mapping, and a traceability
@@ -59,10 +62,10 @@ roughly fifty-six MFG schema assertions machine-checked per round with zero disc
 
 ## Next
 
-The plan phase: `expert-plan`, consuming the architecture and the spec. The plan's per-step
-Source annotations point at the architecture's D-numbers and Standards table; its first
-post-authentication steps are the 8(b)/8(c) checks above. The spec amendment's review round can
-run in parallel with planning.
+The plan phase: `expert-plan`, consuming the architecture and the spec as they stand — both
+accepted by owner direction. The plan's per-step Source annotations point at the architecture's
+D-numbers and Standards table; its first post-authentication steps are the 8(b)/8(c) checks
+above.
 
 ## Process record — why twenty rounds, and what to keep
 
