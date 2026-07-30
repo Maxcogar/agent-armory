@@ -3,6 +3,76 @@
 *Plain-language project status, updated at the end of every working
 session. Newest entry first.*
 
+## 2026-07-30
+
+**Where the project is:** still design phase, no code — still correct. The
+architecture went through its round-2 review this session and **failed it**, hard.
+Nineteen problems were found across two independent reviewers. All nineteen are
+now fixed. The document is in genuinely better shape than it has ever been, and
+it has **not** been re-reviewed since the fixes, so it is not signed off.
+
+**The headline: the tool would not have worked at all.**
+
+The command the design uses to ask the AI model a question was tested this
+session by actually running it — flags and all, exactly as written. **It fails.**
+It returns an error and no answer, every time. The reason is small and completely
+invisible on paper: the design allowed the model "one turn" to reply, but the
+structured answer it asks for is delivered *as a second step*, so the call runs
+out of turns before the answer arrives. Had this been built, the thinking half of
+the oracle would have been dead on arrival on your machine — the exact same shape
+as the login bug caught last round, and from the exact same cause: **the command
+that was tested was not the command the design ships.** Last round wrote that
+lesson down in our own notes. This round's spike section hadn't applied it.
+
+**The other serious one: the "no tools" promise was not true.** The design claimed
+the model it consults has no tools available, "enforced by construction". Run
+live, eight tools were still available to it — including ones that can schedule
+work and write files out. The fix (`--tools ""`, which is documented and which I
+verified returns "none") turned out to be *better on every axis*: it's genuinely
+empty, it's one step shorter, and it's about 40% faster. The two worst findings
+of the round fixed each other.
+
+**What you decided, and what I did with it.** You said the oracle speaking when an
+agent claims it's done is a must-have. It's locked in as your decision #12, and
+the spec now says out loud what the review discovered: speaking at that moment
+*does* cost the agent an extra turn — it isn't free the way the rest of the tool
+is. Rather than pretend otherwise, the oracle is now hard-limited to **one** extra
+turn ever, it can never chain them, and every time it spends one it gets logged so
+you can see how often it happened.
+
+**The rest, briefly.** The tool had no way to tell "you couldn't have known this"
+from "you could have found that in one second" — which your own founding document
+calls the only measure that matters, and which had never been built. The two
+"conduct" nudges you asked for (did the AI actually run the tests it says it ran?)
+were designed in one place and made impossible in another, so they'd have been
+quietly dropped at build time. The oracle spends *your* Claude subscription while
+helping — with no limit on how much. In a fan-out, the 5th and 6th helpers got
+nothing because the first three spent the budget. And the check meant to stop the
+tool inventing things only checked that the fact it cited *exists*, not that its
+sentence actually followed from it — I reproduced that live, watching the model
+claim a coupling was "stable" and "a standard pattern, not accidental" from a
+fact that said nothing of the kind.
+
+**Something I want to flag about my own conduct.** Two of this round's problems
+were caught by *you*, not by the machinery that exists so you don't have to: I
+told a reviewer a required tool was unavailable (guaranteeing it would never try
+it), and I used text-search results as proof — which produced one false alarm and
+one near-miss where I almost accused a reviewer of fabricating a quote from your
+own document. Both are written up as durable rules so future sessions inherit
+them rather than repeat them. That's the mechanism working, but it worked one
+step later than it should have.
+
+**What's broken / not trustworthy yet:** nothing known-broken in the design right
+now — but this is the same sentence I'd have written last round, and last round it
+was wrong. What's *different* is that the document no longer certifies itself: the
+four self-assessment blocks that kept producing false "all verified" claims are
+deleted, replaced by evidence attached to each individual claim, with a standing
+instruction that any future summary attestation is to be treated as a defect on
+sight. Three rounds running, those blocks were the least reliable text in the file.
+
+**Nothing needed from you right now.** Next step is a round-3 review of the fixed
+document before any code gets written.
+
 ## 2026-07-22
 
 **Where the project is:** still design phase, no code — still correct. The
