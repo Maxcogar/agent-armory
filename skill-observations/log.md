@@ -373,3 +373,50 @@ verifies, not as established fact.
 worse than one it can. Instructions that foreclose verification are the only kind that
 cannot be recovered downstream — so availability, capability, and "this is broken"
 claims never belong in a brief as assertions.
+
+### Observation 14: Grep is not verification — search locates, reading verifies
+
+**Date:** 2026-07-30
+**Session context:** Context Oracle round-2 review. Spot-checking a subagent's findings, two greps in a single turn produced a false negative and a false positive on load-bearing claims. Max Cogar: "no one should ever be using grep for this work. Just read the file... GREP IS NOT VERIFICATION."
+**Skill:** expert-review (methodology defect), expert-standard, writing-agent-instructions
+**Type:** internal
+**Phase/Area:** Premise verification
+
+**Issue:** Grep produces two error classes, and one of them is undetectable downstream.
+
+- **False negative.** A grep for the string "only relevance metric" against RETHINK.md
+  returned zero hits. The sentence is verbatim present at RETHINK.md:59; it failed
+  only because the sentence wraps across a line break. Acting on that result count
+  would have meant accusing a subagent of fabricating a quote from the project's own
+  founding document.
+- **False positive.** A grep for "quota" returned three hits, all the substring inside
+  "quotation." The parallel collapse-hunt agent had asserted "quota appears nowhere"
+  on exactly this class of evidence.
+
+Line wrapping, hyphenation, casing, synonyms, and a concept stated in different words
+all yield a result count of 0 that is indistinguishable from genuine absence. For
+absence and completeness claims — "X is never defined," "no mechanism computes Y,"
+"the schema has no table for Z" — that makes grep actively dangerous: the reader of
+the finding cannot detect the error, because the evidence offered (a count) looks
+identical whether it is right or wrong.
+
+**This is a defect in expert-review's own SKILL.md**, not only in the agents using it.
+Step 2 permits a file to be checked off as "Grep-verified." Step 6 prescribes grep as
+the verification method for absence claims. Gate B *requires* a grep query and result
+count as the evidence for every "X doesn't exist" finding. The skill instructs
+reviewers to manufacture exactly the class of claim that cannot be checked.
+
+The correct principle is already written elsewhere in this repo, in
+`expert-architecture-portable`: **search locates, reading verifies.**
+
+**Suggested improvement:** Amend expert-review SKILL.md — remove "Grep-verified" as a
+sufficient inventory check-off for any file a finding makes an absence claim about;
+change Step 6's absence-claim method to reading the relevant region, with grep demoted
+to locating candidate regions; change Gate B to require the read citation, permitting a
+grep query only as a supplementary locator. Same amendment for any dispatch brief:
+require the agent to state, per finding, whether it located-then-read or counted only.
+
+**Principle:** A result count is not an observation. Grep answers "where might this be,"
+never "this is not there." Any claim about absence, completeness, or "nothing handles
+this" is established by reading the region where the thing would live — and a
+2,249-line document is one read, so document size is never the excuse.
