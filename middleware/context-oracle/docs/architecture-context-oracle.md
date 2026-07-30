@@ -347,8 +347,22 @@ companion skill (user-scope, out-of-tree)                             [D22]
 1. Harness fires hook → runs `ctxoracle-shim` with event JSON on stdin.
 2. Shim: recursion-guard env check → translate to contract envelope → connect to
    session socket (spawn service if absent and event is session-start class) →
-   send, await reply with client-side deadline (default 1,200 ms, hard 2,500 ms —
-   inside FR-O3's 3 s with margin).
+   send, await reply with a **per-event** client-side deadline (default
+   1,200 ms, hard 2,500 ms — inside FR-O3's 3 s with margin).
+   **Deadlines are per-event, not global (finding F7, round 2).** The single
+   global pair above is wrong on `SessionEnd`, where the harness grants hooks a
+   shared **1.5 s** budget, not the 10-minute command-hook default — so a hard
+   2,500 ms deadline exceeds the budget outright and the shim can be killed
+   mid-await on the very event that carries service teardown and the distiller
+   spawn. The "inside FR-O3's 3 s with margin" reasoning never applied there. The
+   `SessionEnd` deadline is therefore set below 1.5 s; where teardown genuinely
+   needs longer, `init` writes an explicit per-hook `timeout` for that entry
+   (the documented escape hatch — *"Claude Code raises the budget to match, up to
+   60 seconds"*), and because that changes the settings bytes, AC-4's pristine-tree
+   accounting and `deinit`'s removal set both include it. The document already
+   accounted for one harness timeout (`UserPromptSubmit`'s 30 s), so the omission
+   was selective rather than systemic — which is why a global-deadline reading
+   passed review twice.
 3. Service (**reads only, on the event loop**): validate envelope → update Tier 3
    for the firing consumer (queued to the writer worker) → Lane 1 read lookups →
    merge with any ready Lane 2 candidates → attention engine picks ≤ 1 whisper
@@ -1707,10 +1721,33 @@ foundation.md`, itself anchored on FR-A1.*
    (Spike bonus). ASVS V5 (safe path derivation for the subagent transcript).
 3. **Why here.** The lag is real but bounded and now *measured*; treating the
    transcript as an event-lagged journal (not a live wire) makes every narration
-   genre correct by construction instead of racy. **Recommendation to the owner
-   (decision theirs per §14):** ship narration genres enabled — the one-boundary
-   lag plus delivery-time supersession means the failure mode is "a beat late",
-   never "wrong about what was said."
+   genre correct by construction instead of racy.
+
+   **Reading lag and delivery lag are two different numbers, and only one was
+   measured (Collapse C9, round 2).** The one-boundary figure above is the
+   **reading** lag — how stale the transcript is when the oracle looks at it. A
+   Lane 2 whisper about that narration additionally waits for queue time, the
+   judgment call itself (**≈10.5 s measured**, Spike 1 as re-run), and, on
+   discovery intents, a second model call for the A0 shaping sub-turn. The prior
+   text merged the two and offered the owner a ship recommendation resting on the
+   merged figure. That matters because D10 step 7's supersession re-check is
+   *designed to drop* candidates that arrive after their moment — so a genre that
+   is structurally always late presents as **correct silence**, and nothing in the
+   design would reveal it. A genre past its moment is a genre that does not work;
+   the mission fixes the moment, not only the fact.
+   - The **delivery-lag contract is a quantity to be measured**, not asserted:
+     D26's replay layer reports, per genre, the inter-event interval
+     distribution, the motivation-to-delivery boundary count, and the **candidate
+     survival rate through the supersession re-check**.
+   - **Supersession-drop rate becomes an FR-M2 self-check** with its own finding
+     code. A narration genre whose candidates are nearly always superseded is a
+     capability that has silently gone dark — the OWNER-10 failure this very
+     decision invokes for the subagent-transcript case.
+   - **Recommendation to the owner (decision theirs per §14):** ship narration
+     genres enabled — but the basis is now stated honestly as **provisional**,
+     resting on the reading lag alone and pending the delivery measurement above.
+     "A beat late, never wrong" is a promise about the reading lag; it has not
+     been established for the whisper.
 4. **Rejected.** Polling the transcript on a timer between events (buys one
    boundary at the cost of FR-O5 and [CHI-25]); asking the harness for narration
    via any agent-visible mechanism (P3 violation); treating transcript layout as
@@ -1730,11 +1767,37 @@ foundation.md`, itself anchored on FR-A1.*
    carrying a new `agent_id`) and retired at subagent_stop (their summary flushed
    to session_log via the writer worker, D24, for the distiller). Delivery: a
    whisper is delivered only on the firing consumer's own event (Spike 2: the
-   injection lands in that consumer's context); per-consumer budgets
-   (default min(600 tokens, session remainder)) roll up into the session total
-   (FR-A3/FR-O6). The same fact may be spoken once to the main agent and once to a
-   subagent, never twice to either (AC-21: subject-key dedup per consumer,
-   session-wide spend shared). SubagentStart's `additionalContext` slot may carry
+   injection lands in that consumer's context). The same fact may be spoken once
+   to the main agent and once to a subagent, never twice to either (AC-21:
+   subject-key dedup per consumer, session-wide spend shared).
+
+   **Cross-consumer allocation — which agent gets helped must not be a
+   scheduling accident (Collapse C4, round 2).** The prior rule was a
+   session-wide pool of 2,000 tokens with a per-consumer cap of
+   `min(600, session remainder)` and nothing else. Run the arithmetic on the case
+   OWNER-8 exists for — *"the owner's real work runs through workflows that fan
+   out to subagents"* — consumers 1–3 take 600 each, consumer 4 gets 200, and
+   consumers 5 and up get **zero**. The oracle then goes silent for most of a
+   fan-out's subagents not because it has nothing material to say, but because
+   earlier consumers spent the budget on coupling notes an hour ago. A ⚠ warning
+   to the sixth subagent about to hand-edit build output loses to a suggestion
+   the first consumer already received. OWNER-8's stated reason for pulling
+   subagents into v1 was that a main-agent-only oracle *"misses most of the
+   decisions that matter"*; first-come-first-served reproduces that miss with
+   extra steps. Four changes:
+   - **Reserve a floor per consumer at creation**, and **reclaim** the unspent
+     reservation at `subagent_stop`.
+   - **Scale the session ceiling with the number of *active* consumers** rather
+     than holding a fixed pool; the default and its derivation are stated in
+     `tuning` (D23) so the learning loop can move it.
+   - **Warn-grade candidates preempt across consumers**, not merely within one —
+     priority that stops at the consumer boundary is not priority.
+   - **A consumer denied by budget rather than by the bar raises an FR-M2
+     finding.** "Silent because broke" must be distinguishable from "silent
+     because correct" — that distinction is D10's own stated standard for the
+     attention engine, and it did not hold across consumers.
+   Fixtured by a six-consumer fan-out replay asserting every consumer with an
+   above-bar candidate is served (AC-21a). SubagentStart's `additionalContext` slot may carry
    a consumer-scoped orientation whisper (2–3 sentences) — but **only when a real
    task signal exists at start (Caveat 7).** At subagent_start the subagent has not
    narrated and the transcript lags (D14), so firing on `agent_type` alone would be
