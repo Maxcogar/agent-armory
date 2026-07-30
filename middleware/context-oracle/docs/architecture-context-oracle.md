@@ -1313,17 +1313,97 @@ foundation.md`, itself anchored on FR-A1.*
      unknown, or dangling `grounding_id` → the **whole whisper is dropped** with a
      diagnostic. This makes "every whisper carries a verifiable pointer" (P4) true
      by construction even though the model wrote the sentence.
+   - **Entailment bound — reference is not entailment (finding F4, round 2).**
+     The check above establishes that a *referenced fact exists and resolves*. It
+     does **not** establish that the claim sentence follows from that fact, and
+     the document previously conflated the two, concluding from the reference
+     check that the model "never invents what counts as true." Reproduced live
+     on 2026-07-30 against the shipped judgment command: supplied exactly one
+     fact — *"src/state/store.ts co-changed with src/routes/SettingsPage.tsx in
+     16 of last 20 commits"*, `trust: mechanical` — the model returned, all
+     bound to `grounding_id: 1`:
+
+     > *"The observed coupling is mechanical and stable (since 2025-01),
+     > indicating this is a standard pattern in the codebase, not accidental"*
+     > · *"Adding a settings flag is a pragmatic approach to decouple the state
+     > management from the UI layer"* · *"This refactoring would improve
+     > modularity and make future changes less cascading"*
+
+     Stability, standardness, non-accidentality, pragmatism, and improved
+     modularity are **not in the fact**. `grounding_id: 1` resolves, the pointer
+     resolves, and every one of these passes the reference check. `[HERZIG-13]`
+     — which the spec adopts precisely to forbid this framing, since up to 15 %
+     of fix commits are tangled — makes *"stable, standard, not accidental"* an
+     affirmatively wrong reading of a co-change edge. This is collapse-log item 1
+     of 2026-07-17 (*"why is existence the right check?"*) recurring one layer
+     down: the corrected foundation moved existence beneath the *send* gate, and
+     it reappeared as the *claim* gate.
+
+     **Move C therefore binds content, not just reference:**
+     1. **Slot-filled per-genre templates.** Each claim is emitted into a genre
+        template whose numeric and identifier slots are copied from the bound
+        fact's `support_numbers` / `evidence_pointer`. The model chooses phrasing
+        *within* the template; it does not emit free sentences. This also makes
+        FR-D5 (co-change claims always render their ratio) structural rather than
+        hoped-for.
+     2. **Token provenance.** Reject any claim containing a number, file path,
+        symbol name, or date that does not appear in the bound fact.
+     3. **Epistemic-strength lexicon.** Reject claims asserting a property the
+        fact does not carry — *stable, standard, always, never, not accidental,
+        proven, guaranteed*. A co-change ratio supports a frequency statement and
+        nothing stronger.
+
+     Until (1)–(3) exist, the guarantee this decision may state is the narrow,
+     true one — *"every claim references a resolvable fact"* — **not** *"it never
+     invents what counts as true."* The stronger sentence is deleted from element
+     5's collapse answer.
    - **Injection / output bound (FR-X2, FR-D2, FR-X3).** The composed text is
      validated to informative, non-imperative form: an imperative-construction
      deny-lexicon rejects commands; length is capped (FR-D1, 1–5 sentences); the
      text must contain **no span** from any `injection_suspect` fact — those enter
-     Move A as pointer + metadata only, never quoted (FR-X3). Repo-derived strings
-     appear in the output only as delimited quotations that trace to a supplied,
-     non-suspect fact. **This validation covers all model-composed free text —
-     every `claims[].text` *and* the optional `so_what` clause (Minor-2)** — so no
-     model-authored words reach the agent unvalidated; `so_what` carries no factual
-     claim of its own (P4 is met by the pointered claims) but is validated for form.
-     Any failure → drop.
+     Move A as pointer + metadata only, never quoted (FR-X3). **This validation
+     covers all model-composed free text** — every `claims[].text` *and* the
+     optional `so_what` clause (Minor-2) — so no model-authored words reach the
+     agent unvalidated.
+   - **Trust-conditioned composition — the paraphrase carrier (Collapse C5).**
+     The span check above is a rule about *quotation*. Move B's entire purpose is
+     to **re-express** supplied facts in the agent's own terms, and a paraphrase
+     is neither a quotation nor a pointer, so the pointer-only default never
+     engages on it. A hostile instruction living inside a legitimately-grounded
+     fact's `claim_text` — a landmine `evidence` string that the heuristic
+     flagger missed, so it is not marked `injection_suspect` — can be reworded by
+     the model, bind to precisely the fact it came from, and pass. The prior
+     collapse answer (*"a hostile instruction reworded by the model has no
+     provenanced fact to bind to"*) was therefore **backwards**: it binds to the
+     very fact whose text carried it. **Fix — condition composition on the trust
+     label the fact schema (D6) already carries:** facts with
+     `trust = 'untrusted_repo'` are supplied to the model as numbers, genre,
+     location pointers, and oracle-computed metadata — **without `claim_text`**.
+     A whisper grounded *only* in untrusted-repo facts renders through D13's
+     deterministic template path rather than model prose. Full composition is
+     retained over `mechanical`- and `human`-trust facts (co-change ratios,
+     call-site counts, zone classifications, human statements), which is where
+     the articulation genres' value actually lives — so this closes the carrier
+     at negligible cost to the mission. AC-7 gains a carrier that plants an
+     imperative in a landmine `evidence` string **with the flagger configured to
+     miss it**, asserting the emitted whisper contains no re-expression of it;
+     today every AC-7 carrier assumes the flagger works, so the fixture cannot
+     fail in the way T1's stated residual describes.
+   - **Failure handling — degrade, don't drop the evidence with the phrasing
+     (finding F8, a regression from round 1's `so_what` fix).** Round 1 extended
+     validation to `so_what` and left the disposition as "any failure → drop",
+     creating a whole-whisper drop path that did not previously exist. The
+     shipped judgment reliably emits directive `so_what` clauses — 4/4 observed
+     on 2026-07-30 (*"Verify whether…"*, *"Check that file…"*, *"Plan to review
+     or update…"*) — every one of which an imperative deny-lexicon rejects,
+     discarding two correctly-pointered claims along with the clause. Since
+     `so_what` carries no factual claim (stated two bullets above), its failure
+     **strips the clause and keeps the claims**, with a diagnostic. Whole-whisper
+     drop is reserved for grounding, entailment, and injection-suspect failures,
+     where the content itself is unsafe. Drop and strip rates are counted per
+     cause (D21) and surfaced in `status` — a validator quietly eating the
+     judgment lane is otherwise indistinguishable from "the bar is correctly
+     high", which is exactly what step 9's anti-ratchet exists to make visible.
    - **Framing (FR-D2, channel convention).** The `[oracle]` prefix, genre tag,
      and confidence tag are added deterministically (D13); the model never
      controls the framing that marks the channel as data-not-instruction.
@@ -1373,13 +1453,20 @@ foundation.md`, itself anchored on FR-A1.*
    is checkable and no repo text can act as an instruction. *Hardest question a
    mission-literate skeptic asks:* "you let the model write free text — what stops
    it fabricating a plausible fact with no basis, or passing a hostile repo
-   instruction through in its own words?" *Answer (cite):* nothing the model
-   writes is trusted as fact — Move C drops any whisper whose claims don't each
-   bind to a supplied store fact whose pointer resolves (P4; FR-J5), and the
-   output validator rejects imperative forms and any span from injection-suspect
-   content (FR-X2, FR-D2, FR-X3); a hostile instruction reworded by the model has
-   no provenanced fact to bind to and is dropped. The model's freedom is phrasing
-   and materiality-judgment, never *what counts as true*. *Second collapse
+   instruction through in its own words?" *Answer (cite) — rewritten in round 2,
+   because the prior answer was wrong in both halves:* on fabrication, Move C now
+   binds **content**, not merely reference — slot-filled genre templates, token
+   provenance, and an epistemic-strength lexicon (F4) — because the reference
+   check alone demonstrably passed claims asserting stability, standardness and
+   improved modularity that the bound fact did not carry. On injection, the prior
+   answer claimed *"a hostile instruction reworded by the model has no
+   provenanced fact to bind to"*; that was backwards — a reworded instruction
+   binds to **the very fact whose `claim_text` carried it**. The control is now
+   trust-conditioned composition: `untrusted_repo` facts reach the model without
+   their text at all, and whispers grounded only in them render deterministically
+   (C5). The model's freedom is phrasing within a bound template and the
+   materiality judgment, never *what counts as true* and never the wording of
+   untrusted repository text. *Second collapse
    probe — "isn't binding-to-a-supplied-fact just select-only again?":* no — the
    model composes across facts, judges which are material to *this* intent, and
    phrases the delivery (answering, contradicting, warning); select-only picks one
@@ -1420,6 +1507,15 @@ foundation.md`, itself anchored on FR-A1.*
    passes the non-imperative + suspect-span validator (D12 Move C) once more at
    the delivery boundary (delivery may be a later event; the store may have
    changed).
+   **This decision is the single authority on quotation of repo text** (Collapse
+   C5, secondary defect). Round 2 found D12 Move C and D13 stating contradictory
+   rules for the same output — Move C permitted *"delimited quotations that trace
+   to a supplied, non-suspect fact"* while D13 forbade inline quotation of **all**
+   repo-derived spans regardless of suspect status. Two rules for one behaviour in
+   adjacent decisions is a defect on its own: an implementer picks one, and
+   whichever they pick, the choice is unreviewable. The permissive sentence has
+   been removed from Move C, which now cites this paragraph. The rule below is the
+   only one.
    **The generated-file warning and `zone_evidence` (finding #9, T1 fix).** The ⚠
    generated-file warning quotes the file-head marker that classified the file.
    That marker is **raw repo text**. Therefore: at index time (D16) `zone_evidence`
