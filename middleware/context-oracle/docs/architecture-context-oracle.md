@@ -87,38 +87,102 @@ against the current hooks documentation re-read this session. Environment:
 Claude Code Remote cloud container (`CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST=1`,
 `CLAUDE_CODE_REMOTE=true`), `claude` CLI **v2.1.218**, Node **v22.22.2**, Linux.
 
-### Spike 1 — piggyback credential inheritance **with tools disallowed**: PASS in this environment (re-run 2026-07-22)
+### Spike 1 — the judgment call, run as D11 actually ships it (re-run 2026-07-30)
 
-Auth mode confirmed before concluding: **no `ANTHROPIC_API_KEY`** in the
-environment; auth is host-provisioned (`CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST=1`).
-Command and result (pasted):
+**Why this section was rewritten.** The 2026-07-22 version of this spike ran a
+*"Reply with the word ORACLE-SPIKE-OK"* prompt with an eight-name deny list, no
+`--json-schema`, and no `--system-prompt`, and reported `num_turns=1`,
+`real 0m5.733s`. That is not D11's command. Round 1 had already written the
+lesson — *"a re-run spike must exercise the **actual** design command, flags and
+all; never trust a premise whose validating command differs from the design's"*
+(`collapse-log.md`, 2026-07-22) — and this section did not apply it. Running the
+real command falsifies three properties the document derived from that figure.
+
+Environment: Claude Code Remote cloud container
+(`CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST=1`), **no `ANTHROPIC_API_KEY`**,
+`claude` CLI **v2.1.220** (the document previously certified against v2.1.218 —
+drift, as C-5 predicts), Node **v22.22.2**, Linux.
+
+**1 — The command as designed does not work at all.** With `--max-turns 1` and
+an inline `--json-schema`, carrying the real judgment prompt (intent + one
+grounded fact):
 
 ```
-$ claude -p "Reply with exactly the word ORACLE-SPIKE-OK and nothing else" \
-    --model claude-haiku-4-5 --output-format json --max-turns 1 \
-    --disallowedTools "Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch"
-subtype=success is_error=False result='ORACLE-SPIKE-OK' stop=end_turn
-duration_api_ms=2792 num_turns=1
-real 0m5.733s
+$ claude -p '<judgment payload>' --model claude-haiku-4-5 --output-format json \
+    --max-turns 1 --json-schema '<inline schema>' --system-prompt '<oracle block>' \
+    --session-id <uuid> --disallowedTools "Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch,Task,NotebookEdit"
+is_error = True    subtype = 'error_max_turns'    num_turns = 2
+structured_output present: False
 ```
 
-**Verdict.** A spawned non-interactive `claude -p` completes with valid JSON
-using only the host installation's existing authentication — **no separate
-credential of any kind** — *and* the tool-restriction flag (`--disallowedTools`,
-finding #2) is accepted and the call still succeeds single-turn. **Scope caveat
-(honesty):** this environment's auth is host-managed cloud provisioning, *not* a
-subscription login. The subscription-login case is now **documented, not assumed**
-(looked up this session): the Anthropic Help Center states that "Claude Agent SDK,
-`claude -p`, and third-party app usage still draw from your subscription's usage
-limits" — the June-15-2026 change to a separate metered credit pool was **paused** —
-and headless OAuth-token auth is a supported path (`CLAUDE_CODE_OAUTH_TOKEN`). So on
-a machine logged into Claude Code with Pro/Max, a spawned non-`--bare` `claude -p`
-uses that subscription *by documented behavior*; a per-machine confirmation at
-`init` (D20 probe) remains as a belt, not an unbacked assumption. Degraded mode is
-the sole fallback (no credential fallback exists, OWNER-7).
-**Design consequence:** measured cold-spawn wall time ≈ 5.7 s (api 2.8 s + ~3 s
-spawn) means a model call can **never** sit on the synchronous hook path
-(NF-1 p95 ≤ 1.5 s) — the judgment layer is asynchronous by necessity (D10, D11).
+Structured output is **delivered through a tool call**, which costs a turn. So
+`--max-turns 1` guarantees `error_max_turns` and returns **no verdict**. Had
+this shipped, every Lane 2 call would have failed and the oracle would have sat
+permanently in degraded mode — the same class of total-failure-in-the-owner's-
+environment as the `--bare` bug round 1 caught, and for the same reason: the
+validating command was not the shipped command.
+
+**2 — `--disallowedTools` does not empty the tool set.** Asking the child to
+enumerate its own tools under D11's exact ten-name deny list:
+
+```
+$ claude -p "List every tool you currently have available…" … \
+    --disallowedTools "Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch,Task,NotebookEdit"
+Artifact / ReportFindings / ScheduleWakeup / SendUserFile /
+ShowOnboardingRolePicker / Skill / ToolSearch / Workflow
+```
+
+A deny-list cannot deny a name it does not enumerate. `--tools ""` — documented
+in the same `--help` this design already cites (*"Use `\"\"` to disable all
+tools"*) — returns `'NONE'`.
+
+**3 — The fix matrix.** All four configurations run with the real judgment
+payload and inline schema:
+
+| configuration | wall | error | turns | structured output |
+|---|---|---|---|---|
+| `--max-turns 1` + deny-list **(as designed)** | 12.1 s | **yes — `error_max_turns`** | 2 | **none** |
+| `--max-turns 2` + deny-list | 19.1 s | no | 3 | yes |
+| **`--max-turns 2` + `--tools ""`** | **11.4 s** | no | **2** | yes |
+| `--max-turns 3` + `--tools ""` | 10.6 s | no | 2 | yes |
+
+`--tools ""` is not merely the security fix (D11, T4): with no tools to
+consider, the child reaches the structured-output turn directly, costing **one
+fewer turn and ~40% less wall time** than the deny list. The two round-2
+Criticals resolve to a single change that improves both axes.
+
+**4 — Real latency, three runs of the adopted configuration**
+(`--tools "" --max-turns 2`, inline schema, system prompt, fresh session-id):
+
+```
+run 1: wall=11.43s  api=9571ms  turns=2  err=False  cost=$0.0057
+run 2: wall=10.06s  api=9351ms  turns=2  err=False  cost=$0.0051
+run 3: wall=10.14s  api=8726ms  turns=2  err=False  cost=$0.0054
+```
+
+**Verdict and design consequences.**
+
+- The piggyback works with **no separate credential of any kind** — carried and
+  re-confirmed (`is_error: false` above, no `ANTHROPIC_API_KEY` present).
+- **The judgment call costs ≈ 10.5 s wall and ≈ $0.005, not 5.7 s.** Every
+  derivation anchored on 5.7 s is re-based on 10.5 s (D10 step 1, D11 timeout).
+  The "model call can never sit on the synchronous hook path" conclusion is
+  unchanged and now holds by a 7× margin against NF-1's 1.5 s p95 rather than 4×.
+- **`--max-turns` must be ≥ 2**, and the "single generate-no-tool turn" claim is
+  deleted wherever it appears: the invocation is structurally two turns because
+  the verdict arrives as a tool call.
+- The measured per-call cost is what makes the Lane 2 call budget (D10, D23) a
+  real requirement rather than a precaution — see D10 step 8a.
+
+**Scope caveat (carried, still honest).** This environment's auth is host-managed
+cloud provisioning, *not* a subscription login. The subscription-login case is
+**documented, not assumed**: the Anthropic Help Center states that Claude Agent
+SDK, `claude -p`, and third-party app usage still draw from the subscription's
+usage limits — the June-15-2026 separate-credit change was **paused** — and
+headless OAuth-token auth is supported (`CLAUDE_CODE_OAUTH_TOKEN`). A per-machine
+confirmation at `init` (D20 probe) remains as a belt. Degraded mode is the sole
+fallback (OWNER-7). **That same documented fact is why the oracle competes with
+its own consumer for quota — see D10 step 8a and FR-M2.**
 **Critical `--bare` finding (established this session, applied):** the design's
 model command must **omit `--bare`**. The command above carries no `--bare`; the
 identical command *with* `--bare` **fails authentication** (`is_error: true,
@@ -907,10 +971,11 @@ per-machine `init`-time confirmation remains.)
 
    ```
    claude -p --model <configured, default claude-haiku-4-5>
+     --tools ""
      --disallowedTools "Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch,Task,NotebookEdit"
      --output-format json --json-schema '<inline verdict-schema JSON>'
      --system-prompt '<fixed instruction block, D12>'
-     --max-turns 1 --session-id <fresh uuid4>
+     --max-turns 2 --session-id <fresh uuid4>
    ```
 
    run with `cwd` = the oracle's own run directory (contains **no** `.claude/`),
@@ -918,11 +983,35 @@ per-machine `init`-time confirmation remains.)
    `CTXORACLE_INTERNAL=1` set. `--json-schema` takes an **inline JSON string** —
    the schema file is read and its contents passed; the CLI has no file-path form
    (verified live: a path argument is rejected, `Unrecognized token '/'`;
-   Minor-1). Timeout: 20 s process kill (Lane 2 is off the hook path).
-   **Tools-disallowed is a real flag (finding #2).** `--disallowedTools` naming
-   the agent tool set makes the tool-restriction claim in §6.2/FR-X5/T4
-   *mechanical*, not asserted; `--max-turns 1` bounds it to a single
-   generate-no-tool turn.
+   Minor-1). Timeout: **30 s** process kill — measured mean is 10.5 s (Spike 1,
+   2026-07-30), so 30 s is ~3× headroom; the prior 20 s was set against a 5.7 s
+   figure that belonged to a different command. Lane 2 is off the hook path, so
+   the timeout trades only judgment freshness, never agent latency.
+
+   **`--tools ""` is the primary tool control; the deny-list is defence in depth
+   (Critical F2, round 2).** The prior draft used `--disallowedTools` alone and
+   claimed on that basis that the child's tool set was "empty by flag." It is
+   not: run live, the ten-name deny list leaves **Artifact, ReportFindings,
+   ScheduleWakeup, SendUserFile, ShowOnboardingRolePicker, Skill, ToolSearch,
+   Workflow** available — including task-scheduling and file-emitting
+   capabilities. A deny-list is definitionally incapable of denying a name it
+   does not enumerate, so it is the wrong shape for a least-privilege boundary.
+   `--tools ""` — documented in the same `--help` this design cites (*"Use `\"\"`
+   to disable all tools"*) — returns `'NONE'` when the child is asked to
+   enumerate its own tools. The deny-list is retained *behind* it so that a
+   future CLI change to `--tools` semantics degrades to a partial control rather
+   than to none.
+
+   **`--max-turns` is 2, not 1, and the invocation is not tool-free (Serious
+   F3).** Structured output under `--json-schema` is delivered *through a tool
+   call*, which costs a turn. With `--max-turns 1` the call returns
+   `is_error: true`, `subtype: error_max_turns`, and **no verdict at all** — so
+   the previously shipped command would have failed 100% of Lane 2 calls and
+   pinned the oracle into permanent degraded mode. The prior sentence asserting
+   `--max-turns 1` "bounds it to a single generate-no-tool turn" was false in
+   both halves and is deleted. Two turns is the structural minimum; the bound is
+   *"one model generation plus its verdict delivery,"* which is what actually
+   limits the child.
    **Why `--bare` is NOT used (Critical fix — established live this session).**
    The prior draft's command carried `--bare`. Its own help states: *"Anthropic
    auth is strictly ANTHROPIC_API_KEY or apiKeyHelper via --settings (OAuth and
@@ -964,24 +1053,52 @@ per-machine `init`-time confirmation remains.)
    trusting `--max-turns` alone.
 4. **What this decision is NOT — and why.** Keeping `--bare` for its
    skip-hooks/minimal behavior (rejected: it breaks OWNER-7 auth, proven above —
-   the disqualifying trade); empty `--allowedTools` *only* instead of the deny
-   list (works for tool restriction, but a deny-list stated by name is the more
-   legible least-privilege posture and denies newly-introduced tool names by
-   default); hook-config surgery via `--settings` (fragile against settings-merge
+   the disqualifying trade); **a deny-list as the primary tool control
+   (rejected — this was the prior draft's position and it was inverted).** That
+   draft argued a named deny-list "denies newly-introduced tool names by
+   default." The opposite is true by construction: a deny-list permits every
+   name it does not list, so each new tool the CLI ships is granted to the
+   oracle's judgment child silently. Least privilege in every source this
+   decision cites — OWASP LLM01, ASVS V15 — is default-deny with an explicit
+   allow-set, and `--tools ""` is that. The empirical form of the error is in
+   Spike 1: eight tools remained under the deny list. The deny-list survives
+   only as the second layer; hook-config surgery via `--settings` (fragile against settings-merge
    changes; mutates config the oracle doesn't own); `--setting-sources` alone
    (insufficient against user-scope wiring); a lockfile "am I already running"
    check (guards reentry, not the child's own hooks firing — the actual threat).
-5. **Premise verification (established live this session).**
-   `--disallowedTools`/`--allowedTools` present in CLI **v2.1.218** help
-   (captured, exact text "Comma or space-separated list of tool names to
-   deny/allow"). **Auth: the command WITHOUT `--bare` succeeds with no
-   `ANTHROPIC_API_KEY` (`is_error: false, ORACLE-OK`); the same command WITH
-   `--bare` fails 3/3 (`is_error: true, "Authentication error"`) — `--bare` help:
-   "OAuth and keychain are never read." Hence `--bare` removed.** `--json-schema`
-   rejects a file-path argument and accepts inline JSON — passed inline (Minor-1).
-   `--session-id`/`--system-prompt` present in the same capture; session-id
-   inheritance observed (Spike 1, 2026-07-17). Spec §6.2 read at 216–250, D-6 at
-   716–719. Addresses: §6.2, [spec D-6], FR-J2, FR-X5, AC-11, C-5, T4.
+5. **Premise verification — every claim below re-established by running this
+   decision's own command on 2026-07-30 (Spike 1 carries the pasted output).**
+   CLI is **v2.1.220**; the previous certification named v2.1.218, so the version
+   drifted between rounds exactly as C-5 anticipates — every flag named here was
+   re-checked against the installed help, not inherited.
+   - `--tools` present, help text *"Specify the list of available tools from the
+     built-in set. Use `\"\"` to disable all tools"*. Run with `--tools ""`, the
+     child enumerates its tools as `'NONE'`.
+   - `--disallowedTools` present; run with D11's ten-name list, the child
+     enumerates **eight remaining tools** — hence the demotion to second layer.
+   - `--max-turns 1` + `--json-schema` → `is_error: true`,
+     `subtype: 'error_max_turns'`, `num_turns: 2`, **no `structured_output`
+     key**. `--max-turns 2` + `--tools ""` → `is_error: false`, `num_turns: 2`,
+     `structured_output` present. 3/3 stable.
+   - Latency of the adopted configuration: 11.43 / 10.06 / 10.14 s wall
+     (api 9.6 / 9.4 / 8.7 s), cost $0.0057 / $0.0051 / $0.0054 per call.
+   - Auth: the command WITHOUT `--bare` succeeds with no `ANTHROPIC_API_KEY`;
+     WITH `--bare` it fails 3/3 (`"Authentication error"`) — `--bare` help:
+     "OAuth and keychain are never read." `--bare` stays removed.
+   - `--json-schema` rejects a file-path argument (`Unrecognized token '/'`) and
+     accepts inline JSON — passed inline (Minor-1).
+   - `--session-id`/`--system-prompt` present in the same capture; session-id
+     inheritance observed (Spike 1, 2026-07-17).
+
+   Spec §6.2 read at 216–250, [spec D-6] at 716–719.
+   Addresses: §6.2, [spec D-6], FR-J2, FR-X5, AC-11, C-5, T4.
+
+   **New acceptance criterion required (F2).** No existing AC asserts the tool
+   set is empty — AC-11 counts oracle *hook firings* in the child, which is a
+   different property. **AC-11a**: the judgment child, asked to enumerate its own
+   tools, returns none; the fixture runs the shipped command verbatim, including
+   `--tools ""`, and fails if any tool name is returned. Without it, T4's
+   "empty by flag" claim has no test and would drift back to prose.
 
 ### D12 — Grounded-generation judgment: prompt construction, composition, and verify-and-bound (FR-A1, FR-J5, FR-X2)
 
