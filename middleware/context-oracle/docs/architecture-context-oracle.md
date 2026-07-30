@@ -664,14 +664,42 @@ per-machine `init`-time confirmation remains.)
      run/<repo-key>/<session-short>.sock   # sockets, 0700
    ```
 
-   `<repo-key>` = first 12 hex of SHA-256 over the repo's **root-commit hash**
-   (`git rev-list --max-parents=0 HEAD`, first line) — stable across clones,
-   worktrees, and container rebuilds, which is what makes export/import (FR-K9)
-   land in the same identity. Fallbacks: no git → SHA-256 of the realpath (marked
-   `path-keyed` in store meta; `status` says so plainly); multiple root commits →
-   lexicographically first. A `meta` table records the human-readable repo path +
-   origin URL for `status` display only — identity never derives from the mutable
-   origin URL.
+   `<repo-key>` = first 12 hex of SHA-256 over the repo's **root-commit hash**,
+   selected by the rule below — stable across clones, worktrees, and container
+   rebuilds, which is what makes export/import (FR-K9) land in the same identity.
+   A `meta` table records the human-readable repo path + origin URL for `status`
+   display only — identity never derives from the mutable origin URL.
+
+   **Selection rule, made deterministic and shallow-aware (finding F5, round 2).**
+   The prior text said "first line" in its primary rule and "lexicographically
+   first" in its multiple-root fallback — two different commits whenever a
+   repository has more than one root, which is not an edge case: run on
+   `Maxcogar/agent-armory` itself, `git rev-list --max-parents=0 HEAD` returns
+   **six** commits, and the two rules select different ones (`99818db…` by
+   traversal order, `1e3bc14…` lexicographically). An implementer following D5
+   got a different store depending on which sentence they read. Worse, the
+   premise line certified *"verified locally this session — returns the root
+   commit on this repo"*, which is false on the very repository it names.
+
+   1. **One rule: the lexicographically smallest root-commit hash.** "First line"
+      is deleted. Traversal order is not a specified property of `git rev-list`
+      output and must never determine store identity.
+   2. **Shallowness is detected, not ignored.** In a `--depth 1` clone
+      `git rev-list --max-parents=0 HEAD` returns the **shallow boundary commit**,
+      not the root — verified on a purpose-built full-vs-shallow pair, where the
+      two disagreed. Git is present and a commit *is* returned, so no fallback
+      fires and the oracle silently keys a different store for the same
+      repository. Since shallow cloning is the dominant way containers rebuild —
+      exactly the case FR-K9 exists for — `init` runs
+      `git rev-parse --is-shallow-repository` and, when true, either
+      `git fetch --unshallow` once (D22's preflight is already the place for a
+      one-time cost) or falls back to `path-keyed` mode with `status` saying so
+      plainly. It never derives a commit key from a shallow history.
+   3. **Fallback unchanged:** no git → SHA-256 of the realpath, marked
+      `path-keyed` in store meta.
+   4. **Residual, stated:** a repository that merges unrelated histories *after*
+      `init` changes its root set and therefore its key. Recorded in Limitations
+      rather than hidden; `status` shows the key so the change is visible.
 2. **Standard.** OWNER-6 (two stores, outside the tree) is the requirement;
    [spec D-13] makes the layout an architect default — confirmed with the
    identity mechanism added. First-principles anchor for root-commit keying: the
@@ -682,10 +710,17 @@ per-machine `init`-time confirmation remains.)
 4. **Rejected.** XDG triple-split (discoverability cost, no payoff at this scale);
    store inside the repo (violates P8); keying by origin URL (mutable, often
    absent in sandboxes); keying by path alone (breaks on every container rebuild).
-5. **Premise verification.** Spec FR-K8/[spec D-13] read at lines 334–338,
-   743–746; `git rev-list --max-parents=0` is standard git (verified locally this
-   session — returns the root commit on this repo). Addresses: FR-K8, FR-K9, P8,
-   FR-X7.
+5. **Premise verification (re-established 2026-07-30; the prior sentence here was
+   false).** Spec FR-K8/[spec D-13] read at lines 334–338, 743–746. Executed on
+   `Maxcogar/agent-armory`: `git rev-list --max-parents=0 HEAD` returns **six**
+   commits, not one — so the old certification *"returns the root commit on this
+   repo"* was wrong on the repository it was allegedly checked against, and the
+   primary and fallback rules selected different commits. Executed on a
+   purpose-built full/shallow clone pair: the full clone's root
+   (`133344377daf…`) and the `--depth 1` clone's returned commit
+   (`a25c4df14b39…`) differ, with `.git/shallow` present and no fallback firing.
+   Both results drive the rewritten selection rule above.
+   Addresses: FR-K8, FR-K9, P8, FR-X7, AC-15.
 
 ### D6 — Project-store schema (provenance-mandatory)
 
@@ -1607,9 +1642,58 @@ foundation.md`, itself anchored on FR-A1.*
    which FR-M has the oracle watch its *own* conduct. It is **not** the gatekeeper
    posture the rethink removed: that posture was *blocking* (deny paths, plan
    firewalls); these are advisory whispers (P2) that block nothing and are the
-   sanctioned replacement for a gate (RETHINK §9). Process expectations are
-   extracted by Lane 2 (not in the degraded set); answer-drift is deterministic
-   bookkeeping. The whisper names the **specific conflict with its pointer**
+   sanctioned replacement for a gate (RETHINK §9).
+
+   **These genres could not actually be delivered as previously designed
+   (Collapse C2, round 2) — the gap is now closed.** Every whisper must bind each
+   claim to a supplied fact whose pointer resolves against the **store** (D12
+   Move C; D13's assembly gate). A loaded skill's required steps live in the
+   *transcript*; the observed-activity gap lives in Tier 3, which D15 states is
+   **in-memory**; and D6 had no table for skill expectations at all. So the two
+   genres the owner specifically asked for would have been built last, found
+   undeliverable at fixture time, and either quietly descoped or forced through
+   by an implementer inventing a grounding exception inline. Worse, the
+   load-bearing claim — *"no matching tool call observed"* — is an **absence**
+   claim about the session, the exact shape that structurally precluded the
+   `Unknown` genre in round 1. The negative-evidence fact that fixed `Unknown`
+   was defined only for a bounded *store* query returning empty, so the trap it
+   closed was still open one decision over. Three changes:
+
+   1. **Session-evidence fact class.** Generalizes the round-1 negative-evidence
+      mechanism beyond store queries: `prov_kind='session'`,
+      `prov_ref='transcript:<session>:<offset>'`, `trust='mechanical'`, with a
+      resolver that **re-reads that transcript offset**. The pointer is checkable
+      in P4's sense — the owner or the agent can go look at the turn — so
+      grounding stays honest rather than being waived. D13's assembly gate gains
+      this resolver explicitly, beside file-hash and commit resolution.
+   2. **`skill_expectations` table in D6** —
+      `(session, consumer, skill_ref, step_text, required_activity, prov_*)`,
+      written by the narration reader. Process now has a bindable, auditable,
+      evictable fact, and its evidence appears in the FR-X6 audit record like
+      every other whisper's.
+   3. **The Process detector is specified, not named.** "Process expectations are
+      extracted by Lane 2" was the entire prior specification for turning
+      arbitrary prose skill documents into checkable steps with line pointers —
+      the hard half of OWNER-9 named but not designed, while answer-drift (the
+      easy half) was fully specified. **v1 scope is the mechanically decidable
+      subset**: an expectation is extracted only when a step names a concrete
+      required activity (a named command, tool, or file operation) and carries a
+      line pointer; a *completion claim* is an assistant statement matching the
+      claim lexicon within the turn that ends a task; the *match rule* is the
+      presence of a tool event of the required signature for that consumer after
+      the expectation was registered. Steps that are not mechanically decidable
+      are **not extracted** and produce no whisper — narrower than FR-A8's full
+      breadth, stated as a v1 bound rather than left implicit, and recorded in
+      Limitations. Narrower is acceptable; undesigned is not.
+
+   **Security consequence (feeds AC-7).** Skill text is untrusted transcript
+   content that now enters the model prompt and the store, so it joins D19's
+   enumerated ingress list and is secret-scanned and injection-flagged like any
+   repo text — and, per D12's trust-conditioned composition, an expectation
+   carrying `trust='untrusted_repo'` supplies no `claim_text` to the model.
+
+   Answer-drift remains deterministic bookkeeping. The whisper names the
+   **specific conflict with its pointer**
    ("completion claimed at turn T; loaded skill X requires verification at line L;
    no matching tool call observed" / "question Q asked at `loc`, unaddressed for 2
    turns") — it does *not* recite a checklist step-by-step or re-quote the question
