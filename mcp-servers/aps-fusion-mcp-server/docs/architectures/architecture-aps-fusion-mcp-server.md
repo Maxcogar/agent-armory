@@ -2,9 +2,12 @@
 
 **Status:** Delivered for review
 **Author:** architecture phase, expert-architecture
-**Date:** 2026-07-28
+**Date:** 2026-07-30
 **Input spec:** `docs/specs/spec-aps-fusion-mcp-server.md` — review status per `HANDOFF.md`
-(2026-07-28): PASS after five independent blinded rounds, zero findings. Note: the spec file's
+(2026-07-29): PASS after five independent blinded rounds, zero findings, with one subsequent
+amendment: R-REL-7's crash clause and AC-25 were rewritten (commit `063af2e`) to state achievable
+properties under C2, and that amendment has not itself been reviewed — it owes its own review
+round. This document designs against the amended text (D8; Limitation 7). Note: the spec file's
 own `Status:` line still reads "Draft for review" — stale governance metadata flagged to the
 owner; this document does not resolve the discrepancy itself.
 **Owner inputs received 2026-07-28:** (1) the APS app and the Fusion subscription are in the **same
@@ -51,15 +54,17 @@ requirements.
 ## Components and structure
 
 One Node.js ≥18 process (TypeScript, `@modelcontextprotocol/sdk` v1.29.x, Express 5, zod v4,
-pino). The process always binds **127.0.0.1**, on **two listeners**: the main listener
-(MCP/auth/health) is published to the owner's tailnet via `tailscale serve` — never to the public
-internet; a second, webhook-only listener is published via `tailscale funnel` **only when
-webhooks are enabled** (D1). Layers, dependency direction strictly downward:
+pino). The process always binds **127.0.0.1**; the listener set is mode-dependent (D1). Hosted
+mode runs the main listener (MCP/auth/health), published to the owner's tailnet via `tailscale
+serve` — never to the public internet — plus a webhook-only listener published via `tailscale
+funnel` **only when webhooks are enabled**; stdio mode runs a single dev-login aux listener
+(D1). Layers, dependency direction strictly downward:
 
 ```
 src/
   index.ts                 Composition root: config → logger → services → routes → transports.
-                           Mounts middleware in fixed order (bearer gate → origin check → transport).
+                           Mounts middleware in fixed order (bearer gate → origin check → JSON
+                           body parser → transport) (D3).
                            Selects stdio (--stdio) and/or HTTP serving per config.
   config.ts                All configuration: zod-validated at startup, read once, typed export (D21).
   logging.ts               pino instance: stderr (stdio mode) or file+stderr (HTTP mode); redact paths (D20).
@@ -68,7 +73,7 @@ src/
     auth-routes.ts         GET /auth/login (PKCE authorize redirect), GET /auth/callback (code exchange) (D9).
     webhook-route.ts       POST /webhooks/aps on the DEDICATED webhook listener (public via Funnel):
                            express.raw body → HMAC verify → replay dedupe → event journal (D11).
-    health-route.ts        GET /healthz: liveness + auth-state summary, no secrets (D26).
+    health-route.ts        GET /healthz: liveness + auth-state summary, no secrets (D25).
     middleware.ts          Bearer gate (timingSafeEqual), Origin validation (403), loopback-bind assertion (D2, D3).
   services/
     token-manager.ts       Sole owner of the credential file. Single-flight refresh, cross-process
@@ -88,14 +93,15 @@ src/
                            aggregation, domain-typed results. The v2→v3 blast-radius wall (D5, D6, D7).
     dm-gateway.ts          Data Management REST: browse, storage+signed-S3 upload pipeline,
                            rollup-based change polling (D12, D23).
-    md-gateway.ts          Model Derivative REST: translate (billable), manifest/object tree/properties (free).
+    md-gateway.ts          Model Derivative REST: translate (billable); manifest/object tree/
+                           properties/derivative-download URL (free).
     da-gateway.ts          Automation v3: activity enumeration, WorkItem submit/status, DM-storage outputs (D23).
   tools/
     auth-tools.ts          1 tool     (spec §6.7)
     discovery-tools.ts     6 tools    (§6.1)
     read-tools.ts          6 tools    (§6.2)
     write-tools.ts         9 tools    (§6.3; incl. tool 36 upload — D27)
-    export-tools.ts        6 tools    (§6.4)
+    export-tools.ts        7 tools    (§6.4)
     automation-tools.ts    4 tools    (§6.5)
     notify-tools.ts        4 tools    (§6.6)
 ```
@@ -109,8 +115,8 @@ are prohibited (D19), so unguarded output is a composition-level defect visible 
 per-handler omission.
 
 **Data flow (hosted).** MCP client (owner device on the tailnet) → `tailscale serve` (WireGuard +
-ts.net TLS) → main loopback listener → bearer gate → origin check → per-request transport → tool
-handler → gateway → `aps-http` → Autodesk. Webhooks (when enabled): Autodesk → Tailscale Funnel
+ts.net TLS) → main loopback listener → bearer gate → origin check → JSON body parser →
+per-request transport → tool handler → gateway → `aps-http` → Autodesk. Webhooks (when enabled): Autodesk → Tailscale Funnel
 (public HTTPS, tailscaled-terminated TLS) → webhook-only loopback listener → `POST /webhooks/aps`
 (raw body) → HMAC → dedupe → event journal → readable via `aps_notify_changes_since`. With Funnel
 off, nothing on the machine is publicly reachable and change detection runs on polling (D12).
@@ -121,7 +127,7 @@ Effect classes: **R** = read-only and free, with the costlessness basis stated p
 (`readOnlyHint:true`): **MFG-backed reads** (tools 2–12, 22, 35) carry no metered charge
 under the subscription-included allowance (C4 — MFG becomes priced 2026-08-17; the
 owner-confirmed same-team placement makes the allowance apply; Limitation 11); **Model
-Derivative reads** (24, 25, 26) are free because Model Derivative meters *translation jobs*, not
+Derivative reads** (24, 25, 26, 37) are free because Model Derivative meters *translation jobs*, not
 derivative/manifest retrieval; **Design Automation reads** (27, 29, 30) are free because
 Automation meters *WorkItem processing time*, not status or output listing; **Webhooks and Data
 Management reads** (1, 32, 34 — tool 1's auth probe is the Data Management call D8 specifies,
@@ -139,7 +145,7 @@ gates it, `readOnlyHint:false`. All tools declare full zod input schemas and `ou
 | 5 | `aps_list_folder_items` | R | hub_id, folder_id, cursor? — backing `itemsByFolder(hubId!, folderId!)` takes exactly these; no project id is accepted because the query does not consume one | items[] + pageInfo. Backing type is the `Item` **interface**: id, name, extensionType, createdOn/By, lastModifiedOn/By come from interface fields; each row carries its concrete type (`__typename`); tip-version data (`tipVersion{id, versionNumber, lastModifiedOn}`) comes via inline fragments on **all four** concrete types (BasicItem, DesignItem, ConfiguredDesignItem, DrawingItem — each carries `tipVersion`, schema-verified) | R-DISC-1/3 |
 | 6 | `aps_find_design` | R | name filters (hub/project/design), cursor? | typed matches + completeness; server-side fan-out capped per D7's search extension (`MFG_SEARCH_MAX_PROJECTS`), cursor resumes the scan. Match typing (schema-verified): `DesignItem` matches carry `tipRootComponentVersion.id` (the only type bearing it, via `... on DesignItem`); `ConfiguredDesignItem` matches carry `tipVersion.id`, a `configured:true` flag, and per-row root component versions via `tipConfigurationTable.rows[].rootConfigurationMember`, returned as `configurationRows[]{rowId, rowName, rootComponentVersionId}` bounded at the first `MFG_SEARCH_ROW_LIMIT` rows (config, default 25; `rows` is API-unpaginated so the bound is tool-level) with `truncated:true` + guidance to tool 7 when larger; Basic/Drawing matches return typed hub/project/item ids only | R-DISC-2 |
 | 7 | `aps_get_design_metadata` | R | discriminated union: `{item_id, hub_id, composition?}` (composition = WORKING/RELEASED/AS_SAVED/LATEST via `Query.item(composition:)`) **or** `{component_version_id}` (already a specific version; composition not accepted) | Field provenance (schema-verified): **item branch** — interface fields (name, created/modified by+on) directly; `... on DesignItem` → `tipRootComponentVersion` supplies partNumber/partDescription/materialName/isMilestone and `tipVersion` (DesignItemVersion) supplies versionNumber/createdOn; `... on ConfiguredDesignItem` → `tipVersion` supplies versionNumber, and part-level fields come **per configuration row** via `tipConfigurationTable.rows[].rootConfigurationMember`: with the optional `configuration_row_id` input, that row's root `ComponentVersion` supplies partNumber/partDescription/materialName/isMilestone; without it, the tool returns the row list `{rowId, rowName, rootComponentVersionId}` (bounded at `MFG_SEARCH_ROW_LIMIT`, truncation explicit) for the caller to select from; Basic/Drawing items → interface + tipVersion metadata only, typed. **componentVersion branch** — partNumber/partDescription/materialName/isMilestone/lastModifiedOn+By/createdBy directly on `ComponentVersion`; versionNumber/createdOn via `designItemVersion → DesignItemVersion`, falling back to `configuredDesignItemVersion → ConfiguredDesignItemVersion` (both carry versionNumber+createdOn, schema-verified); absent-with-reason when neither resolves | R-READ-1/6 |
-| 8 | `aps_get_assembly_structure` | R | componentVersion id, max_pages? | full line data: per-node id/name/partNumber/material + derived quantity; `truncated`+cursor when capped | R-READ-2 |
+| 8 | `aps_get_assembly_structure` | R | componentVersion id, max_pages?, cursor? | full line data: per-node id/name/partNumber/material + derived quantity; `truncated`+cursor when capped, and the cursor passed back resumes the scan (D7) | R-READ-2 |
 | 9 | `aps_get_physical_properties` | R | componentVersion id | mass/volume/density/area/bbox with units | R-READ-3 |
 | 10 | `aps_where_used` | R | componentVersion id, cursor? | containing assemblies + pageInfo | R-READ-4 |
 | 11 | `aps_get_custom_properties` | R | componentVersion id, cursor? | custom properties + their definitions; pageInfo via the schema's `Properties{results, pagination}` connection | R-READ-5 |
@@ -165,9 +171,10 @@ gates it, `readOnlyHint:false`. All tools declare full zod input schemas and `ou
 | 31 | `aps_notify_register_webhook` | W | event types, scope (folder/project) | registered hook ids — one hook per event type, each with its own generated secret persisted to `webhook-secrets.json` (D11); callback = WEBHOOK_PUBLIC_URL/webhooks/aps; actionable error naming the config key when no Funnel/WEBHOOK_PUBLIC_URL is configured | R-NOTIFY-1 |
 | 32 | `aps_notify_list_webhooks` | R | cursor? | registered hooks; pageInfo via Webhooks `pageState`/`next` | R-NOTIFY-1 |
 | 33 | `aps_notify_delete_webhook` | W (destructive) | hook id | deletion confirmation; removes the hook's entry from `webhook-secrets.json` (D11) | R-NOTIFY-1 |
-| 34 | `aps_notify_changes_since` | R | marker (data-derived high-water time), since_sequence? (event-journal position), resume_position? (folder-queue cursor from a truncated poll), scope? | changes from the event journal (webhook-fed, selected by sequence) merged with the DM rollup poll and de-duplicated on (itemId, versionId); **cursor-paged via three named fields (D12):** the response returns `marker` (Autodesk-clock, advances only over fully scanned ground), `sequence` (highest journal entry emitted), and — when `truncated:true` — `resume_position`; a caller passes back whichever it holds | R-NOTIFY-2 |
+| 34 | `aps_notify_changes_since` | R | marker (data-derived high-water time), since_sequence? (event-journal position), resume_position? (folder-queue cursor from a truncated poll), scope? | changes from the event journal (webhook-fed, selected by sequence) merged with the DM rollup poll and de-duplicated on (itemId, versionId); **merged-source resumable via three named fields (D12):** the response returns `marker` (Autodesk-clock, advances only over fully scanned ground), `sequence` (highest journal entry emitted), and — when `truncated:true` — `resume_position`; a caller passes back whichever it holds | R-NOTIFY-2 |
 | 35 | `aps_list_item_versions` | R | hub_id, item_id, cursor? | versions[] (id, versionNumber, createdOn, lastModifiedOn — all `ItemVersion`-interface fields, schema-verified) + pageInfo — via the schema's `itemVersions` query (discovery group) | R-DISC-1 |
 | 36 | `aps_upload_file` | W | project_id, target folder, **file bytes (base64 content, size-bounded) — no filesystem path accepted** (D28), name | uploaded file as a new DM item + version ids (any file type, via D23's storage pipeline — the foreign-CAD ingestion path, D27); `destructiveHint:false`, `idempotentHint:false` (write group) | R-EXPORT-4 |
+| 37 | `aps_md_get_derivative` | R | version_id (D27), derivative_urn (a derivative's URN from tool 24's manifest listing) | the retrieval limb of the MD submit/status/retrieve split: signed download URL, the signed cookies required to use it, size, content type, and expiry for **one** translated derivative, via MD's `…/manifest/:derivativeUrn/signedcookies`. The URL is **fetched by the caller, not the server** — the server's only outbound call is the signed-cookies request to the allowlisted API host (D22), so the download host never enters the egress path (export group, export-tools.ts) | R-EXPORT-3/5 |
 
 Every list-returning tool carries one of three stated dispositions (R-DISC-4), and the quantified
 set is enumerated here — every inventory row returning a list appears in exactly one
@@ -176,7 +183,7 @@ the API's native paging): tools 2–6, 8, 10, 11, 12, 35 (MFG connection cursors
 type in the schema, including `Properties{results, pagination}`, is a paginated connection); tool
 26 (MD `properties:query` `pagination{offset,limit,totalResults}`, verified via Context7
 2026-07-28); tool 27 (DA `paginationToken`/`pagestring`, verified 2026-07-28); tool 32 (Webhooks
-`pageState`/`next`, verified 2026-07-28); tool 34 (the returned marker is the cursor).
+`pageState`/`next`, verified 2026-07-28).
 **Bounded-single-response** (the backing API returns one bounded document; the tool states its
 bounding mechanism): tool 24 (one URN's manifest); tool 25 (`objectid`/`level` sub-tree
 narrowing; API-enforced 20 MB/`forceget` ceiling); tool 30 (the output set recorded at
@@ -187,9 +194,9 @@ one member, tool 34, which fits neither class above because it merges a local ap
 with a bounded remote descent rather than paging one API: it takes and returns *named* position
 fields (`marker`, `sequence`, `resume_position`) instead of an opaque cursor + `pageInfo`, per
 D12's deliberate two-clock separation, and signals completeness with `truncated`. **The
-quantified set, derived from the Returns column of all 36 rows:** 20 rows return lists —
+quantified set, derived from the Returns column of all 37 rows:** 20 rows return lists —
 cursor-paged {2, 3, 4, 5, 6, 8, 10, 11, 12, 26, 27, 32, 35}, bounded-single-response
-{7, 13, 24, 25, 30, 31}, merged-source resumable {34} — and the remaining 16 rows return single
+{7, 13, 24, 25, 30, 31}, merged-source resumable {34} — and the remaining 17 rows return single
 objects or scalars. Either way a truncated result says so explicitly. No tool forks between free and billable behavior on a parameter — cost class is
 a tool boundary (D14).
 
@@ -197,7 +204,7 @@ a tool boundary (D14).
 
 | Characteristic | Spec source | How advanced | Decisions |
 |---|---|---|---|
-| Security | §8 S-1..S-14, §4 | Structural controls per threat; single enforcement points; ACL'd store; PKCE; egress allowlist; validated external identifiers; no caller-directed local I/O | D1, D2, D3, D6, D8–D13, D19, D20, D22, D27, D28 |
+| Security | §8 S-1..S-14, §4 | Structural controls per threat; single enforcement points; ACL'd store; PKCE; egress allowlist; validated external identifiers; no caller-directed local I/O | D1, D2, D3, D6, D8–D13, D17, D19, D20, D22, D27, D28 |
 | Reliability | R-REL-1..7 | Timeout-bounded outbound; classified refresh failures; atomic rotation and durable state; bounded safe-only retries; single truncation; non-fatal runtime errors | D8, D16, D18, D19, D21, D24 |
 | Functional suitability | §6 R-* | Tool inventory maps 1:1 onto §6 capabilities against verified schema shapes | D5, D7, D14, D15, D23 |
 | Maintainability | §2.3, C4 (v2→v3 risk) | GraphQL confined to one gateway; layered modules, single responsibility; typed domain seams; injectable I/O seams | D4, D5, D6, D26 |
@@ -225,13 +232,17 @@ requirements addressed.
 **D1. Topology: always-loopback process; MCP surface published tailnet-only via Tailscale
 Serve; webhook callback on a dedicated listener published via optional Tailscale Funnel.**
 *(S-2, S-4, C5, C7, spec D-1; R-OPS-4)*
-**Decision.** The server binds 127.0.0.1 in every mode, on two listeners. **Main listener**
+**Decision.** The server binds 127.0.0.1 in every mode; the listener set is mode-dependent.
+Hosted mode runs the main listener plus — only when the owner enables webhooks — the webhook
+listener; stdio mode runs only the dev-login aux listener specified below; `both` mode runs the
+hosted set with the aux suppressed as redundant (D21). **Main listener**
 (`/mcp`, `/auth/*`, `/healthz`): published to the owner's tailnet with `tailscale serve` —
 WireGuard-encrypted transport plus tailscaled-terminated HTTPS on the machine's `ts.net`
 hostname; **never publicly reachable**. Multi-device access (spec D-1) = the owner's devices are
 on the tailnet. **Webhook listener** (only `POST /webhooks/aps`): a separate loopback port,
 published to the public internet with `tailscale funnel` **only when the owner enables webhooks**.
-The two loopback listeners keep the public surface to exactly one route that serves nothing else —
+In the full hosted-with-webhooks configuration, the two HTTP listeners keep the public surface
+to exactly one route that serves nothing else —
 but the public/private **boundary itself is a Tailscale per-port configuration property, not a
 process property**, and the architecture therefore pins it: Serve publishes the main listener on
 **ts.net port 443** (`tailscale serve --https=443 <main loopback port>`, tailnet-only); Funnel
@@ -255,7 +266,8 @@ on it is prohibited** (the predecessor's headline defect was exactly an `/mcp` r
 an aux listener); it binds 127.0.0.1 on the port of `APS_CALLBACK_URL`, is never published via
 Serve or Funnel, runs for the process lifetime, and serves no MCP surface, so S-1's
 no-unauthenticated-MCP-surface property holds in stdio mode by route-set construction. The
-loopback-bind startup assertion covers all three listeners.
+loopback-bind startup assertion covers every listener the process starts (main, webhook, and
+stdio aux).
 **Standard.** [MCP-TRANSPORT] localhost-binding + Origin validation (spec S-4 elevates binding to
 SHALL); OWASP Threat Modeling (minimize — here, eliminate — public inbound surface).
 **Why here.** Owner input (4): every hosted service he runs is already accessed through his
@@ -331,7 +343,11 @@ set is pinned (R-PROTO-1 "exactly the capabilities it implements"; spec §9.1): 
 with `listChanged: false`** (D15 fixes a static inventory); no `resources`, `prompts`,
 `logging`, or `completions` capability is declared. **Request-body bound (the enforcement point
 for D28's input limit):** the `/mcp` route mounts `express.json({ limit: HTTP_MAX_BODY_BYTES })`
-ahead of the transport — Express's default is **100 kB** (verified), which would reject any
+**after the bearer gate and Origin check, ahead of the transport** — the gate decides on headers
+alone, so an unauthenticated request is 401'd before a single body byte is buffered, and the
+`HTTP_MAX_BODY_BYTES` resident-bytes ceiling is reachable only by an authenticated caller (the
+parser's 413 therefore ranks after the gate's 401 — the same stated-precedence discipline as
+the AC-13 middleware-order note below). Express's default is **100 kB** (verified), which would reject any
 upload above ~75 kB of content once base64 expansion is applied and silently make tools 20/36
 unusable. `HTTP_MAX_BODY_BYTES` defaults to `ceil(UPLOAD_MAX_BYTES × 4/3) + 1 MB` envelope
 headroom, and startup asserts it is not below that derived minimum, so the two bounds cannot
@@ -356,7 +372,8 @@ instances; tool registration is cheap).
 **Premise.** Transport options and their deprecation verified via Context7
 `/modelcontextprotocol/typescript-sdk/v1.29.0` (`WebStandardStreamableHTTPServerTransportOptions`:
 `sessionIdGenerator`, `enableJsonResponse`, deprecated `allowedHosts`/`allowedOrigins`/
-`enableDnsRebindingProtection`), 2026-07-28.
+`enableDnsRebindingProtection`), 2026-07-28. `express.json()`'s `limit` option defaults to
+`'100kb'` — verified via Context7 `/expressjs/express`, 2026-07-30.
 
 **D4. Module layout: composition root + http routes + services + gateways + tools, dependencies
 pointing downward only.** *(R-REL-6, R-OPS-2; maintainability)*
@@ -370,7 +387,7 @@ allowlist) are constructor-injected services, not utilities handlers may forget 
 converts "every handler must remember X" into "X is in the path by construction."
 **Not.** Not the predecessor's two-layer `services/tools` shape with per-file URL constants and
 per-tool truncation helpers (that layout is where the divergent truncation and bare-quote handler
-lived). Not a plugin/auto-discovery tool registry — 36 static tools need no dynamism.
+lived). Not a plugin/auto-discovery tool registry — 37 static tools need no dynamism.
 **Premise.** Predecessor layout and its defects verified by codebase-RAG this session (queries and
 hits recorded in the survey: `src/index.ts` unauthenticated `/mcp`; two truncation
 implementations; thumbnail handler bare-quote interpolation).
@@ -389,7 +406,7 @@ through handlers (the predecessor's shape, cheapest to write); chosen path conce
 radius in one file and gives S-7 and R-REL-5 single enforcement points as a side effect.
 **Why here.** This articulation applies because the v2 deprecation banner is live on the exact
 endpoint this server calls and v3's removal of `ComponentVersion` invalidates the id type
-threaded through six read tools — this codebase, uniquely, has a announced breaking change
+threaded through six read tools — this codebase, uniquely, has an announced breaking change
 hanging over its most-used interface, which is what makes isolation a requirement rather than a
 style preference.
 **Not.** Not v3 now: the spec's schema anchor, its live verifications, and the working query
@@ -456,7 +473,13 @@ operator's cap** (the untrusted caller must not control consumption of a metered
 T5/C4), and when the operator cap rather than the caller's request terminates the scan, the
 completeness fact says which bound bit — aggregates occurrences into parent→child edges and per-
 componentVersion quantities, and returns the tree with `truncated`, `cursor`, and per-line
-id/name/partNumber/material/quantity. The spec's derived-quantity note is satisfied here:
+id/name/partNumber/material/quantity. **The returned `cursor` is the resume contract** (the
+same shape the search extension below gives tool 6): it encodes the position in the
+occurrence-page walk, and tool 8's optional `cursor?` input accepts it back — passing it
+continues the scan from that position under a fresh page budget, so a capped BOM is completable
+across successive calls. The walk's windows partition the occurrence set, so per-line
+quantities from successive calls **sum exactly**; `truncated:false` on the final call marks the
+total as complete. The spec's derived-quantity note is satisfied here:
 **quantity = count of occurrence instances per componentVersion under the queried root**.
 **Standard.** First-principles articulation via mentalmodel(first_principles) (recorded this
 session): goal — a BOM that is either
@@ -479,8 +502,11 @@ the scan. Per-level pagination limits stay small (the predecessor's live measure
 unbounded hubs>projects>items scan costs ~101k points against the 1000 budget, and
 `tipRootComponentVersion` enrichment is deferred to matched items only). This closes the
 unbounded-fan-out gap; the query-point exposure of repeated scans is part of Limitation 11.
-**Not.** Not client-side (agent-driven) pagination for the BOM: the derived quantity requires the
-full occurrence set; pushing cursor loops onto the agent guarantees wrong quantities. Not
+**Not.** Not client-side (agent-driven) per-page pagination for the BOM: each window's derived
+quantities require that window's full occurrence set server-side, and pushing the
+≤50-occurrence page loop onto the agent guarantees wrong quantities. (The cap-boundary resume
+cursor differs in kind — every call aggregates its whole window server-side, and the windows
+partition the occurrence set, so successive calls' counts sum exactly.) Not
 unbounded looping: a pathological assembly must not hold the request forever (R-REL-1 discipline
 applied at the loop level).
 **Premise.** Query-point budget (cap 1000, computed from requested limits; 50 occurrences = 534
@@ -490,7 +516,7 @@ points, 100 = 1034; unbounded scan ~101k rejected) — live-measured values reco
 
 **D8. Token lifecycle: classified failures, journal-before-refresh, atomic persist, single-flight
 + cross-process advisory lock; the credential file is never deleted by error handling.**
-*(R-REL-2/3/7, R-AUTH-1, C1/C2/C3; AC-11, AC-18, AC-25)*
+*(R-REL-2/3/7, R-AUTH-1, S-3, C1/C2/C3; AC-11, AC-18, AC-25)*
 **Decision.** `token-manager.ts` is the only module reading/writing the credential file.
 (a) **Classification:** transient (network, 429, 5xx) → credential untouched, retryable `isError`
 result; `invalid_scope` → credential untouched, state = `reauth-required(scope-change)` with the
@@ -505,8 +531,12 @@ network/5xx/timeout ⇒ `unknown (transient)` with the credential untouched per 
 `/healthz` publishes the same three classes.
 (b) **Atomicity, and minimizing the window (R-REL-7):** refreshes are **demand-driven,
 never opportunistic** — a refresh is issued only when the access token is within the renewal
-threshold of expiry, so the number of rotation windows the server opens over its life is the
-minimum the workload requires. Before POSTing a refresh, write a `rotation-in-flight` journal
+threshold of expiry (config `TOKEN_RENEWAL_THRESHOLD_MS`, default 300 000 ms; a D21 startup
+assertion holds it at or above D18's bounded worst-case retried exchange — attempts ×
+(timeout + the 10 s wait ceiling), 120 s at defaults — so a token that passes the near-expiry
+check at dispatch cannot expire mid-flight and the relation cannot drift under configuration;
+this is the boundary AC-25's near-expiry observation is judged against), so the number of
+rotation windows the server opens over its life is the minimum the workload requires. Before POSTing a refresh, write a `rotation-in-flight` journal
 entry (state store). On response, **the raw response bytes are written durably first — temp file
 + `fsync` — and only then parsed**; the parsed credential is promoted to the live token file by
 atomic rename (NTFS and POSIX), and the journal is cleared. Writing bytes before parsing shrinks
@@ -601,8 +631,12 @@ read in full). `icacls` is a Windows-shipped tool (platform fact).
 **D11. Webhook receive path: raw-body HMAC-SHA1 verification (constant-time) → content-hash
 replay dedupe → append-only event journal; never act on an unverified callback.**
 *(S-6, R-NOTIFY-3; AC-9)*
-**Decision.** `POST /webhooks/aps` is mounted with `express.raw({type: 'application/json'})` so
-the exact payload bytes are available; compute `HMAC-SHA1(secret, rawBody)`, compare against
+**Decision.** `POST /webhooks/aps` is mounted with `express.raw({type: 'application/json',
+limit: '1mb'})` so the exact payload bytes are available. **Ordering note — deliberately unlike
+the `/mcp` chain (D3):** this route's authentication *is* the HMAC over the body, so the body is
+necessarily read before authentication; pre-verification buffering is bounded by the parser's
+explicit 1 MB limit — far above the documented callback reference bodies (single-digit kB) —
+and an oversized body is rejected 413 before any HMAC work. Compute `HMAC-SHA1(secret, rawBody)`, compare against
 `x-adsk-signature` (`sha1hash=<hexdigest>`) via `timingSafeEqual`; failure → 403, nothing else
 happens. On success: dedupe key = SHA-256 of the raw payload — content-hash rather than payload
 fields, because replay defense must hold before any field is trustworthy; if seen within the dedupe window
@@ -637,18 +671,24 @@ clause; RFC 9110 status semantics (403 unverified / 200 idempotent accept).
 **Why here.** HMAC over parsed-then-restringified JSON breaks on key ordering/whitespace — raw
 bytes are the only correct input; content-hash dedupe defeats byte-identical replay without
 depending on unverified payload field names. **The scope of that payload-independence rule is
-signature verification and replay dedupe — the operations that run before the payload is
+signature verification and replay dedupe — the operations that run before the callback is
 authenticated — and it does not extend past them:** once a callback's signature verifies, its
-payload is authenticated Autodesk data, and D12 parses `resourceUrn` from it for cross-source
-identity. Stating the scope matters because an unbounded reading of this rule would make D12's
-journal/poll join underivable.
+body is authenticated Autodesk data; D11 then captures the envelope's top-level `resourceUrn`
+into the journal entry, and D12 derives cross-source identity from that field — for the
+version-event family, with `payload.lineageUrn`/`payload.source` as version-event-specific
+fallbacks (D12 states the event-family scoping). Stating the scope matters because an
+unbounded reading of this rule would make D12's journal/poll join underivable.
 **Standard note.** SHA-1 here is keyed-MAC use fixed by Autodesk (Q-1), not collision-exposed
 signature use; recorded in Limitations.
 **Not.** Not `express.json({verify})` for this route (workable — verified — but raw() is simpler
 and parse errors shouldn't 400 before signature check). Not acting on events directly (webhook →
 side-effects would make replays dangerous; the journal decouples receipt from action). Not
 skipping replay defense on "signatures are enough" — S-6 names replay explicitly.
-**Premise.** Signature algorithm/format/header: spec §13 Q-1 (verified 2026-07-24). `express.raw`
+**Premise.** Signature algorithm/format/header: spec §13 Q-1 (verified 2026-07-24). The callback
+envelope shape — `{version, resourceUrn, hook, payload}`, with `resourceUrn` a top-level sibling
+of `payload` — and the `x-adsk-delivery-id` delivery-identifier header: verified via Context7
+`/websites/aps_autodesk_en` (Webhooks v1 `dm.version.added` callback reference; the
+`dm.operation.started` reference shows the same envelope), 2026-07-30. `express.raw`
 Buffer body and `express.json` verify-callback semantics verified via Context7
 `/expressjs/express` this session.
 
@@ -661,9 +701,9 @@ sequence, the tool takes an optional `since_sequence` and returns the highest se
 emitted as a third named field alongside `marker` and `resume_position`. This is deliberate —
 the journal's only server-side timestamp is `receivedAt` (D11), so filtering it by the
 Autodesk-clock `marker` would be exactly the cross-clock comparison this decision's clock-domain
-rule forbids, and filtering it by a payload timestamp would depend on payload field names that
-D11 declines to depend on until real callbacks are observed. A sequence has no clock in it at
-all. Journal entries therefore never advance `marker`, and a webhook-observed change the poll
+rule forbids, and filtering it by a payload timestamp would make journal *selection* depend on
+payload shape — a dependence this design confines to the identity join's fallback path (below).
+A sequence has no clock in it at all. Journal entries therefore never advance `marker`, and a webhook-observed change the poll
 cannot see (pruned folder, narrower scope) is still reported exactly once.
 **Cross-source identity (the join key, and where the payload rule does and does not apply).**
 D11's payload-independence rule is scoped to **signature verification and replay dedupe** — the
@@ -672,16 +712,26 @@ raw bytes and their hash only. Once a callback is signature-verified, its payloa
 Autodesk data and may be parsed. Identity is therefore derived on the journal side from the
 entry's **`resourceUrn` field** — captured by D11 at write time from the **top level of the
 callback envelope** (`resourceUrn` is a sibling of `payload`, not a member of it: verified
-against Autodesk's `dm.version.added` reference body, where the envelope is
-`{version, resourceUrn, hook, payload}`), carrying
-`urn:adsk.wipprod:fs.file:vf.<id>?version=N` — normalized by the same grammar D27 pins for MD
-inputs into `(itemId, versionId)`, which is the form the DM poll side already returns.
-`payload.lineageUrn` and `payload.source` corroborate it in the `dm.*` shapes (the lineage URN
-shares the version URN's opaque suffix, which is what makes the normalization work) and serve as
-fallbacks if the envelope field is ever absent. Duplicates across the two sources are collapsed on that
-normalized pair before return. A journal entry whose `resourceUrn` does not parse is still
-reported (never silently dropped) and flagged `identity: unresolved`, so a payload-shape change
-degrades to duplicate reporting rather than to loss.
+against Autodesk's `dm.version.added` callback reference via Context7
+`/websites/aps_autodesk_en`, 2026-07-30 — the envelope is
+`{version, resourceUrn, hook, payload}`, and the `dm.operation.started` reference shows the
+same shape, so this is the envelope, not an event quirk). **The field's content is
+event-family-specific** — it carries the URN of whatever resource the event concerns: the
+`dm.version.*` family carries the version URN `urn:adsk.wipprod:fs.file:vf.<id>?version=N`,
+while `dm.operation.started` carries a folder URN (`urn:adsk.wipprod:fs.folder:co.<id>`) — both
+verified in the same lookup. The `(itemId, versionId)` normalization — the same grammar D27 pins
+for MD inputs, yielding the form the DM poll side already returns — and the cross-source join
+therefore apply to the **version-event family only**. Within that family, `payload.lineageUrn`
+and `payload.source` corroborate the envelope field (the lineage URN shares the version URN's
+opaque suffix, which is what makes the normalization work) and serve as fallbacks if it is ever
+absent; both fields are version-event-specific — the `dm.operation.started` payload carries
+neither (same lookup). Duplicates across the two sources are collapsed on the normalized pair
+before return. A journal entry whose `resourceUrn` does not parse under the version-URN grammar
+is still reported (never silently dropped) and flagged `identity: unresolved`. For entries from
+non-version events — e.g. the folder-modified hooks spec R-NOTIFY-1 puts in scope — that flag is
+the **normal, by-design state**, not degradation: the DM poll reports item versions, so a
+non-version event has no poll-side counterpart to join against. For version-family entries it is
+the degradation path: a payload-shape change costs duplicate reporting, never loss.
 **(b) An on-demand DM poll** — descend the folder tree of
 configured scope, pruning any folder whose `lastModifiedTimeRollup` < marker; for un-pruned
 folders, list contents filtered by modification time ≥ marker; return changed items + a new
@@ -699,11 +749,13 @@ mechanism):** folder visits per poll are capped by `DM_POLL_MAX_FOLDERS` (config
 a poll that hits the cap returns `truncated:true` plus a **resume position** (the pending
 folder-queue cursor, distinct from the time marker — the time marker only advances over fully
 scanned ground) and the caller continues from it; completeness is a returned fact, never
-implied. **Wire contract (identical in tool 34's row):** two named fields, not an opaque
-composite — the response carries `marker` and, only when truncated, `resume_position`; the
-input accepts both, and a caller holding a `resume_position` must pass it back alongside the
-marker. Two typed fields rather than a composite token because D17's structured-output
-discipline exists precisely so agents branch on named fields. Works with zero
+implied. **Wire contract (tool 34's row states the same three-field contract):** three named
+fields, not an opaque composite — the response carries `marker` (advances only over fully
+scanned ground), `sequence` (the highest journal entry emitted, per (a)), and, only when
+`truncated:true`, `resume_position`; the input accepts `marker`, `since_sequence`, and
+`resume_position`, and a caller passes back whichever it holds. Named typed fields rather than a
+composite token because D17's structured-output discipline exists precisely so agents branch on
+named fields. Works with zero
 webhooks registered (spec D-10: change detection must not depend on the public callback path).
 **Standard.** [APS-DATAMGMT]; spec D-10.
 **Why here.** The MFG schema cannot answer "changed since" server-side — verified: `ItemFilterInput`
@@ -790,7 +842,7 @@ endpoint granularity (61 routes ≠ user-meaningful operations).
 Context7 SDK v1.29.0 (`ToolAnnotationsSchema`), 2026-07-28. `DerivativeInput{outputFormat,generate}`
 verified in the on-disk schema.
 
-**D15. Tool inventory: 36 tools in 7 groups derived from spec §6's capability decomposition, named
+**D15. Tool inventory: 37 tools in 7 groups derived from spec §6's capability decomposition, named
 `aps_<domain>_<operation>`.** *(all §6 R-*; R-PROTO-5)*
 **Decision.** The inventory table in Components is the contract. Carving rules (first-principles,
 recorded): one tool = one user-meaningful operation; cost/effect class boundaries are tool
@@ -812,7 +864,10 @@ mega-tools with operation enums (schema precision and annotations degrade).
 session — MFG GraphQL via D5's schema greps, Data Management via D12/D23's Context7 lookups,
 Design Automation via D23/Q-3 and the DA activities-pagination lookup, and **Model Derivative via
 Context7 `/websites/aps_autodesk_en` (MD v2 `properties:query` pagination and object-tree
-narrowing), 2026-07-28**.
+narrowing, 2026-07-28; the derivative-download operation
+`GET …/designdata/:urn/manifest/:derivativeUrn/signedcookies`, returning
+`{etag, size, url, content-type, expiration}` plus the CloudFront signed cookies as `Set-Cookie`
+headers — backing tool 37, verified 2026-07-30)**.
 
 **D16. Error discipline: five-class taxonomy, always `isError` tool results, protocol errors
 reserved for protocol faults.** *(R-PROTO-3, R-REL-2/6; AC-10, AC-11)*
@@ -837,7 +892,7 @@ spec D-6 records this). Not free-text-only errors (agents branch on structure).
 example), 2026-07-28.
 
 **D17. Structured output everywhere; zod v4 pinned as the single schema library.**
-*(R-PROTO-5/6; AC-10)*
+*(R-PROTO-5/6, S-8; AC-10)*
 **Decision.** Every data-returning tool declares `outputSchema` and returns `structuredContent`
 plus a human-readable text rendering. zod v4 (single version, locked) defines input schemas,
 output schemas, config validation (D21), and gateway-response validation at the trust boundary
@@ -867,7 +922,9 @@ alongside its cost tag (D13), and the two are **jointly constrained by type: `sa
 requires `cost: 'none'`** — the request type makes a billable-and-retryable request
 unconstructible, the same type-mandated enforcement D13 uses for the cost tag itself. Only `safe`
 requests retry, on 429/5xx/network, max 3 attempts, exponential backoff + jitter, honoring
-`Retry-After`. **Safe:** REST GETs, the explicitly-idempotent PUTs of the signed-upload flow, and
+`Retry-After` — with a **10 s per-attempt wait ceiling** that applies to the computed backoff
+and to an honored `Retry-After` alike, so the worst-case elapsed time of one retried exchange
+is computable: attempts × (timeout + wait ceiling), 3 × (30 s + 10 s) = 120 s at defaults. **Safe:** REST GETs, the explicitly-idempotent PUTs of the signed-upload flow, and
 those **MFG GraphQL operations D5's catalog marks `query` *and* `cost: none`**. **Unsafe, never
 retried:** every GraphQL mutation; every REST POST/PATCH/DELETE; the token-refresh POST (retrying
 double-rotates — the C2 hazard); and — the case GraphQL's own semantics get wrong — **the
@@ -880,7 +937,7 @@ without this constraint one authorized call could have spent 3× its cap — the
 guarantee, and the "billable call inside a read" defect this rebuild exists to eliminate.
 **SpendGuard authorizes once per tool invocation, not per attempt**; since no billable request is
 ever retried, the two counts cannot diverge. A method-based test, by contrast, would have
-excluded the entire MFG read surface (13 of the 22 R-class tools) from the protection this
+excluded the entire MFG read surface (13 of the 23 R-class tools) from the protection this
 decision exists to provide, on the very API whose 429s it calls routine. 429 responses
 propagate as `transient` class with the retry-after surfaced.
 **Standard.** RFC 9110 §9.2.2 (idempotent methods — retries only where the method contract makes
@@ -931,17 +988,15 @@ R-REL-5's origin). Not HTML-escaping-only (the consumer is an agent context, not
 the threat is instruction-shaped text, handled by structural separation + marking).
 **Premise.** Two divergent truncation implementations verified at source this session
 (`truncateIfNeeded` in `src/tools/mfg-data-model.ts`; `truncate` in `src/tools/model-derivative.ts`
-— RAG excerpts). Shared-fragment composition into object schemas is done via `.extend()` (or
-shape spread) — the two composition forms the zod **v4** API reference actually documents
-(`A.extend({...})` and `z.object({ ...A.shape, ...B.shape })`); `.merge()` is not used. Verified
-via Context7 `/colinhacks/zod`, 2026-07-29, with each limb attributed to the source that carries
-it: the v4 reference (`packages/docs/content/api.mdx`) documents `.extend()` and shape-spread,
-and its sentence "When merging object schemas, prefer `A.extend(B)` over intersections" states a
-preference over `z.intersection` — **not** over `.merge()`, which this document does not claim.
-The `unknownKeys`/catchall-inheritance semantics of `.merge()` are documented in the **v3**
-reference (`packages/docs-v3/home.md`), and are cited here only as the reason not to reach for
-`.merge()` where a schema-legal-by-construction guarantee is required; the decision itself rests
-on the v4-documented forms.
+— RAG excerpts). Envelope-fragment composition uses `.extend()` or shape spread
+(`z.object({ ...A.shape, ...B.shape })`) — the two composition forms the zod **v4** API reference
+documents (`packages/docs/content/api.mdx`; its guidance sentence "When merging object schemas,
+prefer `A.extend(B)` over intersections" concerns `z.intersection`). `.merge()` is not used: its
+documented semantics — the result inherits the second schema's `unknownKeys` policy and catchall
+— appear in the **v3** reference (`packages/docs-v3/home.md`), not the v4 reference, and an
+inheritance rule that can silently change a composed schema's strictness is the wrong foundation
+for a schema-legal-by-construction guarantee. Verified via Context7 `/colinhacks/zod`,
+2026-07-30.
 
 **D20. Logging: pino; destination per transport; redaction + allowlisted argument summaries.**
 *(R-OPS-1, R-PROTO-2, S-5; AC-12)*
@@ -989,7 +1044,10 @@ extension), `MFG_SEARCH_ROW_LIMIT` (25; configuration-row bound, tools 6/7), `UP
 `ceil(UPLOAD_MAX_BYTES × 4/3) + 1 MB`; the `express.json` limit on `/mcp` per D3 — startup
 asserts it is not below that derived minimum),
 `DM_POLL_MAX_FOLDERS` (200; D12's descent
-cap), spend caps (D13), dedupe TTL (24 h), `TOKEN_LOCK_STALE_MS` (45 000), `AUTH_VERIFIER_TTL`
+cap), spend caps (D13), dedupe TTL (24 h), `TOKEN_LOCK_STALE_MS` (45 000),
+`TOKEN_RENEWAL_THRESHOLD_MS` (300 000; D8(b)'s near-expiry boundary — startup asserts it is
+not below D18's worst-case retried exchange, attempts × (timeout + the 10 s wait ceiling), so
+the two bounds cannot drift apart), `AUTH_VERIFIER_TTL`
 (10 min), state/credential dir override.
 **"HTTP-serving" is defined precisely: a mode that mounts `/mcp` on any HTTP listener** — i.e.
 hosted mode. The stdio aux listener (D1) serves only `/auth/login` + `/auth/callback`, is not
@@ -1107,7 +1165,8 @@ AC-24's human-out-of-the-loop clause and AC-9 replay).
 invocation.** *(R-OPS-5, R-OPS-4; AC-12)*
 **Decision.** `GET /healthz` returns liveness, protocol revision, version (the same value
 declared in `serverInfo` per D3 — one source, `package.json`; R-OPS-3 surfaced), and
-auth-state class (`ok` / `reauth-required` — never token material). It sits outside the bearer
+auth-state class (`ok` / `reauth-required` / `unknown (transient)` — the three D8 classes,
+never token material). It sits outside the bearer
 gate (monitoring needs it; it exposes no MCP surface, no data, no secrets — trust model
 documented). stdio smoke: a documented one-line `initialize`+`tools/list` invocation for Windows
 (R-OPS-4's clean-checkout procedure includes it). The R-OPS-4 documentation deliverable SHALL
@@ -1153,33 +1212,72 @@ for failure classes (AC-11/25 require *induced* failures).
 **D27. Model Derivative URN contract: MD tools take a validated `version_id`; the gateway derives
 the URN; foreign CAD enters through a generic DM upload tool.** *(R-EXPORT-3/4, S-10; AC-7,
 AC-23)*
-**Decision.** Tools 23–26 take `version_id` — a Data Management version id in URN form
-(`urn:adsk.wip…:fs.file:vf.…?version=N`). Tools 5/6/7/35 each return an `ItemVersion`-typed id
-(schema-verified), and this decision assumes that id **is** that URN form; the schema types it
-only as `ID!`, and the assumption is **not live-verified** — see Limitation 8(b) for the exact
-check and for the derivation step required if it proves false — validated at the
-`md-gateway` boundary by a zod pattern on that URN grammar; the gateway base64url-encodes it
-internally to form the Model Derivative URN. Raw pre-encoded base64 URNs from callers are
-rejected (they would be an unvalidatable opaque string flowing into a REST path). Foreign-CAD
+**Decision.** Tools 23–26 and 37 take `version_id` — a Data Management version id in URN form
+(`urn:adsk.wip…:fs.file:vf.…?version=N`), validated at the `md-gateway` boundary by a zod
+pattern on that URN grammar; the gateway base64url-encodes it internally to form the Model
+Derivative URN. **Tool 37's second input, `derivative_urn`, carries its own stated contract.**
+Grammar, zod-validated at the same `md-gateway` boundary: the anchored form
+`urn:adsk.viewing:fs.file:<source>/<segment>[/<segment>…]` — the literal
+`urn:adsk.viewing:fs.file:` prefix, a `<source>` segment, then one or more non-empty
+`/`-separated segments, with `..` segments, `?`, `#`, `\`, and control characters rejected
+(verified form: the manifest's `derivatives[].children[].urn` and the `signedcookies` reference
+invocation both carry `urn:adsk.viewing:fs.file:<base64 source>/output/<guid>/<filename>` —
+Context7 `/websites/aps_autodesk_en`, MD v2, 2026-07-30). The parameter is additionally
+**bound to `version_id`, not opaque**: the gateway independently derives the base64url MD URN
+from the validated `version_id` and rejects any `derivative_urn` whose `<source>` segment
+differs from it, so the only base64 the parameter can carry is a value the gateway itself
+recomputes. **Path composition — D6 governs, unmodified.** The vendor's record here is
+two-sided: the Model Derivative reference defines the parameter normatively as "the URL-encoded
+URN of the derivative" (the derivative GET and HEAD reference pages and the .NET SDK reference
+alike), while its own worked invocations embed the URN with literal `/` and `:`. The gateway
+follows the normative definition — the validated `derivative_urn` is percent-encoded as a
+whole value (`encodeURIComponent`) when composed into the request path, exactly as D6 requires
+of every path segment. The worked examples are treated as evidence that the server also
+tolerates the literal form, not as the contract; whether the encoded form is accepted on the
+wire cannot be exercised while the credential is cleared, so the residual and its closing
+check are recorded as Limitation 8(c).
+The `ItemVersion` ids that feed it are reachable from the rest of the surface
+(schema-verified): tool 5 returns them via `tipVersion{id}` on all four concrete Item types,
+and tool 35 via `itemVersions → ItemVersions.results: [ItemVersion]!`; tool 6 returns one only
+on its `ConfiguredDesignItem` branch (`tipVersion.id`) — its `DesignItem` branch returns
+`tipRootComponentVersion.id`, a `ComponentVersion` id, and its Basic/Drawing branches return
+item ids only — and tool 7 returns no version id, so a caller holding a tool 6 or tool 7 result
+reaches an `ItemVersion` id through tool 35. This decision assumes `ItemVersion.id` **is** the
+DM version-URN form; the schema types it only as `ID!`, and the assumption is **not
+live-verified** — see Limitation 8(b) for the exact check and for the derivation step required
+if it proves false. Raw pre-encoded base64 URNs from callers are rejected **in the
+`version_id` position** (an opaque string the boundary cannot validate, flowing into a REST
+path); `derivative_urn` carries a base64 segment only under the recompute-and-match binding
+above, which is what makes it validatable rather than opaque. Foreign-CAD
 ingestion (R-EXPORT-4): tool 36 `aps_upload_file` uploads any file type through D23's DM
 pipeline (storage → signed-S3 → complete → first-version item), returning item + version ids
-whose `version_id` feeds tools 23–26 — making the MD tool group reachable end-to-end from the
-rest of the surface (AC-7's non-Fusion translate path is self-sufficient).
+whose `version_id` feeds tools 23–26 and 37 — making the MD tool group reachable end-to-end
+from the rest of the surface (AC-7's non-Fusion translate path is self-sufficient).
 **Standard.** [APS-MODELDERIVATIVE] (the MD URN is the base64 form of the design/version URN);
 [OWASP-SSRF]/spec S-10 (input-influenced path segments validated before use); spec R-EXPORT-3/4.
 **Why here.** Model Derivative is keyed by URN while every other tool deals in ids — without a
 stated derivation the whole MD group is unreachable by an agent holding this server's own
-outputs, and the `urn` would be the one caller string entering a URL path without a grammar.
+outputs, and the URN parameters would be the caller strings entering a URL path without a
+grammar.
 **Not.** Not caller-supplied opaque base64 URNs (unvalidatable at the boundary; S-10 hole;
 usability cliff — no other tool emits one). Not folding upload into tool 20 (that is the MFG
 `createDesignFromFile` mutation producing a Fusion design — R-WRITE-3's distinct concern; a
 foreign CAD file must become a plain DM item).
-**Premise.** DM ids are URN-form with `?version=` qualifiers — observed in the Context7-verified
-Webhooks payload (`resourceUrn: "urn:adsk.wipprod:fs.file:vf.…?version=1"`, 2026-07-28) and the
+**Premise.** DM ids are URN-form with `?version=` qualifiers — observed in the Webhooks callback
+envelope's top-level `resourceUrn` (`"urn:adsk.wipprod:fs.file:vf.…?version=1"` — Context7
+`/websites/aps_autodesk_en`, `dm.version.added` callback reference, 2026-07-30) and the
 DM storage/item-creation flow (D23's verified lookups). The base64url derivation is the
 documented MD convention, and the predecessor implements exactly it (`urnToBase64` in
 `src/services/aps-client.ts`, read via the survey this session) — cited as evidence of the
-encoding, not as precedent.
+encoding, not as precedent. The derivative URN's
+`urn:adsk.viewing:fs.file:<base64 source>/output/<guid>/<filename>` form and its reuse of the
+source design's base64url MD URN as its `<source>` segment: Context7
+`/websites/aps_autodesk_en` (MD v2 manifest response shape and the `signedcookies` reference
+invocation), 2026-07-30. The parameter's two-sided record — `derivativeUrn` defined as "the
+URL-encoded URN of the derivative" on the derivative GET and HEAD reference pages and in the
+.NET SDK reference, while the reference and tutorial invocations embed it with literal `/` and
+`:` — same source, 2026-07-30; D27 follows the normative definition, with the residual in
+Limitation 8(c).
 
 **D28. The server performs no caller-directed local I/O: upload tools take bytes, never
 filesystem paths; and no caller value ever becomes a URL the server or Autodesk fetches.**
@@ -1191,8 +1289,10 @@ from this value so the two cannot drift) — there is no path parameter, so ther
 to canonicalize, no traversal to block, and no symlink policy to get wrong. The server's only
 filesystem reads are its own config and its own credential/state directory (D10/D24), neither of
 which any tool argument can name or influence. Symmetrically, **no caller-supplied value ever
-becomes a URL that the server or Autodesk fetches**: D27 makes MD inputs grammar-validated
-`version_id`s from which the gateway derives the URN; D23 makes Design Automation WorkItem
+becomes a URL that the server or Autodesk fetches**: D27 makes MD inputs grammar-validated —
+`version_id`, from which the gateway derives the MD URN, and tool 37's `derivative_urn`, bound
+to `version_id` by D27's recompute-and-match rule and percent-encoded whole per D6; D23 makes
+Design Automation WorkItem
 argument URLs **gateway-minted** from Data Management ids (callers name activities and their
 declared *values*, never `url`/`headers` fields, so a caller cannot point a WorkItem at an
 arbitrary host); D22 governs every remaining outbound URL.
@@ -1292,11 +1392,11 @@ without the decisions themselves changing.
 
 | Threat | Via spec requirements | Structural control (decision) | Observable check |
 |---|---|---|---|
-| T1 endpoint abuse | S-1, S-2, S-3, S-12 | MCP surface tailnet-only, never public (D1); per-request bearer gate ahead of the transport (D2); stateless transport, no session authority (D3); no caller-directed local reads (D28) | AC-13 |
+| T1 endpoint abuse | S-1, S-2, S-3, S-12 | MCP surface tailnet-only, never public (D1); per-request bearer gate ahead of the transport (D2); stateless transport, no session authority (D3); credential lifecycle confined to the TokenManager, never crossing the caller boundary (D8); no caller-directed local reads (D28) | AC-13 |
 | T2 interception | S-2, S-14 | WireGuard transport + tailscaled-terminated TLS on serve and funnel paths (D1); credential never crosses to callers (D2); PKCE S256 (D9) | AC-27 |
-| T3 host compromise | S-3, S-5 | ACL-enforced store, startup-verified (D10); no secrets in logs (D20); no path input can name the store (D28); no credential passthrough (D2) | AC-14 |
+| T3 host compromise | S-3, S-5 | ACL-enforced store, startup-verified (D10); no secrets in logs (D20); no path input can name the store (D28); no credential passthrough (D2); credential file owned solely by the TokenManager, with classified failure handling that never exposes it (D8) | AC-14 |
 | T4 forged/replayed webhook | S-6 | Raw-body HMAC over per-hook secrets, constant-time (D11); content-hash replay dedupe (D11) | AC-9 |
-| T5 crafted arguments | S-7, S-8, S-9, S-10, S-11 | Variables-only GraphQL (D6); enforced spend cap at the outbound chokepoint (D13); truthful cost/effect annotations (D14); egress allowlist with redirect re-validation (D22); URN grammar validation (D27); bytes-only uploads and gateway-minted job URLs (D28) | AC-15, AC-23, AC-24 |
+| T5 crafted arguments | S-7, S-8, S-9, S-10, S-11 | Variables-only GraphQL (D6); enforced spend cap at the outbound chokepoint (D13); truthful cost/effect annotations (D14); boundary zod validation of every tool argument (D17); egress allowlist with redirect re-validation (D22); URN grammar validation (D27); bytes-only uploads and gateway-minted job URLs (D28) | AC-15, AC-23, AC-24 |
 | T6 token leakage | S-5 | Allowlist logging + pino redact (D20); ACL'd store, secrets never in results (D10); no tool path can exfiltrate the store (D28) | AC-14, AC-12 |
 | T7 DNS-rebinding / cross-origin | S-4 | Loopback bind, tailnet-only publication (D1); explicit Origin middleware → 403 (D3) | AC-13 |
 | T8 output-borne injection | S-13 | OutputGuard neutralization of external-content fields, applied by the registration wrapper (D19) | AC-26 |
@@ -1350,9 +1450,9 @@ sessions, no user-facing web UI):
 | R-WRITE-4 | D14 | | R-OPS-1 | D20 |
 | R-EXPORT-1 | D5, D14 (tool 21) | | R-OPS-2 | D4, D21 |
 | R-EXPORT-2 | D14 (tool 22) | | R-OPS-3 | D3 (serverInfo), D21, D25 |
-| R-EXPORT-3 | D15 (tools 23–24), D27 (URN contract) | | R-OPS-4 | D1, D25 (docs deliverable incl. both trust models) |
+| R-EXPORT-3 | D15 (tools 23–24, 37), D27 (URN contract) | | R-OPS-4 | D1, D25 (docs deliverable incl. both trust models) |
 | R-EXPORT-4 | D15 (tools 25–26), D27 (URN derivation + tool 36 ingestion) | | R-OPS-5 | D25 |
-| R-EXPORT-5 | D14, D15 (submit/status split) | | S-1 | D2 |
+| R-EXPORT-5 | D14, D15 (submit/status/retrieve split — tools 21/22, 23/24/37, 28/29/30) | | S-1 | D2 |
 | R-AUTO-1 | D23 (tool 28) | | S-2 | D1; audience clause n/a per D2 |
 | R-AUTO-2 | D23 (tools 29–30) | | S-3 | D2, D8, D28 |
 | R-AUTO-3 | D14 (tool 28 contract) | | S-4 | D1, D3 |
@@ -1394,15 +1494,18 @@ Every spec R-# and S-# is accounted for; none deferred out of architecture scope
    stale event but trigger no action).
 7. **Crash window in token rotation cannot be zero** (D8): under C2, Autodesk kills the prior
    refresh token the instant it issues the replacement, so a crash between receipt and durable
-   write costs a one-time browser re-auth. The window is now bounded by a single `fsync` — the
-   raw response is written before any parsing — refreshes are demand-driven so the window opens
-   as rarely as the workload allows, and the outcome is detected, non-destructive, and
-   actionable. Why this is a bound rather than an elimination is argued in the Design decisions
+   write costs a one-time browser re-auth. The design bounds the window to a single `fsync` —
+   the raw response bytes are written durably before any parsing — makes refreshes demand-driven
+   so the window opens as rarely as the workload allows, and makes the outcome detected,
+   non-destructive, and actionable. Why this is a bound rather than an elimination is argued in the Design decisions
    section; R-REL-7 and AC-25 state the property in those terms.
-8. **Unverified-by-tool items — one is load-bearing.** (a) The signed-URL host patterns for the
+8. **Unverified-by-tool items — two are load-bearing.** (a) The signed-URL host patterns for the
    egress allowlist (D22) will be pinned exactly at implementation from observed responses;
-   `EGRESS_ALLOW_HOSTS` exists so this is config, not code. (b) **Load-bearing:** D27 assumes
-   `ItemVersion.id` — what tools 5/6/7/35 return — is the Data Management version-URN form
+   `EGRESS_ALLOW_HOSTS` exists so this is config, not code. Tool 37's Model Derivative download
+   URL is outside this concern by construction: the server returns it to the caller and never
+   fetches it, so the download host adds no egress-allowlist entry. (b) **Load-bearing:** D27 assumes
+   `ItemVersion.id` — returned by tool 5 (`tipVersion.id`), tool 35 (`itemVersions` results),
+   and tool 6's `ConfiguredDesignItem` branch — is the Data Management version-URN form
    (`urn:adsk.wip…:fs.file:vf.…?version=N`) that the Model Derivative gateway base64url-encodes.
    The introspected schema types the field only as `ID!` and carries no format information, and
    **this could not be verified live: the stored Autodesk credential is cleared** (the
@@ -1415,7 +1518,13 @@ Every spec R-# and S-# is accounted for; none deferred out of architecture scope
    `fs.file:vf.…?version=` grammar. If it does not match, D27 needs an explicit id-derivation
    step (DM version id ← MFG `ItemVersion.id`) that this document does not currently specify.
    AC-7's foreign-CAD path is unaffected either way — it runs through tool 36 and D23's DM
-   pipeline, which returns DM ids natively.
+   pipeline, which returns DM ids natively. (c) **Load-bearing for tool 37:** whether the
+   `signedcookies` endpoint accepts `derivative_urn` percent-encoded as a whole value — the
+   reference's stated parameter form, which D27 follows — or only the literal-slash form its
+   worked invocations use, or both, cannot be exercised for the same reason as (b). **The check
+   that closes this:** after the M-3 re-auth, issue the signedcookies request for a real
+   derivative with the whole value percent-encoded; if it 400s, issue it in the literal form,
+   switch D27's composition to the observed form, and record the observation in D27's premise.
 9. **No rigor was waived** by the owner this session; no skipped-step gaps exist.
 10. **`/auth/login` and `/auth/callback` are reachable without the bearer secret** (D9 gate
     placement): browser navigations cannot carry the header, so any process on a tailnet device
@@ -1423,8 +1532,8 @@ Every spec R-# and S-# is accounted for; none deferred out of architecture scope
     `state` binding, the 10-minute verifier TTL, and the callback's exchange-only behavior; a
     hostile *completion* of a login still requires the owner's Autodesk credentials in the
     browser.
-11. **MFG Data Model becomes a priced API on 2026-08-17** (C4), twenty days after this document's
-    date. The owner-confirmed same-team placement means the subscription-included allowance
+11. **MFG Data Model becomes a priced API on 2026-08-17** (C4).
+    The owner-confirmed same-team placement means the subscription-included allowance
     applies, so R-class tools are labeled "no metered charge under the included allowance" rather
     than unconditionally free. SpendGuard does not meter MFG read consumption (query points) —
     counting them client-side would duplicate Autodesk's own metering without an authoritative
@@ -1444,7 +1553,7 @@ Every spec R-# and S-# is accounted for; none deferred out of architecture scope
 | [SDK] @modelcontextprotocol/sdk v1.29.0 | Context7 v1.29.0, 2026-07-28 | D3 (transport wiring), D14 (annotation defaults), D16 (isError), D17 (outputSchema, zod compat) |
 | [APS-SCHEMA] introspected MFG schema | `docs/aps-mfg-schema.json`, grepped this session | D5, D6, D7, D12 (field/mutation existence) |
 | [APS-DATAMGMT] Data Management v2 | Context7 `/websites/aps_autodesk_en_data_v2`, 2026-07-28 | D12 (rollup polling), D23 (storage + signed-S3 pipeline) |
-| [APS-MODELDERIVATIVE] Model Derivative | spec §3 + Context7 `/websites/aps_autodesk_en` (MD v2), 2026-07-28: `properties:query` `pagination{offset,limit(1–1000),totalResults}`; object-tree `objectid`/`level` narrowing with 20 MB/`forceget` ceiling | D15 (tools 23–26 capability set; tool 25/26 dispositions), D27 (URN contract) |
+| [APS-MODELDERIVATIVE] Model Derivative | spec §3 + Context7 `/websites/aps_autodesk_en` (MD v2), 2026-07-28: `properties:query` `pagination{offset,limit(1–1000),totalResults}`; object-tree `objectid`/`level` narrowing with 20 MB/`forceget` ceiling; 2026-07-30: derivative download via `…/manifest/:derivativeUrn/signedcookies` returning `{etag, size, url, content-type, expiration}` + signed cookies | D15 (tools 23–26 and 37 capability set; tool 25/26 dispositions), D27 (URN contract) |
 | [APS-OAUTH] APS Authentication v2 | spec §3/§5 (C1–C3 observed live) | D8 (rotation/scope-subset handling), D9 |
 | [APS-WEBHOOK] APS Webhooks v1 | spec §13 Q-1 (verified 2026-07-24) | D11 (HMAC-SHA1 scheme) |
 | [APS-DA] Automation v3 | spec §13 Q-3 (verified 2026-07-24) | D23 (WorkItem model) |
@@ -1460,10 +1569,10 @@ Every spec R-# and S-# is accounted for; none deferred out of architecture scope
 | Crash-Only Software (Candea & Fox, HotOS IX, 2003) | published paper | D8 (journal-then-act, atomic rename, recover-on-restart) |
 | The Twelve-Factor App, §III "Config" | 12factor.net | D21 (config in the environment, validated at startup, strict separation from code) |
 | Google SRE Book, ch. 22 "Addressing Cascading Failures" (Beyer et al., O'Reilly, 2016) | published book | D18 (bounded exponential backoff with jitter; no retry of non-idempotent operations) |
-| Express 5 | Context7 `/expressjs/express`, 2026-07-28 | D11 (raw-body capture for HMAC) |
+| Express 5 | Context7 `/expressjs/express`, 2026-07-28 (D11) and 2026-07-30 (D3) | D3 (`express.json` body-limit default behind the `/mcp` parser mount), D11 (raw-body capture for HMAC) |
 | Tailscale Serve / Funnel | Context7 `/websites/tailscale`, 2026-07-28 | D1 (serve = tailnet-only HTTPS; funnel = public HTTPS, ports 443/8443/10000, tailscaled TLS termination) |
 | pino | Context7 `/pinojs/pino`, 2026-07-28 | D20 (redact, destinations) |
-| zod v4 | Context7 `/colinhacks/zod` (v4 API reference `packages/docs/content/api.mdx`), 2026-07-29 | D17 (schemas; envelope-fragment composition via the v4-documented `.extend()` / shape-spread forms), D19 (fragment composition premise), D21 (`z.discriminatedUnion` mode partition) |
+| zod v4 | Context7 `/colinhacks/zod` (v4 API reference `packages/docs/content/api.mdx`), 2026-07-29 (D21) and 2026-07-30 (composition forms, D17/D19) | D17 (schemas; envelope-fragment composition via the v4-documented `.extend()` / shape-spread forms), D19 (fragment composition premise), D21 (`z.discriminatedUnion` mode partition) |
 
 ## Status of this architecture
 
