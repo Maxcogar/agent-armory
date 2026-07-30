@@ -332,3 +332,44 @@ a promise or a one-off fix.
 **Principle:** A recurring problem requires a durable mechanism, not a local
 remedy. A behavioral promise addresses one session; the problem spans all of
 them.
+
+### Observation 13: Never assert tool availability inside a dispatch brief
+
+**Date:** 2026-07-30
+**Session context:** Context Oracle architecture round-2 review. Two reviewers were dispatched as subagents. The expert-review brief stated that Clear Thought MCP was "NOT available" and instructed the agent to go straight to the SKILL.md manual fallback for the two mandatory reasoning invocations. Max Cogar caught it immediately: "why would you tell them not to use a required tool — you are guaranteeing that no agent will ever even attempt to properly use the tools if you keep telling them it's broken."
+**Skill:** writing-agent-instructions (also touches expert-review dispatch practice)
+**Type:** internal
+**Phase/Area:** Authoring subagent dispatch briefs
+
+**Issue:** Two compounding errors, only one of which was visible.
+
+The visible one: a negative availability claim inside a brief is **self-fulfilling**.
+An agent told a tool is unavailable will not attempt it, and therefore can never
+discover the claim is false. Every other false premise in a brief is correctable by
+the agent doing its job; this one is not. It also propagates — an agent trained to
+accept "tool X is broken, use the fallback" carries that compliance into the next
+dispatch.
+
+The invisible one: the claim was never verified. It was inferred from a glance at
+the dispatching agent's own tool list, not from a search — and it was a claim about
+the *subagent's* roster, which is not guaranteed to match the dispatcher's. A
+ToolSearch run afterwards confirmed the tool was in fact absent from this session,
+which is the worse outcome: an unverified premise that happens to be true leaves the
+habit intact.
+
+**Suggested improvement:** Add a rule to the instruction-authoring frame: a dispatch
+brief states the *requirement* and never the *availability*. Correct shape —
+
+> Invocation X is mandatory. Determine its availability yourself (ToolSearch); if
+> found, invoke it. Only if it is genuinely absent or errors do you use <documented
+> fallback>, and record in your output what you actually observed.
+
+This preserves the requirement, keeps discovery with the agent that can actually
+perform it, and still handles genuine absence. Extend the same treatment to every
+instrument listed in a brief: present the roster as a starting hypothesis the agent
+verifies, not as established fact.
+
+**Principle:** A false premise an agent is structurally unable to test is categorically
+worse than one it can. Instructions that foreclose verification are the only kind that
+cannot be recovered downstream — so availability, capability, and "this is broken"
+claims never belong in a brief as assertions.
