@@ -201,6 +201,37 @@ body containing only `hookSpecificOutput.additionalContext` (and
 code 2 — those are the deny paths, and their absence is structural (FR-O4),
 not policy. `[HOOKS]` `[OWNER-3]`
 
+**Continuation is a second axis, and the deny-path enumeration above does not
+cover it** (corrected 2026-07-30; the earlier text treated `additionalContext`
+as inert on every event). On `Stop` and `SubagentStop`, `additionalContext` is
+a **continuation control**: per `[HOOKS]`, it *"keeps the conversation going
+through the same loop protections as `decision: \"block\"`, namely the
+`stop_hook_active` input and the 8-consecutive-continuation cap"* — the
+difference from `block` is the transcript label and the absence of a hook-error
+notification, not the control-flow effect. So a whisper delivered at `Stop`
+does not cost "a wasted sentence" (P2); it costs the agent a turn it was trying
+to end.
+
+**The owner ruled on this** `[OWNER-12]`: speaking at the moment an agent claims
+completion is a **must-have** — it is the highest-value moment the oracle has,
+because a completion claim is exactly where an unregistered conflict (FR-A8/A9)
+becomes actionable. The capability stays. What changes is that the effect is
+named and bounded rather than denied:
+
+- The oracle emits at `Stop`/`SubagentStop` **only when `stop_hook_active` is
+  `false`**. `[HOOKS]` defines that field as true "when Claude Code is already
+  continuing as a result of a stop hook," so this bounds the oracle's total
+  contribution to **exactly one continuation per stop**, never a chain, and
+  keeps it structurally incapable of approaching the 8-continuation cap.
+- `decision: "block"` remains structurally absent on every event (FR-O4). The
+  oracle continues a turn at most once; it never prevents one.
+- A Stop-grade whisper must clear a **raised bar** — it is the only whisper that
+  spends a turn rather than riding an existing boundary, and is held to that
+  cost (FR-A3, §9.2).
+- Every Stop delivery is recorded as a continuation event in the FR-X6 audit
+  record and counted in `ctxoracle status`, so the owner can see how often the
+  oracle extended a turn. `[OWNER-10]`
+
 **Contract facts that bound the design** `[HOOKS]`:
 - Hooks run in parallel and the turn waits for them: shim latency is
   agent-visible latency, which is why FR-O3's budget exists.
@@ -212,6 +243,22 @@ not policy. `[HOOKS]` `[OWNER-3]`
   single hook per event and emits at most one whisper per event (FR-A3).
 - Injected text arrives to the model as a system-reminder-style plain-text
   block; the `[oracle]` prefix (FR-D1) is what keeps it attributable.
+- **`SessionEnd` hooks share a 1.5 s budget**, not the 10 min command-hook
+  default: *"if your settings set a longer per-hook `timeout`, Claude Code
+  raises the budget to match, up to 60 seconds."* Service teardown and
+  distiller spawn hang off `SessionEnd`, so a single global shim deadline
+  derived from FR-O3's 3 s does **not** hold on that event — deadlines are
+  per-event, and `init` writes an explicit `timeout` for the `SessionEnd`
+  entry if teardown needs one (which AC-4's settings accounting must then
+  include). *(Added 2026-07-30; the fact was missed by the 2026-07-13
+  verification pass.)*
+- **`StopFailure` fires instead of `Stop` when the turn ends on an API error**,
+  carries an `error` field whose values include `rate_limit`,
+  `authentication_failed`, and `billing_error`, and its *"output and exit code
+  are ignored"* — so it is a pure observation event with no continuation risk.
+  This is the detector for the failure mode where the oracle's own model calls
+  have consumed the host quota the agent needs (FR-M2, §6.2). *(Added
+  2026-07-30.)*
 
 ### 6.2 Model access (judgment layer)
 
@@ -277,6 +324,14 @@ of stores and whisper logs (FR-X6). Init/deinit contract is C-4.
 - **FR-O4** — **No deny path exists, structurally.** Shims are incapable of
   returning a blocking decision (§6.1 output discipline); asserted by test
   (AC-3), not policy. `[OWNER-3]`
+- **FR-O4a** — **Continuation is bounded to one.** Delivering a whisper at
+  `Stop`/`SubagentStop` continues the agent's turn (§6.1) — the oracle
+  therefore emits on those events **only when `stop_hook_active` is `false`**,
+  extending a turn at most once per stop and never chaining. It never prevents
+  a turn from ending. Asserted by test (AC-3), not policy. `[OWNER-12]`
+  *(Added 2026-07-30. FR-O4 alone was insufficient: it enumerates the deny
+  fields, and continuation is a distinct control-flow axis that carries none of
+  them — which is why AC-3 passed while the effect was live.)*
 - **FR-O5** — Whisper opportunities are harness event boundaries only —
   never timers or idle detection. Task-boundary intervention is the measured
   sweet spot for proactive assistance; idle-time triggering interrupts
@@ -809,9 +864,16 @@ Each criterion names the requirements it verifies.
 - **AC-2 (silence → P1, FR-A1)** — Replaying a recorded session of routine
   events produces whispers on at most 10% of events (default threshold,
   tunable with fixture experience `[D-14]`).
-- **AC-3 (no deny → FR-O4, FR-O3)** — No shim code path can return a blocking
-  decision (no `permissionDecision`/`decision` fields, no exit 2); induced
-  service failure and timeout both yield silence and an unimpeded agent.
+- **AC-3 (no deny → FR-O4, FR-O4a, FR-O3)** — No shim code path can return a
+  blocking decision (no `permissionDecision`/`decision` fields, no exit 2);
+  induced service failure and timeout both yield silence and an unimpeded
+  agent. **Widened 2026-07-30 to cover control flow, not only decision
+  fields**, because the field scan passed while `Stop` delivery was extending
+  turns: the fixture additionally asserts (a) that a `Stop`/`SubagentStop`
+  event carrying `stop_hook_active: true` produces **silence**, and (b) that no
+  oracle output can extend the agentic loop by more than a single continuation
+  per stop. A criterion that scans only for the deny fields cannot see the
+  continuation axis — that gap is what this widening closes.
 - **AC-4 (pristine tree → P8, C-4, FR-K8)** — After `init`, index, a full
   session, and `deinit`, the repository tree's only ever-touched file is
   `.claude/settings.json`, and `deinit` restores it.
