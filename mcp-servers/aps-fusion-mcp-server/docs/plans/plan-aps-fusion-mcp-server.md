@@ -145,6 +145,7 @@ step that creates a file appears here. 26 source files plus one config file (27 
 | `src/gateways/dm-gateway.ts` | S14 |
 | `src/gateways/md-gateway.ts` | S15 |
 | `src/gateways/da-gateway.ts` | S20 |
+| `src/gateways/webhooks-gateway.ts` | S21 |
 | `src/tools/auth-tools.ts` | S16 |
 | `src/tools/discovery-tools.ts` | S16 |
 | `src/tools/read-tools.ts` | S17 |
@@ -204,6 +205,15 @@ attestation. Two items nonetheless precede feature work and are ordered first:
 Ordered. Dependencies point backward only. Steps are grouped by phase; every step names its
 Source, and every non-trivial step carries the four-part format.
 
+**How to read the Dependencies field.** The **backward** list — "what must complete before this
+step" — is normative and is the authority for scheduling. The "Unblocks …" notes are
+**informational only and are not a second source of truth**: they are the inverse of the backward
+edges and are derivable from them. Where a note and a backward list disagree, the backward list
+governs. This is stated because the two halves were maintained independently through four review
+rounds and drifted into 25 asymmetric pairs — a duplicated index with no generator will always
+drift, so the duplicate is demoted rather than repeatedly reconciled. An agent scheduling from
+this plan reads the backward edges and inverts them itself.
+
 ---
 
 ### Phase 0 — Preserve, then clear the tree
@@ -212,7 +222,8 @@ Source, and every non-trivial step carries the four-part format.
 
 *What changes.* No source changes. **This step is COMPLETE — executed 2026-07-30 as commit
 `6e5f00b` on branch `claude/aps-fusion-spec`.** It committed 257 insertions and 93 deletions
-across five files that existed nowhere in git history: `package.json`, `src/constants.ts`,
+across five files whose working-tree content existed nowhere in git history (the files themselves
+were tracked — the 93 deletions are against their prior committed content): `package.json`, `src/constants.ts`,
 `src/index.ts`, `src/services/aps-auth.ts`, `src/tools/mfg-data-model.ts`. There was no stash.
 If this plan is executed on a tree where that commit is absent, the step must be performed before
 S1.
@@ -294,11 +305,34 @@ git-ignored. The step enumerates retained paths explicitly for both reasons.
 
 **S2. Pin dependencies exactly; add the test harness.**
 
-*What changes.* In `package.json`: convert `@modelcontextprotocol/sdk`, `express`, `zod` from
-caret ranges to exact versions; add exact-pinned `pino`; add dev-dependencies `vitest` and
-`@vitest/coverage-v8` exact-pinned; add `"test": "vitest run"` and `"test:watch": "vitest"`
-scripts. Commit `package-lock.json`. Create `vitest.config.ts` (node environment, globals off,
-`test/**/*.test.ts` include). Verify `tsconfig.json` has `strict: true`.
+*What changes.* In `package.json`, convert **every** dependency spec to an exact version — both
+the three runtime deps (`@modelcontextprotocol/sdk`, `express`, `zod`) and the three
+devDependencies the file already carries on carets (`@types/express`, `@types/node`,
+`typescript` — verified present at `package.json:20–24`). The verification below checks the whole
+file, so omitting devDependencies fails the step. **Derivation rule for the exact values:** pin
+each to the version currently resolved in the committed `package-lock.json`, so pinning records
+the tree that is known to work rather than introducing an untested upgrade.
+
+Add `pino`, and dev-dependencies `vitest` and `@vitest/coverage-v8`, all exact-pinned.
+**`vitest` must be ≥ 4.1.0** — `vi.setTimerTickMode` arrived in 4.1.0 (§11 claim 26) and
+T-10/T-13/T-14 depend on that timer control, so "4.x" is not sufficient; the plan's own
+resolution enumerated `4.0.7` and `4.1.6`, and only the latter qualifies.
+
+Add `"test": "vitest run"` and `"test:watch": "vitest"` scripts. Commit `package-lock.json` (the
+repo-root `.gitignore` excludes it globally; this directory's `.gitignore` carries the negation).
+
+Create `vitest.config.ts`: node environment, globals off, `test/**/*.test.ts` include, **and a
+`typecheck` block — `typecheck: { enabled: true, tsconfig: './tsconfig.test.json', include:
+['test/**/*.test-d.ts'] }`**. All three settings are required for T-18 to run at all: vitest's
+`typecheck.enabled` defaults to **false**, its `typecheck.include` defaults to `*.test-d.ts`
+(which the runtime `include` above does not match), and the base `tsconfig.json` sets
+`"rootDir": "./src"` with `"include": ["src/**/*"]`, so a fixture under `test/` is outside the
+program entirely.
+
+Create `tsconfig.test.json` extending the base with `"rootDir": "."` and
+`"include": ["src/**/*", "test/**/*"]` — a separate file rather than widening the base, because
+`npm run build` must keep emitting only `src/`. Verify `tsconfig.json` has `strict: true`
+(already true at `tsconfig.json:8`).
 
 *Source.* R-OPS-3 ("dependencies SHALL be pinned and locked"); D21 ("dependencies are pinned exact
 in `package.json` with the lockfile committed"); D26 (runner "recorded as a dev-tooling default
@@ -602,9 +636,10 @@ Scope note: this gate covers the outbound path only. The registration chokepoint
 split because gateways (Phase 5) call out before any tool registers, so the outbound path must be
 proven first.
 Verify: `aps-http` is the only module in the tree that calls global `fetch` (grep: zero `fetch(`
-outside `src/services/aps-http.ts`); the request type rejects `safe:true` with a billable cost at
-compile time; SpendGuard counters survive a process restart; T-13..T-18 green. **No gateway may
-be written until this passes** — a gateway written before the chokepoint exists is a call site
+outside `src/services/aps-http.ts`); **`npx vitest --typecheck.enabled run` exits 0 with
+`test/aps-http.test-d.ts` reporting the three billable-and-safe combinations as expected errors**
+(the plain `npm test` does not run type-checking — see T-18); SpendGuard counters survive a
+process restart; T-13..T-18 green. **No gateway may be written until this passes** — a gateway written before the chokepoint exists is a call site
 that never acquired the cost and safe tags.
 
 ---
@@ -723,8 +758,11 @@ not equivalent in typing. A raw shape is routed through `normalizeRawShapeSchema
 argument types from the schema. Across 37 handlers whose entire safety story is boundary
 validation (S-8), typed args on the primary path is the material difference. **What this is NOT —
 and why:** *Not* the raw shape (`inputSchema: { a: z.string() }`) — it is the SDK's legacy
-compatibility path; it appears in the v1.29.0-tagged `docs/server.md`, but a form appearing in
-prose examples is not evidence that it is the maintained one, and the signature says it is not.
+compatibility path — the name `LegacyToolCallback` is the SDK's own characterization. It appears
+in the v1.29.0-tagged `docs/server.md` and `docs/protocol.md` as the canonical example, and it
+carries no deprecation marker, so this is a choice between two supported forms rather than a
+correction of an error: `z.object` is chosen for the handler-arg typing, not because the raw shape
+is disallowed.
 *Not* a per-handler choice — 37 tools is 37 chances to diverge, and Gate C forbids deferring it.
 *Not* relying on `destructiveHint`'s default — `ToolAnnotationsSchema` documents that default as
 **true**, so an additive write omitting it is annotated destructive, violating R-PROTO-4.
@@ -881,10 +919,11 @@ it returns. Five break loudly, one lies quietly. The probe exists to make both i
 
 ### Phase 6 — Tool modules
 
-**S16–S21. The seven tool modules.** *(Six steps. Each carries its own Source, dependencies,
-verification, and impact. They share one four-part justification, stated once below and governing
-all six, because the decision is identical for each: implement the assigned inventory rows
-verbatim.)*
+**S16–S21. The seven tool modules.** *(Six steps. Each carries its own Source and its own
+dependency list. They share one four-part justification, one verification pattern and one impact
+statement, stated once below and governing all six, because the decision, the check and the
+failure mode are identical for each: implement the assigned inventory rows verbatim, verify the
+emitted contract against the row, and a defect is contained to its tool.)*
 
 All tools register through `registerGuardedTool` (S11), use the S12 annotation constants and the
 `z.object({...})` schema form, declare an `outputSchema` composing the S7 completeness
@@ -971,7 +1010,18 @@ inputs get signed `get` URLs, outputs signed `put` URLs targeting storage in
 | 29 | `aps_da_get_status` | R | `workitem_id` | status enum + report URL | R-AUTO-2 |
 | 30 | `aps_da_get_outputs` | R | `workitem_id` | output items / signed URLs, resolved from the submission record (bounded: the output set recorded at submission) | R-AUTO-2 |
 
-**S21 — `notify-tools.ts` (tools 31–34).**
+**S21 — `src/gateways/webhooks-gateway.ts` + `notify-tools.ts` (tools 31–34).**
+
+*This step creates the Webhooks gateway as well as its tools.* Tools 31, 32 and 33 are backed by
+**APS Webhooks v1 REST**, which is not Data Management, not MFG, not Model Derivative and not
+Design Automation — so none of the four existing gateways covers them, and the tool modules are
+forbidden from constructing HTTP requests themselves. `webhooks-gateway.ts` implements: hook
+registration (one hook per event type, each with a freshly generated 256-bit secret written to
+`webhook-secrets.json` per D11), hook listing with `pageState`/`next` paging, and hook deletion
+with removal of the corresponding secret entry. All three are tagged `cost:'none'`; the two reads
+are `safe:true` and registration/deletion are `safe:false` (non-idempotent creation and a
+destructive delete). Tool 34 is unaffected — it reads the event journal (D11) and the DM poll
+(S14), neither of which is a Webhooks REST call.
 
 *Source.* D15 (inventory rows 31–34), D11, D12; R-NOTIFY-1, R-NOTIFY-2, R-NOTIFY-3, R-DISC-4, R-PROTO-4, R-PROTO-5, R-PROTO-6.
 
@@ -997,7 +1047,13 @@ the traceability matrix that accounts for all 60 requirements. *Not* mode-parame
 tools — one annotation set cannot truthfully cover a free read and a billable write, which is the
 defect R-EXPORT-2 exists to kill.
 
-*Dependencies.* S16: S13, S14. S17: S13. S18: S13, S14. S19: S13, S15. S20: S14. S21: S14, S5.
+*Dependencies, per step.* **Every one of the six additionally depends on S11
+(`registerGuardedTool`) and S12 (`tool-defs.ts`)** — the registration chokepoint and the schema/
+annotation conventions that line 891 binds all six to. That was omitted until round 4; the
+declared graph let a scheduler start a tool module before the wrapper existed, which is precisely
+what Checkpoint D exists to prevent.
+S16: S11, S12, S13, S14. · S17: S11, S12, S13. · S18: S11, S12, S13, S14. ·
+S19: S11, S12, S13, S15. · S20: S8, S11, S12, S14. · S21: S8, S11, S12, S14, S5.
 
 *Verification.* Test spec T-31 (per module: every tool in `tools/list` with schema and annotations
 matching the inventory row) plus the acceptance criteria named per group — §12.
@@ -1194,9 +1250,10 @@ observation against ground truth separates them. **What this is NOT — and why:
 document review of the criteria — that is the check the predecessor passed. *Not* a sampled
 subset: spec §12 says behavioural-correctness criteria are checked by construction **and**
 sampled at runtime, "a passing sample is necessary, not sufficient," so every criterion is
-executed. *Not* live execution of AC-24 — verifying a spend cap by exceeding it spends the money
-the cap exists to protect, which is why it is the one seam-run criterion justified by cost rather
-than by inducibility.
+executed. *Not* a seam run for AC-24 — a seam verifies SpendGuard's
+logic in isolation, not that it sits in the live request path, which is exactly what spec AC-24's
+"human-out-of-the-loop invocation path" clause demands. Seeding the counter at its cap makes the
+live run cost nothing, because a refused call issues no APS request.
 
 *Dependencies.* All prior steps; the M-3 re-auth.
 
@@ -1295,8 +1352,7 @@ No trigger instance is ungated.
   equivalent. `z.object` is the primary generic overload (`InputArgs extends
   StandardSchemaWithJSON`, `cb: ToolCallback<InputArgs>`) and infers handler argument types from
   the schema; a raw shape is routed through `normalizeRawShapeSchema` and pairs with
-  `LegacyToolCallback<ZodRawShape>`. The SDK documents the raw-shape overload as **deprecated**,
-  directing users to pass a complete schema object. Across 37 handlers whose safety story is
+  `LegacyToolCallback<ZodRawShape>`. Across 37 handlers whose safety story is
   boundary validation (S-8), typed args on the maintained path is the material difference. The
   raw shape does appear in the v1.29.0-tagged `docs/protocol.md`, but a form appearing in a prose
   example is not evidence it is the maintained one. Fixed at S12 because 37 tools is 37 chances
@@ -1471,6 +1527,38 @@ introspection and reading the named type, 2026-07-30.
     `designItemVersion`, falling back to `configuredDesignItemVersion`. *Schema read:*
     `ComponentVersion.fields`.
 
+**External API facts verified at plan time** (2026-07-31), each previously consumed second-hand
+from the architecture and now read directly:
+
+42. **The SDK's `allowedHosts`, `allowedOrigins` and `enableDnsRebindingProtection` transport
+    options are each marked `@deprecated` in favour of external middleware, and
+    `enableDnsRebindingProtection` defaults to `false`.** Step S9 — why Origin validation is an
+    explicit middleware rather than a transport option. *Documentation read:* Context7
+    `/modelcontextprotocol/typescript-sdk/v1.29.0`,
+    `packages/server/src/server/streamableHttp.ts` —
+    `/** @deprecated Use external middleware for origin validation instead. */` on
+    `allowedOrigins`, with matching markers on the other two. The same read confirms S9's
+    absent-Origin rule independently: `validateRequestHeaders` rejects an Origin only when one is
+    **present** and unlisted — a missing or empty Origin is never rejected.
+43. **Data Management's folder `lastModifiedTimeRollup` is the last-updated time of the folder
+    *or any of its child items*, and folder contents can be filtered by last-modified time.**
+    Step S14, and the whole of D12's rollup-descent design. *Documentation read:* Context7
+    `/websites/aps_autodesk_en_data_v2` — the `FolderAttributesWithExtensions` reference ("the
+    date and time when the folder or any of its child items were last updated") and the filtering
+    guide (`…/folders/:folder_id/contents?filter[lastModifiedTime]-ge=…`). The changelog entry
+    introducing the field also records `If-Modified-Since` returning 304 on an unmodified folder.
+44. **Model Derivative's `properties:query` accepts a `pagination{offset, limit}` request block
+    and returns `pagination{limit, offset, totalResults}` alongside `data.collection[]`.**
+    Step S19 — tool 26's cursor-paged contract and its `totalResults` completeness fact.
+    *Documentation read:* Context7 `/websites/aps_autodesk_en`, the
+    `urn-metadata-guid-properties-query-POST` reference, request and response shapes.
+45. **APS Webhooks v1 pages via a `pageState` query parameter, returning `links.next`, at up to
+    200 hooks per page.** Step S21 — tool 32's paging contract. *Documentation read:* Context7
+    `/websites/aps_autodesk_en` — the `GET /webhooks/v1/hooks` reference and the .NET SDK
+    `GetHooksAsync` signature ("Use the `next` value from the previous response to fetch
+    subsequent pages"). The same read confirms the hook record shape tools 31–33 return:
+    `hookId`, `event`, `callbackUrl`, `scope`, `status`.
+
 ## 12. Test specifications
 
 Every test names its behavior, level, real/double boundary, data source, and failure condition.
@@ -1624,10 +1712,25 @@ accessor. *Must NOT assert:* counter file format. *Fails when:* a request dispat
 counter resets across restart. *Technique:* boundary value analysis at cap−1, cap, cap+1.
 
 **T-18 — a billable retryable request does not typecheck.** *Behavior:* `{ safe: true,
-cost: 'md-translate' }` is a compile error (S8, D18). *Level:* unit (type-level). *Real/double:*
-none — this is a `tsc` assertion via an expect-error fixture. *Data:* the four cost values × two
-safe values. *Must NOT assert:* runtime behavior. *Fails when:* the combination compiles.
-*Technique:* decision table over the tag pair.
+cost: 'md-translate' }` is a compile error (S8, D18). *Level:* unit (type-level).
+
+**Mechanism, stated because the default configuration cannot run this test.** The fixture is
+`test/aps-http.test-d.ts`, using vitest's `expectTypeOf` with `@ts-expect-error` on the illegal
+combinations. It executes only under the three settings S2 specifies: `typecheck.enabled: true`
+(the default is **false**, so `npm test` alone runs nothing here), `typecheck.include:
+['test/**/*.test-d.ts']` (the default pattern is `*.test-d.ts` but the plan's runtime `include`
+is `test/**/*.test.ts`, which would not match the fixture), and `tsconfig.test.json` covering
+`test/` (the base config's `rootDir: "./src"` puts the fixture outside the program). The command
+is `npx vitest --typecheck.enabled run`, and Checkpoint A gates on that exact invocation.
+
+*Real/double:* none — a type-level assertion, no runtime doubles. *Data:* the four `cost` values
+× two `safe` values, all eight combinations, with the three billable-and-safe pairs marked
+`@ts-expect-error`. *Must NOT assert:* runtime behavior — a passing runtime call proves nothing
+about the type constraint, and a test that constructs the illegal pair at runtime would not
+compile at all. *Fails when:* any billable-and-safe combination compiles (the `@ts-expect-error`
+becomes an unused-directive error, which vitest reports as a failure), or the three legal
+combinations fail to compile. *Technique:* decision table over the tag pair — eight rules, all
+enumerated.
 
 **T-19 / T-20 — bearer gate and Origin rule.** *Behavior:* absent, malformed, and wrong secrets
 each 401 with `WWW-Authenticate`; a correct secret passes (T-19). A present disallowed Origin
@@ -1831,7 +1934,7 @@ no criterion without a test and no test without a criterion.
 | # | Question | Arose | Bin | Disposition |
 |---|---|---|---|---|
 | Q-1 | The spec's `Status:` line reads "Draft for review" while HANDOFF records owner acceptance. | Step 1 | 1 (engineering) | **Closed.** No plan step reads the line and no build behavior turns on it; the plan is written against the spec's content, which both documents agree on. Recorded as an observation in §4. No plan step. |
-| Q-2 | Which `registerTool` schema form should all 37 tools use — raw shape or `z.object`? | Step 4 | 1 (engineering) | **Closed: `z.object({...})`.** Both are accepted, but the raw shape is the SDK's deprecated compatibility path (`normalizeRawShapeSchema` → `LegacyToolCallback`), while `z.object` is the primary overload that infers handler arg types. Answered at Decision D-P5; evidence at §11 claim 22. |
+| Q-2 | Which `registerTool` schema form should all 37 tools use — raw shape or `z.object`? | Step 4 | 1 (engineering) | **Closed: `z.object({...})`.** Both are accepted. The raw shape is normalized by `normalizeRawShapeSchema` and pairs with `LegacyToolCallback<ZodRawShape>`; `z.object` is the primary generic overload and is what infers handler argument types. No deprecation marker exists on either — the SDK's `@deprecated` markers are on the older `.tool()` method, not on `registerTool`'s raw-shape path. Answered at Decision D-P5; evidence at §11 claim 22. |
 | Q-3 | Which test runner, given D26 left it "plan-level confirmable"? | Step 4 | 1 | **Closed.** Vitest 4.x. Decision D-P6; evidence at §11 claim 26. |
 | Q-4 | Do the 8(b)/8(c) probes block the whole build or only part of it? | Step 6 | 1 | **Closed.** Only `md-gateway`. Decision D-P2; sequencing at S15. |
 | Q-5 | Should all 18 docs from `find_related_docs` be updated? | Step 8 | 1 | **Closed.** No — partitioned into rewrite/update/do-not-touch. Decision D-P4; spec M-4 is the standard. |
@@ -1882,28 +1985,33 @@ and none is claimed.
   *Why outside reach:* the hosts appear only in live signed-URL responses. *Mitigation, not
   deferral:* `EGRESS_ALLOW_HOSTS` makes this configuration rather than code, and S8's
   label-boundary suffix rule bounds what a widened entry can match.
-- **G-4. Six external API/library facts are consumed from the architecture's citations rather
-  than verified at plan time.** They are: Data Management `lastModifiedTimeRollup` semantics and
-  the storage/signed-S3 pipeline (S14, from D12/D23); Model Derivative `properties:query`
-  pagination, object-tree `objectid`/`level` narrowing, and the `signedcookies` response shape
-  (S15, S19, from D15/D27); Design Automation `paginationToken` and the WorkItem argument model
-  (S20, from D23 and spec §13 Q-3); Webhooks `pageState`/`next` paging and the callback
-  envelope's top-level `resourceUrn` (S21, S23, from D11/D12); the SDK's deprecation of
-  `allowedOrigins`/`enableDnsRebindingProtection` (S9, from D3); and zod's `.merge()`
-  `unknownKeys` inheritance (S7, from D19).
-  *Attempted:* each carries a dated Context7 citation in the architecture, which was read; the
-  plan verified other SDK, zod, pino, express and vitest facts by direct Context7 read in the
-  same session, so these were reachable and were not blocked — they were not re-derived.
-  *Why this is a gap rather than a verified premise:* the expert-standard prior-artifact rule
-  makes a claim in an upstream document a candidate, not a finding, and §11's evidence bar is a
-  documentation read with library ID, section, version and date. A second-hand citation does not
-  meet it. *What would resolve it:* a direct Context7 read per fact, promoted into §11.
-  *Demonstrated consequence:* the zod item was checked and is weak — the `.merge()`
-  `unknownKeys`-inheritance description appears in `packages/docs-v3/home.md`, the **v3**
-  reference, while `package.json` pins zod `^4.3.6`. S7's conclusion stands on independent v4
-  grounds (§11 claim 24 verified `.extend()` and shape-spread directly against the v4 API
-  reference), so this is a weak premise under a sound decision — but it is exactly what this
-  gap entry exists to surface.
+- **G-4. Three external-API details remain unverified after a direct attempt.** An earlier
+  version of this entry listed six such facts and admitted they "were reachable and were not
+  blocked" — which, under the skill's earned-gap rule, made them open engineering questions
+  rather than gaps. Four were then read directly and promoted to §11 as claims 42–45 (SDK
+  deprecation markers; DM `lastModifiedTimeRollup`; MD `properties:query` pagination; Webhooks
+  `pageState`/`next`). The zod `.merge()` item was dropped rather than resolved: S7's rejection
+  of `.merge()` now rests on the v4 API reference's documented composition forms (§11 claim 24,
+  read directly), so the v3-documented `unknownKeys` semantics is no longer a premise of
+  anything. Three remain:
+  1. **Design Automation's `paginationToken`** for activity listing (S20, tool 27's paging).
+  2. **The Model Derivative `signedcookies` response shape** — `{etag, size, url, content-type,
+     expiration}` plus the CloudFront cookies (S19, tool 37's entire contract).
+  3. **The `properties:query` `limit` range "1–1000"** stated in tool 26's contract (S19).
+  *Attempted:* a targeted Context7 query against `/websites/aps_autodesk_en` for the DA
+  pagination token returned the activities endpoint inventory without the parameter; the same
+  library's `properties:query` reference documents a default `limit` of 20 and states no maximum;
+  the `signedcookies` reference did not surface in the queries run. Each carries a dated Context7
+  citation in the architecture, which was read.
+  *Why these are gaps and the other four were not:* the four resolved on a direct read; these did
+  not surface in the reads attempted, so what remains is either a differently-targeted query or
+  live observation. *What would resolve them:* items 1 and 3 by a Context7 query scoped to the
+  single endpoint reference rather than a combined one; item 2 by the same, or — decisively — by
+  the S15 8(c) probe, which issues the `signedcookies` request against a real derivative and
+  observes the response directly.
+  *Consequence if wrong:* item 3 is the mildest — a wrong upper bound surfaces as an API error on
+  the first oversized page request. Item 1 costs tool 27 its paging. Item 2 is load-bearing for
+  tool 37, which is why S15's probe already exists to settle it before `md-gateway` is written.
 
 Every other decision in this plan is grounded in a named standard from §3, and every factual
 claim carries an entry in §11.
