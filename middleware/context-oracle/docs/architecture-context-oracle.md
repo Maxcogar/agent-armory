@@ -103,9 +103,35 @@ Environment: Claude Code Remote cloud container
 `claude` CLI **v2.1.220** (the document previously certified against v2.1.218 —
 drift, as C-5 predicts), Node **v22.22.2**, Linux.
 
-**1 — The command as designed does not work at all.** With `--max-turns 1` and
-an inline `--json-schema`, carrying the real judgment prompt (intent + one
-grounded fact):
+**1 — `--max-turns 1` is prompt-dependent, and therefore not robust.**
+*(Corrected 2026-07-30 after round 3. The first version of this block claimed the
+command "does not work at all" and that `--max-turns 1` "guarantees"
+`error_max_turns`, on a single sample. Round 3's expert-review could not
+reproduce it and reported 6/6 successes, attributing the difference to the
+presence of `--system-prompt`. **Both accounts were wrong**, and the real
+variable was found only by running both to a distribution — it is the
+system-prompt's **content**, not its presence.)*
+
+| `--max-turns 1` + inline schema + deny-list, varying only the system prompt | runs | result |
+|---|---|---|
+| thin prompt (`"You are the oracle. Answer FR-A1."`) | **10** | **10/10 `is_error: true`, `subtype: error_max_turns`, no `structured_output`** |
+| rich prompt (a realistic ~15-line oracle instruction block) | **5** | **5/5 `is_error: false`, `subtype: success`, `structured_output` present** |
+
+`num_turns` is **2 in every one of the 15 runs**, success and failure alike — so
+the second turn is structural (the verdict arrives as a tool call), and what
+varies is only whether the run is *killed* at the cap before delivering it. A
+thin instruction block leaves the model room to spend its first turn otherwise;
+a rich one sends it straight to the verdict.
+
+**The design consequence is unchanged and now correctly grounded:
+`--max-turns` is 2.** Not because one turn always fails, but because whether one
+turn suffices depends on the prompt — and a judgment lane whose success rate
+moves with instruction-block wording is not a lane you ship. The margin costs
+nothing: `--max-turns 2` succeeded 4/4, and `--max-turns 3` produced no
+additional turns.
+
+The original single-sample paste follows, retained because it is what a thin
+system prompt genuinely produces:
 
 ```
 $ claude -p '<judgment payload>' --model claude-haiku-4-5 --output-format json \
@@ -115,12 +141,15 @@ is_error = True    subtype = 'error_max_turns'    num_turns = 2
 structured_output present: False
 ```
 
-Structured output is **delivered through a tool call**, which costs a turn. So
-`--max-turns 1` guarantees `error_max_turns` and returns **no verdict**. Had
-this shipped, every Lane 2 call would have failed and the oracle would have sat
-permanently in degraded mode — the same class of total-failure-in-the-owner's-
-environment as the `--bare` bug round 1 caught, and for the same reason: the
-validating command was not the shipped command.
+Structured output is **delivered through a tool call**, which costs a turn — that
+part holds in all 15 runs. What does *not* hold is the stronger claim this block
+originally made from a single sample. Had `--max-turns 1` shipped, Lane 2 would
+have failed **on some prompt shapes and not others**, which is worse than a clean
+failure: it would present as intermittent degraded-mode entry (three consecutive
+Lane 2 failures trip D20) with no stable reproduction. The `--bare` parallel
+still holds on the process axis — a load-bearing premise certified from a
+validating run that did not match the shipped conditions — but the failure mode
+is flakiness, not a hard stop.
 
 **2 — `--disallowedTools` does not empty the tool set.** Asking the child to
 enumerate its own tools under D11's exact ten-name deny list:
@@ -141,7 +170,8 @@ payload and inline schema:
 
 | configuration | wall | error | turns | structured output |
 |---|---|---|---|---|
-| `--max-turns 1` + deny-list **(as designed)** | 12.1 s | **yes — `error_max_turns`** | 2 | **none** |
+| `--max-turns 1` + deny-list, **thin** system prompt | 12.1 s | **yes — `error_max_turns`** (10/10) | 2 | **none** |
+| `--max-turns 1` + deny-list, **rich** system prompt | ~12 s | no (5/5) | 2 | yes |
 | `--max-turns 2` + deny-list | 19.1 s | no | 3 | yes |
 | **`--max-turns 2` + `--tools ""`** | **11.4 s** | no | **2** | yes |
 | `--max-turns 3` + `--tools ""` | 10.6 s | no | 2 | yes |
@@ -744,7 +774,11 @@ per-machine `init`-time confirmation remains.)
    ```sql
    -- every knowledge table carries, NOT NULL unless noted:
    --   prov_kind TEXT CHECK(prov_kind IN
-   --     ('repo_span','commit','human','learned','mechanical')),
+   --     ('repo_span','commit','human','learned','mechanical','session')),
+--     -- 'session' added 2026-07-30 (round-3 C6): the conduct genres' facts are
+--     -- transcript-derived. prov_ref form: 'transcript:<session>:<from>..<to>?predicate=…'
+--     -- A NEGATIVE claim's pointer is the bounded re-runnable scan, never a point
+--     -- offset — re-reading one offset shows what IS there, not what is absent.
    --   prov_ref  TEXT,   -- file:line-span | commit-hash | 'chat:<date>' | 'learned:<session>'
    --   trust     TEXT CHECK(trust IN ('untrusted_repo','human','mechanical')),
    --   injection_suspect INTEGER DEFAULT 0,   -- FR-X3 quarantine flag
@@ -774,10 +808,17 @@ per-machine `init`-time confirmation remains.)
    session_log(session, consumer, seq, event_type, ts, latency_ms,
            candidates_json, whisper_id NULL, outcome)      -- FR-L1
    whisper_log(id, session, consumer, genre, ts, text, evidence_json,
+               continuation INTEGER NOT NULL DEFAULT 0,  -- 1 = spent a turn (FR-O4a)
            confidence, uptake TEXT NULL, false_fire INTEGER NULL)  -- FR-X6
    suppressions(id, target_kind, target_ref, reason, source_session,
            reversible INTEGER DEFAULT 1, active INTEGER)   -- FR-L3
    open_questions(session, consumer, question, asked_loc, resolved INTEGER)
+   skill_expectations(id, session, consumer, skill_ref, step_text,
+               required_activity, registered_at, satisfied INTEGER DEFAULT 0, …prov)
+                                                    -- FR-A8/AC-19 (round-3 R3-5)
+   session_evidence(id, session, consumer, kind CHECK(kind IN ('claim','activity','absence')),
+               subject, from_offset, to_offset, predicate, result, …prov)
+                                                    -- conduct grounding (round-3 R3-5)
    fts_symbols / fts_paths / fts_landmines  -- FTS5 (or fallback, D4)
    ```
 
@@ -873,13 +914,27 @@ per-machine `init`-time confirmation remains.)
          prompt: { text }
          tool_pre/tool_post: { tool, input_summary: {path?, pattern?, …}, output_digest? }
          session_start: { repo_root, transcript_path, harness: { name, version } }
-         subagent_start: { transcript_hint? } */ },
+         subagent_start: { transcript_hint? }
+         stop/subagent_stop: { stop_hook_active: boolean }   // FR-O4a, OWNER-12
+         session_end: {} */ },
        "deadline_ms": 1200 } }
    // service → shim
    { "contract": 1,
      "whisper": { "text": "[oracle] …", "genre": "coupling", "id": "…" } | null,
      "human_notice": "…one-line plain language…" | null }
    ```
+
+   **The `stop_hook_active` field carries OWNER-12's bound across the boundary
+   (round-3 R3-1).** Whispering on `Stop`/`SubagentStop` is a *continuation
+   control*: per the hooks contract it "keeps the conversation going through the
+   same loop protections as `decision: \"block\"`." The owner ruled that
+   capability a must-have and accepted its cost **bounded to one continuation**
+   (RETHINK §12 addendum decision 12; spec §6.1, FR-O4a). The service can only
+   honour that bound if it can see the field — so the field is part of the
+   contract, not an implementation detail. Per C-3 only the shim knows Claude
+   Code's own name for it; the service sees `payload.stop_hook_active`. A shim
+   that cannot supply it sends `true` (fail-safe: the oracle stays silent rather
+   than risking an unbounded continuation).
 
    Versioning: integer `contract`; shim and service exchange versions on connect
    (first line); mismatch → shim answers silence + diagnostic (C-5). Unknown
@@ -986,6 +1041,24 @@ per-machine `init`-time confirmation remains.)
       suggestion floor support ≥ 2 (FR-A5, [spec D-5]), cold-start floor (FR-A6),
       first-sessions clamp (FR-A7), §9.2 ladder state (genre_state, D7) — picks ≤ 1,
       answers inside the deadline.
+
+      **Stop-class events: the continuation gate and the raised bar (OWNER-12,
+      FR-O4a; round-3 R3-1).** On `stop`/`subagent_stop` the engine applies two
+      rules *before* anything else:
+      1. **If `payload.stop_hook_active` is true → return silence
+         unconditionally**, before the bar is evaluated. The harness sets that
+         field when it is already continuing because of a stop hook, so this is
+         what makes the oracle structurally incapable of chaining continuations
+         or approaching the 8-continuation cap. The gate lives here, in the
+         service — not in the shim, which is logic-free by FR-O2.
+      2. **Otherwise apply `stop_bar_delta`** — a raised bar for stop-class
+         candidates, a `tuning` row (D23) whose default and derivation are stated
+         there. Rationale: a Stop whisper is the only whisper that *spends a
+         turn* rather than riding an existing event boundary, so it must clear a
+         higher bar than one that costs nothing. This is the "raised bar" spec
+         §6.1 requires, made a term rather than a sentiment.
+      The owner accepted a **named, bounded, audited** cost (RETHINK §12 addendum
+      decision 12). These two rules are the bound; D6/D24 are the audit.
 
    5a. **`non_obviousness` — the third factor, and the one the bar was missing
       (Collapse C1, round 2).** Every term above measures how much a fact
@@ -1216,11 +1289,14 @@ per-machine `init`-time confirmation remains.)
    than to none.
 
    **`--max-turns` is 2, not 1, and the invocation is not tool-free (Serious
-   F3).** Structured output under `--json-schema` is delivered *through a tool
-   call*, which costs a turn. With `--max-turns 1` the call returns
-   `is_error: true`, `subtype: error_max_turns`, and **no verdict at all** — so
-   the previously shipped command would have failed 100% of Lane 2 calls and
-   pinned the oracle into permanent degraded mode. The prior sentence asserting
+   F3; corrected after round 3).** Structured output under `--json-schema` is
+   delivered *through a tool call*, which costs a turn — `num_turns` is 2 in
+   every observed run, success and failure alike. Whether **one** turn suffices
+   is **prompt-dependent**: 10/10 `error_max_turns` under a thin system prompt,
+   5/5 success under a rich one (Spike 1). `--max-turns 1` is therefore not a
+   hard failure but an unstable one, which is worse for a lane whose three
+   consecutive failures trip degraded mode (D20) — an intermittent fault with no
+   stable reproduction. The prior sentence asserting
    `--max-turns 1` "bounds it to a single generate-no-tool turn" was false in
    both halves and is deleted. Two turns is the structural minimum; the bound is
    *"one model generation plus its verdict delivery,"* which is what actually
@@ -1973,7 +2049,8 @@ foundation.md`, itself anchored on FR-A1.*
    (a) probe failure at service start, (b) 3 consecutive Lane 2 call failures, or
    (c) `claude` binary absent; `degraded` → `model_ok` only via a successful
    re-probe (at most once per 30 min, and on `ctxoracle status --probe`). The
-   probe = the **D11 model-call shape (no `--bare`, with `--disallowedTools`)** with
+   probe = the **D11 model-call shape verbatim (no `--bare`, `--tools ""` with the
+   `--disallowedTools` deny-list behind it — round-3 R3-3)** with
    a trivial prompt, result cached in `env_capabilities` by environment fingerprint
    (D7) so unchanged environments skip live probes across sessions. Entering
    degraded mode: one `systemMessage` notice (plain language), one diagnostic,
@@ -2023,7 +2100,17 @@ foundation.md`, itself anchored on FR-A1.*
    produced vs shim acks; missing acks ⇒ "produced but not delivered"; (7)
    *subagent-narration availability* — the `narration/locate.ts` adapter failed to
    find a subagent transcript ⇒ `subagent_narration_unavailable` (a real capability
-   loss surfaced to the owner, not a silent degrade — D14). Findings are
+   loss surfaced to the owner, not a silent degrade — D14); **(8) *continuation
+   accounting* — Stop-class deliveries per session, counted from
+   `whisper_log.continuation`, finding code `continuation_budget`, rendered by
+   `status` in the owner's own framing ("the oracle extended a turn N times this
+   session") so the audited half of OWNER-12's accepted cost is actually visible
+   (FR-O4a; round-3 R3-1)**; and **(9) *delivery confirmation* — audit records
+   are marked `delivery_confirmed` from the shim ack, unconfirmed records render
+   distinctly in `ctxoracle log`, and the ack is retried once; without this,
+   check (6) cannot distinguish a lost ack from an undelivered whisper and
+   generates findings the owner cannot act on (round-2 collapse-hunt S2
+   correction; round-3 R3-10)**. Findings are
    diagnostics records with stable `finding_code`s; `ctxoracle status` renders them
    in plain language (one line each, no jargon) and the distiller consumes them
    (FR-M3, Phase 2).
@@ -2215,14 +2302,18 @@ foundation.md`, itself anchored on FR-A1.*
    the deadline governor active **and the writer-worker path exercised** — the
    D24 fix is measured here); **(3) end-to-end AC fixtures** — one file per spec
    AC under `test/ac/`, including: no-deny structural (AC-3: the shim response type
-   contains no decision fields — compile-time + runtime scan); pristine-tree
+   contains no decision fields — compile-time + runtime scan — **plus the widened
+   control-flow assertions (spec AC-3, 2026-07-30): a `stop` event carrying
+   `stop_hook_active: true` yields silence, and no oracle output extends the
+   agentic loop by more than one continuation per stop**); pristine-tree
    (AC-4); adversarial pack (AC-7: OWASP-PI carriers in file content, code
    comments, commit messages, **and generated-file-header markers** — asserting no
    whisper relays or obeys, exercising the D12 grounding/validation *and* the D13
    `zone_evidence` suspect path); secrets (AC-12); trust-origin (AC-13); locality
    (AC-14: network-refusing spawn wrapper); recursion (AC-11: diagnostics counter
-   during a real non-`--bare` `--disallowedTools` child call — the actual shipped
-   command, since a non-`--bare` child does not skip hooks); subagent delivery (AC-21:
+   during a child call running **D11's command block verbatim, cited by reference
+   rather than by re-listing flags** — including `--tools ""` — so the fixture
+   cannot drift from the shipped command again (round-3 R3-3)); subagent delivery (AC-21:
    the Spike 2 scenario, environment-marked); self-detection (AC-18); **the
    `systemMessage`-negative check (AC-10/AC-18: assert a `systemMessage` emission
    is absent from the model-visible transcript)**. Model-dependent tests run
@@ -2435,7 +2526,7 @@ this; spec §12 phase exits in brackets):
    deterministic product complete.
 8. CLI `init`/`deinit`/`status`/`index` (D22) + AC fixtures for Phase 0 (D26).
    **[Phase 0 exit: AC-1..5, AC-12, AC-14, AC-17, AC-18]**
-9. Model client + recursion guard (incl. `--disallowedTools`) + degraded state
+9. Model client + recursion guard (incl. `--tools ""` + deny-list) + degraded state
    machine (D11, D20).
 10. `narration/` readers + Tier 3 completion (D14, D15).
 11. Lane 2 worker + grounded-generation judgment (retrieval → compose → verify/bound)
@@ -2468,6 +2559,7 @@ Every spec requirement, constraint, principle, §14 item, and AC accounted for.
 | FR-O2 | D8, D9 |
 | FR-O3 | D2, D9, D10, D21, D24 |
 | FR-O4 | D9 (structural), D26 (AC-3) |
+| FR-O4a | D8 (`stop_hook_active` in the contract), D9/D10 step 5 (silence when true; `stop_bar_delta`), D6+D24 (`whisper_log.continuation`, durable), D21 self-check 8, D26 (widened AC-3) — OWNER-12 |
 | FR-O5 | D10 (boundary-only delivery; timers rejected) |
 | FR-O6 | D15 (+ Spike 2 evidence) |
 | FR-K1 | D6, D16 |

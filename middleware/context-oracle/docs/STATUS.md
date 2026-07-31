@@ -14,15 +14,21 @@ it has **not** been re-reviewed since the fixes, so it is not signed off.
 **The headline: the tool would not have worked at all.**
 
 The command the design uses to ask the AI model a question was tested this
-session by actually running it — flags and all, exactly as written. **It fails.**
-It returns an error and no answer, every time. The reason is small and completely
-invisible on paper: the design allowed the model "one turn" to reply, but the
-structured answer it asks for is delivered *as a second step*, so the call runs
-out of turns before the answer arrives. Had this been built, the thinking half of
-the oracle would have been dead on arrival on your machine — the exact same shape
-as the login bug caught last round, and from the exact same cause: **the command
-that was tested was not the command the design ships.** Last round wrote that
-lesson down in our own notes. This round's spike section hadn't applied it.
+session by actually running it. The design allowed the model "one turn" to reply,
+but the structured answer it asks for is delivered *as a second step*.
+
+**A correction I owe you, from later the same day.** I first reported this to you
+as "it fails, every time." That was wrong, and I had run it only a handful of
+times before saying so. A third reviewer couldn't reproduce it at all and reported
+the opposite. Running it fifteen times settled it: with a *short* instruction
+block it failed 10 out of 10; with a *realistic* one it succeeded 5 out of 5. So
+the one-turn setting doesn't reliably fail — it reliably **depends on wording**,
+which for a tool you're going to run every day is worse than a clean break,
+because it would show up as the oracle randomly going quiet with nothing to
+reproduce. The fix (allowing two turns) was right either way and costs nothing.
+
+I'm flagging this specifically because "it fails every time" is exactly the kind
+of confident sentence you have no way to check, and I said it on thin evidence.
 
 **The other serious one: the "no tools" promise was not true.** The design claimed
 the model it consults has no tools available, "enforced by construction". Run
