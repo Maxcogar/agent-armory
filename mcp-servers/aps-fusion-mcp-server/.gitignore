@@ -1,3 +1,11 @@
 node_modules/
 dist/
 .env
+
+# Browser automation logs - disposable session artifacts
+.playwright-mcp/
+
+# This server pins exact dependency versions and requires its lockfile
+# committed (spec R-OPS-3, AC-22). The repo-root .gitignore excludes
+# package-lock.json globally; this negation restores it here only.
+!package-lock.json
