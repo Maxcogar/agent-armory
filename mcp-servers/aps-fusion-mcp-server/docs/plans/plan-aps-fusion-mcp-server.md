@@ -757,7 +757,9 @@ convention failure this rebuild exists to eliminate.
 
 *What changes.* Create `mfg-gateway.ts` holding a **static operation catalog** of constant GraphQL
 documents with typed variables — zero string interpolation into document text. Implement the
-discovery, read, and write operations backing tools 2–20 and 22, plus D7's cursor-following
+discovery, read, and write operations backing **every MFG-backed tool — 2 through 22, and 35**
+(tool 21 is the `generate:true` derivative operation, tool 22 its `generate:false` counterpart as
+a distinct catalog entry per D14, and tool 35 the `itemVersions` query), plus D7's cursor-following
 aggregation for `getAssemblyStructure` (page `allOccurrences` at ≤50 per request, follow cursors
 to exhaustion or the clamped `min(max_pages, MFG_MAX_PAGES)` cap, aggregate occurrences into
 parent→child edges and per-componentVersion quantities, return `truncated` + resume `cursor` and
@@ -869,9 +871,11 @@ boundary, an S-10 hole, and no other tool emits one. *Not* blocking the whole bu
 the result, recorded in the step's output). Test specs T-29 (URN grammar rejects traversal and
 control characters), T-30 (recompute-and-match rejects a mismatched `<source>`) — §12.
 
-*Impact if wrong.* If 8(b) resolves false and the derivation step is skipped, tools 23–26 and 37
-fail at runtime against real data while passing any test built on the same wrong assumption —
-the worst class. The probe exists to make that impossible.
+*Impact if wrong.* If 8(b) resolves false and the derivation step is skipped, the five **consumer**
+tools (23, 24, 25, 26, 37) fail at runtime against real data while passing any test built on the
+same wrong assumption — the worst class. The sixth tool in the blast radius, 35, does not fail:
+it is the **producer** of the id, and what it needs is its contract corrected to state which form
+it returns. Five break loudly, one lies quietly. The probe exists to make both impossible.
 
 ---
 
@@ -1264,7 +1268,10 @@ No trigger instance is ungated.
   `registerGuardedTool` (D19) are all *type-level* or *composition-level* constraints. A tool
   written before its constraint exists compiles without the tag, and retrofitting is a change to
   every call site — the "every handler must remember X" state the architecture exists to prevent.
-  Hence Phases 3–4 strictly precede any tool, and Checkpoint A is placed at that boundary.
+  Hence Phases 3–4 strictly precede any tool, gated in two halves: Checkpoint A after S8 (egress
+  enforcement, before any gateway calls out) and Checkpoint D after S12 (registration enforcement,
+  before any tool registers). They are separate gates because gateways call out before any tool
+  exists, so the outbound path has to be proven earlier than the registration path.
 - **D-P2. The 8(b)/8(c) probes gate only `md-gateway`, not the whole build.** They are blocked on
   an owner action (M-3) with no date. Sequencing everything behind them stalls the plan on an
   owner gate; sequencing them last risks a six-tool rework. Splitting by actual dependency —
@@ -1278,8 +1285,11 @@ No trigger instance is ungated.
   an fs hook inside TokenManager, which is why S6 builds the hook and the test together.
 - **D-P4. The 18 related docs are partitioned, not uniformly updated.** Eight review rounds and
   six prior-session artifacts are dated point-in-time evidence (spec M-4); editing them to match
-  new code destroys their evidentiary value. Only `README.md` (rewrite), `INVENTORY.md`, and
-  `CRITERIA.md` (update) are live surfaces.
+  new code destroys their evidentiary value. The live surfaces are `README.md` (rewritten),
+  `INVENTORY.md` and `CRITERIA.md` (updated), plus `.env.example` (rewritten — config rather than
+  documentation, so it sits in §5's Modified list, not in this 18-doc partition). `README.md` is
+  itself outside the 18: the path-matching tool never saw it (D-P7), so the partition covers the
+  18 the tool returned, and README is a nineteenth found by reading.
 - **D-P5. `registerTool` takes `z.object({...})`, not a raw zod shape.** Both forms are accepted
   — the implementation signature takes `StandardSchemaWithJSON | ZodRawShape` — but they are not
   equivalent. `z.object` is the primary generic overload (`InputArgs extends
@@ -1741,7 +1751,7 @@ criterion and is the spec's own AC text, which is already written in observable 
   | AC-19 (bounded backoff, observed spacing) | injected `fetch` + fake timers | stub | requires induced repeated failure and measurable wait spacing |
   | AC-21 (recoverable error does not kill the process) | injected `fetch` | stub | requires an induced tool-call failure |
   | AC-23 (SSRF refusals) | injected `fetch` as call-counter | spy | the assertion is that **no** request is dispatched — there is no state to observe |
-    | AC-25 (crash between rotation and persist) | injected fs hook | spy | the crash point cannot be placed deterministically any other way |
+  | AC-25 (crash between rotation and persist) | injected fs hook | spy | the crash point cannot be placed deterministically any other way |
 
   Autodesk itself is **never** doubled for the twenty-two live criteria; doubling it there would
   verify the double, not the server.
@@ -1805,7 +1815,8 @@ no criterion without a test and no test without a criterion.
 - **R-4. Coupling hotspots this plan touches.** From `codegraph_get_stats` on the predecessor,
   `aps-auth.ts` was the most-depended-on module (4 dependents) — its replacement, `token-manager`,
   inherits that centrality, and `aps-http` becomes a second hub since every gateway routes through
-  it. A defect in either propagates everywhere; both are behind Checkpoint A for that reason.
+  it. A defect in either propagates everywhere, which is why each sits behind its own gate:
+  `token-manager` behind Checkpoint C, `aps-http` behind Checkpoint A.
 - **R-5. Assumption that may not hold: the tailnet topology is deployable as designed.** D1 pins
   Serve on ts.net 443 and Funnel on 8443 and forbids sharing a port. Validate early — at S25's
   documentation step, not at S26 — by running both commands on the target host and confirming the
@@ -1829,14 +1840,26 @@ no criterion without a test and no test without a criterion.
 | Q-8 | Should any requested scope be excluded, deferred, or phased? | Step 10 | 2 | **Closed — nothing proposed.** The full spec scope is planned; no exclusion was proposed to the owner and none is claimed. §2 states this. |
 | Q-9 | Does deleting `src/` risk anything outside the seven files? | Step 2 | 1 | **Closed.** No — `src/index.ts` has zero dependents and all other dependents are inside the set. Evidence at §11 claim 20. S1 enumerates retained paths explicitly. |
 | Q-10 | Is `destructiveHint` safe to leave unset on additive writes? | Step 4 | 1 | **Closed.** No — it defaults to `true`, so an unset additive write is annotated destructive, violating R-PROTO-4. Must be set explicitly. Evidence at §11 claim 23. |
+| Q-11 | Which of Step 10's four checkpoint triggers have instances in this plan, and is each gated? | Sweep 5 | 1 | **Closed.** All four have instances; two were ungated — S6 (hard-to-reverse) and the registration half of the structural/behavioral boundary. Checkpoints C and D added. The full enumeration is in §9 so the class is checkable rather than asserted. |
+| Q-12 | Does every one of the 37 tools have a gateway step that implements its backing operation? | Sweep 5 | 1 | **Closed.** Now yes. S13's scope said "tools 2–20 and 22", omitting tool 21 (`generate:true` derivative) and tool 35 (`itemVersions`) — both MFG-backed. Corrected to 2–22 and 35; a scripted check confirms zero uncovered tools. |
+| Q-13 | Is `.env.example` created or modified, and who specifies its contents? | Sweep 5 | 1 | **Closed.** Modified — the file already exists (133 bytes). Moved out of §5's Created table; S25 now specifies that it must enumerate every key `config.ts` validates, grouped by serving mode, secrets empty with a generation hint. |
+| Q-14 | Is Checkpoint A correctly scoped when it claims "chokepoints complete" but `registerGuardedTool` is built after it? | Sweep 5 | 1 | **Closed.** No. Split into Checkpoint A (egress, before any gateway calls out) and Checkpoint D (registration, before any tool registers), because gateways call out before tools register. |
 
-**Reconciliation sweep.** Four passes over every plan step, spec requirement, decision, test
-specification, and the coverage table. Pass 1 raised Q-6, Q-9, Q-10. Pass 2 raised Q-7. Passes 3
-and 4 added zero entries.
+**Reconciliation sweep.** Six passes. Passes 1–4 ran over the document as it stood before the
+review rounds: pass 1 raised Q-6, Q-9, Q-10; pass 2 raised Q-7; passes 3 and 4 added nothing.
 
-**Zero entries are open.** Nine bin-1 entries carry answers with evidence pointers. The one bin-2
-entry (Q-8, scope) is closed by there being nothing to approve — no exclusion was proposed and
-none is claimed.
+**Passes 5 and 6 were run after the review-driven changes**, because the earlier passes had
+covered a document that no longer existed — three fix rounds and a full read had altered most
+sections, and a sweep attesting to superseded content is not a completeness proof. Pass 5 was a
+line-by-line read rather than a scan, on the finding that scans only surface what the reader
+already suspects; it raised Q-11 through Q-14, every one of which was a real defect. Pass 6
+re-ran the mechanical reconciliations — coverage table against step Sources, §5 against the step
+set, §12 fields per test id, §9 gates against §7, tool-to-gateway coverage, and table integrity
+across the document — and added zero entries.
+
+**Zero entries are open.** Thirteen bin-1 entries carry answers with evidence pointers. The one
+bin-2 entry (Q-8, scope) is closed by there being nothing to approve — no exclusion was proposed
+and none is claimed.
 
 ## 15. Gaps acknowledged
 
@@ -1859,7 +1882,6 @@ none is claimed.
   *Why outside reach:* the hosts appear only in live signed-URL responses. *Mitigation, not
   deferral:* `EGRESS_ALLOW_HOSTS` makes this configuration rather than code, and S8's
   label-boundary suffix rule bounds what a widened entry can match.
-
 - **G-4. Six external API/library facts are consumed from the architecture's citations rather
   than verified at plan time.** They are: Data Management `lastModifiedTimeRollup` semantics and
   the storage/signed-S3 pipeline (S14, from D12/D23); Model Derivative `properties:query`
