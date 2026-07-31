@@ -2,89 +2,79 @@
 
 ## Where this stands
 
-The specification phase is complete. The **architecture fix cycle is ended, without a formal
-PASS**: the owner directed the cycle to stop on 2026-07-30, during round 20, after the findings
-of rounds 13–19 had all been applied. On the same date the owner ended **all review activity on
-this project** — the architecture cycle and the spec-amendment review alike. No review round is
-owed by either artifact; both stand by owner acceptance. Treat the architecture as the
-accepted, buildable design — accepted by owner decision, not by a zero-findings verdict.
+Spec and architecture were accepted by owner direction on 2026-07-30 and are unchanged.
+**The plan phase is complete as an artifact and incomplete as a gate:** the implementation plan
+exists, six independent review rounds have run against it, and every finding from all six is
+applied — but **the plan has never returned a PASS, and the non-convergence tripwire fired on
+round 6.**
 
-What that acceptance means, precisely: round 19's two findings were fixed after its review and
-never re-reviewed, and the residual defect class the final five rounds kept surfacing was
-documentation-accuracy items (a stale figure, an uncited default, a mislabeled class member) —
-not design. The design substance re-derived clean under six consecutive independent reviews:
-all 60 spec requirements satisfied, the threat-model control join mechanically consistent, and
-roughly fifty-six MFG schema assertions machine-checked per round with zero discrepancies.
+Nothing has been built. `src/` still holds the seven predecessor files; the rebuild has not begun.
 
 ## Read these, in order
 
-1. **`docs/specs/spec-aps-fusion-mcp-server.md`** — the spec: 60 requirements (46 functional and
-   non-functional, 14 security), an 8-attacker threat model, 27 acceptance criteria. It passed
-   five independent blinded rounds with zero findings. One later change: `R-REL-7`'s crash
-   clause and `AC-25` were amended to state achievable properties under Autodesk's token
-   rotation (durably write response bytes before parsing; refresh only near expiry; detected,
-   non-destructive, actionable outcomes). **The amendment is unreviewed; on 2026-07-30 the owner
-   directed that it stands as accepted without a review round.** The spec file's own `Status:`
-   line still reads "Draft for review" — stale governance metadata the owner has not yet
-   resolved.
-2. **`docs/architectures/architecture-aps-fusion-mcp-server.md`** — the architecture: 28 design
-   decisions, a 37-tool inventory (tool 37 `aps_md_get_derivative` closed the Model Derivative
-   retrieval gap round 14 found), threat-control mapping, ASVS mapping, and a traceability
-   matrix covering all 60 requirements with zero deferrals.
-3. **`docs/reviews/round-12-architecture-review.md` through `round-19-…`** — the complete review
-   record. Round 19 is the most recent completed round; its two findings (tool 8's resume
-   cursor; the bounded retry/renewal-threshold relation) were applied afterward and are the
-   unreviewed tail. The rounds' Systemic Patterns sections describe, precisely enough to re-run,
-   every mechanical scan class the cycle accumulated — table integrity, partition set-equality
-   and member-property conformance, the threat-join computation, config-key closure, named-bounds
-   and citation sweeps, module-pointer walks.
-4. **`docs/aps-mfg-schema.json`** — the introspected MFG GraphQL schema, 209 types. Authoritative
-   for every MFG field, query, and mutation shape. Read the schema, never recall it. (Note for
-   tooling: the dump has no `mutationType` pointer; `Mutation` exists as a plain type with 45
-   fields.)
-5. **`docs/apsq.mjs`** — the working authenticated MFG query client. It cannot run until the
-   re-authentication below.
+1. **`docs/plans/plan-aps-fusion-mcp-server.md`** — the plan. 27 steps across 9 phases, 5
+   checkpoint gates, 37 tool contracts inline, 47 verification entries, 4 declared gaps, zero open
+   register entries. Its §7 preamble and §11 preamble each state a rule about how the document is
+   maintained; read both before editing anything, because ignoring them is what produced most of
+   the 55 findings.
+2. **`docs/reviews/plan-round-01-review.md` … `-06-review.md`** — the full review record with
+   per-round findings, dispositions and convergence arithmetic. Round 6 is the only one dispatched
+   without author-supplied direction; the first five were steered, so their coverage reflects
+   where they were pointed rather than where defects were.
+3. **`docs/specs/spec-aps-fusion-mcp-server.md`** and
+   **`docs/architectures/architecture-aps-fusion-mcp-server.md`** — unchanged, both accepted.
+4. **`docs/aps-mfg-schema.json`** — the introspected MFG schema, 209 types. Authoritative for
+   every MFG field, query and mutation. Read it; never recall it.
 
-## Blocked, and first steps of the build
+## The tripwire, and what it is naming
 
-- **The M-3 one-time browser re-authentication is outstanding** — the stored credential file
-  contains the literal string `null`. Until the owner performs the login, no live APS call is
-  possible from this repo.
-- The architecture names exactly two load-bearing facts it could not verify without a
-  credential, and both are specified with the exact closing check: **Limitation 8(b)** (whether
-  MFG `ItemVersion.id` is the Data Management version-URN form — the recorded `itemVersions`
-  query through `docs/apsq.mjs` settles it) and **Limitation 8(c)** (whether the Model
-  Derivative `signedcookies` endpoint accepts the whole-value percent-encoded `derivative_urn`
-  — issue the request in the encoded form, fall back to literal if it 400s). **These two checks
-  are the first two post-authentication verifications of the build**, scheduled ahead of
-  everything else, because they are the only places the built server can diverge from the
-  architecture with no document defect visible.
+Findings by round: 9 → 10 → 9 → 8 → 8 → 11. Condition (b) fired at round 6 — two consecutive
+post-fix rounds without a strict decrease.
 
-## Next
+Severity moved the other way and stayed there: zero Critical and zero Serious for the last two
+rounds, against one Critical in round 3 and five Serious in round 4. **No round has ever found
+missing work, a wrong design decision, or a defect in the build order.** All 60 spec requirements
+map to steps; the coverage table has re-derived clean in both directions for five consecutive
+rounds.
 
-The plan phase: `expert-plan`, consuming the architecture and the spec as they stand — both
-accepted by owner direction. The plan's per-step Source annotations point at the architecture's
-D-numbers and Standards table; its first post-authentication steps are the 8(b)/8(c) checks
-above.
+The count rose because one defect *shape* kept reappearing somewhere new: **a hand-maintained
+cross-reference or enumeration with no generator, drifting on the next edit.** Ten distinct
+locations across six rounds. Each fix round corrected the named instances; the next round found
+the class elsewhere. Three of round 5's findings were manufactured by round 4's fixes; three of
+round 6's by round 5's.
 
-## Process record — why twenty rounds, and what to keep
+After round 6 the four surfaces the reviewer named were converted from maintained to derived, and
+a fifth (§11's positional references) followed. That work is **unreviewed** — it is the author's
+own, and the tripwire fired on exactly the pattern of that author's work being wrong in ways
+self-review does not catch.
 
-Rounds 1–11 failed on patch-style corrections; that history is recorded in this file's prior
-revision. Rounds 13–19 applied the corrected discipline — re-derive the affected section from
-its sources, sweep the finding's class, re-read what the edit touched — and every closure was
-verified by the following round. Three fix-site regressions still occurred (rounds 15, 16, 19),
-each from the same root: verifying only the half of the record that supported the edit — the
-accounting surfaces but not the governing decision; a worked example but not the normative
-reference; an asserted quantitative relation with one term unbounded. The rules that ended
-them: the normative reference is the contract and a worked example is only evidence; every term
-of an asserted relation must be bounded somewhere in the document before the sentence asserting
-it is written; and the class check extends to the passages an edit makes stale, not only the
-passages edited.
+## What to do next
 
-The cycle did not terminate on its own for a structural reason worth remembering: the review
-standard's PASS requires zero findings of any severity, and each fresh blinded reviewer added
-new mechanical scan classes beyond the prior round's (the review skill's instrument list is
-open-ended, and each reviewer inherits the previous round's roster through the post-fix
-inventory rule). The verification frontier therefore expanded about as fast as findings closed.
-The owner ended the cycle by direction, which the review skill itself defines as one of the
-three legitimate exits.
+**Round 7 is the next action.** Dispatch an independent reviewer with the artifact, its upstream
+documents, the governing skill files, and the prior-round records — **pointers only.** Do not tell
+it where defects cluster, what to check, which instruments to use, or how to judge a prior
+decision. That is a contaminated review, and it is why five of six rounds were compromised.
+
+If round 7 also fails to converge, that is the owner's decision point, not the agent's.
+
+## Two things that are the owner's to do
+
+- **The M-3 re-authentication is outstanding.** `~/.aps-fusion-mcp/tokens.json` contains the
+  literal string `null` — written there by the predecessor's `clearTokens()`, which nulls the file
+  on any non-OK refresh response. Until the browser login is done, S15's two probes and the S26
+  acceptance pass cannot run. Everything from S0 through S14 proceeds without it.
+- **The spec file's `Status:` line still reads "Draft for review"** while the handoff records it
+  as accepted. Governance metadata; no plan step reads it, and it creates no work.
+
+## Method, learned expensively
+
+- **Read the file. Do not script an audit of it.** Every defect in this project was found by
+  reading. Scripted checks found none and introduced or concealed several — including one whose
+  "verification" hardcoded its own conclusion and confirmed what it was told. Scripts that
+  *generate* a derived surface are the fix; scripts that *audit* prose are the problem.
+- **A fix note is not evidence of a fix.** Round 5 found a round-4 finding recorded as corrected
+  where a third of it had been done. Re-check prior dispositions against source, not against the
+  note claiming they are closed.
+- **Correct the class, not the instance.** A finding is a symptom. Fixing the named site and
+  leaving the class is what produced the fix-generated defects in every post-fix round.
+- **Reviewers get pointers, never a checklist.**
