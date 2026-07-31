@@ -213,10 +213,10 @@ Source, and every non-trivial step carries the four-part format.
 **How to read the Dependencies field.** Each step's **backward** list — "what must complete before
 this step" — is normative and is the authority for scheduling. The forward half the output
 contract also requires ("what this step unblocks") is stated **once**, as the reverse index below,
-rather than as a note on each of 27 steps. Maintaining it in both places is what produced 25
-asymmetric pairs across four rounds; a single derived index has one place to be wrong instead of
-27, and any per-step "Unblocks …" prose that survives elsewhere in this document is superseded by
-this table.
+derived by inverting those backward lists. No step carries a forward statement of its own; there
+is nothing to reconcile, because the two halves exist in only one place each. Maintaining them
+separately is what produced 25 asymmetric pairs across four rounds and nine contradictory
+statements in a fifth.
 
 **Reverse index — what each step unblocks.** Derived by inverting the backward edges, read from
 the steps themselves. A step not listed unblocks nothing beyond the final acceptance pass.
@@ -280,7 +280,7 @@ calls the tree "not a baseline" — M-2 governs what the rebuild may *inherit*, 
 about destroying bytes; reading it as deletion authority is a category error. *Not* leaving the
 decision to the implementer — the failure is silent and total.
 
-*Dependencies.* None. **Blocks S1.**
+*Dependencies.* None.
 
 *Verification.* Pinned to content, not to `HEAD` — `HEAD` moves as later work commits, and a
 verification that drifts is worse than none. From the repository root (`agent-armory`, **not** the
@@ -323,7 +323,7 @@ predecessor and `package.json:6` names `dist/index.js` as `main`, so a stale `di
 wrong server.
 
 *Dependencies.* **S0 — this step MUST NOT run until S0's preservation commit exists and is
-verified.** Unblocks every subsequent step.
+verified.**
 
 *Verification.* `git status` shows the seven files deleted, and `git log --oneline -1 6e5f00b`
 confirms the preservation commit is an ancestor of HEAD (`git merge-base --is-ancestor 6e5f00b
@@ -372,7 +372,7 @@ and `typecheck.tsconfig`, because the base `tsconfig.json` sets `"rootDir": "./s
 `typecheck.include` is **not** required — its default is
 `['**/*.{test,spec}-d.?(c|m)[jt]s?(x)']`, which already matches `test/aps-http.test-d.ts`. It is a
 separate option from the runtime `include` above, with its own default; setting it would be a
-harmless narrowing, not a fix, and the plan does not set it. (§11 claim 46.)
+harmless narrowing, not a fix, and the plan does not set it. (§11 claim 30.)
 
 Create `tsconfig.test.json` extending the base with `"rootDir": "."` and
 `"include": ["src/**/*", "test/**/*"]` — a separate file rather than widening the base, because
@@ -399,7 +399,7 @@ but it has no coverage integration and D26's induced-failure suite benefits from
 requires pinning, and the predecessor's `^1.29.0`/`^5.2.1`/`^4.3.6` (verified at
 `package.json:16–18`) are what let a minor bump change behavior under a passing lockfile.
 
-*Dependencies.* S1. Unblocks S3 onward.
+*Dependencies.* S1.
 
 *Verification.* `npm ci` succeeds from the committed lockfile; `npm test` exits 0 with zero tests;
 `node -e "…"` confirms no dependency spec in `package.json` contains `^` or `~`.
@@ -452,9 +452,9 @@ surprise instead of a boot failure. *Not* a flat schema with `.optional()` every
 `.refine()` checks — that expresses requiredness as an afterthought and cannot make the
 mode↔token pairing unrepresentable.
 
-*Dependencies.* S2. Unblocks all.
+*Dependencies.* S2.
 
-*Verification.* Test specs T-1 (valid per-mode parses), T-2 (each assertion fires) — §12.
+*Verification.* T-1, T-2 — §12 (the specs attributed to S3).
 
 *Impact if wrong.* Cascading but loud: a wrong requiredness rule either refuses a valid start
 (caught immediately) or admits a hosted start without `MCP_AUTH_TOKEN`, which is a security
@@ -481,9 +481,9 @@ value, whereas an allowlist of ids and enums cannot emit one. **What this is NOT
 (`redact.paths/censor/remove`, Context7 `/pinojs/pino`). *Not* log-everything-then-redact — that
 inverts the burden and leaks on the first unanticipated field.
 
-*Dependencies.* S3. Unblocks all.
+*Dependencies.* S3.
 
-*Verification.* Test spec T-3 (stdout purity under stdio; no secret in a logged line) — §12.
+*Verification.* T-3 — §12 (the spec attributed to S4).
 
 *Impact if wrong.* Wrong destination in stdio mode corrupts the protocol stream (R-PROTO-2
 violation, breaks every tool call). Wrong redaction leaks credentials into a file. Both are
@@ -514,10 +514,9 @@ survive restart or AC-24's human-out-of-the-loop clause and AC-9's replay defenc
 a mode bit that is inert on the host FS," and the predecessor's `{ mode: 0o600 }`
 (`src/services/aps-auth.ts:31`) is precisely that inert bit on NTFS.
 
-*Dependencies.* S3. Unblocks S6, S8, S21.
+*Dependencies.* S3.
 
-*Verification.* Test specs T-4 (atomicity under induced mid-write failure), T-5 (ACL verified at
-startup; refusal when absent) — §12.
+*Verification.* T-4, T-5 — §12 (the specs attributed to S5).
 
 *Impact if wrong.* Cascading and potentially destructive: a non-atomic write here can corrupt the
 refresh journal, which is the mechanism AC-25 depends on. T-4 targets exactly this.
@@ -560,11 +559,9 @@ window for no benefit. *Not* process-global mutable token state without file aut
 the moment a sibling rotates, and C2 makes the on-disk file the only source of truth.
 *Not* refresh-on-401-retry loops — unbounded, and non-idempotent against rotating tokens.
 
-*Dependencies.* S3, S4, S5. Unblocks S8, S16, S23, S24.
+*Dependencies.* S3, S4, S5.
 
-*Verification.* Test specs T-6 (transient survives), T-7 (`invalid_scope` / `invalid_grant`
-classification), T-8 (AC-25 crash between rotation and persist), T-9 (AC-25 concurrent-refresh
-race), T-10 (demand-driven, not opportunistic) — §12.
+*Verification.* T-6, T-7, T-8, T-9, T-10 — §12 (the specs attributed to S6).
 
 *Impact if wrong.* **The most destructive step in the plan.** A defect here can destroy the
 owner's credential and force a browser re-auth — the exact failure this rebuild exists to
@@ -620,10 +617,9 @@ schema-legal-by-construction guarantee — but that semantics statement is docum
 on here.) *Not* HTML escaping — the consumer is an agent context, not a
 browser; the threat is instruction-shaped text, addressed by structural separation and marking.
 
-*Dependencies.* S3. Unblocks S8, S12.
+*Dependencies.* S3.
 
-*Verification.* Test specs T-11 (single mechanism, both output kinds), T-12 (AC-26 neutralization)
-— §12.
+*Verification.* T-11, T-12 — §12 (the specs attributed to S7).
 
 *Impact if wrong.* Contained per call but broad in reach — every tool's output passes here. A
 neutralization gap is a prompt-injection channel into the consuming agent (T8).
@@ -667,12 +663,11 @@ axios/got — `fetch` is built in on Node ≥18 (C9), and one fewer dependency i
 chokepoint is the point. *Not* in-memory spend counters — a crashing runaway resets its own
 budget.
 
-*Dependencies.* S3, S4, S5, S6, S7. Unblocks every gateway.
+*Dependencies.* S3, S4, S5, S6, S7.
 
-*Verification.* Test specs T-13 (AC-11 timeout), T-14 (AC-19 bounded backoff, observed count and
-spacing), T-15 (non-safe never retried), T-16 (AC-23 SSRF refusals incl. redirect hop and
-label-boundary suffix cases), T-17 (AC-24 cap refusal with no request issued), T-18
-(compile-time: `safe:true` + billable cost does not typecheck) — §12.
+*Verification.* T-13, T-14, T-15, T-16, T-17, **T-17b**, T-18 — §12 (the specs attributed to
+S8). T-17b covers the UTC-day rollover on the spend counter and T-18 is the type-level fixture;
+neither is inside a `T-13..T-18` range, which is why this field enumerates rather than ranges.
 
 *Impact if wrong.* Cascading and expensive. A retry-eligibility defect spends real money; an
 allowlist defect is an SSRF hole; a missing timeout hangs a tool call indefinitely. This is the
@@ -683,15 +678,13 @@ Scope note: this gate covers the outbound path only. The registration chokepoint
 (`registerGuardedTool`) is built at S11 and is gated separately at Checkpoint D — the two are
 split because gateways (Phase 5) call out before any tool registers, so the outbound path must be
 proven first.
-Verify: `aps-http` is the only module under `src/` that calls global `fetch` — the exact
-command is `grep -rn 'fetch(' src/ --include='*.ts'`, and its only hits must be inside
-`src/services/aps-http.ts`. **Scope is `src/` deliberately:** `docs/apsq.mjs` contains two
-`fetch` calls (`:40`, `:64`) and is retained on purpose — S15's 8(b)/8(c) probes run through it —
-so a repo-wide grep fails on a correct build. `node_modules/` and `dist/` are likewise out of
-scope; **`npx vitest --typecheck.enabled run` exits 0 with
+Verify: **CMD-EGRESS** (the command set at the head of §9) passes;
+**`npx vitest --typecheck.enabled run` exits 0 with
 `test/aps-http.test-d.ts` reporting the three billable-and-safe combinations as expected errors**
 (the plain `npm test` does not run type-checking — see T-18); SpendGuard counters survive a
-process restart; T-13..T-18 green. **No gateway may be written until this passes** — a gateway written before the chokepoint exists is a call site
+process restart; **T-13, T-14, T-15, T-16, T-17, T-17b and T-18 green** — enumerated rather than
+ranged, because `T-13..T-18` does not contain T-17b, which is the only test of the UTC-day
+rollover on the spend counter. **No gateway may be written until this passes** — a gateway written before the chokepoint exists is a call site
 that never acquired the cost and safe tags.
 
 ---
@@ -724,10 +717,9 @@ and client certificates do not survive tailscaled's TLS termination. *Not* the S
 middleware. *Not* session-derived authority — S-12 forbids it and D3's stateless transport issues
 no session IDs at all.
 
-*Dependencies.* S3. Unblocks S22.
+*Dependencies.* S3.
 
-*Verification.* Test specs T-19 (401 on wrong/absent secret; constant-time path), T-20 (403 on
-disallowed Origin; 200 on absent Origin) — §12.
+*Verification.* T-19, T-20 — §12 (the specs attributed to S9).
 
 *Impact if wrong.* Severe and silent — a broken gate reproduces the predecessor's headline defect
 (`src/index.ts:71` mounts `POST /mcp` with no auth middleware anywhere in the file). AC-13 is the
@@ -754,10 +746,9 @@ thrown exceptions as the error path — they become protocol errors invisible to
 D-6). *Not* free-text-only errors — agents branch on structure, so the class and retryable flag
 must be machine-readable.
 
-*Dependencies.* S3, S4. Unblocks S12.
+*Dependencies.* S3, S4.
 
-*Verification.* Test spec T-21 (each class renders correctly; a thrown error becomes `isError`,
-not a protocol error) — §12.
+*Verification.* T-21 — §12 (the spec attributed to S10).
 
 *Impact if wrong.* Broad but non-destructive; degrades agent recovery rather than corrupting data.
 
@@ -780,10 +771,9 @@ NOT — and why:** *Not* per-handler `outputGuard(...)` calls — one omission i
 S-13 hole. *Not* a lint rule instead of a wrapper — it catches the shape, not the semantics, and
 depends on lint being run.
 
-*Dependencies.* S7, S10. Unblocks S16–S21.
+*Dependencies.* S7, S10.
 
-*Verification.* Test spec T-22 (a tool registered through the wrapper has its output guarded;
-grep asserts zero direct `server.registerTool` outside the composition root) — §12.
+*Verification.* T-22 — §12 (the spec attributed to S11).
 
 *Impact if wrong.* Every tool's output loses its guard — an S-13 and R-REL-5 regression at once.
 
@@ -819,10 +809,9 @@ is disallowed.
 *Not* relying on `destructiveHint`'s default — `ToolAnnotationsSchema` documents that default as
 **true**, so an additive write omitting it is annotated destructive, violating R-PROTO-4.
 
-*Dependencies.* S11. Unblocks S16–S21.
+*Dependencies.* S11.
 
-*Verification.* Test spec T-23 (the AC-16 annotation diff: every tool's emitted annotations equal
-the matrix) — §12.
+*Verification.* T-23 — §12 (the spec attributed to S12).
 
 *Impact if wrong.* Annotation untruthfulness is the predecessor's exact production defect
 (`readOnlyHint:true` at `src/tools/mfg-data-model.ts:480` over a `generate:true` call at `:497`)
@@ -835,7 +824,7 @@ Trigger: the boundary between cross-cutting enforcement and the code that must n
 the second half of what Checkpoint A covers for egress. Verify: `registerGuardedTool` exists in
 the composition root and applies both OutputGuard and the throw-to-`isError` wrapper; the
 annotation constants and the `z.object` schema convention are in `src/tools/tool-defs.ts`;
-T-21 and T-22 green. **No tool module may be written until this passes** — a tool registered
+**CMD-REGISTRATION** (the command set at the head of §9) passes; T-21 and T-22 green. **No tool module may be written until this passes** — a tool registered
 before the wrapper exists is a tool whose output was never guarded, which is the per-handler
 convention failure this rebuild exists to eliminate.
 
@@ -877,11 +866,9 @@ plain fetch through `aps-http` keeps the egress chokepoint intact. *Not* client-
 for the BOM — each window's derived quantities require that window's full occurrence set
 server-side, so pushing the page loop onto the agent guarantees wrong quantities.
 
-*Dependencies.* S8, S7. Unblocks S16–S19.
+*Dependencies.* S8, S7.
 
-*Verification.* Test specs T-24 (zero `${` inside catalog document strings — static assertion),
-T-25 (AC-15: a metacharacter-bearing argument does not alter query structure), T-26 (D7 window
-quantities sum exactly across a resumed scan) — §12.
+*Verification.* T-24, T-25, T-26 — §12 (the specs attributed to S13).
 
 *Impact if wrong.* An injection hole (S-7) or silently wrong BOM quantities. The latter is the
 "plausible but wrong" class the owner has explicitly named as the correctness bar.
@@ -910,10 +897,9 @@ query points. *Not* webhook-only change detection — hostage to the public call
 D-10 forbids. *Not* an exclusive `>` boundary — the inclusive `≥` plus reported-set dedupe costs
 internal redundancy but can never lose a change stamped exactly at the marker.
 
-*Dependencies.* S8. Unblocks S16, S18, S20, S21.
+*Dependencies.* S8.
 
-*Verification.* Test specs T-27 (marker advances only over fully scanned ground), T-28 (truncated
-poll resumes without loss or duplication) — §12.
+*Verification.* T-27, T-28 — §12 (the specs attributed to S14).
 
 *Impact if wrong.* Silent change loss — the failure mode that looks like success. Contained to the
 notify surface.
@@ -955,11 +941,10 @@ one-function insertion. *Not* accepting caller-supplied opaque base64 URNs — u
 boundary, an S-10 hole, and no other tool emits one. *Not* blocking the whole build on the probes
 — they gate only this module, which is why Phases 1–4 and S13/S14 precede them.
 
-*Dependencies.* S8; **and the M-3 owner re-authentication** (see Risks R-1). Unblocks S19.
+*Dependencies.* S8; **and the M-3 owner re-authentication** (see Risks R-1).
 
 *Verification.* The probes are self-verifying (the observed grammar / the observed HTTP status is
-the result, recorded in the step's output). Test specs T-29 (URN grammar rejects traversal and
-control characters), T-30 (recompute-and-match rejects a mismatched `<source>`) — §12.
+the result, recorded in the step's output). T-29, T-30 — §12 (the specs attributed to S15).
 
 *Impact if wrong.* If 8(b) resolves false and the derivation step is skipped, the five **consumer**
 tools (23, 24, 25, 26, 37) fail at runtime against real data while passing any test built on the
@@ -1107,8 +1092,8 @@ what Checkpoint D exists to prevent.
 S16: S11, S12, S13, S14. · S17: S11, S12, S13. · S18: S11, S12, S13, S14. ·
 S19: S11, S12, S13, S15. · S20: S8, S11, S12, S14. · S21: S8, S11, S12, S14, S5.
 
-*Verification.* Test spec T-31 (per module: every tool in `tools/list` with schema and annotations
-matching the inventory row) plus the acceptance criteria named per group — §12.
+*Verification.* T-31 — §12 (the spec attributed to S16–S21), plus the acceptance criteria named
+per group.
 
 *Impact if wrong.* Contained per tool; a wrong schema or annotation is visible in `tools/list`.
 
@@ -1155,11 +1140,9 @@ silently breaking tools 20 and 36. *Not* mounting `/auth/*` behind the bearer ga
 navigation cannot carry an `Authorization` header, so gating it makes the M-3 first-run login
 impossible.
 
-*Dependencies.* S9, S12, S16–S21. Unblocks S23, S26.
+*Dependencies.* S9, S12, S16–S21.
 
-*Verification.* Test specs T-32 (middleware order: unauthenticated + bad Origin ⇒ 401, not 403),
-T-33 (over-limit body ⇒ 413 before any handler), T-34 (`serverInfo` version present in both
-transports) — §12.
+*Verification.* T-32, T-33, T-34 — §12 (the specs attributed to S22).
 
 *Impact if wrong.* Ordering errors here are security-relevant (an unauthenticated `/mcp`) or
 availability-relevant (uploads broken). AC-13 and AC-10 are the acceptance backstops.
@@ -1191,8 +1174,7 @@ webhook route is the only publicly funnelled surface and must serve nothing else
 
 *Dependencies.* S5, S21, S22.
 
-*Verification.* Test specs T-35 (valid signature accepted; invalid and absent rejected 403),
-T-36 (AC-9 byte-identical replay produces no repeated action) — §12.
+*Verification.* T-35, T-36 — §12 (the specs attributed to S23).
 
 *Impact if wrong.* A forged-callback hole (T4) or a replay that drives duplicate action.
 
@@ -1200,8 +1182,7 @@ T-36 (AC-9 byte-identical replay produces no repeated action) — §12.
 `tools/list` returns exactly 37 tools; the annotation matrix diff (T-23) is empty; no listener
 binds anything but 127.0.0.1; **the stdio-mode auxiliary listener's route table contains exactly
 `GET /auth/login` and `GET /auth/callback` and no `/mcp` route** (D1, and the predecessor's
-headline defect); grep confirms zero direct `server.registerTool` outside the
-composition root and zero `fetch(` outside `aps-http.ts`.
+headline defect); and **both chokepoint commands from the command set below**, unchanged.
 
 ---
 
@@ -1330,6 +1311,21 @@ introduces it:
 | One truncation mechanism behind one registration wrapper | two divergent implementations (`mfg-data-model.ts:30`, `model-derivative.ts:9`) | [MCP-TOOLS] output sanitization; R-REL-5 | S7, S11 |
 
 ## 9. Checkpoints
+
+**The chokepoint command set.** Two commands are gated by more than one checkpoint. They are
+written here **once**, and every checkpoint that gates on them references them by name rather than
+restating them — the previous arrangement restated them and drifted, so Checkpoint A carried the
+scoped form while Checkpoint B kept an unscoped one that fails on a correct build.
+
+- **CMD-EGRESS** — `grep -rn 'fetch(' src/ --include='*.ts'` must return hits only inside
+  `src/services/aps-http.ts`. **Scope is `src/` deliberately:** `docs/apsq.mjs` contains two
+  `fetch` calls (`:40`, `:64`) and is retained on purpose for S15's probes, so a repo-wide grep
+  fails on a correct build; `node_modules/` and `dist/` are out of scope for the same reason.
+- **CMD-REGISTRATION** — `grep -rn 'server.registerTool' src/ --include='*.ts'` must return hits
+  only inside `src/index.ts`, where `registerGuardedTool` wraps it. Any other hit is a tool
+  registered outside the guard.
+
+Checkpoint A gates on CMD-EGRESS; Checkpoint D on CMD-REGISTRATION; Checkpoint B on both.
 
 **Checkpoint F** — after S2, before any new module is written. Trigger: **the boundary between
 the two foundation corrections (F-1, F-2) and the work that depends on them** — Step 10 places a
@@ -1538,7 +1534,7 @@ locators.
     `_autodocs/07-middleware-and-routing.md` (`express.raw()` → `req.body` is a Buffer),
     2026-07-30. **Library version: Express 5** — the version `package.json:17` carries
     (`^5.2.1`, pinned exact at S2) and the major the cited `_autodocs` tree documents.
-46. **Vitest's `typecheck.enabled` defaults to `false`, and `typecheck.include` defaults to
+30. **Vitest's `typecheck.enabled` defaults to `false`, and `typecheck.include` defaults to
     `['**/*.{test,spec}-d.?(c|m)[jt]s?(x)']` — a separate option from the runtime `include`, with
     its own default.** Steps S2 and T-18, and Checkpoint A's gate. *Documentation read:* Context7
     `/vitest-dev/vitest`, library version 4.1.6 — `docs/config/typecheck.md` and the
@@ -1549,14 +1545,14 @@ locators.
     `test/aps-http.test-d.ts`.** The same read records `typecheck.checker` defaulting to `'tsc'`
     and `typecheck.tsconfig` as the option S2 uses to bring `test/` into the program.
 
-30. **`package.json:6` names `dist/index.js` as `main`.** Step S1 — why a stale `dist/` is a
+31. **`package.json:6` names `dist/index.js` as `main`.** Step S1 — why a stale `dist/` is a
     runnable wrong server. *File read:* `package.json:6`.
-31. **`package.json:5` declares `"type": "module"`.** Step S2 — the ESM constraint behind the
+32. **`package.json:5` declares `"type": "module"`.** Step S2 — the ESM constraint behind the
     runner choice. *File read:* `package.json:5`.
-32. **The predecessor's `env()` helper throws at call time, mid-tool, rather than at startup.**
+33. **The predecessor's `env()` helper throws at call time, mid-tool, rather than at startup.**
     Step S3 — the failure mode config validation replaces. *File read:*
     `src/services/aps-auth.ts:45–49`.
-33. **The predecessor writes the credential file with `{ mode: 0o600 }`.** Step S5 — the inert
+34. **The predecessor writes the credential file with `{ mode: 0o600 }`.** Step S5 — the inert
     mode bit spec S-5 names. *File read:* `src/services/aps-auth.ts:31` (the `persistTokens`
     write; an identical literal appears at `:40` inside `clearTokens`).
 
@@ -1564,34 +1560,34 @@ locators.
 schema on disk (`docs/aps-mfg-schema.json`, the spec's [APS-SCHEMA] authority) by parsing the
 introspection and reading the named type, 2026-07-30.
 
-34. **`ItemFilterInput` exposes exactly two fields, `name` and `itemType` — no date filter.**
+35. **`ItemFilterInput` exposes exactly two fields, `name` and `itemType` — no date filter.**
     Steps S13 (tool 6's name-filter search) and S14 (why polling is DM-side, not MFG-side).
     *Schema read:* `ItemFilterInput.inputFields` → `['name', 'itemType']`.
-35. **`itemsByFolder` takes `hubId` and `folderId` and accepts no project id.** Step S16, tool 5's
+36. **`itemsByFolder` takes `hubId` and `folderId` and accepts no project id.** Step S16, tool 5's
     input contract. *Schema read:* `Query.itemsByFolder.args` →
     `['hubId', 'folderId', 'filter', 'pagination']`.
-36. **Tool 4's two branches match real queries:** `foldersByProject(projectId, …)` and
+37. **Tool 4's two branches match real queries:** `foldersByProject(projectId, …)` and
     `foldersByFolderInHub(hubId, folderId, …)` — the by-parent branch genuinely requires the hub
     id, which is why the input carries it. Step S16. *Schema read:* `Query.foldersByProject.args`
     → `['projectId', 'filter', 'pagination']`; `Query.foldersByFolderInHub.args` →
     `['hubId', 'folderId', 'filter', 'pagination']`.
-37. **`itemVersions(hubId, itemId, pagination)` exists and backs tool 35.** Step S16.
+38. **`itemVersions(hubId, itemId, pagination)` exists and backs tool 35.** Step S16.
     *Schema read:* `Query.itemVersions.args` → `['hubId', 'itemId', 'pagination']`.
-38. **`Query.item` accepts a `composition` argument, and takes `hubId` (not `projectId`).**
+39. **`Query.item` accepts a `composition` argument, and takes `hubId` (not `projectId`).**
     Step S17, tool 7's composition selection (R-READ-6) and its `{item_id, hub_id}` branch.
     *Schema read:* `Query.item.args` →
     `['hubId', 'itemId', 'time', 'composition', 'resolution']`. Note: the schema is the spec's
     authority over documentation prose ([APS-SCHEMA], spec §9.2), and it says `hubId`.
-39. **The `Item` interface carries exactly twelve fields** — `createdBy, createdOn,
+40. **The `Item` interface carries exactly twelve fields** — `createdBy, createdOn,
     extensionType, hub, id, lastModifiedBy, lastModifiedOn, mimeType, name, parentFolder,
     project, size` — which bounds what tool 5 may return at interface level. Step S16.
     *Schema read:* `Item.fields`.
-40. **`Item` has exactly four concrete types — `BasicItem`, `ConfiguredDesignItem`, `DesignItem`,
+41. **`Item` has exactly four concrete types — `BasicItem`, `ConfiguredDesignItem`, `DesignItem`,
     `DrawingItem` — all four carry `tipVersion`, and only `DesignItem` carries
     `tipRootComponentVersion`.** Steps S16 (tool 5's inline fragments on all four; tool 6's
     per-type match typing) and S17 (tool 7's branch structure). *Schema read:*
     `Item.possibleTypes`, then each type's `fields`.
-41. **`ComponentVersion` carries `partNumber` but neither `versionNumber` nor `createdOn`.**
+42. **`ComponentVersion` carries `partNumber` but neither `versionNumber` nor `createdOn`.**
     Step S17 — this is why tool 7's componentVersion branch reaches version data via
     `designItemVersion`, falling back to `configuredDesignItemVersion`. *Schema read:*
     `ComponentVersion.fields`.
@@ -1599,7 +1595,7 @@ introspection and reading the named type, 2026-07-30.
 **External API facts verified at plan time** (2026-07-31), each previously consumed second-hand
 from the architecture and now read directly:
 
-42. **The SDK's `allowedHosts`, `allowedOrigins` and `enableDnsRebindingProtection` transport
+43. **The SDK's `allowedHosts`, `allowedOrigins` and `enableDnsRebindingProtection` transport
     options are each marked `@deprecated` in favour of external middleware, and
     `enableDnsRebindingProtection` defaults to `false`.** Step S9 — why Origin validation is an
     explicit middleware rather than a transport option. *Documentation read:* Context7
@@ -1609,19 +1605,19 @@ from the architecture and now read directly:
     `allowedOrigins`, with matching markers on the other two. The same read confirms S9's
     absent-Origin rule independently: `validateRequestHeaders` rejects an Origin only when one is
     **present** and unlisted — a missing or empty Origin is never rejected.
-43. **Data Management's folder `lastModifiedTimeRollup` is the last-updated time of the folder
+44. **Data Management's folder `lastModifiedTimeRollup` is the last-updated time of the folder
     *or any of its child items*, and folder contents can be filtered by last-modified time.**
     Step S14, and the whole of D12's rollup-descent design. *Documentation read:* Context7
     `/websites/aps_autodesk_en_data_v2` — the `FolderAttributesWithExtensions` reference ("the
     date and time when the folder or any of its child items were last updated") and the filtering
     guide (`…/folders/:folder_id/contents?filter[lastModifiedTime]-ge=…`). The changelog entry
     introducing the field also records `If-Modified-Since` returning 304 on an unmodified folder.
-44. **Model Derivative's `properties:query` accepts a `pagination{offset, limit}` request block
+45. **Model Derivative's `properties:query` accepts a `pagination{offset, limit}` request block
     and returns `pagination{limit, offset, totalResults}` alongside `data.collection[]`.**
     Step S19 — tool 26's cursor-paged contract and its `totalResults` completeness fact.
     *Documentation read:* Context7 `/websites/aps_autodesk_en`, the
     `urn-metadata-guid-properties-query-POST` reference, request and response shapes.
-45. **APS Webhooks v1 pages via a `pageState` query parameter, returning `links.next`, at up to
+46. **APS Webhooks v1 pages via a `pageState` query parameter, returning `links.next`, at up to
     200 hooks per page.** Step S21 — tool 32's paging contract. *Documentation read:* Context7
     `/websites/aps_autodesk_en` — the `GET /webhooks/v1/hooks` reference and the .NET SDK
     `GetHooksAsync` signature ("Use the `next` value from the previous response to fetch
@@ -1632,6 +1628,12 @@ from the architecture and now read directly:
 
 Every test names its behavior, level, real/double boundary, data source, and failure condition.
 Doubles are named by Meszaros kind. Techniques per ISO/IEC/IEEE 29119-4:2021.
+
+**Each specification names the step it verifies, in its heading.** That attribution is the single
+source for the step↔test binding: a step's Verification field lists exactly the tests attributed
+to it here, and nothing else. Stated because the binding was previously maintained in both places
+and drifted — T-17b was specified and then referenced by no step, so an implementer executing S8
+would never have built it.
 
 **T-1 — config parses each serving mode.** *Behavior:* a valid env set for `stdio`, `hosted`, and
 `both` each yields a typed config with that branch's keys (S3, R-OPS-2). *Level:* unit — pure
@@ -1802,7 +1804,7 @@ cost: 'md-translate' }` is a compile error (S8, D18). *Level:* unit (type-level)
 combinations. Two settings from S2 make it execute: `typecheck.enabled: true` (default **false**,
 so `npm test` alone runs nothing here) and `typecheck.tsconfig: './tsconfig.test.json'` (the base
 config's `rootDir: "./src"` puts the fixture outside the program). `typecheck.include` needs no
-setting — its default already matches `*.test-d.ts` files (§11 claim 46). The command is
+setting — its default already matches `*.test-d.ts` files (§11 claim 30). The command is
 `npx vitest --typecheck.enabled run`, and Checkpoint A gates on that exact invocation.
 
 *Real/double:* none — a type-level assertion, no runtime doubles. *Data:* the four `cost` values
@@ -1816,7 +1818,7 @@ directive, which vitest reports as a failure), or any of the five legal combinat
 compile. *Technique:* decision table over the tag pair — eight rules, all enumerated, 3 illegal +
 5 legal.
 
-**T-19 / T-20 — bearer gate and Origin rule.** *Behavior:* absent, malformed, and wrong secrets
+**T-19 / T-20 — bearer gate and Origin rule (S9).** *Behavior:* absent, malformed, and wrong secrets
 each 401 with `WWW-Authenticate`; a correct secret passes (T-19). A present disallowed Origin
 403s; an absent or empty Origin passes; the allowlisted Origin passes (T-20) (S9, S-1, S-4,
 AC-13). *Level:* integration — the Express middleware chain is the subject. *Real/double:* real
@@ -1835,8 +1837,8 @@ any class escapes as a thrown/protocol error. *Technique:* equivalence partition
 through `registerGuardedTool` has its output guarded; and no direct `server.registerTool` call
 exists outside the composition root (S11, D19). *Level:* unit plus a static assertion. *Real/
 double:* real guard, real McpServer. *Data:* a tool returning oversized unguarded content.
-*Must NOT assert:* wrapper internals. *Fails when:* output arrives unguarded or a direct
-registration exists elsewhere. *Technique:* error guessing over registration bypass routes (direct `registerTool`, a handler returning unguarded content), supplemented by a static sweep for the direct-call pattern.
+*Must NOT assert:* wrapper internals. *Fails when:* output arrives unguarded, or **CMD-REGISTRATION** (§9)
+returns a hit outside `src/index.ts`. *Technique:* error guessing over registration bypass routes (direct `registerTool`, a handler returning unguarded content), supplemented by a static sweep for the direct-call pattern.
 
 **T-23 — AC-16 annotation matrix diff.** *Behavior:* every tool's emitted annotations equal D14's
 matrix for its effect class, with `destructiveHint` and `idempotentHint` set explicitly on all 11
@@ -1846,7 +1848,7 @@ table written from D14, not read from the code. *Must NOT assert:* by re-reading
 constants the code uses (that would be a logic mirror). *Fails when:* any tool's annotations
 differ from the independent table. *Technique:* decision table, one column per tool.
 
-**T-24 / T-25 / T-26 — MFG gateway.** T-24: zero `${` inside catalog document strings (static
+**T-24 / T-25 / T-26 — MFG gateway (S13).** T-24: zero `${` inside catalog document strings (static
 assertion over the module source). T-25: AC-15 — an argument containing a quote, brace, or
 newline produces the same request structure as a benign argument and no error divergence across
 handlers. T-26: D7 window quantities from successive resumed calls sum exactly to the
@@ -1868,7 +1870,7 @@ between the metacharacter and benign arguments, or handlers diverge; T-26 sums d
 (the population is finite and fully enumerable, so sampling would be the wrong instrument);
 T-25 error guessing over metacharacters; T-26 equivalence partitioning over page boundaries.
 
-**T-27 / T-28 — polling.** T-27: the returned marker equals the maximum observed
+**T-27 / T-28 — polling (S14).** T-27: the returned marker equals the maximum observed
 Autodesk-stamped time and never the local clock. T-28: a poll truncated at
 `DM_POLL_MAX_FOLDERS` returns a resume position that, when passed back, yields the remaining
 changes with no loss and no duplicate report. *Level:* unit with a **fake** DM source implementing
@@ -1878,14 +1880,14 @@ one exactly at the marker. *Must NOT assert:* fake internals. *Fails when:* the 
 clock-derived, or a change is lost or double-reported across the resume. *Technique:* boundary
 value analysis at the inclusive marker boundary.
 
-**T-29 / T-30 — MD URN contract.** T-29: the `version_id` and `derivative_urn` grammars reject
+**T-29 / T-30 — MD URN contract (S15).** T-29: the `version_id` and `derivative_urn` grammars reject
 `..` segments, `?`, `#`, `\`, and control characters. T-30: a `derivative_urn` whose `<source>`
 segment does not equal the gateway's independently recomputed value from `version_id` is
 rejected. *Level:* unit. *Real/double:* none. *Data:* a table of malformed URNs written forward
 from the grammar. *Must NOT assert:* regex text. *Fails when:* any malformed value is accepted.
 *Technique:* boundary value analysis plus error guessing.
 
-**T-31 — per-module tool contract conformance.** *Behavior:* for each of the seven modules, every
+**T-31 — per-module tool contract conformance (S16–S21).** *Behavior:* for each of the seven modules, every
 tool appears in `tools/list` with the input schema, output schema, and annotations the inventory
 row specifies (S16–S21, R-PROTO-5/6). *Level:* integration against real `tools/list`.
 *Real/double:* real server; gateways replaced by **fakes** implementing the same domain-typed
@@ -1893,7 +1895,7 @@ interfaces, justified because the contract under test is the tool surface, not A
 *Data:* the inventory table transcribed independently. *Must NOT assert:* handler internals.
 *Fails when:* count ≠ 37 or any contract differs. *Technique:* decision table, one column per tool.
 
-**T-32 / T-33 / T-34 — transport wiring.** T-32: an unauthenticated request with an invalid
+**T-32 / T-33 / T-34 — transport wiring (S22).** T-32: an unauthenticated request with an invalid
 Origin receives 401, not 403 (the stated precedence). T-33: a body over
 `HTTP_MAX_BODY_BYTES` receives 413 before any handler or SpendGuard work. T-34: `serverInfo`
 carries the `package.json` version in both stdio and HTTP transports. *Level:* integration, real
@@ -1902,7 +1904,7 @@ Express + real transport. *Data:* a body just over the limit; a version fixture.
 reaches a handler, or either transport omits the version. *Technique:* decision table over
 (authenticated, Origin valid/invalid/absent, body under/over limit) — one case per rule column.
 
-**T-35 / T-36 — webhook route.** T-35: a correctly signed callback is accepted; invalid and
+**T-35 / T-36 — webhook route (S23).** T-35: a correctly signed callback is accepted; invalid and
 absent signatures are 403'd; a callback matching no active secret is 403'd. T-36: AC-9 — a
 byte-identical replay of a previously accepted callback produces no repeated action. *Level:*
 integration — the raw-body path and HMAC are the subject and are not doubled. *Real/double:* real
@@ -2073,7 +2075,7 @@ and none is claimed.
   version of this entry listed **eight** facts consumed from the architecture's citations and
   admitted they "were reachable and were not blocked" — which, under the skill's earned-gap rule,
   made them open engineering questions rather than gaps. Of the eight: **four** were read directly
-  and promoted to §11 as claims 42–45 (SDK deprecation markers; DM `lastModifiedTimeRollup`; MD
+  and promoted to §11 as claims 43–46 (SDK deprecation markers; DM `lastModifiedTimeRollup`; MD
   `properties:query` pagination; Webhooks `pageState`/`next`); **one** was dropped rather than
   resolved — S7's rejection of `.merge()` now rests on the v4 API reference's documented
   composition forms (§11 claim 24, read directly), so the v3-documented `unknownKeys` semantics is
