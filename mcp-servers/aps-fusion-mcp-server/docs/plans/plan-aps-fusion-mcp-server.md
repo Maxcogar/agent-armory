@@ -157,13 +157,13 @@ step that creates a file appears here. 26 source files plus two config files:
 | `src/http/health-route.ts` | S22 |
 | `src/http/webhook-route.ts` | S23 |
 | `vitest.config.ts` | S2 |
-| `.env.example` (rewritten) | S25 |
 
 Plus the test tree under `test/`, created incrementally by the step that owns each module's
 tests (S3 onward — see §12).
 
 **Modified:** `package.json` (exact pins, vitest, test script), `tsconfig.json` (verify strict),
-`README.md` (full rewrite — see below).
+`README.md` (full rewrite — see below), and `.env.example` (rewritten by S25 — it already exists,
+so it is a modification, not a creation).
 
 **Documentation.** `codegraph_find_related_docs` over the eight changed files returned 18 docs.
 They partition into three classes, and the plan treats them differently — blanket-updating all 18
@@ -240,10 +240,14 @@ decision to the implementer — the failure is silent and total.
 verification that drifts is worse than none. From the repository root (`agent-armory`, **not** the
 server directory — the paths below are repo-relative and fail otherwise):
 `git show --stat 6e5f00b` lists exactly the five files at 257 insertions / 93 deletions;
-`git show 6e5f00b:./mcp-servers/aps-fusion-mcp-server/src/services/aps-auth.ts | grep -c clearTokens`
-returns 1; `git show 6e5f00b:./mcp-servers/aps-fusion-mcp-server/src/tools/mfg-data-model.ts | grep -c HUB_LIMIT`
-returns 1. Both symbols are absent from the commit's parent, which is what makes the preservation
-load-bearing.
+`git show 6e5f00b:./mcp-servers/aps-fusion-mcp-server/src/services/aps-auth.ts | grep -c 'function clearTokens'`
+returns **1** (the declaration; a bare-symbol count returns 2 — declaration at `:38`, call site at
+`:119` — so the declaration form is used, being unambiguous if a call site is later added or
+removed);
+`git show 6e5f00b:./mcp-servers/aps-fusion-mcp-server/src/tools/mfg-data-model.ts | grep -c HUB_LIMIT`
+returns **2** (declaration at `:127`, use at `:143`). All three values were observed by running
+the commands, not derived. Both symbols are absent from the commit's parent, which is what makes
+the preservation load-bearing.
 
 *Impact if wrong.* If skipped, 257 lines of the owner's uncommitted work are destroyed with no
 recovery path, and ~9 of §11's verification entries lose the source they cite. This is the only
@@ -319,6 +323,14 @@ requires pinning, and the predecessor's `^1.29.0`/`^5.2.1`/`^4.3.6` (verified at
 
 *Impact if wrong.* Contained. A wrong pin surfaces at `npm ci` or first import, before any
 behavior depends on it.
+
+**CHECKPOINT F — the foundation corrections are complete and verified.**
+Trigger: the boundary between this plan's two foundation corrections (F-1, F-2) and the work that
+depends on them. Verify: S0's preservation commit `6e5f00b` exists and its content checks return
+the values S0 states; `src/` is empty and `dist/` is gone; `npm ci` succeeds from the committed
+lockfile; `npm test` runs and exits 0 with zero tests; no dependency spec in `package.json`
+retains a `^` or `~`. **The tree cannot be un-deleted after S1 without the S0 commit, so this is
+the last point at which the preservation is verifiable rather than assumed.**
 
 ---
 
@@ -504,10 +516,13 @@ composing the fragment into every data schema is what makes the guard's writes a
 **What this is NOT — and why:** *Not* per-tool truncation helpers — the predecessor shipped two
 divergent implementations (`truncateIfNeeded` at `src/tools/mfg-data-model.ts:30` and `truncate`
 at `src/tools/model-derivative.ts:9`), which is R-REL-5's literal origin. *Not* `.merge()` for
-fragment composition — its documented semantics let the result inherit the second schema's
-`unknownKeys` policy, and an inheritance rule that can silently change strictness is the wrong
-foundation for a legal-by-construction guarantee; `.extend()` and shape-spread are the two forms
-the zod v4 API reference documents. *Not* HTML escaping — the consumer is an agent context, not a
+fragment composition — the zod **v4** API reference documents `.extend()` and object shape-spread
+as the composition forms (§11 claim 24, verified directly), and `.merge()` is not among them.
+(A stronger-sounding argument is available — that `.merge()` lets the result inherit the second
+schema's `unknownKeys` policy, which would be the wrong foundation for a
+schema-legal-by-construction guarantee — but that semantics statement is documented in zod's
+**v3** reference, and this project pins `^4.3.6`; it is recorded as gap G-4 rather than relied
+on here.) *Not* HTML escaping — the consumer is an agent context, not a
 browser; the threat is instruction-shaped text, addressed by structural separation and marking.
 
 *Dependencies.* S3. Unblocks S8, S12.
@@ -672,7 +687,8 @@ applied as typed constants per effect class (R: `readOnlyHint:true`; W: `readOnl
 explicit `destructiveHint` and `idempotentHint` per D14's per-tool pinning; `$`:
 `readOnlyHint:false, destructiveHint:false, idempotentHint:false` with cost stated in contract
 text); `openWorldHint:true` set explicitly on all classes. Establish the **`registerTool` input
-form**: a raw zod shape object (`inputSchema: { a: z.string() }`), not `z.object({...})`.
+form**: `inputSchema: z.object({ ... })`, and likewise `outputSchema: z.object({ ... })` —
+never the raw shape `{ a: z.string() }`.
 
 *Source.* D14, D15, D17; R-PROTO-4, R-PROTO-5, R-PROTO-6, R-WRITE-4, S-8, S-9, AC-16.
 
@@ -971,9 +987,9 @@ no-unauthenticated-MCP-surface property hold in stdio mode **by route-set constr
 than by gate placement, and it is the direct counter to the predecessor's headline defect, which
 was an `/mcp` route mounted on exactly such an auxiliary listener (`src/index.ts:71` beside the
 unconditional `app.listen` at `:83`). In `both` mode the aux listener is suppressed as redundant,
-the main listener already serving `/auth/*`. and constructing each
-per-request `McpServer` with the version read from `package.json` so `serverInfo` carries it in
-both transports. Declare **`tools` capability only**, `listChanged: false`.
+the main listener already serving `/auth/*`. Each per-request `McpServer` is constructed with the
+version read from `package.json`, so `serverInfo` carries it in **both** transports (R-OPS-3 —
+the stdio path has no `/healthz` and needs this). Declare **`tools` capability only**, `listChanged: false`.
 
 *Source.* D3, D2, D9, D21, D25, D1; R-PROTO-1, R-PROTO-2, R-OPS-3, R-OPS-5, R-REL-6, S-1, S-4, S-12, S-14 (the PKCE S256 authorization-code flow lives in `auth-routes.ts`, created here).
 
@@ -1083,7 +1099,12 @@ port), the bearer-secret generation command, the Windows 11 clean-checkout run/c
 procedure, every config key with its default, and **both trust models stated explicitly** (hosted:
 tailnet reachability + per-request bearer + the single funnelled HMAC-authenticated route; stdio:
 local child process trusting its parent, no network surface beyond the loopback aux listener).
-Update `INVENTORY.md` and `CRITERIA.md` to the new tree. **Do not modify** the eight
+Rewrite `.env.example` to enumerate **every configuration key `src/config.ts` validates** (S3),
+grouped by the three serving modes, each documented key showing its default where one exists, and
+each secret-valued key (`APS_CLIENT_SECRET`, `MCP_AUTH_TOKEN`) left empty with the generation
+command as a comment. It is the file a first-time operator copies to `.env` before the M-3 login,
+so its completeness is load-bearing for first run. Update `INVENTORY.md` and `CRITERIA.md` to the
+new tree. **Do not modify** the eight
 `docs/reviews/round-*.md`, the six `prior-session-artifacts/*`, the spec, or the architecture.
 
 *Source.* R-OPS-4, D25; spec M-4 (prior-session prose is historical record).
@@ -1203,10 +1224,17 @@ premise (a five-tool rework if discovered late).
   six prior-session artifacts are dated point-in-time evidence (spec M-4); editing them to match
   new code destroys their evidentiary value. Only `README.md` (rewrite), `INVENTORY.md`, and
   `CRITERIA.md` (update) are live surfaces.
-- **D-P5. `registerTool` takes a raw zod shape, not `z.object({...})`.** Both forms appear in SDK
-  sources; the v1.29.0-tagged docs use the raw shape and `main`-branch examples use `z.object`.
-  C9 pins v1.29.x, so the tagged form governs. Fixed at S12 because 37 tools is 37 chances to
-  diverge.
+- **D-P5. `registerTool` takes `z.object({...})`, not a raw zod shape.** Both forms are accepted
+  — the implementation signature takes `StandardSchemaWithJSON | ZodRawShape` — but they are not
+  equivalent. `z.object` is the primary generic overload (`InputArgs extends
+  StandardSchemaWithJSON`, `cb: ToolCallback<InputArgs>`) and infers handler argument types from
+  the schema; a raw shape is routed through `normalizeRawShapeSchema` and pairs with
+  `LegacyToolCallback<ZodRawShape>`. The SDK documents the raw-shape overload as **deprecated**,
+  directing users to pass a complete schema object. Across 37 handlers whose safety story is
+  boundary validation (S-8), typed args on the maintained path is the material difference. The
+  raw shape does appear in the v1.29.0-tagged `docs/protocol.md`, but a form appearing in a prose
+  example is not evidence it is the maintained one. Fixed at S12 because 37 tools is 37 chances
+  to diverge.
 - **D-P6. Vitest is confirmed as the runner** (D26 left it "plan-level confirmable"). Criterion
   was native ESM + TypeScript on Windows against a `"type": "module"` package — not mocking power,
   since D26's seams are constructor-injected and explicitly *not* module-level monkey-patching.
@@ -1330,14 +1358,14 @@ locators.
     `_autodocs/07-middleware-and-routing.md` (`express.raw()` → `req.body` is a Buffer),
     2026-07-30.
 
-38. **`package.json:6` names `dist/index.js` as `main`.** Step S1 — why a stale `dist/` is a
+30. **`package.json:6` names `dist/index.js` as `main`.** Step S1 — why a stale `dist/` is a
     runnable wrong server. *File read:* `package.json:6`.
-39. **`package.json:5` declares `"type": "module"`.** Step S2 — the ESM constraint behind the
+31. **`package.json:5` declares `"type": "module"`.** Step S2 — the ESM constraint behind the
     runner choice. *File read:* `package.json:5`.
-40. **The predecessor's `env()` helper throws at call time, mid-tool, rather than at startup.**
+32. **The predecessor's `env()` helper throws at call time, mid-tool, rather than at startup.**
     Step S3 — the failure mode config validation replaces. *File read:*
     `src/services/aps-auth.ts:45–49`.
-41. **The predecessor writes the credential file with `{ mode: 0o600 }`.** Step S5 — the inert
+33. **The predecessor writes the credential file with `{ mode: 0o600 }`.** Step S5 — the inert
     mode bit spec S-5 names. *File read:* `src/services/aps-auth.ts:31` (the `persistTokens`
     write; an identical literal appears at `:40` inside `clearTokens`).
 
@@ -1345,50 +1373,37 @@ locators.
 schema on disk (`docs/aps-mfg-schema.json`, the spec's [APS-SCHEMA] authority) by parsing the
 introspection and reading the named type, 2026-07-30.
 
-30. **`ItemFilterInput` exposes exactly two fields, `name` and `itemType` — no date filter.**
+34. **`ItemFilterInput` exposes exactly two fields, `name` and `itemType` — no date filter.**
     Steps S13 (tool 6's name-filter search) and S14 (why polling is DM-side, not MFG-side).
     *Schema read:* `ItemFilterInput.inputFields` → `['name', 'itemType']`.
-31. **`itemsByFolder` takes `hubId` and `folderId` and accepts no project id.** Step S16, tool 5's
+35. **`itemsByFolder` takes `hubId` and `folderId` and accepts no project id.** Step S16, tool 5's
     input contract. *Schema read:* `Query.itemsByFolder.args` →
     `['hubId', 'folderId', 'filter', 'pagination']`.
-32. **Tool 4's two branches match real queries:** `foldersByProject(projectId, …)` and
+36. **Tool 4's two branches match real queries:** `foldersByProject(projectId, …)` and
     `foldersByFolderInHub(hubId, folderId, …)` — the by-parent branch genuinely requires the hub
     id, which is why the input carries it. Step S16. *Schema read:* `Query.foldersByProject.args`
     → `['projectId', 'filter', 'pagination']`; `Query.foldersByFolderInHub.args` →
     `['hubId', 'folderId', 'filter', 'pagination']`.
-33. **`itemVersions(hubId, itemId, pagination)` exists and backs tool 35.** Step S16.
+37. **`itemVersions(hubId, itemId, pagination)` exists and backs tool 35.** Step S16.
     *Schema read:* `Query.itemVersions.args` → `['hubId', 'itemId', 'pagination']`.
-34. **`Query.item` accepts a `composition` argument, and takes `hubId` (not `projectId`).**
+38. **`Query.item` accepts a `composition` argument, and takes `hubId` (not `projectId`).**
     Step S17, tool 7's composition selection (R-READ-6) and its `{item_id, hub_id}` branch.
     *Schema read:* `Query.item.args` →
     `['hubId', 'itemId', 'time', 'composition', 'resolution']`. Note: the schema is the spec's
     authority over documentation prose ([APS-SCHEMA], spec §9.2), and it says `hubId`.
-35. **The `Item` interface carries exactly twelve fields** — `createdBy, createdOn,
+39. **The `Item` interface carries exactly twelve fields** — `createdBy, createdOn,
     extensionType, hub, id, lastModifiedBy, lastModifiedOn, mimeType, name, parentFolder,
     project, size` — which bounds what tool 5 may return at interface level. Step S16.
     *Schema read:* `Item.fields`.
-36. **`Item` has exactly four concrete types — `BasicItem`, `ConfiguredDesignItem`, `DesignItem`,
+40. **`Item` has exactly four concrete types — `BasicItem`, `ConfiguredDesignItem`, `DesignItem`,
     `DrawingItem` — all four carry `tipVersion`, and only `DesignItem` carries
     `tipRootComponentVersion`.** Steps S16 (tool 5's inline fragments on all four; tool 6's
     per-type match typing) and S17 (tool 7's branch structure). *Schema read:*
     `Item.possibleTypes`, then each type's `fields`.
-37. **`ComponentVersion` carries `partNumber` but neither `versionNumber` nor `createdOn`.**
+41. **`ComponentVersion` carries `partNumber` but neither `versionNumber` nor `createdOn`.**
     Step S17 — this is why tool 7's componentVersion branch reaches version data via
     `designItemVersion`, falling back to `configuredDesignItemVersion`. *Schema read:*
     `ComponentVersion.fields`.
-
-**External API facts this plan did not independently verify.** The following are asserted by the
-architecture with its own Context7 citations and are consumed here as design inputs rather than
-re-derived: Data Management `lastModifiedTimeRollup` semantics and the storage/signed-S3 pipeline
-(D12, D23); Model Derivative `properties:query` `pagination{offset,limit,totalResults}`, object-tree
-`objectid`/`level` narrowing, and the `signedcookies` response shape (D15, D27); Design Automation
-`paginationToken` and the WorkItem argument model (D23, spec §13 Q-3); Webhooks `pageState`/`next`
-paging and the callback envelope's top-level `resourceUrn` (D11, D12); the SDK's deprecation of
-`allowedOrigins`/`enableDnsRebindingProtection` (D3); and zod's `.merge()` `unknownKeys`
-inheritance (D19's rejection of `.merge()`). They are recorded here rather than in §15 because
-each carries a dated Context7 citation in the architecture — but the citation is the
-architecture's, not this plan's, and a reviewer checking premise-correctness should treat them as
-inherited rather than as verified at plan time.
 
 ## 12. Test specifications
 
@@ -1587,11 +1602,18 @@ body — justified because the assertion is about the bytes leaving the process,
 inside it exposes; T-26 unit with a **fake** paginated occurrence source implementing the cursor contract —
 justified because the behavior under test is the gateway's window aggregation, and a live account
 cannot be made to hold a deterministic multi-page occurrence set.
-*Data:* T-25 metacharacter table; T-26 a realistic multi-page occurrence set with repeated
-component versions. *Must NOT assert:* T-25 must not assert on escaping internals — assert the
-emitted document is byte-identical and the value travels in `variables`. *Fails when:* T-24 any
-match; T-25 structure differs; T-26 sums diverge. *Technique:* T-25 error guessing over
-metacharacters; T-26 equivalence partitioning over page boundaries.
+*Data:* T-24 the catalog module's own source text; T-25 a metacharacter table; T-26 a realistic
+multi-page occurrence set with repeated component versions.
+*Must NOT assert:* T-24 must not assert on any runtime behavior — it is a static property of the
+source, and asserting a query executes correctly would not establish absence of interpolation;
+T-25 must not assert on escaping internals — assert the emitted document is byte-identical and
+the value travels in `variables`; T-26 must not assert on the fake's internals — assert the summed
+per-line quantities against the single-pass total.
+*Fails when:* T-24 any `${` occurs inside a catalog document string; T-25 structure differs
+between the metacharacter and benign arguments, or handlers diverge; T-26 sums diverge.
+*Technique:* T-24 exhaustive static enumeration over every document string in the catalog module
+(the population is finite and fully enumerable, so sampling would be the wrong instrument);
+T-25 error guessing over metacharacters; T-26 equivalence partitioning over page boundaries.
 
 **T-27 / T-28 — polling.** T-27: the returned marker equals the maximum observed
 Autodesk-stamped time and never the local clock. T-28: a poll truncated at
@@ -1665,15 +1687,15 @@ criterion and is the spec's own AC text, which is already written in observable 
   | AC-23 (SSRF refusals) | injected `fetch` as call-counter | spy | the assertion is that **no** request is dispatched — there is no state to observe |
     | AC-25 (crash between rotation and persist) | injected fs hook | spy | the crash point cannot be placed deterministically any other way |
 
-  Autodesk itself is **never** doubled for the twenty-one live criteria; doubling it there would
+  Autodesk itself is **never** doubled for the twenty-two live criteria; doubling it there would
   verify the double, not the server.
 - **The data.** The owner's real account: real hubs, projects, folders, designs, and a known
-  test design with a shared sub-component (for AC-4's where-used). Fixtures for the six seam-run
+  test design with a shared sub-component (for AC-4's where-used). Fixtures for the five seam-run
   criteria are written forward from the failure being induced — an actual APS `invalid_scope`
   body, an actual 429 with `Retry-After` — never shaped backward from the assertion.
 - **What the suite must NOT assert.** That a call "returned data" or "200 OK"; that a double was
-  invoked (except AC-23/AC-24, where non-dispatch *is* the contracted behavior and no state
-  exists); or any criterion by re-reading the plan or the code rather than observing the running
+  invoked (except AC-23, where non-dispatch *is* the contracted behavior and no
+  state exists; AC-24 runs live and observes absence at Autodesk per spec AC-6); or any criterion by re-reading the plan or the code rather than observing the running
   system. **A criterion is failed, not passed, when its evidence is a document.**
 
 | AC | Verifies | Runs | Fails when |
@@ -1742,7 +1764,7 @@ no criterion without a test and no test without a criterion.
 | # | Question | Arose | Bin | Disposition |
 |---|---|---|---|---|
 | Q-1 | The spec's `Status:` line reads "Draft for review" while HANDOFF records owner acceptance. | Step 1 | 1 (engineering) | **Closed.** No plan step reads the line and no build behavior turns on it; the plan is written against the spec's content, which both documents agree on. Recorded as an observation in §4. No plan step. |
-| Q-2 | Which `registerTool` input form does v1.29.0 take — raw shape or `z.object`? | Step 4 | 1 (engineering) | **Closed.** Both forms exist in SDK sources; the v1.29.0-tagged docs use the raw shape. Answered at Decision D-P5; evidence at §11 claim 22. |
+| Q-2 | Which `registerTool` schema form should all 37 tools use — raw shape or `z.object`? | Step 4 | 1 (engineering) | **Closed: `z.object({...})`.** Both are accepted, but the raw shape is the SDK's deprecated compatibility path (`normalizeRawShapeSchema` → `LegacyToolCallback`), while `z.object` is the primary overload that infers handler arg types. Answered at Decision D-P5; evidence at §11 claim 22. |
 | Q-3 | Which test runner, given D26 left it "plan-level confirmable"? | Step 4 | 1 | **Closed.** Vitest 4.x. Decision D-P6; evidence at §11 claim 26. |
 | Q-4 | Do the 8(b)/8(c) probes block the whole build or only part of it? | Step 6 | 1 | **Closed.** Only `md-gateway`. Decision D-P2; sequencing at S15. |
 | Q-5 | Should all 18 docs from `find_related_docs` be updated? | Step 8 | 1 | **Closed.** No — partitioned into rewrite/update/do-not-touch. Decision D-P4; spec M-4 is the standard. |
@@ -1781,6 +1803,29 @@ none is claimed.
   *Why outside reach:* the hosts appear only in live signed-URL responses. *Mitigation, not
   deferral:* `EGRESS_ALLOW_HOSTS` makes this configuration rather than code, and S8's
   label-boundary suffix rule bounds what a widened entry can match.
+
+- **G-4. Six external API/library facts are consumed from the architecture's citations rather
+  than verified at plan time.** They are: Data Management `lastModifiedTimeRollup` semantics and
+  the storage/signed-S3 pipeline (S14, from D12/D23); Model Derivative `properties:query`
+  pagination, object-tree `objectid`/`level` narrowing, and the `signedcookies` response shape
+  (S15, S19, from D15/D27); Design Automation `paginationToken` and the WorkItem argument model
+  (S20, from D23 and spec §13 Q-3); Webhooks `pageState`/`next` paging and the callback
+  envelope's top-level `resourceUrn` (S21, S23, from D11/D12); the SDK's deprecation of
+  `allowedOrigins`/`enableDnsRebindingProtection` (S9, from D3); and zod's `.merge()`
+  `unknownKeys` inheritance (S7, from D19).
+  *Attempted:* each carries a dated Context7 citation in the architecture, which was read; the
+  plan verified other SDK, zod, pino, express and vitest facts by direct Context7 read in the
+  same session, so these were reachable and were not blocked — they were not re-derived.
+  *Why this is a gap rather than a verified premise:* the expert-standard prior-artifact rule
+  makes a claim in an upstream document a candidate, not a finding, and §11's evidence bar is a
+  documentation read with library ID, section, version and date. A second-hand citation does not
+  meet it. *What would resolve it:* a direct Context7 read per fact, promoted into §11.
+  *Demonstrated consequence:* the zod item was checked and is weak — the `.merge()`
+  `unknownKeys`-inheritance description appears in `packages/docs-v3/home.md`, the **v3**
+  reference, while `package.json` pins zod `^4.3.6`. S7's conclusion stands on independent v4
+  grounds (§11 claim 24 verified `.extend()` and shape-spread directly against the v4 API
+  reference), so this is a weak premise under a sound decision — but it is exactly what this
+  gap entry exists to surface.
 
 Every other decision in this plan is grounded in a named standard from §3, and every factual
 claim carries an entry in §11.
