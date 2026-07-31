@@ -40,42 +40,43 @@ after and are separate deliverables (R-AUTO-4).
 
 ### Coverage reconciliation
 
-Every spec requirement mapped to the step(s) that implement it. No requirement maps to nothing.
+Every spec requirement mapped to the step(s) whose **Source annotation declares it**. This table
+is **generated from those annotations**, not maintained by hand — the same derivation §5 uses for
+the created-file list. A requirement mapping to nothing, or a step declaring a requirement absent
+here, is therefore impossible by construction rather than by inspection.
 
 | Requirement | Step(s) | | Requirement | Step(s) |
 |---|---|---|---|---|
-| R-DISC-1 | S16 | | R-PROTO-1 | S22, S23 |
-| R-DISC-2 | S16 | | R-PROTO-2 | S4, S23 |
-| R-DISC-3 | S13, S16 | | R-PROTO-3 | S10 |
-| R-DISC-4 | S11, S13, S16–S21 | | R-PROTO-4 | S12, S16–S21 |
-| R-READ-1 | S17 | | R-PROTO-5 | S12, S16–S21 |
-| R-READ-2 | S13, S17 | | R-PROTO-6 | S11, S12 |
-| R-READ-3 | S17 | | R-REL-1 | S8 |
-| R-READ-4 | S17 | | R-REL-2 | S6, S10 |
-| R-READ-5 | S17 | | R-REL-3 | S6 |
-| R-READ-6 | S17 | | R-REL-4 | S8 |
-| R-WRITE-1 | S18 | | R-REL-5 | S11 |
-| R-WRITE-2 | S18 | | R-REL-6 | S3, S22 |
-| R-WRITE-3 | S14, S18 | | R-REL-7 | S6 |
-| R-WRITE-4 | S12, S18 | | R-OPS-1 | S4, S22 |
-| R-EXPORT-1 | S19 | | R-OPS-2 | S3 |
-| R-EXPORT-2 | S19 | | R-OPS-3 | S2, S22, S24 |
-| R-EXPORT-3 | S15, S19 | | R-OPS-4 | S25 |
-| R-EXPORT-4 | S14, S15, S19 | | R-OPS-5 | S24 |
-| R-EXPORT-5 | S19 | | S-1 | S9, S22 |
-| R-AUTO-1 | S14, S20 | | S-2 | S25 (Serve/Funnel), S9 |
-| R-AUTO-2 | S20 | | S-3 | S6, S9 |
-| R-AUTO-3 | S12, S20 | | S-4 | S9, S22 |
-| R-AUTO-4 | S20 | | S-5 | S5, S7 |
-| R-AUTO-5 | S20 | | S-6 | S21, S23 |
-| R-NOTIFY-1 | S21 | | S-7 | S13 |
-| R-NOTIFY-2 | S21 | | S-8 | S12 |
-| R-NOTIFY-3 | S23 | | S-9 | S12 |
-| R-AUTH-1 | S6, S16 | | S-10 | S8, S15 |
-| | | | S-11 | S8 |
-| | | | S-12 | S22 |
-| | | | S-13 | S11 |
-| | | | S-14 | S23 |
+| R-DISC-1 | S13, S16 | | R-PROTO-3 | S10 |
+| R-DISC-2 | S13, S16 | | R-PROTO-4 | S12, S16, S17, S18, S19, S20, S21 |
+| R-DISC-3 | S13, S16 | | R-PROTO-5 | S12, S16, S17, S18, S19, S20, S21 |
+| R-DISC-4 | S7, S13, S16, S17, S19, S20, S21 | | R-PROTO-6 | S12, S16, S17, S18, S19, S20, S21 |
+| R-READ-1 | S13, S17 | | R-REL-1 | S8 |
+| R-READ-2 | S13, S17 | | R-REL-2 | S6, S10 |
+| R-READ-3 | S13, S17 | | R-REL-3 | S6 |
+| R-READ-4 | S13, S17 | | R-REL-4 | S8 |
+| R-READ-5 | S13, S17 | | R-REL-5 | S7 |
+| R-READ-6 | S13, S17 | | R-REL-6 | S3, S10, S22 |
+| R-WRITE-1 | S13, S18 | | R-REL-7 | S5, S6 |
+| R-WRITE-2 | S13, S18 | | R-OPS-1 | S4 |
+| R-WRITE-3 | S13, S14, S18 | | R-OPS-2 | S3 |
+| R-WRITE-4 | S12, S18 | | R-OPS-3 | S2, S3, S22, S24 |
+| R-EXPORT-1 | S13, S19 | | R-OPS-4 | S24, S25 |
+| R-EXPORT-2 | S13, S19 | | R-OPS-5 | S22, S24 |
+| R-EXPORT-3 | S15, S19 | | S-1 | S9, S22 |
+| R-EXPORT-4 | S14, S15, S18, S19 | | S-2 | S9 |
+| R-EXPORT-5 | S19 | | S-3 | S6 |
+| R-AUTO-1 | S20 | | S-4 | S9, S22 |
+| R-AUTO-2 | S20 | | S-5 | S4, S5 |
+| R-AUTO-3 | S20 | | S-6 | S23 |
+| R-AUTO-4 | S20 | | S-7 | S13 |
+| R-AUTO-5 | S20 | | S-8 | S12 |
+| R-NOTIFY-1 | S21, S23 | | S-9 | S8, S12 |
+| R-NOTIFY-2 | S14, S21 | | S-10 | S8, S15 |
+| R-NOTIFY-3 | S21, S23 | | S-11 | S8 |
+| R-AUTH-1 | S6, S14, S16 | | S-12 | S9, S22 |
+| R-PROTO-1 | S22 | | S-13 | S7 |
+| R-PROTO-2 | S4, S22 | | S-14 | S22 |
 
 ## 3. Standards that govern this plan
 
@@ -208,12 +209,12 @@ Source, and every non-trivial step carries the four-part format.
 
 **S0. Commit the predecessor's uncommitted working tree before anything is deleted.**
 
-*What changes.* No source changes. Commit the current working-tree state of the predecessor to
-the branch, as a preservation commit — message: `Preserve predecessor working tree before rebuild
-(supersedes: spec M-1/M-2)`. The tree carries **257 insertions and 93 deletions across five files
-that exist nowhere in git**: `package.json`, `src/constants.ts`, `src/index.ts`,
-`src/services/aps-auth.ts`, `src/tools/mfg-data-model.ts`. There is no stash. Verify the commit
-contains them before S1 runs.
+*What changes.* No source changes. **This step is COMPLETE — executed 2026-07-30 as commit
+`6e5f00b` on branch `claude/aps-fusion-spec`.** It committed 257 insertions and 93 deletions
+across five files that existed nowhere in git history: `package.json`, `src/constants.ts`,
+`src/index.ts`, `src/services/aps-auth.ts`, `src/tools/mfg-data-model.ts`. There was no stash.
+If this plan is executed on a tree where that commit is absent, the step must be performed before
+S1.
 
 *Source.* Spec M-2 (the working tree "is not a baseline") — which governs what the *build* may
 draw on, not whether the bytes may be destroyed; and the general rule that an irreversible
@@ -235,9 +236,14 @@ decision to the implementer — the failure is silent and total.
 
 *Dependencies.* None. **Blocks S1.**
 
-*Verification.* `git status` reports a clean tree for `src/` and `package.json`;
-`git show --stat HEAD` lists the five files; `git show HEAD:src/services/aps-auth.ts | grep -c
-clearTokens` returns 1.
+*Verification.* Pinned to content, not to `HEAD` — `HEAD` moves as later work commits, and a
+verification that drifts is worse than none. From the repository root (`agent-armory`, **not** the
+server directory — the paths below are repo-relative and fail otherwise):
+`git show --stat 6e5f00b` lists exactly the five files at 257 insertions / 93 deletions;
+`git show 6e5f00b:./mcp-servers/aps-fusion-mcp-server/src/services/aps-auth.ts | grep -c clearTokens`
+returns 1; `git show 6e5f00b:./mcp-servers/aps-fusion-mcp-server/src/tools/mfg-data-model.ts | grep -c HUB_LIMIT`
+returns 1. Both symbols are absent from the commit's parent, which is what makes the preservation
+load-bearing.
 
 *Impact if wrong.* If skipped, 257 lines of the owner's uncommitted work are destroyed with no
 recovery path, and ~9 of §11's verification entries lose the source they cite. This is the only
@@ -670,17 +676,22 @@ form**: a raw zod shape object (`inputSchema: { a: z.string() }`), not `z.object
 
 *Source.* D14, D15, D17; R-PROTO-4, R-PROTO-5, R-PROTO-6, R-WRITE-4, S-8, S-9, AC-16.
 
-*Why this approach.* **Decision:** fix the `registerTool` input form to the raw shape object.
-**Standard:** [SDK] v1.29.0 — the v1.29.0-tagged `docs/server.md` and `docs/protocol.md` both pass
-a raw shape (`inputSchema: { weightKg: z.number(), heightM: z.number() }`). **Why this standard
-applies here:** C9 pins v1.29.x, and the `z.object({...})` form appears in `main`-branch examples
-rather than the v1.29.0-tagged docs — with 37 tools, a mixed convention is 37 chances to pick the
-wrong one, so the plan fixes it rather than leaving each handler to choose. **What this is NOT —
-and why:** *Not* `z.object({...})` — it is the untagged-`main` form and its acceptance at v1.29.0
-is not what the pinned docs demonstrate. *Not* leaving the choice to the implementer — that is
-precisely the deferred decision this skill's Gate C forbids. *Not* relying on `destructiveHint`'s
-default — `ToolAnnotationsSchema` documents the default as **true**, so an additive write that
-omits it is annotated destructive and violates R-PROTO-4's truthfulness requirement.
+*Why this approach.* **Decision:** fix the `registerTool` schema form to `z.object({...})` for
+all 37 tools. **Standard:** [SDK] v1.29.0 type signature — the primary generic overload is
+`registerTool<OutputArgs extends StandardSchemaWithJSON, InputArgs extends StandardSchemaWithJSON
+| undefined>(name, config, cb: ToolCallback<InputArgs>)`, and `ToolCallback` resolves handler args
+to `StandardSchemaWithJSON.InferOutput<Args>`. **Why this standard applies here:** both forms
+work — the implementation signature accepts `StandardSchemaWithJSON | ZodRawShape` — but they are
+not equivalent in typing. A raw shape is routed through `normalizeRawShapeSchema` and pairs with
+`LegacyToolCallback<ZodRawShape>`; `z.object` is the primary path and is what infers handler
+argument types from the schema. Across 37 handlers whose entire safety story is boundary
+validation (S-8), typed args on the primary path is the material difference. **What this is NOT —
+and why:** *Not* the raw shape (`inputSchema: { a: z.string() }`) — it is the SDK's legacy
+compatibility path; it appears in the v1.29.0-tagged `docs/server.md`, but a form appearing in
+prose examples is not evidence that it is the maintained one, and the signature says it is not.
+*Not* a per-handler choice — 37 tools is 37 chances to diverge, and Gate C forbids deferring it.
+*Not* relying on `destructiveHint`'s default — `ToolAnnotationsSchema` documents that default as
+**true**, so an additive write omitting it is annotated destructive, violating R-PROTO-4.
 
 *Dependencies.* S11. Unblocks S16–S21.
 
@@ -708,7 +719,8 @@ state which bound bit) and D7's search extension for tool 6 (hubs → projects �
 domain-typed results; no tool sees GraphQL. Gateway responses are **parsed** with zod at the trust
 boundary, never cast.
 
-*Source.* D5, D6, D7, D17; R-DISC-1..4, R-READ-1..6, R-WRITE-1..3, R-EXPORT-1/2, S-7.
+*Source.* D5, D6, D7, D17; R-DISC-1, R-DISC-2, R-DISC-3, R-DISC-4, R-READ-1, R-READ-2, R-READ-3,
+R-READ-4, R-READ-5, R-READ-6, R-WRITE-1, R-WRITE-2, R-WRITE-3, R-EXPORT-1, R-EXPORT-2, S-7.
 
 *Why this approach.* **Decision:** every operation is a constant document with typed variables,
 and all GraphQL is confined to this one module. **Standard:** [OWASP-INJECTION] — parameterized
@@ -814,12 +826,13 @@ control characters), T-30 (recompute-and-match rejects a mismatched `<source>`) 
 fail at runtime against real data while passing any test built on the same wrong assumption —
 the worst class. The probe exists to make that impossible.
 
-**S16–S21. The seven tool modules.** *(Six steps. They share one Source and one four-part
-justification, stated once below and governing all six; dependencies, verification, and impact
-are per step.)*
+**S16–S21. The seven tool modules.** *(Six steps. Each carries its own Source, dependencies,
+verification, and impact. They share one four-part justification, stated once below and governing
+all six, because the decision is identical for each: implement the assigned inventory rows
+verbatim.)*
 
 All tools register through `registerGuardedTool` (S11), use the S12 annotation constants and the
-raw-zod-shape `inputSchema` form, declare an `outputSchema` composing the S7 completeness
+`z.object({...})` schema form, declare an `outputSchema` composing the S7 completeness
 envelope, call only their gateway, and never construct GraphQL, URLs, or HTTP requests.
 
 Effect classes: **R** = read-only and free (`readOnlyHint:true`); **W** = write
@@ -827,6 +840,8 @@ Effect classes: **R** = read-only and free (`readOnlyHint:true`); **W** = write
 SpendGuard-gated, cost stated in the contract text. `openWorldHint:true` on every tool.
 
 **S16 — `auth-tools.ts` (tool 1) + `discovery-tools.ts` (tools 2–6, 35).**
+
+*Source.* D15 (inventory rows 1–6, 35), D14 (annotations), D17 (schemas); R-AUTH-1, R-DISC-1, R-DISC-2, R-DISC-3, R-DISC-4, R-PROTO-4, R-PROTO-5, R-PROTO-6.
 
 | # | Tool | Class | Inputs | Returns | Req |
 |---|---|---|---|---|---|
@@ -840,6 +855,8 @@ SpendGuard-gated, cost stated in the contract text. `openWorldHint:true` on ever
 
 **S17 — `read-tools.ts` (tools 7–12).**
 
+*Source.* D15 (inventory rows 7–12), D5, D7; R-READ-1, R-READ-2, R-READ-3, R-READ-4, R-READ-5, R-READ-6, R-DISC-4, R-PROTO-4, R-PROTO-5, R-PROTO-6.
+
 | # | Tool | Class | Inputs | Returns | Req |
 |---|---|---|---|---|---|
 | 7 | `aps_get_design_metadata` | R | discriminated union: `{item_id, hub_id, composition?}` (WORKING/RELEASED/AS_SAVED/LATEST via `Query.item(composition:)`) **or** `{component_version_id}` (composition not accepted); optional `configuration_row_id` | **item branch:** interface fields directly; `... on DesignItem` → `tipRootComponentVersion` supplies partNumber/partDescription/materialName/isMilestone, `tipVersion` supplies versionNumber/createdOn; `... on ConfiguredDesignItem` → `tipVersion` supplies versionNumber, part-level fields come per configuration row via `tipConfigurationTable.rows[].rootConfigurationMember` (with `configuration_row_id`, that row's root; without it, the bounded row list to select from); Basic/Drawing → interface + tipVersion only. **componentVersion branch:** part fields directly on `ComponentVersion`; versionNumber/createdOn via `designItemVersion`, falling back to `configuredDesignItemVersion`; absent-with-reason when neither resolves | R-READ-1/6 |
@@ -850,6 +867,8 @@ SpendGuard-gated, cost stated in the contract text. `openWorldHint:true` on ever
 | 12 | `aps_get_design_assets` | R | discriminated union (same partition as tool 7): `{item_id, hub_id}` **or** `{component_version_id}`; `cursor?` | drawings list (cursor-paged) + pageInfo; thumbnail signed URL + expiry; Fusion web URL resolved via `designItemVersion → item → DesignItem.fusionWebUrl`, falling back to `configuredDesignItemVersion → item → ConfiguredDesignItem.fusionWebUrl`; absent only when neither resolves | R-READ-5 |
 
 **S18 — `write-tools.ts` (tools 13–20, 36).**
+
+*Source.* D15 (inventory rows 13–20, 36), D23, D28; R-WRITE-1, R-WRITE-2, R-WRITE-3, R-WRITE-4, R-EXPORT-4, R-PROTO-4, R-PROTO-5, R-PROTO-6.
 
 | # | Tool | Class | Inputs | Returns | Req |
 |---|---|---|---|---|---|
@@ -865,6 +884,8 @@ SpendGuard-gated, cost stated in the contract text. `openWorldHint:true` on ever
 
 **S19 — `export-tools.ts` (tools 21–26, 37).**
 
+*Source.* D15 (inventory rows 21–26, 37), D14, D27; R-EXPORT-1, R-EXPORT-2, R-EXPORT-3, R-EXPORT-4, R-EXPORT-5, R-DISC-4, R-PROTO-4, R-PROTO-5, R-PROTO-6.
+
 | # | Tool | Class | Inputs | Returns | Req |
 |---|---|---|---|---|---|
 | 21 | `aps_export_generate` | **$** `mfg-generate` | `component_version_id`, `format ∈ {STEP,STL,OBJ}` | derivative job handle + status; cost stated | R-EXPORT-1/5 |
@@ -876,6 +897,8 @@ SpendGuard-gated, cost stated in the contract text. `openWorldHint:true` on ever
 | 37 | `aps_md_get_derivative` | R | `version_id`, `derivative_urn` (grammar-validated **and** bound to `version_id` by recompute-and-match on its `<source>` segment) | signed download URL, the signed cookies required to use it, size, content type, expiry — for one derivative, via `…/manifest/:derivativeUrn/signedcookies`. **The URL is fetched by the caller, not the server**, so the download host never enters the egress path | R-EXPORT-3/5 |
 
 **S20 — `src/gateways/da-gateway.ts` + `automation-tools.ts` (tools 27–30).**
+
+*Source.* D15 (inventory rows 27–30), D23, D28; R-AUTO-1, R-AUTO-2, R-AUTO-3, R-AUTO-4, R-AUTO-5, R-DISC-4, R-PROTO-4, R-PROTO-5, R-PROTO-6.
 
 *This step creates the Design Automation gateway as well as its tools*, because no earlier step
 does and the tools cannot exist without it. `da-gateway.ts` implements: activity enumeration
@@ -894,6 +917,8 @@ inputs get signed `get` URLs, outputs signed `put` URLs targeting storage in
 | 30 | `aps_da_get_outputs` | R | `workitem_id` | output items / signed URLs, resolved from the submission record (bounded: the output set recorded at submission) | R-AUTO-2 |
 
 **S21 — `notify-tools.ts` (tools 31–34).**
+
+*Source.* D15 (inventory rows 31–34), D11, D12; R-NOTIFY-1, R-NOTIFY-2, R-NOTIFY-3, R-DISC-4, R-PROTO-4, R-PROTO-5, R-PROTO-6.
 
 | # | Tool | Class | Inputs | Returns | Req |
 |---|---|---|---|---|---|
@@ -937,11 +962,20 @@ transport); `http/auth-routes.ts` (D9's PKCE S256 login and callback, **outside*
 `http/health-route.ts` (D25's `/healthz`, outside the gate, liveness + protocol revision + version
 + auth-state class, no secrets). Wire `src/index.ts`: config → logger → services → gateways →
 tools → routes → transports, mounting middleware in the fixed order bearer → origin → body parser
-→ transport, selecting the listener set per the three-valued serving mode, and constructing each
+→ transport, selecting the listener set per the three-valued serving mode. **In `stdio` mode the
+process starts exactly one auxiliary loopback listener whose route set is exactly `GET
+/auth/login` and `GET /auth/callback` and nothing else — mounting `/mcp` on it is PROHIBITED**
+(D1). It binds 127.0.0.1 on the port of `APS_CALLBACK_URL`, is never published via Tailscale
+Serve or Funnel, and runs for the process lifetime. This is what makes S-1's
+no-unauthenticated-MCP-surface property hold in stdio mode **by route-set construction** rather
+than by gate placement, and it is the direct counter to the predecessor's headline defect, which
+was an `/mcp` route mounted on exactly such an auxiliary listener (`src/index.ts:71` beside the
+unconditional `app.listen` at `:83`). In `both` mode the aux listener is suppressed as redundant,
+the main listener already serving `/auth/*`. and constructing each
 per-request `McpServer` with the version read from `package.json` so `serverInfo` carries it in
 both transports. Declare **`tools` capability only**, `listChanged: false`.
 
-*Source.* D3, D2, D9, D21, D25, D1; R-PROTO-1/2, R-OPS-3/5, R-REL-6, S-1, S-4, S-12.
+*Source.* D3, D2, D9, D21, D25, D1; R-PROTO-1, R-PROTO-2, R-OPS-3, R-OPS-5, R-REL-6, S-1, S-4, S-12, S-14 (the PKCE S256 authorization-code flow lives in `auth-routes.ts`, created here).
 
 *Why this approach.* **Decision:** stateless Streamable HTTP with a fresh server+transport per
 request, and the body parser behind the auth gates. **Standard:** [MCP-TRANSPORT] / [MCP-LIFECYCLE]
@@ -978,7 +1012,7 @@ action on a hit; otherwise append `{sequence, receivedAt, deliveryId, eventType,
 payload}` to `events.ndjson` and return 200. Listener starts only when `WEBHOOK_PUBLIC_URL` is
 set.
 
-*Source.* D11, D1; S-6, R-NOTIFY-1/3, AC-9.
+*Source.* D11, D1; S-6, R-NOTIFY-1, R-NOTIFY-3, AC-9.
 
 *Why this approach.* **Decision:** raw bytes in, HMAC before anything else, content-hash dedupe,
 journal rather than act. **Standard:** [APS-WEBHOOK] signature scheme (spec §13 Q-1, verified);
@@ -1001,7 +1035,9 @@ T-36 (AC-9 byte-identical replay produces no repeated action) — §12.
 
 **CHECKPOINT B — before documentation and live acceptance.** Verify: `npm test` fully green;
 `tools/list` returns exactly 37 tools; the annotation matrix diff (T-23) is empty; no listener
-binds anything but 127.0.0.1; grep confirms zero direct `server.registerTool` outside the
+binds anything but 127.0.0.1; **the stdio-mode auxiliary listener's route table contains exactly
+`GET /auth/login` and `GET /auth/callback` and no `/mcp` route** (D1, and the predecessor's
+headline defect); grep confirms zero direct `server.registerTool` outside the
 composition root and zero `fetch(` outside `aps-http.ts`.
 
 ---
@@ -1074,10 +1110,15 @@ became a deployed reality.
 **S26. Live acceptance pass — AC-1 through AC-27.**
 
 *What changes.* No source changes. Execute all 27 acceptance criteria per the §12 acceptance
-suite specification, recording observed evidence per criterion (never "reviewed"). Twenty-one run
-live against the owner's account; six (AC-11, AC-19, AC-21, AC-23, AC-25 — and AC-24, which must
-not be exercised live because doing so spends real money against asset A4) run against the D26
-seams, each with its double named and justified in §12's table.
+suite specification, recording observed evidence per criterion (never "reviewed"). Twenty-two run
+live against the owner's account; five (AC-11, AC-19, AC-21, AC-23, AC-25) run against the D26
+seams, each with its double named and justified in §12's table. **AC-24 runs live:** seed the
+spend counter at its cap through the state store's own accessor, then invoke the billable tool
+through a real MCP client. A refused call spends nothing — refusal is the guard's defining
+behavior — so no money is at risk, and only a live run verifies that SpendGuard actually sits in
+the request path rather than that its logic is correct in isolation. Spec AC-24 requires the limit
+to hold "for an automated, human-out-of-the-loop invocation path," which a seam cannot
+demonstrate; spec AC-6 establishes the observable (confirm at Autodesk that no job was created).
 
 *Source.* Spec §12; the ground-truth bar the owner has stated ("works ≠ correct").
 
@@ -1246,10 +1287,17 @@ locators.
 21. **The SDK's `registerTool` config accepts `inputSchema`, `outputSchema`, `annotations`.**
     Steps S11, S12. *Documentation read:* Context7 `/modelcontextprotocol/typescript-sdk/v1.29.0`,
     `packages/server/src/server/mcp.ts` signature block, 2026-07-30.
-22. **Two `registerTool` input forms exist; the v1.29.0-tagged docs use the raw zod shape.**
-    Decision D-P5, step S12. *Documentation read:* same lookup — `docs/server.md` and
-    `docs/protocol.md` at tag `v1.29.0` pass `inputSchema: { weightKg: z.number() }`, while
-    `examples/tools/server.ts` on `main` passes `z.object({...})`. 2026-07-30.
+22. **`registerTool` accepts both a `z.object` schema and a raw zod shape, but they are not
+    equivalent: the primary generic overload takes `InputArgs extends StandardSchemaWithJSON`
+    with `cb: ToolCallback<InputArgs>` (handler args inferred via
+    `StandardSchemaWithJSON.InferOutput`), while a raw shape is normalized by
+    `normalizeRawShapeSchema` and pairs with `LegacyToolCallback<ZodRawShape>`.**
+    Decision D-P5, step S12, and the S16–S21 schema convention. *Documentation read:* Context7
+    `/modelcontextprotocol/typescript-sdk/v1.29.0`, `packages/server/src/server/mcp.ts` — the
+    primary overload, the implementation signature (`inputSchema?: StandardSchemaWithJSON |
+    ZodRawShape`; `cb: ToolCallback<…> | LegacyToolCallback<ZodRawShape>`), and the
+    `ToolCallback`/`BaseToolCallback` type definitions, 2026-07-30. The raw shape also appears in
+    the tagged `docs/server.md`; that is a prose example, not the maintained-path signal.
 23. **`destructiveHint` defaults to `true`; `idempotentHint` to `false`; `openWorldHint` to
     `true`; `readOnlyHint` to `false`.** Step S12. *Documentation read:* Context7 same library,
     `packages/core/src/schemas.ts` `ToolAnnotationsSchema` with per-field documented defaults,
@@ -1281,6 +1329,17 @@ locators.
     `_autodocs/06-types-and-configuration.md` (`limit … Default: '100kb'`) and
     `_autodocs/07-middleware-and-routing.md` (`express.raw()` → `req.body` is a Buffer),
     2026-07-30.
+
+38. **`package.json:6` names `dist/index.js` as `main`.** Step S1 — why a stale `dist/` is a
+    runnable wrong server. *File read:* `package.json:6`.
+39. **`package.json:5` declares `"type": "module"`.** Step S2 — the ESM constraint behind the
+    runner choice. *File read:* `package.json:5`.
+40. **The predecessor's `env()` helper throws at call time, mid-tool, rather than at startup.**
+    Step S3 — the failure mode config validation replaces. *File read:*
+    `src/services/aps-auth.ts:45–49`.
+41. **The predecessor writes the credential file with `{ mode: 0o600 }`.** Step S5 — the inert
+    mode bit spec S-5 names. *File read:* `src/services/aps-auth.ts:31` (the `persistTokens`
+    write; an identical literal appears at `:40` inside `clearTokens`).
 
 **External API facts asserted by the tool contracts.** Each verified against the introspected
 schema on disk (`docs/aps-mfg-schema.json`, the spec's [APS-SCHEMA] authority) by parsing the
@@ -1395,10 +1454,24 @@ refresh response is received but before the atomic rename yields, on restart, an
 re-auth path reported by both the auth-state tool and the health signal (S6, R-REL-7).
 *Level:* integration. *Real/double:* real fs on a temp dir; `fetch` a **stub** returning a valid
 rotated pair; the crash induced via the fs **spy** at the rename boundary. *Data:* a realistic
-pre-rotation credential plus a realistic rotation response. *Must NOT assert:* journal internals
-— assert the observable restart state. *Fails when:* restart reports `ok`, reports an ambiguous
-state, or the credential file is missing/nulled. *Technique:* state-transition over the rotation
-phases.
+pre-rotation credential plus a realistic rotation response.
+
+**Two trip points, because AC-25 asserts two distinct properties.** *Trip point 1 — after the
+atomic rename:* the ordinary crash case above. *Trip point 2 — after the durable byte-write but
+BEFORE the parse:* this is the observation for AC-25's "writes the response bytes durably before
+parsing" limb, which no other test covers. At restart, the raw response bytes are present on disk
+and the live credential file is byte-unchanged from before the refresh. Both are **post-crash
+filesystem state**, not journal internals — a journal internal would be a field this test reaches
+into the module to read, whereas these are files any observer can stat — so this sits inside this
+test's own Must-NOT-assert constraint rather than violating it.
+
+*Must NOT assert:* journal internals; or the ordering directly (no instrumentation of the refresh
+function's control flow) — the ordering is established by what survives the crash, not by watching
+it happen. *Fails when:* restart reports `ok`; reports an ambiguous state; the credential file is
+missing or nulled; **or, at trip point 2, no durable raw-response bytes exist on disk — which is
+exactly what a parse-then-write implementation leaves behind, and is therefore the falsifying
+observation for the write-before-parse limb.** *Technique:* state-transition over the rotation
+phases, with the two trip points as the transitions under test.
 
 **T-9 — AC-25 concurrent refresh race.** *Behavior:* two refreshes racing on the shared credential
 leave a usable credential; at most one rotation wins and the loser adopts rather than bricking
@@ -1510,7 +1583,10 @@ assertion over the module source). T-25: AC-15 — an argument containing a quot
 newline produces the same request structure as a benign argument and no error divergence across
 handlers. T-26: D7 window quantities from successive resumed calls sum exactly to the
 single-pass total. *Level:* T-24 static; T-25 unit with a **spy** fetch capturing the emitted
-body; T-26 unit with a **fake** paginated occurrence source implementing the cursor contract.
+body — justified because the assertion is about the bytes leaving the process, which no state
+inside it exposes; T-26 unit with a **fake** paginated occurrence source implementing the cursor contract —
+justified because the behavior under test is the gateway's window aggregation, and a live account
+cannot be made to hold a deterministic multi-page occurrence set.
 *Data:* T-25 metacharacter table; T-26 a realistic multi-page occurrence set with repeated
 component versions. *Must NOT assert:* T-25 must not assert on escaping internals — assert the
 emitted document is byte-identical and the value travels in `variables`. *Fails when:* T-24 any
@@ -1521,7 +1597,8 @@ metacharacters; T-26 equivalence partitioning over page boundaries.
 Autodesk-stamped time and never the local clock. T-28: a poll truncated at
 `DM_POLL_MAX_FOLDERS` returns a resume position that, when passed back, yields the remaining
 changes with no loss and no duplicate report. *Level:* unit with a **fake** DM source implementing
-the rollup and listing contracts. *Data:* a folder tree with known modification stamps including
+the rollup and listing contracts — justified because the marker boundary requires items stamped
+at exact, controlled times, which the live account cannot be made to produce on demand. *Data:* a folder tree with known modification stamps including
 one exactly at the marker. *Must NOT assert:* fake internals. *Fails when:* the marker is
 clock-derived, or a change is lost or double-reported across the resume. *Technique:* boundary
 value analysis at the inclusive marker boundary.
@@ -1547,7 +1624,8 @@ Origin receives 401, not 403 (the stated precedence). T-33: a body over
 carries the `package.json` version in both stdio and HTTP transports. *Level:* integration, real
 Express + real transport. *Data:* a body just over the limit; a version fixture.
 *Must NOT assert:* middleware identity. *Fails when:* precedence inverts, an oversized body
-reaches a handler, or either transport omits the version.
+reaches a handler, or either transport omits the version. *Technique:* decision table over
+(authenticated, Origin valid/invalid/absent, body under/over limit) — one case per rule column.
 
 **T-35 / T-36 — webhook route.** T-35: a correctly signed callback is accepted; invalid and
 absent signatures are 403'd; a callback matching no active secret is 403'd. T-36: AC-9 — a
@@ -1557,7 +1635,9 @@ Express with `express.raw`, real crypto, real state store on a temp dir. *Data:*
 plus a signature computed independently of the verification code (an independent HMAC in the
 test, not the module's own function — otherwise it is a logic mirror). *Must NOT assert:* that
 `timingSafeEqual` was called. *Fails when:* an unsigned or wrongly-signed callback is accepted, or
-a replay appends a second journal entry.
+a replay appends a second journal entry. *Technique:* equivalence partitioning over signature
+states (valid / wrong-secret / malformed / absent / matching-no-active-secret), plus
+state-transition testing for the first-delivery→replay sequence.
 
 ### Acceptance suite — AC-1..AC-27 (executed at S26)
 
@@ -1572,8 +1652,8 @@ criterion and is the spec's own AC text, which is already written in observable 
   testable-and-traceable; testing-standards §Acceptance Tests)*.
 - **Test level.** Acceptance, against the fully assembled server driven by a real MCP client —
   real transport, real gateways, real Autodesk, real credential store.
-- **The real/double boundary.** **Real by default, and the subject is never doubled.** Twenty-one
-  criteria run entirely real against the owner's live account. Six cannot be triggered on demand
+- **The real/double boundary.** **Real by default, and the subject is never doubled.** Twenty-two
+  criteria run entirely real against the owner's live account. Five cannot be triggered on demand
   against a live third party and run against the **D26 injected seams** — this is the plan's one
   systematic double in the acceptance suite and it is justified per criterion, not blanket:
 
@@ -1583,8 +1663,7 @@ criterion and is the spec's own AC text, which is already written in observable 
   | AC-19 (bounded backoff, observed spacing) | injected `fetch` + fake timers | stub | requires induced repeated failure and measurable wait spacing |
   | AC-21 (recoverable error does not kill the process) | injected `fetch` | stub | requires an induced tool-call failure |
   | AC-23 (SSRF refusals) | injected `fetch` as call-counter | spy | the assertion is that **no** request is dispatched — there is no state to observe |
-  | AC-24 (spend cap refusal) | injected `fetch` as call-counter | spy | same; and exercising it live would spend real money against A4 |
-  | AC-25 (crash between rotation and persist) | injected fs hook | spy | the crash point cannot be placed deterministically any other way |
+    | AC-25 (crash between rotation and persist) | injected fs hook | spy | the crash point cannot be placed deterministically any other way |
 
   Autodesk itself is **never** doubled for the twenty-one live criteria; doubling it there would
   verify the double, not the server.
@@ -1622,8 +1701,8 @@ criterion and is the spec's own AC text, which is already written in observable 
 | AC-21 | invalid config exits with an actionable message; an induced recoverable error does not terminate the process | seam | the process dies on a tool-call failure |
 | AC-22 | version reported over the protocol; dependencies pinned and lockfile present | live | version absent, or a range remains |
 | AC-23 | a loopback/link-local/private-range/literal-IP target is refused **before any outbound request**; only expected schemes and hosts reachable | seam | any refused case dispatches |
-| AC-24 | exceeding the configured bound is refused and **no billable job is submitted**; the limit holds on an automated path | seam | a request is dispatched, or the cap resets |
-| AC-25 | concurrent refreshes leave a usable credential; an induced crash between rotation and persistence yields `reauth-required` naming rotation loss, credential file intact, path reported by both the auth tool and health; refresh writes bytes before parsing and only near expiry | seam | the credential ends unusable, or the state is ambiguous |
+| AC-24 | exceeding the configured bound is refused and **no billable job is submitted**; the limit holds on an automated path | **live** | a request is dispatched, the cap resets, or a derivative job appears at Autodesk |
+| AC-25 | concurrent refreshes leave a usable credential; an induced crash between rotation and persistence yields `reauth-required` naming rotation loss, credential file intact, path reported by both the auth tool and health; refresh writes bytes before parsing (T-8 trip point 2) and only near expiry (T-10) | seam | the credential ends unusable; the state is ambiguous; **no durable raw-response bytes exist at trip point 2**; or a refresh is issued outside the renewal threshold |
 | AC-26 | injection-shaped content in a name, property value, or imported-CAD field is returned neutralized | live | returned content can act as an instruction |
 | AC-27 | the authorization request carries a PKCE S256 `code_challenge` and the exchange the matching verifier; a code without the correct verifier is rejected | live | a code exchanges without the verifier |
 
