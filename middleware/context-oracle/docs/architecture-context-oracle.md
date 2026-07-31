@@ -11,7 +11,7 @@
 > re-establishes every premise against live source this session, and clears all
 > 11 findings. The prior draft is superseded, not patched.
 >
-> **Round 2 (2026-07-22, applied).** The rebuilt document was then put through
+> **Round 1 (2026-07-22, applied).** The rebuilt document was then put through
 > the two mandatory independent passes — an adversarial **collapse-hunt**
 > (mission-fidelity) and an **expert-review** (premise/standards). They found a
 > **Critical** (the D11 model command used `--bare`, which breaks host-auth
@@ -85,7 +85,7 @@ were validated in this environment. Spike 1 was **re-run fresh this session
 evidence is carried from 2026-07-17 (same environment class) and corroborated
 against the current hooks documentation re-read this session. Environment:
 Claude Code Remote cloud container (`CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST=1`,
-`CLAUDE_CODE_REMOTE=true`), `claude` CLI **v2.1.218**, Node **v22.22.2**, Linux.
+`CLAUDE_CODE_REMOTE=true`), `claude` CLI **v2.1.220** *(corrected 2026-07-30; the v2.1.218 certification was superseded — C-5 drift)*, Node **v22.22.2**, Linux.
 
 ### Spike 1 — the judgment call, run as D11 actually ships it (re-run 2026-07-30)
 
@@ -194,12 +194,17 @@ run 3: wall=10.14s  api=8726ms  turns=2  err=False  cost=$0.0054
 
 - The piggyback works with **no separate credential of any kind** — carried and
   re-confirmed (`is_error: false` above, no `ANTHROPIC_API_KEY` present).
-- **The judgment call costs ≈ 10.5 s wall and ≈ $0.005, not 5.7 s.** Every
-  derivation anchored on 5.7 s is re-based on 10.5 s (D10 step 1, D11 timeout).
+- **The judgment call costs ≈ 10.5 s wall and ≈ $0.005, not 5.7 s.** The
+  derivations anchored on 5.7 s are re-based, and the locations are enumerated
+  rather than asserted globally (round-3 R3-4 — "every X is re-based" is itself
+  an attestation of the kind this document keeps getting wrong): **D10 step 1**
+  (the two-lane derivation), **D11's timeout** (now sized on the observed max,
+  not the mean), and the **Knowledge-state baseline** (facts and inferences).
   The "model call can never sit on the synchronous hook path" conclusion is
   unchanged and now holds by a 7× margin against NF-1's 1.5 s p95 rather than 4×.
 - **`--max-turns` must be ≥ 2**, and the "single generate-no-tool turn" claim is
-  deleted wherever it appears: the invocation is structurally two turns because
+  deleted at its three occurrences — **D11 element 1**, **D11 element 5**, and the
+  **Knowledge-state baseline** (enumerated rather than claimed globally, R3-4): the invocation is structurally two turns because
   the verdict arrives as a tool call.
 - The measured per-call cost is what makes the Lane 2 call budget (D10, D23) a
   real requirement rather than a precaution — see D10 step 8a.
@@ -481,13 +486,15 @@ Not addressed deliberately: *accessibility* (no UI beyond CLI text);
 
 ## Design decisions
 
-### Knowledge-state baseline (metacognitive monitoring, 2026-07-22)
+### Knowledge-state baseline (metacognitive monitoring; 2026-07-22, corrected 2026-07-30)
 
-**Facts (verified this session, with mechanism).** CLI **v2.1.218**:
+**Facts (verified this session, with mechanism).** CLI **v2.1.220** *(corrected 2026-07-30; the v2.1.218 certification was superseded — C-5 drift)*:
 `--disallowedTools`/`--allowedTools`, `--bare`, `--json-schema`, `--session-id`,
 `--system-prompt`, `--model`, `--output-format`, `--max-turns` all present in
-`--help` (captured). Piggyback **with `--disallowedTools`** succeeds single-turn
-with no `ANTHROPIC_API_KEY` (Spike 1 re-run, pasted; ≈ 5.7 s wall). `node:sqlite`
+`--help` (captured). Piggyback succeeds with no `ANTHROPIC_API_KEY`
+(Spike 1, re-run 2026-07-30; **≈ 10.5 s wall, two turns**). *"Single-turn" and
+the 5.7 s figure are deleted — both belonged to a one-word prompt with no schema,
+not to this design's call (round-3 R3-4).* `node:sqlite`
 on Node **v22.22.2**: WAL + STRICT + FTS5 all work; **`DatabaseSync` returns
 values synchronously (no Promise)** — verified by direct execution
 (`db.prepare(...).get()` returns a value); `busy_timeout` is settable low.
@@ -501,7 +508,7 @@ inside a subagent call"; UserPromptSubmit lowers command-hook timeout to 30 s.
 ASVS **5.0.0** chapters V1–V17 confirmed, **V15 = Secure Coding and
 Architecture** (web-verified this session).
 
-**Inferences (derived).** Synchronous model calls cannot fit NF-1 (5.7 s
+**Inferences (derived).** Synchronous model calls cannot fit NF-1 (10.5 s
 measured vs 1.5 s p95) → judgment is async. Because `DatabaseSync` is
 synchronous, a write blocked on a lock busy-waits the *calling thread* → all
 event-path writes must be off the event loop (D24). Consumer keying =
@@ -525,7 +532,7 @@ the D2/D3/D4 matrices with real alternatives and honest deciding cells);
 **reduction reflex** (the recurring failure of this project, collapse-log
 2026-07-17 — collapsing FR-A1's breadth into a narrow mechanism; countered by
 re-deriving the judgment core from FR-A1 and running the collapse test on it);
-recency bias toward v2.1.218's observed contract (countered by C-5
+recency bias toward v2.1.220's observed contract (countered by C-5
 drift-to-silence and version-bound adapters).
 
 **Known unknowns the design carries.** Windows-native support surface;
@@ -719,7 +726,9 @@ per-machine `init`-time confirmation remains.)
    first" in its multiple-root fallback — two different commits whenever a
    repository has more than one root, which is not an edge case: run on
    `Maxcogar/agent-armory` itself, `git rev-list --max-parents=0 HEAD` returns
-   **six** commits, and the two rules select different ones (`99818db…` by
+   **six** commits — and those six are the clone's **shallow-boundary** commits
+   (`.git/shallow`; `is-shallow-repository` → true), *not* roots, so this repo
+   demonstrates rule 2's case and not rule 1's, and the two rules select different ones (`99818db…` by
    traversal order, `1e3bc14…` lexicographically). An implementer following D5
    got a different store depending on which sentence they read. Worse, the
    premise line certified *"verified locally this session — returns the root
@@ -735,10 +744,16 @@ per-machine `init`-time confirmation remains.)
       fires and the oracle silently keys a different store for the same
       repository. Since shallow cloning is the dominant way containers rebuild —
       exactly the case FR-K9 exists for — `init` runs
-      `git rev-parse --is-shallow-repository` and, when true, either
-      `git fetch --unshallow` once (D22's preflight is already the place for a
-      one-time cost) or falls back to `path-keyed` mode with `status` saying so
-      plainly. It never derives a commit key from a shallow history.
+      `git rev-parse --is-shallow-repository` and, when true, applies **one rule, not
+      a choice**: *do not derive a commit key from a shallow history.* `init` may
+      attempt `git fetch --unshallow` **only if** a remote is already reachable
+      and network is already permitted; on any failure, refusal, or absence of a
+      remote it falls back to `path-keyed` mode with `status` saying so plainly.
+      *(Round-3 R3-6: the prior text offered the two branches as alternatives,
+      which reproduces the very defect F5 raised — two implementers reading one
+      sentence produce different store identities. It also made a network fetch
+      load-bearing, which C-1/NF-3 forbid in the sandbox case those constraints
+      exist for. Making the fetch strictly optional resolves both.)* It never derives a commit key from a shallow history.
    3. **Fallback unchanged:** no git → SHA-256 of the realpath, marked
       `path-keyed` in store meta.
    4. **Residual, stated:** a repository that merges unrelated histories *after*
@@ -1084,6 +1099,27 @@ per-machine `init`-time confirmation remains.)
       - **Low (≈0.15) — one tool call away.** Single-file static structure a
         `Grep` for the same symbol returns: call-site counts, "there is a helper
         at Z", "this file imports that one."
+      - **Mapping exception (≈0.85) — the *answer* is trivial, the *question* is
+        not.** A fact whose payload is a location or a command, but whose value
+        is the **mapping** from the agent's current situation to it, is not
+        self-servable even though its payload is one `Read` away. Two v1 genres
+        depend on this and it is stated here rather than assumed, because
+        without it both are dead under the bar (D10a):
+        - **Steering** — "where that concern actually lives." The *location* is
+          greppable; the *inference from the agent's stated intent to the right
+          location* is exactly what a cold checkout cannot supply and what the
+          agent has demonstrably not made, since it is looking elsewhere. The
+          bound fact is the intent→location mapping, not the location.
+        - **Verification** — the bound fact is **`test_map`** (region → the
+          command that verifies it), *not* `verify_commands`. The command list is
+          trivially readable from `package.json`; which command covers the region
+          just edited is a repo-specific mapping the oracle mines. D16 records
+          `test_map` accordingly, and a Verification whisper that can only cite
+          `verify_commands` — with no region mapping — **does not clear the bar
+          and is not sent.**
+        The exception is deliberately narrow: it applies only where the mapping
+        itself is the fact and is stored as such. It is *not* available to a
+        genre that wants to re-describe a trivial payload as valuable.
       - **Driven to ≈0 by demonstrated reach.** Tier 3 records the consumer's
         read set and issued search terms; when a fact's location already falls
         inside a result set this consumer has *seen*, the fact is not
@@ -1275,40 +1311,53 @@ pipeline is a genre that does not work no matter how well its own decision reads
 | **Consequence** | tool_pre (edit) | `ref_edges` + `cochange_*` | trivial (call-sites) / invisible (breakage ⛔ Phase 2) | repo span / commit | durable | free | subject edited | 1 |
 | **Warning ⚠** | tool_pre (edit in zone) | `files.zone_*` | invisible *(on the consequence, not the classification)* | repo span, pointer-only | durable | free | edit abandoned or zone respected | 1 |
 | **Completeness** | stop | `cochange_file_pairs`, `invariants` | invisible | commit hash | durable | **spends a turn** (FR-O4a) | paired file subsequently touched | 1 |
-| **Verification** ⛔ | stop | `verify_commands` | **trivial** — one `Read` away | repo span | durable | **spends a turn** | command subsequently run | 1 |
+| **Verification** | stop | **`test_map`** (region→command), not `verify_commands` | mapping exception (≈0.85) | repo span | durable | **spends a turn** | command subsequently run | 1 |
 | **Orientation** ⛔ | prompt | entry points + `landmines`/`invariants` — **no v1 writer (D18)** | trivial (entry points) / invisible (landmines) | repo span | durable | free | pointed entry point opened | 1 |
 | **Assumption check** | narration (Lane 2) | any contradicting fact | invisible | per bound fact | durable | free | narration corrected | 2 |
-| **Steering** ⛔ | narration (Lane 2) | `symbols`, `ref_edges` | **trivial — its only content class** | repo span | durable | free | pointed location opened | 2 |
+| **Steering** | narration (Lane 2) | `symbols`, `ref_edges` + intent→location mapping | mapping exception (≈0.85) | repo span | durable | free | pointed location opened | 2 |
 | **Answer** | narration addressing oracle | FTS, A0-shaped | invisible (retrieval-bounded) | per bound fact | durable | free | pointed subject read, or question not re-asked | 2 |
 | **Unknown** | determining query returns empty | negative-evidence fact | invisible | **bounded query + empty result** | durable | free | gap named in a later user turn, or recorded as `human_fact` | 2 |
 | **Process** | completion claim vs `skill_expectations` | `skill_expectations`, `session_evidence` | invisible | **bounded transcript scan** (never a point offset) | durable | spends a turn *(fires at completion)* | required activity later observed, or claim retracted | 2 |
-| **Answer drift** ⛔ | user question unresolved 2 turns | `open_questions` | invisible | **bounded transcript scan** | durable | free | `open_questions.resolved` transitions | **undecided — see below** |
+| **Answer drift** | user question unresolved 2 turns | `open_questions` | invisible | **bounded transcript scan** | durable | free | `open_questions.resolved` transitions | **1 (deterministic; in the FR-J3 degraded set)** |
 
 **What this table makes visible, stated plainly rather than left at the joints:**
 
-1. **Five genres are ⛔ as of this revision**, and three of the five are structural
-   rather than merely unbuilt:
-   - **Steering** — its *entire* FR-A2 content is "where that concern actually
-     lives", a location in the current tree, which step 5a classifies `trivial`.
-     Unlike Consequence it has no invisible sub-content to fall back on. Either
-     Steering earns a stated exception (the *mapping* from an intent to a location
-     is not trivially self-servable even though the location is), or it descopes
-     from v1. Undecided here is not acceptable; the exception is the better
-     argument and must be written into step 5a with its reason, or the genre goes.
-   - **Verification** — same shape. The command is one `Read` away; the
-     *region → command mapping* (`test_map`) is not. If that is the claim, then
-     `test_map` is the bound fact and `verify_commands` is not, and D16 must say so.
-   - **Orientation** — two of three content elements retrieve from tables D18 gives
-     no v1 writer. It ships as structural-only with a stated low fire rate, or it
-     waits for mining.
-   - **Coupling's helper half** and **Consequence's breakage half** are the same
-     empty-table case, and both degrade to a working genre rather than a dead one.
-2. **Answer-drift's lane is undecided**, which is a live contradiction: D14 calls
-   it "deterministic bookkeeping", but deciding that a turn *addressed* a question
-   is the same language judgment for which D14 narrowed Process to a mechanically
-   decidable subset. If deterministic it belongs in FR-J3's degraded set and does
-   not; if not, D14's sentence is wrong. Resolve it in D14, in writing, with the
-   predicate spelled out — the same treatment Process received.
+1. **Three genres remain ⛔, all for the same reason — an empty table, not a
+   broken design.** The two structural cases (Steering, Verification) are
+   resolved above by the **mapping exception** in step 5a: their bound fact is
+   the *mapping*, not the payload. What is left is v1 scope, decided here:
+   - **Orientation ships structural-only in v1**, with its landmine and invariant
+     arms dark until D18's mining lands. Its expected fire rate is therefore low,
+     and D21's `genre_dark` check must **not** flag it — the row records the
+     expectation so a healthy silence is not read as a fault.
+   - **Coupling's helper half** and **Consequence's breakage half** stay dark for
+     the same reason. Both degrade to a working genre rather than a dead one
+     (co-change carries Coupling; call-sites carry Consequence), which is why
+     neither descopes.
+   - **No genre is dropped from v1.** The three ⛔ rows are *deferred content
+     within a live genre*, and each is a row this table will fill when D18's
+     writers exist — which is the difference between a stated gap and the silent
+     descoping round 2 predicted for the conduct genres.
+
+2. **Answer-drift is Lane 1 / deterministic — decided here, with the predicate
+   written.** D14 called it "deterministic bookkeeping" without stating the rule
+   that decides `open_questions.resolved`, one paragraph after narrowing Process
+   to a mechanically decidable subset *because* prose is not decidable. Resolving
+   the contradiction in the direction D14 asserted requires the predicate to
+   actually be mechanical, so it is:
+   - **Registered** when a user turn contains an interrogative construction;
+     subject tokens (nouns, identifiers, paths) are extracted and stored with
+     `asked_loc`.
+   - **Resolved** when a later assistant turn contains ≥1 subject token *and* an
+     answer-shaped construction, **or** when the next user turn neither restates
+     the question nor repeats its subject tokens.
+   - **Not registered at all** when neither test is mechanically decidable — no
+     registration, no whisper. Narrower than FR-A9's full breadth, recorded in
+     Limitations, exactly as Process was narrowed.
+   Being deterministic, it **belongs in FR-J3's degraded genre set** and runs in
+   Phase 0 — which matters, because Phase 0 is where the owner actually meets it.
+   D20's degraded set is corrected accordingly.
+
 3. **Two genres spend a turn** (Completeness, Verification) and Process fires at
    the same moment. That is OWNER-12's accepted cost, and it is why the
    `stop_hook_active` gate and `stop_bar_delta` in D10 step 5 are load-bearing
@@ -1345,8 +1394,12 @@ be **traversed, not inspected**.
    `CTXORACLE_INTERNAL=1` set. `--json-schema` takes an **inline JSON string** —
    the schema file is read and its contents passed; the CLI has no file-path form
    (verified live: a path argument is rejected, `Unrecognized token '/'`;
-   Minor-1). Timeout: **30 s** process kill — measured mean is 10.5 s (Spike 1,
-   2026-07-30), so 30 s is ~3× headroom; the prior 20 s was set against a 5.7 s
+   Minor-1). Timeout: **30 s** process kill — sized against the **observed maximum**, not the
+   mean: 17.4 s max over the runs recorded in Spike 1 (mean 13.3 s across the
+   wider set), so 30 s is ≈1.7× the tail. *(Corrected after round 3: the prior
+   text derived 3× headroom from the mean, which is the wrong statistic for a
+   kill timeout — its whole job is to bound the tail, and a Lane 2 timeout counts
+   as a failure that trips degraded mode after three.)*; the prior 20 s was set against a 5.7 s
    figure that belonged to a different command. Lane 2 is off the hook path, so
    the timeout trades only judgment freshness, never agent latency.
 
@@ -1460,9 +1513,16 @@ be **traversed, not inspected**.
 
    **New acceptance criterion required (F2).** No existing AC asserts the tool
    set is empty — AC-11 counts oracle *hook firings* in the child, which is a
-   different property. **AC-11a**: the judgment child, asked to enumerate its own
-   tools, returns none; the fixture runs the shipped command verbatim, including
-   `--tools ""`, and fails if any tool name is returned. Without it, T4's
+   different property. **AC-11a**: the fixture runs the shipped command verbatim, including
+   `--tools ""`, and asserts on **the harness's own output, not the model's
+   narration** — the run completes with no `tool_use` iteration and no entry in
+   `permission_denials`. A self-report is kept only as a secondary signal, and is
+   labelled as one. *(Round-3 R3-9: the prior fixture asked the child to
+   enumerate its own tools. Run twice under the same command, the child reported
+   32 names and then 8 — a 4× swing with no change to the invocation, which is
+   also how the "eight tools" figure entered this document. A model's description
+   of its own configuration is not the configuration, and a fixture built on it
+   passes over a non-empty tool set whenever the model under-reports.)* Without it, T4's
    "empty by flag" claim has no test and would drift back to prose.
 
 ### D12 — Grounded-generation judgment: prompt construction, composition, and verify-and-bound (FR-A1, FR-J5, FR-X2)
@@ -1567,9 +1627,19 @@ foundation.md`, itself anchored on FR-A1.*
         hoped-for.
      2. **Token provenance.** Reject any claim containing a number, file path,
         symbol name, or date that does not appear in the bound fact.
-     3. **Epistemic-strength lexicon.** Reject claims asserting a property the
-        fact does not carry — *stable, standard, always, never, not accidental,
-        proven, guaranteed*. A co-change ratio supports a frequency statement and
+     3. **Epistemic-strength lexicon (defence in depth, *not* the primary
+        control).** Reject claims asserting a property the fact does not
+        carry — *stable, standard, always, never, not accidental, proven,
+        guaranteed*. **Control (1), the slot-filled template, is the primary
+        bound**, for exactly the reason D11 gives for preferring `--tools ""`
+        over a deny-list: an enumerated deny-list permits everything it does not
+        name, and natural language has an open set of epistemic intensifiers.
+        Observed live on 2026-07-30, from the shipped command: the model returned
+        *"will **almost certainly** require paired updates"* — an escalation over
+        an 80 % frequency that the lexicon above does not contain. The template
+        constrains what a slot may say; the lexicon only catches known words.
+        Residual stated honestly: within a slot, wording is model-chosen and the
+        lexicon is heuristic — the same posture T1 takes on injection. A co-change ratio supports a frequency statement and
         nothing stronger.
 
      Until (1)–(3) exist, the guarantee this decision may state is the narrow,
@@ -1706,7 +1776,7 @@ foundation.md`, itself anchored on FR-A1.*
 6. **Premise verification.** FR-A1 read at 346–349, FR-A2 (genres, incl. Unknown)
    at 350–367, FR-J5 at 465–468, FR-X2/X3 at 581–588, FR-S3 at 480–482; corrected
    foundation read in full this session; `--json-schema` structured-output flag
-   present in CLI v2.1.218 (captured); the composed→verify→drop path is
+   present in CLI v2.1.220 (captured 2026-07-30); the composed→verify→drop path is
    deterministic code with no external premise. Addresses: FR-A1, FR-A2 (open-ended
    *and* Unknown genres), FR-J5, FR-X2, FR-X3, FR-S3, AC-7.
 
@@ -2785,7 +2855,7 @@ Every spec requirement, constraint, principle, §14 item, and AC accounted for.
 | OWASP Secrets Management Cheat Sheet §8 | spec §3 inheritance | D19 scanner design |
 | OWASP ASVS 5.0.0 | security-architecture practice | Applied-chapter decisions: V1→D12/D13/D19, V2→D8/D12, V5→D14/D5/D16, V8→D2/D9, V11→D5, V13→D23, V14→D19, **V15→D3/D6/D9/D10/D24**, V16→D21 (not the mapping table itself — finding #11) |
 | Claude Code hooks reference (code.claude.com, fetched 2026-07-22) | primary source | D8, D9, D13, D15 (events, fields, channels, timeouts; the `additionalContext`/`systemMessage` distinction) |
-| Claude Code CLI surface (v2.1.218 `--help` + live invocations, captured 2026-07-22) | primary source | D11 (`--disallowedTools`/`--allowedTools`, `--session-id`, `--json-schema` inline-only, `--system-prompt`; `--bare` present but **rejected** — its help states OAuth/keychain are never read, and it fails host auth 3/3 in this environment) |
+| Claude Code CLI surface (v2.1.220 `--help` + live invocations, captured 2026-07-30) | primary source | D11 (`--disallowedTools`/`--allowedTools`, `--session-id`, `--json-schema` inline-only, `--system-prompt`; `--bare` present but **rejected** — its help states OAuth/keychain are never read, and it fails host auth 3/3 in this environment) |
 | Anthropic Help Center — "Use the Claude Agent SDK with your Claude plan" (looked up 2026-07-22) | primary source | D11/D20/§14 (headless `claude -p` draws from the Pro/Max subscription; June-15-2026 separate-credit change paused; OAuth-token headless auth supported) — closes the subscription-login-inheritance premise at the documentation level |
 | Node.js v22 API docs + empirical run on v22.22.2 (this session) | primary source | D2 (net IPC), D4 (`DatabaseSync` synchronous, WAL/STRICT/FTS5), D24 (`worker_threads`, busy_timeout) |
 | SQLite WAL documentation | primary source | D24 concurrency contract |
@@ -2859,7 +2929,10 @@ does not.*
 11. *(Minor)* The ASVS Standards-table row now names the decisions ASVS drove, not
     the mapping table.
 
-**What the independent Round-2 passes changed (2026-07-22, all applied).** The
+**What the independent Round-1 passes changed (2026-07-22, all applied).**
+*(Relabelled 2026-07-30 per `docs/reviews/README.md`: rounds count passes over the
+current artifact, so the 2026-07-22 passes are round 1. The inline fix notes
+throughout this document correctly say "round 2" for the 2026-07-30 findings.)* The
 mandatory adversarial collapse-hunt and expert-review ran against the rebuilt
 document; every finding was applied (full detail in `docs/collapse-log.md`,
 2026-07-22 entry):
@@ -2892,10 +2965,12 @@ document; every finding was applied (full detail in `docs/collapse-log.md`,
    (D13); SubagentStart orientation gated on a real task signal (D15); degraded-mode
    scope stated honestly (D20).**
 
-**Before-delivery gates (re-run after Round-2 fixes):** Gate A (three-role review)
-— pass; Gate B (auditability) — pass; Gate C (structural checklist) — pass;
-five-trap audit — clean; the load-bearing decisions (D10, D12, D24) carry a written
-collapse test, each verified present in the body.
+**Review record.** This document carries no self-certification. Round-by-round
+review output — inventory, findings, closure ledgers, verdicts — lives in
+`docs/reviews/`, signed by the reviewer rather than the author. A summary
+"gates passed" statement in the artifact is a finding on sight (Self-verification
+record, above); one survived byte-identical through the round-2 fix and was
+caught by round 3 as R3-S1 instance 1. This paragraph replaces it.
 
 **What comes next.** The implementation plan (`/expert-plan`, consuming spec + this
 document) is the next lifecycle stage, then Phase 0 per the build order. No design

@@ -194,6 +194,28 @@ written are recorded so the traps are inherited.
    satisfied: re-run the query) → D12, D6.
 
 **Also caught by expert-review (premise/standards axis, applied):**
+- **CRITICAL — `Stop`/`SubagentStop` delivery is a continuation control** (F1;
+  **omitted from the first version of this entry — added 2026-07-30 per round-3
+  R3-11**). Collapsed by the current hooks contract, verbatim: *"It keeps the
+  conversation going through the same loop protections as `decision: \"block\"`,
+  namely the `stop_hook_active` input and the 8-consecutive-continuation cap."*
+  So a whisper at `Stop` does not cost a wasted sentence (P2) — it costs the
+  agent a turn it was trying to end, and AC-3 could not see it because AC-3
+  scanned for deny *fields* and continuation carries none.
+  Class: **unverified/overclaim** — a channel the design classified as inert is
+  a control-flow axis.
+  Resolution: put to the owner with the evidence; **Max Cogar ruled the
+  capability a must-have** and accepted the cost bounded — `RETHINK.md` §12
+  addendum decision **OWNER-12**, spec §6.1, FR-O4a, AC-3 widened.
+  **Residual, and the reason this omission mattered:** the ruling landed in the
+  spec and `RETHINK.md` and **not in the architecture** — round 3 found the
+  artifact still specifying a design that could not implement it (no
+  `stop_hook_active` in the event contract, so the bound was unimplementable
+  rather than merely unstated). Fixed in D8/D10/D6/D21/D26 on 2026-07-30.
+  **Standing lesson: when a finding produces an owner ruling, the ruling lands
+  in every artifact the lifecycle consumes — not only in the one where the
+  question was raised.** A requirement that arrives between rounds inherits no
+  reviewer.
 - **CRITICAL — `--bare` breaks the piggyback.** The D11 model command used
   `--bare`, whose help states "OAuth and keychain are never read"; verified live
   in this credential-less host-managed environment (3/3 Authentication error),
@@ -287,9 +309,16 @@ but never designed, so no one can review it.
    gate and reappeared as the *claim* gate. → D12 Move C.
 
 **Also caught by expert-review (premise/standards axis, applied):**
-- **CRITICAL — the shipped model command did not work.** `--max-turns 1` with
-  `--json-schema` returns `error_max_turns` with **no verdict**, because
-  structured output arrives via a tool call. Every Lane 2 call would have failed.
+- **SERIOUS — the shipped model command was unreliable** *(graded CRITICAL in
+  the first version of this entry; round 2 classified it SERIOUS — corrected
+  2026-07-30 per R3-11, and its substance corrected too: see below).* `--max-turns 1` with `--json-schema`
+  is **prompt-dependent**, not a hard failure: measured 2026-07-30, 10/10
+  `error_max_turns` under a thin system prompt and 5/5 success under a rich one,
+  with `num_turns` = 2 in all 15 runs. Lane 2 would have failed *intermittently*,
+  which is worse than cleanly — three consecutive failures trip degraded mode and
+  the fault has no stable reproduction. *(The first version of this entry said it
+  failed always; round 3's expert-review said it never failed. Both were sampling
+  artifacts.)*
   Same class as round 1's `--bare` bug, from the same cause: the validating
   command was not the shipped command — the lesson round 1 wrote into *this file*
   and the spike section did not apply.
