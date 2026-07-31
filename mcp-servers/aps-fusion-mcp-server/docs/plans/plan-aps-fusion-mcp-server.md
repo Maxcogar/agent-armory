@@ -358,11 +358,11 @@ pin-to-the-lockfile rule above cannot reach them, because they are absent from t
 they are installed:
 
 - **`pino` at `10.1.0`** — the current major (Context7 enumerates `v8_21_0` and `v10.1.0`;
-  §11 claim 25 records the API read against this version). S4's rejection of a hand-rolled logger
+  §11's pino destination/redact entry records the API read against this version). S4's rejection of a hand-rolled logger
   rests on pino's `redact` being verified, so the version that verification holds at must be
   stated somewhere, and this is the only place it can be.
 - **`vitest` at `4.1.6`** — must be **≥ 4.1.0**: `vi.setTimerTickMode` arrived in 4.1.0 (§11
-  claim 26) and T-10/T-13/T-14 depend on that timer control, so "4.x" is not sufficient. Of the
+  11's vitest environment/timer entry) and T-10/T-13/T-14 depend on that timer control, so "4.x" is not sufficient. Of the
   versions Context7 enumerates (`3.2.4`, `4.0.7`, `4.1.6`) only `4.1.6` qualifies.
 - **`@vitest/coverage-v8` at `4.1.6`** — matched to the vitest version, which the package
   requires as a peer.
@@ -378,7 +378,7 @@ and `typecheck.tsconfig`, because the base `tsconfig.json` sets `"rootDir": "./s
 `typecheck.include` is **not** required — its default is
 `['**/*.{test,spec}-d.?(c|m)[jt]s?(x)']`, which already matches `test/aps-http.test-d.ts`. It is a
 separate option from the runtime `include` above, with its own default; setting it would be a
-harmless narrowing, not a fix, and the plan does not set it. (§11 claim 30.)
+harmless narrowing, not a fix, and the plan does not set it. (§11's vitest typecheck-defaults entry.)
 
 Create `tsconfig.test.json` extending the base with `"rootDir": "."` and
 `"include": ["src/**/*", "test/**/*"]` — a separate file rather than widening the base, because
@@ -617,7 +617,7 @@ composing the fragment into every data schema is what makes the guard's writes a
 divergent implementations (`truncateIfNeeded` at `src/tools/mfg-data-model.ts:30` and `truncate`
 at `src/tools/model-derivative.ts:9`), which is R-REL-5's literal origin. *Not* `.merge()` for
 fragment composition — the zod **v4** API reference documents `.extend()` and object shape-spread
-as the composition forms (§11 claim 24, verified directly), and `.merge()` is not among them.
+as the composition forms (§11's zod v4 composition entry, verified directly), and `.merge()` is not among them.
 (A stronger-sounding argument is available — that `.merge()` lets the result inherit the second
 schema's `unknownKeys` policy, which would be the wrong foundation for a
 schema-legal-by-construction guarantee — but that semantics statement is documented in zod's
@@ -1419,6 +1419,10 @@ No trigger instance is ungated.
 - **D-P6. Vitest is confirmed as the runner** (D26 left it "plan-level confirmable"). Criterion
   was native ESM + TypeScript on Windows against a `"type": "module"` package — not mocking power,
   since D26's seams are constructor-injected and explicitly *not* module-level monkey-patching.
+- **D-P7. `README.md` is added to the doc-sync set despite being absent from
+  `find_related_docs`' output.** The tool matches on code-file path references; README names no
+  `src/` path, so it was invisible to the query while being the most user-facing document in the
+  repo and the one carrying the `--allow-unauthenticated` advice. Caught by direct read.
 - **D-P8. A fifth gateway, `webhooks-gateway.ts`, is created — the architecture enumerates four.**
   *Decision:* tools 31–33 (register / list / delete webhook) get their own gateway module rather
   than being folded into an existing one or calling REST from the tool module. *Standard:*
@@ -1436,15 +1440,17 @@ No trigger instance is ungated.
   (S12) are also absent from the architecture's layout, but they are file-granularity choices
   inside a layer, which the architecture explicitly defers to the plan; the gateway is different
   because the architecture *enumerates* gateways, so adding one contradicts a closed list.
-- **D-P7. `README.md` is added to the doc-sync set despite being absent from
-  `find_related_docs`' output.** The tool matches on code-file path references; README names no
-  `src/` path, so it was invisible to the query while being the most user-facing document in the
-  repo and the one carrying the `--allow-unauthenticated` advice. Caught by direct read.
 
 ## 11. Verification of factual claims
 
 Every claim this plan depends on, with read-level evidence. Search results are cited only as
 locators.
+
+**Entries are numbered for reading order only. Nothing in this document references a claim by its
+number** — cross-references name the claim's subject instead ("§11's pino destination/redact
+entry"), because a positional reference breaks silently whenever an entry is inserted, and this
+section has been renumbered twice. A reader looking one up searches the subject; an editor
+inserting one has nothing to update.
 
 1. **The predecessor tree is exactly seven TypeScript files under `src/`.** Steps S1, S5.
    *Structural trace:* `codegraph_scan` (force, 2026-07-30T22:14:46Z) + `codegraph_list_files` —
@@ -1469,7 +1475,7 @@ locators.
    `:110–121` (`if (!res.ok) { … clearTokens(); throw … }`).
 7. **The stored credential currently contains `null`.** Risks R-1, step S15.
    *File read:* `~/.aps-fusion-mcp/tokens.json` — contents are the four characters `null`.
-   This is the observed consequence of claim 6.
+   This is the observed consequence of the `clearTokens()` entry above.
 8. **`isAuthenticated()` reports token presence, not validity.** Step S6, tool 1.
    *File read:* `src/services/aps-auth.ts:145–147` — `return currentTokens() !== null`.
 9. **The predecessor's authorization request carries neither PKCE nor `state`.** Step S22 (D9).
@@ -1852,7 +1858,7 @@ cost: 'md-translate' }` is a compile error (S8, D18). *Level:* unit (type-level)
 combinations. Two settings from S2 make it execute: `typecheck.enabled: true` (default **false**,
 so `npm test` alone runs nothing here) and `typecheck.tsconfig: './tsconfig.test.json'` (the base
 config's `rootDir: "./src"` puts the fixture outside the program). `typecheck.include` needs no
-setting — its default already matches `*.test-d.ts` files (§11 claim 30). The command is
+setting — its default already matches `*.test-d.ts` files (§11's vitest typecheck-defaults entry). The command is
 `npx vitest --typecheck.enabled run`, and Checkpoint A gates on that exact invocation.
 
 *Real/double:* none — a type-level assertion, no runtime doubles. *Data:* the four `cost` values
@@ -1947,7 +1953,7 @@ the contract it is checked against comes from recorded fixtures, not a live call
 dependency is introduced.
 *Data:* for T-26c, the connection shape as pinned by the on-disk schema (§11's `allOccurrences` /
 `pagination.cursor` verification); for T-28c, a recorded Data Management folder-contents response
-plus the semantics of §11 claim 44. Both are forward-derived from the recorded contract, never
+plus the semantics of §11's `lastModifiedTimeRollup` entry. Both are forward-derived from the recorded contract, never
 shaped from what the fake already does.
 *Must NOT assert:* gateway behavior — that is T-26's and T-27/T-28's job; and not the fake's
 internals, only its externally observable contract.
@@ -2097,15 +2103,15 @@ no criterion without a test and no test without a criterion.
 | # | Question | Arose | Bin | Disposition |
 |---|---|---|---|---|
 | Q-1 | The spec's `Status:` line reads "Draft for review" while HANDOFF records owner acceptance. | Step 1 | 1 (engineering) | **Closed.** No plan step reads the line and no build behavior turns on it; the plan is written against the spec's content, which both documents agree on. Recorded as an observation in §4. No plan step. |
-| Q-2 | Which `registerTool` schema form should all 37 tools use — raw shape or `z.object`? | Step 4 | 1 (engineering) | **Closed: `z.object({...})`.** Both are accepted. The raw shape is normalized by `normalizeRawShapeSchema` and pairs with `LegacyToolCallback<ZodRawShape>`; `z.object` is the primary generic overload and is what infers handler argument types. No deprecation marker exists on either — the SDK's `@deprecated` markers are on the older `.tool()` method, not on `registerTool`'s raw-shape path. Answered at Decision D-P5; evidence at §11 claim 22. |
-| Q-3 | Which test runner, given D26 left it "plan-level confirmable"? | Step 4 | 1 | **Closed.** Vitest 4.x. Decision D-P6; evidence at §11 claim 26. |
+| Q-2 | Which `registerTool` schema form should all 37 tools use — raw shape or `z.object`? | Step 4 | 1 (engineering) | **Closed: `z.object({...})`.** Both are accepted. The raw shape is normalized by `normalizeRawShapeSchema` and pairs with `LegacyToolCallback<ZodRawShape>`; `z.object` is the primary generic overload and is what infers handler argument types. No deprecation marker exists on either — the SDK's `@deprecated` markers are on the older `.tool()` method, not on `registerTool`'s raw-shape path. Answered at Decision D-P5; evidence at §11's `registerTool` overload entry. |
+| Q-3 | Which test runner, given D26 left it "plan-level confirmable"? | Step 4 | 1 | **Closed.** Vitest 4.x. Decision D-P6; evidence at §11's vitest environment/timer entry. |
 | Q-4 | Do the 8(b)/8(c) probes block the whole build or only part of it? | Step 6 | 1 | **Closed.** Only `md-gateway`. Decision D-P2; sequencing at S15. |
 | Q-5 | Should all 18 docs from `find_related_docs` be updated? | Step 8 | 1 | **Closed.** No — partitioned into rewrite/update/do-not-touch. Decision D-P4; spec M-4 is the standard. |
-| Q-6 | Is `find_related_docs`' output complete for doc sync? | Step 8 | 1 | **Closed.** No — `README.md` was absent because it references no `src/` path. Caught by direct read. Decision D-P7; evidence at §11 claim 18. |
+| Q-6 | Is `find_related_docs`' output complete for doc sync? | Step 8 | 1 | **Closed.** No — `README.md` was absent because it references no `src/` path. Caught by direct read. Decision D-P7; evidence at §11's `find_related_docs` completeness entry. |
 | Q-7 | Where do the acceptance-critical tests sit relative to the modules they constrain? | Step 9 | 1 | **Closed.** In the same step that builds the module, because D26's seams must be written in rather than retrofitted. Decision D-P3. |
 | Q-8 | Should any requested scope be excluded, deferred, or phased? | Step 10 | 2 | **Closed — nothing proposed.** The full spec scope is planned; no exclusion was proposed to the owner and none is claimed. §2 states this. |
-| Q-9 | Does deleting `src/` risk anything outside the seven files? | Step 2 | 1 | **Closed.** No — `src/index.ts` has zero dependents and all other dependents are inside the set. Evidence at §11 claim 20. S1 enumerates retained paths explicitly. |
-| Q-10 | Is `destructiveHint` safe to leave unset on additive writes? | Step 4 | 1 | **Closed.** No — it defaults to `true`, so an unset additive write is annotated destructive, violating R-PROTO-4. Must be set explicitly. Evidence at §11 claim 23. |
+| Q-9 | Does deleting `src/` risk anything outside the seven files? | Step 2 | 1 | **Closed.** No — `src/index.ts` has zero dependents and all other dependents are inside the set. Evidence at §11's `src/index.ts` dependents entry. S1 states its deletion set as closed. |
+| Q-10 | Is `destructiveHint` safe to leave unset on additive writes? | Step 4 | 1 | **Closed.** No — it defaults to `true`, so an unset additive write is annotated destructive, violating R-PROTO-4. Must be set explicitly. Evidence at §11's annotation-defaults entry. |
 | Q-11 | Which of Step 10's four checkpoint triggers have instances in this plan, and is each gated? | Sweep 5 | 1 | **Closed.** All four have instances; two were ungated — S6 (hard-to-reverse) and the registration half of the structural/behavioral boundary. Checkpoints C and D added. The full enumeration is in §9 so the class is checkable rather than asserted. |
 | Q-12 | Does every one of the 37 tools have a gateway step that implements its backing operation? | Sweep 5 | 1 | **Closed, in two parts.** (i) S13's scope said "tools 2–20 and 22", omitting tool 21 (`generate:true` derivative) and tool 35 (`itemVersions`), both MFG-backed; corrected to 2–22 and 35. (ii) Tools 31–33 had **no gateway at all** — APS Webhooks v1 is a fifth service and the architecture enumerates four; `webhooks-gateway.ts` was added at S21, recorded as **Decision D-P8**. The full map, derived by reading each gateway step's stated scope: 1/20/34/36 → S14, 2–22 and 35 → S13, 23–26 and 37 → S15, 27–30 → S20, 31–33 → S21. |
 | Q-13 | Is `.env.example` created or modified, and who specifies its contents? | Sweep 5 | 1 | **Closed.** Modified — the file already exists (133 bytes). Moved out of §5's Created table; S25 now specifies that it must enumerate every key `config.ts` validates, grouped by serving mode, secrets empty with a generation hint. |
@@ -2133,7 +2139,7 @@ and none is claimed.
   *Attempted:* read the introspected schema (`docs/aps-mfg-schema.json`), which types the field
   only as `ID!` with no format information; read the architecture's Premise slot for D27 and its
   Limitation 8(b) text; confirmed the live client `docs/apsq.mjs` cannot run because
-  `~/.aps-fusion-mcp/tokens.json` contains `null` (§11 claim 7). *Why outside reach:* it requires
+  `~/.aps-fusion-mcp/tokens.json` contains `null` (§11's stored-credential entry). *Why outside reach:* it requires
   an authenticated live call, gated on the owner's M-3 re-auth. *What would resolve it:* the
   probe specified at S15, which is a plan step rather than a deferral.
 - **G-2. Limitation 8(c) — whether `signedcookies` accepts a whole-value percent-encoded
@@ -2151,10 +2157,10 @@ and none is claimed.
 - **G-4. Three external-API details remain unverified after a direct attempt.** Eight facts were
   originally consumed from the architecture's citations rather than read at plan time. That is not
   a gap under the earned-gap rule — a reachable fact left unread is an open engineering question —
-  so each was resolved. **Four** were read directly and are now §11 claims 43, 44, 45 and 47 (SDK
-  deprecation markers; DM `lastModifiedTimeRollup`; MD `properties:query` pagination; Webhooks
-  `pageState`/`next`). **One** ceased to be a premise: S7's rejection of `.merge()` rests on the
-  v4 API reference's documented composition forms (§11 claim 24, read directly), so the
+  so each was resolved. **Four** were read directly and are now §11 entries in their own right —
+  the SDK deprecation markers, DM `lastModifiedTimeRollup`, MD `properties:query` pagination, and
+  Webhooks `pageState`/`next`. **One** ceased to be a premise: S7's rejection of `.merge()` rests on the
+  v4 API reference's documented composition forms (§11's zod v4 composition entry, read directly), so the
   v3-documented `unknownKeys` semantics is load-bearing for nothing. **Three** remain, below, and
   these are gaps rather than open questions because each survived a direct attempt:
   1. **Design Automation's `paginationToken`** for activity listing (S20, tool 27's paging).
