@@ -1250,6 +1250,82 @@ per-machine `init`-time confirmation remains.)
    inherited with their spec sources. Addresses: FR-J1..J4, FR-A1..A9, FR-O3,
    FR-O5, NF-1, NF-2, AC-2, AC-16.
 
+### D10a — The genre pipeline table (the artifact whose absence caused twelve findings)
+
+*Added 2026-07-30 after round 3. Both independent passes converged on the same
+diagnosis: **no decision owns a genre.** Triggers were prose in D10, retrieval a
+prose enumeration in D12, fact classes prose in step 5a, write durability two
+lists in D24, delivery bounds nowhere, uptake one sentence in step 9b. No reviewer
+reading any single decision could see that Steering has no deliverable content,
+that Verification is trivially self-serveable, that Process's grounding fact could
+not be inserted, or that four genres have no uptake detector — because those facts
+live at the joints between decisions, and every collapse both rounds found lived
+exactly there. This table is the countermeasure: one row per FR-A2 genre, one
+column per pipeline joint.*
+
+**A blank or `NONE` cell is a build-time error, not a documentation gap.** Rows
+marked ⛔ below are *known-unbuildable as of this revision* and are the v1 work
+list; they are stated rather than hidden, because a genre that cannot traverse the
+pipeline is a genre that does not work no matter how well its own decision reads.
+
+| Genre | Trigger | Store source | `self_serve_class` | Grounding pointer | Durability | Delivery cost | Uptake predicate | Lane |
+|---|---|---|---|---|---|---|---|---|
+| **Coupling** | tool_pre/post (read, search) | `cochange_file_pairs` | invisible | commit hash | durable | free (rides boundary) | subject file edited/tested by any route | 1 |
+| **Coupling** (helper half) ⛔ | tool_post (search) | `exemplars` — **no v1 writer (D18)** | trivial | repo span | durable | free | subject referenced | 1 |
+| **Consequence** | tool_pre (edit) | `ref_edges` + `cochange_*` | trivial (call-sites) / invisible (breakage ⛔ Phase 2) | repo span / commit | durable | free | subject edited | 1 |
+| **Warning ⚠** | tool_pre (edit in zone) | `files.zone_*` | invisible *(on the consequence, not the classification)* | repo span, pointer-only | durable | free | edit abandoned or zone respected | 1 |
+| **Completeness** | stop | `cochange_file_pairs`, `invariants` | invisible | commit hash | durable | **spends a turn** (FR-O4a) | paired file subsequently touched | 1 |
+| **Verification** ⛔ | stop | `verify_commands` | **trivial** — one `Read` away | repo span | durable | **spends a turn** | command subsequently run | 1 |
+| **Orientation** ⛔ | prompt | entry points + `landmines`/`invariants` — **no v1 writer (D18)** | trivial (entry points) / invisible (landmines) | repo span | durable | free | pointed entry point opened | 1 |
+| **Assumption check** | narration (Lane 2) | any contradicting fact | invisible | per bound fact | durable | free | narration corrected | 2 |
+| **Steering** ⛔ | narration (Lane 2) | `symbols`, `ref_edges` | **trivial — its only content class** | repo span | durable | free | pointed location opened | 2 |
+| **Answer** | narration addressing oracle | FTS, A0-shaped | invisible (retrieval-bounded) | per bound fact | durable | free | pointed subject read, or question not re-asked | 2 |
+| **Unknown** | determining query returns empty | negative-evidence fact | invisible | **bounded query + empty result** | durable | free | gap named in a later user turn, or recorded as `human_fact` | 2 |
+| **Process** | completion claim vs `skill_expectations` | `skill_expectations`, `session_evidence` | invisible | **bounded transcript scan** (never a point offset) | durable | spends a turn *(fires at completion)* | required activity later observed, or claim retracted | 2 |
+| **Answer drift** ⛔ | user question unresolved 2 turns | `open_questions` | invisible | **bounded transcript scan** | durable | free | `open_questions.resolved` transitions | **undecided — see below** |
+
+**What this table makes visible, stated plainly rather than left at the joints:**
+
+1. **Five genres are ⛔ as of this revision**, and three of the five are structural
+   rather than merely unbuilt:
+   - **Steering** — its *entire* FR-A2 content is "where that concern actually
+     lives", a location in the current tree, which step 5a classifies `trivial`.
+     Unlike Consequence it has no invisible sub-content to fall back on. Either
+     Steering earns a stated exception (the *mapping* from an intent to a location
+     is not trivially self-servable even though the location is), or it descopes
+     from v1. Undecided here is not acceptable; the exception is the better
+     argument and must be written into step 5a with its reason, or the genre goes.
+   - **Verification** — same shape. The command is one `Read` away; the
+     *region → command mapping* (`test_map`) is not. If that is the claim, then
+     `test_map` is the bound fact and `verify_commands` is not, and D16 must say so.
+   - **Orientation** — two of three content elements retrieve from tables D18 gives
+     no v1 writer. It ships as structural-only with a stated low fire rate, or it
+     waits for mining.
+   - **Coupling's helper half** and **Consequence's breakage half** are the same
+     empty-table case, and both degrade to a working genre rather than a dead one.
+2. **Answer-drift's lane is undecided**, which is a live contradiction: D14 calls
+   it "deterministic bookkeeping", but deciding that a turn *addressed* a question
+   is the same language judgment for which D14 narrowed Process to a mechanically
+   decidable subset. If deterministic it belongs in FR-J3's degraded set and does
+   not; if not, D14's sentence is wrong. Resolve it in D14, in writing, with the
+   predicate spelled out — the same treatment Process received.
+3. **Two genres spend a turn** (Completeness, Verification) and Process fires at
+   the same moment. That is OWNER-12's accepted cost, and it is why the
+   `stop_hook_active` gate and `stop_bar_delta` in D10 step 5 are load-bearing
+   rather than bookkeeping: they are the only things standing between an accepted
+   bounded cost and an unbounded one.
+4. **Every uptake predicate is now named.** Where an honest predicate does not
+   exist, `status` renders "no uptake detector — hit rate not measured" and the
+   §9.2 ladder **excludes** the genre, rather than reading a structural 0 % as
+   noise and auto-suppressing a working genre.
+
+**Maintenance rule (this is the point of the table).** Any change that adds or
+alters a fact class, a store table, a bar factor, a trigger, or a genre **updates
+this table first**, and the change is not "applied" until every one of its cells
+is filled and the row has been walked end to end. Round 2's fixes were reviewed at
+the point of the finding and created three regressions at the joints; a fix must
+be **traversed, not inspected**.
+
 ### D11 — Model invocation profile and the recursion guard ([spec D-6] resolved)
 
 1. **Decision.** Lane 2 model calls spawn (note: **no `--bare`** — see the
