@@ -125,8 +125,11 @@ Dependents: none outside this set — `codegraph_get_dependents` shows `src/inde
 dependents (it is the sole entry point) and every other file's dependents lie inside the deleted
 set, so the deletion is self-contained.
 
-**Created.** Derived from the step set — every row names the step that creates it, and every
-step that creates a file appears here. 26 source files plus one config file (27 rows):
+**Created.** Derived from the step set — every row names the step that creates it, and every step
+that creates a file appears here. **The table is the list; no count is stated, because a count
+asserting the completeness of a list printed beneath it is a hand-maintained index with no
+generator, and this document has had that count wrong in three separate rounds.** To check
+completeness, read the step set against the table, not a number.
 
 | File | Created by |
 |---|---|
@@ -158,6 +161,8 @@ step that creates a file appears here. 26 source files plus one config file (27 
 | `src/http/health-route.ts` | S22 |
 | `src/http/webhook-route.ts` | S23 |
 | `vitest.config.ts` | S2 |
+| `tsconfig.test.json` | S2 |
+| `test/aps-http.test-d.ts` | S8 (the T-18 type-level fixture) |
 
 Plus the test tree under `test/`, created incrementally by the step that owns each module's
 tests (S3 onward — see §12).
@@ -205,14 +210,43 @@ attestation. Two items nonetheless precede feature work and are ordered first:
 Ordered. Dependencies point backward only. Steps are grouped by phase; every step names its
 Source, and every non-trivial step carries the four-part format.
 
-**How to read the Dependencies field.** The **backward** list — "what must complete before this
-step" — is normative and is the authority for scheduling. The "Unblocks …" notes are
-**informational only and are not a second source of truth**: they are the inverse of the backward
-edges and are derivable from them. Where a note and a backward list disagree, the backward list
-governs. This is stated because the two halves were maintained independently through four review
-rounds and drifted into 25 asymmetric pairs — a duplicated index with no generator will always
-drift, so the duplicate is demoted rather than repeatedly reconciled. An agent scheduling from
-this plan reads the backward edges and inverts them itself.
+**How to read the Dependencies field.** Each step's **backward** list — "what must complete before
+this step" — is normative and is the authority for scheduling. The forward half the output
+contract also requires ("what this step unblocks") is stated **once**, as the reverse index below,
+rather than as a note on each of 27 steps. Maintaining it in both places is what produced 25
+asymmetric pairs across four rounds; a single derived index has one place to be wrong instead of
+27, and any per-step "Unblocks …" prose that survives elsewhere in this document is superseded by
+this table.
+
+**Reverse index — what each step unblocks.** Derived by inverting the backward edges, read from
+the steps themselves. A step not listed unblocks nothing beyond the final acceptance pass.
+
+| Step | Unblocks |
+|---|---|
+| S0 | S1 |
+| S1 | S2 |
+| S2 | S3 |
+| S3 | S4, S5, S6, S7, S8, S9, S10 |
+| S4 | S6, S8, S10 |
+| S5 | S6, S8, S21, S23 |
+| S6 | S8, S24 |
+| S7 | S8, S11, S13 |
+| S8 | S13, S14, S15, S20, S21 |
+| S9 | S22 |
+| S10 | S11 |
+| S11 | S12, S16, S17, S18, S19, S20, S21 |
+| S12 | S16, S17, S18, S19, S20, S21, S22 |
+| S13 | S16, S17, S18, S19 |
+| S14 | S16, S18, S20, S21 |
+| S15 | S19 |
+| S16–S21 | S22 |
+| S21 | S23 (the webhook route needs the gateway and the event journal) |
+| S22 | S23, S24, S25 |
+| S23 | S25 |
+| S24 | S25 |
+| S25 | S26 |
+
+Every step also transitively unblocks S26, which depends on all of them.
 
 ---
 
@@ -313,21 +347,32 @@ file, so omitting devDependencies fails the step. **Derivation rule for the exac
 each to the version currently resolved in the committed `package-lock.json`, so pinning records
 the tree that is known to work rather than introducing an untested upgrade.
 
-Add `pino`, and dev-dependencies `vitest` and `@vitest/coverage-v8`, all exact-pinned.
-**`vitest` must be ≥ 4.1.0** — `vi.setTimerTickMode` arrived in 4.1.0 (§11 claim 26) and
-T-10/T-13/T-14 depend on that timer control, so "4.x" is not sufficient; the plan's own
-resolution enumerated `4.0.7` and `4.1.6`, and only the latter qualifies.
+Add three dependencies not currently in the tree, each at a named exact version — the
+pin-to-the-lockfile rule above cannot reach them, because they are absent from the lockfile until
+they are installed:
+
+- **`pino` at `10.1.0`** — the current major (Context7 enumerates `v8_21_0` and `v10.1.0`;
+  §11 claim 25 records the API read against this version). S4's rejection of a hand-rolled logger
+  rests on pino's `redact` being verified, so the version that verification holds at must be
+  stated somewhere, and this is the only place it can be.
+- **`vitest` at `4.1.6`** — must be **≥ 4.1.0**: `vi.setTimerTickMode` arrived in 4.1.0 (§11
+  claim 26) and T-10/T-13/T-14 depend on that timer control, so "4.x" is not sufficient. Of the
+  versions Context7 enumerates (`3.2.4`, `4.0.7`, `4.1.6`) only `4.1.6` qualifies.
+- **`@vitest/coverage-v8` at `4.1.6`** — matched to the vitest version, which the package
+  requires as a peer.
 
 Add `"test": "vitest run"` and `"test:watch": "vitest"` scripts. Commit `package-lock.json` (the
 repo-root `.gitignore` excludes it globally; this directory's `.gitignore` carries the negation).
 
 Create `vitest.config.ts`: node environment, globals off, `test/**/*.test.ts` include, **and a
-`typecheck` block — `typecheck: { enabled: true, tsconfig: './tsconfig.test.json', include:
-['test/**/*.test-d.ts'] }`**. All three settings are required for T-18 to run at all: vitest's
-`typecheck.enabled` defaults to **false**, its `typecheck.include` defaults to `*.test-d.ts`
-(which the runtime `include` above does not match), and the base `tsconfig.json` sets
-`"rootDir": "./src"` with `"include": ["src/**/*"]`, so a fixture under `test/` is outside the
-program entirely.
+`typecheck` block — `typecheck: { enabled: true, tsconfig: './tsconfig.test.json' }`**. Exactly
+**two** settings are required for T-18 to run: `typecheck.enabled`, which defaults to **`false`**,
+and `typecheck.tsconfig`, because the base `tsconfig.json` sets `"rootDir": "./src"` with
+`"include": ["src/**/*"]` and so excludes a fixture under `test/` from the program entirely.
+`typecheck.include` is **not** required — its default is
+`['**/*.{test,spec}-d.?(c|m)[jt]s?(x)']`, which already matches `test/aps-http.test-d.ts`. It is a
+separate option from the runtime `include` above, with its own default; setting it would be a
+harmless narrowing, not a fix, and the plan does not set it. (§11 claim 46.)
 
 Create `tsconfig.test.json` extending the base with `"rootDir": "."` and
 `"include": ["src/**/*", "test/**/*"]` — a separate file rather than widening the base, because
@@ -599,7 +644,10 @@ ceiling; and a call to `spendGuard.authorize(tag)` before dispatching any reques
 per-UTC-day counters per category in the state store, configured caps, optional
 `SPEND_REQUIRE_CONFIRM` categories, refusal returning a `budget`-class error naming the cap, the
 current count, and the config key — with no APS request made. **SpendGuard authorizes once per
-tool invocation, not per attempt.**
+tool invocation, not per attempt.** Its **constructor takes an injected clock**, as D26 requires
+("TokenManager and SpendGuard take a clock") — the counters are keyed by UTC day, so the day
+boundary is a behavior of this module, and without an injected clock the rollover cannot be tested
+deterministically. Also create `test/aps-http.test-d.ts`, the type-level fixture T-18 specifies.
 
 *Source.* D13, D18, D22; R-REL-1, R-REL-4, S-10, S-11, S-9.
 
@@ -635,8 +683,12 @@ Scope note: this gate covers the outbound path only. The registration chokepoint
 (`registerGuardedTool`) is built at S11 and is gated separately at Checkpoint D — the two are
 split because gateways (Phase 5) call out before any tool registers, so the outbound path must be
 proven first.
-Verify: `aps-http` is the only module in the tree that calls global `fetch` (grep: zero `fetch(`
-outside `src/services/aps-http.ts`); **`npx vitest --typecheck.enabled run` exits 0 with
+Verify: `aps-http` is the only module under `src/` that calls global `fetch` — the exact
+command is `grep -rn 'fetch(' src/ --include='*.ts'`, and its only hits must be inside
+`src/services/aps-http.ts`. **Scope is `src/` deliberately:** `docs/apsq.mjs` contains two
+`fetch` calls (`:40`, `:64`) and is retained on purpose — S15's 8(b)/8(c) probes run through it —
+so a repo-wide grep fails on a correct build. `node_modules/` and `dist/` are likewise out of
+scope; **`npx vitest --typecheck.enabled run` exits 0 with
 `test/aps-http.test-d.ts` reporting the three billable-and-safe combinations as expected errors**
 (the plain `npm test` does not run type-checking — see T-18); SpendGuard counters survive a
 process restart; T-13..T-18 green. **No gateway may be written until this passes** — a gateway written before the chokepoint exists is a call site
@@ -1401,8 +1453,11 @@ locators.
    `client_id`, `redirect_uri`, `scope`.
 10. **No outbound call in the predecessor carries a timeout.** Step S8.
     *File read:* `src/services/aps-auth.ts:69–73`, `:105–109`; `src/services/aps-client.ts:5`,
-    `:12–18`, `:27–31` — five `fetch` calls, none passing `signal` or any timeout option.
-    *Content absence, scope: all five call sites, each read.*
+    `:12–18`, `:27–31`; **`src/tools/model-derivative.ts:110`** (the `aps_get_thumbnail` handler,
+    which calls `fetch` directly rather than through `aps-client` — a second outbound path in the
+    predecessor, and part of why D18 makes `aps-http` the single egress point). Six `fetch` calls,
+    none passing `signal` or any timeout option.
+    *Content absence, scope: `grep -rn 'fetch(' src/ --include='*.ts'` → six hits, each read.*
 11. **`aps-client.ts` accepts an arbitrary URL with no allowlist and casts responses.** Step S8,
     S13. *File read:* `src/services/aps-client.ts:3–19` (`url: string` used directly) and `:33`
     (`as { data?: unknown; errors?: unknown[] }`).
@@ -1458,7 +1513,10 @@ locators.
     `discriminatedUnion` signature per the same library's reference. 2026-07-30.
 25. **pino supports `pino.destination(2)` for stderr, a file-path destination, and
     `redact` with `paths`/`censor`/`remove`.** Step S4. *Documentation read:* Context7
-    `/pinojs/pino` — `docs/api.md` destination section and `docs/redaction.md`, 2026-07-30.
+    `/pinojs/pino`, **library version 10.1.0** (the current major; Context7 enumerates `8.21.0`
+    and `10.1.0`) — `docs/api.md` destination section and `docs/redaction.md`, 2026-07-30, version
+    confirmed 2026-07-31. S2 pins pino to this exact version so the API surface S4 depends on is
+    the one this entry verified.
 26. **Vitest runs a `node` environment by default, takes `include` patterns for the test tree, and
     provides fake-timer control adequate for the AC-19 backoff-spacing assertions.** Step S2,
     decision D-P6, and test specs T-10/T-13/T-14 which depend on timer control.
@@ -1478,7 +1536,18 @@ locators.
     HMAC input). *Documentation read:* Context7 `/expressjs/express` —
     `_autodocs/06-types-and-configuration.md` (`limit … Default: '100kb'`) and
     `_autodocs/07-middleware-and-routing.md` (`express.raw()` → `req.body` is a Buffer),
-    2026-07-30.
+    2026-07-30. **Library version: Express 5** — the version `package.json:17` carries
+    (`^5.2.1`, pinned exact at S2) and the major the cited `_autodocs` tree documents.
+46. **Vitest's `typecheck.enabled` defaults to `false`, and `typecheck.include` defaults to
+    `['**/*.{test,spec}-d.?(c|m)[jt]s?(x)']` — a separate option from the runtime `include`, with
+    its own default.** Steps S2 and T-18, and Checkpoint A's gate. *Documentation read:* Context7
+    `/vitest-dev/vitest`, library version 4.1.6 — `docs/config/typecheck.md` and the
+    `TypecheckConfig` interface in `packages/vitest/src/node/types/config.ts`, which carries both
+    defaults as JSDoc, 2026-07-31. **This entry corrects an earlier assertion in S2 that
+    `typecheck.include` had to be set because the runtime `include` would not match the fixture:
+    the two are independent options, and the documented default already matches
+    `test/aps-http.test-d.ts`.** The same read records `typecheck.checker` defaulting to `'tsc'`
+    and `typecheck.tsconfig` as the option S2 uses to bring `test/` into the program.
 
 30. **`package.json:6` names `dist/index.js` as `main`.** Step S1 — why a stale `dist/` is a
     runnable wrong server. *File read:* `package.json:6`.
@@ -1711,26 +1780,41 @@ counter persistence is part of the behavior. *Real/double:* real state store on 
 accessor. *Must NOT assert:* counter file format. *Fails when:* a request dispatches or the
 counter resets across restart. *Technique:* boundary value analysis at cap−1, cap, cap+1.
 
+**T-17b — the spend counter rolls over on the UTC day boundary and not before.** *Behavior:* a
+category at its cap is refused before the boundary and permitted immediately after; a category
+at its cap does **not** reset on a local-midnight crossing in a non-UTC timezone (S8, S-11,
+AC-24). *Level:* integration — counter persistence and the clock together are the subject.
+*Real/double:* real state store on a temp dir; the clock is an injected **stub** (D26's required
+SpendGuard seam), justified because a day boundary cannot be reached on demand any other way and
+waiting for one is not a test. *Data:* counters seeded at the cap through the store's own
+accessor; clock values at 23:59:59Z, 00:00:00Z, and a local midnight in UTC+13 that falls inside
+the same UTC day. *Must NOT assert:* the key format of the day bucket — assert the refusal and
+permission outcomes. *Fails when:* the cap survives the UTC boundary, or resets at a local
+midnight that is not a UTC one — the second is the defect that silently grants a second day's
+metered spend. *Technique:* boundary value analysis on the day boundary, at, just before and just
+after, plus one non-UTC-midnight case as an error-guessing supplement.
+
 **T-18 — a billable retryable request does not typecheck.** *Behavior:* `{ safe: true,
 cost: 'md-translate' }` is a compile error (S8, D18). *Level:* unit (type-level).
 
-**Mechanism, stated because the default configuration cannot run this test.** The fixture is
+**Mechanism, stated because the default configuration does not run this test.** The fixture is
 `test/aps-http.test-d.ts`, using vitest's `expectTypeOf` with `@ts-expect-error` on the illegal
-combinations. It executes only under the three settings S2 specifies: `typecheck.enabled: true`
-(the default is **false**, so `npm test` alone runs nothing here), `typecheck.include:
-['test/**/*.test-d.ts']` (the default pattern is `*.test-d.ts` but the plan's runtime `include`
-is `test/**/*.test.ts`, which would not match the fixture), and `tsconfig.test.json` covering
-`test/` (the base config's `rootDir: "./src"` puts the fixture outside the program). The command
-is `npx vitest --typecheck.enabled run`, and Checkpoint A gates on that exact invocation.
+combinations. Two settings from S2 make it execute: `typecheck.enabled: true` (default **false**,
+so `npm test` alone runs nothing here) and `typecheck.tsconfig: './tsconfig.test.json'` (the base
+config's `rootDir: "./src"` puts the fixture outside the program). `typecheck.include` needs no
+setting — its default already matches `*.test-d.ts` files (§11 claim 46). The command is
+`npx vitest --typecheck.enabled run`, and Checkpoint A gates on that exact invocation.
 
 *Real/double:* none — a type-level assertion, no runtime doubles. *Data:* the four `cost` values
-× two `safe` values, all eight combinations, with the three billable-and-safe pairs marked
-`@ts-expect-error`. *Must NOT assert:* runtime behavior — a passing runtime call proves nothing
-about the type constraint, and a test that constructs the illegal pair at runtime would not
-compile at all. *Fails when:* any billable-and-safe combination compiles (the `@ts-expect-error`
-becomes an unused-directive error, which vitest reports as a failure), or the three legal
-combinations fail to compile. *Technique:* decision table over the tag pair — eight rules, all
-enumerated.
+× two `safe` values, all **eight** combinations. Three are illegal (`safe: true` paired with each
+of the three billable costs) and carry `@ts-expect-error`; the other **five** are legal —
+`safe: false` with each of the four costs, plus `safe: true` with `cost: 'none'`. *Must NOT
+assert:* runtime behavior — a passing runtime call proves nothing about the type constraint, and
+a test that constructs the illegal pair at runtime would not compile at all. *Fails when:* any of
+the three billable-and-safe combinations compiles (its `@ts-expect-error` becomes an unused
+directive, which vitest reports as a failure), or any of the five legal combinations fails to
+compile. *Technique:* decision table over the tag pair — eight rules, all enumerated, 3 illegal +
+5 legal.
 
 **T-19 / T-20 — bearer gate and Origin rule.** *Behavior:* absent, malformed, and wrong secrets
 each 401 with `WWW-Authenticate`; a correct secret passes (T-19). A present disallowed Origin
@@ -1986,14 +2070,15 @@ and none is claimed.
   deferral:* `EGRESS_ALLOW_HOSTS` makes this configuration rather than code, and S8's
   label-boundary suffix rule bounds what a widened entry can match.
 - **G-4. Three external-API details remain unverified after a direct attempt.** An earlier
-  version of this entry listed six such facts and admitted they "were reachable and were not
-  blocked" — which, under the skill's earned-gap rule, made them open engineering questions
-  rather than gaps. Four were then read directly and promoted to §11 as claims 42–45 (SDK
-  deprecation markers; DM `lastModifiedTimeRollup`; MD `properties:query` pagination; Webhooks
-  `pageState`/`next`). The zod `.merge()` item was dropped rather than resolved: S7's rejection
-  of `.merge()` now rests on the v4 API reference's documented composition forms (§11 claim 24,
-  read directly), so the v3-documented `unknownKeys` semantics is no longer a premise of
-  anything. Three remain:
+  version of this entry listed **eight** facts consumed from the architecture's citations and
+  admitted they "were reachable and were not blocked" — which, under the skill's earned-gap rule,
+  made them open engineering questions rather than gaps. Of the eight: **four** were read directly
+  and promoted to §11 as claims 42–45 (SDK deprecation markers; DM `lastModifiedTimeRollup`; MD
+  `properties:query` pagination; Webhooks `pageState`/`next`); **one** was dropped rather than
+  resolved — S7's rejection of `.merge()` now rests on the v4 API reference's documented
+  composition forms (§11 claim 24, read directly), so the v3-documented `unknownKeys` semantics is
+  no longer a premise of anything; **three** remain, below. (4 + 1 + 3 = 8. The earlier text said
+  "six", counting the grouped items rather than the facts.)
   1. **Design Automation's `paginationToken`** for activity listing (S20, tool 27's paging).
   2. **The Model Derivative `signedcookies` response shape** — `{etag, size, url, content-type,
      expiration}` plus the CloudFront cookies (S19, tool 37's entire contract).
