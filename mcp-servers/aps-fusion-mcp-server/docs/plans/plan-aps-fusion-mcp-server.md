@@ -128,8 +128,8 @@ set, so the deletion is self-contained.
 **Created.** Derived from the step set — every row names the step that creates it, and every step
 that creates a file appears here. **The table is the list; no count is stated, because a count
 asserting the completeness of a list printed beneath it is a hand-maintained index with no
-generator, and this document has had that count wrong in three separate rounds.** To check
-completeness, read the step set against the table, not a number.
+generator and drifts on the next edit.** To check completeness, read the step set against the
+table, not a number.
 
 | File | Created by |
 |---|---|
@@ -214,9 +214,9 @@ Source, and every non-trivial step carries the four-part format.
 this step" — is normative and is the authority for scheduling. The forward half the output
 contract also requires ("what this step unblocks") is stated **once**, as the reverse index below,
 derived by inverting those backward lists. No step carries a forward statement of its own; there
-is nothing to reconcile, because the two halves exist in only one place each. Maintaining them
-separately is what produced 25 asymmetric pairs across four rounds and nine contradictory
-statements in a fifth.
+is nothing to reconcile, because each half exists in exactly one place. Maintaining them
+separately produces asymmetric pairs the moment either side is edited, which is why the forward
+half is derived rather than written.
 
 **Reverse index — what each step unblocks.** Derived by inverting the backward edges, read from
 the steps themselves. A step not listed unblocks nothing beyond the final acceptance pass.
@@ -303,9 +303,13 @@ irreversible data-loss risk in the plan.
 
 *What changes.* Delete `src/index.ts`, `src/constants.ts`, `src/services/aps-auth.ts`,
 `src/services/aps-client.ts`, `src/tools/data-management.ts`, `src/tools/mfg-data-model.ts`,
-`src/tools/model-derivative.ts`, and the `dist/` directory. Leave `.env` (git-ignored, holds live
-credentials), `docs/`, `prior-session-artifacts/`, `README.md`, `INVENTORY.md`, `CRITERIA.md`,
-`package.json`, `tsconfig.json`, `.gitignore`, `.dockerignore`, `Dockerfile`.
+`src/tools/model-derivative.ts`, and the `dist/` directory. **Delete nothing else.** The deletion
+set above is closed and exhaustive; everything else in the tree is retained, including — named
+because the plan depends on each — `.env` (git-ignored, holds the live credential), `.env.example`
+(S25 rewrites it), `package-lock.json` (S2's pin-derivation rule and `npm ci` both read it),
+`docs/` (S15's probes run `docs/apsq.mjs`), `prior-session-artifacts/`, `README.md`,
+`INVENTORY.md`, `CRITERIA.md`, `package.json`, `tsconfig.json`, `.gitignore`, `.dockerignore`,
+`Dockerfile`. The empty `src/schemas/` directory is untouched — this step deletes files.
 
 *Source.* Spec M-1, M-2.
 
@@ -335,7 +339,9 @@ a shell command — it is not part of this step's verification for that reason.)
 commit forward and from nowhere else. Run without S0, this step destroys 257 lines of
 uncommitted work permanently. Deleting beyond the enumerated set (e.g. `.env`) is the other
 hazard: it destroys the live credential, which no commit protects because the file is
-git-ignored. The step enumerates retained paths explicitly for both reasons.
+git-ignored. The step therefore states its deletion set as closed rather than relying on a
+retention list being complete — a retention list can omit something, whereas a closed deletion
+set cannot over-delete.
 
 **S2. Pin dependencies exactly; add the test harness.**
 
@@ -410,7 +416,9 @@ behavior depends on it.
 **CHECKPOINT F — the foundation corrections are complete and verified.**
 Trigger: the boundary between this plan's two foundation corrections (F-1, F-2) and the work that
 depends on them. Verify: S0's preservation commit `6e5f00b` exists and its content checks return
-the values S0 states; `src/` is empty and `dist/` is gone; `npm ci` succeeds from the committed
+the values S0 states; `src/` contains no `.ts` files and `dist/` is gone (`src/schemas/` is an
+empty directory in the current tree; S1 deletes files, not directories, so it survives — asserting
+"`src/` is empty" would fail a correct build); `npm ci` succeeds from the committed
 lockfile; `npm test` runs and exits 0 with zero tests; no dependency spec in `package.json`
 retains a `^` or `~`. **The tree cannot be un-deleted after S1 without the S0 commit, so this is
 the last point at which the preservation is verifiable rather than assumed.**
@@ -868,7 +876,9 @@ server-side, so pushing the page loop onto the agent guarantees wrong quantities
 
 *Dependencies.* S8, S7.
 
-*Verification.* T-24, T-25, T-26 — §12 (the specs attributed to S13).
+*Verification.* T-24, T-25, T-26, **T-26c** — §12 (the specs attributed to S13). T-26c verifies
+the occurrence-source fake against the schema's connection contract; without it T-26 verifies the
+fake.
 
 *Impact if wrong.* An injection hole (S-7) or silently wrong BOM quantities. The latter is the
 "plausible but wrong" class the owner has explicitly named as the correctness bar.
@@ -899,7 +909,8 @@ internal redundancy but can never lose a change stamped exactly at the marker.
 
 *Dependencies.* S8.
 
-*Verification.* T-27, T-28 — §12 (the specs attributed to S14).
+*Verification.* T-27, T-28, **T-28c** — §12 (the specs attributed to S14). T-28c verifies the DM
+fake against the rollup and inclusive-boundary semantics; without it T-27/T-28 verify the fake.
 
 *Impact if wrong.* Silent change loss — the failure mode that looks like success. Contained to the
 notify surface.
@@ -1085,10 +1096,10 @@ tools — one annotation set cannot truthfully cover a free read and a billable 
 defect R-EXPORT-2 exists to kill.
 
 *Dependencies, per step.* **Every one of the six additionally depends on S11
-(`registerGuardedTool`) and S12 (`tool-defs.ts`)** — the registration chokepoint and the schema/
-annotation conventions that line 891 binds all six to. That was omitted until round 4; the
-declared graph let a scheduler start a tool module before the wrapper existed, which is precisely
-what Checkpoint D exists to prevent.
+(`registerGuardedTool`) and S12 (`tool-defs.ts`)** — the registration chokepoint and the schema
+and annotation conventions that the S16–S21 preamble above binds all six modules to. Checkpoint D
+gates on the same pairing: a tool registered before the wrapper exists is a tool whose output was
+never guarded.
 S16: S11, S12, S13, S14. · S17: S11, S12, S13. · S18: S11, S12, S13, S14. ·
 S19: S11, S12, S13, S15. · S20: S8, S11, S12, S14. · S21: S8, S11, S12, S14, S5.
 
@@ -1408,6 +1419,23 @@ No trigger instance is ungated.
 - **D-P6. Vitest is confirmed as the runner** (D26 left it "plan-level confirmable"). Criterion
   was native ESM + TypeScript on Windows against a `"type": "module"` package — not mocking power,
   since D26's seams are constructor-injected and explicitly *not* module-level monkey-patching.
+- **D-P8. A fifth gateway, `webhooks-gateway.ts`, is created — the architecture enumerates four.**
+  *Decision:* tools 31–33 (register / list / delete webhook) get their own gateway module rather
+  than being folded into an existing one or calling REST from the tool module. *Standard:*
+  architecture **D4** — layering with downward-only dependencies, and the rule that tool handlers
+  "never construct GraphQL, URLs, or HTTP requests." *Why it applies here:* the architecture's
+  Components block enumerates exactly four gateways, one per APS service it names (MFG, Data
+  Management, Model Derivative, Design Automation). APS Webhooks v1 is a fifth service, and D11
+  specifies tools 31–33's behavior without assigning their REST calls to any module — so under D4
+  those three tools had no legal home. This is a gap in the architecture that the plan fills, not
+  a plan-level preference. *What this is NOT — and why:* *Not* folding Webhooks into
+  `dm-gateway` — a different API with its own base path, paging scheme and auth surface, and the
+  merge would make one module's name false. *Not* letting `notify-tools.ts` call REST directly —
+  that is the precise thing D4 forbids and the convention failure this rebuild exists to remove.
+  *Related, and deliberately not raised to the same level:* `errors.ts` (S10) and `tool-defs.ts`
+  (S12) are also absent from the architecture's layout, but they are file-granularity choices
+  inside a layer, which the architecture explicitly defers to the plan; the gateway is different
+  because the architecture *enumerates* gateways, so adding one contradicts a closed list.
 - **D-P7. `README.md` is added to the doc-sync set despite being absent from
   `find_related_docs`' output.** The tool matches on code-file path references; README names no
   `src/` path, so it was invisible to the query while being the most user-facing document in the
@@ -1539,11 +1567,11 @@ locators.
     its own default.** Steps S2 and T-18, and Checkpoint A's gate. *Documentation read:* Context7
     `/vitest-dev/vitest`, library version 4.1.6 — `docs/config/typecheck.md` and the
     `TypecheckConfig` interface in `packages/vitest/src/node/types/config.ts`, which carries both
-    defaults as JSDoc, 2026-07-31. **This entry corrects an earlier assertion in S2 that
-    `typecheck.include` had to be set because the runtime `include` would not match the fixture:
-    the two are independent options, and the documented default already matches
-    `test/aps-http.test-d.ts`.** The same read records `typecheck.checker` defaulting to `'tsc'`
-    and `typecheck.tsconfig` as the option S2 uses to bring `test/` into the program.
+    defaults as JSDoc, 2026-07-31. **The consequence for S2: `typecheck.include` needs no setting,
+    because its default already matches `test/aps-http.test-d.ts`** — it is a distinct option from
+    the runtime `include`, so the runtime pattern has no bearing on it. The same read records
+    `typecheck.checker` defaulting to `'tsc'` and `typecheck.tsconfig` as the option S2 uses to
+    bring `test/` into the program.
 
 31. **`package.json:6` names `dist/index.js` as `main`.** Step S1 — why a stale `dist/` is a
     runnable wrong server. *File read:* `package.json:6`.
@@ -1617,7 +1645,16 @@ from the architecture and now read directly:
     Step S19 — tool 26's cursor-paged contract and its `totalResults` completeness fact.
     *Documentation read:* Context7 `/websites/aps_autodesk_en`, the
     `urn-metadata-guid-properties-query-POST` reference, request and response shapes.
-46. **APS Webhooks v1 pages via a `pageState` query parameter, returning `links.next`, at up to
+46. **The repo-root `.gitignore` excludes `package-lock.json` globally, this server's `.gitignore`
+    carries a negation restoring it, and the lockfile is tracked.** Step S2 — which instructs the
+    lockfile be committed, and whose pin-derivation rule reads it. *File read:*
+    `../../.gitignore:3` is the bare line `package-lock.json`; the server's `.gitignore` ends with
+    `!package-lock.json` under a comment citing R-OPS-3/AC-22. *Structural trace:*
+    `git ls-files` lists `mcp-servers/aps-fusion-mcp-server/package-lock.json`, so the negation is
+    in effect. **Note for anyone auditing this section's completeness: a scan that enumerates
+    `file:line` citations will not surface claims like this one, which names files without line
+    references. Audit §11 against the plan's assertions, not against its citations.**
+47. **APS Webhooks v1 pages via a `pageState` query parameter, returning `links.next`, at up to
     200 hooks per page.** Step S21 — tool 32's paging contract. *Documentation read:* Context7
     `/websites/aps_autodesk_en` — the `GET /webhooks/v1/hooks` reference and the .NET SDK
     `GetHooksAsync` signature ("Use the `next` value from the previous response to fetch
@@ -1631,9 +1668,8 @@ Doubles are named by Meszaros kind. Techniques per ISO/IEC/IEEE 29119-4:2021.
 
 **Each specification names the step it verifies, in its heading.** That attribution is the single
 source for the step↔test binding: a step's Verification field lists exactly the tests attributed
-to it here, and nothing else. Stated because the binding was previously maintained in both places
-and drifted — T-17b was specified and then referenced by no step, so an implementer executing S8
-would never have built it.
+to it here, and nothing else. Maintaining the binding in both places lets a specification exist
+that no step references, which an implementer working from the step would never build.
 
 **T-1 — config parses each serving mode.** *Behavior:* a valid env set for `stdio`, `hosted`, and
 `both` each yields a typed config with that branch's keys (S3, R-OPS-2). *Level:* unit — pure
@@ -1693,7 +1729,10 @@ refresh response is received but before the atomic rename yields, on restart, an
 `reauth-required(rotation-lost)` naming rotation loss, with the credential file intact and the
 re-auth path reported by both the auth-state tool and the health signal (S6, R-REL-7).
 *Level:* integration. *Real/double:* real fs on a temp dir; `fetch` a **stub** returning a valid
-rotated pair; the crash induced via the fs **spy** at the rename boundary. *Data:* a realistic
+rotated pair, justified as a true network boundary that cannot be made to return a rotation on
+demand; the crash induced via the fs **spy** at the rename boundary, justified because the crash
+point must land between two specific filesystem operations and no other instrument can place it
+there deterministically. *Data:* a realistic
 pre-rotation credential plus a realistic rotation response.
 
 **Two trip points, because AC-25 asserts two distinct properties.** *Trip point 1 — after the
@@ -1718,13 +1757,15 @@ leave a usable credential; at most one rotation wins and the loser adopts rather
 (S6, R-REL-7). *Level:* integration. *Real/double:* two real TokenManager instances over one real
 temp-dir credential file (the cross-process lock is the subject and must not be doubled);
 `fetch` a **stub** that rotates once and returns `invalid_grant` to the second caller — the
-observed live behavior. *Data:* one realistic credential. *Must NOT assert:* lock-file internals.
+observed live behavior, and a stub because staging a real double-rotation would consume the
+owner's actual credential to produce it. *Data:* one realistic credential. *Must NOT assert:* lock-file internals.
 *Fails when:* the file ends unusable or both callers rotate. *Technique:* state-transition testing over the rotation race — the two callers' interleavings are the transitions under test.
 
 **T-10 — refreshes are demand-driven, not opportunistic.** *Behavior:* with an access token
 outside `TOKEN_RENEWAL_THRESHOLD_MS` of expiry, no refresh request is issued (S6, R-REL-7,
-AC-25). *Level:* unit. *Real/double:* injected **stub** clock; `fetch` a **spy** asserting zero
-calls — this is the narrow interaction-is-the-behavior case, since "no request was made" has no
+AC-25). *Level:* unit. *Real/double:* injected **stub** clock, justified because the near-expiry
+boundary cannot be reached on demand without waiting out a real token lifetime; `fetch` a **spy**
+asserting zero calls — this is the narrow interaction-is-the-behavior case, since "no request was made" has no
 state to observe. *Data:* credentials at, just inside, and just outside the threshold.
 *Must NOT assert:* anything else about fetch. *Fails when:* a refresh is issued outside the
 window. *Technique:* boundary value analysis on the threshold.
@@ -1747,15 +1788,19 @@ partitioning across the three field sources.
 
 **T-13 — AC-11 outbound timeout.** *Behavior:* a request to a non-responding endpoint aborts at
 the configured timeout and returns a `transient` error rather than awaiting indefinitely (S8,
-R-REL-1). *Level:* unit. *Real/double:* injected **fake** fetch that never settles; injected
-clock. *Data:* the configured default timeout. *Must NOT assert:* AbortSignal internals.
+R-REL-1). *Level:* unit. *Real/double:* injected **fake** fetch that never settles, justified
+because a non-responding endpoint is a true network condition that cannot be produced reliably
+against a live host; injected **stub** clock, justified because the timeout boundary cannot be
+reached on demand without waiting out the real interval. *Data:* the configured default timeout. *Must NOT assert:* AbortSignal internals.
 *Fails when:* the call outlives the timeout. *Technique:* boundary value analysis on the timeout — just under, at, and past the configured bound.
 
 **T-14 — AC-19 bounded backoff with observed spacing.** *Behavior:* a `safe` request against
 repeated 429/5xx retries at most 3 attempts with exponential backoff plus jitter, honoring
 `Retry-After`, each wait capped at 10 s (S8, R-REL-4). *Level:* unit. *Real/double:* injected
-**stub** fetch returning failures; fake timers. *Data:* failure sequences with and without
-`Retry-After`. *Must NOT assert:* exact jittered values — assert attempt count and that each
+**stub** fetch returning failures, justified as a true network boundary that cannot be made to
+emit a 429 sequence on demand; **fake timers** — a stub clock — justified because asserting wait
+*spacing* against real elapsed time would make the test both slow and non-deterministic. *Data:*
+failure sequences with and without `Retry-After`. *Must NOT assert:* exact jittered values — assert attempt count and that each
 wait lies within its bound. *Fails when:* attempts exceed 3 or any wait exceeds the ceiling.
 *Technique:* boundary value analysis on attempt count and wait ceiling.
 
@@ -1768,8 +1813,10 @@ beyond the call count. *Fails when:* call count exceeds 1. *Technique:* equivale
 **T-16 — AC-23 egress allowlist.** *Behavior:* requests to loopback, link-local, private-range,
 literal-IP, non-https, and label-boundary-violating suffix hosts are refused **before** any
 outbound call; a redirect hop to such a host is refused at the hop (S8, S-10). *Level:* unit.
-*Real/double:* **spy** fetch asserting zero dispatch for refused cases; a **stub** returning a
-307 to a disallowed host for the redirect case. *Data:* a table of hosts including
+*Real/double:* **spy** fetch asserting zero dispatch for refused cases, justified because the
+assertion is that no request leaves the process and non-dispatch has no state to observe; a
+**stub** returning a 307 to a disallowed host for the redirect case, justified because no
+allowlisted host will redirect to a refused one on demand. *Data:* a table of hosts including
 `evil-s3.amazonaws.com.attacker.net` and `notreallys3.amazonaws.com` against a
 `.s3.amazonaws.com` suffix rule. *Must NOT assert:* allowlist internals. *Fails when:* any
 refused case dispatches. *Technique:* decision table over (scheme, host form, redirect depth).
@@ -1778,7 +1825,8 @@ refused case dispatches. *Technique:* decision table over (scheme, host form, re
 per-category daily cap is refused with a `budget` error naming cap, count, and config key, and
 **no APS request is issued**; the counter survives a restart (S8, S-11). *Level:* integration —
 counter persistence is part of the behavior. *Real/double:* real state store on a temp dir;
-**spy** fetch asserting zero dispatch. *Data:* counters seeded at the cap via the store's own
+**spy** fetch asserting zero dispatch, justified because the contracted behavior is that no APS
+request is issued, which has no observable state. *Data:* counters seeded at the cap via the store's own
 accessor. *Must NOT assert:* counter file format. *Fails when:* a request dispatches or the
 counter resets across restart. *Technique:* boundary value analysis at cap−1, cap, cap+1.
 
@@ -1856,7 +1904,10 @@ single-pass total. *Level:* T-24 static; T-25 unit with a **spy** fetch capturin
 body — justified because the assertion is about the bytes leaving the process, which no state
 inside it exposes; T-26 unit with a **fake** paginated occurrence source implementing the cursor contract —
 justified because the behavior under test is the gateway's window aggregation, and a live account
-cannot be made to hold a deterministic multi-page occurrence set.
+cannot be made to hold a deterministic multi-page occurrence set. **This fake is itself verified
+by T-26c**, without which T-26 tests the fake rather than the gateway: the fake supplies the very
+cursor semantics whose correct handling is the thing under test, so if its paging differs from
+MFG's, T-26 passes green while the real gateway drops BOM lines.
 *Data:* T-24 the catalog module's own source text; T-25 a metacharacter table; T-26 a realistic
 multi-page occurrence set with repeated component versions.
 *Must NOT assert:* T-24 must not assert on any runtime behavior — it is a static property of the
@@ -1875,10 +1926,36 @@ Autodesk-stamped time and never the local clock. T-28: a poll truncated at
 `DM_POLL_MAX_FOLDERS` returns a resume position that, when passed back, yields the remaining
 changes with no loss and no duplicate report. *Level:* unit with a **fake** DM source implementing
 the rollup and listing contracts — justified because the marker boundary requires items stamped
-at exact, controlled times, which the live account cannot be made to produce on demand. *Data:* a folder tree with known modification stamps including
-one exactly at the marker. *Must NOT assert:* fake internals. *Fails when:* the marker is
-clock-derived, or a change is lost or double-reported across the resume. *Technique:* boundary
-value analysis at the inclusive marker boundary.
+at exact, controlled times, which the live account cannot be made to produce on demand. **This
+fake is itself verified by T-28c**, without which T-27/T-28 test the fake rather than the gateway:
+the fake supplies the rollup and `≥`-boundary semantics that are the thing under test, so if its
+behavior differs from Data Management's, both tests pass green while the real gateway drops a
+change window — the failure mode the plan names as "silent change loss." *Data:* a folder tree
+with known modification stamps including one exactly at the marker. *Must NOT assert:* fake
+internals. *Fails when:* the marker is clock-derived, or a change is lost or double-reported
+across the resume. *Technique:* boundary value analysis at the inclusive marker boundary.
+
+**T-26c / T-28c — the two load-bearing fakes match the contracts they stand in for (S13, S14).**
+*Behavior:* T-26c — the occurrence-source fake's paging matches the MFG schema's connection shape:
+`allOccurrences(pagination:)` returns `results` plus `pagination.cursor`, with `cursor: null`
+signalling the last page. T-28c — the DM-source fake's folder listing matches Data Management's
+documented semantics: `lastModifiedTimeRollup` reflects the folder *or any child item*, and
+contents filter on `filter[lastModifiedTime]-ge` inclusively.
+*Level:* unit — a contract test over the fake, not over the gateway.
+*Real/double:* the fake is the **subject**, not a double, and is therefore never doubled here;
+the contract it is checked against comes from recorded fixtures, not a live call, so no APS
+dependency is introduced.
+*Data:* for T-26c, the connection shape as pinned by the on-disk schema (§11's `allOccurrences` /
+`pagination.cursor` verification); for T-28c, a recorded Data Management folder-contents response
+plus the semantics of §11 claim 44. Both are forward-derived from the recorded contract, never
+shaped from what the fake already does.
+*Must NOT assert:* gateway behavior — that is T-26's and T-27/T-28's job; and not the fake's
+internals, only its externally observable contract.
+*Fails when:* the fake returns a cursor where the schema returns `null`, pages differently at the
+last page, treats the rollup as folder-only, or applies an exclusive rather than inclusive
+boundary. Any of these means the tests built on it were verifying a system Autodesk does not have.
+*Technique:* equivalence partitioning over the contract's observable states — first page, middle
+page, last page, empty; and for the boundary, at / just inside / just outside.
 
 **T-29 / T-30 — MD URN contract (S15).** T-29: the `version_id` and `derivative_urn` grammars reject
 `..` segments, `?`, `#`, `\`, and control characters. T-30: a `derivative_urn` whose `<source>`
@@ -2030,7 +2107,7 @@ no criterion without a test and no test without a criterion.
 | Q-9 | Does deleting `src/` risk anything outside the seven files? | Step 2 | 1 | **Closed.** No — `src/index.ts` has zero dependents and all other dependents are inside the set. Evidence at §11 claim 20. S1 enumerates retained paths explicitly. |
 | Q-10 | Is `destructiveHint` safe to leave unset on additive writes? | Step 4 | 1 | **Closed.** No — it defaults to `true`, so an unset additive write is annotated destructive, violating R-PROTO-4. Must be set explicitly. Evidence at §11 claim 23. |
 | Q-11 | Which of Step 10's four checkpoint triggers have instances in this plan, and is each gated? | Sweep 5 | 1 | **Closed.** All four have instances; two were ungated — S6 (hard-to-reverse) and the registration half of the structural/behavioral boundary. Checkpoints C and D added. The full enumeration is in §9 so the class is checkable rather than asserted. |
-| Q-12 | Does every one of the 37 tools have a gateway step that implements its backing operation? | Sweep 5 | 1 | **Closed.** Now yes. S13's scope said "tools 2–20 and 22", omitting tool 21 (`generate:true` derivative) and tool 35 (`itemVersions`) — both MFG-backed. Corrected to 2–22 and 35; a scripted check confirms zero uncovered tools. |
+| Q-12 | Does every one of the 37 tools have a gateway step that implements its backing operation? | Sweep 5 | 1 | **Closed, in two parts.** (i) S13's scope said "tools 2–20 and 22", omitting tool 21 (`generate:true` derivative) and tool 35 (`itemVersions`), both MFG-backed; corrected to 2–22 and 35. (ii) Tools 31–33 had **no gateway at all** — APS Webhooks v1 is a fifth service and the architecture enumerates four; `webhooks-gateway.ts` was added at S21, recorded as **Decision D-P8**. The full map, derived by reading each gateway step's stated scope: 1/20/34/36 → S14, 2–22 and 35 → S13, 23–26 and 37 → S15, 27–30 → S20, 31–33 → S21. |
 | Q-13 | Is `.env.example` created or modified, and who specifies its contents? | Sweep 5 | 1 | **Closed.** Modified — the file already exists (133 bytes). Moved out of §5's Created table; S25 now specifies that it must enumerate every key `config.ts` validates, grouped by serving mode, secrets empty with a generation hint. |
 | Q-14 | Is Checkpoint A correctly scoped when it claims "chokepoints complete" but `registerGuardedTool` is built after it? | Sweep 5 | 1 | **Closed.** No. Split into Checkpoint A (egress, before any gateway calls out) and Checkpoint D (registration, before any tool registers), because gateways call out before tools register. |
 
@@ -2071,16 +2148,15 @@ and none is claimed.
   *Why outside reach:* the hosts appear only in live signed-URL responses. *Mitigation, not
   deferral:* `EGRESS_ALLOW_HOSTS` makes this configuration rather than code, and S8's
   label-boundary suffix rule bounds what a widened entry can match.
-- **G-4. Three external-API details remain unverified after a direct attempt.** An earlier
-  version of this entry listed **eight** facts consumed from the architecture's citations and
-  admitted they "were reachable and were not blocked" — which, under the skill's earned-gap rule,
-  made them open engineering questions rather than gaps. Of the eight: **four** were read directly
-  and promoted to §11 as claims 43–46 (SDK deprecation markers; DM `lastModifiedTimeRollup`; MD
-  `properties:query` pagination; Webhooks `pageState`/`next`); **one** was dropped rather than
-  resolved — S7's rejection of `.merge()` now rests on the v4 API reference's documented
-  composition forms (§11 claim 24, read directly), so the v3-documented `unknownKeys` semantics is
-  no longer a premise of anything; **three** remain, below. (4 + 1 + 3 = 8. The earlier text said
-  "six", counting the grouped items rather than the facts.)
+- **G-4. Three external-API details remain unverified after a direct attempt.** Eight facts were
+  originally consumed from the architecture's citations rather than read at plan time. That is not
+  a gap under the earned-gap rule — a reachable fact left unread is an open engineering question —
+  so each was resolved. **Four** were read directly and are now §11 claims 43, 44, 45 and 47 (SDK
+  deprecation markers; DM `lastModifiedTimeRollup`; MD `properties:query` pagination; Webhooks
+  `pageState`/`next`). **One** ceased to be a premise: S7's rejection of `.merge()` rests on the
+  v4 API reference's documented composition forms (§11 claim 24, read directly), so the
+  v3-documented `unknownKeys` semantics is load-bearing for nothing. **Three** remain, below, and
+  these are gaps rather than open questions because each survived a direct attempt:
   1. **Design Automation's `paginationToken`** for activity listing (S20, tool 27's paging).
   2. **The Model Derivative `signedcookies` response shape** — `{etag, size, url, content-type,
      expiration}` plus the CloudFront cookies (S19, tool 37's entire contract).
