@@ -1105,18 +1105,42 @@ per-machine `init`-time confirmation remains.)
         self-servable even though its payload is one `Read` away. Two v1 genres
         depend on this and it is stated here rather than assumed, because
         without it both are dead under the bar (D10a):
-        - **Steering** — "where that concern actually lives." The *location* is
-          greppable; the *inference from the agent's stated intent to the right
-          location* is exactly what a cold checkout cannot supply and what the
-          agent has demonstrably not made, since it is looking elsewhere. The
-          bound fact is the intent→location mapping, not the location.
-        - **Verification** — the bound fact is **`test_map`** (region → the
-          command that verifies it), *not* `verify_commands`. The command list is
-          trivially readable from `package.json`; which command covers the region
-          just edited is a repo-specific mapping the oracle mines. D16 records
-          `test_map` accordingly, and a Verification whisper that can only cite
-          `verify_commands` — with no region mapping — **does not clear the bar
-          and is not sent.**
+        - **Steering** — "where that concern actually lives." Here the exception
+          is **consumer-relative, not a stored fact**: the bound fact is an
+          ordinary `symbols`/`ref_edges` location (`trivial` on its own), and
+          what lifts it is Tier 3 evidence that *this* consumer has demonstrably
+          **not** made the mapping — its reads and searches are in a region that
+          does not contain the location, while its narrated intent does. That is
+          the mirror of the "demonstrated reach" rule two bullets down: reach
+          drives `self_serve_cost` to ≈0, demonstrated *mis*-reach lifts it to
+          ≈0.85. Absent that Tier 3 evidence Steering does **not** get the
+          exception and does not clear the bar — the genre fires only when the
+          agent is provably looking in the wrong place, which is also exactly
+          when FR-A2 says it should.
+          *(Corrected during traversal: the first version claimed the bound fact
+          was "the intent→location mapping". D6 has no such table — the mapping
+          is produced by the model at judgment time, so binding a claim to it
+          would fail Move C. `self_serve_cost` is already a function of
+          (fact, consumer state) via the reach rule; this is the same function,
+          not a new fact class.)*
+        - **Verification** — the bound fact is the **`region_glob → command`
+          association inside `verify_commands`** (D6: `verify_commands(region_glob,
+          command, source, …prov)`), not the bare command. The *command list* is
+          trivially readable from `package.json` — and D6's `source` column
+          records exactly that provenance — but **which** command covers the
+          region just edited is a repo-specific association D16 mines from test
+          topology and path conventions. A Verification whisper that cites a
+          command with **no `region_glob` binding** is citing the trivial half:
+          it does not clear the bar and is not sent.
+          *(Corrected during traversal, 2026-07-30: the first version of this
+          exception named `test_map` as the bound fact and asserted D16 "records
+          `test_map` accordingly". Reading D6 shows `test_map(test_file→files,
+          region_glob, …prov)` maps **test file → source region** and carries no
+          command, while `verify_commands` already carries the region→command
+          association. The tables were inverted. This is the R3-5 class —
+          asserting a table's contents without reading it — committed inside the
+          fix for R3-5, and caught by walking the row rather than by re-reading
+          the edit.)*
         The exception is deliberately narrow: it applies only where the mapping
         itself is the fact and is stored as such. It is *not* available to a
         genre that wants to re-describe a trivial payload as valuable.
@@ -1311,10 +1335,10 @@ pipeline is a genre that does not work no matter how well its own decision reads
 | **Consequence** | tool_pre (edit) | `ref_edges` + `cochange_*` | trivial (call-sites) / invisible (breakage ⛔ Phase 2) | repo span / commit | durable | free | subject edited | 1 |
 | **Warning ⚠** | tool_pre (edit in zone) | `files.zone_*` | invisible *(on the consequence, not the classification)* | repo span, pointer-only | durable | free | edit abandoned or zone respected | 1 |
 | **Completeness** | stop | `cochange_file_pairs`, `invariants` | invisible | commit hash | durable | **spends a turn** (FR-O4a) | paired file subsequently touched | 1 |
-| **Verification** | stop | **`test_map`** (region→command), not `verify_commands` | mapping exception (≈0.85) | repo span | durable | **spends a turn** | command subsequently run | 1 |
+| **Verification** | stop | `verify_commands` — the **`region_glob`→`command`** association, not the bare command | mapping exception (≈0.85) | repo span | durable | **spends a turn** | command subsequently run | 1 |
 | **Orientation** ⛔ | prompt | entry points + `landmines`/`invariants` — **no v1 writer (D18)** | trivial (entry points) / invisible (landmines) | repo span | durable | free | pointed entry point opened | 1 |
 | **Assumption check** | narration (Lane 2) | any contradicting fact | invisible | per bound fact | durable | free | narration corrected | 2 |
-| **Steering** | narration (Lane 2) | `symbols`, `ref_edges` + intent→location mapping | mapping exception (≈0.85) | repo span | durable | free | pointed location opened | 2 |
+| **Steering** | narration (Lane 2) | `symbols`, `ref_edges` | ≈0.85 **only on Tier 3 mis-reach evidence**, else trivial | repo span | durable | free | pointed location opened | 2 |
 | **Answer** | narration addressing oracle | FTS, A0-shaped | invisible (retrieval-bounded) | per bound fact | durable | free | pointed subject read, or question not re-asked | 2 |
 | **Unknown** | determining query returns empty | negative-evidence fact | invisible | **bounded query + empty result** | durable | free | gap named in a later user turn, or recorded as `human_fact` | 2 |
 | **Process** | completion claim vs `skill_expectations` | `skill_expectations`, `session_evidence` | invisible | **bounded transcript scan** (never a point offset) | durable | spends a turn *(fires at completion)* | required activity later observed, or claim retracted | 2 |
@@ -2201,7 +2225,10 @@ foundation.md`, itself anchored on FR-A1.*
    (D7) so unchanged environments skip live probes across sessions. Entering
    degraded mode: one `systemMessage` notice (plain language), one diagnostic,
    genre set restricted to FR-J3's list (deterministic orientation, coupling,
-   generated-file warning, verification, completeness), confidence bar raised by
+   generated-file warning, verification, completeness, **and answer-drift —
+   added 2026-07-30: it is deterministic bookkeeping with a mechanical
+   predicate (D10a note 2), so it runs without a model path, and Phase 0 is
+   where the owner will actually meet it**), confidence bar raised by
    the configured delta. Nothing about mode transitions ever enters agent context
    (FR-D4/FR-M4 — pinned by the AC-10 runtime check, D13).
    **What degraded mode actually delivers (Caveat 6 — do not overclaim Phase 0).**
