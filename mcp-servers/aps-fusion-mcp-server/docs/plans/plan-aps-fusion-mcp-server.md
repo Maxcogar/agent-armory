@@ -126,7 +126,7 @@ dependents (it is the sole entry point) and every other file's dependents lie in
 set, so the deletion is self-contained.
 
 **Created.** Derived from the step set — every row names the step that creates it, and every
-step that creates a file appears here. 26 source files plus two config files:
+step that creates a file appears here. 26 source files plus one config file (27 rows):
 
 | File | Created by |
 |---|---|
@@ -194,8 +194,9 @@ attestation. Two items nonetheless precede feature work and are ordered first:
   audit exists to prevent. Step S1.
 - **F-2. No test infrastructure exists.** Verified: no `test` script and no framework in
   `package.json`, and zero `*.test.ts` / `*.spec.ts` / `*_test.ts` files anywhere outside
-  `node_modules`. Standard violated: the spec's acceptance criteria AC-11/19/20/23/24/25/26 are
-  behavioural and cannot be demonstrated without a harness. Cannot be deferred past S6, because
+  `node_modules`. Standard violated: the spec's acceptance criteria AC-11, AC-19, AC-20, AC-21,
+  AC-23, AC-24, AC-25 and AC-26 are behavioural and cannot be demonstrated without a harness
+  (AC-11, AC-19, AC-21, AC-23 and AC-25 additionally require the D26 seams — see §12). Cannot be deferred past S6, because
   D26's injected seams are only cheap if written into the modules from the start. Step S2.
 
 ## 7. Plan
@@ -279,8 +280,11 @@ wrong server.
 *Dependencies.* **S0 — this step MUST NOT run until S0's preservation commit exists and is
 verified.** Unblocks every subsequent step.
 
-*Verification.* `git status` shows the seven files deleted; `codegraph_scan --force` then reports
-`totalFiles` for TypeScript as 0 under `src/`.
+*Verification.* `git status` shows the seven files deleted, and `git log --oneline -1 6e5f00b`
+confirms the preservation commit is an ancestor of HEAD (`git merge-base --is-ancestor 6e5f00b
+HEAD` exits 0). `ls src/` reports no `.ts` files and `ls dist/` reports the directory absent.
+(A CodeGraph rescan is a useful cross-check but is an MCP tool call with a `force` parameter, not
+a shell command — it is not part of this step's verification for that reason.)
 
 *Impact if wrong.* Recoverable **only because S0 ran** — the files are in git history from that
 commit forward and from nowhere else. Run without S0, this step destroys 257 lines of
@@ -485,8 +489,20 @@ race), T-10 (demand-driven, not opportunistic) — §12.
 
 *Impact if wrong.* **The most destructive step in the plan.** A defect here can destroy the
 owner's credential and force a browser re-auth — the exact failure this rebuild exists to
-eliminate. Not silently recoverable. It carries the densest test coverage for that reason, and a
-checkpoint follows it.
+eliminate. Not silently recoverable. It carries the densest test coverage for that reason, and
+Checkpoint C gates it immediately below.
+
+**CHECKPOINT C — the credential lifecycle is correct before anything depends on it.**
+Trigger: **a step that is hard to reverse if it goes wrong** — one of Step 10's four checkpoint
+triggers, and S6 is this plan's clearest instance: it declares itself "the most destructive step
+in the plan," a defect there destroys the owner's credential, and every later step needs a token.
+Verify: T-6 through T-10 green, including AC-25's crash test at both trip points; no code path in
+`token-manager.ts` deletes or truncates the credential file (static check: zero `unlink`,
+`rm`, or write-of-empty against the credential path); the cross-process lock releases on the
+stale timeout; and a manual smoke — kill the process mid-refresh and confirm restart reports
+`reauth-required(rotation-lost)` with the file intact. **Nothing in Phase 3 may begin until this
+passes**, because a token-manager defect discovered after the gateways exist is diagnosed through
+every call path instead of one.
 
 ---
 
@@ -580,12 +596,16 @@ label-boundary suffix cases), T-17 (AC-24 cap refusal with no request issued), T
 allowlist defect is an SSRF hole; a missing timeout hangs a tool call indefinitely. This is the
 step where three separate threat controls converge, which is why a checkpoint follows it.
 
-**CHECKPOINT A — chokepoints complete before any tool exists.**
+**CHECKPOINT A — the OUTBOUND chokepoint is complete, before anything calls out.**
+Scope note: this gate covers the outbound path only. The registration chokepoint
+(`registerGuardedTool`) is built at S11 and is gated separately at Checkpoint D — the two are
+split because gateways (Phase 5) call out before any tool registers, so the outbound path must be
+proven first.
 Verify: `aps-http` is the only module in the tree that calls global `fetch` (grep: zero `fetch(`
 outside `src/services/aps-http.ts`); the request type rejects `safe:true` with a billable cost at
-compile time; SpendGuard counters survive a process restart; T-13..T-18 green. **Nothing in
-Phase 5+ may begin until this passes** — a tool written before the chokepoint exists is a tool
-whose call site never acquired the tag.
+compile time; SpendGuard counters survive a process restart; T-13..T-18 green. **No gateway may
+be written until this passes** — a gateway written before the chokepoint exists is a call site
+that never acquired the cost and safe tags.
 
 ---
 
@@ -720,6 +740,17 @@ and the only cost signal a scheduled run reads before spending money.
 
 ---
 
+**CHECKPOINT D — the REGISTRATION chokepoint is complete, before any tool exists.**
+Trigger: the boundary between cross-cutting enforcement and the code that must not bypass it —
+the second half of what Checkpoint A covers for egress. Verify: `registerGuardedTool` exists in
+the composition root and applies both OutputGuard and the throw-to-`isError` wrapper; the
+annotation constants and the `z.object` schema convention are in `src/tools/tool-defs.ts`;
+T-21 and T-22 green. **No tool module may be written until this passes** — a tool registered
+before the wrapper exists is a tool whose output was never guarded, which is the per-handler
+convention failure this rebuild exists to eliminate.
+
+---
+
 ### Phase 5 — Gateways
 
 **S13. `src/gateways/mfg-gateway.ts` — all MFG GraphQL, variables only.**
@@ -825,9 +856,9 @@ Standard's premise-correctness axis — a factual claim about external behavior 
 observation, not asserted from a document. **Why this standard applies here:** the architecture
 names these the only two places the built server can diverge from the design "with no document
 defect visible" — every other error surfaces as a contradiction someone can read, while these
-surface only as a runtime 400 or a wrong id threaded through five tools. **What this is NOT — and
+surface only as a runtime 400 or a wrong id threaded through six tools. **What this is NOT — and
 why:** *Not* building `md-gateway` first and probing at acceptance — the id form is threaded
-through tools 23–26, 35 and 37, so a late discovery is a five-tool rework rather than a
+through tools 23–26, 35 and 37 — six in all — so a late discovery is a six-tool rework rather than a
 one-function insertion. *Not* accepting caller-supplied opaque base64 URNs — unvalidatable at the
 boundary, an S-10 hole, and no other tool emits one. *Not* blocking the whole build on the probes
 — they gate only this module, which is why Phases 1–4 and S13/S14 precede them.
@@ -841,6 +872,10 @@ control characters), T-30 (recompute-and-match rejects a mismatched `<source>`) 
 *Impact if wrong.* If 8(b) resolves false and the derivation step is skipped, tools 23–26 and 37
 fail at runtime against real data while passing any test built on the same wrong assumption —
 the worst class. The probe exists to make that impossible.
+
+---
+
+### Phase 6 — Tool modules
 
 **S16–S21. The seven tool modules.** *(Six steps. Each carries its own Source, dependencies,
 verification, and impact. They share one four-part justification, stated once below and governing
@@ -967,7 +1002,7 @@ matching the inventory row) plus the acceptance criteria named per group — §1
 
 ---
 
-### Phase 6 — Routes, transports, composition
+### Phase 7 — Routes, transports, composition
 
 **S22. HTTP routes and the composition root.**
 
@@ -1058,7 +1093,7 @@ composition root and zero `fetch(` outside `aps-http.ts`.
 
 ---
 
-### Phase 7 — Documentation and acceptance
+### Phase 8 — Documentation and acceptance
 
 **S24. Health, version, and the stdio smoke invocation.**
 
@@ -1192,14 +1227,35 @@ no dependency spec in `package.json` retains a `^` or `~`. **The tree cannot be 
 this point without the S0 commit, so this checkpoint is the last place the preservation is
 verifiable rather than assumed.**
 
-**Checkpoint A** — after S8, before any tool module. Trigger: the boundary between cross-cutting
-enforcement and the code that must not bypass it. Contents specified at S8 above.
+**Checkpoint C** — after S6, before Phase 3. Trigger: **a step that is hard to reverse if it goes
+wrong** — S6 declares itself the most destructive step in the plan, and a defect there destroys
+the owner's credential. Contents specified at S6 above.
+
+**Checkpoint A** — after S8, before any gateway. Trigger: the boundary between cross-cutting
+enforcement and the code that must not bypass it, egress half. Contents specified at S8 above.
+
+**Checkpoint D** — after S12, before any tool module. Trigger: the same boundary, registration
+half. Split from A because gateways call out before any tool registers, so the outbound path must
+be proven first. Contents specified at S12 above.
 
 **Checkpoint B** — after S23, before documentation and live acceptance. Trigger: the integration
 point where separately-built modules first run as an assembled server. Contents specified above.
 
 **Probe gate** — S15's two probes, before `md-gateway` exists. Trigger: an irreversible-if-wrong
-premise (a five-tool rework if discovered late).
+premise (a rework across the six tools that produce or consume the id — 23, 24, 25, 26, 35, 37 —
+if discovered late).
+
+**The four triggers, swept.** Step 10 names four conditions requiring a checkpoint; this is the
+enumeration rather than an assurance, so a reader can check the class instead of trusting it:
+
+| Trigger | Instances in this plan | Gate |
+|---|---|---|
+| A foundation correction, before new feature work | F-1 (S1), F-2 (S2) | Checkpoint F |
+| A step hard to reverse if it goes wrong | S1 (irreversible deletion — gated by S0 as a hard dependency and re-verified at Checkpoint F); S6 (credential destruction); S15's probes (late discovery = six-tool rework) | Checkpoint F, Checkpoint C, Probe gate |
+| An integration point where separately-implemented pieces connect | S22–S23 (modules first run as an assembled server) | Checkpoint B |
+| The boundary between structural and behavioral changes | S8→S13 (egress enforcement complete, before any gateway); S12→S16 (registration enforcement complete, before any tool) | Checkpoint A, Checkpoint D |
+
+No trigger instance is ungated.
 
 ## 10. Decisions made during planning
 
@@ -1211,7 +1267,7 @@ premise (a five-tool rework if discovered late).
   Hence Phases 3–4 strictly precede any tool, and Checkpoint A is placed at that boundary.
 - **D-P2. The 8(b)/8(c) probes gate only `md-gateway`, not the whole build.** They are blocked on
   an owner action (M-3) with no date. Sequencing everything behind them stalls the plan on an
-  owner gate; sequencing them last risks a five-tool rework. Splitting by actual dependency —
+  owner gate; sequencing them last risks a six-tool rework. Splitting by actual dependency —
   they touch only the MD URN derivation and tool 35's id contract — lets Phases 1–4, S13 and S14
   proceed unblocked while still closing the risk before the dependent code exists. The failure
   branch is pre-specified so a failed probe is a branch the plan already contains, not a stop.
