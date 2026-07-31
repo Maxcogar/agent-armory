@@ -80,6 +80,35 @@ moves the hunt off the owner onto an adversarial peer and turns each collapse
 into a durable lesson. Enforce it even when a decision "feels obviously right" —
 *especially* then, because that is when hollowness hides.
 
+## Don't hand the owner a decision that is already written
+
+The project is agent-led (RETHINK §12 addendum, decision 11). The owner starts
+and ends sessions, suggests features, and speeds up testing. **Design, build,
+verification, sequencing, and process are yours.** Asking him to authorize them
+is not caution — it makes him the operator of a process he is explicitly not
+supposed to operate, and it is the most persistent failure on this project
+(`skill-observations/log.md` observation 5, logged 2026-07-17 and repeated three
+times in one session on 2026-07-30).
+
+Before asking the owner anything, check which of these it is:
+
+- **Already written** — in this file, RETHINK §12, or the spec. Then it is not a
+  question. Read it and act. "Should I run the review?", "fresh reviewer or
+  resumed?", "now or later?" are all answered by the lifecycle and the
+  independence rule below. Re-deriving a written rule and presenting it as a
+  judgment call is the same failure wearing analysis.
+- **Derivable from the mission or spec** — then derive it. Never ask the owner
+  to define a standard the spec already contains.
+- **Genuinely his** — an owner decision (a preference, a scope call, a yes/no he
+  can answer without technical background), or new evidence that contradicts a
+  locked decision. Those go to him *with the evidence*, and only those.
+
+The test: if you can name the file and line that decides it, you have your
+answer. OWNER-12 (2026-07-30) is what a real owner question looks like — the
+hooks contract contradicted the spec's own choice of trigger, two of three
+remedies required a spec change, and the call was his. "When should round 3
+run?" is not that.
+
 ## Decisions are locked in writing, nowhere else
 
 The authorities are RETHINK §12 (+ addendum) and spec §11. Do not
