@@ -425,614 +425,87 @@ half survives every round, the split is the finding. Ask what separates them bef
 applying a fifth batch of fixes to the failing half. A defect that reproduces along
 a boundary already named in the spec is a structural defect, not a quality one.
 
-## 2026-08-01 — "the core problem the tool exists to solve" — a superlative that became authority
-
-**Caught by Max Cogar**, again, and logged per `CLAUDE.md` ("the owner is never
-the collapse-tester … log it"). This one had been sitting in the highest-authority
-document in the project since 2026-07-30 and was read by every session since,
-including the one that logged the 2026-07-31 structural collapse.
-
-**What collapsed.** `RETHINK.md` §12 decision 12 recorded the owner's ruling on
-speaking at a completion claim. His actual words were: *"having the oracle speak
-when an agent claims it's done is a must-have feature in my mind."* Wrapped
-around that quote, an agent wrote: *"the completion claim is the single
-highest-value moment the oracle has … and it is the core problem the tool exists
-to solve."* Neither clause is his. Both are rankings.
-
-**His correction, verbatim in substance:** *that is not the "core problem". there
-is no core problem.* He has stated this repeatedly; agents keep making the tool
-revolve around one single thing, and doing so guarantees what gets built is not
-the tool he asked for. **This is the second full remake of this tool caused by
-that pattern.**
-
-**Class: reduction** — the project's dominant class, in its most durable form yet.
-Every prior reduction narrowed a decision. This one narrowed the *mission
-statement*, in the document that outranks the spec, where it then reads as
-owner-authorized ground truth.
-
-**How it propagated, and why that is the real finding.** A superlative written
-into RETHINK becomes citable authority. It had already reached:
-- `docs/specs/spec-context-oracle.md` [OWNER-12] — "the highest-value moment the
-  oracle has";
-- `docs/collapse-log.md` (2026-07-30 entry) — "the owner's core problem";
-- round-4's collapse-hunt, which *quoted it back as the standard* it was reviewing
-  against;
-- and this session: the agent evaluating the Phase 0 genre scope cited it as the
-  decisive argument for keeping the Completeness genre in Phase 0. The scope of
-  the first buildable phase was about to be set by a sentence the owner never said.
-
-That is the mechanism to inherit: a reduction inside a *rationale* is more durable
-than one inside a decision, because reviewers check decisions against sources and
-treat rationale as prose. Four review rounds read this line and none flagged it.
-
-**Standing lesson — no unattributed superlatives.** A ranking claim about this
-tool's purposes, genres, triggers or moments — "the core problem", "the single
-highest-value X", "the whole point", "the reason it exists" — does not enter any
-document unless the owner stated it in those words, quoted and attributed. The
-mission is `RETHINK.md` §1 plus the mission sentence, and the twelve FR-A2 genres
-are co-equal expressions of it. When recording an owner ruling, record the ruling
-and the quote; do not supply a rationale that ranks it above what it was not
-compared to.
-
-**Fix applied 2026-08-01.** Ranking language removed from `RETHINK.md` §12
-decision 12 and from spec [OWNER-12], each with an in-place correction note; the
-2026-07-30 entry above corrected in place; the Phase 0 scoping recommendation
-re-derived without it (see `docs/STATUS.md`).
-
-## 2026-08-01 — the Phase 0 genre cut: filtering a bar's job through the build plan
-
-**Caught by the independent collapse-hunt, not by the owner** — the mechanism
-working as designed, one turn after the entry above records it failing. Fourteen
-findings; the proposal did not survive.
-
-**What collapsed.** A proposal to cut Phase 0's genre set from five (spec §12's
-reference to FR-J3) to three — coupling, generated-file warning, completeness —
-deferring orientation and verification to "a later phase."
-
-**The question that killed it (F9):** *"R4-4 says Phase 0's bar has no
-`self_serve_cost` term. Your orientation deferral argues its structural arm is
-'trivially self-serveable' — a `self_serve_cost` argument. So either R4-4 is
-fixed, and the bar filters that arm per candidate at runtime, making the deferral
-unnecessary; or R4-4 is not fixed, and Phase 0 has no term that can express your
-argument at all. Both branches remove the deferral."*
-
-**Class: reduction**, with **wrong-check** underneath.
-
-**The generalisable lesson — a bar suppresses, a build plan deletes.**
-`decision-impact = materiality × structural_weight × self_serve_cost`
-(architecture D10, verified at `docs/architecture-context-oracle.md:1098`), and
-`self_serve_cost` is *"deterministic and derived from the fact's own provenance
-class"* — it needs no model, so it is fully available in Phase 0. Every cut in
-the proposal was a materiality judgment: this content is too easy for the agent
-to get itself. That is exactly what the bar computes, **per candidate, at
-runtime, tunably**. Making it at build-plan level instead makes it permanent,
-per-genre, and — worst — unmeasurable, because a genre that never ships produces
-no data with which to revisit the call. R4-C2 already collapsed the per-genre
-reading of `self_serve_class`; this proposal committed the same error one layer
-up, where the consequence does not expire.
-
-**Standing lesson.** *When the argument for excluding something is that it isn't
-worth saying, that is a bar argument, not a scope argument.* Route it to the
-mechanism that decides worth per instance and can be re-tuned from measurement.
-Cutting at build-plan level converts a tunable runtime judgment into an
-irreversible one and destroys the evidence needed to revisit it. **The tool
-getting quieter is not the tool getting smaller.**
-
-**Three further errors worth inheriting:**
-
-1. **A false premise that had already been caught once (F7).** The proposal
-   deferred orientation on the grounds that D18's landmine writer is
-   unspecified. D18 names it: *"v1's only writers are `human_facts` promotion
-   … and the literal-match landmine path for orientation"*
-   (`architecture-context-oracle.md:2169`), and Lane 1 carries *"prompt →
-   structural entry points + literal landmine matches (orientation)"* (`:1037`).
-   `STATUS.md` records this exact error being made, caught, and corrected on
-   2026-07-31 — and the author had read that correction earlier in the same
-   session before restating the error. **Reading a correction is not inheriting
-   it.** Re-derive from the source the correction points at, not from the
-   memory of having read the correction.
-2. **A deferral with no destination is a descope (F1).** Spec §12's Phase 1 and
-   Phase 2 lists contain neither orientation nor verification, so "defer to a
-   later phase" named a phase that does not exist. D10a's standard for an honest
-   gap is a live genre with deferred *content* and a named filling condition
-   (`:1363`). Sequencing is the agent's call; scope is the owner's — a deferral
-   without a destination silently converts one into the other.
-3. **Acceptance-criterion coverage was used to define scope (F2).** Only AC-1
-   and AC-5 name a genre among Phase 0's nine exits — true, and verified. But
-   criteria verify requirements; requirements define scope. Thin AC coverage is
-   a finding against the AC set. The proposal also applied the rule
-   asymmetrically, keeping completeness, which fails the same test.
-
-**What survived the hunt, and is now better evidenced.** Phase 0 is **not**
-degraded mode. Degraded mode is a runtime fallback for an unreachable model path
-(FR-J3, D20); Phase 0 is a build stage where the model layer does not exist yet.
-Spec §12 fuses them (*"Degraded mode is the product at this phase"*) while
-placing AC-10, the criterion that verifies degraded mode, in Phase 2. The
-architecture's own build order corroborates the split: all Lane 1 genres complete
-at step 7 and the Phase 0 exit falls at step 8, while D20's degraded state
-machine is step 9 — *after* the exit (`:2704`–`:2709`). The consequence to settle
-is F8's: de-equating them leaves FR-J3's air-gap guarantee (RETHINK §12 decision
-2) with no phase assigned.
-
-## 2026-08-01 — crediting the owner with an answer the documents already contained
-
-**Caught by Max Cogar.** Small, and worth logging because of what it does to the
-record rather than what it did to the design.
-
-**What happened.** Asked what the purpose of Phase 0 is, the agent could not
-state one, drafted a new sentence, and then — when the owner pointed at the
-measurement framing — wrote it into spec §12 and a commit message as *"his
-framing, adopted."* It was not his. Spec §12's own "How to read this section"
-paragraph, added 2026-07-31, states *"each phase is gated on evidence only the
-previous phase can produce by actually running,"* and `docs/STATUS.md` of the
-same date states *"everything still undecided is waiting on measurements only a
-running Phase 0 can produce."* The agent had quoted the STATUS line back to the
-owner earlier in the same session. His actual question was why the written
-purpose was not being followed.
-
-**Class: unverified** — a claim about what the documents contain, stated without
-reading them. The second-order effect is the reason for this entry.
-
-**Why it matters more than a misattribution.** Two records were falsified in
-opposite directions. The spec gained a note saying the purpose statement was
-*missing*, one paragraph below the paragraph that contained it. And an agent's
-failure to read the documents it was working from was filed as an **owner
-contribution** — which converts a process failure into a feature request in the
-project's memory. A later session reading that would conclude the owner supplies
-the framing when the agent gets stuck, which is exactly the dependency this
-project's rules exist to remove (`CLAUDE.md`: the owner is never the
-collapse-tester; do not hand him a decision already written).
-
-**Standing lesson.** *Before recording that something was missing, read the file
-you are about to say it was missing from.* And when the owner points at
-something, establish whether he is **supplying** it or **citing** it — those
-produce opposite entries in the record. The default assumption should be citing:
-he has read these documents, and the agent-led rule means the answer is far more
-often already written than newly supplied.
-
-**What was genuinely absent**, and remains the real contribution of the change:
-the **membership test** — a rule that decides what belongs in Phase 0 by what the
-phase must yield. The purpose was stated; nothing had ever been derived from it.
-
-## 2026-08-01 — the Phase 0 purpose block: a purpose the phase cannot serve
-
-**Caught by the independent collapse-hunt** (`docs/reviews/2026-08-01-collapse-hunt-phase0-purpose.md`,
-17 findings). Second killed proposal from the same session; the block was removed
-from spec §12 the day it was written.
-
-**What collapsed.** A block at the head of §12 declaring that Phase 0 exists to
-*"produce the answers Phases 1 and 2 cannot be designed without"*, with a
-membership test derived from it.
-
-**The finding that matters most, and it is not about the block.** *No Phase 0
-component computes either metric Phase 1's exit names.* §9.2's metrics are
-*"Measured from the FR-X6 log by the distiller"*; uptake detection is the
-distiller's; the distiller is **Phase 2**. Phase 1's exit — *"measured silence and
-hit rates reviewed against the bar"* — therefore depends on a Phase 2 component.
-That contradiction predates the block and survives its removal. It means the
-question "which measurements must Phase 0 produce" currently has no answer, and
-every membership rule derived from it rests on nothing.
-
-**Class of the block itself: reduction**, on four independent counts.
-
-**Standing lessons:**
-
-1. **A purpose sentence is a claim about what a thing can do, and it needs the
-   same verification as any other claim.** The block asserted Phase 0's purpose
-   without ever checking whether Phase 0 can serve it. An unfilled requirement can
-   wear a *purpose*, not just a reference — and a purpose in the spec is the most
-   load-bearing sentence in the document.
-2. **"X is necessary for Y" is not "X exists for Y."** The block cited two prior
-   statements of a phase *dependency* as prior statements of a *purpose*. The note
-   written to correct a misattribution committed a fresh false-provenance claim of
-   the same class, one turn later.
-3. **A criterion that cannot exclude is not a test; a criterion that can exclude at
-   build-plan level is the previous collapse wearing new clothes.** Both readings
-   were available here — the test admitted all twelve genres under one and cut a
-   co-equal genre under the other. State inclusion criteria only; exclusion routes
-   to the bar (per candidate, tunable) or to the owner (scope).
-4. **The spec does not cite numbered architecture decisions as authority.** The
-   block grounded a spec obligation in architecture D10 — the only such citation in
-   the spec, pointing at a demoted document, in the half that collapsed in every
-   review round. That inverts the lifecycle the project runs on.
-
-**Rate of recurrence worth noting.** Three proposals were written this session and
-two were killed by the hunt; the third (this one) was killed after the same
-session had already logged the lesson it violated. The mechanism is working — both
-kills came from the adversarial pass, not from Max Cogar — but the authoring side
-is not learning within a session from entries it wrote hours earlier. Dispatch the
-hunt *before* writing into the spec, not after.
-
-## 2026-08-01 — a separate Phase 0 spec: solving the half that was never broken
-
-**Caught by the independent collapse-hunt** (`docs/reviews/2026-08-01-collapse-hunt-phase0-spec-draft.md`,
-19 findings, 6 structural). Third killed artifact in one session. The file was
-deleted the day it was written.
-
-**What collapsed.** A new `docs/specs/spec-context-oracle-phase0.md`, justified by
-the claim that the 2026-07-31 fix was half-applied — the collapse log named
-*"specifying and architecting"* Phases 1 and 2 twice, and only the architecting
-half was fixed.
-
-**The question that killed it:** *"Name the file from which a Phase 1 requirement
-was removed."* None. The defect the 2026-07-31 entry names is **specifying Phases 1
-and 2 against nothing** — a defect located entirely in the Phase 1/2 material.
-Re-stating **Phase 0** in a second file does not touch it. Net movement against the
-defect: zero. Net duplication: one full requirement set, of the half that survived
-every review round.
-
-**Class: wrong-check.** The quote was accurate and the inference from it was
-backwards.
-
-**The remedy was already written, and had been read.** `STATUS.md`, step 1 of the
-2026-07-31 entry: *"Work out which requirements belong to Phase 0 … Write those
-tags into the spec, so the boundary is settled once, in the spec, and can be
-checked."* The killed document's own requirements section **is** a phase-tag list —
-exported to a separate file that then needs a precedence rule it does not have. The
-agent had read that STATUS step at the start of the session and summarised it to
-Max Cogar.
-
-**Standing lessons:**
-
-1. **When a defect is named as "X was done twice", the remedy removes one of the
-   two — it never adds a third.** Before writing a new document, name what the
-   existing documents lose. If the answer is "nothing", the new document is a
-   duplicate no matter how well it is written.
-2. **A new spec needs a precedence rule against the old one, in writing, before its
-   first sentence.** This draft said "the parent text governs" in one section and
-   overrode the parent in two others. `CLAUDE.md`'s information policy predicted
-   exactly this ("the two diverge and nothing tells you which is current"); it took
-   one document to arrive.
-3. **Reading a lesson is not inheriting it, and the interval is now hours.** The
-   draft declared a bar term missing without reading the line that defines it
-   (`architecture:1059–1060` — *"For the mechanical Lane 1 genres (no model)
-   `materiality` defaults to the genre's base weight"*), which is the standing
-   lesson logged **earlier the same day** for the same failure. Same for the
-   measurement contradiction: §9.2's *"by the distiller"* was read; §6.3's
-   *"`status` (health metrics §9.2…)"* and NF-2's *"measured and reported by
-   `ctxoracle status`"* were not, and `status` is Phase 0.
-4. **An "open questions" heading does not launder a decision.** The draft stated
-   *"Phase 0 ships the full bar"* in bold inside the section headed "Open questions
-   this spec cannot close."
-
-**What survived and is kept:** Phase 0 is not degraded mode (re-verified). And
-FR-X6 is Phase 0 by necessity, because Phase 0 emits whispers and FR-X6 applies to
-every whisper — which **corrects a finding of record** in the preceding hunt, whose
-closing section stated Phase 0's component list has no FR-X6 whisper log.
-
-**Session tally, recorded because the rate is the finding.** Three artifacts
-written, three killed, all by the adversarial pass rather than by Max Cogar. The
-mechanism is working. The authoring side is not learning within the session from
-entries it wrote hours earlier — twice it declared something missing without
-reading the file, after writing the lesson against exactly that. The dispatch-first
-order was adopted only on the third attempt.
-
-## 2026-08-01 — a true premise, and everything built on it in the same commit
-
-**Caught by the independent collapse-hunt**
-(`docs/reviews/2026-08-01-collapse-hunt-phase-table.md`, 23 findings, 8
-structural). Fourth pass of the day. Unlike the three before it, the **premise
-survived** — the failure moved downstream of it.
-
-**What survived.** FR-L1's subject is the session service, §12 places the session
-service in Phase 0, and FR-L1 is absent from §12's Phase 2 bullet. So the per-event
-log including uptake evidence is Phase 0 work, and §9.2's *"Measured … by the
-distiller"* was an over-broad attribution. Read correctly, from source.
-
-**What collapsed, and the lesson.** Everything built on that premise in the same
-commit, without the same discipline: a per-requirement phase table whose
-"Verified by" column was false in twelve of forty-one rows against §13's own
-mapping; two summary attestations, one demonstrably false; a genre section whose
-heading orphaned the phase bullets beneath it; and a row reinstating a claim
-killed eight hours earlier.
-
-**Standing lesson — a verified premise does not confer verification on its
-consequences.** Getting one hard read right produces exactly the conditions for
-the next error: the premise is checked, so the structure built on it feels
-checked, and the same commit ships forty rows nobody read against source. The
-discipline is per claim, not per commit. Specifically:
-
-1. **A table is not a summary; every cell is a claim.** The "Verified by" column
-   was written from memory of what each AC probably covers. §13 states its
-   mapping explicitly and it takes one pass to check. Twelve rows were wrong,
-   including the one row the entire change existed to establish — FR-L1, which
-   has **no** acceptance criterion at all.
-2. **Asserting more verification than exists is the project's worst failure
-   mode, and a phase table is a machine for doing it at scale.** `CLAUDE.md`
-   calls a falsely reported success strictly worse than no work at all; a table
-   commits forty of them in one edit and each one reads as checked.
-3. **Never insert a heading above content you did not intend to adopt.** The new
-   `### 12.2` re-parented §12's canonical phase bullets under a heading that
-   declared the matter open — and fifteen table rows cited `[§12]` as their
-   basis, resolving into it.
-4. **The falsifiable column is the one that gets dropped.** Both prior hunts
-   prescribed the same remedy, naming the **store row** each measurement lands
-   in. It was the one column omitted — and its absence is exactly what let a
-   non-existent component ("FR-A3 budget accounting") pass as a recorder. A store
-   row cannot be invented; a component name can.
-5. **"Every X is Y" written under a table is an attestation, and the standing
-   instruction is to treat it as a defect on sight.** Both such sentences here
-   were false: §9.2 lists six metrics and the table listed six *different* ones,
-   silently dropping regret rate and ceremony count, and no row corresponded to
-   Phase 2's exit at all.
-
-**Also recurring, fourth and fifth instance in one day:** lifecycle inversion
-(architecture decisions and a review-finding ID cited as spec authority, plus
-"Lane 1"/"Lane 2" — architecture vocabulary with no referent in the spec), and a
-contested membership settled by silence (the consequence genre, which STATUS names
-as one of exactly two).
-
-**Applied.** §12.1 and §12.2 removed; §9.2's three corrections made; the
-measurement table rebuilt with a store-row column, its scope stated, its
-attestations deleted, and its false-fire row narrowed to the outcome arm. The
-seven open items were moved to **§14**, which is the section whose one job that
-is and which none of the four artifacts had updated.
-
-**What is now honestly known:** Phase 0 emits silence rate, latency and
-continuation count. **Hit rate is not established** — FR-L1 records uptake
-*evidence*, the architecture assigns uptake *detection* to the distiller, and
-those are different acts in different phases. That question, not the genre set, is
-what Phase 1's exit currently rests on.
-
-## 2026-08-01 — the same key, the same sentence, opposite tests
-
-**Caught by the independent collapse-hunt, before a word was written into any
-document.** Fifth pass of the day and the first run in the right order: the claim
-was attacked as a proposition, so nothing had to be deleted afterwards.
-
-**The proposition.** That uptake detection is already a Phase 0 obligation, because
-FR-A4 forbids repeating what the agent has *"visibly acted on"*, and the
-architecture's own uptake decision notes in passing that *"the subject key already
-exists for FR-A4 dedup"*. If true, hit rate would be available in Phase 0 and
-Phase 1's exit would be unblocked.
-
-**The question that killed it:** *"Step 9b names FR-L1's detector by its clauses
-and rejects it. FR-A4's 'visibly acted on' is that same clause list, from the same
-RETHINK sentence. So which predicate does Phase 0 already have — the one 9b
-rejected, or the one 9b specified?"*
-
-The rejected one. FR-A4's arm resolves through its `[RETHINK §5]` citation to
-*"opened the pointed file, used the named helper"* — verbatim the detector the
-architecture threw out because it *"scores the tool's best outcome as a failure:
-an agent told there is a second write-site, which then edits it directly … never
-opens the file the pointer named."* The replacement is *"subject … edited, tested,
-or referenced by any route … **not only the pointer being followed**"* — an
-explicit rejection of the very arm the proposition offered as its machinery.
-
-**Class: wrong-check.**
-
-**Standing lesson.** *A requirement and a metric can share a predicate's name, a
-subject key, and the same source sentence, and still be opposite tests* — because
-one asks **"has the agent already got this?"** (and suppresses) while the other
-asks **"did the agent take this?"** (and scores). Sharing the key is not sharing
-the detector, and the detector one of them **rejects** may be exactly the detector
-the other **requires**. When a derivation turns on two requirements "using the same
-machinery", check the direction of the test, not just the identifier.
-
-**Two corollaries worth inheriting:**
-
-1. **A stated limitation is a bound only when it is independent of the decision it
-   feeds; otherwise it is a hedge.** "Hit rate, in-session uptake only" sounds
-   honest. But in-session detection systematically undercounts exactly the
-   stop-class genres — Completeness and Verification fire at the last observable
-   moment — and the number's declared use is *per-genre admission*. A limitation
-   correlated with the decision it informs is the hollowness `CLAUDE.md` warns a
-   hedge carries to the owner.
-2. **A nullable column is evidence about write ordering, not about which phase
-   writes it.** `whisper_log.uptake` is null at insert because the row is written
-   before delivery and uptake is unknowable at that instant. The previous hunt
-   read it as "the shape of a deferred writer" and this one corrected that. What
-   *is* real evidence: the write has no durability class in D24 at all, which is
-   open finding R4-C6.
-
-**What the hunt established, and it is worth having.** Phase 0 can detect,
-in-session, that this consumer opened a pointed file or used a named helper — a
-derivation, not a spec statement, whose only acceptance criterion is a Phase 1
-exit. That is a **pointer-followed rate**, not hit rate, and naming it correctly is
-the whole point.
-
-**The larger finding, which nothing recorded.** Phase 1's exit — *"measured
-silence and hit rates reviewed against the bar"* — states **no pass condition**:
-no threshold, no genre scope, no observation window, no named reviewer. Every
-other phase exit resolves to acceptance criteria; AC-2 shows what a real condition
-looks like. Settling uptake's phase would not unblock Phase 1's exit, because
-there is nothing there to satisfy. Recorded in §14.
-
-**Process note.** This was the fifth artifact of the day aimed at the same
-conclusion, and the fourth hunt had predicted it in writing: *"if detection is
-Phase 2, hit rate is still behind a Phase 2 component, and the headline conclusion
-is false the same way its two predecessors were, one layer down."* It was. The
-difference is that this time the hunt ran before the writing, so the cost was one
-subagent instead of a commit, a revert and a correction.
-
-## 2026-08-01 — the same overstatement, one turn after correcting it
-
-**Caught by the independent collapse-hunt**, again before anything was written —
-but this time the hunt also killed the **finding** the proposition was built on,
-which had been committed to spec §14 one turn earlier.
-
-**What collapsed.** Two things.
-
-1. **The proposition:** that Phase 1's exit is missing a *procedure* (scope,
-   window, reviewer, decision rule) rather than a threshold. It does not survive.
-   Its own premise — "specifying a number pre-data is specifying against nothing"
-   — forbids two of the four things it wanted written (window and genre scope are
-   also quantities about a run that has never happened). Of the remaining two,
-   the reviewer is decided by `CLAUDE.md` ("design, build, verification,
-   sequencing, and process are yours") and the decision rule is written in
-   `RETHINK.md` §5 ("ship with the bar set high and lower it against measured hit
-   rate"). Net new content: approximately zero, at the cost of a fourth edit to a
-   section already edited and reverted three times that day.
-2. **The finding underneath it**, which I had put in §14: *"Phase 1's exit states
-   no pass condition … every other phase exit resolves to acceptance criteria."*
-   **Both false.** Phase 1's exit lists seven acceptance criteria, and *all three*
-   phases carry an unthresholded trailing measurement clause — Phase 0's is *"the
-   owner runs it on a real project without incident"*, Phase 2's is *"a
-   demonstrated case of the oracle measurably improving between sessions."* I
-   described a uniform, deliberate feature of §12 as a Phase-1-specific defect,
-   by asserting what the other two exits contain without reading them.
-
-**Class: unverified** — the same class, and the same act, as the entry logged
-hours earlier: *before recording that something was missing, read the file you
-are about to say it was missing from.* That entry was about a bar term. This one
-is about two sibling sentences one screen away.
-
-**Standing lesson — "every other X" is a claim about a set, and a set claim is
-only as good as the enumeration behind it.** A comparative finding ("this one is
-missing what the others have") asserts something about **every** member of the
-comparison class. Enumerate them and read each, or do not make the claim. The
-comparative form is seductive precisely because it sounds like the product of
-having looked.
-
-**A second lesson, on inflation.** The finding was *real in substance and
-inflated in every particular*. Something genuinely distinguishes Phase 1's
-clause: it is the only one of the three naming **neither an actor nor a
-condition under which it is not met**. That is a modest, checkable defect. It was
-written up as "no pass condition", "blocks the exit from being checkable at all",
-and "a larger gap than the item above" — a ranking claim over two open items with
-no basis, which is the superlative pattern already logged. **When a real finding
-is dressed past its evidence, the dressing is what the next session inherits.**
-
-**And the finding that replaces it, which neither the proposition nor the original
-item saw.** The clause's *function* is stated two ways by the two governing
-documents: §12 places it at Phase 1's **exit**; `CLAUDE.md`'s lifecycle amendment
-reads the identical sentence as gating Phase 1's **design**, fed by a running
-Phase 0 — and §12's own measurement table lists both metrics as Phase 0-emitted.
-Entry gate or exit gate. It is settleable today with no measurement, and it
-decides whether an exit procedure is even the right artifact. That is now the §14
-item.
-
-**Process note.** Two hunts in a row have now run before the writing rather than
-after. Both killed their proposition; the second also caught a defect that had
-already reached the spec. Cost of the pre-write order: one subagent each. Cost of
-the post-write order, four times earlier the same day: a commit, a revert, and a
-correction each time.
-
-## 2026-08-01 — the conflict that was one duplicated sentence
-
-**Settled by an independent adjudication**, run before anything was written. The
-seventh pass of the day, and the third in a row to run in the right order.
-
-**What was claimed.** That spec §12 and `CLAUDE.md` disagreed about a single
-sentence — *"measured silence and hit rates reviewed against the bar"* — with §12
-placing it at Phase 1's **exit** and `CLAUDE.md` reading it as gating Phase 1's
-**design**. It was written into §14 and made STATUS's step 1.
-
-**There was no disagreement.** §12's own "How to read" paragraph states *both*
-functions, and the half that decides it is the half I had been omitting: a phase's
-requirements are *"not a design-ready basis until the measurements **their exits**
-name exist"* — "their" binding to the phase's own exit. `CLAUDE.md` was quoting a
-function §12 assigns itself. What produced the appearance of conflict is that
-`CLAUDE.md` carried a **full copy** of the spec sentence plus an appended claim
-that Phase 0 produces both metrics — and that copy diverged from its source when
-hit rate's producibility became unsettled.
-
-**Class: wrong-check**, on a half-quote.
-
-**Standing lesson — when two documents appear to conflict, check whether one is
-quoting the other before deciding which wins.** A duplicated sentence does not
-announce itself as a duplicate; it presents as an independent source agreeing or
-disagreeing with the original. The information policy already predicts the
-mechanism in as many words — *"the two diverge and nothing tells you which is
-current"* — and this is that failure caught downstream instead of upstream. The
-tell was available: the two passages were verbatim identical except for an
-appended clause. **Identical wording between two files is evidence of copying, not
-of corroboration.**
-
-**A second lesson, on half-quotes.** The paragraph I cited as "an entry-gate
-statement" continues past where I stopped reading, and the continuation reverses
-the reading. This is the third distinct form of the same failure logged today —
-declaring a mechanism missing without reading the line that defines it; claiming
-"every other X" without enumerating; and now quoting to the em-dash and stopping.
-All three are *stopping too early against a source that is right there*.
-
-**On triage.** The adjudication was also asked whether the question was
-load-bearing, and answered no: the clause stays in place under every surviving
-reading, nobody may write Phase 1's exit procedure now regardless, and none of
-Phase 0's real blockers turn on the answer. It was worth settling only because it
-was cheap and because leaving it open guaranteed a later session would re-argue
-it. **STATUS had it as step 1; that was an overstatement of the same kind as the
-finding itself.** Ask what a question unblocks before ranking it.
-
-**Two genuine defects surfaced on the way, both now in §14:** §12's
-design-readiness rule is a set claim that is unsatisfiable at Phase 2 (only Phase
-2's own distiller can produce what Phase 2's exit names), and **Phase 0's numbers
-are never reviewed by anybody** — its exit clause names a run but no measurement
-and no review, while §9.2's metrics begin emitting the moment it runs.
-
-**Applied:** `CLAUDE.md`'s duplicated clause replaced with a pointer — the whole
-fix, in one file, net shorter. The spec's Phase 1 bullet was not touched.
-
-**Housekeeping the adjudication caught.** `docs/reviews/README.md` requires every
-review pass to write its full output there. Six hunts were recorded for 2026-08-01
-and only three files existed. The four missing files were written the same day.
-The rule exists because a finding that lives only in a collapse-log summary cannot
-be checked against by the next round — and this session came within one audit of
-losing four passes' worth of evidence.
-
-## 2026-08-01 — the genre that was included because inclusion is unchallengeable
-
-**Caught by the independent collapse-hunt, before the edit was written.** Eighth
-pass. Thirteen findings; the edit was written the same day in the corrected form.
-
-**What was proposed.** Replace §12's *"Genres: the FR-J3 degraded set"* with a
-directly stated list, derived on the basis *"derivable from the stores by
-deterministic lookup keyed by the observed event, with no model call."* Applying
-it yielded seven genres and resolved both contested memberships.
-
-**What collapsed: one of the seven.** Answer drift satisfies *"no model call"* and
-fails *"lookup keyed by the observed event"* — its trigger is a transcript-derived
-state machine, and the component that writes its open questions is the narration
-reader, which §12 places in Phase 1. **The spec said so fifteen lines above the
-bullet being rewritten, in a sentence this same session had written hours
-earlier:** *"needs a narration reader, which §12 places in Phase 1."*
-
-**Class: wrong-check**, and the hunt's own diagnosis of the motive is the entry:
-
-> *"It is included because inclusion is the shape least likely to be challenged,
-> and because including it lets the edit claim it resolves both contested
-> memberships. Dropping it costs the proposal that headline and nothing else."*
-
-**Standing lesson — a criterion that admits every member but one on both conjuncts,
-and that one member on a single conjunct, was not the criterion that produced the
-list.** It was reverse-engineered from a list already chosen. The tell is
-mechanical and takes one pass: walk the criterion across its own output, conjunct
-by conjunct, and mark which clause each member satisfies. A member carried by a
-subset of the clauses is a member the criterion did not select.
-
-**A second lesson, on the safe direction.** This project's dominant failure is
-*reduction*, so every safeguard points at exclusion — and after seven kills the
-authoring instinct had learned that **inclusive proposals are the ones that
-survive**. That is a real bias with a real cost: an inclusive error ships a genre
-into a phase that cannot build it, and no rule in this project catches it, because
-every rule is aimed the other way. *Being wrong in the safe direction is still
-being wrong, and it is harder to see precisely because nothing is watching for it.*
-
-**A third, on lifecycle inversion with the tell removed.** The basis classified
-answer drift by a property — "is it mechanically decidable" — that the spec never
-establishes: FR-A9 says the genre fires when turns *"fail to **address**"* a
-question, and supplies no predicate. The only mechanical predicate lives in the
-architecture, explicitly *"narrower than FR-A9's full breadth."* So the criterion
-would have written an architecture-derived narrowing into the spec as a fact about
-the requirement — **an inversion running through a criterion instead of through a
-citation, where the usual tell (a `D-n` reference in the spec) is absent.** Six of
-the seven survive a spec-only derivation; the one that does not is the one the
-architecture had quietly redefined.
-
-**Applied, in the corrected form:** six genres listed directly with the derivation
-recorded as `[D-21]`; consequence moved from Phase 1 and struck there; answer drift
-left in Phase 1 with its blocker named in §14; the degraded-mode equation deleted
-with its behavioural consequence stated affirmatively (Phase 0 ships the ordinary
-bar and announces nothing); FR-J3 placed in Phase 1 **and its runtime enumeration
-amended**, since a build-set genre missing from it would be switched off by a model
-failure despite needing no model; Phase 0's component list re-derived from all nine
-of its exits, adding the CLI, the security scanner and the whisper log; and the
-FR-A5 "fix" **not written**, because FR-A5's governing clause already exempts the
-generated-file warning and the real defect is in the architecture.
-
-**Three limits were required on the derivation and are now in the spec**, because
-without them the sentence is an exclusion lever: it is the derivation of this list
-and not a standing membership rule; an unbuilt store row is deferred content within
-a live genre, never a membership test; and it is a build-dependency criterion, not
-a judgment about what a genre is worth — that judgment is FR-A5's, per candidate,
-at runtime.
+## 2026-08-01 — ten collapses in one session
+
+Ten propositions or artifacts were caught this day; nine by the independent
+adversarial pass, one by Max Cogar. **Full findings for each are in
+`docs/reviews/2026-08-01-*.md`** — this entry carries only the lessons, per the
+information policy's one-line-plus-a-pointer rule. *(These entries originally
+reproduced the review findings in full, which is the same policy violation ten
+times over. Condensed the same day.)*
+
+**Caught by Max Cogar, logged as a process failure:**
+
+1. **"The core problem the tool exists to solve"** — an agent's superlative,
+   wrapped around the owner's quoted words in `RETHINK.md`, had propagated to the
+   spec, this log, a review pass that quoted it back as its standard, and a live
+   scope decision. **Lesson: no ranking claim about this tool's purposes, genres,
+   triggers or moments enters any document unless the owner stated it in those
+   words, quoted and attributed.** A reduction inside a *rationale* is more
+   durable than one inside a decision, because reviewers check decisions against
+   sources and read rationale as prose.
+
+**Caught by the adversarial pass, written after the artifact (cost: a commit, a
+revert and a correction each):**
+
+2. **The Phase 0 genre cut** (14 findings). **Lesson: when the argument for
+   excluding something is that it isn't worth saying, that is a bar argument —
+   per candidate, at runtime, tunable — never a scope argument. A bar suppresses;
+   a build plan deletes. The tool getting quieter is not the tool getting
+   smaller.**
+3. **Crediting the owner with an answer the documents already contained.**
+   **Lesson: before recording that something was missing, read the file you are
+   about to say it was missing from. When the owner points at something,
+   establish whether he is supplying it or citing it — the default is citing.**
+4. **The Phase 0 purpose block** (17 findings). **Lesson: a purpose sentence is a
+   claim about what a thing can do and needs the same verification as any other.
+   "X is necessary for Y" is not "X exists for Y". A criterion that cannot
+   exclude is not a test; one that excludes at build-plan level is the prior
+   collapse in new clothes. The spec does not cite numbered architecture
+   decisions as authority.**
+5. **A separate Phase 0 spec** (19 findings). **Lesson: when a defect is named as
+   "X was done twice", the remedy removes one of the two — it never adds a third.
+   A new document needs a written precedence rule before its first sentence.**
+6. **The phase-assignment table** (23 findings). **Lesson: a verified premise
+   confers no verification on its consequences. A table is not a summary — every
+   cell is a claim. "Every X is Y" under a table is an attestation, and the
+   standing instruction is to treat one as a defect on sight. The falsifiable
+   column is the one that gets dropped.**
+
+**Caught by the adversarial pass, run before the artifact (cost: one subagent
+each, nothing written or reverted):**
+
+7. **Uptake detection under FR-A4.** **Lesson: a requirement and a metric can
+   share a predicate's name, a subject key, and the same source sentence and
+   still be opposite tests — one asks "has the agent already got this?"
+   (suppress), the other "did the agent take this?" (score). The detector one
+   rejects may be exactly the detector the other requires. A stated limitation is
+   a bound only when independent of the decision it feeds; otherwise it is a
+   hedge.**
+8. **Phase 1's exit "has no pass condition".** **Lesson: "every other X" is a
+   claim about a set and is only as good as the enumeration behind it. A real
+   finding dressed past its evidence leaves the dressing for the next session to
+   inherit.**
+9. **An entry-gate/exit-gate conflict between the spec and `CLAUDE.md`.** There
+   was none. **Lesson: when two documents appear to conflict, check whether one
+   is quoting the other before deciding which wins — identical wording is
+   evidence of copying, not corroboration. Ask what a question unblocks before
+   ranking it.**
+10. **The seven-genre Phase 0 list** (13 findings). **Lesson: a criterion that
+    admits every member but one on both its conjuncts, and that one member on a
+    single conjunct, was reverse-engineered from a list already chosen. And after
+    a run of kills the authoring instinct learns that *inclusive* proposals
+    survive — every safeguard here points at exclusion, so an inclusive error has
+    nothing watching for it. Being wrong in the safe direction is still being
+    wrong.**
+
+**The thread through half of them.** Four separate failures were the same act:
+declaring a mechanism missing without reading the line defining it; claiming
+"every other X" without enumerating; quoting a paragraph to the em-dash where the
+continuation reversed the reading; and asserting what sibling sentences contain
+without opening them. **Stopping too early against a source that is right there.**
+
+**The process lesson that changed the session.** The first six were written and
+then hunted. The last four were hunted and then written. Cost of the first order:
+a commit, a revert and a correction each. Cost of the second: one subagent, and
+nothing to undo. **Dispatch the pass before writing into a document, not after.**
