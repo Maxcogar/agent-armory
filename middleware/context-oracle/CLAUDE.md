@@ -18,6 +18,11 @@ build, verification, diagnosis, documentation, roadmap — is yours.
    why. Read before designing; the traps are meant to be inherited.
 6. The oracle's own diagnostics self-report (FR-M3), once it exists.
 
+**Then read "Where information goes — the policy" below, before you write
+anything.** It decides which file each thing you learn belongs in. Getting that
+wrong is the most repeated defect on this project, and it is enforced
+mechanically at session end (see below) because written rules did not hold.
+
 ## Where information goes — the policy
 
 Every file below has **one job**, a **membership test** that decides whether a
@@ -279,6 +284,19 @@ writing down, route it by the policy above **before** writing it, not after.
    the spec, design to the architecture. Nothing gets a new file, and nothing
    gets a second copy in `STATUS.md`.
 4. **No handoff document.** `STATUS.md` is the handoff.
+
+**This is checked mechanically, not trusted.** `.claude/hooks/session-end-check.sh`
+runs on `Stop`. If the session changed anything under `middleware/context-oracle/`
+and `docs/STATUS.md` was not updated, or a handoff was written, or a new file
+appeared outside the sanctioned set, it says so and the turn continues once so you
+can fix it. It never blocks, and it is gated on `stop_hook_active` so it can never
+chain — the same one-continuation bound spec FR-O4a puts on the oracle itself.
+
+The reason it exists: on 2026-07-31 an agent wrote these rules and then broke
+them repeatedly within minutes — patching after being told not to, using grep as
+verification immediately after writing the rule against it, and duplicating
+`STATUS.md` into a handoff within the hour. Nothing written down caught any of
+it. Assume you will do the same, and let the check catch you.
 
 ## Feature ideation
 
