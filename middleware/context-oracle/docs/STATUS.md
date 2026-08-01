@@ -105,18 +105,28 @@ uptake share a key and a sentence and ask opposite questions: *has the agent
 already got this* versus *did the agent take this*. This is written into §14 so
 the next session doesn't spend a pass rediscovering it.
 
-**And a bigger thing turned up behind it.** Phase 1's exit reads *"measured
-silence and hit rates reviewed against the bar."* There is no number in it — no
-threshold, no window, no scope, nobody named to do the reviewing. Every other exit
-in the spec resolves to a testable criterion. So even if the uptake question were
-settled tomorrow, Phase 1 still could not be exited, because there is nothing
-there to pass. That is the larger gap and it is now recorded.
+**I then overstated what was behind it, and the next pass caught me.** I reported
+that Phase 1's exit states no pass condition and that every other phase exit
+resolves to a testable criterion. Both wrong. Phase 1's exit lists seven criteria,
+and *all three* phases end with the same kind of unmeasured trailing sentence —
+Phase 0's is "the owner runs it on a real project without incident." I described
+something all three do as a fault in one, without reading the other two. Same
+mistake as earlier in the day, one screen away this time.
+
+**What is actually there, smaller and more useful.** Phase 1's trailing sentence
+is the only one of the three that names neither a person nor a condition under
+which it would not be met. And the two governing documents disagree about what
+the sentence is *for*: the spec puts it at Phase 1's finish line, while the
+project's own build rule reads the same sentence as the thing that has to exist
+*before* Phase 1 can be designed — produced by running Phase 0. Entry gate or
+exit gate. That needs no measurement to settle, and it decides whether Phase 1
+even has an exit condition to write.
 
 **What is next, concretely, in order:**
 
-1. **Give Phase 1's exit a pass condition** — or accept that Phase 1 has no exit.
-   This outranks the uptake question, because it is what the uptake question was
-   in service of.
+1. **Settle whether that sentence gates Phase 1's start or its finish.** One
+   document says each. Nothing can be written about Phase 1's exit until this is
+   decided, and it needs no data.
 2. **Settle where uptake detection lives**, knowing the FR-A4 route is closed:
    either the distiller keeps it and Phase 0 reports a *pointer-followed rate*
    under its own honest name, or detection moves and the cost of moving it is

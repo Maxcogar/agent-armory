@@ -844,3 +844,66 @@ Phase 2, hit rate is still behind a Phase 2 component, and the headline conclusi
 is false the same way its two predecessors were, one layer down."* It was. The
 difference is that this time the hunt ran before the writing, so the cost was one
 subagent instead of a commit, a revert and a correction.
+
+## 2026-08-01 — the same overstatement, one turn after correcting it
+
+**Caught by the independent collapse-hunt**, again before anything was written —
+but this time the hunt also killed the **finding** the proposition was built on,
+which had been committed to spec §14 one turn earlier.
+
+**What collapsed.** Two things.
+
+1. **The proposition:** that Phase 1's exit is missing a *procedure* (scope,
+   window, reviewer, decision rule) rather than a threshold. It does not survive.
+   Its own premise — "specifying a number pre-data is specifying against nothing"
+   — forbids two of the four things it wanted written (window and genre scope are
+   also quantities about a run that has never happened). Of the remaining two,
+   the reviewer is decided by `CLAUDE.md` ("design, build, verification,
+   sequencing, and process are yours") and the decision rule is written in
+   `RETHINK.md` §5 ("ship with the bar set high and lower it against measured hit
+   rate"). Net new content: approximately zero, at the cost of a fourth edit to a
+   section already edited and reverted three times that day.
+2. **The finding underneath it**, which I had put in §14: *"Phase 1's exit states
+   no pass condition … every other phase exit resolves to acceptance criteria."*
+   **Both false.** Phase 1's exit lists seven acceptance criteria, and *all three*
+   phases carry an unthresholded trailing measurement clause — Phase 0's is *"the
+   owner runs it on a real project without incident"*, Phase 2's is *"a
+   demonstrated case of the oracle measurably improving between sessions."* I
+   described a uniform, deliberate feature of §12 as a Phase-1-specific defect,
+   by asserting what the other two exits contain without reading them.
+
+**Class: unverified** — the same class, and the same act, as the entry logged
+hours earlier: *before recording that something was missing, read the file you
+are about to say it was missing from.* That entry was about a bar term. This one
+is about two sibling sentences one screen away.
+
+**Standing lesson — "every other X" is a claim about a set, and a set claim is
+only as good as the enumeration behind it.** A comparative finding ("this one is
+missing what the others have") asserts something about **every** member of the
+comparison class. Enumerate them and read each, or do not make the claim. The
+comparative form is seductive precisely because it sounds like the product of
+having looked.
+
+**A second lesson, on inflation.** The finding was *real in substance and
+inflated in every particular*. Something genuinely distinguishes Phase 1's
+clause: it is the only one of the three naming **neither an actor nor a
+condition under which it is not met**. That is a modest, checkable defect. It was
+written up as "no pass condition", "blocks the exit from being checkable at all",
+and "a larger gap than the item above" — a ranking claim over two open items with
+no basis, which is the superlative pattern already logged. **When a real finding
+is dressed past its evidence, the dressing is what the next session inherits.**
+
+**And the finding that replaces it, which neither the proposition nor the original
+item saw.** The clause's *function* is stated two ways by the two governing
+documents: §12 places it at Phase 1's **exit**; `CLAUDE.md`'s lifecycle amendment
+reads the identical sentence as gating Phase 1's **design**, fed by a running
+Phase 0 — and §12's own measurement table lists both metrics as Phase 0-emitted.
+Entry gate or exit gate. It is settleable today with no measurement, and it
+decides whether an exit procedure is even the right artifact. That is now the §14
+item.
+
+**Process note.** Two hunts in a row have now run before the writing rather than
+after. Both killed their proposition; the second also caught a defect that had
+already reached the spec. Cost of the pre-write order: one subagent each. Cost of
+the post-write order, four times earlier the same day: a commit, a revert, and a
+correction each time.
