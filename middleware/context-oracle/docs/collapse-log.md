@@ -553,3 +553,43 @@ at step 7 and the Phase 0 exit falls at step 8, while D20's degraded state
 machine is step 9 — *after* the exit (`:2704`–`:2709`). The consequence to settle
 is F8's: de-equating them leaves FR-J3's air-gap guarantee (RETHINK §12 decision
 2) with no phase assigned.
+
+## 2026-08-01 — crediting the owner with an answer the documents already contained
+
+**Caught by Max Cogar.** Small, and worth logging because of what it does to the
+record rather than what it did to the design.
+
+**What happened.** Asked what the purpose of Phase 0 is, the agent could not
+state one, drafted a new sentence, and then — when the owner pointed at the
+measurement framing — wrote it into spec §12 and a commit message as *"his
+framing, adopted."* It was not his. Spec §12's own "How to read this section"
+paragraph, added 2026-07-31, states *"each phase is gated on evidence only the
+previous phase can produce by actually running,"* and `docs/STATUS.md` of the
+same date states *"everything still undecided is waiting on measurements only a
+running Phase 0 can produce."* The agent had quoted the STATUS line back to the
+owner earlier in the same session. His actual question was why the written
+purpose was not being followed.
+
+**Class: unverified** — a claim about what the documents contain, stated without
+reading them. The second-order effect is the reason for this entry.
+
+**Why it matters more than a misattribution.** Two records were falsified in
+opposite directions. The spec gained a note saying the purpose statement was
+*missing*, one paragraph below the paragraph that contained it. And an agent's
+failure to read the documents it was working from was filed as an **owner
+contribution** — which converts a process failure into a feature request in the
+project's memory. A later session reading that would conclude the owner supplies
+the framing when the agent gets stuck, which is exactly the dependency this
+project's rules exist to remove (`CLAUDE.md`: the owner is never the
+collapse-tester; do not hand him a decision already written).
+
+**Standing lesson.** *Before recording that something was missing, read the file
+you are about to say it was missing from.* And when the owner points at
+something, establish whether he is **supplying** it or **citing** it — those
+produce opposite entries in the record. The default assumption should be citing:
+he has read these documents, and the agent-led rule means the answer is far more
+often already written than newly supplied.
+
+**What was genuinely absent**, and remains the real contribution of the change:
+the **membership test** — a rule that decides what belongs in Phase 0 by what the
+phase must yield. The purpose was stated; nothing had ever been derived from it.
