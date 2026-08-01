@@ -42,15 +42,12 @@ how the spec and the build phases relate to each other.
 Then review it, plan it, build it, and **run it** — because everything still
 undecided is waiting on measurements only a running Phase 0 can produce.
 
-**Why the old path failed, and you are the one who found it.** You asked why
-three build phases live in one spec. That was the whole answer. The spec says
-each phase can only be finished after the previous one has actually run and
-produced real numbers. But the rules said design all three up front. So
-everything for phases 2 and 3 was being designed against measurements nobody has
-taken, because nothing has ever been run. That is why the same half of the
-document collapsed in every round while the other half held every time. The
-evidence sat in front of me for four rounds; I reported the pattern twice without
-asking why it was there.
+**Why the old path failed, in one line.** Everything for phases 2 and 3 was being
+designed against measurements nobody has taken, because nothing has ever been
+run — so that half of the document collapsed in every review round while the
+other half held every time. You found it, by asking why three build phases live
+in one spec. The full account, and the lesson future sessions inherit from it, is
+the 2026-07-31 entry in `docs/collapse-log.md`.
 
 **What changed in the project this session, beyond the review work.**
 - The build rules now say the design is written **one phase at a time** instead

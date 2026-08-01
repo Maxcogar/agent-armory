@@ -103,7 +103,13 @@ Environment: Claude Code Remote cloud container
 `claude` CLI **v2.1.220** (the document previously certified against v2.1.218 —
 drift, as C-5 predicts), Node **v22.22.2**, Linux.
 
-**1 — `--max-turns 1` is prompt-dependent, and therefore not robust.**
+**1 — `--max-turns 1` is not robust; the variable is the tool flag, not the prompt.**
+*(Superseded twice, corrected 2026-07-31 after round 4. This block first claimed the
+command "does not work at all"; then claimed the variable was the system prompt's
+**content**. Both were wrong. Every failing run used the **deny-list**, which D11
+demoted to defence-in-depth. Under the flag the design actually ships — `--tools ""`
+— `--max-turns 1` succeeds **10/10 with a thin prompt**. There is no prompt effect.
+`--max-turns 2` remains correct as margin, so the shipped value is unaffected.)*
 *(Corrected 2026-07-30 after round 3. The first version of this block claimed the
 command "does not work at all" and that `--max-turns 1` "guarantees"
 `error_max_turns`, on a single sample. Round 3's expert-review could not
@@ -1445,11 +1451,11 @@ be **traversed, not inspected**.
    F3; corrected after round 3).** Structured output under `--json-schema` is
    delivered *through a tool call*, which costs a turn — `num_turns` is 2 in
    every observed run, success and failure alike. Whether **one** turn suffices
-   is **prompt-dependent**: 10/10 `error_max_turns` under a thin system prompt,
-   5/5 success under a rich one (Spike 1). `--max-turns 1` is therefore not a
-   hard failure but an unstable one, which is worse for a lane whose three
-   consecutive failures trip degraded mode (D20) — an intermittent fault with no
-   stable reproduction. The prior sentence asserting
+   depends on the **tool flag**, not the prompt: every observed
+   `error_max_turns` used the demoted deny-list, while the shipped `--tools ""`
+   succeeds 10/10 under a thin prompt (Spike 1, corrected 2026-07-31 after
+   round 4). `--max-turns 2` is retained as margin, not as a fix for a failure
+   mode that does not occur under the shipped flags. The prior sentence asserting
    `--max-turns 1` "bounds it to a single generate-no-tool turn" was false in
    both halves and is deleted. Two turns is the structural minimum; the bound is
    *"one model generation plus its verdict delivery,"* which is what actually
