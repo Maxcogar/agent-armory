@@ -130,13 +130,14 @@ and non-overlapping, and the document has no dangling internal reference. What r
 one habit, and it is the habit the fix-diff itself wrote into the collapse log: *a device
 that asserts a property of the whole document gets written once and is never re-checked
 against the document it describes.* §3's disposition column is arithmetically perfect and
-substantively wrong in at least seven of its thirty-eight "unchanged" rows — in three of
+substantively wrong in at least eight of its thirty-eight "unchanged" rows — in three of
 them contradicted by this document's own decision records, which state the very change §3
 denies. §4's closing source attestation is falsified by §3's inheritance mechanism, and
 §2's stated narrowing criterion does not distinguish the arm it narrows from the arm it
 declines to narrow. Beneath those, one requirement's index enumeration omits the artifact
-two of its own criteria test for, and the single unsourced genre-ranking clause from rounds
-1 and 2 survives a third time — now annotated by a decision record that contradicts it.
+two of its own criteria test for, one decision record claims a v1 value as this document's
+ungrounded judgment, and the single unsourced genre-ranking clause from rounds 1 and 2
+survives a third time — now annotated by a decision record that contradicts it.
 
 ---
 
@@ -196,7 +197,7 @@ spec:116–117).
 | §3 dispositions every v1 `FR-*`/`NF-*`/`C-*` requirement exactly once | **honored** | Deterministic scan: 65 identifiers in v1; §3's buckets 38 + 10 + 17 = 65; **0 overlaps, 0 in a bucket but absent from v1, 0 in v1 but absent from every bucket** |
 | §1: "this document does not mint new ones in those namespaces" | **honored** | Same scan: 44 `FR-*`/`NF-*`/`C-*` definitions in this spec, **0 absent from v1**. `FR-A5a`/`FR-A5b` are gone, renamed into the `P0-*` namespace as `P0-5`/`P0-6` |
 | §1: the v1 principle namespace is `P1`–`P9` | **honored** | grep of v1 for `^- \*\*P[0-9]` → 9 hits, Read; spec:9 now writes `P1`–`P9` |
-| The disposition each requirement is given is **correct** | **violated (≥ 7 rows)** | Per-requirement text comparison across all 38 declared-unchanged rows — see S1 |
+| The disposition each requirement is given is **correct** | **violated (≥ 8 rows)** | Per-requirement text comparison across all 38 declared-unchanged rows — see S1 |
 | Every internal identifier reference resolves | **honored** | Scan of 99 defined identifiers against every boundary-anchored reference: **0 dangling**; the 17 unresolved names are all v1 identifiers referenced by §2/§3/P0-1 in the act of dispositioning them |
 
 ---
@@ -208,7 +209,7 @@ B, and no violation of Critical classification was observed.
 
 ---
 
-### S1 — §3's "in force unchanged" disposition is false for at least seven of its thirty-eight rows, and in three of them the document's own decision records state the change §3 denies · **Serious · Systemic · new**
+### S1 — §3's "in force unchanged" disposition is false for at least eight of its thirty-eight rows, and in three of them the document's own decision records state the change §3 denies · **Serious · Systemic · new**
 
 **What the spec does now.** §3 (spec:91–93) states its own purpose: *"The v1 spec carries 65
 `FR-*`/`NF-*`/`C-*` requirements. Each has exactly one Phase 0 disposition below, **so a
@@ -229,9 +230,9 @@ document contradicts itself between two of its own sections.
 
 | Requirement | v1 text (Read) | Phase 0 text (Read) | The document's own decision record |
 |---|---|---|---|
-| **FR-L6** | *"Human statements **in chat** are recorded as facts with human provenance"* (v1:—, Read in the extracted block) | *"Their Phase 0 entry channel is **the CLI** (§12)"* (spec:244–247) | **P0-D-2** (spec:503–506): *"FR-L6's v1 input is a statement made in the session, and the session reader is Phase 1."* An input-channel substitution, stated as such. |
-| **FR-A6** | *"below a configurable minimum of mined history **per region**"* — **one** floor | *"**Two**, because a thin corpus and a thin region silence for different reasons… corpus-level… below 200 mined transactions; region-level… below 20"* (spec:327–332) | **P0-D-7** (spec:523–528): *"The corpus floors are separate from the evidence floor, and **there are two of them**."* A second floor granularity that v1 does not have. |
-| **FR-A7** | *"only highest-confidence **genres** speak"* — set left open | *"only the highest-confidence candidates speak: the generated and vendored warnings… and coupling **at the P0-5 warn-grade floor** rather than the looser suggestion grade"* (spec:333–336) | **P0-D-8** (spec:529–535): *"FR-A7's Phase 0 set is coupling at the warn-grade floor, **not coupling generally**."* A restriction of the admitted set. |
+| **FR-L6** | *"Human statements **in chat** are recorded as facts with human provenance"* (v1:554–556) | *"Their Phase 0 entry channel is **the CLI** (§12)"* (spec:244–247) | **P0-D-2** (spec:503–506): *"FR-L6's v1 input is a statement made in the session, and the session reader is Phase 1."* An input-channel substitution, stated as such. |
+| **FR-A6** | *"below a configurable minimum of mined history **per region**"* (v1:435–437) — **one** floor | *"**Two**, because a thin corpus and a thin region silence for different reasons… corpus-level… below 200 mined transactions; region-level… below 20"* (spec:327–332) | **P0-D-7** (spec:523–528): *"The corpus floors are separate from the evidence floor, and **there are two of them**."* A second floor granularity that v1 does not have. |
+| **FR-A7** | *"only highest-confidence **genres** speak"* (v1:438–440) — set left open | *"only the highest-confidence candidates speak: the generated and vendored warnings… and coupling **at the P0-5 warn-grade floor** rather than the looser suggestion grade"* (spec:333–336) | **P0-D-8** (spec:529–535): *"FR-A7's Phase 0 set is coupling at the warn-grade floor, **not coupling generally**."* A restriction of the admitted set. |
 
 **Group B — clauses dropped or added with no record anywhere.**
 
@@ -240,7 +241,8 @@ document contradicts itself between two of its own sections.
 | **C-3** | v1 (`v1:740–743`, Read) has two clauses: *"all harness-specific knowledge lives in the shims, **and the service speaks a harness-neutral event contract** (this is also what keeps subagent and other-harness support open)."* Phase 0 (spec:475) keeps only the first. | The harness-neutral event contract is the property that keeps FR-O6's subagent path and C-5's drift-degradation coherent. It is now in force nowhere. |
 | **FR-K1** | v1 (`v1:344–348`, Read) reads *"Incremental; **index content per `[RETHINK §4 T2]`**"* — a normative incorporation of RETHINK's Tier 2 list, which includes **entry points** (`RETHINK.md:133`, Read). Phase 0 (spec:212–213) replaces it with a bare trailing citation. | See M3 — two criteria test for entry points that no requirement now mandates indexing. |
 | **FR-X2** | v1 permits *"clearly delimited quotations **or** pointers."* Phase 0 (spec:409–415) makes *"Pointer-only… the default for every repository-derived span,"* permitting inline quotation only for mechanically-generated content. | A deliberate tightening — and the correct one (it closed the prior round's M4). It is a narrowing, and belongs in the narrowed table. |
-| **FR-D1** | v1 carries a normative clause Phase 0 drops: *"Guidance must carry enough for the reader to assess what the problem is and why `[JOHNSON-13]`."* | Either it is in force (and §4's source attestation is false — see M1) or it is not (and §3 is false). |
+| **FR-D1** | v1 (`v1:460–463`, Read) carries a normative clause Phase 0 drops: *"Guidance must carry enough for the reader to assess what the problem is and why `[JOHNSON-13]`."* | Either it is in force (and §4's source attestation is false — see M1) or it is not (and §3 is false). |
+| **FR-A3** | v1 (`v1:416–419`, Read) reads *"…configurable; **orientation counts against it**; warnings get priority…"*. Phase 0 (spec:287–291) drops the orientation clause. | Orientation is capped at ≤ 400 tokens per whisper (spec:262) but nothing now says those tokens are drawn from the 2,000-token session budget, which is what `NF-2` and `AC-19` measure. |
 
 **Which standard it violates.** §3's own stated purpose, quoted above — a reader who trusts
 the "unchanged" column and does not diff the two documents is misled in exactly the way §3
@@ -259,12 +261,12 @@ to design against. The prior round's S2 was this same defect at FR-A5; the fix m
 and five others into the narrowed table and stopped there, rather than re-deriving the whole
 column.
 
-**What correct looks like.** Move all seven into the "In force but narrowed here" table with
+**What correct looks like.** Move all eight into the "In force but narrowed here" table with
 the narrowing and its location stated, exactly as the ten existing rows do — e.g.
 `| FR-L6 — human statements | v1's in-session chat input is deferred with the transcript reader; the Phase 0 entry channel is the CLI | §6, §12, P0-D-2 |`. For C-3, either restore v1's
 harness-neutral-event-contract clause to the requirement text or record its removal as a
 narrowing with a reason. Then re-derive the remaining 31 rows the same way — the three in
-Group A were found by comparing §3 against §13, and the other four by comparing against v1,
+Group A were found by comparing §3 against §13, and the other five by comparing against v1,
 and neither comparison was run when the column was last edited.
 
 ---
@@ -334,7 +336,7 @@ ranking he has not made, per the standing directive.
    | Attestation | Location | Result |
    |---|---|---|
    | "Each has exactly one Phase 0 disposition" — *coverage* | spec:91–93 | **holds** (38 + 10 + 17 = 65; 0 overlap, 0 orphan either direction) |
-   | The same table's *disposition* column | spec:95–99 | **fails** — ≥ 7 of 38 rows (S1) |
+   | The same table's *disposition* column | spec:95–99 | **fails** — ≥ 8 of 38 rows (S1) |
    | "No source outside this table is cited, and no requirement depends on one" | spec:175 | **fails** — 7 v1 sources (M1) |
    | "Orientation's landmine arm is **not** narrowed" | spec:84 | **fails** its own criterion (M2) |
    | "this document does not mint new ones in those namespaces" | spec:9–10 | **holds** (0 minted, verified by set difference) |
@@ -378,7 +380,7 @@ ranking he has not made, per the standing directive.
   honored).
 - Numeric-source audit: every number stated normatively in §§5–11 traced to a source
   (30 entities → ROSE verbatim; 1.5 s / 3 s → v1 `[D-11]` via §3's unchanged disposition;
-  2,000 tokens → `[P0-D-4]`; support 3 / confidence 0.9 → ROSE verbatim; support ≥ 2 →
+  2,000 tokens → v1 `[D-10]`, mis-attributed by `[P0-D-4]` (see M4); support 3 / confidence 0.9 → ROSE verbatim; support ≥ 2 →
   `[HH-04]`; 200 / 20 transactions → `[P0-D-7]`; 3 sessions → `[P0-D-4]`/`[P0-D-8]`;
   3 stop-grade whispers → `[P0-D-9]`; 10% → `[P0-D-14]`; 400 tokens → `RETHINK.md:163`
   verbatim) → **0 unsourced**. The prior round's one unsourced number is closed.
@@ -448,6 +450,32 @@ This is the shape the collapse log names in the entry added by this fix-diff —
 test with no requirement behind it."* Fix: add `entry points` to `FR-K1`'s enumeration, or
 restore the normative incorporation — *"Index content is RETHINK §4's Tier 2 list
 (`RETHINK.md:130–134`) in full."*
+
+### M4 — `P0-D-4` classes the 2,000-token budget as this document's judgment; v1 `[D-10]` already fixes that number, with a derivation this document discards · **Moderate · new**
+
+`P0-D-4` (spec:510–513): *"**FR-A3's budget, FR-A6's floors and FR-A7's session count carry
+stated values**, without which NF-2 is unfalsifiable and FR-A6 and FR-A7 are untestable.
+**All are judgments of the same class as AC-2's rate** and are expected to move once Phase 0
+has run."* `AC-2`'s rate is `[P0-D-14]` (spec:563–564, Read), which states *"No published
+figure maps to per-event whisper rates for an agent consumer"* — i.e. an ungrounded judgment
+of this document's. Verified by Read of v1 `FR-A3` (`v1:416–419`): *"a per-session
+injected-token budget — hard caps per `[RETHINK §5]`, with **the 2,000-token default a spec
+judgment `[D-10]`**, configurable"*; and of v1 `[D-10]` (`v1:808–811`): *"**Session token
+budget defaulted to 2,000.** RETHINK §5 requires hard per-session caps but sets no number;
+2,000 ≈ five orientation-size whispers at the owner's ~400-token orientation bound.
+Configurable; the learning loop tunes it."* The value is not this document's and it is not
+ungrounded: v1 derives it from the owner's ~400-token orientation bound. Standard: the
+collapse log's standing lesson #3 (`collapse-log.md:495–498`, Read) — *"before recording that
+something was missing, read the file you are about to say it was missing from"* — and
+ISO/IEC/IEEE 29148 traceability: a decision record exists to tell a downstream reader where a
+value's authority comes from, and this one sends the reader to the wrong place. This is the
+same defect the prior round's S2 found at `P0-D-6`, which is closed; the class recurred at a
+sibling decision record that the fix did not re-derive. It matters because the discarded
+derivation is the one an architect needs: 2,000 is five orientation whispers, so changing the
+orientation cap changes the budget's meaning — a coupling invisible from `P0-D-4`'s text.
+Fix: split `P0-D-4` — the budget is v1's `[D-10]`, carried unchanged with its derivation
+restated (*"2,000 ≈ five orientation-size whispers at the ~400-token orientation bound"*);
+`FR-A6`'s floors and `FR-A7`'s session count are this document's, of `AC-2`'s judgment class.
 
 ### m1 — `C-3`'s citation points at a line that does not contain the claim, and the claim itself is half of v1's · **Minor · new**
 
@@ -610,12 +638,12 @@ breakdown):
 |---|---|---|---|---|---|
 | R1 (`3edc61f`) | 20 | 2 (1 Systemic) | 7 (1 Systemic) | 8 | 3 (1 Systemic) |
 | R2 (`332406c`) | 14 | 0 | 5 (1 Systemic) | 5 | 4 |
-| R3 (`93de2c2`) | **6** | **0** | **2 (1 Systemic)** | **3** | **1** |
+| R3 (`93de2c2`) | **7** | **0** | **2 (1 Systemic)** | **4** | **1** |
 
 **Flow counts for this round**, from the Step 9 provenance classifications:
 
 - **Prior findings closed: 13** — S1, S2, S3, S4, M1, M2, M3, M4, M5, m1, m2, m3, m4.
-- **New findings: 5** — S1, M1, M2, M3, m1.
+- **New findings: 6** — S1, M1, M2, M3, M4, m1.
 - **Recurring findings: 1** — S2 (prior S5, same clause, same standard).
 - **Regressions: 0.** No finding this round was introduced by a round-2 fix. This is the
   first round of the three with a regression count of zero, and it is the metric that had
@@ -642,15 +670,15 @@ Closure evidence per closed finding, each re-derived from current source:
 **Tripwire evaluation — NOT FIRED.** Arithmetic shown:
 
 - *Condition (a)* — new + regression ≥ closed, for two consecutive Post-fix rounds. This
-  round: 5 + 0 = **5**; closed = **13**; 5 ≥ 13 is **false**. Prior round: 0 + 1 = 1;
+  round: 6 + 0 = **6**; closed = **13**; 6 ≥ 13 is **false**. Prior round: 0 + 1 = 1;
   closed = 11; 1 ≥ 11 is **false**. Neither round satisfies the condition, so the
   two-consecutive requirement fails on both counts.
 - *Condition (b)* — total findings not strictly decreased, for two consecutive Post-fix
-  rounds. R1 → R2: 20 → 14, a **strict decrease**. R2 → R3: 14 → 6, a **strict decrease**.
+  rounds. R1 → R2: 20 → 14, a **strict decrease**. R2 → R3: 14 → 7, a **strict decrease**.
   Neither round satisfies the condition.
 
 Neither condition holds. The fix cycle is converging strongly: thirteen closures against
-zero regressions, the total down 70% across two rounds, and every remaining finding
+zero regressions, the total down 65% across two rounds, and every remaining finding
 concentrated in one named generator. Another fix round is the indicated path, not
 foundational rework.
 
@@ -685,14 +713,15 @@ Ordered by engineering consequence, not by effort.
 
 **Blocks the exit.**
 
-5. **M1 — narrow §4's source attestation to what is true**, or restore the seven inherited
-   sources. One sentence either way.
+5. **M1, M4 — fix the two provenance statements.** Narrow §4's source attestation to what
+   is true (or restore the seven inherited sources), and split `P0-D-4` so the 2,000-token
+   budget is credited to v1 `[D-10]` with its derivation. One sentence each.
 6. **m1 — widen `C-3`'s citation to `291–292` and restore v1's second clause.** One line,
    and it closes the last residual of round 1's citation-range defect.
 
 One process note for whoever executes this: per `CLAUDE.md`, apply **all** findings, and
 re-enter review as a Post-fix round whose inventory is this review's inventory plus the fix
-diff plus these six findings as closure items. This round produced **zero regressions**,
+diff plus these seven findings as closure items. This round produced **zero regressions**,
 which is new for this artifact — the practice that achieved it (re-deriving each fix against
 primary source rather than against the review's description of the defect) is worth keeping
 explicitly, because every prior round lost findings to fixes. The one thing this round's
@@ -702,4 +731,4 @@ time, not last.
 
 ---
 
-Verdict: NEEDS FIXES (6 findings: 1 Serious-Systemic, 1 Serious, 3 Moderate, 1 Minor)
+Verdict: NEEDS FIXES (7 findings: 1 Serious-Systemic, 1 Serious, 4 Moderate, 1 Minor)
