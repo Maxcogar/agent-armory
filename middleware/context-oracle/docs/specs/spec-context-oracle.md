@@ -513,9 +513,16 @@ of stores and whisper logs (FR-X6). Init/deinit contract is C-4.
 - **FR-J3** — Degraded mode (no model path available): deterministic genres
   only — minimal orientation (structural entry points and literal-match
   landmines, no model intent inference), coupling, generated-file warning,
-  verification, completeness — with a raised confidence bar, announced once
-  per session on the human channel and never into agent context. `[OWNER-2]`
-  `[RETHINK §11]`
+  verification, completeness, **consequence** — with a raised confidence bar,
+  announced once per session on the human channel and never into agent context.
+  `[OWNER-2]` `[RETHINK §11]`
+  *(Consequence added 2026-08-01 `[D-21]`. This enumeration governs what the
+  oracle delivers **at runtime when the model path is unreachable**; §12's
+  Phase 0 list governs what gets **built first**. They were the same sentence
+  until 2026-08-01 and are now separate, so they must be kept aligned by hand:
+  a deterministic genre in the build set that is missing here would be switched
+  off by a model-path failure despite needing no model — which would make
+  degraded mode something other than "the same system minus the model lane".)*
 - **FR-J4** — Judgment fits the FR-O3 latency budget: candidates precomputed
   or asynchronous wherever possible; the model call gets one shot within
   budget or the event resolves to silence. `[RETHINK §5]`
@@ -853,6 +860,23 @@ decision and reasoning are recorded here.
   directory's CLAUDE.md makes them load automatically for any agent working
   the project, rather than relying on agents finding a doc.
 
+- **D-21 — Phase 0's genre list stated directly, and degraded mode separated
+  from it.** §12 previously set Phase 0's genres by reference to FR-J3's
+  degraded-mode enumeration and asserted that "degraded mode *is* the product at
+  this phase." Two independent passes established from source that they are
+  different things: degraded mode is a runtime fallback for an unreachable model
+  path (FR-J3; FR-A5's bar "rises further in degraded mode"; AC-10, which
+  verifies it, is a Phase 2 exit), while Phase 0 is a build stage with no model
+  path to fall back from. Left as written, Phase 0 would have shipped a bar
+  raised to compensate for an absence that is not a failure, and announced
+  "degraded mode" when nothing had degraded — and every measurement Phase 0
+  emits, on which later phases are tuned, would have been taken at that setting.
+  Phase 0's genres are therefore listed directly (§12), FR-J3 is placed in
+  Phase 1 alongside the model path it falls back from, and consequence is added
+  to FR-J3's runtime enumeration so a model-path failure cannot switch off a
+  genre that needs no model. Nothing is removed from v1; consequence moves from
+  Phase 1 to Phase 0, and answer drift does not move.
+
 ## 12. MVP boundary and build order
 
 **How to read this section (added 2026-07-31).** The phase exits below are
@@ -870,7 +894,63 @@ collapsed the Phase 1 and Phase 2 architecture in every round while the Phase 0
 material survived every round. The split ran exactly along this boundary. See
 `docs/collapse-log.md`, 2026-07-31.)*
 
-**What decides Phase 0's contents — OPEN, and blocking (2026-08-01).** §12 lists
+**How Phase 0's genre list was derived `[D-21]` (2026-08-01).** Until now §12 set
+Phase 0's genres by reference to *"the FR-J3 degraded set"* — a runtime-mode
+definition doing a build-stage's job, which is the defect the rest of this
+section records. The list is now stated directly, derived as follows and
+**dropping nothing**: a genre is built in Phase 0 when its whisper is derivable
+from the stores and per-consumer Tier 3 state by deterministic lookup keyed by
+the observed event, with no model call. FR-J1 supplies the spec-level warrant —
+*"purely mechanical candidates with objective evidence … may bypass model
+judgment"*.
+
+Three limits on that sentence, stated so it is not read as more than it is:
+
+1. **It is the derivation of this list, not a standing membership rule.** It
+   explains how these six were chosen. It is not a test to apply to future
+   candidates, and no genre may be excluded from anything by citing it.
+2. **An unpopulated or unbuilt store row is deferred content within a live
+   genre, never a membership test.** Orientation's landmine writer and
+   verification's region→command join are both incomplete; neither costs its
+   genre its place. A genre that cannot yet fill a row is a work item, not a
+   candidate for removal — the distinction the architecture's own genre table
+   already draws.
+3. **This is a build-dependency criterion, not a judgment about value.** An
+   earlier attempt to scope Phase 0 by "which genres run without the model" was
+   recorded as a correctly-diagnosed defect, and the objection was that it
+   decided *worth* at build-plan level, permanently and unmeasurably. The
+   distinction: the model client is a component that does not exist until
+   Phase 1, so a genre needing it cannot be built earlier — that is a
+   dependency, and it changes when the component lands. It is not a claim that
+   the excluded genres say less. Whether a whisper is worth speaking is
+   FR-A5's, per candidate, at runtime.
+
+**What deleting the degraded-mode equation changes, stated rather than left to
+arrive as a side effect:** Phase 0 ships FR-A5's **ordinary** bar — the raised-bar
+delta exists to compensate for a lost intent signal, and Phase 0 has not lost one,
+it has not been built yet. Every term of that bar is computable without a model:
+`materiality` falls back to the genre's base weight for mechanical genres,
+`structural_weight` is deterministic by construction, and `self_serve_cost` is
+derived from provenance class and what this consumer has already done. And Phase 0
+issues **no** degraded-mode announcement, because nothing has degraded.
+
+**Two genres move earlier and one does not, all three recorded:**
+
+- **Consequence** moves from Phase 1 to Phase 0. Its content — call-site count
+  and spread — is a `ref_edges` lookup keyed by a pending edit, needing no
+  model. Struck from Phase 1's bullet in the same edit. **No acceptance
+  criterion anywhere covers it** (§14).
+- **Answer drift stays in Phase 1**, and the reason is worth recording because
+  it was nearly moved: it satisfies "no model call" but not "lookup keyed by the
+  observed event" — its trigger is a transcript-derived state machine, and the
+  component that writes its open questions is the narration reader, which this
+  section places in Phase 1. Its criterion AC-20 is a Phase 1 exit. Its
+  contested status stays open in §14 with that blocker named.
+- **Unknown** is outside this derivation's reach — its trigger is a determining
+  query returning empty, which is neither a store lookup nor a model call. §12
+  still assigns it to no phase; recorded in §14, not resolved here.
+
+**What decides Phase 0's contents — the remaining open part.** §12 lists
 each phase's components, genres and exits, and states the phase *dependency*
 (above: each phase is gated on evidence only the previous phase can produce by
 running). It has never stated a rule that decides what belongs in a phase. A rule
@@ -882,6 +962,15 @@ It is recorded as removed, not as pending: it asserted an unattributed
 exclusive-purpose claim, was undecidable on its own materials, and supplied a
 build-plan-level exclusion lever of exactly the form the preceding hunt had spent
 fourteen findings removing.
+
+**What has since been settled, and what has not.** Phase 0's genre list is now
+stated directly rather than by reference to a runtime mode, with its derivation
+recorded as `[D-21]` above. What is still not stated is a general rule deciding
+phase membership for a *future* candidate — and per `[D-21]`'s first limit, the
+derivation there is explicitly not one. Whether such a rule is needed at all is
+itself open: two attempts to write one were killed, both for supplying an
+exclusion lever, and the project has since settled six of the twelve genres
+without one.
 
 **Which measurements Phase 0 emits — partly settled 2026-08-01, one row still
 open.** §9.2 attributed its metrics to the Phase 2 distiller while §6.3 and NF-2
@@ -928,13 +1017,24 @@ same reading error produced all three: reading one section and not the ones that
 answer it. All open items above are carried in §14.)*
 
 - **Phase 0 — deterministic spine.** Shims + session service + Tier 2 index +
-  co-change miner (with FR-K2 hygiene) + the diagnostic core (FR-M1, FR-M2).
-  Genres: the FR-J3 degraded set (deterministic minimal orientation,
-  coupling, generated-file warning, verification, completeness). Degraded
-  mode *is* the product at this phase. Exit: AC-1..AC-5, AC-12, AC-14,
+  co-change miner (with FR-K2 hygiene) + the diagnostic core (FR-M1, FR-M2) +
+  the secret scanner and injection-suspect flagger (FR-X1, FR-X3) + the whisper
+  audit log (FR-X6) + the CLI (`init`, `index`, `status`, `deinit`).
+  **Genres: orientation, coupling, generated-file warning, completeness,
+  verification, consequence** `[D-21]`. Exit: AC-1..AC-5, AC-12, AC-14,
   AC-17, AC-18 pass; the owner runs it on a real project without incident.
-- **Phase 1 — judgment.** §6.2 model access incl. recursion guard; narration
-  intent tracking; assumption-check, steering, consequence, answer genres;
+
+  *(Component list corrected 2026-08-01 by deriving it from Phase 0's own nine
+  exits rather than from the prose: AC-4 and AC-18 require the CLI, AC-12
+  requires the scanner before any ingesting component, and FR-X6 applies to
+  every whisper, so a phase that emits whispers writes the audit log. The list
+  has been audited against all nine exits; if a later exit changes, re-derive
+  rather than append.)*
+
+- **Phase 1 — judgment.** §6.2 model access incl. recursion guard; degraded
+  mode (FR-J3) — the fallback for the model path, and therefore no earlier than
+  the path it falls back from; narration
+  intent tracking; assumption-check, steering, answer genres;
   conduct genres (FR-A8, FR-A9); subagent delivery (FR-O6); companion skill;
   the §14 Phase 1 verifications (piggyback credential coverage, transcript
   freshness, subagent hook contract). Exit: AC-6..AC-8, AC-11, AC-16,
@@ -1141,10 +1241,46 @@ FR-L1, §12 and §13 against each other. Each blocks something named.*
   the Warning genre's landmine arm (FR-A2 gives Warning *"generated/vendored
   zone, or landmine with strong evidence"*; Phase 0 admits only the generated-file
   half).
-- **Consequence and answer drift are contested** (§12 vs the architecture): §12
-  places both in Phase 1; the architecture's genre table places answer drift in
-  Phase 0 and gives consequence a Lane 1, zero-cost path. Blocks the Phase 0
-  genre set.
+- **Answer drift's phase remains contested, with its blocker now named** (§12 vs
+  the architecture): §12 places it in Phase 1; the architecture's genre table
+  places it in the deterministic set. Settling it toward Phase 0 is not a
+  one-line move — the component that writes its open questions is the narration
+  reader, which §12 places in Phase 1 and the build order places after the
+  Phase 0 exit; its criterion AC-20 is a Phase 1 exit; and its mechanically
+  decidable predicate exists only in the architecture, explicitly narrower than
+  FR-A9 itself. A prior review priced the move at five coordinated changes.
+  *(Consequence's half of this item is settled — see `[D-21]`.)*
+
+- **The consequence genre has no acceptance criterion** (§13): none of AC-1
+  through AC-22 names FR-A2's consequence row, and `[D-21]` places the genre in
+  Phase 0. It is therefore built in a phase whose exit cannot check it. Same
+  class as the AC-coverage gap below, recorded separately because `[D-21]` is
+  what makes it current.
+
+- **Three architecture passages rest on a sentence the spec has deleted**
+  (`[D-21]`): the whole-scope architecture justifies keying `whisper_stats` and
+  `genre_state` by mode on the basis that "Phase 0 *is* degraded mode"; states
+  that `decision-impact` falls back to `structural_weight` alone; and records
+  degraded mode as the Phase 0 product in its build order. All three follow from
+  the deleted equation. The document is retained as a record and not as a base
+  to edit, so this is recorded for whoever writes the Phase 0 architecture rather
+  than fixed in place — but it must not be inherited silently.
+
+- **Two Phase 0 obligations reference Phase 1 machinery** (`[D-21]` made this
+  explicit rather than creating it): §6.3 gives `ctxoracle status` the
+  "degraded-mode state" to report, and AC-18's induced-failure list includes a
+  "blocked model path" — both Phase 0, while degraded mode is now Phase 1. Same
+  class as AC-2 depending on the model judgment.
+
+- **FR-A5's evidence-floor gloss is loose, and the contradiction it appears to
+  create is in the architecture, not here** (R4-C1): FR-A5's governing clause is
+  *"**History-backed genres** additionally respect evidence floors"*, which
+  exempts the generated-file warning — a zone classification with no co-change
+  support — so AC-5 can fire. But the gloss then enumerates "the Warning genre"
+  wholesale, which reads as including it. The genuine defect is the
+  architecture's restatement of the floors against "warn-grade" with the
+  history-backed qualifier dropped. A one-clause tightening of the gloss is
+  defensible; asserting that the spec contradicts itself is not.
 - **Per-consumer state's phase** (FR-O6, `[OWNER-8]`): §12 places subagent
   delivery in Phase 1, but keying Tier 3 state per consumer is foundational
   rather than additive. Blocks the Phase 0 architecture's state model.

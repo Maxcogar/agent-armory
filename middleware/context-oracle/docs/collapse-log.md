@@ -969,3 +969,70 @@ and only three files existed. The four missing files were written the same day.
 The rule exists because a finding that lives only in a collapse-log summary cannot
 be checked against by the next round — and this session came within one audit of
 losing four passes' worth of evidence.
+
+## 2026-08-01 — the genre that was included because inclusion is unchallengeable
+
+**Caught by the independent collapse-hunt, before the edit was written.** Eighth
+pass. Thirteen findings; the edit was written the same day in the corrected form.
+
+**What was proposed.** Replace §12's *"Genres: the FR-J3 degraded set"* with a
+directly stated list, derived on the basis *"derivable from the stores by
+deterministic lookup keyed by the observed event, with no model call."* Applying
+it yielded seven genres and resolved both contested memberships.
+
+**What collapsed: one of the seven.** Answer drift satisfies *"no model call"* and
+fails *"lookup keyed by the observed event"* — its trigger is a transcript-derived
+state machine, and the component that writes its open questions is the narration
+reader, which §12 places in Phase 1. **The spec said so fifteen lines above the
+bullet being rewritten, in a sentence this same session had written hours
+earlier:** *"needs a narration reader, which §12 places in Phase 1."*
+
+**Class: wrong-check**, and the hunt's own diagnosis of the motive is the entry:
+
+> *"It is included because inclusion is the shape least likely to be challenged,
+> and because including it lets the edit claim it resolves both contested
+> memberships. Dropping it costs the proposal that headline and nothing else."*
+
+**Standing lesson — a criterion that admits every member but one on both conjuncts,
+and that one member on a single conjunct, was not the criterion that produced the
+list.** It was reverse-engineered from a list already chosen. The tell is
+mechanical and takes one pass: walk the criterion across its own output, conjunct
+by conjunct, and mark which clause each member satisfies. A member carried by a
+subset of the clauses is a member the criterion did not select.
+
+**A second lesson, on the safe direction.** This project's dominant failure is
+*reduction*, so every safeguard points at exclusion — and after seven kills the
+authoring instinct had learned that **inclusive proposals are the ones that
+survive**. That is a real bias with a real cost: an inclusive error ships a genre
+into a phase that cannot build it, and no rule in this project catches it, because
+every rule is aimed the other way. *Being wrong in the safe direction is still
+being wrong, and it is harder to see precisely because nothing is watching for it.*
+
+**A third, on lifecycle inversion with the tell removed.** The basis classified
+answer drift by a property — "is it mechanically decidable" — that the spec never
+establishes: FR-A9 says the genre fires when turns *"fail to **address**"* a
+question, and supplies no predicate. The only mechanical predicate lives in the
+architecture, explicitly *"narrower than FR-A9's full breadth."* So the criterion
+would have written an architecture-derived narrowing into the spec as a fact about
+the requirement — **an inversion running through a criterion instead of through a
+citation, where the usual tell (a `D-n` reference in the spec) is absent.** Six of
+the seven survive a spec-only derivation; the one that does not is the one the
+architecture had quietly redefined.
+
+**Applied, in the corrected form:** six genres listed directly with the derivation
+recorded as `[D-21]`; consequence moved from Phase 1 and struck there; answer drift
+left in Phase 1 with its blocker named in §14; the degraded-mode equation deleted
+with its behavioural consequence stated affirmatively (Phase 0 ships the ordinary
+bar and announces nothing); FR-J3 placed in Phase 1 **and its runtime enumeration
+amended**, since a build-set genre missing from it would be switched off by a model
+failure despite needing no model; Phase 0's component list re-derived from all nine
+of its exits, adding the CLI, the security scanner and the whisper log; and the
+FR-A5 "fix" **not written**, because FR-A5's governing clause already exempts the
+generated-file warning and the real defect is in the architecture.
+
+**Three limits were required on the derivation and are now in the spec**, because
+without them the sentence is an exclusion lever: it is the derivation of this list
+and not a standing membership rule; an unbuilt store row is deferred content within
+a live genre, never a membership test; and it is a build-dependency criterion, not
+a judgment about what a genre is worth — that judgment is FR-A5's, per candidate,
+at runtime.

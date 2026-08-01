@@ -142,18 +142,32 @@ they merge.
 
 **What is next, concretely:**
 
-1. **One edit to the spec's build section, then the Phase 0 architecture.** The
-   edit: say directly which genres Phase 0 builds instead of pointing at the
-   degraded-mode list; delete the sentence saying Phase 0 *is* degraded mode; give
-   degraded mode itself a phase (it has none, and your decision 2 makes it a
-   promise); add the command-line tool to Phase 0's parts, since two of Phase 0's
-   own exit tests require it; and fix one sentence whose wording makes the
-   generated-file warning impossible to ever fire. Nothing is dropped from the
-   tool. The adversarial pass on that edit is running now, before it is written.
+**That edit is done.** The adversarial pass ran first and returned thirteen
+findings; the edit went in corrected. What the spec now says:
 
-2. **Then `docs/architecture-context-oracle-phase0.md`** — the first design
-   document for the first buildable phase. That is the next artifact, and after
-   today it is the first time the path to it has been clear.
+- **Phase 0 builds six genres**, named directly instead of by pointing at the
+  degraded-mode list: orientation, coupling, generated-file warning, completeness,
+  verification, and consequence. Consequence moves earlier — it needs no model, and
+  it is struck from Phase 1 in the same edit. **Nothing is dropped from the tool.**
+- **Answer drift stays in Phase 1.** I had it in the six. The pass caught that the
+  thing which writes its open questions is the narration reader, which the spec
+  places in Phase 1 — in a sentence I had written myself earlier the same day,
+  fifteen lines above the paragraph I was editing.
+- **Phase 0 is no longer called degraded mode.** It ships the ordinary bar and
+  announces nothing, because nothing has degraded.
+- **Degraded mode has a phase at last** — Phase 1, with the model path it is the
+  fallback for. Its own genre list was amended too, or a model failure would have
+  switched off a genre that never needed one.
+- **Phase 0's parts list was re-derived from its own nine tests** rather than
+  patched: it was missing the command-line tool, the secret scanner and the
+  whisper log.
+- **One thing I proposed was not written.** I claimed a sentence made the
+  generated-file warning impossible to fire. The pass read the whole sentence and
+  showed it doesn't — the qualifier I'd stopped short of exempts that warning. The
+  real defect is in the architecture, and it's recorded there.
+
+**Next: `docs/architecture-context-oracle-phase0.md`** — the first design document
+for the first buildable phase. Nothing blocks it now.
 
 **Deferred, with the reason** (these were steps 1–3 and gate nothing): where
 uptake detection lives — Phase 1, per the build rule; the per-requirement phase
