@@ -3,6 +3,52 @@
 *Plain-language project status, updated at the end of every working
 session. Newest entry first.*
 
+## 2026-07-31 — session ended by the owner; the fix cycle is over
+
+**Where the project is:** still design phase, no code — and the architecture
+document is not fixable by more rounds of fixing. The process's own stop-signal
+fired, and the reason turned out to be a structural problem you found, not I.
+
+**The plain version.** We reviewed the architecture four times, hard, with two
+independent reviewers each time. Round 2 found 10 problems, round 3 found 14,
+round 4 found 16. Every batch of fixes created about as many new problems as it
+closed — round 4's six worst were inside the very thing I built in round 3 to
+stop that happening. At that point the process has an automatic rule that says
+stop fixing, the foundation is wrong. It fired.
+
+**Why it kept failing — and you're the one who found it.** You asked why three
+build phases live in one spec. That was the whole answer. The spec says each
+phase can only be finished after the previous one has *actually run* and produced
+real numbers. But the rules told us to design all three phases up front. So
+everything for phases 2 and 3 was being designed against measurements nobody has
+taken, because nothing has ever been run. That's why the same half of the
+document collapsed in every single round while the other half held every time.
+The evidence was in front of me for four rounds and I reported the pattern twice
+without asking why it was there.
+
+**What survives:** your decisions in RETHINK; the spec's first-phase material;
+the store design, the event contract, the shim, the indexer, the security
+scanner, the repo-identity mechanism — several of which held up under reviewers
+actively trying to break them and re-running them; and everything we proved by
+running it (the login trick works, the tool lock-down works, the timings, the
+turn behaviour). Four reviews and two logs are a genuinely useful record of how
+this fails.
+
+**What doesn't survive:** the design for the thinking half — the judgment core,
+the two conduct nudges you asked for, the "when to speak" dial, the learning
+loop. Not because the work was careless, but because it couldn't be done yet.
+
+**A correction I owe you, and it's the second one on the same point.** I told you
+the tool's model command "fails every time," then told you it "depends on the
+wording." Both wrong. Under the setting the design actually uses it succeeds 10
+out of 10. Nothing about the tool changes; what changes is that you were handed a
+confident wrong answer twice by me.
+
+**Nothing needed from you.** A full handoff for the next session is written at
+`docs/handoffs/2026-07-31-tripwire-fired-structural-defect.md`, including an
+explicit warning to double-check my judgment about what to do next, because I was
+wrong about that three times today.
+
 ## 2026-07-30
 
 **Where the project is:** still design phase, no code — still correct. The
