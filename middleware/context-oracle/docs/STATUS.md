@@ -113,21 +113,27 @@ Phase 0's is "the owner runs it on a real project without incident." I described
 something all three do as a fault in one, without reading the other two. Same
 mistake as earlier in the day, one screen away this time.
 
-**What is actually there, smaller and more useful.** Phase 1's trailing sentence
-is the only one of the three that names neither a person nor a condition under
-which it would not be met. And the two governing documents disagree about what
-the sentence is *for*: the spec puts it at Phase 1's finish line, while the
-project's own build rule reads the same sentence as the thing that has to exist
-*before* Phase 1 can be designed — produced by running Phase 0. Entry gate or
-exit gate. That needs no measurement to settle, and it decides whether Phase 1
-even has an exit condition to write.
+**And then I overstated the *replacement* finding too, and a seventh pass settled
+it.** I said the spec and the project's build rule disagreed about that sentence —
+entry gate or exit gate — and made it step 1. They don't disagree. The spec's own
+"how to read" paragraph says both things: exit clauses are measurements, *and* a
+phase's design-readiness runs through the measurements its own exit names. The
+build rule was quoting the second half. What made them look like they conflicted
+was that the build rule carried a full copy of the spec's sentence plus a claim
+that Phase 0 produces both numbers — and that copy went stale when hit rate's
+producibility became doubtful. **The whole thing was one duplicated sentence.** It
+is now a pointer, four words shorter, and the spec is untouched.
+
+That was worth ten minutes, not a step 1 — the pass that settled it said so, and
+it was right. Two real defects did surface on the way, and they are in §14: the
+spec's design-readiness rule is unsatisfiable at Phase 2 (it would require Phase 2
+to have already run), and **nobody ever reviews Phase 0's numbers** — its exit
+names a run but no measurement and no review, while the metrics start being
+emitted the moment it runs.
 
 **What is next, concretely, in order:**
 
-1. **Settle whether that sentence gates Phase 1's start or its finish.** One
-   document says each. Nothing can be written about Phase 1's exit until this is
-   decided, and it needs no data.
-2. **Settle where uptake detection lives**, knowing the FR-A4 route is closed:
+1. **Settle where uptake detection lives**, knowing the FR-A4 route is closed:
    either the distiller keeps it and Phase 0 reports a *pointer-followed rate*
    under its own honest name, or detection moves and the cost of moving it is
    stated. Not a naming question — the two measure different things.

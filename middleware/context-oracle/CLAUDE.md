@@ -227,10 +227,9 @@ produced the archived `ctxpack` mess. Therefore:
   **Amended 2026-07-31.** This rule previously named one document
   (`docs/architecture-context-oracle.md`) and required it to resolve
   *judgment-prompt construction* and the *recursion-guard mechanism* — both
-  Phase 1 — before any implementation. That contradicted spec §12, whose phase
-  exits are **measurements, not tests**: Phase 1's design is gated on *"measured
-  silence and hit rates reviewed against the bar"*, which only a running Phase 0
-  can produce. The old rule therefore mandated architecting Phase 1 twice — once
+  Phase 1 — before any implementation. That contradicted spec §12, which forbids
+  treating a Phase 1 requirement as architecturally resolvable before Phase 0 has
+  run. The old rule therefore mandated architecting Phase 1 twice — once
   now against nothing, once later against data — and four adversarial review
   rounds (2026-07-30/31) confirmed the consequence empirically: the Phase 0
   material survived every pass while the Phase 1 and 2 material collapsed in

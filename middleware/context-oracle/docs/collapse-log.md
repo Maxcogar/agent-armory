@@ -907,3 +907,65 @@ after. Both killed their proposition; the second also caught a defect that had
 already reached the spec. Cost of the pre-write order: one subagent each. Cost of
 the post-write order, four times earlier the same day: a commit, a revert, and a
 correction each time.
+
+## 2026-08-01 — the conflict that was one duplicated sentence
+
+**Settled by an independent adjudication**, run before anything was written. The
+seventh pass of the day, and the third in a row to run in the right order.
+
+**What was claimed.** That spec §12 and `CLAUDE.md` disagreed about a single
+sentence — *"measured silence and hit rates reviewed against the bar"* — with §12
+placing it at Phase 1's **exit** and `CLAUDE.md` reading it as gating Phase 1's
+**design**. It was written into §14 and made STATUS's step 1.
+
+**There was no disagreement.** §12's own "How to read" paragraph states *both*
+functions, and the half that decides it is the half I had been omitting: a phase's
+requirements are *"not a design-ready basis until the measurements **their exits**
+name exist"* — "their" binding to the phase's own exit. `CLAUDE.md` was quoting a
+function §12 assigns itself. What produced the appearance of conflict is that
+`CLAUDE.md` carried a **full copy** of the spec sentence plus an appended claim
+that Phase 0 produces both metrics — and that copy diverged from its source when
+hit rate's producibility became unsettled.
+
+**Class: wrong-check**, on a half-quote.
+
+**Standing lesson — when two documents appear to conflict, check whether one is
+quoting the other before deciding which wins.** A duplicated sentence does not
+announce itself as a duplicate; it presents as an independent source agreeing or
+disagreeing with the original. The information policy already predicts the
+mechanism in as many words — *"the two diverge and nothing tells you which is
+current"* — and this is that failure caught downstream instead of upstream. The
+tell was available: the two passages were verbatim identical except for an
+appended clause. **Identical wording between two files is evidence of copying, not
+of corroboration.**
+
+**A second lesson, on half-quotes.** The paragraph I cited as "an entry-gate
+statement" continues past where I stopped reading, and the continuation reverses
+the reading. This is the third distinct form of the same failure logged today —
+declaring a mechanism missing without reading the line that defines it; claiming
+"every other X" without enumerating; and now quoting to the em-dash and stopping.
+All three are *stopping too early against a source that is right there*.
+
+**On triage.** The adjudication was also asked whether the question was
+load-bearing, and answered no: the clause stays in place under every surviving
+reading, nobody may write Phase 1's exit procedure now regardless, and none of
+Phase 0's real blockers turn on the answer. It was worth settling only because it
+was cheap and because leaving it open guaranteed a later session would re-argue
+it. **STATUS had it as step 1; that was an overstatement of the same kind as the
+finding itself.** Ask what a question unblocks before ranking it.
+
+**Two genuine defects surfaced on the way, both now in §14:** §12's
+design-readiness rule is a set claim that is unsatisfiable at Phase 2 (only Phase
+2's own distiller can produce what Phase 2's exit names), and **Phase 0's numbers
+are never reviewed by anybody** — its exit clause names a run but no measurement
+and no review, while §9.2's metrics begin emitting the moment it runs.
+
+**Applied:** `CLAUDE.md`'s duplicated clause replaced with a pointer — the whole
+fix, in one file, net shorter. The spec's Phase 1 bullet was not touched.
+
+**Housekeeping the adjudication caught.** `docs/reviews/README.md` requires every
+review pass to write its full output there. Six hunts were recorded for 2026-08-01
+and only three files existed. The four missing files were written the same day.
+The rule exists because a finding that lives only in a collapse-log summary cannot
+be checked against by the next round — and this session came within one audit of
+losing four passes' worth of evidence.

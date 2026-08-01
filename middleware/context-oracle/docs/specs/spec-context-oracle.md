@@ -1097,35 +1097,39 @@ FR-L1, §12 and §13 against each other. Each blocks something named.*
   through the architecture's existing "no uptake detector — hit rate not
   measured" path, never reported as hit rate.
 
-- **What the measurement clause on Phase 1 is *for*** (§12 vs `CLAUDE.md`): all
-  three phases exit on acceptance criteria **plus** a trailing measurement clause
-  with no threshold — Phase 0's is *"the owner runs it on a real project without
-  incident"*, Phase 2's is *"a demonstrated case of the oracle measurably
-  improving between sessions"*, Phase 1's is *"measured silence and hit rates
-  reviewed against the bar."* That shape is deliberate (§12: exits are
-  *"measurements, not tests"*). What is not settled is where Phase 1's clause
-  belongs: §12 places it at Phase 1's **exit**, while `CLAUDE.md`'s lifecycle rule
-  reads the identical sentence as gating Phase 1's **design** — *"Phase 1's design
-  is gated on 'measured silence and hit rates reviewed against the bar', which
-  only a running Phase 0 can produce"* — and §12's own measurement table above
-  lists both metrics as Phase 0-emitted. Two documents, an entry gate and an exit
-  gate, same sentence. **Settleable now, with no measurement**, and it decides
-  whether Phase 1 has an exit condition to specify at all.
+- **§12's design-readiness rule is a set claim that holds for one member of the
+  set.** The "How to read this section" paragraph says a phase's requirements are
+  *"not a design-ready basis until the measurements **their exits** name exist"* —
+  each phase gated on its own exit's measurements. Applied to Phase 2 the rule is
+  unsatisfiable: Phase 2's exit names *"a demonstrated case of the oracle
+  measurably improving between sessions"*, which only Phase 2's own distiller can
+  produce, so Phase 2's requirements can never become design-ready before Phase 2
+  is built. The rule holds at Phase 1 only because silence rate happens to be
+  Phase 0-emitted. Needs restating in a form true of every phase.
 
-  Two things follow and are recorded so they are not re-argued. **The clause is a
-  tuning input, not a test**: `RETHINK.md` §5 states the operation — *"Ship with
-  the bar set high and lower it against measured hit rate"* — so asking what
-  number would fail it imports a frame §12 disclaims. And **Phase 1's clause is
-  the only one of the three naming neither an actor nor a condition under which
-  it is not met**; that, not a missing threshold, is the defensible form of the
-  gap. Note also that hit rate's producibility is itself unsettled (previous
-  item), so the clause currently names a metric that may not exist before Phase 2.
+  *(Settled 2026-08-01, and recorded because two sessions can otherwise re-argue
+  it: there is **no** entry-gate/exit-gate conflict between §12 and `CLAUDE.md`.
+  §12's paragraph states both functions — exit clauses are measurements, and a
+  phase's design-readiness runs through the measurements its own exit names — and
+  `CLAUDE.md` was quoting the second, not contradicting the first. The appearance
+  of a conflict came from `CLAUDE.md` carrying a full copy of the spec sentence
+  plus a claim that Phase 0 produces both metrics; that copy diverged from its
+  source when hit rate's producibility became unsettled. The copy is now a pointer.
+  Phase 1's exit clause is correctly placed and does not move.)*
 
-  *(Recorded 2026-08-01 after an earlier version of this item claimed Phase 1's
-  exit "states no pass condition" and that "every other phase exit resolves to
-  acceptance criteria." Both false — Phase 1's exit lists seven criteria, and all
-  three phases carry an unthresholded trailing clause. The error was asserting
-  what the other two exits contain without reading them.)*
+  Two durable notes from that work. **The clause is a tuning input, not a test** —
+  `RETHINK.md` §6 states the operation, *"Ship with the bar set high and lower it
+  against measured hit rate"* — so asking what number would fail it imports a
+  frame §12 disclaims. And **Phase 1's clause is the only one of the three naming
+  neither an actor nor a condition under which it is not met**; that, not a
+  missing threshold, is the real gap in it. Hit rate's producibility remains open
+  (previous item), and it is open for Phase 1 as much as for Phase 0 — uptake
+  detection is the distiller's, and the distiller is Phase 2.
+
+- **Phase 0's numbers are never reviewed** (§12): Phase 0's exit clause is *"the
+  owner runs it on a real project without incident"* — it names a run but no
+  measurement and no review, while §9.2's metrics start being emitted the moment
+  Phase 0 runs. Nothing in the spec says who looks at them or when.
 - **FR-J3 has no phase** (§12): neither Phase 0, 1 nor 2 names it, while
   `[OWNER-2]` and RETHINK §12 decision 2 (*"a deterministic-only degraded mode
   remains mandatory for true air-gap"*) make it a v1 obligation. Compounding it,
