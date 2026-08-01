@@ -72,16 +72,38 @@ Phase 1 on Phase 2. What is genuinely unassigned is narrower: recording whether 
 whisper was acted on. That is real, and it is still step 1 — but it is a smaller
 thing than I told you.
 
+**The measurement question is half-answered, and the spec now says which half.**
+Reading §9.2, §6.3, NF-2 and FR-L1 together settled the part that was a
+misattribution: FR-L1 gives the per-event log — *"candidates considered, whisper
+sent, and subsequent evidence of uptake"* — to the session service, which is a
+Phase 0 component. §9.2's "measured by the distiller" was too broad, and it is
+corrected. Recording, computing and learning are three jobs and only the third is
+Phase 2. **Phase 0 emits silence rate, latency and continuation count.**
+
+**Hit rate is still not established, and that is the live blocker.** FR-L1 records
+*evidence* of uptake; the architecture assigns *detection* of uptake to the
+distiller, and the store column for it is nullable — the shape of something
+written later. Recording that a file was opened is Phase 0; deciding that opening
+it counts as uptake of a particular whisper is a join, and the two documents put
+that join in different phases. Phase 1's exit is gated on hit rate, so this is
+what that exit currently rests on.
+
+A phase table for every requirement was also written this session and removed:
+its "verified by" column was wrong in twelve of forty-one rows, including the one
+row the whole change existed to establish. The idea is right and still owed; that
+execution asserted verification that does not exist, which is the thing this
+project treats as worse than no work at all.
+
 **What is next, concretely, in order:**
 
-1. **Settle who computes the health metrics, then write the list** — each
-   measurement Phase 0 must emit, the component that computes it, where it is
-   stored, and which later decision it unblocks. Read §6.3 and NF-2 alongside §9.2
-   first; the answer may already be in the spec. This is a list, not a rule: three
-   attempts failed this session by writing a rule ahead of its premises.
-1b. **Tag every requirement in the spec with its phase** (the 07-31 step, still
-   undone). This is what makes the Phase 0 boundary checkable, and it is what the
-   deleted document was reaching for by the wrong route.
+1. **Settle where uptake detection lives** — Phase 0 alongside the recording, or
+   Phase 2 with the distiller. Everything about hit rate follows from it, and
+   Phase 1's exit is written as if the answer were already Phase 0.
+2. **Rebuild the per-requirement phase table** (the 07-31 step, still owed). Build
+   the "verified by" column mechanically from §13, and write `— none` where a
+   requirement has no criterion, because that is the true and useful answer: §14
+   now records that FR-L1, FR-X6, FR-O1, FR-K1, NF-2 and four of five constraints
+   have no criterion at all.
 2. **Fix the bar (finding R4-4).** The tool's measure of whether a fact is worth
    saying has three terms, and one of them — how easily the agent could have got
    the fact itself — is deleted in exactly the mode Phase 0 was set to run in.

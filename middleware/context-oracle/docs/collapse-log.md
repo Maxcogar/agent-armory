@@ -706,3 +706,70 @@ mechanism is working. The authoring side is not learning within the session from
 entries it wrote hours earlier — twice it declared something missing without
 reading the file, after writing the lesson against exactly that. The dispatch-first
 order was adopted only on the third attempt.
+
+## 2026-08-01 — a true premise, and everything built on it in the same commit
+
+**Caught by the independent collapse-hunt**
+(`docs/reviews/2026-08-01-collapse-hunt-phase-table.md`, 23 findings, 8
+structural). Fourth pass of the day. Unlike the three before it, the **premise
+survived** — the failure moved downstream of it.
+
+**What survived.** FR-L1's subject is the session service, §12 places the session
+service in Phase 0, and FR-L1 is absent from §12's Phase 2 bullet. So the per-event
+log including uptake evidence is Phase 0 work, and §9.2's *"Measured … by the
+distiller"* was an over-broad attribution. Read correctly, from source.
+
+**What collapsed, and the lesson.** Everything built on that premise in the same
+commit, without the same discipline: a per-requirement phase table whose
+"Verified by" column was false in twelve of forty-one rows against §13's own
+mapping; two summary attestations, one demonstrably false; a genre section whose
+heading orphaned the phase bullets beneath it; and a row reinstating a claim
+killed eight hours earlier.
+
+**Standing lesson — a verified premise does not confer verification on its
+consequences.** Getting one hard read right produces exactly the conditions for
+the next error: the premise is checked, so the structure built on it feels
+checked, and the same commit ships forty rows nobody read against source. The
+discipline is per claim, not per commit. Specifically:
+
+1. **A table is not a summary; every cell is a claim.** The "Verified by" column
+   was written from memory of what each AC probably covers. §13 states its
+   mapping explicitly and it takes one pass to check. Twelve rows were wrong,
+   including the one row the entire change existed to establish — FR-L1, which
+   has **no** acceptance criterion at all.
+2. **Asserting more verification than exists is the project's worst failure
+   mode, and a phase table is a machine for doing it at scale.** `CLAUDE.md`
+   calls a falsely reported success strictly worse than no work at all; a table
+   commits forty of them in one edit and each one reads as checked.
+3. **Never insert a heading above content you did not intend to adopt.** The new
+   `### 12.2` re-parented §12's canonical phase bullets under a heading that
+   declared the matter open — and fifteen table rows cited `[§12]` as their
+   basis, resolving into it.
+4. **The falsifiable column is the one that gets dropped.** Both prior hunts
+   prescribed the same remedy, naming the **store row** each measurement lands
+   in. It was the one column omitted — and its absence is exactly what let a
+   non-existent component ("FR-A3 budget accounting") pass as a recorder. A store
+   row cannot be invented; a component name can.
+5. **"Every X is Y" written under a table is an attestation, and the standing
+   instruction is to treat it as a defect on sight.** Both such sentences here
+   were false: §9.2 lists six metrics and the table listed six *different* ones,
+   silently dropping regret rate and ceremony count, and no row corresponded to
+   Phase 2's exit at all.
+
+**Also recurring, fourth and fifth instance in one day:** lifecycle inversion
+(architecture decisions and a review-finding ID cited as spec authority, plus
+"Lane 1"/"Lane 2" — architecture vocabulary with no referent in the spec), and a
+contested membership settled by silence (the consequence genre, which STATUS names
+as one of exactly two).
+
+**Applied.** §12.1 and §12.2 removed; §9.2's three corrections made; the
+measurement table rebuilt with a store-row column, its scope stated, its
+attestations deleted, and its false-fire row narrowed to the outcome arm. The
+seven open items were moved to **§14**, which is the section whose one job that
+is and which none of the four artifacts had updated.
+
+**What is now honestly known:** Phase 0 emits silence rate, latency and
+continuation count. **Hit rate is not established** — FR-L1 records uptake
+*evidence*, the architecture assigns uptake *detection* to the distiller, and
+those are different acts in different phases. That question, not the genre set, is
+what Phase 1's exit currently rests on.
