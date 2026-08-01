@@ -57,7 +57,7 @@ dropped from v1.
 | Narration reading and intent tracking | Phase 1 | Requires the transcript reader |
 | Assumption-check, steering, answer genres | Phase 1 | Each requires model judgment over narration |
 | Process conformance and answer drift | Phase 1 | Process conformance requires model judgment; answer drift's open questions are written by the narration reader |
-| Unknown genre | Unassigned in v1 | Its trigger is a determining query returning empty — neither a store lookup nor a model call |
+| Unknown genre | Held open in the v1 spec §14, not resolved here | Its phase is genuinely undecided upstream; this document does not settle it and does not treat it as excluded from v1 |
 | Subagent delivery | Phase 1 | P0-3 fixes the Phase 0 obligation this creates |
 | Companion skill | Phase 1 | Teaches an agent to read whispers the judgment layer produces |
 | Distiller, learning loop, false-fire ladder, landmine/invariant/recipe mining, self-report, export/import | Phase 2 | Each consumes measurements Phase 0 produces |
@@ -146,6 +146,16 @@ Six genres.
 | **Completeness** | edit completed, or stop | the co-change partner not yet touched | co-change graph |
 | **Verification** | stop | the verification command for the changed region | per-region verification commands |
 
+**Arms of these genres deferred within the genre, not dropped from it.** The
+Content column above is narrower than the v1 spec's genre definitions in five
+places, and each is deferred content inside a live genre rather than a reduction
+of the genre: orientation's invariant arm and its ≤400-token cap; coupling's
+canonical-helper arm; consequence's historical-breakage and reuse arms;
+warning's landmine arm, whose phase the v1 spec §14 holds open; completeness's
+invariant arm. Each returns when the record type it reads has a writer. Two —
+consequence's reuse arm and completeness's invariant arm — are derivable from
+Phase 0's own stores and are deferred only because no criterion covers them.
+
 Consequence and warning fire on a pending edit, which requires injecting context
 without issuing a permission decision. The hooks contract makes this structurally
 available: `PreToolUseHookSpecificOutput` declares `permissionDecision` and
@@ -157,16 +167,21 @@ path *can* issue a permission decision.
   what it does next? Default answer no → silence. Answered deterministically in
   Phase 0. `RETHINK.md:170`: *"do I know something it almost certainly doesn't
   that would"* change what it does next.
-- **FR-A2** — At most one whisper per event, within a per-session injected-token
+- **FR-A3** — At most one whisper per event, within a per-session injected-token
   budget. Warnings get priority within the budget, never exemption from it.
   `RETHINK.md:175–176`.
-- **FR-A3** — Never tell the agent what it has already read, been told, or
+- **FR-A4** — Never tell the agent what it has already read, been told, or
   visibly acted on. `RETHINK.md:177–178`.
-- **FR-A4** — Each candidate carries confidence × decision-impact; only the top
-  candidate above the bar is spoken, and the bar ships high.
+- **FR-A5a** — Each candidate carries confidence × decision-impact × **marginal
+  value over what the agent could trivially discover with its own tools**; only
+  the top candidate above the bar is spoken, and the bar ships high. The third
+  term is not optional and is computable without a model: it is derived from the
+  fact's provenance class and from what this consumer has already read or
+  searched this session. `RETHINK.md:107`: candidates are *"Ranked by marginal
+  value over what the agent can trivially self-discover."*
   `RETHINK.md:198–199`: *"Ship with the bar set high and lower it against
   measured hit rate."*
-- **FR-A5** — **Warn-grade evidence floor.** A whisper delivered in the ⚠ warning
+- **FR-A5b** — **Warn-grade evidence floor.** A whisper delivered in the ⚠ warning
   format on history-derived evidence requires co-change support ≥ 3 and
   confidence ≥ 0.9. Zimmermann et al. 2005 set exactly this operating point and
   report its cost and benefit: *"As too many false warnings might undermine
@@ -177,7 +192,7 @@ path *can* issue a permission decision.
   of all transactions cause a false alarm."* Suggestion-grade coupling may run
   looser but never below support ≥ 2: at support 1 and confidence 0.1 the same
   study measured precision of 0.30.
-- **P0-4** — The generated-file warning is **not** subject to FR-A5's floors. Its
+- **P0-4** — The generated-file warning is **not** subject to FR-A5b's floors. Its
   evidence is a zone marker, not history, and a co-change floor applied to it
   would make the genre unable to fire while AC-5 requires that it does. `[P0-D-3]`
 - **FR-D1** — Whisper format: `[oracle]` prefix, genre tag, confidence tag when
@@ -279,7 +294,7 @@ credential handling do not arise here. They return with Phase 1.
 ## 9. Qualities and constraints
 
 - **NF-1** — Hook-added latency per FR-O3: p95 ≤ 1.5 s, ceiling 3 s, then silence.
-- **NF-2** — Session token overhead stays within the FR-A2 budget and is reported
+- **NF-2** — Session token overhead stays within the FR-A3 budget and is reported
   by `ctxoracle status`.
 - **NF-3** — Indexing is incremental after first build.
 - **P0-7** — Ceremony count is zero: the agent is never required to produce any
@@ -328,7 +343,7 @@ path.
   the schemas as well as the mining would make Phase 0's store a throwaway and
   force a migration when mining lands. The cost is empty tables, which is visible
   and harmless.
-- **P0-D-3 — The generated-file warning is exempt from FR-A5's floors.** Those
+- **P0-D-3 — The generated-file warning is exempt from FR-A5b's floors.** Those
   floors are the operating point of a study of *history-derived* rules. A zone
   classification is evidenced by a marker; applying a co-change floor to it would
   make the genre unable to fire while AC-5 requires that it does.
@@ -345,7 +360,7 @@ path.
   has run and produced a real rate. It is stated as a number so the criterion is
   testable, not because the number is established.
 
-- **P0-D-6 — There is no separate cold-start floor.** FR-A5's evidence floors
+- **P0-D-6 — There is no separate cold-start floor.** FR-A5b's evidence floors
   already produce silence on a region with too little mined history: a region
   with fewer than two co-change observations cannot clear suggestion-grade, and
   fewer than three cannot clear warn-grade. A second configurable minimum would
@@ -363,11 +378,11 @@ path.
 Phase 0 is complete when all of the following pass and the owner has run it on a
 real project without incident.
 
-- **AC-1 (coupling → FR-K2, FR-A5, FR-D1, FR-D5, NF-1)** — In a fixture with a
+- **AC-1 (coupling → FR-K2, FR-A5b, FR-D1, FR-D5, NF-1)** — In a fixture with a
   known co-change pair, an observed edit to one file yields a coupling whisper
   naming the other, with its evidence ratio and a git-history pointer, inside the
   latency budget.
-- **AC-2 (silence → FR-A1, FR-A2, `[P0-D-5]`)** — Replaying a recorded session of
+- **AC-2 (silence → FR-A1, FR-A3, `[P0-D-5]`)** — Replaying a recorded session of
   routine events produces whispers on at most 10% of events.
 - **AC-3 (no deny → FR-O4, FR-O4a, FR-O3)** — No shim code path can return a
   blocking decision; induced service failure and induced timeout each yield
