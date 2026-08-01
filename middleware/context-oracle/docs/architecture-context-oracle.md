@@ -11,7 +11,7 @@
 > re-establishes every premise against live source this session, and clears all
 > 11 findings. The prior draft is superseded, not patched.
 >
-> **Round 2 (2026-07-22, applied).** The rebuilt document was then put through
+> **Round 1 (2026-07-22, applied).** The rebuilt document was then put through
 > the two mandatory independent passes — an adversarial **collapse-hunt**
 > (mission-fidelity) and an **expert-review** (premise/standards). They found a
 > **Critical** (the D11 model command used `--bare`, which breaks host-auth
@@ -85,40 +85,145 @@ were validated in this environment. Spike 1 was **re-run fresh this session
 evidence is carried from 2026-07-17 (same environment class) and corroborated
 against the current hooks documentation re-read this session. Environment:
 Claude Code Remote cloud container (`CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST=1`,
-`CLAUDE_CODE_REMOTE=true`), `claude` CLI **v2.1.218**, Node **v22.22.2**, Linux.
+`CLAUDE_CODE_REMOTE=true`), `claude` CLI **v2.1.220** *(corrected 2026-07-30; the v2.1.218 certification was superseded — C-5 drift)*, Node **v22.22.2**, Linux.
 
-### Spike 1 — piggyback credential inheritance **with tools disallowed**: PASS in this environment (re-run 2026-07-22)
+### Spike 1 — the judgment call, run as D11 actually ships it (re-run 2026-07-30)
 
-Auth mode confirmed before concluding: **no `ANTHROPIC_API_KEY`** in the
-environment; auth is host-provisioned (`CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST=1`).
-Command and result (pasted):
+**Why this section was rewritten.** The 2026-07-22 version of this spike ran a
+*"Reply with the word ORACLE-SPIKE-OK"* prompt with an eight-name deny list, no
+`--json-schema`, and no `--system-prompt`, and reported `num_turns=1`,
+`real 0m5.733s`. That is not D11's command. Round 1 had already written the
+lesson — *"a re-run spike must exercise the **actual** design command, flags and
+all; never trust a premise whose validating command differs from the design's"*
+(`collapse-log.md`, 2026-07-22) — and this section did not apply it. Running the
+real command falsifies three properties the document derived from that figure.
+
+Environment: Claude Code Remote cloud container
+(`CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST=1`), **no `ANTHROPIC_API_KEY`**,
+`claude` CLI **v2.1.220** (the document previously certified against v2.1.218 —
+drift, as C-5 predicts), Node **v22.22.2**, Linux.
+
+**1 — `--max-turns 1` is not robust; the variable is the tool flag, not the prompt.**
+*(Superseded twice, corrected 2026-07-31 after round 4. This block first claimed the
+command "does not work at all"; then claimed the variable was the system prompt's
+**content**. Both were wrong. Every failing run used the **deny-list**, which D11
+demoted to defence-in-depth. Under the flag the design actually ships — `--tools ""`
+— `--max-turns 1` succeeds **10/10 with a thin prompt**. There is no prompt effect.
+`--max-turns 2` remains correct as margin, so the shipped value is unaffected.)*
+*(Corrected 2026-07-30 after round 3. The first version of this block claimed the
+command "does not work at all" and that `--max-turns 1` "guarantees"
+`error_max_turns`, on a single sample. Round 3's expert-review could not
+reproduce it and reported 6/6 successes, attributing the difference to the
+presence of `--system-prompt`. **Both accounts were wrong**, and the real
+variable was found only by running both to a distribution — it is the
+system-prompt's **content**, not its presence.)*
+
+| `--max-turns 1` + inline schema + deny-list, varying only the system prompt | runs | result |
+|---|---|---|
+| thin prompt (`"You are the oracle. Answer FR-A1."`) | **10** | **10/10 `is_error: true`, `subtype: error_max_turns`, no `structured_output`** |
+| rich prompt (a realistic ~15-line oracle instruction block) | **5** | **5/5 `is_error: false`, `subtype: success`, `structured_output` present** |
+
+`num_turns` is **2 in every one of the 15 runs**, success and failure alike — so
+the second turn is structural (the verdict arrives as a tool call), and what
+varies is only whether the run is *killed* at the cap before delivering it. A
+thin instruction block leaves the model room to spend its first turn otherwise;
+a rich one sends it straight to the verdict.
+
+**The design consequence is unchanged and now correctly grounded:
+`--max-turns` is 2.** Not because one turn always fails, but because whether one
+turn suffices depends on the prompt — and a judgment lane whose success rate
+moves with instruction-block wording is not a lane you ship. The margin costs
+nothing: `--max-turns 2` succeeded 4/4, and `--max-turns 3` produced no
+additional turns.
+
+The original single-sample paste follows, retained because it is what a thin
+system prompt genuinely produces:
 
 ```
-$ claude -p "Reply with exactly the word ORACLE-SPIKE-OK and nothing else" \
-    --model claude-haiku-4-5 --output-format json --max-turns 1 \
-    --disallowedTools "Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch"
-subtype=success is_error=False result='ORACLE-SPIKE-OK' stop=end_turn
-duration_api_ms=2792 num_turns=1
-real 0m5.733s
+$ claude -p '<judgment payload>' --model claude-haiku-4-5 --output-format json \
+    --max-turns 1 --json-schema '<inline schema>' --system-prompt '<oracle block>' \
+    --session-id <uuid> --disallowedTools "Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch,Task,NotebookEdit"
+is_error = True    subtype = 'error_max_turns'    num_turns = 2
+structured_output present: False
 ```
 
-**Verdict.** A spawned non-interactive `claude -p` completes with valid JSON
-using only the host installation's existing authentication — **no separate
-credential of any kind** — *and* the tool-restriction flag (`--disallowedTools`,
-finding #2) is accepted and the call still succeeds single-turn. **Scope caveat
-(honesty):** this environment's auth is host-managed cloud provisioning, *not* a
-subscription login. The subscription-login case is now **documented, not assumed**
-(looked up this session): the Anthropic Help Center states that "Claude Agent SDK,
-`claude -p`, and third-party app usage still draw from your subscription's usage
-limits" — the June-15-2026 change to a separate metered credit pool was **paused** —
-and headless OAuth-token auth is a supported path (`CLAUDE_CODE_OAUTH_TOKEN`). So on
-a machine logged into Claude Code with Pro/Max, a spawned non-`--bare` `claude -p`
-uses that subscription *by documented behavior*; a per-machine confirmation at
-`init` (D20 probe) remains as a belt, not an unbacked assumption. Degraded mode is
-the sole fallback (no credential fallback exists, OWNER-7).
-**Design consequence:** measured cold-spawn wall time ≈ 5.7 s (api 2.8 s + ~3 s
-spawn) means a model call can **never** sit on the synchronous hook path
-(NF-1 p95 ≤ 1.5 s) — the judgment layer is asynchronous by necessity (D10, D11).
+Structured output is **delivered through a tool call**, which costs a turn — that
+part holds in all 15 runs. What does *not* hold is the stronger claim this block
+originally made from a single sample. Had `--max-turns 1` shipped, Lane 2 would
+have failed **on some prompt shapes and not others**, which is worse than a clean
+failure: it would present as intermittent degraded-mode entry (three consecutive
+Lane 2 failures trip D20) with no stable reproduction. The `--bare` parallel
+still holds on the process axis — a load-bearing premise certified from a
+validating run that did not match the shipped conditions — but the failure mode
+is flakiness, not a hard stop.
+
+**2 — `--disallowedTools` does not empty the tool set.** Asking the child to
+enumerate its own tools under D11's exact ten-name deny list:
+
+```
+$ claude -p "List every tool you currently have available…" … \
+    --disallowedTools "Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch,Task,NotebookEdit"
+Artifact / ReportFindings / ScheduleWakeup / SendUserFile /
+ShowOnboardingRolePicker / Skill / ToolSearch / Workflow
+```
+
+A deny-list cannot deny a name it does not enumerate. `--tools ""` — documented
+in the same `--help` this design already cites (*"Use `\"\"` to disable all
+tools"*) — returns `'NONE'`.
+
+**3 — The fix matrix.** All four configurations run with the real judgment
+payload and inline schema:
+
+| configuration | wall | error | turns | structured output |
+|---|---|---|---|---|
+| `--max-turns 1` + deny-list, **thin** system prompt | 12.1 s | **yes — `error_max_turns`** (10/10) | 2 | **none** |
+| `--max-turns 1` + deny-list, **rich** system prompt | ~12 s | no (5/5) | 2 | yes |
+| `--max-turns 2` + deny-list | 19.1 s | no | 3 | yes |
+| **`--max-turns 2` + `--tools ""`** | **11.4 s** | no | **2** | yes |
+| `--max-turns 3` + `--tools ""` | 10.6 s | no | 2 | yes |
+
+`--tools ""` is not merely the security fix (D11, T4): with no tools to
+consider, the child reaches the structured-output turn directly, costing **one
+fewer turn and ~40% less wall time** than the deny list. The two round-2
+Criticals resolve to a single change that improves both axes.
+
+**4 — Real latency, three runs of the adopted configuration**
+(`--tools "" --max-turns 2`, inline schema, system prompt, fresh session-id):
+
+```
+run 1: wall=11.43s  api=9571ms  turns=2  err=False  cost=$0.0057
+run 2: wall=10.06s  api=9351ms  turns=2  err=False  cost=$0.0051
+run 3: wall=10.14s  api=8726ms  turns=2  err=False  cost=$0.0054
+```
+
+**Verdict and design consequences.**
+
+- The piggyback works with **no separate credential of any kind** — carried and
+  re-confirmed (`is_error: false` above, no `ANTHROPIC_API_KEY` present).
+- **The judgment call costs ≈ 10.5 s wall and ≈ $0.005, not 5.7 s.** The
+  derivations anchored on 5.7 s are re-based, and the locations are enumerated
+  rather than asserted globally (round-3 R3-4 — "every X is re-based" is itself
+  an attestation of the kind this document keeps getting wrong): **D10 step 1**
+  (the two-lane derivation), **D11's timeout** (now sized on the observed max,
+  not the mean), and the **Knowledge-state baseline** (facts and inferences).
+  The "model call can never sit on the synchronous hook path" conclusion is
+  unchanged and now holds by a 7× margin against NF-1's 1.5 s p95 rather than 4×.
+- **`--max-turns` must be ≥ 2**, and the "single generate-no-tool turn" claim is
+  deleted at its three occurrences — **D11 element 1**, **D11 element 5**, and the
+  **Knowledge-state baseline** (enumerated rather than claimed globally, R3-4): the invocation is structurally two turns because
+  the verdict arrives as a tool call.
+- The measured per-call cost is what makes the Lane 2 call budget (D10, D23) a
+  real requirement rather than a precaution — see D10 step 8a.
+
+**Scope caveat (carried, still honest).** This environment's auth is host-managed
+cloud provisioning, *not* a subscription login. The subscription-login case is
+**documented, not assumed**: the Anthropic Help Center states that Claude Agent
+SDK, `claude -p`, and third-party app usage still draw from the subscription's
+usage limits — the June-15-2026 separate-credit change was **paused** — and
+headless OAuth-token auth is supported (`CLAUDE_CODE_OAUTH_TOKEN`). A per-machine
+confirmation at `init` (D20 probe) remains as a belt. Degraded mode is the sole
+fallback (OWNER-7). **That same documented fact is why the oracle competes with
+its own consumer for quota — see D10 step 8a and FR-M2.**
 **Critical `--bare` finding (established this session, applied):** the design's
 model command must **omit `--bare`**. The command above carries no `--bare`; the
 identical command *with* `--bare` **fails authentication** (`is_error: true,
@@ -283,8 +388,22 @@ companion skill (user-scope, out-of-tree)                             [D22]
 1. Harness fires hook → runs `ctxoracle-shim` with event JSON on stdin.
 2. Shim: recursion-guard env check → translate to contract envelope → connect to
    session socket (spawn service if absent and event is session-start class) →
-   send, await reply with client-side deadline (default 1,200 ms, hard 2,500 ms —
-   inside FR-O3's 3 s with margin).
+   send, await reply with a **per-event** client-side deadline (default
+   1,200 ms, hard 2,500 ms — inside FR-O3's 3 s with margin).
+   **Deadlines are per-event, not global (finding F7, round 2).** The single
+   global pair above is wrong on `SessionEnd`, where the harness grants hooks a
+   shared **1.5 s** budget, not the 10-minute command-hook default — so a hard
+   2,500 ms deadline exceeds the budget outright and the shim can be killed
+   mid-await on the very event that carries service teardown and the distiller
+   spawn. The "inside FR-O3's 3 s with margin" reasoning never applied there. The
+   `SessionEnd` deadline is therefore set below 1.5 s; where teardown genuinely
+   needs longer, `init` writes an explicit per-hook `timeout` for that entry
+   (the documented escape hatch — *"Claude Code raises the budget to match, up to
+   60 seconds"*), and because that changes the settings bytes, AC-4's pristine-tree
+   accounting and `deinit`'s removal set both include it. The document already
+   accounted for one harness timeout (`UserPromptSubmit`'s 30 s), so the omission
+   was selective rather than systemic — which is why a global-deadline reading
+   passed review twice.
 3. Service (**reads only, on the event loop**): validate envelope → update Tier 3
    for the firing consumer (queued to the writer worker) → Lane 1 read lookups →
    merge with any ready Lane 2 candidates → attention engine picks ≤ 1 whisper
@@ -373,13 +492,15 @@ Not addressed deliberately: *accessibility* (no UI beyond CLI text);
 
 ## Design decisions
 
-### Knowledge-state baseline (metacognitive monitoring, 2026-07-22)
+### Knowledge-state baseline (metacognitive monitoring; 2026-07-22, corrected 2026-07-30)
 
-**Facts (verified this session, with mechanism).** CLI **v2.1.218**:
+**Facts (verified this session, with mechanism).** CLI **v2.1.220** *(corrected 2026-07-30; the v2.1.218 certification was superseded — C-5 drift)*:
 `--disallowedTools`/`--allowedTools`, `--bare`, `--json-schema`, `--session-id`,
 `--system-prompt`, `--model`, `--output-format`, `--max-turns` all present in
-`--help` (captured). Piggyback **with `--disallowedTools`** succeeds single-turn
-with no `ANTHROPIC_API_KEY` (Spike 1 re-run, pasted; ≈ 5.7 s wall). `node:sqlite`
+`--help` (captured). Piggyback succeeds with no `ANTHROPIC_API_KEY`
+(Spike 1, re-run 2026-07-30; **≈ 10.5 s wall, two turns**). *"Single-turn" and
+the 5.7 s figure are deleted — both belonged to a one-word prompt with no schema,
+not to this design's call (round-3 R3-4).* `node:sqlite`
 on Node **v22.22.2**: WAL + STRICT + FTS5 all work; **`DatabaseSync` returns
 values synchronously (no Promise)** — verified by direct execution
 (`db.prepare(...).get()` returns a value); `busy_timeout` is settable low.
@@ -393,7 +514,7 @@ inside a subagent call"; UserPromptSubmit lowers command-hook timeout to 30 s.
 ASVS **5.0.0** chapters V1–V17 confirmed, **V15 = Secure Coding and
 Architecture** (web-verified this session).
 
-**Inferences (derived).** Synchronous model calls cannot fit NF-1 (5.7 s
+**Inferences (derived).** Synchronous model calls cannot fit NF-1 (10.5 s
 measured vs 1.5 s p95) → judgment is async. Because `DatabaseSync` is
 synchronous, a write blocked on a lock busy-waits the *calling thread* → all
 event-path writes must be off the event loop (D24). Consumer keying =
@@ -417,7 +538,7 @@ the D2/D3/D4 matrices with real alternatives and honest deciding cells);
 **reduction reflex** (the recurring failure of this project, collapse-log
 2026-07-17 — collapsing FR-A1's breadth into a narrow mechanism; countered by
 re-deriving the judgment core from FR-A1 and running the collapse test on it);
-recency bias toward v2.1.218's observed contract (countered by C-5
+recency bias toward v2.1.220's observed contract (countered by C-5
 drift-to-silence and version-bound adapters).
 
 **Known unknowns the design carries.** Windows-native support surface;
@@ -600,14 +721,50 @@ per-machine `init`-time confirmation remains.)
      run/<repo-key>/<session-short>.sock   # sockets, 0700
    ```
 
-   `<repo-key>` = first 12 hex of SHA-256 over the repo's **root-commit hash**
-   (`git rev-list --max-parents=0 HEAD`, first line) — stable across clones,
-   worktrees, and container rebuilds, which is what makes export/import (FR-K9)
-   land in the same identity. Fallbacks: no git → SHA-256 of the realpath (marked
-   `path-keyed` in store meta; `status` says so plainly); multiple root commits →
-   lexicographically first. A `meta` table records the human-readable repo path +
-   origin URL for `status` display only — identity never derives from the mutable
-   origin URL.
+   `<repo-key>` = first 12 hex of SHA-256 over the repo's **root-commit hash**,
+   selected by the rule below — stable across clones, worktrees, and container
+   rebuilds, which is what makes export/import (FR-K9) land in the same identity.
+   A `meta` table records the human-readable repo path + origin URL for `status`
+   display only — identity never derives from the mutable origin URL.
+
+   **Selection rule, made deterministic and shallow-aware (finding F5, round 2).**
+   The prior text said "first line" in its primary rule and "lexicographically
+   first" in its multiple-root fallback — two different commits whenever a
+   repository has more than one root, which is not an edge case: run on
+   `Maxcogar/agent-armory` itself, `git rev-list --max-parents=0 HEAD` returns
+   **six** commits — and those six are the clone's **shallow-boundary** commits
+   (`.git/shallow`; `is-shallow-repository` → true), *not* roots, so this repo
+   demonstrates rule 2's case and not rule 1's, and the two rules select different ones (`99818db…` by
+   traversal order, `1e3bc14…` lexicographically). An implementer following D5
+   got a different store depending on which sentence they read. Worse, the
+   premise line certified *"verified locally this session — returns the root
+   commit on this repo"*, which is false on the very repository it names.
+
+   1. **One rule: the lexicographically smallest root-commit hash.** "First line"
+      is deleted. Traversal order is not a specified property of `git rev-list`
+      output and must never determine store identity.
+   2. **Shallowness is detected, not ignored.** In a `--depth 1` clone
+      `git rev-list --max-parents=0 HEAD` returns the **shallow boundary commit**,
+      not the root — verified on a purpose-built full-vs-shallow pair, where the
+      two disagreed. Git is present and a commit *is* returned, so no fallback
+      fires and the oracle silently keys a different store for the same
+      repository. Since shallow cloning is the dominant way containers rebuild —
+      exactly the case FR-K9 exists for — `init` runs
+      `git rev-parse --is-shallow-repository` and, when true, applies **one rule, not
+      a choice**: *do not derive a commit key from a shallow history.* `init` may
+      attempt `git fetch --unshallow` **only if** a remote is already reachable
+      and network is already permitted; on any failure, refusal, or absence of a
+      remote it falls back to `path-keyed` mode with `status` saying so plainly.
+      *(Round-3 R3-6: the prior text offered the two branches as alternatives,
+      which reproduces the very defect F5 raised — two implementers reading one
+      sentence produce different store identities. It also made a network fetch
+      load-bearing, which C-1/NF-3 forbid in the sandbox case those constraints
+      exist for. Making the fetch strictly optional resolves both.)* It never derives a commit key from a shallow history.
+   3. **Fallback unchanged:** no git → SHA-256 of the realpath, marked
+      `path-keyed` in store meta.
+   4. **Residual, stated:** a repository that merges unrelated histories *after*
+      `init` changes its root set and therefore its key. Recorded in Limitations
+      rather than hidden; `status` shows the key so the change is visible.
 2. **Standard.** OWNER-6 (two stores, outside the tree) is the requirement;
    [spec D-13] makes the layout an architect default — confirmed with the
    identity mechanism added. First-principles anchor for root-commit keying: the
@@ -618,10 +775,17 @@ per-machine `init`-time confirmation remains.)
 4. **Rejected.** XDG triple-split (discoverability cost, no payoff at this scale);
    store inside the repo (violates P8); keying by origin URL (mutable, often
    absent in sandboxes); keying by path alone (breaks on every container rebuild).
-5. **Premise verification.** Spec FR-K8/[spec D-13] read at lines 334–338,
-   743–746; `git rev-list --max-parents=0` is standard git (verified locally this
-   session — returns the root commit on this repo). Addresses: FR-K8, FR-K9, P8,
-   FR-X7.
+5. **Premise verification (re-established 2026-07-30; the prior sentence here was
+   false).** Spec FR-K8/[spec D-13] read at lines 334–338, 743–746. Executed on
+   `Maxcogar/agent-armory`: `git rev-list --max-parents=0 HEAD` returns **six**
+   commits, not one — so the old certification *"returns the root commit on this
+   repo"* was wrong on the repository it was allegedly checked against, and the
+   primary and fallback rules selected different commits. Executed on a
+   purpose-built full/shallow clone pair: the full clone's root
+   (`133344377daf…`) and the `--depth 1` clone's returned commit
+   (`a25c4df14b39…`) differ, with `.git/shallow` present and no fallback firing.
+   Both results drive the rewritten selection rule above.
+   Addresses: FR-K8, FR-K9, P8, FR-X7, AC-15.
 
 ### D6 — Project-store schema (provenance-mandatory)
 
@@ -631,7 +795,11 @@ per-machine `init`-time confirmation remains.)
    ```sql
    -- every knowledge table carries, NOT NULL unless noted:
    --   prov_kind TEXT CHECK(prov_kind IN
-   --     ('repo_span','commit','human','learned','mechanical')),
+   --     ('repo_span','commit','human','learned','mechanical','session')),
+--     -- 'session' added 2026-07-30 (round-3 C6): the conduct genres' facts are
+--     -- transcript-derived. prov_ref form: 'transcript:<session>:<from>..<to>?predicate=…'
+--     -- A NEGATIVE claim's pointer is the bounded re-runnable scan, never a point
+--     -- offset — re-reading one offset shows what IS there, not what is absent.
    --   prov_ref  TEXT,   -- file:line-span | commit-hash | 'chat:<date>' | 'learned:<session>'
    --   trust     TEXT CHECK(trust IN ('untrusted_repo','human','mechanical')),
    --   injection_suspect INTEGER DEFAULT 0,   -- FR-X3 quarantine flag
@@ -661,10 +829,17 @@ per-machine `init`-time confirmation remains.)
    session_log(session, consumer, seq, event_type, ts, latency_ms,
            candidates_json, whisper_id NULL, outcome)      -- FR-L1
    whisper_log(id, session, consumer, genre, ts, text, evidence_json,
+               continuation INTEGER NOT NULL DEFAULT 0,  -- 1 = spent a turn (FR-O4a)
            confidence, uptake TEXT NULL, false_fire INTEGER NULL)  -- FR-X6
    suppressions(id, target_kind, target_ref, reason, source_session,
            reversible INTEGER DEFAULT 1, active INTEGER)   -- FR-L3
    open_questions(session, consumer, question, asked_loc, resolved INTEGER)
+   skill_expectations(id, session, consumer, skill_ref, step_text,
+               required_activity, registered_at, satisfied INTEGER DEFAULT 0, …prov)
+                                                    -- FR-A8/AC-19 (round-3 R3-5)
+   session_evidence(id, session, consumer, kind CHECK(kind IN ('claim','activity','absence')),
+               subject, from_offset, to_offset, predicate, result, …prov)
+                                                    -- conduct grounding (round-3 R3-5)
    fts_symbols / fts_paths / fts_landmines  -- FTS5 (or fallback, D4)
    ```
 
@@ -697,8 +872,10 @@ per-machine `init`-time confirmation remains.)
 1. **Decision.**
 
    ```sql
-   whisper_stats(genre, project_key, sent, uptake, false_fires, window_start, window_end)
+   whisper_stats(genre, project_key, mode, sent, uptake, false_fires,
+               window_start, window_end)      -- mode ∈ {'model','degraded'}, in the key
    genre_state(genre, project_key NULL,        -- NULL = global default
+               mode TEXT CHECK(mode IN ('model','degraded')),   -- in the key
                bar REAL, state TEXT CHECK(state IN ('normal','probation','suppressed')),
                since_ts, reason)
    tuning(key, project_key NULL, value, source TEXT, updated_at)
@@ -708,6 +885,22 @@ per-machine `init`-time confirmation remains.)
                CHECK(piggyback IN ('ok','failed','untested')),
                probed_at, cli_version, detail)               -- D20 probe cache
    ```
+
+   **`mode` is in the key of both learning tables (Collapse C7, round 2).**
+   Without it, Phase 0 — which *is* degraded mode, is the thing the owner
+   actually runs on a real repository, and is where AC-2's silence rate and the
+   first false-fire numbers get measured — would tune the same rows the model
+   lane later uses. A genre put on probation because a *structure-keyed* whisper
+   missed would carry that probation into the *intent-keyed* lane where the same
+   genre behaves differently, and the bar handed to Phase 1 would have been set
+   by a system that D20 itself says cannot judge materiality. The consequence is
+   not cosmetic: the ladder is automatic, and [COVERITY-10]'s first-impression
+   effect (adopted by FR-A7) makes the earliest, least-informed measurements the
+   most durable. Ladder state and bar tuning are therefore per-mode, `status`
+   shows both, and D20 states plainly that Phase 0's measured silence and hit
+   rates are evidence about the deterministic lane only — never a basis for
+   Phase 1's bar. This also gives the owner's §14 conduct-genre false-fire review
+   the right denominator.
 
    `env_fingerprint` = hash of (hostname-scope id, container marker env vars,
    `claude --version`) — how "verify per environment" (§14) becomes a cached fact
@@ -742,13 +935,27 @@ per-machine `init`-time confirmation remains.)
          prompt: { text }
          tool_pre/tool_post: { tool, input_summary: {path?, pattern?, …}, output_digest? }
          session_start: { repo_root, transcript_path, harness: { name, version } }
-         subagent_start: { transcript_hint? } */ },
+         subagent_start: { transcript_hint? }
+         stop/subagent_stop: { stop_hook_active: boolean }   // FR-O4a, OWNER-12
+         session_end: {} */ },
        "deadline_ms": 1200 } }
    // service → shim
    { "contract": 1,
      "whisper": { "text": "[oracle] …", "genre": "coupling", "id": "…" } | null,
      "human_notice": "…one-line plain language…" | null }
    ```
+
+   **The `stop_hook_active` field carries OWNER-12's bound across the boundary
+   (round-3 R3-1).** Whispering on `Stop`/`SubagentStop` is a *continuation
+   control*: per the hooks contract it "keeps the conversation going through the
+   same loop protections as `decision: \"block\"`." The owner ruled that
+   capability a must-have and accepted its cost **bounded to one continuation**
+   (RETHINK §12 addendum decision 12; spec §6.1, FR-O4a). The service can only
+   honour that bound if it can see the field — so the field is part of the
+   contract, not an implementation detail. Per C-3 only the shim knows Claude
+   Code's own name for it; the service sees `payload.stop_hook_active`. A shim
+   that cannot supply it sends `true` (fail-safe: the oracle stays silent rather
+   than risking an unbounded continuation).
 
    Versioning: integer `contract`; shim and service exchange versions on connect
    (first line); mismatch → shim answers silence + diagnostic (C-5). Unknown
@@ -804,8 +1011,18 @@ per-machine `init`-time confirmation remains.)
 
 1. **Decision** (numbered reasoning chain; revision noted in step 6).
 
-   1. Measured cold `claude -p` ≈ 5.7 s > 3 s ceiling (Spike 1, this session) ⇒
-      **no model call on the synchronous hook path, ever.**
+   1. Measured `claude -p` judgment call ≈ **10.5 s** ≫ 3 s ceiling (Spike 1,
+      re-run 2026-07-30 as D11's *actual* command) ⇒ **no model call on the
+      synchronous hook path, ever.** *(The prior 5.7 s figure came from a
+      one-word prompt with no schema and no system prompt — not this design's
+      call. The conclusion is unchanged and now holds by ~7× against NF-1's
+      1.5 s p95 rather than ~4×; every other derivation from the old figure is
+      corrected in place, and D11's timeout was re-set from 20 s to 30 s.)*
+   1a. Each judgment costs ≈ **$0.005 and two turns**, drawn from the *same*
+      subscription the observed agent is spending (§6.2, OWNER-7 — the piggyback
+      reuses the host's credential, so it reuses the host's quota). Volume is
+      therefore a first-class design constraint, not an afterthought — see
+      step 8a.
    2. FR-O5 restricts delivery to event boundaries anyway ⇒ asynchronous judgment
       whose result attaches to a *later* event is not a degradation of the spec's
       model — it *is* the spec's model.
@@ -845,6 +1062,117 @@ per-machine `init`-time confirmation remains.)
       suggestion floor support ≥ 2 (FR-A5, [spec D-5]), cold-start floor (FR-A6),
       first-sessions clamp (FR-A7), §9.2 ladder state (genre_state, D7) — picks ≤ 1,
       answers inside the deadline.
+
+      **Stop-class events: the continuation gate and the raised bar (OWNER-12,
+      FR-O4a; round-3 R3-1).** On `stop`/`subagent_stop` the engine applies two
+      rules *before* anything else:
+      1. **If `payload.stop_hook_active` is true → return silence
+         unconditionally**, before the bar is evaluated. The harness sets that
+         field when it is already continuing because of a stop hook, so this is
+         what makes the oracle structurally incapable of chaining continuations
+         or approaching the 8-continuation cap. The gate lives here, in the
+         service — not in the shim, which is logic-free by FR-O2.
+      2. **Otherwise apply `stop_bar_delta`** — a raised bar for stop-class
+         candidates, a `tuning` row (D23) whose default and derivation are stated
+         there. Rationale: a Stop whisper is the only whisper that *spends a
+         turn* rather than riding an existing event boundary, so it must clear a
+         higher bar than one that costs nothing. This is the "raised bar" spec
+         §6.1 requires, made a term rather than a sentiment.
+      The owner accepted a **named, bounded, audited** cost (RETHINK §12 addendum
+      decision 12). These two rules are the bound; D6/D24 are the audit.
+
+   5a. **`non_obviousness` — the third factor, and the one the bar was missing
+      (Collapse C1, round 2).** Every term above measures how much a fact
+      *matters*. None measured **how cheaply the agent could have got it
+      itself** — and that is the metric RETHINK §2.3 calls *"the only relevance
+      metric that matters"*, restated as criterion 2 of the corrected
+      foundation's five (*"non-obvious: something a cold checkout can't reveal
+      and the agent can't trivially self-serve"*, P5). Before this fix the phrase
+      appeared twice in this document, both times in prose, and was computed
+      nowhere; the traceability matrix answered P5 with a genre-level design
+      intent plus `materiality`, which measures a different thing. The predicted
+      failure is the tool's most frequent output being *"there is a helper for
+      the symbol you just grepped for"* — precisely the noise RETHINK §2.3 says
+      "crowds out the signal."
+
+      **`decision-impact` = `materiality × structural_weight × self_serve_cost`**,
+      where `self_serve_cost ∈ (0,1]` is deterministic and derived from the
+      fact's own provenance class plus what this consumer has already done:
+      - **High (≈1.0) — cold-checkout-invisible.** Git-history co-change,
+        learned records, landmines, cross-file invariants, human-supplied facts.
+        No amount of reading the current tree reveals these; they are the
+        oracle's actual edge.
+      - **Low (≈0.15) — one tool call away.** Single-file static structure a
+        `Grep` for the same symbol returns: call-site counts, "there is a helper
+        at Z", "this file imports that one."
+      - **Mapping exception (≈0.85) — the *answer* is trivial, the *question* is
+        not.** A fact whose payload is a location or a command, but whose value
+        is the **mapping** from the agent's current situation to it, is not
+        self-servable even though its payload is one `Read` away. Two v1 genres
+        depend on this and it is stated here rather than assumed, because
+        without it both are dead under the bar (D10a):
+        - **Steering** — "where that concern actually lives." Here the exception
+          is **consumer-relative, not a stored fact**: the bound fact is an
+          ordinary `symbols`/`ref_edges` location (`trivial` on its own), and
+          what lifts it is Tier 3 evidence that *this* consumer has demonstrably
+          **not** made the mapping — its reads and searches are in a region that
+          does not contain the location, while its narrated intent does. That is
+          the mirror of the "demonstrated reach" rule two bullets down: reach
+          drives `self_serve_cost` to ≈0, demonstrated *mis*-reach lifts it to
+          ≈0.85. Absent that Tier 3 evidence Steering does **not** get the
+          exception and does not clear the bar — the genre fires only when the
+          agent is provably looking in the wrong place, which is also exactly
+          when FR-A2 says it should.
+          *(Corrected during traversal: the first version claimed the bound fact
+          was "the intent→location mapping". D6 has no such table — the mapping
+          is produced by the model at judgment time, so binding a claim to it
+          would fail Move C. `self_serve_cost` is already a function of
+          (fact, consumer state) via the reach rule; this is the same function,
+          not a new fact class.)*
+        - **Verification** — the bound fact is the **`region_glob → command`
+          association inside `verify_commands`** (D6: `verify_commands(region_glob,
+          command, source, …prov)`), not the bare command. The *command list* is
+          trivially readable from `package.json` — and D6's `source` column
+          records exactly that provenance — but **which** command covers the
+          region just edited is a repo-specific association D16 mines from test
+          topology and path conventions. A Verification whisper that cites a
+          command with **no `region_glob` binding** is citing the trivial half:
+          it does not clear the bar and is not sent.
+          *(Corrected during traversal, 2026-07-30: the first version of this
+          exception named `test_map` as the bound fact and asserted D16 "records
+          `test_map` accordingly". Reading D6 shows `test_map(test_file→files,
+          region_glob, …prov)` maps **test file → source region** and carries no
+          command, while `verify_commands` already carries the region→command
+          association. The tables were inverted. This is the R3-5 class —
+          asserting a table's contents without reading it — committed inside the
+          fix for R3-5, and caught by walking the row rather than by re-reading
+          the edit.)*
+        The exception is deliberately narrow: it applies only where the mapping
+        itself is the fact and is stored as such. It is *not* available to a
+        genre that wants to re-describe a trivial payload as valuable.
+      - **Driven to ≈0 by demonstrated reach.** Tier 3 records the consumer's
+        read set and issued search terms; when a fact's location already falls
+        inside a result set this consumer has *seen*, the fact is not
+        non-obvious to it, whatever its provenance class.
+
+      **The model is also given the evidence to judge it.** D12 Move A asks the
+      model FR-A1's full question — *"does it know something material it almost
+      certainly doesn't?"* — but supplied only `{intent, recent_narration,
+      facts}`, which contains nothing about what this consumer has read or
+      searched. It was being asked half of FR-A1 and its answer was recorded as
+      all of it. Move A's data field therefore gains the consumer's read/search
+      set (paths and search terms, capped and secret-scanned per D19), and the
+      Move-B verdict schema gains a `non_obviousness` field beside `materiality`
+      (D12). The deterministic `self_serve_cost` and the model's
+      `non_obviousness` are combined by taking the **minimum** — either signal
+      alone is sufficient to conclude the agent could have got it itself, and
+      silence is the safe direction (P1).
+
+      **Fixture, or it drifts back to prose (AC-16a).** In replay: where the
+      agent has grepped for a symbol and the store holds the "canonical helper"
+      fact for it, **no whisper is emitted**; the same fact *is* emitted to a
+      consumer that has not searched. Criterion 2 spent one full round as prose
+      precisely because nothing tested it.
    6. Model invocation per D11/D12. *Revision recorded in place:* a warm
       `--input-format stream-json` spare was considered for latency and **rejected
       for v1** — successive judgments would share one growing context
@@ -858,6 +1186,56 @@ per-machine `init`-time confirmation remains.)
    8. Failures: Lane 2 failures increment the degraded counter (D20) and never
       touch Lane 1; queue overflow drops oldest *candidates* (never events) with a
       diagnostic; the pool is bounded (default 64/consumer).
+
+   8a. **The intent queue, designed (Collapse C3 / finding F6).** Before this
+      round the "intent queue" appeared twice in this document, both times as a
+      name in a component list — yet it is the step that decides *what the model
+      is allowed to see*, which is exactly the "hard part relocated into an
+      unspecified deterministic step" pattern the collapse log warns future
+      agents about. Its policy is now specified:
+      - **One in-flight judgment per consumer.** Not per session — a fan-out
+        must not starve behind one subagent.
+      - **Coalescing, not dropping.** New deltas for a consumer that already has
+        a judgment in flight merge into the pending intent: newest narration
+        wins, superseded content is folded in. Input is never silently
+        discarded, because a dropped intent is an unmeasurable miss.
+      - **Explicit overflow.** If pending intents exceed the per-consumer bound,
+        the *oldest* is dropped **with an FR-M2 diagnostic naming the count** —
+        visible, never silent.
+      - **Queue depth is exported** to diagnostics and `status`.
+
+   8b. **Model-call budget — the oracle spends its consumer's quota
+      (Collapse C3 / finding F6).** The design's whole latency argument is that
+      moving the model off the hook path makes its cost invisible to the agent.
+      That is true for wall-clock and **false for the shared resource**: OWNER-7
+      puts the oracle on the *same* credential, therefore the same rate limits,
+      as the agent it is helping (Spike 1's scope caveat; ≈$0.005 and ~10.5 s per
+      judgment). An oracle issuing one judgment per transcript delta, per loaded
+      skill, and per open question, across every consumer of a fan-out, can
+      exhaust the quota the agent needs — at which point the oracle has not
+      wasted a sentence (P2), it has **stopped the work outright**. That is a
+      strictly worse outcome than the latency stall NF-1 exists to prevent, and
+      it is the failure RETHINK §5 names: *"a hook that slows the agent is a gate
+      by another name."*
+      - **Per-session judgment cap** and **minimum inter-call interval**, both
+        `tuning` rows (D23) so the learning loop can move them; a session-level
+        ceiling dominates the per-consumer caps.
+      - Reaching the cap is an **explicit, announced transition to degraded
+        mode** — one `systemMessage` notice (D13's human channel) plus an FR-M2
+        finding `model_budget_exhausted`. Never silent starvation, which would
+        present exactly as "the oracle is correctly quiet."
+      - **`StopFailure` is the detector for the failure this cannot prevent.**
+        Per the hooks contract that event fires *instead of* `Stop` when a turn
+        dies on an API error, carries an `error` field whose values include
+        `rate_limit`, and has its output ignored — so it is a pure observation
+        with no continuation risk (FR-O4a). An `error: rate_limit` on the
+        observed session means the oracle may now be competing with its own
+        consumer: enter degraded mode immediately and raise FR-M2
+        `host_quota_exhausted`. Without this the failure surfaces only as the
+        *agent's* rate-limit error, where no oracle diagnostic would ever see it
+        — the OWNER-10 silent-failure case.
+      - Calls issued, calls declined by budget, tokens and cost spent, and queue
+        depth all appear in `ctxoracle status` in plain language (D21).
    9. **Anti-silence-ratchet (Collapse 1 — the loop needs an up-signal, not only a
       suppress-signal).** Left alone, the bar only ever rises: false-fire/noise are
       observable (narration correction, no uptake) and push it *up*, but regret —
@@ -871,8 +1249,46 @@ per-machine `init`-time confirmation remains.)
       proxy** the distiller can derive without an oracle of correctness — a
       same-region re-edit or revert in a later session, or a post-edit
       verify-command failure, where the store *held* a coupling/landmine fact it did
-      not speak (D21, FR-L2/FR-M3). Where neither signal is available the loop is
-      documented as silence-biased rather than presented as self-correcting.
+      not speak (D21, FR-L2/FR-M3).
+
+   9a. **Warn-grade gets a down-signal too (Collapse C8).** As written, (a)
+      excluded warn-grade and (b) inspected only facts the store *held and could
+      rank* — but a fact below the support/confidence floor is held-and-unrankable,
+      so nothing recorded that a below-floor fact *would have* covered a regret.
+      Warn-grade floors (support ≥ 3, confidence ≥ 0.9) are human-derived numbers
+      applied to an agent consumer, which [spec D-8] itself flags as a calibrated
+      guess — and they could only ever move up. The old text closed with "where
+      neither signal is available the loop is documented as silence-biased," which
+      is precisely the hedge `CLAUDE.md` step 3 forbids in a load-bearing place:
+      this is the loop that decides whether the tool ever speaks at warn grade.
+      **Fix:** every candidate that failed **only** an evidence floor is logged to
+      `session_log` with `(genre, subject, support, confidence)`, so the distiller
+      can compute how often a below-floor fact coincided with a measured regret
+      event. Floor *lowering* is permitted **only** from that evidence — never
+      from explore delivery, which stays correctly excluded from warn-grade. The
+      below-floor near-miss count appears in `status`: it is the only number that
+      can tell the owner *"this tool is silent because it is calibrated for
+      someone else's repository."*
+
+   9b. **Uptake must measure influence, not compliance (Collapse C6).** §9.2's
+      effective-false-positive metric counts a whisper the consumer "did not act
+      on", and FR-L1 detects acting-on as *pointed file opened / named helper
+      used / suggested command run*. That scores the tool's **best** outcome as a
+      failure: an agent told there is a second write-site, which then edits it
+      directly or simply does not make the mistake, never opens the file the
+      pointer named. At 25 % the §9.2 ladder **auto-suppresses the genre** — so a
+      proxy the document never validated could retire a working genre unattended.
+      Compounding it, `uptake` existed only as a schema column and a statistic
+      with **no named producer**. **Fix, three parts:** (i) uptake detection is
+      specified here and owned by the distiller — the whisper's *subject* being
+      subsequently edited, tested, or referenced by **any** route counts, not only
+      the pointer being followed (the subject key already exists for FR-A4 dedup);
+      (ii) **auto-suppression is restricted to explicitly contradicted warnings**
+      — FR-L3's narration-correction or outcome-contradiction clause. Silent
+      non-uptake may raise a genre's bar, reversibly, and is reported in `status`;
+      it may never auto-retire a genre; (iii) `status` reports hit rate **with its
+      detection method named**, so an owner reading "hit rate 12 %" is not reading
+      an artifact of the detector.
 2. **Standard.** FR-J1 (two stages, mechanical bypass) governing; [CHI-25] via
    FR-O5 (boundary-only delivery); [ROSE-05]/[HH-04] floors via FR-A5.
 3. **Why here.** The split makes degraded mode (FR-J3) the *same system minus
@@ -900,6 +1316,95 @@ per-machine `init`-time confirmation remains.)
    inherited with their spec sources. Addresses: FR-J1..J4, FR-A1..A9, FR-O3,
    FR-O5, NF-1, NF-2, AC-2, AC-16.
 
+### D10a — The genre pipeline table (the artifact whose absence caused twelve findings)
+
+*Added 2026-07-30 after round 3. Both independent passes converged on the same
+diagnosis: **no decision owns a genre.** Triggers were prose in D10, retrieval a
+prose enumeration in D12, fact classes prose in step 5a, write durability two
+lists in D24, delivery bounds nowhere, uptake one sentence in step 9b. No reviewer
+reading any single decision could see that Steering has no deliverable content,
+that Verification is trivially self-serveable, that Process's grounding fact could
+not be inserted, or that four genres have no uptake detector — because those facts
+live at the joints between decisions, and every collapse both rounds found lived
+exactly there. This table is the countermeasure: one row per FR-A2 genre, one
+column per pipeline joint.*
+
+**A blank or `NONE` cell is a build-time error, not a documentation gap.** Rows
+marked ⛔ below are *known-unbuildable as of this revision* and are the v1 work
+list; they are stated rather than hidden, because a genre that cannot traverse the
+pipeline is a genre that does not work no matter how well its own decision reads.
+
+| Genre | Trigger | Store source | `self_serve_class` | Grounding pointer | Durability | Delivery cost | Uptake predicate | Lane |
+|---|---|---|---|---|---|---|---|---|
+| **Coupling** | tool_pre/post (read, search) | `cochange_file_pairs` | invisible | commit hash | durable | free (rides boundary) | subject file edited/tested by any route | 1 |
+| **Coupling** (helper half) ⛔ | tool_post (search) | `exemplars` — **no v1 writer (D18)** | trivial | repo span | durable | free | subject referenced | 1 |
+| **Consequence** | tool_pre (edit) | `ref_edges` + `cochange_*` | trivial (call-sites) / invisible (breakage ⛔ Phase 2) | repo span / commit | durable | free | subject edited | 1 |
+| **Warning ⚠** | tool_pre (edit in zone) | `files.zone_*` | invisible *(on the consequence, not the classification)* | repo span, pointer-only | durable | free | edit abandoned or zone respected | 1 |
+| **Completeness** | stop | `cochange_file_pairs`, `invariants` | invisible | commit hash | durable | **spends a turn** (FR-O4a) | paired file subsequently touched | 1 |
+| **Verification** | stop | `verify_commands` — the **`region_glob`→`command`** association, not the bare command | mapping exception (≈0.85) | repo span | durable | **spends a turn** | command subsequently run | 1 |
+| **Orientation** ⛔ | prompt | entry points + `landmines`/`invariants` — **no v1 writer (D18)** | trivial (entry points) / invisible (landmines) | repo span | durable | free | pointed entry point opened | 1 |
+| **Assumption check** | narration (Lane 2) | any contradicting fact | invisible | per bound fact | durable | free | narration corrected | 2 |
+| **Steering** | narration (Lane 2) | `symbols`, `ref_edges` | ≈0.85 **only on Tier 3 mis-reach evidence**, else trivial | repo span | durable | free | pointed location opened | 2 |
+| **Answer** | narration addressing oracle | FTS, A0-shaped | invisible (retrieval-bounded) | per bound fact | durable | free | pointed subject read, or question not re-asked | 2 |
+| **Unknown** | determining query returns empty | negative-evidence fact | invisible | **bounded query + empty result** | durable | free | gap named in a later user turn, or recorded as `human_fact` | 2 |
+| **Process** | completion claim vs `skill_expectations` | `skill_expectations`, `session_evidence` | invisible | **bounded transcript scan** (never a point offset) | durable | spends a turn *(fires at completion)* | required activity later observed, or claim retracted | 2 |
+| **Answer drift** | user question unresolved 2 turns | `open_questions` | invisible | **bounded transcript scan** | durable | free | `open_questions.resolved` transitions | **1 (deterministic; in the FR-J3 degraded set)** |
+
+**What this table makes visible, stated plainly rather than left at the joints:**
+
+1. **Three genres remain ⛔, all for the same reason — an empty table, not a
+   broken design.** The two structural cases (Steering, Verification) are
+   resolved above by the **mapping exception** in step 5a: their bound fact is
+   the *mapping*, not the payload. What is left is v1 scope, decided here:
+   - **Orientation ships structural-only in v1**, with its landmine and invariant
+     arms dark until D18's mining lands. Its expected fire rate is therefore low,
+     and D21's `genre_dark` check must **not** flag it — the row records the
+     expectation so a healthy silence is not read as a fault.
+   - **Coupling's helper half** and **Consequence's breakage half** stay dark for
+     the same reason. Both degrade to a working genre rather than a dead one
+     (co-change carries Coupling; call-sites carry Consequence), which is why
+     neither descopes.
+   - **No genre is dropped from v1.** The three ⛔ rows are *deferred content
+     within a live genre*, and each is a row this table will fill when D18's
+     writers exist — which is the difference between a stated gap and the silent
+     descoping round 2 predicted for the conduct genres.
+
+2. **Answer-drift is Lane 1 / deterministic — decided here, with the predicate
+   written.** D14 called it "deterministic bookkeeping" without stating the rule
+   that decides `open_questions.resolved`, one paragraph after narrowing Process
+   to a mechanically decidable subset *because* prose is not decidable. Resolving
+   the contradiction in the direction D14 asserted requires the predicate to
+   actually be mechanical, so it is:
+   - **Registered** when a user turn contains an interrogative construction;
+     subject tokens (nouns, identifiers, paths) are extracted and stored with
+     `asked_loc`.
+   - **Resolved** when a later assistant turn contains ≥1 subject token *and* an
+     answer-shaped construction, **or** when the next user turn neither restates
+     the question nor repeats its subject tokens.
+   - **Not registered at all** when neither test is mechanically decidable — no
+     registration, no whisper. Narrower than FR-A9's full breadth, recorded in
+     Limitations, exactly as Process was narrowed.
+   Being deterministic, it **belongs in FR-J3's degraded genre set** and runs in
+   Phase 0 — which matters, because Phase 0 is where the owner actually meets it.
+   D20's degraded set is corrected accordingly.
+
+3. **Two genres spend a turn** (Completeness, Verification) and Process fires at
+   the same moment. That is OWNER-12's accepted cost, and it is why the
+   `stop_hook_active` gate and `stop_bar_delta` in D10 step 5 are load-bearing
+   rather than bookkeeping: they are the only things standing between an accepted
+   bounded cost and an unbounded one.
+4. **Every uptake predicate is now named.** Where an honest predicate does not
+   exist, `status` renders "no uptake detector — hit rate not measured" and the
+   §9.2 ladder **excludes** the genre, rather than reading a structural 0 % as
+   noise and auto-suppressing a working genre.
+
+**Maintenance rule (this is the point of the table).** Any change that adds or
+alters a fact class, a store table, a bar factor, a trigger, or a genre **updates
+this table first**, and the change is not "applied" until every one of its cells
+is filled and the row has been walked end to end. Round 2's fixes were reviewed at
+the point of the finding and created three regressions at the joints; a fix must
+be **traversed, not inspected**.
+
 ### D11 — Model invocation profile and the recursion guard ([spec D-6] resolved)
 
 1. **Decision.** Lane 2 model calls spawn (note: **no `--bare`** — see the
@@ -907,10 +1412,11 @@ per-machine `init`-time confirmation remains.)
 
    ```
    claude -p --model <configured, default claude-haiku-4-5>
+     --tools ""
      --disallowedTools "Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch,Task,NotebookEdit"
      --output-format json --json-schema '<inline verdict-schema JSON>'
      --system-prompt '<fixed instruction block, D12>'
-     --max-turns 1 --session-id <fresh uuid4>
+     --max-turns 2 --session-id <fresh uuid4>
    ```
 
    run with `cwd` = the oracle's own run directory (contains **no** `.claude/`),
@@ -918,11 +1424,42 @@ per-machine `init`-time confirmation remains.)
    `CTXORACLE_INTERNAL=1` set. `--json-schema` takes an **inline JSON string** —
    the schema file is read and its contents passed; the CLI has no file-path form
    (verified live: a path argument is rejected, `Unrecognized token '/'`;
-   Minor-1). Timeout: 20 s process kill (Lane 2 is off the hook path).
-   **Tools-disallowed is a real flag (finding #2).** `--disallowedTools` naming
-   the agent tool set makes the tool-restriction claim in §6.2/FR-X5/T4
-   *mechanical*, not asserted; `--max-turns 1` bounds it to a single
-   generate-no-tool turn.
+   Minor-1). Timeout: **30 s** process kill — sized against the **observed maximum**, not the
+   mean: 17.4 s max over the runs recorded in Spike 1 (mean 13.3 s across the
+   wider set), so 30 s is ≈1.7× the tail. *(Corrected after round 3: the prior
+   text derived 3× headroom from the mean, which is the wrong statistic for a
+   kill timeout — its whole job is to bound the tail, and a Lane 2 timeout counts
+   as a failure that trips degraded mode after three.)*; the prior 20 s was set against a 5.7 s
+   figure that belonged to a different command. Lane 2 is off the hook path, so
+   the timeout trades only judgment freshness, never agent latency.
+
+   **`--tools ""` is the primary tool control; the deny-list is defence in depth
+   (Critical F2, round 2).** The prior draft used `--disallowedTools` alone and
+   claimed on that basis that the child's tool set was "empty by flag." It is
+   not: run live, the ten-name deny list leaves **Artifact, ReportFindings,
+   ScheduleWakeup, SendUserFile, ShowOnboardingRolePicker, Skill, ToolSearch,
+   Workflow** available — including task-scheduling and file-emitting
+   capabilities. A deny-list is definitionally incapable of denying a name it
+   does not enumerate, so it is the wrong shape for a least-privilege boundary.
+   `--tools ""` — documented in the same `--help` this design cites (*"Use `\"\"`
+   to disable all tools"*) — returns `'NONE'` when the child is asked to
+   enumerate its own tools. The deny-list is retained *behind* it so that a
+   future CLI change to `--tools` semantics degrades to a partial control rather
+   than to none.
+
+   **`--max-turns` is 2, not 1, and the invocation is not tool-free (Serious
+   F3; corrected after round 3).** Structured output under `--json-schema` is
+   delivered *through a tool call*, which costs a turn — `num_turns` is 2 in
+   every observed run, success and failure alike. Whether **one** turn suffices
+   depends on the **tool flag**, not the prompt: every observed
+   `error_max_turns` used the demoted deny-list, while the shipped `--tools ""`
+   succeeds 10/10 under a thin prompt (Spike 1, corrected 2026-07-31 after
+   round 4). `--max-turns 2` is retained as margin, not as a fix for a failure
+   mode that does not occur under the shipped flags. The prior sentence asserting
+   `--max-turns 1` "bounds it to a single generate-no-tool turn" was false in
+   both halves and is deleted. Two turns is the structural minimum; the bound is
+   *"one model generation plus its verdict delivery,"* which is what actually
+   limits the child.
    **Why `--bare` is NOT used (Critical fix — established live this session).**
    The prior draft's command carried `--bare`. Its own help states: *"Anthropic
    auth is strictly ANTHROPIC_API_KEY or apiKeyHelper via --settings (OAuth and
@@ -964,24 +1501,59 @@ per-machine `init`-time confirmation remains.)
    trusting `--max-turns` alone.
 4. **What this decision is NOT — and why.** Keeping `--bare` for its
    skip-hooks/minimal behavior (rejected: it breaks OWNER-7 auth, proven above —
-   the disqualifying trade); empty `--allowedTools` *only* instead of the deny
-   list (works for tool restriction, but a deny-list stated by name is the more
-   legible least-privilege posture and denies newly-introduced tool names by
-   default); hook-config surgery via `--settings` (fragile against settings-merge
+   the disqualifying trade); **a deny-list as the primary tool control
+   (rejected — this was the prior draft's position and it was inverted).** That
+   draft argued a named deny-list "denies newly-introduced tool names by
+   default." The opposite is true by construction: a deny-list permits every
+   name it does not list, so each new tool the CLI ships is granted to the
+   oracle's judgment child silently. Least privilege in every source this
+   decision cites — OWASP LLM01, ASVS V15 — is default-deny with an explicit
+   allow-set, and `--tools ""` is that. The empirical form of the error is in
+   Spike 1: eight tools remained under the deny list. The deny-list survives
+   only as the second layer; hook-config surgery via `--settings` (fragile against settings-merge
    changes; mutates config the oracle doesn't own); `--setting-sources` alone
    (insufficient against user-scope wiring); a lockfile "am I already running"
    check (guards reentry, not the child's own hooks firing — the actual threat).
-5. **Premise verification (established live this session).**
-   `--disallowedTools`/`--allowedTools` present in CLI **v2.1.218** help
-   (captured, exact text "Comma or space-separated list of tool names to
-   deny/allow"). **Auth: the command WITHOUT `--bare` succeeds with no
-   `ANTHROPIC_API_KEY` (`is_error: false, ORACLE-OK`); the same command WITH
-   `--bare` fails 3/3 (`is_error: true, "Authentication error"`) — `--bare` help:
-   "OAuth and keychain are never read." Hence `--bare` removed.** `--json-schema`
-   rejects a file-path argument and accepts inline JSON — passed inline (Minor-1).
-   `--session-id`/`--system-prompt` present in the same capture; session-id
-   inheritance observed (Spike 1, 2026-07-17). Spec §6.2 read at 216–250, D-6 at
-   716–719. Addresses: §6.2, [spec D-6], FR-J2, FR-X5, AC-11, C-5, T4.
+5. **Premise verification — every claim below re-established by running this
+   decision's own command on 2026-07-30 (Spike 1 carries the pasted output).**
+   CLI is **v2.1.220**; the previous certification named v2.1.218, so the version
+   drifted between rounds exactly as C-5 anticipates — every flag named here was
+   re-checked against the installed help, not inherited.
+   - `--tools` present, help text *"Specify the list of available tools from the
+     built-in set. Use `\"\"` to disable all tools"*. Run with `--tools ""`, the
+     child enumerates its tools as `'NONE'`.
+   - `--disallowedTools` present; run with D11's ten-name list, the child
+     enumerates **eight remaining tools** — hence the demotion to second layer.
+   - `--max-turns 1` + `--json-schema` → `is_error: true`,
+     `subtype: 'error_max_turns'`, `num_turns: 2`, **no `structured_output`
+     key**. `--max-turns 2` + `--tools ""` → `is_error: false`, `num_turns: 2`,
+     `structured_output` present. 3/3 stable.
+   - Latency of the adopted configuration: 11.43 / 10.06 / 10.14 s wall
+     (api 9.6 / 9.4 / 8.7 s), cost $0.0057 / $0.0051 / $0.0054 per call.
+   - Auth: the command WITHOUT `--bare` succeeds with no `ANTHROPIC_API_KEY`;
+     WITH `--bare` it fails 3/3 (`"Authentication error"`) — `--bare` help:
+     "OAuth and keychain are never read." `--bare` stays removed.
+   - `--json-schema` rejects a file-path argument (`Unrecognized token '/'`) and
+     accepts inline JSON — passed inline (Minor-1).
+   - `--session-id`/`--system-prompt` present in the same capture; session-id
+     inheritance observed (Spike 1, 2026-07-17).
+
+   Spec §6.2 read at 216–250, [spec D-6] at 716–719.
+   Addresses: §6.2, [spec D-6], FR-J2, FR-X5, AC-11, C-5, T4.
+
+   **New acceptance criterion required (F2).** No existing AC asserts the tool
+   set is empty — AC-11 counts oracle *hook firings* in the child, which is a
+   different property. **AC-11a**: the fixture runs the shipped command verbatim, including
+   `--tools ""`, and asserts on **the harness's own output, not the model's
+   narration** — the run completes with no `tool_use` iteration and no entry in
+   `permission_denials`. A self-report is kept only as a secondary signal, and is
+   labelled as one. *(Round-3 R3-9: the prior fixture asked the child to
+   enumerate its own tools. Run twice under the same command, the child reported
+   32 names and then 8 — a 4× swing with no change to the invocation, which is
+   also how the "eight tools" figure entered this document. A model's description
+   of its own configuration is not the configuration, and a fixture built on it
+   passes over a non-empty tool set whenever the model under-reports.)* Without it, T4's
+   "empty by flag" claim has no test and would drift back to prose.
 
 ### D12 — Grounded-generation judgment: prompt construction, composition, and verify-and-bound (FR-A1, FR-J5, FR-X2)
 
@@ -1050,17 +1622,107 @@ foundation.md`, itself anchored on FR-A1.*
      unknown, or dangling `grounding_id` → the **whole whisper is dropped** with a
      diagnostic. This makes "every whisper carries a verifiable pointer" (P4) true
      by construction even though the model wrote the sentence.
+   - **Entailment bound — reference is not entailment (finding F4, round 2).**
+     The check above establishes that a *referenced fact exists and resolves*. It
+     does **not** establish that the claim sentence follows from that fact, and
+     the document previously conflated the two, concluding from the reference
+     check that the model "never invents what counts as true." Reproduced live
+     on 2026-07-30 against the shipped judgment command: supplied exactly one
+     fact — *"src/state/store.ts co-changed with src/routes/SettingsPage.tsx in
+     16 of last 20 commits"*, `trust: mechanical` — the model returned, all
+     bound to `grounding_id: 1`:
+
+     > *"The observed coupling is mechanical and stable (since 2025-01),
+     > indicating this is a standard pattern in the codebase, not accidental"*
+     > · *"Adding a settings flag is a pragmatic approach to decouple the state
+     > management from the UI layer"* · *"This refactoring would improve
+     > modularity and make future changes less cascading"*
+
+     Stability, standardness, non-accidentality, pragmatism, and improved
+     modularity are **not in the fact**. `grounding_id: 1` resolves, the pointer
+     resolves, and every one of these passes the reference check. `[HERZIG-13]`
+     — which the spec adopts precisely to forbid this framing, since up to 15 %
+     of fix commits are tangled — makes *"stable, standard, not accidental"* an
+     affirmatively wrong reading of a co-change edge. This is collapse-log item 1
+     of 2026-07-17 (*"why is existence the right check?"*) recurring one layer
+     down: the corrected foundation moved existence beneath the *send* gate, and
+     it reappeared as the *claim* gate.
+
+     **Move C therefore binds content, not just reference:**
+     1. **Slot-filled per-genre templates.** Each claim is emitted into a genre
+        template whose numeric and identifier slots are copied from the bound
+        fact's `support_numbers` / `evidence_pointer`. The model chooses phrasing
+        *within* the template; it does not emit free sentences. This also makes
+        FR-D5 (co-change claims always render their ratio) structural rather than
+        hoped-for.
+     2. **Token provenance.** Reject any claim containing a number, file path,
+        symbol name, or date that does not appear in the bound fact.
+     3. **Epistemic-strength lexicon (defence in depth, *not* the primary
+        control).** Reject claims asserting a property the fact does not
+        carry — *stable, standard, always, never, not accidental, proven,
+        guaranteed*. **Control (1), the slot-filled template, is the primary
+        bound**, for exactly the reason D11 gives for preferring `--tools ""`
+        over a deny-list: an enumerated deny-list permits everything it does not
+        name, and natural language has an open set of epistemic intensifiers.
+        Observed live on 2026-07-30, from the shipped command: the model returned
+        *"will **almost certainly** require paired updates"* — an escalation over
+        an 80 % frequency that the lexicon above does not contain. The template
+        constrains what a slot may say; the lexicon only catches known words.
+        Residual stated honestly: within a slot, wording is model-chosen and the
+        lexicon is heuristic — the same posture T1 takes on injection. A co-change ratio supports a frequency statement and
+        nothing stronger.
+
+     Until (1)–(3) exist, the guarantee this decision may state is the narrow,
+     true one — *"every claim references a resolvable fact"* — **not** *"it never
+     invents what counts as true."* The stronger sentence is deleted from element
+     5's collapse answer.
    - **Injection / output bound (FR-X2, FR-D2, FR-X3).** The composed text is
      validated to informative, non-imperative form: an imperative-construction
      deny-lexicon rejects commands; length is capped (FR-D1, 1–5 sentences); the
      text must contain **no span** from any `injection_suspect` fact — those enter
-     Move A as pointer + metadata only, never quoted (FR-X3). Repo-derived strings
-     appear in the output only as delimited quotations that trace to a supplied,
-     non-suspect fact. **This validation covers all model-composed free text —
-     every `claims[].text` *and* the optional `so_what` clause (Minor-2)** — so no
-     model-authored words reach the agent unvalidated; `so_what` carries no factual
-     claim of its own (P4 is met by the pointered claims) but is validated for form.
-     Any failure → drop.
+     Move A as pointer + metadata only, never quoted (FR-X3). **This validation
+     covers all model-composed free text** — every `claims[].text` *and* the
+     optional `so_what` clause (Minor-2) — so no model-authored words reach the
+     agent unvalidated.
+   - **Trust-conditioned composition — the paraphrase carrier (Collapse C5).**
+     The span check above is a rule about *quotation*. Move B's entire purpose is
+     to **re-express** supplied facts in the agent's own terms, and a paraphrase
+     is neither a quotation nor a pointer, so the pointer-only default never
+     engages on it. A hostile instruction living inside a legitimately-grounded
+     fact's `claim_text` — a landmine `evidence` string that the heuristic
+     flagger missed, so it is not marked `injection_suspect` — can be reworded by
+     the model, bind to precisely the fact it came from, and pass. The prior
+     collapse answer (*"a hostile instruction reworded by the model has no
+     provenanced fact to bind to"*) was therefore **backwards**: it binds to the
+     very fact whose text carried it. **Fix — condition composition on the trust
+     label the fact schema (D6) already carries:** facts with
+     `trust = 'untrusted_repo'` are supplied to the model as numbers, genre,
+     location pointers, and oracle-computed metadata — **without `claim_text`**.
+     A whisper grounded *only* in untrusted-repo facts renders through D13's
+     deterministic template path rather than model prose. Full composition is
+     retained over `mechanical`- and `human`-trust facts (co-change ratios,
+     call-site counts, zone classifications, human statements), which is where
+     the articulation genres' value actually lives — so this closes the carrier
+     at negligible cost to the mission. AC-7 gains a carrier that plants an
+     imperative in a landmine `evidence` string **with the flagger configured to
+     miss it**, asserting the emitted whisper contains no re-expression of it;
+     today every AC-7 carrier assumes the flagger works, so the fixture cannot
+     fail in the way T1's stated residual describes.
+   - **Failure handling — degrade, don't drop the evidence with the phrasing
+     (finding F8, a regression from round 1's `so_what` fix).** Round 1 extended
+     validation to `so_what` and left the disposition as "any failure → drop",
+     creating a whole-whisper drop path that did not previously exist. The
+     shipped judgment reliably emits directive `so_what` clauses — 4/4 observed
+     on 2026-07-30 (*"Verify whether…"*, *"Check that file…"*, *"Plan to review
+     or update…"*) — every one of which an imperative deny-lexicon rejects,
+     discarding two correctly-pointered claims along with the clause. Since
+     `so_what` carries no factual claim (stated two bullets above), its failure
+     **strips the clause and keeps the claims**, with a diagnostic. Whole-whisper
+     drop is reserved for grounding, entailment, and injection-suspect failures,
+     where the content itself is unsafe. Drop and strip rates are counted per
+     cause (D21) and surfaced in `status` — a validator quietly eating the
+     judgment lane is otherwise indistinguishable from "the bar is correctly
+     high", which is exactly what step 9's anti-ratchet exists to make visible.
    - **Framing (FR-D2, channel convention).** The `[oracle]` prefix, genre tag,
      and confidence tag are added deterministically (D13); the model never
      controls the framing that marks the channel as data-not-instruction.
@@ -1110,13 +1772,20 @@ foundation.md`, itself anchored on FR-A1.*
    is checkable and no repo text can act as an instruction. *Hardest question a
    mission-literate skeptic asks:* "you let the model write free text — what stops
    it fabricating a plausible fact with no basis, or passing a hostile repo
-   instruction through in its own words?" *Answer (cite):* nothing the model
-   writes is trusted as fact — Move C drops any whisper whose claims don't each
-   bind to a supplied store fact whose pointer resolves (P4; FR-J5), and the
-   output validator rejects imperative forms and any span from injection-suspect
-   content (FR-X2, FR-D2, FR-X3); a hostile instruction reworded by the model has
-   no provenanced fact to bind to and is dropped. The model's freedom is phrasing
-   and materiality-judgment, never *what counts as true*. *Second collapse
+   instruction through in its own words?" *Answer (cite) — rewritten in round 2,
+   because the prior answer was wrong in both halves:* on fabrication, Move C now
+   binds **content**, not merely reference — slot-filled genre templates, token
+   provenance, and an epistemic-strength lexicon (F4) — because the reference
+   check alone demonstrably passed claims asserting stability, standardness and
+   improved modularity that the bound fact did not carry. On injection, the prior
+   answer claimed *"a hostile instruction reworded by the model has no
+   provenanced fact to bind to"*; that was backwards — a reworded instruction
+   binds to **the very fact whose `claim_text` carried it**. The control is now
+   trust-conditioned composition: `untrusted_repo` facts reach the model without
+   their text at all, and whispers grounded only in them render deterministically
+   (C5). The model's freedom is phrasing within a bound template and the
+   materiality judgment, never *what counts as true* and never the wording of
+   untrusted repository text. *Second collapse
    probe — "isn't binding-to-a-supplied-fact just select-only again?":* no — the
    model composes across facts, judges which are material to *this* intent, and
    phrases the delivery (answering, contradicting, warning); select-only picks one
@@ -1137,7 +1806,7 @@ foundation.md`, itself anchored on FR-A1.*
 6. **Premise verification.** FR-A1 read at 346–349, FR-A2 (genres, incl. Unknown)
    at 350–367, FR-J5 at 465–468, FR-X2/X3 at 581–588, FR-S3 at 480–482; corrected
    foundation read in full this session; `--json-schema` structured-output flag
-   present in CLI v2.1.218 (captured); the composed→verify→drop path is
+   present in CLI v2.1.220 (captured 2026-07-30); the composed→verify→drop path is
    deterministic code with no external premise. Addresses: FR-A1, FR-A2 (open-ended
    *and* Unknown genres), FR-J5, FR-X2, FR-X3, FR-S3, AC-7.
 
@@ -1157,6 +1826,15 @@ foundation.md`, itself anchored on FR-A1.*
    passes the non-imperative + suspect-span validator (D12 Move C) once more at
    the delivery boundary (delivery may be a later event; the store may have
    changed).
+   **This decision is the single authority on quotation of repo text** (Collapse
+   C5, secondary defect). Round 2 found D12 Move C and D13 stating contradictory
+   rules for the same output — Move C permitted *"delimited quotations that trace
+   to a supplied, non-suspect fact"* while D13 forbade inline quotation of **all**
+   repo-derived spans regardless of suspect status. Two rules for one behaviour in
+   adjacent decisions is a defect on its own: an implementer picks one, and
+   whichever they pick, the choice is unreviewable. The permissive sentence has
+   been removed from Move C, which now cites this paragraph. The rule below is the
+   only one.
    **The generated-file warning and `zone_evidence` (finding #9, T1 fix).** The ⚠
    generated-file warning quotes the file-head marker that classified the file.
    That marker is **raw repo text**. Therefore: at index time (D16) `zone_evidence`
@@ -1248,9 +1926,58 @@ foundation.md`, itself anchored on FR-A1.*
    which FR-M has the oracle watch its *own* conduct. It is **not** the gatekeeper
    posture the rethink removed: that posture was *blocking* (deny paths, plan
    firewalls); these are advisory whispers (P2) that block nothing and are the
-   sanctioned replacement for a gate (RETHINK §9). Process expectations are
-   extracted by Lane 2 (not in the degraded set); answer-drift is deterministic
-   bookkeeping. The whisper names the **specific conflict with its pointer**
+   sanctioned replacement for a gate (RETHINK §9).
+
+   **These genres could not actually be delivered as previously designed
+   (Collapse C2, round 2) — the gap is now closed.** Every whisper must bind each
+   claim to a supplied fact whose pointer resolves against the **store** (D12
+   Move C; D13's assembly gate). A loaded skill's required steps live in the
+   *transcript*; the observed-activity gap lives in Tier 3, which D15 states is
+   **in-memory**; and D6 had no table for skill expectations at all. So the two
+   genres the owner specifically asked for would have been built last, found
+   undeliverable at fixture time, and either quietly descoped or forced through
+   by an implementer inventing a grounding exception inline. Worse, the
+   load-bearing claim — *"no matching tool call observed"* — is an **absence**
+   claim about the session, the exact shape that structurally precluded the
+   `Unknown` genre in round 1. The negative-evidence fact that fixed `Unknown`
+   was defined only for a bounded *store* query returning empty, so the trap it
+   closed was still open one decision over. Three changes:
+
+   1. **Session-evidence fact class.** Generalizes the round-1 negative-evidence
+      mechanism beyond store queries: `prov_kind='session'`,
+      `prov_ref='transcript:<session>:<offset>'`, `trust='mechanical'`, with a
+      resolver that **re-reads that transcript offset**. The pointer is checkable
+      in P4's sense — the owner or the agent can go look at the turn — so
+      grounding stays honest rather than being waived. D13's assembly gate gains
+      this resolver explicitly, beside file-hash and commit resolution.
+   2. **`skill_expectations` table in D6** —
+      `(session, consumer, skill_ref, step_text, required_activity, prov_*)`,
+      written by the narration reader. Process now has a bindable, auditable,
+      evictable fact, and its evidence appears in the FR-X6 audit record like
+      every other whisper's.
+   3. **The Process detector is specified, not named.** "Process expectations are
+      extracted by Lane 2" was the entire prior specification for turning
+      arbitrary prose skill documents into checkable steps with line pointers —
+      the hard half of OWNER-9 named but not designed, while answer-drift (the
+      easy half) was fully specified. **v1 scope is the mechanically decidable
+      subset**: an expectation is extracted only when a step names a concrete
+      required activity (a named command, tool, or file operation) and carries a
+      line pointer; a *completion claim* is an assistant statement matching the
+      claim lexicon within the turn that ends a task; the *match rule* is the
+      presence of a tool event of the required signature for that consumer after
+      the expectation was registered. Steps that are not mechanically decidable
+      are **not extracted** and produce no whisper — narrower than FR-A8's full
+      breadth, stated as a v1 bound rather than left implicit, and recorded in
+      Limitations. Narrower is acceptable; undesigned is not.
+
+   **Security consequence (feeds AC-7).** Skill text is untrusted transcript
+   content that now enters the model prompt and the store, so it joins D19's
+   enumerated ingress list and is secret-scanned and injection-flagged like any
+   repo text — and, per D12's trust-conditioned composition, an expectation
+   carrying `trust='untrusted_repo'` supplies no `claim_text` to the model.
+
+   Answer-drift remains deterministic bookkeeping. The whisper names the
+   **specific conflict with its pointer**
    ("completion claimed at turn T; loaded skill X requires verification at line L;
    no matching tool call observed" / "question Q asked at `loc`, unaddressed for 2
    turns") — it does *not* recite a checklist step-by-step or re-quote the question
@@ -1264,10 +1991,33 @@ foundation.md`, itself anchored on FR-A1.*
    (Spike bonus). ASVS V5 (safe path derivation for the subagent transcript).
 3. **Why here.** The lag is real but bounded and now *measured*; treating the
    transcript as an event-lagged journal (not a live wire) makes every narration
-   genre correct by construction instead of racy. **Recommendation to the owner
-   (decision theirs per §14):** ship narration genres enabled — the one-boundary
-   lag plus delivery-time supersession means the failure mode is "a beat late",
-   never "wrong about what was said."
+   genre correct by construction instead of racy.
+
+   **Reading lag and delivery lag are two different numbers, and only one was
+   measured (Collapse C9, round 2).** The one-boundary figure above is the
+   **reading** lag — how stale the transcript is when the oracle looks at it. A
+   Lane 2 whisper about that narration additionally waits for queue time, the
+   judgment call itself (**≈10.5 s measured**, Spike 1 as re-run), and, on
+   discovery intents, a second model call for the A0 shaping sub-turn. The prior
+   text merged the two and offered the owner a ship recommendation resting on the
+   merged figure. That matters because D10 step 7's supersession re-check is
+   *designed to drop* candidates that arrive after their moment — so a genre that
+   is structurally always late presents as **correct silence**, and nothing in the
+   design would reveal it. A genre past its moment is a genre that does not work;
+   the mission fixes the moment, not only the fact.
+   - The **delivery-lag contract is a quantity to be measured**, not asserted:
+     D26's replay layer reports, per genre, the inter-event interval
+     distribution, the motivation-to-delivery boundary count, and the **candidate
+     survival rate through the supersession re-check**.
+   - **Supersession-drop rate becomes an FR-M2 self-check** with its own finding
+     code. A narration genre whose candidates are nearly always superseded is a
+     capability that has silently gone dark — the OWNER-10 failure this very
+     decision invokes for the subagent-transcript case.
+   - **Recommendation to the owner (decision theirs per §14):** ship narration
+     genres enabled — but the basis is now stated honestly as **provisional**,
+     resting on the reading lag alone and pending the delivery measurement above.
+     "A beat late, never wrong" is a promise about the reading lag; it has not
+     been established for the whisper.
 4. **Rejected.** Polling the transcript on a timer between events (buys one
    boundary at the cost of FR-O5 and [CHI-25]); asking the harness for narration
    via any agent-visible mechanism (P3 violation); treating transcript layout as
@@ -1287,11 +2037,37 @@ foundation.md`, itself anchored on FR-A1.*
    carrying a new `agent_id`) and retired at subagent_stop (their summary flushed
    to session_log via the writer worker, D24, for the distiller). Delivery: a
    whisper is delivered only on the firing consumer's own event (Spike 2: the
-   injection lands in that consumer's context); per-consumer budgets
-   (default min(600 tokens, session remainder)) roll up into the session total
-   (FR-A3/FR-O6). The same fact may be spoken once to the main agent and once to a
-   subagent, never twice to either (AC-21: subject-key dedup per consumer,
-   session-wide spend shared). SubagentStart's `additionalContext` slot may carry
+   injection lands in that consumer's context). The same fact may be spoken once
+   to the main agent and once to a subagent, never twice to either (AC-21:
+   subject-key dedup per consumer, session-wide spend shared).
+
+   **Cross-consumer allocation — which agent gets helped must not be a
+   scheduling accident (Collapse C4, round 2).** The prior rule was a
+   session-wide pool of 2,000 tokens with a per-consumer cap of
+   `min(600, session remainder)` and nothing else. Run the arithmetic on the case
+   OWNER-8 exists for — *"the owner's real work runs through workflows that fan
+   out to subagents"* — consumers 1–3 take 600 each, consumer 4 gets 200, and
+   consumers 5 and up get **zero**. The oracle then goes silent for most of a
+   fan-out's subagents not because it has nothing material to say, but because
+   earlier consumers spent the budget on coupling notes an hour ago. A ⚠ warning
+   to the sixth subagent about to hand-edit build output loses to a suggestion
+   the first consumer already received. OWNER-8's stated reason for pulling
+   subagents into v1 was that a main-agent-only oracle *"misses most of the
+   decisions that matter"*; first-come-first-served reproduces that miss with
+   extra steps. Four changes:
+   - **Reserve a floor per consumer at creation**, and **reclaim** the unspent
+     reservation at `subagent_stop`.
+   - **Scale the session ceiling with the number of *active* consumers** rather
+     than holding a fixed pool; the default and its derivation are stated in
+     `tuning` (D23) so the learning loop can move it.
+   - **Warn-grade candidates preempt across consumers**, not merely within one —
+     priority that stops at the consumer boundary is not priority.
+   - **A consumer denied by budget rather than by the bar raises an FR-M2
+     finding.** "Silent because broke" must be distinguishable from "silent
+     because correct" — that distinction is D10's own stated standard for the
+     attention engine, and it did not hold across consumers.
+   Fixtured by a six-consumer fan-out replay asserting every consumer with an
+   above-bar candidate is served (AC-21a). SubagentStart's `additionalContext` slot may carry
    a consumer-scoped orientation whisper (2–3 sentences) — but **only when a real
    task signal exists at start (Caveat 7).** At subagent_start the subagent has not
    narrated and the transcript lags (D14), so firing on `agent_type` alone would be
@@ -1449,12 +2225,16 @@ foundation.md`, itself anchored on FR-A1.*
    (a) probe failure at service start, (b) 3 consecutive Lane 2 call failures, or
    (c) `claude` binary absent; `degraded` → `model_ok` only via a successful
    re-probe (at most once per 30 min, and on `ctxoracle status --probe`). The
-   probe = the **D11 model-call shape (no `--bare`, with `--disallowedTools`)** with
+   probe = the **D11 model-call shape verbatim (no `--bare`, `--tools ""` with the
+   `--disallowedTools` deny-list behind it — round-3 R3-3)** with
    a trivial prompt, result cached in `env_capabilities` by environment fingerprint
    (D7) so unchanged environments skip live probes across sessions. Entering
    degraded mode: one `systemMessage` notice (plain language), one diagnostic,
    genre set restricted to FR-J3's list (deterministic orientation, coupling,
-   generated-file warning, verification, completeness), confidence bar raised by
+   generated-file warning, verification, completeness, **and answer-drift —
+   added 2026-07-30: it is deterministic bookkeeping with a mechanical
+   predicate (D10a note 2), so it runs without a model path, and Phase 0 is
+   where the owner will actually meet it**), confidence bar raised by
    the configured delta. Nothing about mode transitions ever enters agent context
    (FR-D4/FR-M4 — pinned by the AC-10 runtime check, D13).
    **What degraded mode actually delivers (Caveat 6 — do not overclaim Phase 0).**
@@ -1499,7 +2279,17 @@ foundation.md`, itself anchored on FR-A1.*
    produced vs shim acks; missing acks ⇒ "produced but not delivered"; (7)
    *subagent-narration availability* — the `narration/locate.ts` adapter failed to
    find a subagent transcript ⇒ `subagent_narration_unavailable` (a real capability
-   loss surfaced to the owner, not a silent degrade — D14). Findings are
+   loss surfaced to the owner, not a silent degrade — D14); **(8) *continuation
+   accounting* — Stop-class deliveries per session, counted from
+   `whisper_log.continuation`, finding code `continuation_budget`, rendered by
+   `status` in the owner's own framing ("the oracle extended a turn N times this
+   session") so the audited half of OWNER-12's accepted cost is actually visible
+   (FR-O4a; round-3 R3-1)**; and **(9) *delivery confirmation* — audit records
+   are marked `delivery_confirmed` from the shim ack, unconfirmed records render
+   distinctly in `ctxoracle log`, and the ack is retried once; without this,
+   check (6) cannot distinguish a lost ack from an undelivered whisper and
+   generates findings the owner cannot act on (round-2 collapse-hunt S2
+   correction; round-3 R3-10)**. Findings are
    diagnostics records with stable `finding_code`s; `ctxoracle status` renders them
    in plain language (one line each, no jargon) and the distiller consumes them
    (FR-M3, Phase 2).
@@ -1691,14 +2481,18 @@ foundation.md`, itself anchored on FR-A1.*
    the deadline governor active **and the writer-worker path exercised** — the
    D24 fix is measured here); **(3) end-to-end AC fixtures** — one file per spec
    AC under `test/ac/`, including: no-deny structural (AC-3: the shim response type
-   contains no decision fields — compile-time + runtime scan); pristine-tree
+   contains no decision fields — compile-time + runtime scan — **plus the widened
+   control-flow assertions (spec AC-3, 2026-07-30): a `stop` event carrying
+   `stop_hook_active: true` yields silence, and no oracle output extends the
+   agentic loop by more than one continuation per stop**); pristine-tree
    (AC-4); adversarial pack (AC-7: OWASP-PI carriers in file content, code
    comments, commit messages, **and generated-file-header markers** — asserting no
    whisper relays or obeys, exercising the D12 grounding/validation *and* the D13
    `zone_evidence` suspect path); secrets (AC-12); trust-origin (AC-13); locality
    (AC-14: network-refusing spawn wrapper); recursion (AC-11: diagnostics counter
-   during a real non-`--bare` `--disallowedTools` child call — the actual shipped
-   command, since a non-`--bare` child does not skip hooks); subagent delivery (AC-21:
+   during a child call running **D11's command block verbatim, cited by reference
+   rather than by re-listing flags** — including `--tools ""` — so the fixture
+   cannot drift from the shipped command again (round-3 R3-3)); subagent delivery (AC-21:
    the Spike 2 scenario, environment-marked); self-detection (AC-18); **the
    `systemMessage`-negative check (AC-10/AC-18: assert a `systemMessage` emission
    is absent from the model-visible transcript)**. Model-dependent tests run
@@ -1722,102 +2516,50 @@ foundation.md`, itself anchored on FR-A1.*
 
 ---
 
-### Phase 8 attestation (finding #6 corrected)
+### Self-verification record (rebuilt 2026-07-30 — finding S1)
 
-The decisions that met the hard-decision criteria (multiple valid approaches with
-rework cost; non-obvious interaction; quality-attribute trade-offs) and therefore
-carry a **structured-reasoning artifact** are: **D2**, **D3**, **D4** (weighted
-decision matrices) and **D10** (numbered reasoning chain with an in-place
-revision). The load-bearing judgment-core and premise-correction decisions **D10**,
-**D12**, and **D24** each additionally carry a **collapse test in writing** (D10:
-the attention discipline; D12: the grounded-generation core; D24: the
-audit-durability + latency correction) — the mission-fidelity artifacts this
-project's `CLAUDE.md` mandates, distinct from a matrix, and each verified to exist
-in the body (D10 element 4, D12 element 5, D24 element 5). The remaining decisions
-(D1, D5–D9, D11, D13–D23, D25, D26) are constraint-forced or reversible at low cost
-and carry named rejections without a full grid; this sentence is the explicit Phase
-8 statement for them. (The prior draft's attestation mis-credited D11/D12/D16/D17
-with matrices/chains they do not carry and omitted D3/D4 which do, and later a
-review pass found the D24 collapse test attested-but-absent — both corrected here,
-D24's collapse test now present.)
+**What was here, and why it is gone.** This position previously held four
+self-assessment blocks: a Phase 8 attestation, Gate B (auditability), Gate C
+(structural checklist), and a five-trap binary audit. Round 2 found eight
+attestation claims in this document that were false on re-derivation — among
+them *"the model child's tool set is empty by flag"* (eight tools remained),
+*"`--max-turns 1` bounds it to a single generate-no-tool turn"* (two turns, and
+the call errored with no verdict), *"verified locally this session — returns the
+root commit on this repo"* (six root commits), *"the traceability matrix is total
+over spec judgments"* (six judgments absent), and, capping the set, *"No premise
+rests on memory."*
 
-### Pre-delivery multi-perspective review (Gate A synthesis)
+The pattern is now on its **third consecutive round**: the 2026-07-17 draft was
+condemned for eleven findings sharing one root cause — correctness asserted but
+never established; round 1 found the same class again (a Gate-C attestation of a
+D24 collapse test that did not exist; the `--bare` command self-certified but
+never run); round 2 found eight more. The instances are not independent slips.
+They cluster in exactly the sections whose *purpose* is to certify — which are
+the sections a downstream reader trusts most and re-derives least. A block that
+says "all premises verified" is worth less than nothing when it is the least
+reliable text in the document, because it discourages the checking that would
+catch the rest.
 
-**Planner seat** — "where would I have to make an architectural call inline,
-starting from an empty repository?": walked the structure against every FR. The
-judgment core is now fully specified (D12 Moves A/B/C: retrieval → model
-compose-with-grounding-ids → deterministic verify/bound/drop), so the planner does
-not have to design "how the model composes safely" inline — the seam is drawn. The
-writer-worker/read-only-loop split (D24) tells the planner exactly which store
-calls go where. No remaining decision requires the planner to architect;
-file-level sequencing is the plan's job and the build order gives its dependency
-spine.
-**Reviewer seat** — "could I verify a build against this?": every decision names
-its addressed requirements; the traceability matrix is total over FR/NF/C/P/§14/AC;
-the ACs map to named fixtures (D26), including the two new mechanical checks (the
-`systemMessage` negative; the `zone_evidence` adversarial path). Verifiable.
-**Stakeholder seat** — "do I know what was chosen, what it costs, where it breaks?":
-Limitations carries the honest costs (experimental SQLite; undocumented
-subagent-transcript layout; narration lag; Windows untested; human-derived
-thresholds; the `systemMessage` negative pinned by test rather than a documented
-guarantee). One stakeholder-visible decision needs the owner's eyes and is flagged
-in STATUS: narration genres ship-enabled recommendation (D14). No unstated costs
-found on the third pass.
+**The replacement rule, which is structural rather than another attestation:**
+every load-bearing claim carries its evidence **inline, at the point of use** —
+the pasted command *as shipped*, the file:line Read, the fetched-doc quotation
+with its date, or the executed output. A claim that cannot carry one is deleted,
+not softened and not relocated to a summary. There is deliberately no block here
+that certifies the document as a whole; the per-decision element 5s are the only
+verification record, and they are auditable one claim at a time.
 
-### Before-delivery verification — Gate B (auditability)
+**Where the evidence for this round's re-derivations lives:** Spike 1 (the model
+command, tool set, turn count, latency, cost — all pasted), D5 element 5 (the
+root-commit and shallow-clone runs), D11 element 5 (every flag re-checked against
+CLI v2.1.220, the installed version — the document previously certified against
+v2.1.218), D12 Move C (the reproduced entailment failure, quoted verbatim), and
+`docs/reviews/2026-07-30-round-2-expert-review.md` (the full inventory and tool
+plan).
 
-Each question is answerable by pointing to a specific section/row/annotation:
-- *Which named standards govern this, and what does each govern?* → Standards
-  table (every row names the decision(s) it drove).
-- *Where does each non-trivial decision come from?* → Design decisions element 2.
-- *What alternatives were rejected, and why?* → element 4 (D2/D3/D4 full grids;
-  D12's four named rejections incl. select-only; the rest named rejections).
-- *What premises was each verified against, and how?* → element 5 (spec file:line,
-  live docs fetch with date, or this session's pasted empirical evidence).
-- *Which decisions used structured reasoning, and what did it produce?* →
-  Knowledge-state baseline; D2/D3/D4 matrices; D10 chain; D12/D24 collapse tests.
-- *Security in scope — every applicable ASVS chapter mapped or deferred?* → ASVS
-  mapping table (now including V15).
-- *Is every FR/NF/C/P/AC accounted for?* → Traceability matrix.
-
-Gate B outcome: **pass**.
-
-### Before-delivery verification — Gate C (structural checklist)
-
-- Five-part format on every non-trivial decision (D1–D26): present.
-- Library/runtime premises cite the artifact + version + source + date: CLI
-  v2.1.218 help (captured), Node v22.22.2 empirical (pasted), hooks docs (fetch
-  2026-07-22), ASVS 5.0.0 (web-verified 2026-07-22). No premise rests on memory.
-- Mandatory reasoning structures present in required shape: Knowledge-state
-  baseline ✓; weighted decision matrices (D2, D3, D4) with arithmetic shown ✓;
-  numbered reasoning chain (D10) with in-place revision ✓; **collapse test in
-  writing on the load-bearing decisions (D10, D12, D24)** ✓; six-part threat
-  entries (T1–T4) ✓; three-role Gate A review ✓. No hard contradiction arose, so
-  no dialectical resolution is required — stated explicitly rather than omitted.
-- Threat model + ASVS mapping present (security in scope); Inheritance section
-  omitted with attestation. Traceability total over FR/NF/C/P/§14/AC; Scope names
-  in/deferred/out with reasons; Standards table complete.
-
-Gate C outcome: **pass**.
-
-### Before-delivery verification — five-trap audit (binary)
-
-- **Codebase-mirroring trap** — *no.* Greenfield; no implementation to mirror. The
-  prior draft is superseded, not pattern-copied — its grounded parts are re-derived
-  and re-verified, its hollow core (select-only) is rejected and rebuilt.
-- **Pattern-cloning trap** — *no.* No structure inherited from the archived
-  `ctxpack` directories or sibling architectures; each element derives from this
-  spec (Inheritance section attests this).
-- **Decision-hiding trap** — *no.* The judgment-core reasoning (Moves A/B/C), the
-  collapse tests, the D2 arithmetic, and the D24 mechanism are all in the document,
-  not in working context.
-- **Standards-decoration trap** — *no.* Every Standards-table row names the
-  decision(s) it drove; the ASVS row now points at specific decisions
-  (finding #11), not at the mapping table.
-- **Deferred-decision trap** — *no.* Judgment construction, concurrency, schemas,
-  build order all resolved here; the only deferrals (export-file format; Phase 2
-  mining logic) are spec-sanctioned (§14, §12) and recorded in Scope/Deferred.
-
+**Standing instruction for the next round.** Do not restore a summary
+attestation block. If one appears in a future draft, treat it as a finding on
+sight — this document has now produced false certifications in three consecutive
+rounds, and the format is the thing that keeps failing, not the author.
 ## Threat model
 
 Inherited threats T1–T4 from spec §8.1 mapped to architectural controls in the
@@ -1896,11 +2638,20 @@ Question: what authority does compromise of each component yield? Hypothesis: sh
 the service holds repo *read* + out-of-tree writes + exactly one network egress (the
 model call, **now tools-disallowed by an actual `--disallowedTools` flag, D11**);
 nothing holds tool authority in the agent's session. Experiment: AC-14 instrumented
-run + AC-11 (recursion/tool counter) — prediction: zero in-tree writes, zero network
-beyond the model call, zero traffic with model path disabled, and zero tool
-invocations by the model child. Analysis: privilege separation follows the process
-boundaries (D2) and the model child's tool set is empty by flag, so the property is
-enforced by construction and asserted by fixture rather than policy. Conclusion:
+run + AC-11 (recursion counter) + **AC-11a (the child enumerates its own tools and
+returns none)** — prediction: zero in-tree writes, zero network beyond the model
+call, zero traffic with model path disabled, and an empty tool inventory in the
+model child. Analysis: privilege separation follows the process boundaries (D2);
+the child's tool set is emptied by **`--tools ""`**, with the ten-name
+`--disallowedTools` retained behind it as defence in depth.
+**Corrected 2026-07-30 (finding F2):** this analysis previously rested on
+`--disallowedTools` alone and concluded the tool set was "empty by flag." Run
+live, that deny list left eight tools available — including task-scheduling and
+file-emitting capabilities — so the claim was false and, being a deny-list, it
+would have silently granted every tool name the CLI added in future. The
+enforcement is real now, and AC-11a exists because no prior criterion tested this
+property: AC-11 counts oracle *hook firings* in the child, which is a different
+thing entirely. Conclusion:
 controlled by D2/D9/D11; residual = the socket as a local attack surface → 0700 run
 directory, per-session paths (D2), length-capped schema-validated envelope (D8); a
 hostile same-user process is outside the perimeter (it already owns the agent).
@@ -1954,7 +2705,7 @@ this; spec §12 phase exits in brackets):
    deterministic product complete.
 8. CLI `init`/`deinit`/`status`/`index` (D22) + AC fixtures for Phase 0 (D26).
    **[Phase 0 exit: AC-1..5, AC-12, AC-14, AC-17, AC-18]**
-9. Model client + recursion guard (incl. `--disallowedTools`) + degraded state
+9. Model client + recursion guard (incl. `--tools ""` + deny-list) + degraded state
    machine (D11, D20).
 10. `narration/` readers + Tier 3 completion (D14, D15).
 11. Lane 2 worker + grounded-generation judgment (retrieval → compose → verify/bound)
@@ -1987,6 +2738,7 @@ Every spec requirement, constraint, principle, §14 item, and AC accounted for.
 | FR-O2 | D8, D9 |
 | FR-O3 | D2, D9, D10, D21, D24 |
 | FR-O4 | D9 (structural), D26 (AC-3) |
+| FR-O4a | D8 (`stop_hook_active` in the contract), D9/D10 step 5 (silence when true; `stop_bar_delta`), D6+D24 (`whisper_log.continuation`, durable), D21 self-check 8, D26 (widened AC-3) — OWNER-12 |
 | FR-O5 | D10 (boundary-only delivery; timers rejected) |
 | FR-O6 | D15 (+ Spike 2 evidence) |
 | FR-K1 | D6, D16 |
@@ -2136,7 +2888,7 @@ Every spec requirement, constraint, principle, §14 item, and AC accounted for.
 | OWASP Secrets Management Cheat Sheet §8 | spec §3 inheritance | D19 scanner design |
 | OWASP ASVS 5.0.0 | security-architecture practice | Applied-chapter decisions: V1→D12/D13/D19, V2→D8/D12, V5→D14/D5/D16, V8→D2/D9, V11→D5, V13→D23, V14→D19, **V15→D3/D6/D9/D10/D24**, V16→D21 (not the mapping table itself — finding #11) |
 | Claude Code hooks reference (code.claude.com, fetched 2026-07-22) | primary source | D8, D9, D13, D15 (events, fields, channels, timeouts; the `additionalContext`/`systemMessage` distinction) |
-| Claude Code CLI surface (v2.1.218 `--help` + live invocations, captured 2026-07-22) | primary source | D11 (`--disallowedTools`/`--allowedTools`, `--session-id`, `--json-schema` inline-only, `--system-prompt`; `--bare` present but **rejected** — its help states OAuth/keychain are never read, and it fails host auth 3/3 in this environment) |
+| Claude Code CLI surface (v2.1.220 `--help` + live invocations, captured 2026-07-30) | primary source | D11 (`--disallowedTools`/`--allowedTools`, `--session-id`, `--json-schema` inline-only, `--system-prompt`; `--bare` present but **rejected** — its help states OAuth/keychain are never read, and it fails host auth 3/3 in this environment) |
 | Anthropic Help Center — "Use the Claude Agent SDK with your Claude plan" (looked up 2026-07-22) | primary source | D11/D20/§14 (headless `claude -p` draws from the Pro/Max subscription; June-15-2026 separate-credit change paused; OAuth-token headless auth supported) — closes the subscription-login-inheritance premise at the documentation level |
 | Node.js v22 API docs + empirical run on v22.22.2 (this session) | primary source | D2 (net IPC), D4 (`DatabaseSync` synchronous, WAL/STRICT/FTS5), D24 (`worker_threads`, busy_timeout) |
 | SQLite WAL documentation | primary source | D24 concurrency contract |
@@ -2166,9 +2918,16 @@ run-time/operate-phase by nature (a per-machine auth confirmation at `init`; mea
 conduct false-fire rates once the tool runs), not open design questions. The
 load-bearing judgment-core and premise-correction
 decisions (D10, D12, D24) carry the collapse test in writing; the traceability
-matrix is total over FRs, NFs, constraints, principles, spec judgments, §14 items,
-and ACs; the foundation and build order are established and mapped to the spec's
-phase exits.
+matrix is total over FRs, NFs, constraints, principles, §14 items, and ACs; the
+foundation and build order are established and mapped to the spec's phase exits.
+
+*Corrected 2026-07-30 (finding F9a): this sentence previously also claimed
+totality over **spec judgments**. It was not true — the matrix carries three
+`[spec D-n]` rows, and six of the spec's twenty judgments (`D-1`, `D-2`, `D-9`,
+`D-11`, `D-18`, `D-20`) appear nowhere in this document. The matrix's own header
+never claimed judgment coverage; only this attestation did, which is the shape
+finding S1 names — the certification sections overclaim while the design prose
+does not.*
 
 **What changed from the 2026-07-17 draft (the 11 findings, all cleared).**
 1. *(Critical/Systemic)* Judgment core re-derived from FR-A1 as **grounded
@@ -2203,7 +2962,10 @@ phase exits.
 11. *(Minor)* The ASVS Standards-table row now names the decisions ASVS drove, not
     the mapping table.
 
-**What the independent Round-2 passes changed (2026-07-22, all applied).** The
+**What the independent Round-1 passes changed (2026-07-22, all applied).**
+*(Relabelled 2026-07-30 per `docs/reviews/README.md`: rounds count passes over the
+current artifact, so the 2026-07-22 passes are round 1. The inline fix notes
+throughout this document correctly say "round 2" for the 2026-07-30 findings.)* The
 mandatory adversarial collapse-hunt and expert-review ran against the rebuilt
 document; every finding was applied (full detail in `docs/collapse-log.md`,
 2026-07-22 entry):
@@ -2236,10 +2998,12 @@ document; every finding was applied (full detail in `docs/collapse-log.md`,
    (D13); SubagentStart orientation gated on a real task signal (D15); degraded-mode
    scope stated honestly (D20).**
 
-**Before-delivery gates (re-run after Round-2 fixes):** Gate A (three-role review)
-— pass; Gate B (auditability) — pass; Gate C (structural checklist) — pass;
-five-trap audit — clean; the load-bearing decisions (D10, D12, D24) carry a written
-collapse test, each verified present in the body.
+**Review record.** This document carries no self-certification. Round-by-round
+review output — inventory, findings, closure ledgers, verdicts — lives in
+`docs/reviews/`, signed by the reviewer rather than the author. A summary
+"gates passed" statement in the artifact is a finding on sight (Self-verification
+record, above); one survived byte-identical through the round-2 fix and was
+caught by round 3 as R3-S1 instance 1. This paragraph replaces it.
 
 **What comes next.** The implementation plan (`/expert-plan`, consuming spec + this
 document) is the next lifecycle stage, then Phase 0 per the build order. No design

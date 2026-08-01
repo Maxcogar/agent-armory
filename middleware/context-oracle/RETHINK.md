@@ -357,3 +357,31 @@ tool grading its own paperwork. An oracle is measured on:
     verification, diagnosis, documentation, roadmap — is owned by the agents
     working the project, under written guidelines (`CLAUDE.md` in this
     directory). The owner is a non-programmer and this is by design, not a gap.
+
+### §12 addendum — decision resolved by the owner, 2026-07-30
+
+12. **Speaking at a completion claim is a must-have, and its turn cost is
+    accepted.** Round-2 review established from the current hooks contract that
+    delivering a whisper on `Stop`/`SubagentStop` is a *continuation control* —
+    it "keeps the conversation going through the same loop protections as
+    `decision: \"block\"`" — so the oracle speaking at the moment an agent
+    claims completion does not merely cost a wasted sentence (P2); it costs the
+    agent a turn it was trying to end. The evidence was put to the owner as a
+    question, per `CLAUDE.md`, because two of the three remedies contradicted
+    the spec's own choice of `Stop` as the trigger for the completeness and
+    verification genres.
+
+    **The owner's ruling: keep it.** In his words, *"having the oracle speak
+    when an agent claims it's done is a must-have feature in my mind."* The
+    completion claim is the single highest-value moment the oracle has — it is
+    exactly where an unregistered conflict (an agent reporting done without
+    having verified) becomes actionable, and it is the core problem the tool
+    exists to solve: mistakes neither the owner nor the agent catches.
+
+    **What this does not license.** The no-gates rule is unchanged: `decision:
+    "block"` stays structurally absent everywhere, and the oracle never prevents
+    a turn from ending. The accepted cost is bounded to *one* extra turn — the
+    oracle stays silent whenever `stop_hook_active` is true, so it can never
+    chain continuations or approach the harness's 8-continuation cap (spec
+    FR-O4a, AC-3). This is a decision to accept a named, bounded, audited cost —
+    not a decision that continuation is free.

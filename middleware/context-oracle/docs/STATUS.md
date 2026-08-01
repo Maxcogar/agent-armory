@@ -3,6 +3,236 @@
 *Plain-language project status, updated at the end of every working
 session. Newest entry first.*
 
+## 2026-07-31 — the fix cycle is over; next is a Phase 0 requirement set
+
+**Where the project is.** Still design phase, no code — and the architecture
+document cannot be repaired by more rounds of fixing. The process's own
+stop-signal fired. The cause is structural and sits above the architecture, in
+how the spec and the build phases relate to each other.
+
+**What is next, concretely.** Three steps, in order, before any more design work:
+
+1. **Work out which requirements belong to Phase 0.** The spec has 57
+   requirements and none says which build phase it belongs to. The answer is
+   already derivable: §12 lists Phase 0's components, and each of the nine
+   Phase 0 exit criteria names its own requirements. Write those tags into the
+   spec, so the boundary is settled once, in the spec, and can be checked.
+2. **Settle the contradictions that exercise turns up.** At least one exists
+   already: exit criterion AC-2 belongs to Phase 0 but depends on the model
+   judgment, which is Phase 1 and does not exist yet. Each is quick to settle
+   once visible; none can be settled while invisible.
+3. **Design the Phase 0 architecture. This is design work, not assembly.**
+   *(Corrected 2026-07-31: this step previously said "assemble from the parts
+   that already survived — those parts were attacked four times and held." That
+   was false, and it was the justification for treating Phase 0 as nearly done.
+   Round 3's own traversal table shows **four of Phase 0's five genres break**:
+   orientation at retrieval, warning at the bar, completeness at delivery,
+   verification at the bar and again at delivery. Only **coupling** survives end
+   to end. The claim came from generalising "the findings split along the phase
+   boundary" — which was about which *decisions* collapsed — into "Phase 0 is
+   solid", and never re-deriving it.)*
+
+   **What genuinely survived adversarial re-execution**, and can be carried
+   forward on that basis: D5 (repo identity — re-run, exact to the digit), D3/D4
+   (`node:sqlite` capabilities — executed), D24 (audit ordering — read complete
+   in both directions). Three mechanisms.
+
+   **What was never seriously attacked** — the genre traversal only began in
+   round 3, so the infrastructure decisions were reviewed for internal
+   correctness and not against the genres they serve: D2, D6/D7, D8, D9, D13's
+   mechanical path, D16, D17, D19, D21, D22, D23, D26's Phase 0 fixtures, and
+   D10's deterministic subset. **Not attacked is not verified.** Carry them as
+   drafts to re-derive, not as settled work.
+
+   **The four genre gaps, each with one nameable blocker:**
+   Each blocker below was re-read against its source on 2026-07-31; the source
+   is cited so the next session can check rather than inherit.
+
+   - *Orientation* — **it has a v1 writer.** D18: *"v1's only writers are:
+     `human_facts` promotion (FR-L6 …) and **the literal-match landmine path for
+     orientation** (FR-J3's degraded set needs literal-match landmines)."* What
+     is Phase 2 is *automated* mining, which is a different claim. So the work is
+     to specify that literal-match path, not to wait for Phase 2.
+     *(This entry first said the opposite — "no writer until Phase 2" — which is
+     the defect round-4 finding R4-5 raised, reproduced here as fact while R4-5
+     sat open in the register below. Corrected after Max Cogar asked whether the
+     next session had enough to work from.)*
+   - *Warning* — a real ambiguity, not a design problem. FR-A5: *"History-backed
+     genres **additionally** respect evidence floors"* — the generated-file
+     warning is not history-backed, but D10 step 5 restates the floors against
+     "warn-grade" without that qualifier. One sentence decides it. Blocks AC-5.
+   - *Verification* — the mapping does not exist. D16 sources verify-commands
+     from *"package.json scripts per workspace dir; pytest/tox presence"*, and
+     extracts test topology separately. A command list from `package.json` is one
+     `Read` away and does not clear the bar; a region→command mapping would, and
+     nothing builds one.
+   - *Completeness* — FR-A2 gives it *"edit completed / stop"*; D10 step 4 routes
+     only *"stop → untouched partners + verify command"*. The free arm was
+     dropped, so its whole output now costs a turn.
+
+   Also blocking: `cochange_file_pairs`, `ref_edges` and `open_questions` carry
+   no provenance block, which breaks AC-1 and AC-6 as written.
+
+   **Worth evaluating first, unvalidated:** coupling works today and warning is
+   one decision away. A Phase 0 of those two would be a real running tool
+   producing the measurements everything downstream waits on, without designing
+   three more genres against nothing. That is a reading of the traversal table,
+   not a conclusion any review reached — check it before acting on it.
+
+Then review it, plan it, build it, and **run it** — because everything still
+undecided is waiting on measurements only a running Phase 0 can produce.
+
+**Why the old path failed, in one line.** Everything for phases 2 and 3 was being
+designed against measurements nobody has taken, because nothing has ever been
+run — so the *decisions* belonging to those phases collapsed in every review
+round. (Phase 0's decisions collapsed less often, which is not the same as
+holding: four of its five genres still fail traversal — see step 3.) You found it, by asking why three build phases live
+in one spec. The full account, and the lesson future sessions inherit from it, is
+the 2026-07-31 entry in `docs/collapse-log.md`.
+
+**What changed in the project this session, beyond the review work.**
+- The build rules now say the design is written **one phase at a time** instead
+  of all three up front. That is the fix for the cause above.
+- The spec now says plainly that the phase-2 and phase-3 requirements are
+  provisional until the measurements they depend on exist.
+- Project status was being duplicated in a repo-wide file, which is how the
+  outside copy went two weeks stale while the inside one stayed current. That
+  duplicate is removed. **This file is the state of record.** Handoffs describe
+  what a session did; they do not set state.
+
+**Open findings — 32 from round 4, triaged against the Phase 0 re-scope.** The
+tripwire fired before these were applied, so all 32 are open. They were recorded
+only inside the two round-4 review files, which is a pointer, not tracking — and
+the re-scope changes which of them still matter. Triage by the decision each one
+targets:
+
+**Bears on Phase 0 — must be resolved during the Phase 0 assembly (12):**
+
+| # | What it blocks |
+|---|---|
+| R4-4 | D20 deletes `self_serve_cost` in degraded mode — so **Phase 0 ships the exact bar round 2 collapsed**, with no term for what the agent could get itself |
+| R4-6 / R4-C3 | Coupling's grounding pointer (`commit hash`) does not exist in the schema and D17 refuses to store it — **blocks AC-1 and AC-6, both Phase 0 exits** |
+| R4-5 / R4-C11 | Orientation's landmine arm marked "no v1 writer" when D18 names two, one built for Phase 0 — and the `genre_dark` check it defers to does not exist |
+| R4-C7 | Verification's bound fact cites test-topology mining D16 does not do; on a single-package repo it maps everything to one command |
+| R4-C13 | Completeness lost FR-A2's free `edit-completed` trigger, so its whole output now spends a turn |
+| R4-C10 | Answer-drift was moved into Phase 0 in a table note, contradicting spec FR-J3 and §12 |
+| R4-3 / R4-C14 / R4-C6 | D24's write classes do not enumerate every table, and the anti-ratchet's only evidence sits in the droppable class |
+| R4-C1 | The FR-A5 evidence floor's applicability to the generated-file warning is undecided — blocks AC-5, a Phase 0 exit |
+| R4-C2 | `self_serve_class` asserted per genre for a per-candidate function |
+| R4-1 | `prov_kind` pointer shape stated two incompatible ways (the D6 half is Phase 0 schema) |
+| R4-9 | **Systemic, fifth round** — cross-references certifying what their targets do not carry. A process defect, not a Phase defect; it applies to whatever gets written next |
+| R4-C4 | Warning's uptake predicate measures compliance, inverting the rule it cites (Warning is a Phase 0 genre) |
+
+**Phase 1 or 2 — deferred until those phases are architected (20):** R4-2, R4-7,
+R4-8, R4-10, R4-11, R4-12, R4-13, R4-14, R4-15, R4-16, R4-C5, R4-C8, R4-C9,
+R4-C12, R4-C15, R4-C16, and the Phase-1 halves of R4-1, R4-3, R4-C1, R4-C14.
+These target the judgment core, the conduct genres, the learning loop and D10a —
+none of which Phase 0 contains. **Deferred is not closed.** They return when
+Phase 1 is architected, against measurements that exist by then.
+
+*(R4-7 and R4-8 — the Spike 1 evidence and the D11 timeout — were corrected in
+place during this session; they are listed as deferred because D11 itself is
+Phase 1, not because the corrections are pending.)*
+
+**What survives.** Your decisions in RETHINK; the spec's Phase 0 material; the
+store design, the event contract, the shim, the indexer, the security scanner and
+the repo-identity mechanism — several held up under reviewers actively trying to
+break them; and everything proved by running it (the login trick, the tool
+lock-down, the timings, the turn behaviour). The four reviews and the collapse log
+are a genuinely useful record of how this fails.
+
+**What does not survive.** The design for the thinking half — the judgment core,
+the two conduct nudges you asked for, the "when to speak" dial, the learning loop.
+Not because the work was careless, but because it could not be done yet.
+
+**A correction I owe you, the second on the same point.** I told you the tool's
+model command "fails every time", then that it "depends on the wording". Both
+wrong. Under the setting the design actually uses it succeeds 10 out of 10.
+Nothing about the tool changes; what changes is that you were handed a confident
+wrong answer twice by me.
+
+**Nothing needed from you.**
+
+## 2026-07-30
+
+**Where the project is:** still design phase, no code — still correct. The
+architecture went through its round-2 review this session and **failed it**, hard.
+Nineteen problems were found across two independent reviewers. All nineteen are
+now fixed. The document is in genuinely better shape than it has ever been, and
+it has **not** been re-reviewed since the fixes, so it is not signed off.
+
+**The headline: the tool would not have worked at all.**
+
+The command the design uses to ask the AI model a question was tested this
+session by actually running it. The design allowed the model "one turn" to reply,
+but the structured answer it asks for is delivered *as a second step*.
+
+**A correction I owe you — the second one on this same point, and I got it wrong
+twice.** I first told you the command "fails, every time." Then I told you it
+"depends on the wording of the instructions." **Both were wrong**, and the fourth
+review caught it by running the one test I had been told to run and hadn't.
+
+Here is what is actually true. All my failing runs used an *old* setting the
+design no longer uses. Under the setting it actually ships, the command succeeds
+**10 out of 10** — with short instructions or long, it makes no difference. There
+was never a wording effect. There was a leftover flag in my test that isn't in
+the product.
+
+The design decision (allow two turns) is still right and costs nothing, so
+nothing about the tool changes. What changes is that you were told a confident
+mechanism twice, by me, and neither was real. Both times the error was the same
+shape: I ran a handful of tests and reported the pattern instead of running the
+specific test that would have shown me I was wrong.
+
+**The other serious one: the "no tools" promise was not true.** The design claimed
+the model it consults has no tools available, "enforced by construction". Run
+live, eight tools were still available to it — including ones that can schedule
+work and write files out. The fix (`--tools ""`, which is documented and which I
+verified returns "none") turned out to be *better on every axis*: it's genuinely
+empty, it's one step shorter, and it's about 40% faster. The two worst findings
+of the round fixed each other.
+
+**What you decided, and what I did with it.** You said the oracle speaking when an
+agent claims it's done is a must-have. It's locked in as your decision #12, and
+the spec now says out loud what the review discovered: speaking at that moment
+*does* cost the agent an extra turn — it isn't free the way the rest of the tool
+is. Rather than pretend otherwise, the oracle is now hard-limited to **one** extra
+turn ever, it can never chain them, and every time it spends one it gets logged so
+you can see how often it happened.
+
+**The rest, briefly.** The tool had no way to tell "you couldn't have known this"
+from "you could have found that in one second" — which your own founding document
+calls the only measure that matters, and which had never been built. The two
+"conduct" nudges you asked for (did the AI actually run the tests it says it ran?)
+were designed in one place and made impossible in another, so they'd have been
+quietly dropped at build time. The oracle spends *your* Claude subscription while
+helping — with no limit on how much. In a fan-out, the 5th and 6th helpers got
+nothing because the first three spent the budget. And the check meant to stop the
+tool inventing things only checked that the fact it cited *exists*, not that its
+sentence actually followed from it — I reproduced that live, watching the model
+claim a coupling was "stable" and "a standard pattern, not accidental" from a
+fact that said nothing of the kind.
+
+**Something I want to flag about my own conduct.** Two of this round's problems
+were caught by *you*, not by the machinery that exists so you don't have to: I
+told a reviewer a required tool was unavailable (guaranteeing it would never try
+it), and I used text-search results as proof — which produced one false alarm and
+one near-miss where I almost accused a reviewer of fabricating a quote from your
+own document. Both are written up as durable rules so future sessions inherit
+them rather than repeat them. That's the mechanism working, but it worked one
+step later than it should have.
+
+**What's broken / not trustworthy yet:** nothing known-broken in the design right
+now — but this is the same sentence I'd have written last round, and last round it
+was wrong. What's *different* is that the document no longer certifies itself: the
+four self-assessment blocks that kept producing false "all verified" claims are
+deleted, replaced by evidence attached to each individual claim, with a standing
+instruction that any future summary attestation is to be treated as a defect on
+sight. Three rounds running, those blocks were the least reliable text in the file.
+
+**Nothing needed from you right now.** Next step is a round-3 review of the fixed
+document before any code gets written.
+
 ## 2026-07-22
 
 **Where the project is:** still design phase, no code — still correct. The
