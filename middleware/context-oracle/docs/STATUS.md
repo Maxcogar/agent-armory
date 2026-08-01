@@ -26,6 +26,19 @@ how the spec and the build phases relate to each other.
    and several were re-run live and came out exactly right. The parts that failed
    every round are all Phase 1 and 2, and are not needed yet.
 
+   Carry over, re-verifying each rather than copying its text: D2 (process
+   model), D3/D4 (runtime and store engine), D5 (repo identity), D6/D7 (schemas),
+   D8 (event contract), D9 (shim), D13's mechanical/template path only, D16
+   (indexer), D17 (miner), D19 (security scanner), D21 (diagnostics), D22 (CLI),
+   D23 (config), D24 (concurrency and audit ordering), D26's Phase 0 fixtures.
+   Take D10 only in its deterministic subset — Lane 1, the candidate pool, and
+   the bar *without* the materiality term. Exclude D10's Lane 2, D11, D12, D14,
+   D15, D18's mining, D20 and D10a: all Phase 1 or 2, and all of them the
+   material that failed every round. Known open repairs the Phase 0 assembly must
+   carry are in the round-4 review files; the largest is that three tables
+   (`cochange_file_pairs`, `ref_edges`, `open_questions`) have no provenance
+   block, which blocks two Phase 0 exit criteria as written.
+
 Then review it, plan it, build it, and **run it** — because everything still
 undecided is waiting on measurements only a running Phase 0 can produce.
 

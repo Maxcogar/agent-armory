@@ -12,13 +12,11 @@ build, verification, diagnosis, documentation, roadmap — is yours.
    was decided and what's still open.
 3. `RETHINK.md` — why the tool is shaped this way. §12 + its addendum are the
    owner's locked decisions.
-4. `docs/handoffs/` — the newest file is the entry point: what the last
-   session established and what to do next.
-5. `docs/reviews/` — review output of record, every round, with its findings
+4. `docs/reviews/` — review output of record, every round, with its findings
    and closure ledgers.
-6. `docs/collapse-log.md` — cumulative record of decisions that collapsed and
+5. `docs/collapse-log.md` — cumulative record of decisions that collapsed and
    why. Read before designing; the traps are meant to be inherited.
-7. The oracle's own diagnostics self-report (FR-M3), once it exists.
+6. The oracle's own diagnostics self-report (FR-M3), once it exists.
 
 **Where each kind of thing lives** — so nothing needs duplicating anywhere else:
 
@@ -27,15 +25,25 @@ build, verification, diagnosis, documentation, roadmap — is yours.
 | What is this for, and why is it shaped this way? | `RETHINK.md`; spec §1 |
 | What must it do? | `docs/specs/spec-context-oracle.md` |
 | What did the owner decide? | `RETHINK.md` §12 + addenda |
-| What did the last session do in detail? | newest file in `docs/handoffs/` — a session artifact, **not** the state of record |
+| What did earlier sessions do? | `docs/handoffs/` — historical only; sessions no longer write new ones (see below) |
 | Where does the project stand, and what is next? | `docs/STATUS.md` — the state of record |
 | How was it designed? | `docs/architecture-*.md` |
 | What went wrong before? | `docs/collapse-log.md`, `docs/reviews/` |
 
-**This file holds rules, not state.** Status, next steps, branch names and
-round numbers go stale and belong in the files above — a second copy of "where
-we are" is how the two diverge, and the stale one is always the one somebody
-reads first.
+**One fact, one home. This file holds rules, not state.** Status, next steps,
+branch names and round numbers go stale and belong in the files above — a second
+copy of "where we are" is how the two diverge, and the stale one is always what
+somebody reads first. This has now happened twice: a repo-wide file kept its own
+copy of this project's status and went two weeks stale, and a session handoff
+duplicated `STATUS.md`'s state and direction within the hour.
+
+**Sessions do not write handoff documents for this project.** `docs/STATUS.md`
+*is* the handoff: it carries where the project stands and what to do next, and it
+is rewritten at the end of every session. Durable lessons go to
+`docs/collapse-log.md`, review output to `docs/reviews/`, requirements to the
+spec. If something you want to write down does not fit one of those, that is a
+signal it belongs in one of them — not that it needs a fifth file. The files in
+`docs/handoffs/` predate this rule and are kept as history.
 
 ## The retired `ctxpack` design is dead
 
