@@ -45,16 +45,30 @@ how the spec and the build phases relate to each other.
    drafts to re-derive, not as settled work.
 
    **The four genre gaps, each with one nameable blocker:**
-   - *Orientation* — its landmine and invariant content has no writer until D18's
-     mining (Phase 2). What ships without it is entry points, which the agent can
-     find itself, so the bar suppresses it.
-   - *Warning* — blocked on one undecided sentence: whether FR-A5's evidence
-     floor, written for history-backed facts, applies to a genre with no history.
-     A spec decision, not a design problem. Blocks AC-5.
-   - *Verification* — needs a region→command mapping. D16 builds a command list
-     from `package.json`, which is one `Read` away and does not clear the bar.
-   - *Completeness* — lost FR-A2's free `edit-completed` trigger, so it only
-     fires at stop, where it costs a turn.
+   Each blocker below was re-read against its source on 2026-07-31; the source
+   is cited so the next session can check rather than inherit.
+
+   - *Orientation* — **it has a v1 writer.** D18: *"v1's only writers are:
+     `human_facts` promotion (FR-L6 …) and **the literal-match landmine path for
+     orientation** (FR-J3's degraded set needs literal-match landmines)."* What
+     is Phase 2 is *automated* mining, which is a different claim. So the work is
+     to specify that literal-match path, not to wait for Phase 2.
+     *(This entry first said the opposite — "no writer until Phase 2" — which is
+     the defect round-4 finding R4-5 raised, reproduced here as fact while R4-5
+     sat open in the register below. Corrected after Max Cogar asked whether the
+     next session had enough to work from.)*
+   - *Warning* — a real ambiguity, not a design problem. FR-A5: *"History-backed
+     genres **additionally** respect evidence floors"* — the generated-file
+     warning is not history-backed, but D10 step 5 restates the floors against
+     "warn-grade" without that qualifier. One sentence decides it. Blocks AC-5.
+   - *Verification* — the mapping does not exist. D16 sources verify-commands
+     from *"package.json scripts per workspace dir; pytest/tox presence"*, and
+     extracts test topology separately. A command list from `package.json` is one
+     `Read` away and does not clear the bar; a region→command mapping would, and
+     nothing builds one.
+   - *Completeness* — FR-A2 gives it *"edit completed / stop"*; D10 step 4 routes
+     only *"stop → untouched partners + verify command"*. The free arm was
+     dropped, so its whole output now costs a turn.
 
    Also blocking: `cochange_file_pairs`, `ref_edges` and `open_questions` carry
    no provenance block, which breaks AC-1 and AC-6 as written.
