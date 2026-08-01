@@ -834,6 +834,21 @@ decision and reasoning are recorded here.
 
 ## 12. MVP boundary and build order
 
+**How to read this section (added 2026-07-31).** The phase exits below are
+**measurements, not tests** — each phase is gated on evidence only the previous
+phase can produce by actually running. It follows that the requirements for
+Phase 1 and Phase 2 stated elsewhere in this spec are **provisional**: they fix
+scope, intent and constraints, and they are *not* a design-ready basis until the
+measurements their exits name exist. Requirements whose values or mechanisms
+depend on those measurements are listed in §14 as gated, not settled. Architect
+and build one phase at a time; do not treat a Phase 1 requirement as
+architecturally resolvable before Phase 0 has run.
+
+*(This paragraph exists because four adversarial review rounds on 2026-07-30/31
+collapsed the Phase 1 and Phase 2 architecture in every round while the Phase 0
+material survived every round. The split ran exactly along this boundary. See
+`docs/collapse-log.md`, 2026-07-31.)*
+
 - **Phase 0 — deterministic spine.** Shims + session service + Tier 2 index +
   co-change miner (with FR-K2 hygiene) + the diagnostic core (FR-M1, FR-M2).
   Genres: the FR-J3 degraded set (deterministic minimal orientation,

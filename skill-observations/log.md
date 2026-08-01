@@ -420,3 +420,43 @@ require the agent to state, per finding, whether it located-then-read or counted
 never "this is not there." Any claim about absence, completeness, or "nothing handles
 this" is established by reading the region where the thing would live — and a
 2,249-line document is one read, so document size is never the excuse.
+
+### Observation 15: When one half of an artifact always fails and the other always survives, the split is the finding
+
+**Date:** 2026-07-31
+**Session context:** Context Oracle, after four adversarial review rounds and a fired non-convergence tripwire. Max Cogar collapsed the entire document structure by asking "3 phases in one spec — WHY?" — a question no reviewer and no agent had asked.
+**Skill:** expert-review, expert-standard, project-lifecycle
+**Type:** internal
+**Phase/Area:** Diagnosing recurring review findings
+
+**Issue:** Across four rounds, findings split almost perfectly along a boundary the
+spec itself already named. Phase 0 material survived every pass, with several
+decisions re-deriving exactly under adversarial re-execution. Phase 1 and 2 material
+collapsed in every round, in the same places, and each fix batch produced fresh
+defects there at roughly the rate it closed them — which is what fired the
+non-convergence tripwire.
+
+The agent reported that pattern in two consecutive rounds ("the judgment layer keeps
+collapsing", "the Phase 0 half holds") and never asked why it was true. The answer
+was in the spec: §12 gates each phase's design on measurements only the previous
+phase can produce, so Phase 1's requirements were being specified and architected
+against numbers that did not exist. The failing half was not failing on quality; it
+was structurally unspecifiable at that point in the sequence.
+
+Neither review pass could catch it. Both review the architecture against the spec;
+this defect lives in the relationship between the spec's staging and the lifecycle
+that consumes it — above the artifact under review, in scope for neither.
+
+**Suggested improvement:** Add a diagnostic step to the post-fix review protocol and
+to the agent's own reading of results: **when findings cluster, test the cluster
+boundary against the upstream artifact's own structure before applying another fix
+batch.** If the boundary coincides with a stated phase, module, or scope line, treat
+the split as the finding and escalate to the structure rather than patching the
+failing side. Concretely, the Convergence Record should carry a per-region finding
+distribution, not just a total — a total that rises tells you the cycle is churning;
+a distribution tells you *where*, which is what identifies a structural cause.
+
+**Principle:** A defect that reproduces along a boundary the specification already
+names is structural, not a quality problem. Fix rounds cannot close it, because each
+round re-derives the same impossible half. Ask what separates the failing region from
+the surviving one before spending a fifth batch on the failing one.

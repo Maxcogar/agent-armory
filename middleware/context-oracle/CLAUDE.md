@@ -135,13 +135,27 @@ deliberately leaves the design open. Writing code straight from the spec
 means the builder invents architecture inline — the exact failure mode that
 produced the archived `ctxpack` mess. Therefore:
 
-- **No implementation work before an approved architecture document**
-  (`docs/architecture-context-oracle.md`), derived from the spec, resolving
-  the design questions the spec assigns to the architect — component
-  boundaries, store schemas, IPC/daemon shape, judgment-prompt
-  construction, recursion-guard mechanism, diagnostic log format — and
-  adversarially reviewed with all findings applied, same discipline as the
-  spec.
+- **No implementation work before an approved architecture document for the
+  phase being built**, derived from the spec, resolving the design questions
+  the spec assigns to the architect for that phase, and adversarially reviewed
+  with all findings applied, same discipline as the spec.
+  **Amended 2026-07-31.** This rule previously named one document
+  (`docs/architecture-context-oracle.md`) and required it to resolve
+  *judgment-prompt construction* and the *recursion-guard mechanism* — both
+  Phase 1 — before any implementation. That contradicted spec §12, whose phase
+  exits are **measurements, not tests**: Phase 1's design is gated on *"measured
+  silence and hit rates reviewed against the bar"*, which only a running Phase 0
+  can produce. The old rule therefore mandated architecting Phase 1 twice — once
+  now against nothing, once later against data — and four adversarial review
+  rounds (2026-07-30/31) confirmed the consequence empirically: the Phase 0
+  material survived every pass while the Phase 1 and 2 material collapsed in
+  every pass, in the same places, until the non-convergence tripwire fired. The
+  architecture is now **per phase**: `docs/architecture-context-oracle-phase0.md`
+  first; Phase 1's is written after Phase 0 has run and produced its numbers.
+  The existing whole-scope document is retained as the record of what was tried
+  and as input to Phase 1's architecture — not as a base to edit.
+  *(Caught by Max Cogar, not by the review mechanism — logged in
+  `docs/collapse-log.md`, 2026-07-31.)*
 - **Spikes before design-freeze**: the spec-§14 assumptions that gate the
   design (piggyback credential inheritance, subagent injection) are
   validated with cheap throwaway experiments before the architecture is

@@ -374,3 +374,50 @@ writes this, in which decision, from what inputs.*
    **one collapse test per genre that traverses the whole pipeline** — trigger →
    retrieval → grounding → bar → budget → assembly → delivery → audit → learning
    — and require each of the twelve FR-A2 genres to survive end to end.
+
+---
+
+## 2026-07-31 — the owner collapsed the document structure; logged as a process failure
+
+**Caught by Max Cogar, not by any safeguard**, across four rounds of adversarial
+review that had all the evidence and never asked the question. Logged per
+`CLAUDE.md` ("the owner is never the collapse-tester … log it").
+
+**The collapse question, his:** *"3 phases in one spec. WHY?"*
+
+**What it collapsed.** Spec §12 stages the build into three phases whose exits are
+**measurements, not tests**: Phase 0 exits on *"the owner runs it on a real project
+without incident"*; Phase 1 on *"measured silence and hit rates reviewed against the
+bar"*; Phase 2 on *"a demonstrated case of the oracle measurably improving between
+sessions."* Each phase's design is therefore gated on data only the previous phase
+can produce.
+
+But the spec specifies all three phases' requirements now, and `CLAUDE.md`'s
+lifecycle then requires **one** architecture document resolving Phase 1 design
+questions (it names judgment-prompt construction and the recursion-guard mechanism)
+before *any* implementation. So the governance mandates specifying and architecting
+Phase 1 and Phase 2 **twice**: once now against nothing, and once later against
+measurements. Only the second can be real.
+
+**Class: mechanism-not-mission**, at the governance layer rather than in a decision.
+
+**The evidence that was present the whole time and never interrogated.** Across
+rounds 1–4 the Phase 0 material (stores, event contract, shim, indexer, miner,
+security scanner, repo identity, audit ordering) survived every pass and several
+decisions re-derived *exactly* under re-execution. The Phase 1/2 material (judgment
+core, conduct genres, the materiality half of the bar, uptake ladder, learning loop)
+collapsed in **every** round — 2026-07-17 items 1–4, round 2's C1/C2, round 3's
+C1/C2/C6–C9, round 4's R4-1 through R4-4 and C1–C16. The split is almost perfectly
+clean along the phase boundary. Four review rounds reported the pattern; none asked
+why the pattern existed.
+
+**Why the reviews could not catch it.** Both passes review *the architecture against
+the spec*. This defect is in the relationship between the spec's own §12 and the
+lifecycle that consumes it — above the artifact under review, so in-scope for
+neither pass. A reviewer told to check an architecture will not ask whether the
+architecture should exist yet.
+
+**Standing lesson.** When one half of an artifact fails every round and the other
+half survives every round, the split is the finding. Ask what separates them before
+applying a fifth batch of fixes to the failing half. A defect that reproduces along
+a boundary already named in the spec is a structural defect, not a quality one.
