@@ -10,15 +10,6 @@ no translation; `P0-` identifiers originate here.
 **Above this document**: `RETHINK.md` §12 and its addenda are the owner's locked
 decisions, cited by line and not re-derived.
 
-**Grounding rule used throughout.** Every requirement below is grounded in one
-of three things, and nothing else: an owner decision read from `RETHINK.md` at
-the cited lines; the Claude Code hooks contract as queried on 2026-08-01; or
-Zimmermann et al. 2005, read from the primary PDF on 2026-08-01. Where the v1
-spec cites a paper for rationale but no requirement value depends on it, the
-requirement is grounded in the decision that actually determines it and the
-paper is not cited. Where the v1 spec states a number this session could not
-confirm against source, the number does not appear here.
-
 ---
 
 ## 1. The problem, and who has it
@@ -294,11 +285,12 @@ credential handling do not arise here. They return with Phase 1.
 - **P0-7** — Ceremony count is zero: the agent is never required to produce any
   oracle-specific format, tag, file or request, and an oracle-unaware agent gets
   full value. `RETHINK.md` §2.5, §7.
-- **C-1** — Cold-container ready: installs and indexes with no native toolchain
-  and no prebuilt-binary download. `RETHINK.md:324–327`, decision 4, requires
-  sandbox compatibility. The runtime and storage engine that satisfy this are the
-  architect's choice; the requirement is the property, and the architect verifies
-  the chosen stack's capabilities against its own current documentation.
+- **C-1** — Cold-container ready: installs and indexes with no native toolchain,
+  no prebuilt-binary download, and no network access beyond what the harness
+  already has. `RETHINK.md:324–327`, decision 4, requires sandbox compatibility.
+  Any runtime and storage engine satisfying this are acceptable, and the
+  capabilities relied on are confirmed against that stack's own current
+  documentation before they are relied on.
 - **C-2** — Session state persists warm across hook invocations with sub-second
   access; cold-starting per event cannot meet NF-1.
 - **C-3** — Harness-specific knowledge lives in the shims; the service speaks a
@@ -326,10 +318,10 @@ path.
 ## 11. Decisions made in this spec
 
 - **P0-D-1 — Phase 0's measurement obligation is the three metrics it can compute
-  from its own logs.** A hit rate additionally requires deciding which component
-  turns uptake evidence into an uptake judgment — a component boundary, which
-  §12 leaves to the architect. Obliging a metric Phase 0 may be unable to produce
-  would put a false claim in a contract.
+  from its own logs.** A hit rate additionally requires resolving uptake evidence
+  into an uptake judgment, and FR-L1 fixes only that the evidence is recorded per
+  event. Obliging a metric Phase 0 may be unable to produce would put a false
+  claim in a contract.
 - **P0-D-2 — Schemas Phase 0 cannot populate are created in Phase 0.** Deferring
   the schemas as well as the mining would make Phase 0's store a throwaway and
   force a migration when mining lands. The cost is empty tables, which is visible
@@ -344,23 +336,7 @@ path.
   oracle's own budget; FR-O4a bounds the oracle to one continuation regardless of
   what the cap permits.
 
-## 12. Left to the architect
-
-These are properties the requirements above fix, whose mechanisms the
-architecture decides. They are not open questions in this spec.
-
-- **Which component turns FR-L1's uptake evidence into an uptake judgment.**
-  FR-L1 fixes that the evidence is recorded per event; who resolves it is a
-  component boundary.
-- **How per-region verification commands are derived.** FR-K1 fixes the property:
-  the command returned for a region is the one that exercises that region.
-- **What constitutes a literal-match landmine, and against what.** P0-3 fixes
-  that literal-match detection is one of Phase 0's two writers for landmine
-  records.
-- **The runtime, storage engine and process model.** C-1, C-2 and NF-1 fix the
-  properties; the architect chooses the stack and verifies its capabilities.
-
-## 13. Acceptance criteria
+## 12. Acceptance criteria
 
 Phase 0 is complete when all of the following pass and the owner has run it on a
 real project without incident.
@@ -412,9 +388,3 @@ real project without incident.
 - **AC-15 (zero ceremony → P0-7)** — An agent with no knowledge of the oracle
   completes a task with it active, produces no oracle-specific output, and
   receives whispers throughout.
-
----
-
-**Status.** Written 2026-08-01. Not yet independently reviewed; per `CLAUDE.md`'s
-lifecycle it is not a basis for architecture work until an adversarial review has
-run against it and every finding is applied.
