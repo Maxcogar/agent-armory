@@ -145,8 +145,10 @@ written are recorded so the traps are inherited.
    erroneous action **is** the evidence — so an external cross-check surfacing that
    specific conflict at the decision moment *is* a material fact it doesn't know
    (the same logic by which FR-M has the oracle watch its own conduct). Defaulting
-   it off would gut a thing built to solve the owner's core problem: mistakes
-   neither he nor the agent catches.
+   it off would gut an owner-approved capability that surfaces mistakes neither
+   he nor the agent catches. *(Phrase corrected 2026-08-01: this read "the
+   owner's core problem." The tool has no core problem — see the 2026-08-01
+   entry below.)*
    **The one genuinely valid residual (kept):** don't *nag* — speak the specific
    conflict with its pointer, not a step-by-step checklist recital; that is
    noise-calibration governed by the §9.2 false-fire ladder, and per spec §14 the
@@ -422,3 +424,57 @@ architecture should exist yet.
 half survives every round, the split is the finding. Ask what separates them before
 applying a fifth batch of fixes to the failing half. A defect that reproduces along
 a boundary already named in the spec is a structural defect, not a quality one.
+
+## 2026-08-01 — "the core problem the tool exists to solve" — a superlative that became authority
+
+**Caught by Max Cogar**, again, and logged per `CLAUDE.md` ("the owner is never
+the collapse-tester … log it"). This one had been sitting in the highest-authority
+document in the project since 2026-07-30 and was read by every session since,
+including the one that logged the 2026-07-31 structural collapse.
+
+**What collapsed.** `RETHINK.md` §12 decision 12 recorded the owner's ruling on
+speaking at a completion claim. His actual words were: *"having the oracle speak
+when an agent claims it's done is a must-have feature in my mind."* Wrapped
+around that quote, an agent wrote: *"the completion claim is the single
+highest-value moment the oracle has … and it is the core problem the tool exists
+to solve."* Neither clause is his. Both are rankings.
+
+**His correction, verbatim in substance:** *that is not the "core problem". there
+is no core problem.* He has stated this repeatedly; agents keep making the tool
+revolve around one single thing, and doing so guarantees what gets built is not
+the tool he asked for. **This is the second full remake of this tool caused by
+that pattern.**
+
+**Class: reduction** — the project's dominant class, in its most durable form yet.
+Every prior reduction narrowed a decision. This one narrowed the *mission
+statement*, in the document that outranks the spec, where it then reads as
+owner-authorized ground truth.
+
+**How it propagated, and why that is the real finding.** A superlative written
+into RETHINK becomes citable authority. It had already reached:
+- `docs/specs/spec-context-oracle.md` [OWNER-12] — "the highest-value moment the
+  oracle has";
+- `docs/collapse-log.md` (2026-07-30 entry) — "the owner's core problem";
+- round-4's collapse-hunt, which *quoted it back as the standard* it was reviewing
+  against;
+- and this session: the agent evaluating the Phase 0 genre scope cited it as the
+  decisive argument for keeping the Completeness genre in Phase 0. The scope of
+  the first buildable phase was about to be set by a sentence the owner never said.
+
+That is the mechanism to inherit: a reduction inside a *rationale* is more durable
+than one inside a decision, because reviewers check decisions against sources and
+treat rationale as prose. Four review rounds read this line and none flagged it.
+
+**Standing lesson — no unattributed superlatives.** A ranking claim about this
+tool's purposes, genres, triggers or moments — "the core problem", "the single
+highest-value X", "the whole point", "the reason it exists" — does not enter any
+document unless the owner stated it in those words, quoted and attributed. The
+mission is `RETHINK.md` §1 plus the mission sentence, and the twelve FR-A2 genres
+are co-equal expressions of it. When recording an owner ruling, record the ruling
+and the quote; do not supply a rationale that ranks it above what it was not
+compared to.
+
+**Fix applied 2026-08-01.** Ranking language removed from `RETHINK.md` §12
+decision 12 and from spec [OWNER-12], each with an in-place correction note; the
+2026-07-30 entry above corrected in place; the Phase 0 scoping recommendation
+re-derived without it (see `docs/STATUS.md`).

@@ -213,10 +213,12 @@ does not cost "a wasted sentence" (P2); it costs the agent a turn it was trying
 to end.
 
 **The owner ruled on this** `[OWNER-12]`: speaking at the moment an agent claims
-completion is a **must-have** — it is the highest-value moment the oracle has,
-because a completion claim is exactly where an unregistered conflict (FR-A8/A9)
-becomes actionable. The capability stays. What changes is that the effect is
-named and bounded rather than denied:
+completion is a **must-have** — a completion claim is one of the moments where an
+unregistered conflict (FR-A8/A9) becomes actionable. The capability stays. What
+changes is that the effect is named and bounded rather than denied:
+*(Ranking language — "the highest-value moment the oracle has" — was removed
+2026-08-01 on the owner's instruction; no FR-A2 genre or trigger moment outranks
+another. See RETHINK §12 decision 12 and `docs/collapse-log.md`.)*
 
 - The oracle emits at `Stop`/`SubagentStop` **only when `stop_hook_active` is
   `false`**. `[HOOKS]` defines that field as true "when Claude Code is already
