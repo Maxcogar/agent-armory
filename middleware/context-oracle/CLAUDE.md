@@ -27,8 +27,8 @@ build, verification, diagnosis, documentation, roadmap — is yours.
 | What is this for, and why is it shaped this way? | `RETHINK.md`; spec §1 |
 | What must it do? | `docs/specs/spec-context-oracle.md` |
 | What did the owner decide? | `RETHINK.md` §12 + addenda |
-| Where does the project actually stand? | `docs/STATUS.md` |
-| What do I do next? | newest file in `docs/handoffs/` |
+| What did the last session do in detail? | newest file in `docs/handoffs/` — a session artifact, **not** the state of record |
+| Where does the project stand, and what is next? | `docs/STATUS.md` — the state of record |
 | How was it designed? | `docs/architecture-*.md` |
 | What went wrong before? | `docs/collapse-log.md`, `docs/reviews/` |
 
