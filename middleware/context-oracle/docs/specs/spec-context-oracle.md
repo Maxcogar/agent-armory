@@ -202,8 +202,7 @@ code 2 — those are the deny paths, and their absence is structural (FR-O4),
 not policy. `[HOOKS]` `[OWNER-3]`
 
 **Continuation is a second axis, and the deny-path enumeration above does not
-cover it** (corrected 2026-07-30; the earlier text treated `additionalContext`
-as inert on every event). On `Stop` and `SubagentStop`, `additionalContext` is
+cover it.** On `Stop` and `SubagentStop`, `additionalContext` is
 a **continuation control**: per `[HOOKS]`, it *"keeps the conversation going
 through the same loop protections as `decision: \"block\"`, namely the
 `stop_hook_active` input and the 8-consecutive-continuation cap"* — the
@@ -216,9 +215,6 @@ to end.
 completion is a **must-have** — a completion claim is one of the moments where an
 unregistered conflict (FR-A8/A9) becomes actionable. The capability stays. What
 changes is that the effect is named and bounded rather than denied:
-*(Ranking language — "the highest-value moment the oracle has" — was removed
-2026-08-01 on the owner's instruction; no FR-A2 genre or trigger moment outranks
-another. See RETHINK §12 decision 12 and `docs/collapse-log.md`.)*
 
 - The oracle emits at `Stop`/`SubagentStop` **only when `stop_hook_active` is
   `false`**. `[HOOKS]` defines that field as true "when Claude Code is already
@@ -252,15 +248,13 @@ another. See RETHINK §12 decision 12 and `docs/collapse-log.md`.)*
   derived from FR-O3's 3 s does **not** hold on that event — deadlines are
   per-event, and `init` writes an explicit `timeout` for the `SessionEnd`
   entry if teardown needs one (which AC-4's settings accounting must then
-  include). *(Added 2026-07-30; the fact was missed by the 2026-07-13
-  verification pass.)*
+  include).
 - **`StopFailure` fires instead of `Stop` when the turn ends on an API error**,
   carries an `error` field whose values include `rate_limit`,
   `authentication_failed`, and `billing_error`, and its *"output and exit code
   are ignored"* — so it is a pure observation event with no continuation risk.
   This is the detector for the failure mode where the oracle's own model calls
-  have consumed the host quota the agent needs (FR-M2, §6.2). *(Added
-  2026-07-30.)*
+  have consumed the host quota the agent needs (FR-M2, §6.2).
 
 ### 6.2 Model access (judgment layer)
 
@@ -331,9 +325,6 @@ of stores and whisper logs (FR-X6). Init/deinit contract is C-4.
   therefore emits on those events **only when `stop_hook_active` is `false`**,
   extending a turn at most once per stop and never chaining. It never prevents
   a turn from ending. Asserted by test (AC-3), not policy. `[OWNER-12]`
-  *(Added 2026-07-30. FR-O4 alone was insufficient: it enumerates the deny
-  fields, and continuation is a distinct control-flow axis that carries none of
-  them — which is why AC-3 passed while the effect was live.)*
 - **FR-O5** — Whisper opportunities are harness event boundaries only —
   never timers or idle detection. Task-boundary intervention is the measured
   sweet spot for proactive assistance; idle-time triggering interrupts
@@ -516,13 +507,6 @@ of stores and whisper logs (FR-X6). Init/deinit contract is C-4.
   verification, completeness, **consequence** — with a raised confidence bar,
   announced once per session on the human channel and never into agent context.
   `[OWNER-2]` `[RETHINK §11]`
-  *(Consequence added 2026-08-01 `[D-21]`. This enumeration governs what the
-  oracle delivers **at runtime when the model path is unreachable**; §12's
-  Phase 0 list governs what gets **built first**. They were the same sentence
-  until 2026-08-01 and are now separate, so they must be kept aligned by hand:
-  a deterministic genre in the build set that is missing here would be switched
-  off by a model-path failure despite needing no model — which would make
-  degraded mode something other than "the same system minus the model lane".)*
 - **FR-J4** — Judgment fits the FR-O3 latency budget: candidates precomputed
   or asynchronous wherever possible; the model call gets one shot within
   budget or the event resolves to silence. `[RETHINK §5]`
@@ -687,9 +671,7 @@ Each requirement names the threat it controls.
 
 ### 9.2 Health metrics and thresholds
 
-**Who records, who computes, who learns** *(corrected 2026-08-01; this read
-"Measured from the FR-X6 log by the distiller", which contradicted §6.3 and NF-2
-and put every metric behind a Phase 2 component)*:
+**Who records, who computes, who learns:**
 
 - **Recorded** as the session runs: hook invocations with latency and outcome
   (**FR-M1**); the whisper and the evidence it used (**FR-X6**); and the
@@ -704,7 +686,18 @@ and put every metric behind a Phase 2 component)*:
   tunes the bar.
 
 The distinction is load-bearing for the build order: a metric is available in the
-phase that records and computes it, not in the phase that learns from it. Note
+phase that records and computes it, not in the phase that learns from it.
+
+| Metric | Recorded by | Store row | Computed by | Phase 0? |
+|---|---|---|---|---|
+| Silence rate | FR-M1 (outcome per event) | `session_log.outcome` | `status` (§6.3) | yes |
+| Latency (NF-1) | FR-M1 (latency per event) | `session_log.latency_ms` | `status` (§6.3) | yes |
+| Continuation count | §6.1 (Stop deliveries) | `whisper_log.continuation` | `status` (§6.1) | yes |
+| Hit rate | FR-L1 (uptake evidence) | `whisper_log.uptake` | `status` (§6.3) | **not established** — §14 |
+| False-fire rate | FR-L1 (proceeded past) + narration (Phase 1) | `whisper_log.false_fire` | `status` (§6.3) | outcome arm only |
+| Token overhead (NF-2) | no requirement names a recorder — §14 | — | `status` (NF-2) | gap |
+
+Regret rate and ceremony count have no named recorder (§14). Note
 that the enforcement ladder below is itself Phase 2 (§12), as is the distiller —
 so the *use* of these metrics is later than their availability. Inspectable via
 `ctxoracle status`. The effectiveness vocabulary follows the Tricorder
@@ -879,142 +872,33 @@ decision and reasoning are recorded here.
 
 ## 12. MVP boundary and build order
 
-**How to read this section (added 2026-07-31).** The phase exits below are
-**measurements, not tests** — each phase is gated on evidence only the previous
-phase can produce by actually running. It follows that the requirements for
-Phase 1 and Phase 2 stated elsewhere in this spec are **provisional**: they fix
-scope, intent and constraints, and they are *not* a design-ready basis until the
-measurements their exits name exist. Requirements whose values or mechanisms
-depend on those measurements are listed in §14 as gated, not settled. Architect
-and build one phase at a time; do not treat a Phase 1 requirement as
-architecturally resolvable before Phase 0 has run.
+**How to read this section.** The phase exits below are **measurements, not
+tests** — each phase is gated on evidence only the previous phase can produce by
+actually running. The Phase 1 and Phase 2 requirements stated elsewhere in this
+spec are therefore **provisional**: they fix scope, intent and constraints, and
+they are not a design-ready basis until the measurements their exits name exist.
+Architect and build one phase at a time; do not treat a Phase 1 requirement as
+architecturally resolvable before Phase 0 has run. `[D-19]`
 
-*(This paragraph exists because four adversarial review rounds on 2026-07-30/31
-collapsed the Phase 1 and Phase 2 architecture in every round while the Phase 0
-material survived every round. The split ran exactly along this boundary. See
-`docs/collapse-log.md`, 2026-07-31.)*
+**Phase 0's genre membership `[D-21]`.** A genre is built in Phase 0 when its
+whisper is derivable from the stores and per-consumer Tier 3 state by
+deterministic lookup keyed by the observed event, with no model call — the
+mechanical-bypass path FR-J1 establishes. Three limits bind that sentence:
 
-**How Phase 0's genre list was derived `[D-21]` (2026-08-01).** Until now §12 set
-Phase 0's genres by reference to *"the FR-J3 degraded set"* — a runtime-mode
-definition doing a build-stage's job, which is the defect the rest of this
-section records. The list is now stated directly, derived as follows and
-**dropping nothing**: a genre is built in Phase 0 when its whisper is derivable
-from the stores and per-consumer Tier 3 state by deterministic lookup keyed by
-the observed event, with no model call. FR-J1 supplies the spec-level warrant —
-*"purely mechanical candidates with objective evidence … may bypass model
-judgment"*.
-
-Three limits on that sentence, stated so it is not read as more than it is:
-
-1. **It is the derivation of this list, not a standing membership rule.** It
-   explains how these six were chosen. It is not a test to apply to future
-   candidates, and no genre may be excluded from anything by citing it.
+1. It is the derivation of the list below, **not a standing membership rule**.
+   No genre may be excluded from anything by citing it.
 2. **An unpopulated or unbuilt store row is deferred content within a live
-   genre, never a membership test.** Orientation's landmine writer and
-   verification's region→command join are both incomplete; neither costs its
-   genre its place. A genre that cannot yet fill a row is a work item, not a
-   candidate for removal — the distinction the architecture's own genre table
-   already draws.
-3. **This is a build-dependency criterion, not a judgment about value.** An
-   earlier attempt to scope Phase 0 by "which genres run without the model" was
-   recorded as a correctly-diagnosed defect, and the objection was that it
-   decided *worth* at build-plan level, permanently and unmeasurably. The
-   distinction: the model client is a component that does not exist until
-   Phase 1, so a genre needing it cannot be built earlier — that is a
-   dependency, and it changes when the component lands. It is not a claim that
-   the excluded genres say less. Whether a whisper is worth speaking is
-   FR-A5's, per candidate, at runtime.
+   genre, never a membership test.**
+3. It is a **build-dependency** criterion, not a judgment of a genre's value.
+   Whether a whisper is worth speaking is FR-A5's, per candidate, at runtime.
 
-**What deleting the degraded-mode equation changes, stated rather than left to
-arrive as a side effect:** Phase 0 ships FR-A5's **ordinary** bar — the raised-bar
-delta exists to compensate for a lost intent signal, and Phase 0 has not lost one,
-it has not been built yet. Every term of that bar is computable without a model:
-`materiality` falls back to the genre's base weight for mechanical genres,
-`structural_weight` is deterministic by construction, and `self_serve_cost` is
-derived from provenance class and what this consumer has already done. And Phase 0
-issues **no** degraded-mode announcement, because nothing has degraded.
-
-**Two genres move earlier and one does not, all three recorded:**
-
-- **Consequence** moves from Phase 1 to Phase 0. Its content — call-site count
-  and spread — is a `ref_edges` lookup keyed by a pending edit, needing no
-  model. Struck from Phase 1's bullet in the same edit. **No acceptance
-  criterion anywhere covers it** (§14).
-- **Answer drift stays in Phase 1**, and the reason is worth recording because
-  it was nearly moved: it satisfies "no model call" but not "lookup keyed by the
-  observed event" — its trigger is a transcript-derived state machine, and the
-  component that writes its open questions is the narration reader, which this
-  section places in Phase 1. Its criterion AC-20 is a Phase 1 exit. Its
-  contested status stays open in §14 with that blocker named.
-- **Unknown** is outside this derivation's reach — its trigger is a determining
-  query returning empty, which is neither a store lookup nor a model call. §12
-  still assigns it to no phase; recorded in §14, not resolved here.
-
-**What decides Phase 0's contents — the remaining open part.** §12 lists
-each phase's components, genres and exits, and states the phase *dependency*
-(above: each phase is gated on evidence only the previous phase can produce by
-running). It has never stated a rule that decides what belongs in a phase. A rule
-was drafted here on 2026-08-01 — "a genre, mechanism or store table belongs in
-Phase 0 if running it produces a measurement Phase 1 or 2 needs" — and was
-removed the same day after an independent collapse-hunt returned seventeen
-findings against it (`docs/reviews/2026-08-01-collapse-hunt-phase0-purpose.md`).
-It is recorded as removed, not as pending: it asserted an unattributed
-exclusive-purpose claim, was undecidable on its own materials, and supplied a
-build-plan-level exclusion lever of exactly the form the preceding hunt had spent
-fourteen findings removing.
-
-**What has since been settled, and what has not.** Phase 0's genre list is now
-stated directly rather than by reference to a runtime mode, with its derivation
-recorded as `[D-21]` above. What is still not stated is a general rule deciding
-phase membership for a *future* candidate — and per `[D-21]`'s first limit, the
-derivation there is explicitly not one. Whether such a rule is needed at all is
-itself open: two attempts to write one were killed, both for supplying an
-exclusion lever, and the project has since settled six of the twelve genres
-without one.
-
-**Which measurements Phase 0 emits — partly settled 2026-08-01, one row still
-open.** §9.2 attributed its metrics to the Phase 2 distiller while §6.3 and NF-2
-attribute them to `ctxoracle status`, a Phase 0 CLI. That is an over-broad
-attribution in §9.2, corrected there: **recording, computing and learning are
-three jobs.** FR-L1 assigns the per-event log — *"candidates considered, whisper
-sent (if any), and subsequent evidence of uptake"* — to the **session service**,
-which §12 places in Phase 0; FR-L2 gives the distiller the post-session analysis
-of that record.
-
-| Measurement | Recorded by | Store row | Computed by | What it unblocks |
-|---|---|---|---|---|
-| Silence rate | FR-M1 (outcome per event) | `session_log.outcome` | `status` (§6.3) | Phase 1 exit; the FR-A5 bar's operating point |
-| Hit rate | FR-L1 (uptake evidence) — **but see the open item below** | `whisper_log.uptake` | `status` (§6.3) | Phase 1 exit; per-genre admission |
-| Latency (NF-1) | FR-M1 (latency per event) | `session_log.latency_ms` | `status` (§6.3) | Phase 1's model-call budget |
-| Token overhead (NF-2) | FR-A3 budget accounting *(no requirement names a recorder — gap, §14)* | — | `status` (NF-2, explicit) | The FR-A3 per-session budget |
-| False-fire rate — **outcome arm only** | FR-L1 (warning proceeded past) | `whisper_log.false_fire` | `status` (§6.3) | Warn-grade floors; the §9.2 ladder (Phase 2) |
-| Continuation count | §6.1 (every Stop delivery recorded in FR-X6) | `whisper_log.continuation` | `status` (§6.1, explicit) | OWNER-12's accepted cost |
-
-Scope of this table, stated rather than implied: it covers the metrics Phase 1's
-exit names plus those §6.1 and NF-2 assign to `status`. It does **not** cover
-§9.2's **regret rate** or **ceremony count**, and nothing here addresses Phase 2's
-exit (*"a demonstrated case of the oracle measurably improving between
-sessions"*), which no single metric expresses. Those remain unassigned.
-
-**The open item this table does not close.** FR-L1 says the session service logs
-*evidence* of uptake; the architecture says *"uptake detection … owned by the
-distiller"*, and the store column is nullable — the shape of a deferred writer.
-Recording a later tool event is Phase 0; deciding that the event *constitutes*
-uptake of a particular whisper is a join, and the two documents assign it to
-different phases. **Hit rate is therefore not established as a Phase 0 metric.**
-Until that is settled, silence rate, latency and continuation count are the
-measurements Phase 0 is known to emit.
-
-**Two further gaps this table surfaced:** the false-fire rate's second arm
-(§9.2: warnings contradicted by *"outcome or narration"*) needs a narration
-reader, which §12 places in Phase 1 — so Phase 0 measures the outcome arm only;
-and no requirement names a recorder for token counts (FR-X6 logs evidence, not
-tokens; FR-A3 states a budget and assigns no recorder).
-
-*(This paragraph stated the opposite twice before it was checked, and then
-overstated the fix a third time. The corrections are kept visible because the
-same reading error produced all three: reading one section and not the ones that
-answer it. All open items above are carried in §14.)*
+**Phase 0's bar.** Phase 0 ships FR-A5's ordinary bar and issues no degraded-mode
+announcement. Every term is computable without a model: `materiality` falls back
+to the genre's base weight for mechanical genres, `structural_weight` is
+deterministic, and `self_serve_cost` derives from provenance class and what the
+consumer has already done. The raised-bar delta belongs to degraded mode
+(FR-J3, Phase 1), which compensates for a lost intent signal; Phase 0 has not
+lost one.
 
 - **Phase 0 — deterministic spine.** Shims + session service + Tier 2 index +
   co-change miner (with FR-K2 hygiene) + the diagnostic core (FR-M1, FR-M2) +
@@ -1024,12 +908,6 @@ answer it. All open items above are carried in §14.)*
   verification, consequence** `[D-21]`. Exit: AC-1..AC-5, AC-12, AC-14,
   AC-17, AC-18 pass; the owner runs it on a real project without incident.
 
-  *(Component list corrected 2026-08-01 by deriving it from Phase 0's own nine
-  exits rather than from the prose: AC-4 and AC-18 require the CLI, AC-12
-  requires the scanner before any ingesting component, and FR-X6 applies to
-  every whisper, so a phase that emits whispers writes the audit log. The list
-  has been audited against all nine exits; if a later exit changes, re-derive
-  rather than append.)*
 
 - **Phase 1 — judgment.** §6.2 model access incl. recursion guard; degraded
   mode (FR-J3) — the fallback for the model path, and therefore no earlier than
@@ -1138,163 +1016,84 @@ Each criterion names the requirements it verifies.
 
 ## 14. Unresolved
 
-- **Export-file format** (FR-K9): single-file archive vs mergeable log —
-  the architect proposes in Phase 2 when the distiller's record shapes are
-  settled; the owner approves. Blocks nothing until Phase 2.
-- **Piggyback credential coverage** (§6.2): verify during Phase 1, per
-  environment, that `claude -p` inherits the host session's auth in
-  subscription-login sandboxes (documented for API-key/Bedrock/Vertex env;
-  subscription-login inheritance is assumed and unverified — nothing in the
-  evidence base confirms it). If an environment fails, that environment runs
-  degraded (FR-J3) — no credential fallback exists; the owner decides
-  whether degraded-only is acceptable there.
-- **Transcript freshness** (§6.1, FR-O1): whether `transcript_path` content
-  is current at hook-execution time is undocumented; verify in Phase 1. If
-  the transcript lags the live turn, the narration genres (assumption check,
-  steering, answer) would fire on stale text — the architect proposes a
-  mitigation and the owner decides whether those genres ship enabled.
+Each item names what it blocks. Evidence and the reasoning behind each is in
+`docs/reviews/`; lessons drawn from them are in `docs/collapse-log.md`. Neither
+is restated here.
+
+**Gated on a Phase 1 or Phase 2 run — blocks nothing before then**
+
+- **Export-file format** (FR-K9): single-file archive vs mergeable log. The
+  architect proposes in Phase 2; the owner approves.
+- **Piggyback credential coverage** (§6.2): whether `claude -p` inherits a
+  subscription login must be verified per environment in Phase 1. A failing
+  environment runs degraded (FR-J3); the owner decides whether that is
+  acceptable there.
+- **Transcript freshness** (§6.1, FR-O1): whether `transcript_path` is current at
+  hook-execution time is undocumented. Gates the narration genres. The architect
+  proposes a mitigation; the owner decides whether those genres ship enabled.
 - **Subagent hook contract** (FR-O6, AC-21): whether tool hooks fire inside
-  subagent contexts and whether `additionalContext` reaches the *subagent's*
-  context is unverified. Verify in Phase 1; if the harness doesn't support
-  injection there, the architect proposes the closest fallback and the owner
-  accepts it or descopes subagent delivery.
-- **Conduct-genre detection quality** (FR-A8, FR-A9): no published base
-  rates exist for false fires on process/answer-drift detection. They ship
-  under the §9.2 enforcement ladder; the owner reviews measured rates after
-  the first instrumented sessions and decides whether they stay enabled by
-  default.
-- **`additionalContext` merge order** (§6.1): concatenation order across
-  multiple hooks on one event is unspecified in the docs; moot while the
-  oracle registers a single hook per event, revisit if that changes.
+  subagent contexts. If not, the architect proposes the closest fallback and the
+  owner accepts it or descopes subagent delivery.
+- **Conduct-genre detection quality** (FR-A8, FR-A9): no published base rates
+  exist. They ship under the §9.2 ladder; the owner reviews measured rates after
+  the first instrumented sessions.
+- **No metric expresses Phase 2's exit** (§9.2, §12): Phase 2 exits on a
+  demonstrated between-session improvement, which no §9.2 metric measures.
+  §9.2's regret rate and ceremony count also have no named recorder.
 
-*The entries below were added 2026-08-01, surfaced by reading §9.2, §6.3, NF-2,
-FR-L1, §12 and §13 against each other. Each blocks something named.*
+**Blocks the Phase 0 architecture**
 
-- **Uptake detection's phase** (FR-L1, §9.2, §12): FR-L1 gives the session
-  service the per-event log *"including subsequent evidence of uptake"*, and the
-  architecture assigns uptake *detection* to the distiller. Recording an event and
-  deciding it constitutes uptake of a given whisper are different acts, and the
-  two documents place them in different phases. **Blocks hit rate**, which is
-  named in Phase 1's exit — so it blocks that exit's meaning.
-
-  **One route to answering this is closed; recorded so it is not re-walked.** It
-  is tempting to argue that Phase 0 already holds the detector, because FR-A4
-  forbids repeating what the agent has *"visibly acted on"* and the architecture
-  notes the subject key *"already exists for FR-A4 dedup"*. That argument fails,
-  and it fails on the substance rather than on a technicality. FR-A4's arm
-  resolves, through its own `[RETHINK §5]` citation, to *"never repeat a whisper
-  whose content the agent has visibly incorporated (**opened the pointed file,
-  used the named helper**)"* — and that is precisely the detector the architecture
-  **rejected**, on the grounds that it *"scores the tool's best outcome as a
-  failure: an agent told there is a second write-site, which then edits it
-  directly … never opens the file the pointer named."* The replacement predicate
-  is the whisper's subject being edited, tested or referenced *by any route*.
-  FR-A4 and uptake share a subject key and a source sentence, and are opposite
-  tests: one asks *has the agent already got this* (so stay quiet), the other asks
-  *did the agent take this* (so score it). **Establishing FR-A4 in Phase 0 does
-  not establish hit rate.** What Phase 0 can compute in-session is a
-  *pointer-followed rate*; if that is ever wanted, it is named as such and routed
-  through the architecture's existing "no uptake detector — hit rate not
-  measured" path, never reported as hit rate.
-
-- **§12's design-readiness rule is a set claim that holds for one member of the
-  set.** The "How to read this section" paragraph says a phase's requirements are
-  *"not a design-ready basis until the measurements **their exits** name exist"* —
-  each phase gated on its own exit's measurements. Applied to Phase 2 the rule is
-  unsatisfiable: Phase 2's exit names *"a demonstrated case of the oracle
-  measurably improving between sessions"*, which only Phase 2's own distiller can
-  produce, so Phase 2's requirements can never become design-ready before Phase 2
-  is built. The rule holds at Phase 1 only because silence rate happens to be
-  Phase 0-emitted. Needs restating in a form true of every phase.
-
-  *(Settled 2026-08-01, and recorded because two sessions can otherwise re-argue
-  it: there is **no** entry-gate/exit-gate conflict between §12 and `CLAUDE.md`.
-  §12's paragraph states both functions — exit clauses are measurements, and a
-  phase's design-readiness runs through the measurements its own exit names — and
-  `CLAUDE.md` was quoting the second, not contradicting the first. The appearance
-  of a conflict came from `CLAUDE.md` carrying a full copy of the spec sentence
-  plus a claim that Phase 0 produces both metrics; that copy diverged from its
-  source when hit rate's producibility became unsettled. The copy is now a pointer.
-  Phase 1's exit clause is correctly placed and does not move.)*
-
-  Two durable notes from that work. **The clause is a tuning input, not a test** —
-  `RETHINK.md` §6 states the operation, *"Ship with the bar set high and lower it
-  against measured hit rate"* — so asking what number would fail it imports a
-  frame §12 disclaims. And **Phase 1's clause is the only one of the three naming
-  neither an actor nor a condition under which it is not met**; that, not a
-  missing threshold, is the real gap in it. Hit rate's producibility remains open
-  (previous item), and it is open for Phase 1 as much as for Phase 0 — uptake
-  detection is the distiller's, and the distiller is Phase 2.
-
-- **Phase 0's numbers are never reviewed** (§12): Phase 0's exit clause is *"the
-  owner runs it on a real project without incident"* — it names a run but no
-  measurement and no review, while §9.2's metrics start being emitted the moment
-  Phase 0 runs. Nothing in the spec says who looks at them or when.
-- **FR-J3 has no phase** (§12): neither Phase 0, 1 nor 2 names it, while
-  `[OWNER-2]` and RETHINK §12 decision 2 (*"a deterministic-only degraded mode
-  remains mandatory for true air-gap"*) make it a v1 obligation. Compounding it,
-  Phase 0's genre set is defined *by reference to* FR-J3's degraded set — so an
-  unphased requirement currently defines a phase's contents. Blocks the Phase 0
-  genre set.
-- **The Unknown genre has no phase** (FR-A2, §12): FR-A2 lists twelve genres;
-  §12's phase bullets account for eleven. Unknown appears in none. Also unphased:
-  the Warning genre's landmine arm (FR-A2 gives Warning *"generated/vendored
-  zone, or landmine with strong evidence"*; Phase 0 admits only the generated-file
-  half).
-- **Answer drift's phase remains contested, with its blocker now named** (§12 vs
-  the architecture): §12 places it in Phase 1; the architecture's genre table
-  places it in the deterministic set. Settling it toward Phase 0 is not a
-  one-line move — the component that writes its open questions is the narration
-  reader, which §12 places in Phase 1 and the build order places after the
-  Phase 0 exit; its criterion AC-20 is a Phase 1 exit; and its mechanically
-  decidable predicate exists only in the architecture, explicitly narrower than
-  FR-A9 itself. A prior review priced the move at five coordinated changes.
-  *(Consequence's half of this item is settled — see `[D-21]`.)*
-
-- **The consequence genre has no acceptance criterion** (§13): none of AC-1
-  through AC-22 names FR-A2's consequence row, and `[D-21]` places the genre in
-  Phase 0. It is therefore built in a phase whose exit cannot check it. Same
-  class as the AC-coverage gap below, recorded separately because `[D-21]` is
-  what makes it current.
-
-- **Three architecture passages rest on a sentence the spec has deleted**
-  (`[D-21]`): the whole-scope architecture justifies keying `whisper_stats` and
-  `genre_state` by mode on the basis that "Phase 0 *is* degraded mode"; states
-  that `decision-impact` falls back to `structural_weight` alone; and records
-  degraded mode as the Phase 0 product in its build order. All three follow from
-  the deleted equation. The document is retained as a record and not as a base
-  to edit, so this is recorded for whoever writes the Phase 0 architecture rather
-  than fixed in place — but it must not be inherited silently.
-
-- **Two Phase 0 obligations reference Phase 1 machinery** (`[D-21]` made this
-  explicit rather than creating it): §6.3 gives `ctxoracle status` the
-  "degraded-mode state" to report, and AC-18's induced-failure list includes a
-  "blocked model path" — both Phase 0, while degraded mode is now Phase 1. Same
-  class as AC-2 depending on the model judgment.
-
-- **FR-A5's evidence-floor gloss is loose, and the contradiction it appears to
-  create is in the architecture, not here** (R4-C1): FR-A5's governing clause is
-  *"**History-backed genres** additionally respect evidence floors"*, which
-  exempts the generated-file warning — a zone classification with no co-change
-  support — so AC-5 can fire. But the gloss then enumerates "the Warning genre"
-  wholesale, which reads as including it. The genuine defect is the
-  architecture's restatement of the floors against "warn-grade" with the
-  history-backed qualifier dropped. A one-clause tightening of the gloss is
-  defensible; asserting that the spec contradicts itself is not.
 - **Per-consumer state's phase** (FR-O6, `[OWNER-8]`): §12 places subagent
   delivery in Phase 1, but keying Tier 3 state per consumer is foundational
-  rather than additive. Blocks the Phase 0 architecture's state model.
-- **The acceptance criteria do not cover the requirement set** (§13): §13's
-  preamble says *"Each criterion names the requirements it verifies"*, and
-  checking the reverse direction shows requirements with no criterion at all —
-  among them FR-O1, FR-O2, FR-O5, FR-K1, FR-D2, FR-L1, FR-X6, NF-2, NF-3 and
-  four of the five constraints. FR-L1 and FR-X6 matter most: both are recorders
-  in §12's measurement table, and neither is proven by any criterion. **This is a
-  gap in the AC set, not in the requirements** — a requirement is not optional
-  because nothing checks it, but Phase 0 exits on criteria, so anything it holds
-  that no criterion covers exits on the owner's eye alone, which `CLAUDE.md`
-  forbids as a verification strategy.
-- **No metric expresses Phase 2's exit** (§9.2, §12): Phase 2 exits on *"a
-  demonstrated case of the oracle measurably improving between sessions on the
-  same repo."* §9.2's regret rate and ceremony count are also unassigned to any
-  recorder. Blocks nothing before Phase 2, recorded so it is not rediscovered.
+  rather than additive. Settle before the state model is designed.
+- **FR-J3's runtime enumeration and §12's build list must be kept aligned by
+  hand** (FR-J3, §12): they were one sentence until `[D-21]` separated them. A
+  deterministic genre present in the build list and absent from FR-J3 would be
+  switched off by a model-path failure despite needing no model.
+
+**Blocks Phase 0's exit, not its design**
+
+- **Phase 0's numbers are never reviewed** (§12): its exit names a run but no
+  measurement and no review, while §9.2's metrics emit from the moment it runs.
+- **The acceptance criteria do not cover the requirement set** (§13): FR-O1,
+  FR-O2, FR-O5, FR-K1, FR-D2, FR-L1, FR-X6, NF-2, NF-3 and four of the five
+  constraints have no criterion. FR-L1 and FR-X6 are recorders in §12's
+  measurement table. This is a gap in the AC set, not in the requirements.
+- **The consequence genre has no acceptance criterion** (§13), and `[D-21]`
+  places it in Phase 0.
+
+**Contested between this spec and the architecture**
+
+- **Uptake detection's phase** (FR-L1, §9.2): FR-L1 gives the session service the
+  per-event log including uptake evidence; the architecture gives uptake
+  *detection* to the distiller, a Phase 2 component. Blocks hit rate, which
+  Phase 1's exit names. FR-A4's dedup arm does not supply the detector — it
+  resolves to the pointer-following test the architecture rejected.
+- **Answer drift's phase** (FR-A9, §12): §12 places it in Phase 1; the
+  architecture places it in the deterministic set. Its blocker is its producer —
+  the narration reader is Phase 1 — and its criterion AC-20 is a Phase 1 exit.
+- **The Unknown genre has no phase** (FR-A2, §12): FR-A2 lists twelve genres;
+  §12's bullets account for eleven. Warning's landmine arm is likewise unphased.
+
+**Spec defects to correct**
+
+- **§12's design-readiness rule is unsatisfiable at Phase 2**: "not design-ready
+  until the measurements their exits name exist" cannot hold for a phase whose
+  exit only its own distiller can produce.
+- **FR-A5's evidence-floor gloss is loose**: the governing clause binds
+  history-backed genres, which exempts the generated-file warning, but the gloss
+  then enumerates "the Warning genre" wholesale. The contradiction it appears to
+  create is in the architecture's restatement, not here.
+- **Two Phase 0 obligations reference Phase 1 machinery**: §6.3 gives `status`
+  the degraded-mode state to report and AC-18's induced-failure list includes a
+  blocked model path, while degraded mode is Phase 1.
+- **`additionalContext` merge order** (§6.1): unspecified in the harness docs;
+  moot while the oracle registers a single hook per event.
+
+**For the Phase 0 architect**
+
+- Three passages in `docs/architecture-context-oracle.md` rest on the deleted
+  "Phase 0 is degraded mode" equation: the mode-keying of `whisper_stats` and
+  `genre_state`, the `structural_weight`-only fallback, and the build order's
+  degraded-mode note. That document is a record, not a base to edit; do not
+  inherit them.
