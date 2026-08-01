@@ -311,16 +311,15 @@ but never designed, so no one can review it.
 **Also caught by expert-review (premise/standards axis, applied):**
 - **SERIOUS — the shipped model command was unreliable** *(graded CRITICAL in
   the first version of this entry; round 2 classified it SERIOUS — corrected
-  2026-07-30 per R3-11, and its substance corrected too: see below).* `--max-turns 1` with `--json-schema`
-  depends on the **tool flag, not the prompt** (corrected 2026-07-31 after round 4:
-  the shipped `--tools ""` succeeds 10/10 under a thin prompt; every failure used the
-  demoted deny-list). Originally measured 2026-07-30 as 10/10
-  `error_max_turns` under a thin system prompt and 5/5 success under a rich one,
-  with `num_turns` = 2 in all 15 runs. Lane 2 would have failed *intermittently*,
-  which is worse than cleanly — three consecutive failures trip degraded mode and
-  the fault has no stable reproduction. *(The first version of this entry said it
-  failed always; round 3's expert-review said it never failed. Both were sampling
-  artifacts.)*
+  2026-07-30 per R3-11, and its substance corrected too: see below).* **The lesson: a premise
+  certified from a command that differs from the shipped one will be wrong, and
+  will be wrong repeatedly.** This single premise was stated three ways across
+  three rounds — "fails always", then "depends on the system prompt", then
+  "depends on the tool flag" — and each version was measured, plausible, and
+  superseded. Only the last survives. *Measurements live in the architecture's
+  Spike 1, not here; this entry deliberately holds no numbers, because the two
+  earlier versions of it went stale in place while the architecture was
+  corrected.*
   Same class as round 1's `--bare` bug, from the same cause: the validating
   command was not the shipped command — the lesson round 1 wrote into *this file*
   and the spike section did not apply.
