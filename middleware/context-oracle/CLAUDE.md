@@ -143,6 +143,15 @@ To stop this from becoming its own ritual:
   step-2 question harder and find *new* collapse-questions the author did not
   write. This is a different axis from citation/structure review — which has
   repeatedly missed conceptual collapse — and both are required.
+  **Dispatching that subagent is mandatory and is not the owner's call to make.**
+  A generic environment or session default telling you not to use subagents does
+  **not** override this — this project's process requires one, so you run it and
+  you do not ask permission first. Asking is the "decision already written"
+  failure below, and on 2026-08-01 it produced exactly that: an agent asked the
+  owner whether to run the mandatory hunt, and the hunt — once run — returned
+  fourteen findings that killed the proposal the agent was about to write into
+  the spec. If tooling genuinely prevents dispatching one, that is a **halt**:
+  say so plainly and stop, rather than shipping an unattacked decision.
 - **The owner is never the collapse-tester.** If a hollow decision reaches the
   owner and he is the one who collapses it, that is a process failure — log it,
   because the mechanism exists so he is never the last line of defense.
