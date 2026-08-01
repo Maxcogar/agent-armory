@@ -131,7 +131,36 @@ to have already run), and **nobody ever reviews Phase 0's numbers** — its exit
 names a run but no measurement and no review, while the metrics start being
 emitted the moment it runs.
 
-**What is next, concretely, in order:**
+**The list below was five steps and is now one.** A pass asked which of the open
+items the spec has to answer and which belong to the architect — a question nobody
+had asked — and most of what I had queued turned out not to gate anything. Settling
+uptake detection is a *Phase 1* question, and the build rule forbids resolving
+Phase 1 before Phase 0 has run; the phase table is owed but gates nothing; and the
+bar finding (R4-4) is an architecture matter whose Phase 0 premise disappears once
+the degraded-mode sentence below is fixed. Steps 4 and 5 were the real work, and
+they merge.
+
+**What is next, concretely:**
+
+1. **One edit to the spec's build section, then the Phase 0 architecture.** The
+   edit: say directly which genres Phase 0 builds instead of pointing at the
+   degraded-mode list; delete the sentence saying Phase 0 *is* degraded mode; give
+   degraded mode itself a phase (it has none, and your decision 2 makes it a
+   promise); add the command-line tool to Phase 0's parts, since two of Phase 0's
+   own exit tests require it; and fix one sentence whose wording makes the
+   generated-file warning impossible to ever fire. Nothing is dropped from the
+   tool. The adversarial pass on that edit is running now, before it is written.
+
+2. **Then `docs/architecture-context-oracle-phase0.md`** — the first design
+   document for the first buildable phase. That is the next artifact, and after
+   today it is the first time the path to it has been clear.
+
+**Deferred, with the reason** (these were steps 1–3 and gate nothing): where
+uptake detection lives — Phase 1, per the build rule; the per-requirement phase
+table — owed, and its real product is the acceptance-criteria gap already in §14;
+finding R4-4 — an input to the new architecture, not a prerequisite.
+
+*(For the record, the items below this line were the previous next-steps list:)*
 
 1. **Settle where uptake detection lives**, knowing the FR-A4 route is closed:
    either the distiller keeps it and Phase 0 reports a *pointer-followed rate*
@@ -167,11 +196,15 @@ stands. The architecture document is still not signed off and is not a base to
 edit — Phase 0 gets its own document. Nothing has ever been run, so every number
 the later phases depend on is still unmeasured.
 
-**Nothing needed from you.** One thing you may want to rule on when convenient:
-`RETHINK.md` line 112 calls the co-change graph *"the single highest-value
-signal."* That is a ranking of signals rather than of purposes, so the new rule
-doesn't reach it — but it is the sentence a future session would cite to argue
-coupling is the genre that matters. Say the word and it goes.
+**Nothing needed from you.**
+
+*(I earlier offered you a ruling on `RETHINK.md` line 112 — *"the single
+highest-value signal"* — arguing the no-superlatives rule reached rankings of
+purposes but not of signals. Withdrawn: the rule bans *"the single highest-value
+X"* in those exact words, the line sits in RETHINK §4, which is agent-authored
+analysis rather than §12 where your decisions live, and no record attributes it to
+you. So it was already decided and I should have applied the rule instead of
+handing you the question. It changes no phase, genre or requirement either way.)*
 
 ## 2026-07-31 — the fix cycle is over; next is a Phase 0 requirement set
 
