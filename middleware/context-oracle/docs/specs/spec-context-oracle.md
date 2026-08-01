@@ -857,13 +857,22 @@ measurements — Phase 1's is *"measured silence and hit rates reviewed against 
 bar"*, Phase 2's is a demonstrated between-session improvement — and no
 measurement exists until something runs on real work. Phase 0 is that something.
 
-*(This statement was missing until 2026-08-01. §12 listed Phase 0's components,
-genres and exits but never said what the phase was for, so its contents were
-settled by a mechanism question — "which genres run without the model" — instead
-of by what the phase must yield. That is the same mechanism-not-mission shape
-recorded in `docs/collapse-log.md` for 2026-07-31, and it is how Phase 0's genre
-list came to be inherited from FR-J3's degraded-mode set. Owner question that
-surfaced it: "I simply am not understanding what the purpose of phase 0 is.")*
+*(Added 2026-08-01 — and the purpose itself is **not new**. It was already stated
+twice on 2026-07-31: in this section's own "How to read" paragraph above (*"each
+phase is gated on evidence only the previous phase can produce by actually
+running"*) and in `docs/STATUS.md` (*"everything still undecided is waiting on
+measurements only a running Phase 0 can produce"*). What was missing is the
+second half: **nothing ever used that purpose to decide the phase's contents.**
+The genre list stayed inherited from FR-J3's degraded-mode set, and a 2026-08-01
+scoping proposal argued at length about which genres to cut on build-cost and
+mechanism grounds without once testing a candidate against what the phase must
+yield. Max Cogar's question — "I simply am not understanding what the purpose of
+phase 0 is" — was not a new framing supplied by the owner; it was asking why the
+purpose already written was not being followed. The membership test below is the
+part that did not exist. Recording this precisely matters: an agent that credits
+the owner with supplying an answer already in the documents has misfiled its own
+failure to read them as an owner contribution, and the next agent inherits the
+wrong lesson.)*
 
 **Membership test.** A genre, mechanism or store table belongs in Phase 0 if
 running it produces a measurement Phase 1 or Phase 2 needs, or is required for
