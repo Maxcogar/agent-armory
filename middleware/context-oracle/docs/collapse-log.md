@@ -593,3 +593,52 @@ often already written than newly supplied.
 **What was genuinely absent**, and remains the real contribution of the change:
 the **membership test** — a rule that decides what belongs in Phase 0 by what the
 phase must yield. The purpose was stated; nothing had ever been derived from it.
+
+## 2026-08-01 — the Phase 0 purpose block: a purpose the phase cannot serve
+
+**Caught by the independent collapse-hunt** (`docs/reviews/2026-08-01-collapse-hunt-phase0-purpose.md`,
+17 findings). Second killed proposal from the same session; the block was removed
+from spec §12 the day it was written.
+
+**What collapsed.** A block at the head of §12 declaring that Phase 0 exists to
+*"produce the answers Phases 1 and 2 cannot be designed without"*, with a
+membership test derived from it.
+
+**The finding that matters most, and it is not about the block.** *No Phase 0
+component computes either metric Phase 1's exit names.* §9.2's metrics are
+*"Measured from the FR-X6 log by the distiller"*; uptake detection is the
+distiller's; the distiller is **Phase 2**. Phase 1's exit — *"measured silence and
+hit rates reviewed against the bar"* — therefore depends on a Phase 2 component.
+That contradiction predates the block and survives its removal. It means the
+question "which measurements must Phase 0 produce" currently has no answer, and
+every membership rule derived from it rests on nothing.
+
+**Class of the block itself: reduction**, on four independent counts.
+
+**Standing lessons:**
+
+1. **A purpose sentence is a claim about what a thing can do, and it needs the
+   same verification as any other claim.** The block asserted Phase 0's purpose
+   without ever checking whether Phase 0 can serve it. An unfilled requirement can
+   wear a *purpose*, not just a reference — and a purpose in the spec is the most
+   load-bearing sentence in the document.
+2. **"X is necessary for Y" is not "X exists for Y."** The block cited two prior
+   statements of a phase *dependency* as prior statements of a *purpose*. The note
+   written to correct a misattribution committed a fresh false-provenance claim of
+   the same class, one turn later.
+3. **A criterion that cannot exclude is not a test; a criterion that can exclude at
+   build-plan level is the previous collapse wearing new clothes.** Both readings
+   were available here — the test admitted all twelve genres under one and cut a
+   co-equal genre under the other. State inclusion criteria only; exclusion routes
+   to the bar (per candidate, tunable) or to the owner (scope).
+4. **The spec does not cite numbered architecture decisions as authority.** The
+   block grounded a spec obligation in architecture D10 — the only such citation in
+   the spec, pointing at a demoted document, in the half that collapsed in every
+   review round. That inverts the lifecycle the project runs on.
+
+**Rate of recurrence worth noting.** Three proposals were written this session and
+two were killed by the hunt; the third (this one) was killed after the same
+session had already logged the lesson it violated. The mechanism is working — both
+kills came from the adversarial pass, not from Max Cogar — but the authoring side
+is not learning within a session from entries it wrote hours earlier. Dispatch the
+hunt *before* writing into the spec, not after.

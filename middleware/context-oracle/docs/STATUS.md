@@ -43,23 +43,48 @@ rested on premises that were false or incomplete — one of them an error this f
 had already caught and corrected a day earlier. **No genre is being cut.** The
 mechanism worked as designed here: the hunt caught it, not you.
 
+**A second proposal was tried and killed, and it found something bigger.** You
+asked what the purpose of Phase 0 is. The honest answer was that the spec states
+the phase *dependency* — each phase is gated on evidence only the previous one can
+produce by running — but never a rule deciding what belongs in a phase. A rule was
+drafted and written into the spec; the independent pass returned **seventeen
+findings** and it was removed the same day
+(`docs/reviews/2026-08-01-collapse-hunt-phase0-purpose.md`).
+
+**What it found on the way is the real result of this session:** *nothing in
+Phase 0 computes the measurements Phase 1 is waiting for.* The thing that computes
+them — the distiller — is **Phase 2**. So Phase 1 is gated on a Phase 2 component.
+That contradiction was already in the spec before today and it is now the thing
+blocking everything else: until it is settled, "what must Phase 0 produce" has no
+answer, and any rule for what goes in Phase 0 rests on nothing.
+
 **What is next, concretely, in order:**
 
-1. **Fix the bar (finding R4-4).** The tool's measure of whether a fact is worth
+1. **Settle the measurement contradiction.** Write the list: each measurement
+   Phase 0 must emit, the component that computes it, where it is stored, and
+   which later decision it unblocks. If the honest answer is that Phase 0 needs a
+   piece currently assigned to Phase 2, move that piece — with the reason
+   recorded. This is a list, not a rule; the previous two attempts both failed by
+   writing a rule first.
+2. **Fix the bar (finding R4-4).** The tool's measure of whether a fact is worth
    saying has three terms, and one of them — how easily the agent could have got
    the fact itself — is deleted in exactly the mode Phase 0 was set to run in.
-   Restore it. Most of what the killed proposal wanted then happens automatically,
-   per whisper, at runtime.
-2. **Separate Phase 0 from degraded mode in the spec**, and give FR-J3's
+   Restore it.
+3. **Separate Phase 0 from degraded mode in the spec**, and give FR-J3's
    air-gap guarantee a phase of its own — it is a real promise (your decision 2)
    and currently no phase builds it.
-3. **Derive Phase 0's genre set instead of inheriting it.** One table: does the
-   genre need the model, does its store table exist yet, is its trigger
-   available, what does delivering it cost. Then reconcile against the spec.
-   Two memberships are contested and must be settled rather than assumed —
-   consequence, and answer drift.
-4. **Then** the remaining Phase 0 findings, then the Phase 0 architecture, then
-   review, plan, build, and **run it**.
+4. **Then** derive Phase 0's contents, settling the two contested memberships
+   (consequence, answer drift) rather than assuming them; then the remaining
+   Phase 0 findings, then the Phase 0 architecture, then review, plan, build, and
+   **run it**.
+
+**A process note that belongs to you, not to the work.** Three proposals were
+written this session and two were killed by the adversarial pass — both times for
+the same underlying reason, and the second time after this session had already
+written down the lesson it then broke. The mechanism is doing its job: neither
+kill came from you. But the honest reading is that writing into the spec *before*
+dispatching the pass is what produced both, and the next session should dispatch
+first.
 
 **What is broken or unknown.** The 32 round-4 findings are still open; the twelve
 Phase 0 ones are listed in the 2026-07-31 entry below and that triage still
