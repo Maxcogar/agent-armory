@@ -12,7 +12,41 @@ build, verification, diagnosis, documentation, roadmap — is yours.
    was decided and what's still open.
 3. `RETHINK.md` — why the tool is shaped this way. §12 + its addendum are the
    owner's locked decisions.
-4. The oracle's own diagnostics self-report (FR-M3), once it exists.
+4. `docs/handoffs/` — the newest file is the entry point: what the last
+   session established and what to do next.
+5. `docs/reviews/` — review output of record, every round, with its findings
+   and closure ledgers.
+6. `docs/collapse-log.md` — cumulative record of decisions that collapsed and
+   why. Read before designing; the traps are meant to be inherited.
+7. The oracle's own diagnostics self-report (FR-M3), once it exists.
+
+**Where each kind of thing lives** — so nothing needs duplicating anywhere else:
+
+| question | file |
+|---|---|
+| What is this for, and why is it shaped this way? | `RETHINK.md`; spec §1 |
+| What must it do? | `docs/specs/spec-context-oracle.md` |
+| What did the owner decide? | `RETHINK.md` §12 + addenda |
+| Where does the project actually stand? | `docs/STATUS.md` |
+| What do I do next? | newest file in `docs/handoffs/` |
+| How was it designed? | `docs/architecture-*.md` |
+| What went wrong before? | `docs/collapse-log.md`, `docs/reviews/` |
+
+**This file holds rules, not state.** Status, next steps, branch names and
+round numbers go stale and belong in the files above — a second copy of "where
+we are" is how the two diverge, and the stale one is always the one somebody
+reads first.
+
+## The retired `ctxpack` design is dead
+
+The compiler/gatekeeper design this project replaced is archived, read-only
+reference. Its three directories carry ARCHIVED banners:
+`middleware/codebase-context-compiler/`,
+`middleware/codebase-context-compiler-sandbox/`, and
+`middleware/Gemini-context-compiler/`. **Do not implement, extend, or cite them
+as current.** The gatekeeper posture in particular — deny paths, plan gates,
+assumption firewalls — is rejected by owner decision and must not be
+reintroduced in any form (see "Decisions are locked in writing" below).
 
 ## The one rule that dominates all others
 
