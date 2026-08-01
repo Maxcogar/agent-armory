@@ -40,8 +40,9 @@ a working agent the knowledge it wouldn't find on its own, so the agent never ha
 to guess."*
 
 **Consumers.** The coding agent receives whispers. The owner must be able to
-audit afterwards everything the oracle said and the evidence behind it, and is a
-non-programmer by design (`RETHINK.md:355–359`).
+audit afterwards everything the oracle said and the evidence behind it — §12 gives
+him the surface that makes that possible — and is a non-programmer by design
+(`RETHINK.md:355–359`).
 
 **Why this phase first.** It is buildable without a model, and running it is the
 only way to obtain evidence about how often the oracle should speak. §14 states
@@ -54,90 +55,117 @@ cannot exit on a run that measured nothing.
 co-change miner; the six genres in §7; whisper delivery; the security controls in
 §10; the diagnostic core; the CLI.
 
-**Out of scope**, each with the phase that owns it, or the reason its phase is
-unresolved upstream:
+**Out of scope**, each with the phase that owns it and its own reason:
 
 | Excluded | Owned by | Reason |
 |---|---|---|
 | Model access and the recursion guard | Phase 1 | The model client does not exist until Phase 1, and every genre in §7 is reachable without one |
 | Degraded mode | Phase 1 | The runtime fallback for an unreachable model path cannot precede that path |
-| Narration reading and intent tracking | Phase 1 | Requires the transcript reader |
-| Assumption-check, steering, answer genres | Phase 1 | Each requires model judgment over narration |
-| Process conformance and answer drift | Phase 1 | Process conformance requires model judgment; answer drift's open questions are written by the narration reader |
+| Narration reading across turns, and intent tracking | Phase 1 | Requires the transcript reader. It does **not** cover the final message of the turn that just ended: the harness supplies that as a field (§4), and P0-3 uses it |
+| Assumption-check and steering genres | Phase 1 | Each compares the agent's stated reasoning mid-turn against the store, which needs narration between tool calls, not an end-of-turn message |
+| Answer genre | Phase 1 | Requires recognising that narration addresses the oracle, and composing a reply |
+| Process conformance (FR-A8) | Phase 1 | Requires model judgment over a loaded skill's stated steps versus observed activity |
+| Answer drift (FR-A9) | Phase 1 | Requires tracking a user question across successive turns; the transcript reader writes the open questions, not the single last message P0-3 reads |
 | Unknown genre | Unresolved upstream | v1 §14: *"The Unknown genre has no phase"*; this document neither settles it nor treats it as dropped from v1 |
-| Delivery to subagents | Phase 1 | Phase 0 records a per-consumer key where an event carries one (FR-O6) and delivers to the main agent only |
+| Delivery to subagents | Phase 1 | Tool hooks **do** fire inside subagents, carrying `agent_id` (§4), so the events arrive and Phase 0 observes them. What Phase 1 adds is the per-consumer budget and injection path. Phase 0 keys the state and delivers only to the main agent (FR-O6), and P0-4 reports the undeliverable-event share rather than folding it into the silence rate |
 | Companion skill | Phase 1 | Teaches an agent to read whispers the judgment layer produces |
 | Distiller, learning loop, false-fire ladder, automated landmine/invariant/recipe mining, self-report, export/import | Phase 2 | Each consumes measurements Phase 0 produces |
 
-**Genre arms narrower here than in v1 FR-A2, each with its own reason.** One
-reason does not cover them; the arms fail for different causes.
+**Genre arms narrower here than in v1 FR-A2.** The criterion this table applies is
+whether §7's content column still carries the arm — not whether a record type has a
+writer, which does not distinguish the cases.
 
 | Arm | Why it is narrower in Phase 0 | Returns when |
 |---|---|---|
-| Orientation's invariant arm | Invariant records (FR-K5) have no *automated* writer in Phase 0; FR-L6 promotion can fill them, but a session cannot rely on the owner having typed one | Phase 2 mining, or an owner-entered invariant |
-| Coupling's canonical-helper arm | Requires the exemplar registry (FR-K3), which has no automated writer | Phase 2 mining |
+| Orientation's entry-point arm | Narrowed to v1's own model-free formulation — *structural* entry points, not entry points inferred for the task. `[P0-D-17]` | Phase 1, with intent inference |
+| Orientation's invariant arm | Dropped from §7's content: an invariant is a cross-file contract whose participating locations only mean something once something has been changed, and orientation fires before the agent has acted | Phase 1, once intent inference can select one |
+| Coupling's canonical-helper arm | Dropped from §7's content: requires the exemplar registry (FR-K3), which has no Phase 0 writer at all — not even FR-L6 promotion, which writes landmines and invariants only | Phase 2 mining |
 | Consequence's reuse arm | Same: requires FR-K3 exemplars | Phase 2 mining |
-| Consequence's historical-breakage arm | **Not a record-type gap.** It joins the co-change graph (FR-K2) against test topology (FR-K1), both of which Phase 0 builds and populates. It is deferred only because ranking a breakage claim needs the false-fire evidence Phase 0 is built to collect | Phase 1, on Phase 0's measurements |
-| Completeness's invariant arm | Invariant records, as above | Phase 2 mining, or an owner-entered invariant |
-| Warning's landmine arm | Landmine records (FR-K4) have no automated writer, and v1 §14 leaves this arm's phase unresolved | Phase 2 mining, or an owner-entered landmine |
+| Consequence's historical-breakage arm | **Not a record-type gap** — it joins the co-change graph (FR-K2) against test topology (FR-K1), both of which Phase 0 builds and populates. It is deferred because it is warn-grade and P0-5's floor is defined over co-change pairs, not over the pair-to-test join; no floor for it exists, and setting one needs false-fire evidence that FR-L3 collects | Phase 2, with FR-L3's false-fire ladder |
+| Completeness's invariant arm | Dropped from §7's content: requires invariant records, whose only Phase 0 writer is FR-L6 promotion | Phase 2 mining, or an owner-entered invariant |
+| Warning's landmine arm | Dropped from §7's content; v1 §14 additionally leaves this arm's phase unresolved | Phase 2 mining, or an owner-entered landmine |
 
-Orientation's landmine arm is **not** narrowed — see §7 and P0-1. Orientation's
-v1 token cap is **retained**, not dropped: a cap is a bound, not a record type,
-and removing it would loosen the genre rather than narrow it (`RETHINK.md:163`,
-*"~150–400 tokens. Not a binder."*).
+Orientation's **landmine arm is retained** in §7 and is therefore not in the table
+above, though it reads the same owner-written FR-K4 records that warning's landmine
+arm would. It is the only arm surviving on owner-entered records, and it **ships
+silent until the owner enters one** (AC-27, AC-21).
+
+Orientation's v1 token cap is **retained**, not dropped: a cap is a bound, not a
+record type, and removing it would loosen the genre rather than narrow it
+(`RETHINK.md:163`, *"~150–400 tokens. Not a binder."*).
 
 ## 3. Disposition of every v1 requirement
 
 The v1 spec carries 65 `FR-*`/`NF-*`/`C-*` requirements. Each has exactly one
-Phase 0 disposition below, so a reader can tell a deliberate exclusion from an
-omission without diffing the two documents.
+Phase 0 disposition below. Two separate claims are made here and both were checked:
+that the three sets partition v1's 65 exactly once, and that each row's disposition
+is the right one — the second by diffing every "unchanged" row against v1's text and
+against §13's decision records.
 
-**In force in Phase 0, unchanged (38).** FR-O2, FR-O3, FR-O4, FR-O4a, FR-O5
-(§5); FR-K1, FR-K2, FR-K6, FR-K7, FR-K8 (§6); FR-A1, FR-A3, FR-A4, FR-A6, FR-A7
-(§8); FR-D1, FR-D2, FR-D3, FR-D4, FR-D5 (§9); FR-X1, FR-X2, FR-X3, FR-X4, FR-X6,
-FR-X7, FR-X8 (§10); FR-M1, FR-M4, FR-L1, FR-L6 (§6, §11); NF-1, NF-2, NF-3 (§11);
-C-2, C-3, C-4, C-5 (§11).
+**In force in Phase 0, unchanged (27).** FR-O2, FR-O3, FR-O4, FR-O4a, FR-O5 (§5);
+FR-K2, FR-K6, FR-K7, FR-K8 (§6); FR-A1, FR-A4 (§8); FR-D1, FR-D2, FR-D3,
+FR-D4, FR-D5 (§9); FR-X3, FR-X4, FR-X5, FR-X8 (§10); FR-M4 (§11); NF-1, NF-2, NF-3
+(§11); C-3, C-5 (§11); FR-K1 (§6). Each retains v1's grounding, including the
+sources §4 carries forward for that purpose.
 
-**In force but narrowed here (10).**
+**In force but narrowed here (21).**
 
 | v1 requirement | Narrowing | Where stated |
 |---|---|---|
-| FR-O1 — observation set | Narration reading is deferred to Phase 1 (no transcript reader); `SubagentStop`, `StopFailure` and `SessionEnd` are added as observed events | §5 |
-| FR-O6 — per-consumer delivery | Phase 0 keys session state per consumer but delivers only to the main agent | §5, P0-D-10 |
-| FR-A2 — twelve whisper genres | Six are built; six are deferred by §2's table; six built arms are narrowed per §2's arm table | §7 |
-| FR-A5 — the bar | Three terms per v1 §12's "Phase 0's bar"; no degraded-mode rise (P0-2); the evidence floors are elaborated as P0-5 and P0-6 | §8, P0-D-6 |
-| FR-K3 — exemplar registry | Schema exists; no Phase 0 writer | P0-1 |
+| FR-O1 — observation set | Narration reading across turns is deferred to Phase 1; `SubagentStop`, `StopFailure` and `SessionEnd` are added; `SessionStart`'s `source` field is given a job | §5 |
+| FR-O6 — per-consumer delivery | Phase 0 keys session state per consumer and delivers only to the main agent | §5, P0-D-10 |
+| FR-A2 — twelve whisper genres | Six are built; six deferred per §2's table; six arms narrowed and one retained per §2's arm table | §7 |
+| FR-A3 — budgets | v1's unsourced *"warnings get priority within the budget"* clause is deliberately not carried; the 2,000-token default and the orientation-counts-against-it clause are v1's and are retained | §8, P0-D-15 |
+| FR-A5 — the bar | Three terms per v1 §12's "Phase 0's bar"; no degraded-mode rise (P0-2); evidence floors elaborated as P0-5/P0-6; all mechanical genres carry equal base weight so no genre precedence arises | §8, P0-D-6, P0-D-18 |
+| FR-A6 — cold-start floor | v1 states one per-region floor with no value; Phase 0 states two, corpus (200 transactions) and region (20), both with values | §8, P0-D-7 |
+| FR-A7 — first impressions | v1 leaves the admitted genre set open and the count configurable; Phase 0 fixes 3 sessions and enumerates the admitted set | §8, P0-D-8 |
+| FR-K3 — exemplar registry | Schema exists; no Phase 0 writer of any kind | P0-1 |
 | FR-K4 — landmine records | Schema exists; FR-L6 promotion is the only Phase 0 writer | P0-1 |
 | FR-K5 — invariant records | Schema exists; FR-L6 promotion is the only Phase 0 writer | P0-1 |
-| FR-M2 — self-detected failure classes | The model-path-failure class is absent; Phase 0 has no model path | §11 |
-| FR-X5 — least privilege | v1 permits network for the §6.2 model call; Phase 0 makes none, so the allowance is removed and the constraint tightens to no network at all | §10, P0-D-11 |
-| C-1 — sandbox/cold-container readiness | v1's named satisfying stack is retained as a witness rather than a mandate; three testable runtime properties are added | §11, P0-D-13 |
+| FR-L1 — session log | v1 logs uptake evidence; Phase 0 records it and explicitly makes no uptake judgment | §6, P0-D-12 |
+| FR-L6 — human statements | v1's input is a statement made in chat; Phase 0's entry channel is the CLI | §6, §12, P0-D-2 |
+| FR-M1 — diagnostic events | v1's model-call attempts and degraded-mode transitions are removed (no model path); per-whisper injected-token counts are added | §11 |
+| FR-M2 — self-detected failures | v1's persistent-model-path-failure class is removed; a suppressing-condition notice is added | §11, P0-D-22 |
+| FR-X1 — secret detection | v1 also scans model-call prompts; Phase 0 makes none, so that clause is removed | §10 |
+| FR-X2 — repo text is data | v1 permits delimited quotation **or** pointer; Phase 0 makes pointer-only the default and permits quotation only for mechanically-generated content | §10, P0-D-19 |
+| FR-X6 — whisper audit trail | v1 logs the evidence used; Phase 0 adds the injected-token count and a read surface | §10, §12, P0-D-21 |
+| FR-X7 — store location | v1 says local, no telemetry; Phase 0 states outside the repository tree and no outbound traffic at all | §10, P0-D-11 |
+| C-1 — cold-container readiness | v1's named satisfying stack is retained as a witness rather than a mandate; three testable runtime properties are added | §11, P0-D-13 |
+| C-2 — warm session state | Teardown on `SessionEnd` is added, with `init` writing an explicit `SessionEnd` timeout because the harness budget is below FR-O3's ceiling | §11 |
+| C-4 — explicit init | `init` additionally writes C-2's `SessionEnd` timeout; the settings file is stated as its only tree-touching act | §11 |
 
-**Deferred whole, with the phase that owns each (17).** Phase 1 — FR-A8 and
-FR-A9 (process conformance, answer drift); FR-J1–FR-J5 (judgment and model
-access); FR-S1–FR-S3 (companion skill). Phase 2 — FR-K9 (export/import); FR-L2,
-FR-L3, FR-L4, FR-L5, FR-L7 (distiller, false-fire ladder, store routing, learned
-provenance, interaction-failure learning); FR-M3 (the distiller consuming
-diagnostics). Each is the subject of a §2 row; none is dropped from v1.
+**Deferred whole, with the phase that owns each (17).** Phase 1 — FR-A8, FR-A9;
+FR-J1–FR-J5; FR-S1–FR-S3. Phase 2 — FR-K9; FR-L2, FR-L3, FR-L4, FR-L5, FR-L7;
+FR-M3. Each is the subject of a §2 row; none is dropped from v1.
 
 **Principles.** v1's P1–P9 govern Phase 0 unchanged, **except P2**, whose
 worst-outcome clause (*"its worst possible outcome is a wasted sentence"*) is
 qualified for stop-delivered whispers by `[OWNER-12]`: such a whisper costs the
-agent a turn it was trying to end. P0-3 is the requirement that implements it.
-P3 (zero ceremony) is carried as AC-20.
+agent a turn it was trying to end. P0-3 implements it. P3 (zero ceremony) is
+carried as AC-20; P8's out-of-tree-store carve-out is what permits C-4's settings
+write against FR-X5's read-only posture.
 
 ## 4. Sources, and how each was confirmed
 
 | Source | Governs | Confirmation |
 |---|---|---|
-| `RETHINK.md` — §1, §2.3, §4, §5, §6, §12 and its addenda (303–399) | The mission; the relevance metric; the knowledge tiers; the attention and delivery posture; the owner's locked decisions | Read 2026-08-01; every cited range re-verified against current source the same day |
-| `spec-context-oracle.md` (v1) | The requirement identifiers and their meanings; principles P1–P9; v1 §12's "Phase 0's bar" (`:895–901`) | Read 2026-08-01. §3's disposition was built by enumerating the v1 identifier set directly from the file |
-| Claude Code hooks documentation (`code.claude.com/docs/en/hooks`) | The observation and delivery interface | **Downloaded raw** 2026-08-01 (242,078 bytes) and string-matched, rather than queried for snippets. Confirmed facts in the rows below |
-| Zimmermann, Weißgerber, Diehl, Zeller, *Mining Version Histories to Guide Software Changes*, IEEE TSE 31(6), 2005 `[ROSE-05]` | The co-change evidence floor and part of the mining hygiene | PDF fetched, text extracted, every quotation and figure below string-matched verbatim 2026-08-01 |
-| Zimmermann & Weißgerber, *Preprocessing CVS Data for Fine-Grained Analysis*, MSR 2004 `[MSR-04]` | Merge- and bulk-commit exclusion as co-change hygiene | Carried from v1 `:105`, where it grounds FR-K2's merge-exclusion rule |
-| Hassan & Holt, *Predicting Change Propagation in Software Systems*, ICSM 2004 `[HH-04]` | That raw co-change association is unusable without pruning (precision 0.06), which grounds the suggestion-grade support floor | Carried from v1 `:104` |
-| OWASP Top 10 for LLM Applications 2025, LLM01:2025 Prompt Injection `[LLM01]` | Least privilege and segregation of external content | Carried from v1 `:108`, where it grounds FR-X5 |
+| `RETHINK.md` — §1, §2.3, §4, §5, §6, §12 and addenda (303–399) | The mission; the relevance metric; the knowledge tiers; the attention and delivery posture; the owner's locked decisions | Read 2026-08-01; every cited range re-verified against current source |
+| `spec-context-oracle.md` (v1) | Requirement identifiers and meanings; principles P1–P9; v1 §12's "Phase 0's bar" (`:895–901`) | Read 2026-08-01; §3's disposition built by diffing every row against this file |
+| Claude Code hooks documentation (`code.claude.com/docs/en/hooks`) | The observation and delivery interface | Downloaded raw 2026-08-01 (242,078 bytes) and string-matched. Facts below |
+| Zimmermann, Weißgerber, Diehl, Zeller, IEEE TSE 31(6), 2005 `[ROSE-05]` | The co-change evidence floors and part of the mining hygiene | PDF fetched (17 pages), text extracted with two independent engines because one interleaves the two-column layout mid-sentence; every quotation string-matched verbatim |
+| Zimmermann & Weißgerber, MSR 2004 `[MSR-04]` | Merge- and bulk-commit exclusion | Carried from v1 `:105` |
+| Hassan & Holt, ICSM 2004 `[HH-04]` | Raw co-change precision 0.06 without pruning; the suggestion-grade floor | Carried from v1 `:104` |
+| Coverity field study `[COVERITY-10]` | That a tool's first reports set its credibility — FR-A7's ground | Carried from v1 `:106` |
+| Herzig & Zeller, tangled changes `[HERZIG-13]` | That co-change edges are never certainties — why FR-D5's ratio is mandatory | Carried from v1 `:107` |
+| Proactive-assistance timing `[CHI-25]` | Task-boundary intervention works; idle-time triggering backfires — FR-O5's ground | Carried from v1 `:109` |
+| Johnson et al., static-analysis adoption `[JOHNSON-13]` | Guidance must carry enough to assess what and why — FR-D1's ground | Carried from v1 `:110` |
+| OWASP Top 10 for LLM Applications 2025 — `[LLM01]`, `[LLM02]`, `[OWASP-PI]`, `[OWASP-SM]` | Prompt injection, sensitive-information disclosure, secrets management; least privilege — FR-X1, FR-X2, FR-X5, FR-X8 | Carried from v1 `:108`, `:111`, `:112` |
+| Agentic security taxonomy `[ASI-26]` | Memory & context poisoning — FR-K6's trust label, FR-X4, threat T2 | Carried from v1 `:103` |
 | Node.js API docs + nodejs/node source `[NODE]` | `node:sqlite` availability as C-1's witness stack | Carried from v1 `:113` |
+
+**No source outside this table is cited by this document.** Requirements carried in
+force unchanged from v1 retain v1's grounding, and the sources that grounding needs
+are listed above for that reason.
 
 **Hook contract facts this document depends on**, each string-matched against the
 downloaded reference:
@@ -145,113 +173,128 @@ downloaded reference:
 - **Lifecycle.** Once per session: `SessionStart`, `SessionEnd`. Once per turn:
   `UserPromptSubmit`, `Stop`, `StopFailure`. Per tool call: `PreToolUse`,
   `PostToolUse`. Subagent lifecycle: `SubagentStart`, `SubagentStop`.
-- **`Stop` fires "When Claude finishes responding"** — every turn end, not only a
-  completion claim. `StopFailure` fires "When the turn ends due to an API error.
-  Output and exit code are ignored." This is the fact P0-3 turns on.
+- **`Stop` fires "When Claude finishes responding"** — every turn end. `StopFailure`
+  fires *"When the turn ends due to an API error. Output and exit code are ignored."*
+- **`Stop` and `SubagentStop` carry `last_assistant_message`**, which *"contains the
+  text content of Claude's final response, so hooks can access it without parsing the
+  transcript file."* The common-input table directs hooks to it explicitly: *"Hooks
+  that need the final assistant text of the current turn should use
+  `last_assistant_message` on Stop and SubagentStop instead of reading the
+  transcript."* This is what lets Phase 0 recognise a completion claim without the
+  transcript reader (P0-3). On `StopFailure` the same field name carries the API
+  error string, not an assistant message.
 - **`Stop` and `SubagentStop` accept `hookSpecificOutput.additionalContext`** for
-  *"non-error feedback that continues the conversation."* This is the delivery
-  path for the completeness and verification genres.
-- **`PreToolUse` may inject context without a permission decision.** The
-  reference states that exit code 0 with no output *"means the hook has no
-  decision to report, so the tool call continues through the normal permission
-  flow"*, and that *"the hook can deny the call, but staying silent doesn't
-  approve it"*; `additionalContext` is a field of the `PreToolUse`
+  *"non-error feedback that continues the conversation."*
+- **`PreToolUse` may inject context without a permission decision.** Exit code 0 with
+  no output *"means the hook has no decision to report, so the tool call continues
+  through the normal permission flow"*; *"the hook can deny the call, but staying
+  silent doesn't approve it."* `additionalContext` is a field of the `PreToolUse`
   `hookSpecificOutput` object independent of `permissionDecision`.
-- **`PostToolUse` accepts `additionalContext`** — *"String added to Claude's
-  context alongside the tool result."*
-- **`UserPromptSubmit` accepts `additionalContext`.**
-- **Timeouts are per handler type, not a single default**: 600 s for `command`,
-  `http` and `mcp_tool`; 30 s for `prompt`; 60 s for `agent`. `UserPromptSubmit`
-  lowers the first group to 30 s.
-- **`SessionEnd` hooks share a 1.5-second budget**; *"if your settings set a
-  longer per-hook `timeout`, Claude Code raises the budget to match, up to 60
-  seconds."* This is below FR-O3's 3 s ceiling, so C-2 requires `init` to write
-  an explicit `SessionEnd` timeout.
-- **The harness screens injected text.** *"Text framed as out-of-band system
-  commands can trigger Claude's prompt-injection defenses, which causes Claude to
-  surface the text to you instead of treating it as context."* This constrains
-  FR-X2 and gives FR-D2 a mechanical grounding.
-
-No source outside this table is cited, and no requirement depends on one.
+- **`PostToolUse` accepts `additionalContext`** — *"String added to Claude's context
+  alongside the tool result."* `UserPromptSubmit` accepts it too.
+- **Hooks run inside subagents.** *"When a subagent calls a tool, tool events such as
+  `PreToolUse` and `PostToolUse` fire the same configured hooks as in the main
+  conversation,"* with `agent_id` and `agent_type` identifying the subagent. This
+  also settles v1 §14's open question about subagent hook firing.
+- **Resume replays injected text.** *"When you resume with `--continue` or
+  `--resume`, Claude Code replays the saved text rather than re-running the hook for
+  past turns."* `SessionStart` carries `source`: `"startup"`, `"resume"`, `"clear"`,
+  `"compact"` after compaction, or `"fork"`.
+- **Timeouts are per handler type**: 600 s for `command`, `http`, `mcp_tool`; 30 s
+  for `prompt`; 60 s for `agent`. `UserPromptSubmit` lowers the first group to 30 s.
+- **`SessionEnd` hooks share a 1.5-second budget**; a longer per-hook `timeout`
+  raises it up to 60 s — but *"timeouts set on plugin-provided hooks don't raise the
+  budget,"* which is why C-4 writes the settings file rather than shipping a plugin.
+- **The harness screens injected text.** *"Text framed as out-of-band system commands
+  can trigger Claude's prompt-injection defenses, which causes Claude to surface the
+  text to you instead of treating it as context."*
 
 ## 5. Observation
 
-- **FR-O1** — The oracle observes: `SessionStart`; `UserPromptSubmit`; completed
-  read and search tool calls; pending edit and write tool calls; completed edit
-  and write tool calls; `Stop`; `SubagentStop`; `StopFailure`; and `SessionEnd`.
-  `SessionStart`, `StopFailure` and `SessionEnd` are observation-only — recorded,
-  never delivered on. `SubagentStop` is observed so FR-O4a's continuation bound
-  and FR-O6's per-consumer key hold on that path from the first implementation;
-  Phase 0 delivers nothing on it. v1's narration-reading clause is deferred to
-  Phase 1 with the transcript reader (§3).
-- **FR-O2** — Shims contain no decision logic. They forward the event and relay
-  at most one whisper back.
+- **FR-O1** — The oracle observes: `SessionStart`; `UserPromptSubmit`; completed read
+  and search tool calls; pending edit and write tool calls; completed edit and write
+  tool calls; `Stop`; `SubagentStop`; `StopFailure`; and `SessionEnd`. `StopFailure`
+  and `SessionEnd` are observation-only. `SessionStart` is observation-only for
+  delivery but its `source` field is load-bearing: on `"resume"` the session's
+  delivered-set is seeded from the FR-X6 audit log so FR-A4 and FR-A3's budget account
+  for the harness's replay, and on `"compact"` the read set is cleared because the
+  agent's context no longer holds what it read. `[P0-D-20]` `SubagentStop` is observed
+  so FR-O4a's bound and FR-O6's key hold on that path; Phase 0 delivers nothing on it.
+  `SessionEnd` is the session service's termination signal (C-2). `SubagentStart` is
+  not observed: the consumer key is recoverable from `agent_id` on the subagent's own
+  tool events, which FR-O6 already keys.
+- **FR-O2** — Shims contain no decision logic. They forward the event and relay at
+  most one whisper back.
 - **FR-O3** — **Fail open, fast.** Any shim or service error, timeout, or missing
-  store yields silence, never an error in the agent's flow. The oracle enforces
-  its own budget rather than the harness's: added latency p95 ≤ 1.5 s per event,
-  ceiling 3 s, then silence. `RETHINK.md:179–181`: *"A hook that slows the agent
-  is a gate by another name. Answer within ~1–2s or stay silent this round."*
-- **FR-O4** — **No deny path exists, structurally.** No shim code path can return
-  a blocking decision on any event. `RETHINK.md:314–323`, decision 3; the
-  corollary at `:393–399` bars gates in every form.
-- **FR-O4a** — **Continuation is bounded to one per stop.** The oracle emits on
-  `Stop` only when `stop_hook_active` is false, extending a turn at most once per
-  stop and never chaining; the same rule governs `SubagentStop`, on which Phase 0
-  emits nothing. `RETHINK.md:363–379` and `:393–399`, decision 12. Independent of
-  the harness's cap value. The per-*session* bound is P0-3's.
+  store yields silence, never an error in the agent's flow. The oracle enforces its
+  own budget rather than the harness's: added latency p95 ≤ 1.5 s per event, ceiling
+  3 s, then silence. `RETHINK.md:179–181`: *"A hook that slows the agent is a gate by
+  another name. Answer within ~1–2s or stay silent this round."*
+- **FR-O4** — **No deny path exists, structurally.** No shim code path can return a
+  blocking decision on any event. `RETHINK.md:314–323`, decision 3; the corollary at
+  `:393–399` bars gates in every form.
+- **FR-O4a** — **Continuation is bounded to one per stop.** The oracle emits on `Stop`
+  only when `stop_hook_active` is false, extending a turn at most once per stop and
+  never chaining; the same rule governs `SubagentStop`, on which Phase 0 emits
+  nothing. `RETHINK.md:363–379` and `:393–399`. Independent of the harness's cap
+  value. The per-session bound is P0-3's.
 - **FR-O5** — The oracle speaks only in response to an observed harness event. No
-  timer, no idle detector, no polling loop. `[P0-D-1]`
+  timer, no idle detector, no polling loop. `[CHI-25]` measures the reason:
+  task-boundary intervention is effective where idle-time triggering backfires. `[P0-D-1]`
 - **FR-O6** — Session state is keyed per consumer from the first implementation.
-  Where an event carries a consumer identity distinct from the main agent's,
-  Phase 0 records it and delivers nothing against it. `[P0-D-10]`
+  Where an event carries a consumer identity distinct from the main agent's — which
+  tool events inside subagents do, via `agent_id` (§4) — Phase 0 records it and
+  delivers nothing against it. Those events are counted separately by P0-4 rather
+  than folded into the silence rate. `[P0-D-10]`
 
 ## 6. Knowledge
 
-- **FR-K1** — A structural index: files, symbols, import and reference edges,
-  directory topology, generated/vendored/build-output zones, test topology, and
-  per-region verification commands. Incremental. Language scope is TS/JS/TSX and
-  Python behind a language-agnostic interface (v1 `[D-15]`). `RETHINK.md:130–134`.
+- **FR-K1** — A structural index whose content is `RETHINK.md` §4's Tier 2 list
+  (`:130–134`) in full: files, symbols, import and reference edges, directory
+  topology, ownership boundaries, generated/vendored/build-output zones, **entry
+  points**, test topology, and per-region verification commands. Incremental.
+  Language scope is TS/JS/TSX and Python behind a language-agnostic interface
+  (v1 `[D-15]`).
 - **FR-K2** — A co-change graph mined from git history at file and symbol
   granularity, refreshed incrementally as history grows. Five mining rules are
   requirements, not options:
   1. **Exclude merge commits** — they duplicate and falsely relate changes
-     `[MSR-04]`. Git records merges explicitly, so this is a direct test rather
-     than a proxy.
+     `[MSR-04]`. Git records merges explicitly, so this is a direct test rather than
+     a proxy.
   2. **Exclude transactions above a size cap**, default 30 changed entities.
-     `[ROSE-05]`: *"In order to detect coupling within transactions, one must
-     avoid the large merge transactions. ROSE does so by ignoring all changes
-     that affect more than 30 entities."* In a CVS archive this served as the
-     merge proxy; here it is the bulk/bookkeeping-commit filter `[HH-04]`.
-  3. **A configurable history horizon** caps how old a transaction may be and
-     still teach — `[ROSE-05]`: *"ROSE has much outdated knowledge—which suggests
-     that ROSE should not learn from too old transactions."*
+     `[ROSE-05]`: *"In order to detect coupling within transactions, one must avoid
+     the large merge transactions. ROSE does so by ignoring all changes that affect
+     more than 30 entities."* In a CVS archive this served as the merge proxy; here
+     it is the bulk/bookkeeping-commit filter `[HH-04]`.
+  3. **A configurable history horizon** — `[ROSE-05]`: *"ROSE has much outdated
+     knowledge—which suggests that ROSE should not learn from too old transactions."*
   4. **Record counts, ratios and recency**; recency *weighting* in ranking is a
      per-project tunable, not hardwired `[HH-04]`.
   5. **Refresh incrementally** as history grows.
-- **FR-K6** — Every record carries provenance — a `file:line` span, a commit hash,
-  a dated human statement, or a learned-record reference — and a trust label
-  separating repository-derived text from human-stated origin. Records without
-  provenance are unrepresentable. `RETHINK.md:77–78` requires the provenance; the
-  trust label is required by T2 in §10, where its justification lives.
-- **FR-K7** — Staleness never blocks and never spams: a stale index lowers
-  confidence, usually to silence, and triggers background refresh.
+- **FR-K6** — Every record carries provenance — a `file:line` span, a commit hash, a
+  dated human statement, or a learned-record reference — and a trust label separating
+  repository-derived text from human-stated origin. Records without provenance are
+  unrepresentable. `RETHINK.md:77–78` requires the provenance; the trust label
+  answers threat T2 (§10), whose mechanism is `[ASI-26]`'s memory-and-context
+  poisoning.
+- **FR-K7** — Staleness never blocks and never spams: a stale index lowers confidence,
+  usually to silence, and triggers background refresh.
 - **FR-K8** — Stores are per-repository and per-user, both outside the repository
   tree, and team sharing is out of scope. `RETHINK.md:330–334`, decision 6.
 - **FR-L1** — The session service logs, per event, the candidates considered, the
-  whisper sent if any, and subsequent evidence that the agent acted on it. This
-  log is Phase 1's input for a hit rate; Phase 0 records the evidence and makes no
-  uptake judgment (`[P0-D-12]`). Verified by AC-29.
-- **FR-L6** — Human statements are recorded as facts with human provenance, with
-  no override ritual. Their Phase 0 entry channel is the CLI (§12), and
-  orientation's landmine arm is the Phase 0 genre that reads what they write
-  (§7). `[P0-D-2]`
-- **P0-1** — The FR-K3 exemplar, FR-K4 landmine and FR-K5 invariant schemas, and
-  the recipe record FR-L2 produces, exist in Phase 0 with their provenance
-  constraints. Phase 0's only writer for them is FR-L6 promotion; there is no
-  automated miner until Phase 2. Literal-match landmine detection is a read over
-  indexed content and over promoted records, which is what orientation's landmine
-  arm uses. A schema with no automated writer ships empty rather than becoming a
-  later migration. `[P0-D-3]`
+  whisper sent if any, and subsequent evidence that the agent acted on it. Phase 0
+  records the evidence and makes no uptake judgment (`[P0-D-12]`); AC-29 checks the
+  record exists and is readable.
+- **FR-L6** — Human statements are recorded as facts with human provenance, with no
+  override ritual. Their Phase 0 entry channel is the CLI (§12), and orientation's
+  landmine arm is the Phase 0 genre that reads what they write (§7). `[P0-D-2]`
+- **P0-1** — The FR-K3 exemplar, FR-K4 landmine and FR-K5 invariant schemas, and the
+  recipe record FR-L2 produces, exist in Phase 0 with their provenance constraints.
+  FR-L6 promotion is Phase 0's only writer, and it writes landmines and invariants
+  only — FR-K3 exemplars have no Phase 0 writer at all. Literal-match landmine
+  detection is a read over indexed content and over promoted records, which is what
+  orientation's landmine arm uses. A schema with no writer ships empty rather than
+  becoming a later migration. `[P0-D-3]`
 
 ## 7. What Phase 0 says
 
@@ -259,7 +302,7 @@ Six of the twelve genres FR-A2 defines.
 
 | Genre | Fires on | Channel | Content | Evidence |
 |---|---|---|---|---|
-| **Orientation** | prompt submitted | `UserPromptSubmit` | 2–4 entry points for the task, plus any landmine matching the task shape; ≤ 400 tokens | index entry points; promoted landmine records |
+| **Orientation** | prompt submitted | `UserPromptSubmit` | 2–4 **structural** entry points whose indexed names lexically match the prompt, plus any promoted landmine matching the task shape; ≤ 400 tokens | index entry points; promoted FR-K4 records |
 | **Coupling** | file read / symbol searched | `PostToolUse` | strongest co-change partners with the evidence ratio | co-change graph |
 | **Consequence** | edit or write pending | `PreToolUse` | call-site count and spread for the thing being changed | reference edges |
 | **Warning ⚠ (generated)** | edit pending in a generated zone | `PreToolUse` | that the file is build output, the evidence, what overwrites it, where the editable source is | zone classification and its captured evidence |
@@ -267,449 +310,526 @@ Six of the twelve genres FR-A2 defines.
 | **Completeness** | edit completed, or stop | `PostToolUse` / `Stop` | the co-change partner not yet touched | co-change graph |
 | **Verification** | stop | `Stop` | the verification command for the changed region | per-region verification commands |
 
-Consequence and both warning arms fire on a pending edit, which requires
-injecting context without issuing a permission decision; §4 records the contract
-facts that make this available. FR-O4's property is that no code path *can* issue
-a permission decision.
+Orientation's entry-point arm is v1 FR-J3's model-free formulation — *"structural
+entry points … no model intent inference"* — realised as a lexical match of the
+prompt's terms against indexed symbol, file and directory names, ranked by structural
+weight. A prompt matching nothing yields silence, not the repository's default entry
+points (AC-9). `[P0-D-17]`
+
+Consequence and both warning arms fire on a pending edit, which requires injecting
+context without issuing a permission decision; §4 records the contract facts that
+make this available. FR-O4's property is that no code path *can* issue a permission
+decision.
 
 **Stop-class genres compete.** Completeness and verification can both have a
-candidate at the same stop, and FR-A3 permits one whisper per event. They are
-ordered by FR-A5's score like any other candidates; there is no genre precedence.
-Completeness also has a `PostToolUse` arm, so verification is the genre most
-exposed to losing the stop — P0-4 reports each genre's delivered count so a
-systematic shut-out is visible rather than silent.
+candidate at the same stop, and FR-A3 permits one whisper per event. They are ordered
+by FR-A5's score, and since every Phase 0 genre carries the same base weight
+(`[P0-D-18]`) that ordering carries no genre precedence. Completeness also has a
+`PostToolUse` arm, so verification is the genre most exposed to losing the stop —
+P0-4 reports each genre's delivered count so a systematic shut-out is visible.
 
 ## 8. When Phase 0 speaks
 
-- **FR-A1** — Per event the oracle answers internally: given what the agent is
-  doing now, do I know something it almost certainly does not that would change
-  what it does next? Default answer no → silence. `RETHINK.md:169–171`.
+- **FR-A1** — Per event the oracle answers internally: given what the agent is doing
+  now, do I know something it almost certainly does not that would change what it does
+  next? Default answer no → silence. `RETHINK.md:169–171`.
 - **FR-A3** — At most one whisper per event, within a per-session injected-token
-  budget of 2,000 tokens by default, configurable. Warnings take priority within
-  that budget, never exemption from it. `RETHINK.md:175–176` grounds the hard
-  caps; the priority clause is inherited from v1 and unsourced — see `[P0-D-15]`.
-  `[P0-D-4]`
-- **FR-A4** — Never tell the agent what it has already seen (`RETHINK.md:138`),
-  been told, or visibly incorporated (`:177–178`); orientation candidates decay
-  out of consideration once the agent is deep in the task (`:175–176`).
+  budget of 2,000 tokens by default, configurable; orientation counts against it.
+  `RETHINK.md:175–176` grounds the hard caps; the 2,000 default is v1 `[D-10]`,
+  derived there as roughly five orientation-size whispers at the owner's ~400-token
+  orientation bound — so changing the orientation cap changes this number's meaning.
+  v1's warning-priority clause is deliberately not carried. `[P0-D-4]` `[P0-D-15]`
+- **FR-A4** — Never tell the agent what it has already seen (`RETHINK.md:138`), been
+  told, or visibly incorporated (`:177–178`); orientation candidates decay out of
+  consideration once the agent is deep in the task (`:175–176`). The delivered-set
+  this rests on is reseeded on resume and the read set cleared on compaction, because
+  the harness replays past injections and a compaction discards what the agent read
+  (§4, FR-O1). `[P0-D-20]`
 - **FR-A5** — Each candidate carries **confidence × decision-impact × marginal
   value**, and only the top candidate above the bar is spoken. All three terms are
   computable without a model, per v1 §12's "Phase 0's bar"
-  (`spec-context-oracle.md:895–901`): decision-impact decomposes into
-  `materiality`, which falls back to the genre's base weight for mechanical
-  genres, and `structural_weight`, which is deterministic; marginal value is v1's
-  `self_serve_cost`, which *"derives from provenance class and what the consumer
-  has already done"*, renamed here to match `RETHINK.md:59–61` (*"Marginal value
-  over the agent's own abilities is the only relevance metric that matters"*).
-  The bar ships high (`RETHINK.md:198–199`) and is configurable. `[P0-D-6]`
-  `[P0-D-16]`
-- **P0-5** — **Warn-grade evidence floor.** A ⚠ whisper on history-derived
-  evidence requires co-change support ≥ 3 and confidence ≥ 0.9. `[ROSE-05]` sets
-  that operating point: *"ROSE is set up to issue warnings only if the high
-  confidence threshold of 0.9 is exceeded. Still, we wanted to get as many missing
-  items as possible, resulting in a support count threshold of 3."* Its benefits
-  there are precision — *"The average precision is above 66 percent"* — and, in a
-  separate evaluation over complete transactions, *"Only 2 percent of all
-  transactions cause a false alarm."* **Its cost is coverage, not quality**: at
-  the same operating point *"The feedback is 3 percent and the average recall is
-  about 75 percent,"* meaning one warning per 33 missing items, so *"the
-  percentage of missed alarms is on average 97 percent"* — while *"for those cases
-  where ROSE issues a warning, it predicts 75 percent of the items that are
-  actually missing."* A warn-grade channel at this floor fires rarely and is
-  thorough when it fires. That bounds Phase 0's warn-grade evidence yield, which
-  §14's exit measures rather than assumes. Suggestion-grade coupling may run
-  looser, never below support ≥ 2, because raw co-change association is ~6%
-  precise without pruning `[HH-04]`; `[ROSE-05]` measured *"a feedback of 0.64 and
-  a precision of 0.30"* at support 1 and confidence 0.1.
-- **P0-6** — Both warning arms in §7 are exempt from P0-5's floors. Their evidence
-  is a zone marker, not history, and a zone marker generates no co-change support
-  at all. `[P0-D-5]`
-- **FR-A6** — **Evidence-corpus floors.** Two, because a thin corpus and a thin
-  region silence for different reasons and either alone leaves a gap:
-  corpus-level, history-backed genres stay silent below 200 mined transactions;
-  region-level, they stay silent for a region below 20 mined transactions
-  touching it. Both configurable. These are separate from P0-5, which is computed
-  per pair and cannot express thinness. `[P0-D-7]` `[P0-D-16]`
-- **FR-A7** — **First impressions.** In a project's first 3 sessions
-  (configurable), only the highest-confidence candidates speak: the generated and
-  vendored warnings, whose evidence is a zone marker, and coupling **at the P0-5
-  warn-grade floor** rather than the looser suggestion grade. `[P0-D-4]`
-  `[P0-D-8]`
+  (`spec-context-oracle.md:895–901`): decision-impact decomposes into `materiality`,
+  which falls back to the genre's base weight for mechanical genres, and
+  `structural_weight`, which is deterministic; marginal value is v1's
+  `self_serve_cost`, which *"derives from provenance class and what the consumer has
+  already done"*, renamed here to match `RETHINK.md:59–61`. Every Phase 0 genre is
+  mechanical, so **all base weights are equal and decision-impact reduces to
+  structural weight** — the bar therefore encodes no genre precedence.
+  `[P0-D-18]` The bar ships high (`RETHINK.md:198–199`) and is configurable.
+  `[P0-D-6]` `[P0-D-16]`
+- **P0-5** — **Warn-grade evidence floor.** A ⚠ whisper on history-derived evidence
+  requires co-change support ≥ 3 **and** confidence ≥ 0.9. `[ROSE-05]` sets that
+  operating point: *"ROSE is set up to issue warnings only if the high confidence
+  threshold of 0.9 is exceeded. Still, we wanted to get as many missing items as
+  possible, resulting in a support count threshold of 3."* Its benefits there are
+  precision — *"The average precision is above 66 percent"* — and, in a separate
+  evaluation over complete transactions, *"Only 2 percent of all transactions cause a
+  false alarm."* **Its cost is coverage, not quality**: at the same operating point
+  *"The feedback is 3 percent and the average recall is about 75 percent,"* meaning
+  one warning per 33 missing items, so *"the percentage of missed alarms is on average
+  97 percent"* — while *"for those cases where ROSE issues a warning, it predicts 75
+  percent of the items that are actually missing."* The channel fires rarely and is
+  thorough when it fires; §14's exit measures that yield rather than assuming it.
+  Suggestion-grade coupling may run looser but never below **support ≥ 2 together
+  with a configured confidence threshold** — both dimensions, because raw co-change
+  association is ~6% precise without pruning `[HH-04]` and `[ROSE-05]` measured
+  *"a feedback of 0.64 and a precision of 0.30"* at support 1 **and confidence 0.1**,
+  which bounds that pair jointly and not support alone.
+- **P0-6** — Both warning arms in §7 are exempt from P0-5's floors. Their evidence is
+  a zone marker, not history, and a zone marker generates no co-change support at all.
+  `[P0-D-5]`
+- **FR-A6** — **Evidence-corpus floors.** Two, because a thin corpus and a thin region
+  silence for different reasons: history-backed genres stay silent below 200 mined
+  transactions corpus-wide, and stay silent for a region below 20 mined transactions
+  touching it. Both configurable. Separate from P0-5, which is computed per pair and
+  cannot express thinness. `[P0-D-7]`
+- **FR-A7** — **First impressions.** In a project's first 3 sessions (configurable),
+  only the highest-confidence candidates speak: the generated and vendored warnings,
+  whose evidence is a zone marker, and coupling **at the P0-5 warn-grade floor**
+  rather than the looser suggestion grade. `[COVERITY-10]` is the ground — a tool's
+  first reports set its credibility. `[P0-D-4]` `[P0-D-8]`
 - **P0-2** — Phase 0 ships the bar with no degraded-mode delta and issues no
   degraded-mode notice. v1 §12 states the reason: the raised-bar delta belongs to
-  degraded mode, *"which compensates for a lost intent signal; Phase 0 has not
-  lost one."*
-- **P0-3** — **Stop-grade whispers, and what Phase 0 can recognise at a stop.**
-  `Stop` fires whenever Claude finishes responding (§4), not only when an agent
-  claims completion. Detecting an actual completion claim requires narration
-  reading, which is Phase 1. Phase 0 therefore holds `[OWNER-12]`'s accepted turn
-  cost without the discrimination that ruling was about, and this document states
-  that plainly rather than writing as though the event were the moment. The
-  capability stays, per the owner's ruling; what is bounded is its volume:
-  - A stop-grade whisper must clear the ordinary bar plus a configured delta,
-    **defaulting to zero** — no raised bar until measurement licenses one.
-  - At most **3 stop-grade whispers per session** (configurable), which is the
-    per-session bound `RETHINK.md:393–399` leaves unstated while bounding the
-    per-stop cost to one.
-  - Each delivery is recorded as a continuation event, and each candidate a
-    non-zero delta suppresses is recorded, so the owner sees both what the
-    capability cost and what it withheld. `[P0-D-9]`
+  degraded mode, *"which compensates for a lost intent signal; Phase 0 has not lost
+  one."*
+- **P0-3** — **Stop-grade whispers, and the moment Phase 0 speaks at.** `Stop` fires
+  whenever Claude finishes responding (§4), not only when an agent claims completion —
+  but the harness hands the hook `last_assistant_message`, the text of that response,
+  *"without parsing the transcript file."* Phase 0 therefore **does** recognise a
+  completion claim: a literal/lexical test over that field, the same class of
+  mechanism P0-1 already ships for landmines. `[OWNER-12]`'s capability is implemented
+  at the moment the owner ruled on, not at every turn boundary.
+  - A stop-grade whisper fires only at a stop whose `last_assistant_message` matches
+    the completion-claim test.
+  - It must clear the ordinary bar plus a configured delta, **defaulting to zero** —
+    no raised bar until measurement licenses one.
+  - At most **3 stop-grade whispers per session** (configurable). This is a bound on
+    the lexical test's false positives, not a substitute for recognition.
+    `[P0-D-9]` `[P0-D-23]`
+  - Each delivery is recorded as a continuation event, each candidate a non-zero delta
+    suppresses is recorded, and each stop where the test did not match is counted, so
+    the owner sees what the capability cost, what it withheld, and how often it
+    declined to fire.
 
 ## 9. Delivery
 
-- **FR-D1** — Whisper format: `[oracle]` prefix (`RETHINK.md:195`), a claim of one
-  to five sentences with at least one verifiable pointer (`:187–188`), a
-  confidence tag when confidence is not high (`:196–197`), a genre tag, and
-  optionally a one-line "so what".
-- **FR-D2** — Informative, never imperative: facts and consequences, never
-  commands. `RETHINK.md:190`. The harness supplies a mechanical reason as well:
-  text framed as out-of-band system commands can trigger its prompt-injection
-  defences and be surfaced to the user instead of delivered as context (§4).
+- **FR-D1** — Whisper format: `[oracle]` prefix (`RETHINK.md:195`), a claim of one to
+  five sentences with at least one verifiable pointer (`:187–188`), a confidence tag
+  when confidence is not high (`:196–197`), a genre tag, and optionally a one-line "so
+  what". The claim must carry enough for the reader to assess what the problem is and
+  why `[JOHNSON-13]`. Every emitted whisper parses to this format and every pointer
+  resolves (AC-31).
+- **FR-D2** — Informative, never imperative: facts and consequences, never commands.
+  `RETHINK.md:190`. The harness supplies a mechanical reason as well: text framed as
+  out-of-band system commands can trigger its prompt-injection defences and be
+  surfaced to the user instead of delivered as context (§4).
 - **FR-D3** — Warning subtype: ⚠ marker, the mechanical evidence, the concrete
-  consequence for that zone type (§7), and an explicit false-fire clause inviting
-  correction. Never a block. `RETHINK.md:314–323`.
-- **FR-D4** — The only agent-facing channel is hook context injection. Human
-  notices use the human-visible channel and never consume agent context.
-- **FR-D5** — Co-change claims always state their evidence ratio, never as
-  certainty.
+  consequence for that zone type (§7), and a **declarative** false-fire clause — a
+  statement that the warning may be wrong and that `ctxoracle` records corrections,
+  not an instruction to the agent, so FR-D2 and AC-26 both hold. Its receiver in
+  Phase 0 is the CLI (§12); the automated demotion ladder that consumes corrections is
+  FR-L3, Phase 2. `[P0-D-24]` Never a block. `RETHINK.md:314–323`.
+- **FR-D4** — The only agent-facing channel is hook context injection. Human notices
+  use the human-visible channel and never consume agent context.
+- **FR-D5** — Co-change claims always state their evidence ratio, never as certainty:
+  up to 15% of fixes are tangled, so a co-change edge is never a certainty
+  `[HERZIG-13]`.
 
 ## 10. Threat model and security
 
 Phase 0 reads repository text and git history, persists them, and injects derived
-text into an autonomous agent's context. That is its entire attack surface. It
-makes no model call, so threats concerning model-call prompts and credential
-handling do not arise here; they return with Phase 1.
+text into an autonomous agent's context. That is its entire attack surface. It makes
+no model call, so threats concerning model-call prompts and credential handling do not
+arise here; they return with Phase 1.
 
-**T1 — Indirect prompt injection through repository text.** *Attacker*: anyone who
-can land text in the repository or its history. *Target*: the agent's behaviour.
-*Path*: imperative text in a comment, commit message, filename or generated-file
-header is mined and injected, where it reads as instruction. *Cost*: the agent
-acts on an instruction the owner never gave, with the oracle's credibility behind
-it. `[LLM01]`
+**T1 — Indirect prompt injection through repository text.** *Attacker*: anyone who can
+land text in the repository or its history. *Target*: the agent's behaviour. *Path*:
+imperative text in a comment, commit message, filename or generated-file header is
+mined and injected, where it reads as instruction. *Cost*: the agent acts on an
+instruction the owner never gave, with the oracle's credibility behind it.
+`[LLM01]` `[OWASP-PI]`
 
-**T2 — Store poisoning.** *Attacker*: the T1 population, plus anything able to
-write the store path. *Target*: the persisted knowledge. *Path*:
-repository-derived text is stored without a trust label and later treated as
-though a human asserted it. *Cost*: a poisoned fact outlives its session and is
-delivered with unearned authority. This is what FR-K6's trust label prevents.
+**T2 — Store poisoning.** *Attacker*: the T1 population, plus anything able to write
+the store path. *Target*: the persisted knowledge. *Path*: repository-derived text is
+stored without a trust label and later treated as though a human asserted it. *Cost*:
+a poisoned fact outlives its session and is delivered with unearned authority — the
+memory-and-context-poisoning class `[ASI-26]`. FR-K6's trust label is the control.
 
-**T3 — Secret capture.** No attacker required. *Target*: credentials in tracked
-files or git history. *Path*: the indexer or miner ingests a key, which lands in a
-store, a log, or a whisper. *Cost*: a secret is copied into a store the owner does
-not think of as sensitive.
+**T3 — Secret capture.** No attacker required. *Target*: credentials in tracked files
+or git history. *Path*: the indexer or miner ingests a key, which lands in a store, a
+log, or a whisper. *Cost*: a secret is copied into a store the owner does not think of
+as sensitive. `[LLM02]` `[OWASP-SM]`
 
-**T4 — Overreach by the oracle's own process.** No attacker required. *Target*:
-the repository and the network. *Path*: a component writes inside the repository
-tree or opens a connection. *Cost*: the tool that promised it never mutates the
-repository does so — the failure that ends trust outright. `RETHINK.md:321–323`.
+**T4 — Overreach by the oracle's own process.** No attacker required. *Target*: the
+repository and the network. *Path*: a component writes inside the repository tree or
+opens a connection. *Cost*: the tool that promised it never mutates the repository does
+so — the failure that ends trust outright. `RETHINK.md:321–323`.
 
-- **FR-X1** (T3) — Secret detection runs on all text before it enters a store, a
-  log, or a whisper; matches are redacted or masked, never stored or emitted in
-  plaintext.
-- **FR-X2** (T1) — Repository-derived text is data, never instruction: whispers
-  are produced from a fixed schema validated by deterministic code. **Pointer-only
-  is the default for every repository-derived span.** Inline quotation is
-  permitted only for mechanically-generated content, because a delimited quotation
-  of hostile imperative text is the shape the harness's own injection defences
-  screen for (§4) — which would convert the whisper into a user-facing notice, a
-  silent non-delivery. `[LLM01]`
-- **FR-X3** (T1) — Content flagged injection-suspect at index time is referenced
-  by pointer only, never quoted.
+- **FR-X1** (T3) — Secret detection runs on all text before it enters a store, a log,
+  or a whisper; matches are redacted or masked, never stored or emitted in plaintext.
+  `[OWASP-SM]` `[LLM02]`
+- **FR-X2** (T1) — Repository-derived text is data, never instruction: whispers are
+  produced from a fixed schema validated by deterministic code. **Pointer-only is the
+  default for every repository-derived span**, with inline quotation permitted only
+  for mechanically-generated content. The ground is `[OWASP-PI]`'s segregation of
+  external content; the harness's own screening is a second, independent reason to
+  prefer pointers — it warns that text framed as out-of-band *system commands* is
+  surfaced to the user rather than delivered, which is a risk for relayed imperative
+  text specifically, not for quotation as such. `[P0-D-19]`
+- **FR-X3** (T1) — Content flagged injection-suspect at index time is referenced by
+  pointer only, never quoted.
 - **FR-X4** (T2) — Records preserve trust origin through every pipeline stage.
-- **FR-X5** (T4) — Least privilege: read-only repository access
-  (`RETHINK.md:321–323`), no tool-invocation authority in the agent's session, and
-  — Phase 0 having no model call — no network access at all. The latter two
-  clauses are grounded in `[LLM01]`'s least-privilege control, not in
-  `RETHINK.md`. `[P0-D-11]`
-- **FR-X6** (T1, T2, oversight) — Every whisper is logged with the evidence it
-  used and its injected-token count, giving the owner a reviewable audit trail.
-- **FR-X7** (T3) — Both stores live outside the repository tree and the oracle
-  emits no outbound traffic. `RETHINK.md:330–334` establishes the location and the
-  solo scope; the no-traffic property is this document's, derived from FR-X5.
-  `[P0-D-11]`
-- **FR-X8** (T1, T2) — The test suite includes adversarial fixtures: injection
-  payloads in code comments, commit messages and file content, asserting no
-  whisper relays or obeys them.
+  `[ASI-26]`
+- **FR-X5** (T4) — Least privilege `[LLM01]`: read-only repository access
+  (`RETHINK.md:321–323`), no tool-invocation authority in the agent's session, and —
+  Phase 0 having no model call — no network access at all. The single write exception
+  is `init`'s harness settings file, which v1 P8's out-of-tree-store carve-out permits
+  and C-4 bounds. `[P0-D-11]`
+- **FR-X6** (T1, T2, oversight) — Every whisper is logged with the evidence it used
+  and its injected-token count, and the log has a read surface (§12) so the owner's
+  after-the-fact audit is something he can actually perform. `[P0-D-21]`
+- **FR-X7** (T3) — Both stores live outside the repository tree and the oracle emits
+  no outbound traffic. `RETHINK.md:330–334` establishes the location and the solo
+  scope; the no-traffic property is this document's. `[P0-D-11]`
+- **FR-X8** (T1, T2) — The test suite includes adversarial fixtures: injection payloads
+  in code comments, commit messages and file content, asserting no whisper relays or
+  obeys them. `[OWASP-PI]`
 
 ## 11. Self-observability, qualities, constraints
 
 The owner cannot be the failure detector. `RETHINK.md:350–354`, decision 10: *"it
 could fail a hundred ways in front of me and I wouldn't know."*
 
-- **FR-M1** — Every component emits structured diagnostic events to a local
-  diagnostic log, separate from the whisper audit log: hook invocations with
-  latency and outcome, store read/write failures, index refresh runs, delivery
-  results, and per-whisper injected-token counts.
-- **FR-M2** — The oracle detects its own failure classes from that log without
-  human observation: hooks not firing, latency breaches, store corruption, index
-  staleness, and whispers produced but not delivered. v1's model-path-failure
-  class does not apply — Phase 0 has no model path. `ctxoracle status` surfaces
-  health and recent anomalies in language a non-programmer can read.
+- **FR-M1** — Every component emits structured diagnostic events to a local diagnostic
+  log, separate from the whisper audit log: hook invocations with latency and outcome,
+  store read/write failures, index refresh runs, delivery results, and per-whisper
+  injected-token counts.
+- **FR-M2** — The oracle detects its own failure classes from that log without human
+  observation: hooks not firing, latency breaches, store corruption, index staleness,
+  and whispers produced but not delivered. v1's model-path-failure class does not apply.
+  Separately, a session that ends with a **suppressing condition** active — below
+  FR-A6's corpus or region floor, inside FR-A7's first-sessions window, or every
+  candidate below the bar — reports that on the human channel per FR-D4, because
+  correct silence and a broken oracle are indistinguishable to the owner otherwise and
+  `[OWNER-10]` requires detection *"without depending on the owner noticing anything."*
+  `[P0-D-22]` `ctxoracle status` surfaces health and anomalies in language a
+  non-programmer can read.
 - **FR-M4** — Diagnostics never touch agent context and never leave the machine.
-- **P0-4** — `ctxoracle status` computes and reports, from those logs: the silence
-  rate; the added-latency distribution against FR-O3; the continuation count; the
-  count of candidates a non-zero stop-bar delta suppressed; the session
-  injected-token total against FR-A3's budget; and the delivered count per genre.
-  `[P0-D-12]`
+- **P0-4** — `ctxoracle status` computes and reports, from those logs: the **whisper
+  count**; the silence rate, decomposed into events with no candidate, events with a
+  candidate below the bar, and events on a consumer Phase 0 does not deliver to; the
+  added-latency distribution against FR-O3; the continuation count and the count of
+  stops where the completion-claim test did not match; the count of candidates a
+  non-zero stop-bar delta suppressed; the session injected-token total against FR-A3's
+  budget; and the delivered count per genre. `[P0-D-12]`
 
 - **NF-1** — Hook-added latency per FR-O3: p95 ≤ 1.5 s, ceiling 3 s, then silence.
-- **NF-2** — Session token overhead stays within FR-A3's budget, is recorded per
-  FR-M1 and FR-X6, and is reported by `ctxoracle status`.
-- **NF-3** — Indexing is incremental after first build, and first build on a
-  mid-size repository requires no network access beyond what the harness already
-  has.
+- **NF-2** — Session token overhead stays within FR-A3's budget, is recorded per FR-M1
+  and FR-X6, and is reported by `ctxoracle status`. On a resumed session the figure
+  includes the harness's replay of prior injections (FR-O1, `[P0-D-20]`).
+- **NF-3** — Indexing is incremental after first build, and first build on a mid-size
+  repository requires no network access beyond what the harness already has.
 
-- **C-1** — **Cold-container ready.** Installation requires no native toolchain
-  and no prebuilt-binary download, and uses no network beyond the harness's. The
-  running oracle — indexing included — opens no connection at all (FR-X5). A
-  satisfying stack exists as a witness, not a mandate: Node ≥ 22.13.0 with
-  built-in `node:sqlite`, FTS5 compiled in on both LTS lines `[NODE]`. Any
-  runtime and storage engine meeting the three properties is acceptable, and the
-  capabilities relied on are confirmed against that stack's current documentation
-  before they are relied on. `[P0-D-13]`
-- **C-2** — Session state persists warm across hook invocations with sub-second
-  access, and is torn down on `SessionEnd`; cold-starting per event cannot meet
-  NF-1. Because `SessionEnd` hooks share a 1.5-second budget by default (§4),
-  below FR-O3's ceiling, `ctxoracle init` writes an explicit `SessionEnd`
-  `timeout` into the harness settings file.
-- **C-3** — Harness-specific knowledge lives in the shims. `RETHINK.md:291`.
-- **C-4** — `ctxoracle init` is explicit and minimal — its only tree-touching act
-  is writing the harness settings file, including C-2's `SessionEnd` timeout;
-  `deinit` removes the wiring cleanly. Passive auto-bootstrap into a project tree
-  is prohibited.
-- **C-5** — The hooks contract is version-bound. Implementation re-verifies it,
-  and shims degrade to silence on any drift they detect. No requirement here
-  depends on a harness timeout value or on the numeric continuation cap.
+- **C-1** — **Cold-container ready.** Installation requires no native toolchain and no
+  prebuilt-binary download, and uses no network beyond the harness's. The running
+  oracle — indexing included — opens no connection at all (FR-X5). A satisfying stack
+  exists as a witness, not a mandate: Node ≥ 22.13.0 with built-in `node:sqlite`
+  `[NODE]`. v1 records that FTS5's presence on both LTS lines is a build-configuration
+  fact rather than a documented API contract, so implementation **verifies it by
+  execution** on the target runtime rather than by reading documentation that does not
+  state it. `[P0-D-13]` `[P0-D-25]`
+- **C-2** — Session state persists warm across hook invocations with sub-second access,
+  and is torn down on `SessionEnd`; cold-starting per event cannot meet NF-1. Because
+  `SessionEnd` hooks share a 1.5-second budget by default (§4), below FR-O3's ceiling,
+  `ctxoracle init` writes an explicit `SessionEnd` `timeout` into the harness settings
+  file — as a settings-file hook, not a plugin hook, because plugin timeouts do not
+  raise the budget.
+- **C-3** — Harness-specific knowledge lives in the shims, and the service speaks a
+  harness-neutral event contract — the property that keeps subagent and other-harness
+  support open. `RETHINK.md:291–292`.
+- **C-4** — `ctxoracle init` is explicit and minimal: it wires the hooks, writes C-2's
+  `SessionEnd` timeout, and creates the out-of-tree store, and nothing else. The
+  harness settings file is its only tree-touching act (v1 P8). `deinit` removes the
+  wiring cleanly. Passive auto-bootstrap into a project tree is prohibited.
+- **C-5** — The hooks contract is version-bound. Implementation re-verifies it, and
+  shims degrade to silence on any drift they detect. No requirement here depends on a
+  harness timeout value or on the numeric continuation cap.
 
 ## 12. External interfaces
 
 **Consumed**: the Claude Code hooks interface — the events in FR-O1, the inputs
-identifying the session and the tool call, and the output discipline in FR-O4.
+identifying the session, the tool call and the consumer, `last_assistant_message` on
+the stop events, `SessionStart`'s `source`, and the output discipline in FR-O4.
 
-**Provided**: `ctxoracle init`, `index`, `status`, `deinit`, and the command by
-which a human statement becomes a fact (FR-L6). `status` is the owner's only view
-of the oracle's health and measurements.
+**Provided**: `ctxoracle init`, `index`, `status`, `deinit`; the command by which a
+human statement becomes a fact (FR-L6); the command by which a false fire is recorded
+against a delivered whisper (FR-D3); and `ctxoracle log`, which reads back the FR-X6
+audit trail — every whisper with its evidence, its pointer and its token count — so
+the owner's audit in §1 has a surface. `status` reports aggregates; `log` shows the
+individual whispers.
 
 **Nothing else.** Phase 0 opens no network connection (FR-X5).
 
 ## 13. Decisions made in this spec
 
-- **P0-D-1 — FR-O5 is stated rather than inferred from FR-O1's list.** Three of
-  FR-O1's events are observation-only, so the list does not by itself forbid a
-  timer, and Phase 0 is the first phase with a warm background service. The
-  grounding is a judgment: an unbidden whisper on a timer is an interaction
-  channel the owner has never approved, and every trigger the attention model
-  admits (`RETHINK.md` §5, lines 153–182) is a response to something the agent did.
+- **P0-D-1 — FR-O5 is stated rather than inferred from FR-O1's list.** Some of FR-O1's
+  events are observation-only, so the list does not by itself forbid a timer, and
+  Phase 0 is the first phase with a warm background service. The substantive ground is
+  `[CHI-25]`'s measured result that task-boundary intervention works where idle-time
+  triggering backfires; `RETHINK.md` §5's attention model admits only triggers that
+  respond to something the agent did.
 - **P0-D-2 — Human facts enter Phase 0 through the CLI.** FR-L6's v1 input is a
-  statement made in the session, and the session reader is Phase 1. FR-L6 stays in
-  force in Phase 0 because orientation's landmine arm reads what it writes; a
-  writer with no reader would be a CLI command whose output nothing consumes.
-- **P0-D-3 — Schemas Phase 0 cannot populate automatically are created in
-  Phase 0**, so Phase 0's store is not a throwaway and Phase 2 mining lands
-  without a migration.
-- **P0-D-4 — FR-A3's budget, FR-A6's floors and FR-A7's session count carry stated
-  values**, without which NF-2 is unfalsifiable and FR-A6 and FR-A7 are untestable.
-  All are judgments of the same class as AC-2's rate and are expected to move once
-  Phase 0 has run and §14's exit run has reported its yield.
-- **P0-D-5 — Both warning arms are exempt from the co-change floors**, which are
-  the operating point of a study of history-derived rules. A zone classification is
-  evidenced by a marker and generates no co-change support, so under P0-5 it could
-  never clear warn-grade — the exemption is what makes the genre speakable at all.
-- **P0-D-6 — FR-A5's three-term product is v1's, not this document's.** v1 FR-A5
-  states two terms, but v1 §12's "Phase 0's bar" (`spec-context-oracle.md:895–901`)
-  already binds Phase 0 to three and names each one's model-free computation. This
-  document adopts that decomposition and renames `self_serve_cost` to marginal
-  value to match `RETHINK.md:59–61`. §3 records FR-A5 as narrowed accordingly.
-- **P0-D-7 — The corpus floors are separate from the evidence floor, and there are
-  two of them.** P0-5 is evaluated per pair, and a thin corpus produces pairs with
-  high support and perfect confidence. Corpus-level and region-level thinness are
-  different conditions — a mature repository with one new directory fails the
-  region test and passes the corpus test — so both are stated with values rather
-  than one granularity standing in for the other.
+  statement made in chat, and the chat reader is Phase 1. FR-L6 stays in force because
+  orientation's landmine arm reads what it writes; a writer with no reader would be a
+  CLI command whose output nothing consumes.
+- **P0-D-3 — Schemas Phase 0 cannot populate automatically are created in Phase 0**, so
+  the store is not a throwaway and Phase 2 mining lands without a migration.
+- **P0-D-4 — Which stated values are v1's and which are this document's.** FR-A3's
+  2,000-token budget is **v1 `[D-10]`**, carried unchanged with its derivation: 2,000 ≈
+  five orientation-size whispers at the ~400-token orientation bound, so the two numbers
+  move together. FR-A6's two floors and FR-A7's 3-session count **are** this document's,
+  of the same judgment class as AC-2's rate, stated because without values NF-2 is
+  unfalsifiable and FR-A6 and FR-A7 untestable, and expected to move once §14's exit run
+  has reported its yield.
+- **P0-D-5 — Both warning arms are exempt from the co-change floors**, which are the
+  operating point of a study of history-derived rules. A zone classification is
+  evidenced by a marker and generates no co-change support, so under P0-5 it could never
+  clear warn-grade — the exemption is what makes the genre speakable at all.
+- **P0-D-6 — FR-A5's three-term product is v1's, not this document's.** v1 FR-A5 states
+  two terms, but v1 §12's "Phase 0's bar" (`spec-context-oracle.md:895–901`) already
+  binds Phase 0 to three and names each term's model-free computation. This document
+  adopts that decomposition and renames `self_serve_cost` to marginal value to match
+  `RETHINK.md:59–61`.
+- **P0-D-7 — Two corpus floors, separate from the evidence floor.** P0-5 is evaluated
+  per pair, and a thin corpus produces pairs with high support and perfect confidence.
+  Corpus-level and region-level thinness are different conditions — a mature repository
+  with one new directory fails the region test and passes the corpus test — so both are
+  stated with values.
 - **P0-D-8 — FR-A7's Phase 0 set is coupling at the warn-grade floor, not coupling
-  generally.** v1 FR-A7 admits only the highest-confidence genres, on the ground
-  that early reports set the tool's credibility; admitting suggestion-grade
-  coupling — which P0-5 permits down to support ≥ 2, where `[ROSE-05]` measured
-  precision 0.30 — would make the loosest evidence in the system the first thing a
-  project ever hears. AC-33 exists because this restriction, P0-5's 3% feedback and
-  FR-A6's floors compound toward silence on exactly the run that certifies Phase 0.
-- **P0-D-9 — The stop-bar delta defaults to zero and the per-session count is
-  bounded.** `[OWNER-12]` accepted a cost bounded to one extra turn *per stop*, and
-  a session has as many stops as the agent has turns; nothing upstream bounds the
-  session total. A distribution-relative default (a decile) is uncomputable on the
-  first run, which is the run Phase 0 exists to perform, so the delta ships at zero
-  and moves on measurement. Neither choice re-opens the owner's ruling: the
-  capability stays and its cost is now countable.
-- **P0-D-10 — Per-consumer keying is adopted in Phase 0 although delivery is
-  not.** Decision 8 (`RETHINK.md:342–344`) puts subagent delivery in v1 scope
-  without saying when state must become per-consumer; keying it from the first
-  implementation is this document's, because session state is the one structure a
-  later phase cannot re-key without rewriting every reader.
-- **P0-D-11 — FR-X5's network and tool-authority clauses, and FR-X7's
-  no-outbound-traffic property, are grounded in `[LLM01]`, not in `RETHINK.md`.**
-  `RETHINK.md:321–323` supports read-only repository access and nothing about the
-  network; `RETHINK.md:330–334` fixes where the stores live and does not address
-  telemetry. Stating this keeps the derivation chain terminating on something that
-  holds.
-- **P0-D-12 — Phase 0's measurement obligation is the six quantities it can
-  compute from its own logs**, enumerated in P0-4. A hit rate additionally requires
-  resolving uptake evidence into an uptake judgment; FR-L1 fixes only that the
-  evidence is recorded, and AC-29 checks that it is.
-- **P0-D-13 — C-1's three cold-container properties are this document's; the
-  witness stack is v1's.** Decision 4 requires sandbox compatibility and names no
-  runtime property. No-native-toolchain, no-prebuilt-download and no-extra-network
-  are what make "runs in a cold container" testable (AC-31). v1's named stack is
-  retained so the constraint is not an existence claim with no witness.
-- **P0-D-14 — AC-2's 10% ceiling is a judgment.** No published figure maps to
-  per-event whisper rates for an agent consumer.
-- **P0-D-15 — FR-A3's warning-priority clause is inherited from v1 and is
-  unsourced there.** It was removed in one commit of this document's history as an
-  unsourced genre ranking and restored in the next for identifier fidelity; this
-  entry resolves that disagreement in writing rather than leaving it in commit
-  messages. The clause is kept for v1 fidelity, and it is **not** converted into a
-  build-time invariant: AC-28 tests only the half that follows from the budget
-  being hard — that once the budget is spent nothing further is delivered,
-  including a warning. Whether a warning outranks a coupling whisper under budget
-  pressure is FR-A5's, per candidate, at runtime.
+  generally.** v1 FR-A7 admits only the highest-confidence genres on `[COVERITY-10]`'s
+  ground that early reports set credibility; admitting suggestion-grade coupling would
+  make the loosest evidence in the system the first thing a project hears. AC-33 exists
+  because this restriction, P0-5's 3% feedback and FR-A6's floors compound toward
+  silence on exactly the run that certifies Phase 0.
+- **P0-D-9 — The stop-bar delta defaults to zero.** A distribution-relative default is
+  uncomputable on the first run, which is the run Phase 0 exists to perform, so the delta
+  ships at zero and moves on measurement.
+- **P0-D-10 — Per-consumer keying is adopted in Phase 0 although delivery is not.**
+  Decision 8 (`RETHINK.md:342–344`) puts subagent delivery in v1 scope without saying
+  when state must become per-consumer; keying it now is this document's, because session
+  state is the one structure a later phase cannot re-key without rewriting every reader.
+- **P0-D-11 — FR-X5's network and tool-authority clauses and FR-X7's no-outbound-traffic
+  property are grounded in `[LLM01]`, not in `RETHINK.md`.** `RETHINK.md:321–323`
+  supports read-only repository access only; `:330–334` fixes where stores live and does
+  not address telemetry.
+- **P0-D-12 — Phase 0's measurement obligation is what P0-4 enumerates**, computed from
+  its own logs. A hit rate additionally requires resolving uptake evidence into an uptake
+  judgment; FR-L1 fixes only that the evidence is recorded, and AC-29 checks it.
+- **P0-D-13 — C-1's three cold-container properties are this document's; the witness
+  stack is v1's.** Decision 4 requires sandbox compatibility and names no runtime
+  property. The three properties are what make "runs in a cold container" testable
+  (AC-32); v1's named stack is retained so the constraint is not an existence claim with
+  no witness.
+- **P0-D-14 — AC-2's 10% ceiling is a judgment.** No published figure maps to per-event
+  whisper rates for an agent consumer.
+- **P0-D-15 — FR-A3's v1 warning-priority clause is deleted, not annotated.** v1 carries
+  *"warnings get priority within the budget"* with no source; `RETHINK.md` contains no
+  ranking of genres against each other, and the standing directive is that no ranking
+  claim enters any document unless the owner stated it in those words. The previous round
+  kept the clause and disclosed it, which left a requirement asserting a precedence that
+  §7 and this entry both deny — and an implementer builds to the requirement. The ranking
+  function is FR-A5's three-term score, per candidate, at runtime. AC-28 tests the half
+  that does follow from the budget being hard: once it is spent, nothing further is
+  delivered, including a warning.
 - **P0-D-16 — The bar's shipping scalar and the score scheme's internals are the
-  architect's.** FR-A5 fixes the three factors, their model-free computability and
-  that the bar ships high and is configurable; it does not fix the numeric
-  threshold, because that value is meaningless until the scoring scheme that
-  produces the scores exists. P0-D-4's stated-value discipline covers the
-  quantities that are independent of that scheme (budget, floors, session count);
-  this one is not.
+  architect's.** FR-A5 fixes the three factors, their model-free computability, and that
+  the bar ships high and is configurable; the numeric threshold is meaningless until the
+  scoring scheme exists.
+- **P0-D-17 — Orientation's entry-point arm is v1 FR-J3's structural formulation.** v1
+  records the model-free orientation whisper as *"structural entry points … no model
+  intent inference"*. Entry points selected *for the task* would require intent
+  inference, which §2 defers. The Phase 0 mechanism is a lexical match of the prompt's
+  terms against indexed names ranked by structural weight — the same class of mechanism
+  P0-1 specifies for landmines — and it is stated because a genre whose computation is
+  left to the architect is an unfilled requirement wearing a reference to the index.
+- **P0-D-18 — All Phase 0 genres carry equal base weight.** v1's `materiality` falls back
+  to a genre base weight for mechanical genres, and every Phase 0 genre is mechanical, so
+  unequal base weights would install a fixed genre precedence inside the bar — precisely
+  what §7 and P0-D-15 say does not exist. Equal weights make decision-impact reduce to
+  structural weight, and leave ordering to evidence rather than to genre.
+- **P0-D-19 — Pointer-only is FR-X2's default on `[OWASP-PI]`'s ground, not the
+  harness's.** The harness warns that text framed as out-of-band *system commands* is
+  surfaced to the user rather than delivered; that is a hazard for relayed imperative
+  text, not for delimited quotation as such. The tightening past v1 stands on external-
+  content segregation, with the harness behaviour as a second reason to prefer pointers.
+- **P0-D-20 — Session boundaries are not context boundaries, and FR-A4 accounts for
+  both.** The harness replays past injected text on `--resume` without re-running the
+  hook, so a session that starts with `source: "resume"` begins with the prior session's
+  whispers already in the agent's context; the delivered-set is therefore seeded from the
+  audit log, and NF-2's token figure includes the replay. A compaction discards what the
+  agent read, so on `source: "compact"` the read set is cleared — otherwise the dedup
+  suppresses exactly the facts most worth re-delivering.
+- **P0-D-21 — The audit trail gets a read surface.** §1 makes the owner's after-the-fact
+  audit a consumer requirement; `status` reports aggregates only, so without `ctxoracle
+  log` the trail exists and nothing can read it. Phase 0 shipping an unreadable audit
+  trail would be a choice, and it is not the one taken.
+- **P0-D-22 — Correct silence is announced.** FR-M2 detects failures; being below a
+  corpus floor, inside the first-sessions window, or above the bar on every candidate
+  are not failures, but they are indistinguishable to the owner from a broken oracle,
+  and `status` is a pull surface that depends on him thinking to look. A session ending
+  with a suppressing condition active says so on the human channel.
+- **P0-D-23 — The per-session cap on stop-grade whispers bounds a lexical test's false
+  positives.** With `last_assistant_message` available, Phase 0 recognises completion
+  claims rather than guessing, so the cap is no longer a stand-in for recognition. A
+  lexical test still over-fires, and `[OWNER-12]`'s accepted cost is per stop while a
+  session has as many stops as turns, so a session-level bound remains — now on a stated
+  reason rather than on blindness.
+- **P0-D-24 — FR-D3's false-fire clause is declarative and its Phase 0 receiver is the
+  CLI.** An imperative invitation would violate FR-D2 and risk the harness's screening;
+  and the automated demotion ladder that consumes corrections is FR-L3, Phase 2. Phase 0
+  therefore states that the warning may be wrong and records corrections through the CLI,
+  so the evidence Phase 2's ladder needs starts accumulating now.
+- **P0-D-25 — C-1's witness stack is verified by execution, not by documentation.** v1's
+  own source note records that FTS5's presence on both LTS lines is a build-configuration
+  fact and not a documented API contract, so instructing implementation to re-confirm it
+  against current documentation would send it to a document that does not carry it.
 
 ## 14. Acceptance criteria
 
 Phase 0 is complete when every criterion below passes, and when a run on a real
-project produces a clean `ctxoracle status` — no unresolved failure class, no
-latency breach, no undelivered whisper. The owner runs it; the diagnostics, not
-the owner, are what report whether it behaved.
+project produces a clean `ctxoracle status` — no unresolved failure class, no latency
+breach, no undelivered whisper. The owner runs it; the diagnostics, not the owner, are
+what report whether it behaved.
 
-**The exit run must also have produced something.** A run in which the oracle
-never spoke is not a passing exit; it is a result. AC-33 states what that
-obligates.
+**The exit run must also have produced something.** A run in which the oracle never
+spoke is not a passing exit; it is a result. AC-33 states what that obligates.
 
-- **AC-1 (coupling → FR-K2, P0-5, FR-D1, FR-D5, NF-1)** — In a fixture with a
-  known co-change pair, a completed read of one file yields a coupling whisper
-  naming the other, with its evidence ratio and a git-history pointer, inside the
-  latency budget.
-- **AC-2 (silence → FR-A1, FR-A3)** — Replaying a recorded session of routine
-  events produces whispers on at most 10% of events. `[P0-D-14]`
-- **AC-3 (marginal value → FR-A5, FR-A4)** — Two replays of the same event over
-  the same store: where the fact is already in the consumer's read set the oracle
-  stays silent; where it is not, it speaks. Separately, an orientation candidate
-  that would fire early does not fire once the agent is deep in the task.
-- **AC-4 (evidence and corpus floors → P0-5, FR-A6)** — A pair below support 3
-  produces no ⚠ whisper; a pair at support 3 and confidence ≥ 0.9 does; a fixture
-  below the 200-transaction corpus floor produces neither; and a fixture above the
-  corpus floor with a region below the 20-transaction region floor stays silent
-  for that region while speaking elsewhere.
+- **AC-1 (coupling → FR-K2, P0-5, FR-D1, FR-D5, NF-1)** — In a fixture with a known
+  co-change pair, a completed read of one file yields a coupling whisper naming the
+  other, with its evidence ratio and a git-history pointer, inside the latency budget.
+- **AC-2 (silence → FR-A1, FR-A3, P0-4)** — Replaying a recorded session of routine
+  events produces whispers on at most 10% of **deliverable** events — those on a
+  consumer Phase 0 delivers to — and `status` reports the three silence components
+  separately. `[P0-D-14]`
+- **AC-3 (marginal value → FR-A5, FR-A4)** — Two replays of the same event over the
+  same store: where the fact is already in the consumer's read set the oracle stays
+  silent; where it is not, it speaks. An orientation candidate that would fire early
+  does not fire once the agent is deep in the task.
+- **AC-4 (evidence and corpus floors → P0-5, FR-A6)** — A pair below support 3 produces
+  no ⚠ whisper; a pair at support 3 and confidence ≥ 0.9 does; a suggestion-grade pair
+  at support 2 but below the confidence threshold produces nothing; a fixture below the
+  200-transaction corpus floor produces neither; and a fixture above it with a region
+  below the 20-transaction region floor stays silent for that region while speaking
+  elsewhere.
 - **AC-5 (no deny → FR-O4, FR-O4a, FR-O3)** — No shim path can return a blocking
-  decision; induced failure and induced timeout each yield silence and an
-  unimpeded agent; `stop_hook_active: true` produces silence; and no output
-  extends the loop by more than one continuation per stop.
-- **AC-6 (pristine tree → C-4, FR-K8)** — After `init`, index, a full session and
-  `deinit`, the only ever-touched file in the tree is the harness settings file,
-  whose written content is the hook wiring and the `SessionEnd` timeout and
-  nothing else.
-- **AC-7 (warnings, not blocks → FR-D3, P0-6)** — An edit to a detected generated
-  file and an edit to a detected vendored file each proceed unimpeded and each
-  receive the FR-D3 warning with the mechanical evidence, that zone's own
-  consequence, and a false-fire clause — with no co-change support present for
-  either.
+  decision; induced failure and induced timeout each yield silence and an unimpeded
+  agent; `stop_hook_active: true` produces silence; and no output extends the loop by
+  more than one continuation per stop.
+- **AC-6 (pristine tree → C-4, FR-K8, FR-X5)** — After `init`, index, a full session and
+  `deinit`, the only ever-touched file in the tree is the harness settings file, whose
+  written content is the hook wiring and the `SessionEnd` timeout and nothing else.
+- **AC-7 (warnings, not blocks → FR-D3, P0-6, FR-D2)** — An edit to a detected generated
+  file and an edit to a detected vendored file each proceed unimpeded and each receive
+  the FR-D3 warning with the mechanical evidence, that zone's own consequence, and a
+  declarative false-fire clause containing no imperative construction — with no
+  co-change support present for either.
 - **AC-8 (consequence → FR-A2 §7, FR-D1)** — A pending edit to a symbol with known
   callers yields a consequence whisper stating call-site count and spread.
-- **AC-9 (orientation → FR-A2 §7, FR-K1, FR-K4, NF-1)** — A submitted prompt whose
-  entry points are in the index yields an orientation whisper naming them within
-  NF-1's budget and within 400 tokens; and where a promoted landmine record matches
-  the task shape, the whisper names it too.
-- **AC-10 (completeness at stop → FR-A2 §7, FR-O4a)** — At a stop with an untouched
-  co-change partner and no verification candidate, a completeness whisper is
-  delivered and recorded as a continuation event.
-- **AC-11 (verification at stop → FR-A2 §7, P0-4)** — At a stop with a changed
-  region carrying a verification command and no completeness candidate, a
+- **AC-9 (orientation → FR-A2 §7, FR-K1, FR-K4, P0-D-17, NF-1)** — A submitted prompt
+  whose terms lexically match indexed entry-point names yields an orientation whisper
+  naming 2–4 of them within NF-1's budget and within 400 tokens; where a promoted
+  landmine record matches the task shape the whisper names it too; and **a prompt
+  matching no indexed name yields silence, not the repository's default entry points.**
+- **AC-10 (completeness at stop → FR-A2 §7, FR-O4a)** — At a completion-claim stop with
+  an untouched co-change partner and no verification candidate, a completeness whisper
+  is delivered and recorded as a continuation event.
+- **AC-11 (verification at stop → FR-A2 §7, P0-4)** — At a completion-claim stop with a
+  changed region carrying a verification command and no completeness candidate, a
   verification whisper is delivered and recorded as a continuation event. Across a
-  multi-stop fixture in which both genres have candidates, `ctxoracle status`
-  reports a non-zero delivered count for each.
-- **AC-12 (first sessions → FR-A7, P0-D-8)** — In a project's first 3 sessions, an
-  event that would otherwise draw orientation, consequence, completeness or
-  verification draws none; a suggestion-grade coupling candidate at support 2 also
-  draws none; and both warning arms and a coupling candidate at the warn-grade
-  floor fire.
-- **AC-13 (secrets → FR-X1)** — Fixture secrets in tracked files and git history
-  never appear in plaintext in any store file, whisper, or log.
-- **AC-14 (least privilege → FR-X5, FR-X7)** — An instrumented run shows no writes
-  inside the repository tree and no outbound traffic at all.
-- **AC-15 (injection → FR-X2, FR-X3, FR-X8)** — With hostile imperative text in
-  file content, comments and commit messages, no whisper relays or obeys it, and
-  every repository-derived span in every emitted whisper is a pointer rather than
-  an inline quotation.
-- **AC-16 (provenance and trust origin → FR-K6, FR-X4, FR-X6)** — Every record
-  written carries provenance and a trust label; no repository-derived record
-  acquires human provenance; every whisper is in the audit log with its evidence
-  and its injected-token count.
-- **AC-17 (staleness → FR-K7)** — With a stale index, events yield silence or
+  multi-stop fixture in which both genres have candidates, `status` reports a non-zero
+  delivered count for each.
+- **AC-12 (completion-claim recognition → P0-3, FR-O1)** — A stop whose
+  `last_assistant_message` states completion draws a stop-grade whisper; a stop whose
+  message does not — mid-task narration, a question to the user — draws none and is
+  counted by `status` as a non-matching stop; and in a session with more matching stops
+  than the bound, at most 3 stop-grade whispers are delivered with the remainder
+  recorded as suppressed.
+- **AC-13 (first sessions → FR-A7, P0-D-8)** — In a project's first 3 sessions, an event
+  that would otherwise draw orientation, consequence, completeness or verification draws
+  none; a suggestion-grade coupling candidate also draws none; and both warning arms and
+  a coupling candidate at the warn-grade floor fire.
+- **AC-14 (secrets → FR-X1)** — Fixture secrets in tracked files and git history never
+  appear in plaintext in any store file, whisper, or log.
+- **AC-15 (least privilege → FR-X5, FR-X7)** — An instrumented run shows no writes
+  inside the repository tree beyond the settings file and no outbound traffic at all.
+- **AC-16 (injection → FR-X2, FR-X3, FR-X8)** — With hostile imperative text in file
+  content, comments and commit messages, no whisper relays or obeys it, and every
+  repository-derived span in every emitted whisper is a pointer rather than an inline
+  quotation.
+- **AC-17 (provenance and trust origin → FR-K6, FR-X4, FR-X6)** — Every record written
+  carries provenance and a trust label; no repository-derived record acquires human
+  provenance; every whisper is in the audit log with its evidence and token count.
+- **AC-18 (staleness → FR-K7)** — With a stale index, events yield silence or
   reduced-confidence whispers, never errors or spam, and a refresh is triggered.
-- **AC-18 (self-detection → FR-M1, FR-M2, FR-M4)** — Induced failures — broken
-  hook wiring, corrupted store, service killed mid-session — are each recorded and
-  surfaced by `ctxoracle status` in plain language, with zero added output in the
-  agent's session.
-- **AC-19 (measurements → P0-4, NF-2)** — After a fixture session, `ctxoracle
-  status` reports all six P0-4 quantities: silence rate, latency distribution
-  against NF-1, continuation count, suppressed-at-stop-bar count, session token
-  overhead against FR-A3's budget, and delivered count per genre.
-- **AC-20 (zero ceremony → v1 P3, NF-2)** — An oracle-unaware agent completes a
-  task with it active, produces no oracle-specific output, and receives whispers
-  throughout; the count of actions the oracle requires of the agent is zero
-  (`RETHINK.md:278–279`). The fixture runs outside FR-A7's first-sessions window.
-- **AC-21 (human facts, written and read → FR-L6, FR-K6, FR-K4)** — A landmine
-  statement entered through the CLI becomes a retrievable record carrying human
-  provenance, and a subsequent prompt matching its task shape draws an orientation
-  whisper naming it.
-- **AC-22 (per-consumer state → FR-O6)** — Where an event carries a consumer
-  identity distinct from the main agent's, the oracle records the key and delivers
-  nothing against it; a `SubagentStop` is recorded with no delivery attempted.
-- **AC-23 (shim discipline → FR-O2, FR-O5)** — Static inspection shows no decision
-  logic in any shim and no timer, idle detector or polling loop anywhere in the
-  service; an idle session produces no whisper.
-- **AC-24 (lifecycle → FR-O1, C-2)** — `SessionEnd` tears the service down within
-  the budget the settings file establishes; a subsequent event cold-starts cleanly;
+- **AC-19 (self-detection → FR-M1, FR-M2, FR-M4)** — Induced failures — broken hook
+  wiring, corrupted store, service killed mid-session — are each recorded and surfaced by
+  `status` in plain language, with zero added output in the agent's session.
+- **AC-20 (measurements → P0-4, NF-2)** — After a fixture session, `status` reports every
+  P0-4 quantity: whisper count, the three-way silence decomposition, latency against
+  NF-1, continuation count and non-matching-stop count, suppressed count, token total
+  against FR-A3's budget, and delivered count per genre.
+- **AC-21 (zero ceremony → v1 P3, NF-2)** — An oracle-unaware agent completes a task with
+  it active, produces no oracle-specific output, and receives whispers throughout; the
+  count of actions the oracle requires of the agent is zero (`RETHINK.md:278–279`). The
+  fixture runs outside FR-A7's first-sessions window and above FR-A6's floors, per AC-33.
+- **AC-22 (human facts, written and read → FR-L6, FR-K6, FR-K4)** — A landmine statement
+  entered through the CLI becomes a retrievable record carrying human provenance, and a
+  subsequent prompt matching its task shape draws an orientation whisper naming it.
+- **AC-23 (per-consumer state → FR-O6, P0-4)** — A tool event fired inside a subagent
+  carries `agent_id`, is recorded against that key, draws no delivery, and is counted in
+  the undeliverable component of the silence decomposition rather than the below-bar one.
+- **AC-24 (shim discipline → FR-O2, FR-O5, C-3)** — Static inspection shows no decision
+  logic in any shim, no harness-specific identifier outside the shim modules, and no
+  timer, idle detector or polling loop anywhere in the service; an idle session produces
+  no whisper.
+- **AC-25 (lifecycle → FR-O1, C-2)** — `SessionEnd` tears the service down within the
+  budget the settings file establishes; a subsequent event cold-starts cleanly;
   `StopFailure` and `SessionStart` are recorded with no delivery attempted.
-- **AC-25 (mining hygiene → FR-K2, NF-3)** — A fixture history containing a merge
-  commit, a transaction touching more than 30 entities, and a transaction older
-  than the horizon yields a graph in which none of the three contributed an edge;
-  appending new history refreshes the graph incrementally without a full rebuild.
-- **AC-26 (informative, never imperative → FR-D2)** — No emitted whisper in any
-  fixture run contains an imperative construction; each states a fact or a
-  consequence.
-- **AC-27 (empty-by-design schemas → P0-1, FR-K3, FR-K4, FR-K5)** — The exemplar,
-  landmine, invariant and recipe schemas exist and validate; after a full session
-  with no CLI-entered statement they hold no records.
-- **AC-28 (hard budget → FR-A3, P0-D-15)** — Once the session token budget is
-  spent, no further whisper is delivered, including a warning.
-- **AC-29 (uptake evidence → FR-L1)** — After a fixture session containing a
-  delivered whisper and a subsequent agent action on its pointer, the FR-L1 record
-  for that event contains the candidate set, the whisper sent, and the uptake
-  evidence, and is readable. Presence and readability only; no hit-rate judgment
-  (`[P0-D-12]`).
-- **AC-30 (stop-grade bound → P0-3)** — In a fixture session with more stop-grade
-  candidates than the per-session bound, at most 3 stop-grade whispers are
-  delivered and the remainder are recorded as suppressed; with a non-zero
-  configured delta, the candidates the delta suppresses are the ones recorded.
-- **AC-31 (cold container → C-1)** — Installation and first index complete in a
-  container with no native toolchain, no prebuilt-binary download and no network
-  beyond the harness's.
-- **AC-32 (contract drift → C-5)** — A fixture presenting a drifted hooks contract
-  yields silence, not an error, and the drift is recorded per FR-M1.
-- **AC-33 (the exit run produced evidence → §1, P0-D-8)** — The exit run's
-  `ctxoracle status` reports its whisper count. A run that produced none does not
-  pass: it obligates re-setting FR-A7's session count or FR-A6's floors from that
-  run's data and re-running. This criterion fails loudly rather than passing
-  quietly, because Phase 0's justification is the evidence it produces.
+- **AC-26 (resume and compaction → FR-O1, FR-A4, NF-2, P0-D-20)** — A session started
+  with `source: "resume"` seeds its delivered-set from the audit log and does not
+  re-send a whisper the prior session sent, and its reported token total includes the
+  replayed injections; a session started with `source: "compact"` clears the read set and
+  will re-send a fact the pre-compaction agent had read.
+- **AC-27 (mining hygiene → FR-K2, NF-3)** — A fixture history containing a merge commit,
+  a transaction touching more than 30 entities, and a transaction older than the horizon
+  yields a graph in which none of the three contributed an edge; appending new history
+  refreshes the graph incrementally without a full rebuild.
+- **AC-28 (hard budget → FR-A3, P0-D-15)** — Once the session token budget is spent, no
+  further whisper is delivered, including a warning, and no requirement grants a warning budget precedence
+  (`[P0-D-15]`).
+- **AC-29 (uptake evidence → FR-L1)** — After a fixture session containing a delivered
+  whisper and a subsequent agent action on its pointer, the FR-L1 record for that event
+  contains the candidate set, the whisper sent, and the uptake evidence, and is readable.
+  Presence and readability only; no hit-rate judgment (`[P0-D-12]`).
+- **AC-30 (empty-by-design schemas and the audit surface → P0-1, FR-K3, FR-X6,
+  P0-D-21)** — The exemplar, landmine, invariant and recipe schemas exist and validate,
+  and after a full session with no CLI-entered statement they hold no records;
+  `ctxoracle log` reads back every whisper of that session with its evidence, pointer and
+  token count.
+- **AC-31 (whisper well-formedness → FR-D1, FR-D2)** — Every whisper emitted in every
+  fixture run parses to FR-D1's format, every pointer it carries resolves to an existing
+  location, and none contains an imperative construction in its claim.
+- **AC-32 (cold container and contract drift → C-1, C-5)** — Installation and first index
+  complete in a container with no native toolchain, no prebuilt-binary download and no
+  network beyond the harness's, with the witness stack's storage capabilities confirmed
+  by execution; and a fixture presenting a drifted hooks contract yields silence, not an
+  error, with the drift recorded per FR-M1.
+- **AC-33 (the exit run produced evidence → §1, P0-D-8, P0-D-22)** — The exit run's
+  `status` reports its whisper count. A run that produced none does not pass: it
+  obligates re-setting FR-A7's session count or FR-A6's floors from that run's data and
+  re-running. A run that ends with a suppressing condition active says so on the human
+  channel.
 
-**Verified by inspection rather than execution.** `C-3` — inspection of the
-service confirms no harness-specific identifier outside the shim modules.
-`FR-D4` — inspection confirms the human-notice path shares no code with the
-context-injection path. `P0-2` — inspection confirms no degraded-mode delta and no
-degraded-mode notice exist in the codebase.
+**Verified by inspection rather than execution.** `FR-D4` — inspection confirms no
+human-notice path writes to the context-injection channel. `P0-2` — inspection confirms
+no degraded-mode delta and no degraded-mode notice exist in the codebase.
