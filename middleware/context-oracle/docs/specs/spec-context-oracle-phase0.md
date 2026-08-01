@@ -4,8 +4,12 @@ Governs the first buildable phase of the Context Oracle (`ctxoracle`).
 
 **Relationship to `spec-context-oracle.md`.** That document specifies v1 across
 three phases. This specifies Phase 0. Where both address the same subject, this
-governs Phase 0. Requirement identifiers are shared so downstream artifacts need
-no translation; `P0-` identifiers originate here.
+governs Phase 0. **Requirement identifiers (FR-*, NF-*, C-*) are the v1 spec's
+and mean the same thing in both documents. Acceptance-criterion identifiers are
+not shared**: the criteria below are this phase's own, numbered independently,
+and `AC-n` here does not denote the v1 spec's `AC-n`. Where the v1 spec's Phase 0
+exit list is cited, it is cited in the v1 spec's numbering and marked as such.
+`P0-` identifiers originate here.
 
 **Above this document**: `RETHINK.md` §12 and its addenda are the owner's locked
 decisions, cited by line and not re-derived.
@@ -58,7 +62,7 @@ dropped from v1.
 | Assumption-check, steering, answer genres | Phase 1 | Each requires model judgment over narration |
 | Process conformance and answer drift | Phase 1 | Process conformance requires model judgment; answer drift's open questions are written by the narration reader |
 | Unknown genre | Held open in the v1 spec §14, not resolved here | Its phase is genuinely undecided upstream; this document does not settle it and does not treat it as excluded from v1 |
-| Subagent delivery | Phase 1 | P0-3 fixes the Phase 0 obligation this creates |
+| Subagent delivery | Phase 1 | Phase 0 records per-consumer keys (P0-2) and delivers to the main agent only; delivering to a subagent is Phase 1 |
 | Companion skill | Phase 1 | Teaches an agent to read whispers the judgment layer produces |
 | Distiller, learning loop, false-fire ladder, landmine/invariant/recipe mining, self-report, export/import | Phase 2 | Each consumes measurements Phase 0 produces |
 
@@ -104,10 +108,13 @@ No other external source is cited, because no requirement below depends on one.
 
 - **P0-1** — `StopFailure` is observation-only: recorded, never delivered on. The
   hooks lifecycle lists it as a once-per-turn event alongside `Stop`.
-- **P0-2** — Session state is keyed per consumer from the first implementation,
-  though Phase 0 delivers only to the consumer whose event fired.
-  `RETHINK.md:342–344`, decision 8, moves subagent delivery into v1; a state
-  model built for one consumer cannot acquire a second without being rebuilt.
+- **P0-2** — Session state is keyed per consumer from the first implementation.
+  Phase 0 delivers to the main agent only: where a subagent event carries a
+  distinct consumer identity, Phase 0 records it and does not deliver against
+  it. `RETHINK.md:342–344`, decision 8, moves subagent delivery into v1, and a
+  state model built for one consumer cannot acquire a second without being
+  rebuilt — but recording a key is not delivering to it, and Phase 0 does the
+  first only.
 - **FR-K1** — A structural index: files, symbols, import and reference edges,
   directory topology, generated/vendored/build-output zones, test topology, and
   per-region verification commands. Incremental. `RETHINK.md:130–132`.
@@ -130,12 +137,16 @@ No other external source is cited, because no requirement below depends on one.
 - **FR-K8** — Stores are per-repository and per-user, both outside the repository
   tree. `RETHINK.md:330–334`, decision 6.
 - **FR-L6** — Human statements are recorded as facts with human provenance, no
-  override ritual. In force in Phase 0 because it is one of the two writers for
-  the records orientation reads.
+  override ritual. Their Phase 0 entry channel is the CLI (§10), not the session
+  transcript, whose reader is Phase 1 — so this requirement is satisfiable in
+  Phase 0 without the narration component. `[P0-D-10]`
 - **P0-3** — The landmine, invariant, exemplar and recipe schemas exist in
   Phase 0 with provenance constraints, with exactly two Phase 0 writers: FR-L6
-  promotion, and literal-match landmine detection for orientation. A schema with
-  no Phase 0 writer stays empty rather than becoming a later migration. `[P0-D-2]`
+  promotion, and literal-match landmine detection for orientation — which is a *read* over
+  indexed content, not a writer, so the landmine table has one true Phase 0
+  writer and orientation's landmine arm is deferred content within a live genre
+  until mining lands. A schema with no Phase 0 writer stays empty rather than
+  becoming a later migration. `[P0-D-2]`
 
 ## 5. What Phase 0 says
 
@@ -172,7 +183,7 @@ path *can* issue a permission decision.
   Phase 0. `RETHINK.md:170`: *"do I know something it almost certainly doesn't
   that would"* change what it does next.
 - **FR-A3** — At most one whisper per event, within a per-session injected-token
-  budget. Warnings get priority within the budget, never exemption from it.
+  budget of 2,000 tokens by default, configurable. `[P0-D-9]` Warnings get priority within the budget, never exemption from it.
   `RETHINK.md:175–176`.
 - **FR-A4** — Never tell the agent what it has already read, been told, or
   visibly acted on. `RETHINK.md:177–178`.
@@ -191,6 +202,12 @@ path *can* issue a permission decision.
   cannot express corpus thinness: a pair seen three times out of three clears
   support ≥ 3 and confidence 1.0 in a repository with eight commits, which is
   the modal condition of a first run on a shallow clone. `[P0-D-8]`
+
+- **FR-A7** — **First impressions.** In a project's first configured number of
+  sessions, only the genres whose evidence is mechanical and complete speak —
+  coupling, and the generated-file warning. A tool's first few reports set
+  whether it is trusted at all, and Phase 0's first run is the owner's first
+  contact with it. `[P0-D-9]`
 
 - **FR-A5b** — **Warn-grade evidence floor.** A whisper delivered in the ⚠ warning
   format on history-derived evidence requires co-change support ≥ 3 and
@@ -397,6 +414,21 @@ path.
   the tool's credibility is set (`RETHINK.md:227–229` on passive value; the
   first-impressions concern the v1 spec records as FR-A7).
 
+- **P0-D-9 — FR-A3's budget and FR-A7's first-sessions restriction carry stated
+  values.** Both were carried without one in an earlier draft, which left NF-2
+  unfalsifiable ("within the budget", no budget) and FR-A7 absent entirely. The
+  values are judgments in the same class as AC-2's rate: 2,000 tokens
+  operationalizes a per-session cap the owner can reason about, and restricting
+  the first sessions to the two genres with complete mechanical evidence
+  operationalizes the concern that early reports set credibility. Both are
+  expected to move once Phase 0 has run.
+
+- **P0-D-10 — Human facts enter Phase 0 through the CLI.** FR-L6 is in force in
+  Phase 0 because the landmine and invariant records exist there, but its input
+  in the v1 spec is a statement in the session, and the component that reads the
+  session is Phase 1. Naming the CLI as the Phase 0 channel is what makes the
+  requirement satisfiable rather than a writer with no input.
+
 ## 12. Acceptance criteria
 
 Phase 0 is complete when all of the following pass and the owner has run it on a
@@ -431,7 +463,8 @@ real project without incident.
   spread, with a pointer that resolves.
 - **AC-7 (orientation → §5 orientation row, FR-K1)** — A submitted prompt naming a
   task whose entry points are in the index yields an orientation whisper naming
-  them, within the harness's `UserPromptSubmit` budget.
+  them, within NF-1's budget. The harness's larger `UserPromptSubmit`
+  allowance is not the bound; FR-O3 is.
 - **AC-8 (completeness and verification → §5, FR-O4a, P0-5)** — At stop, with a
   co-change partner untouched, a completeness whisper names it; with a changed
   region having a verification command, a verification whisper names it; and each
