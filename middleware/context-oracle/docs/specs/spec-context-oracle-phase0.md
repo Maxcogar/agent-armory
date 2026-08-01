@@ -72,7 +72,8 @@ dropped from v1.
 |---|---|---|
 | `RETHINK.md` §12 + addenda, the owner's locked decisions | The tool's posture: no blocks, two stores outside the tree, no credentials of its own, subagent delivery in v1, self-observability, agent-led governance, speaking at a completion claim | Read 2026-08-01 at `RETHINK.md:303–392`; each requirement below cites the decision number and line range |
 | `RETHINK.md` §1, §4, §5, §6 | Mission; the knowledge tiers; the attention and delivery posture | Read 2026-08-01; cited by line at point of use |
-| Claude Code hooks documentation (code.claude.com/docs/en/hooks, /hooks-guide) | The observation and delivery interface | Queried 2026-08-01 via Context7 `/websites/code_claude` and `/llmstxt/code_claude_llms_txt`. Confirmed: the event lifecycle including `StopFailure`; `stop_hook_active` and the existence of a continuation cap; `UserPromptSubmit` supports `hookSpecificOutput.additionalContext`; `PreToolUseHookSpecificOutput` declares `permissionDecision` and `additionalContext` both not-required; default hook timeout 10 minutes, reduced to 30 s for `UserPromptSubmit`; per-hook `timeout` configurable in seconds; command hooks support `"async": true` |
+| Claude Code hooks documentation (code.claude.com/docs/en/hooks, /hooks-guide) | The observation and delivery interface | Queried 2026-08-01 via Context7 `/websites/code_claude` and `/llmstxt/code_claude_llms_txt`. Confirmed: the event lifecycle including `StopFailure`; `stop_hook_active` and the existence of a continuation cap; `UserPromptSubmit` supports `hookSpecificOutput.additionalContext`; `PreToolUseHookSpecificOutput` declares `permissionDecision` and `additionalContext` both not-required; default hook timeout 10 minutes, reduced to 30 s for `UserPromptSubmit`; per-hook `timeout` configurable in seconds. **`PostToolUse` accepts
+`additionalContext`** — *"A string added to Claude's context alongside the tool result"* — which is the channel coupling and completeness ride, and its input carries `tool_name`, `tool_input`, `tool_response` and `duration_ms` |
 | Zimmermann, Weißgerber, Diehl, Zeller, *Mining Version Histories to Guide Software Changes*, IEEE TSE 31(6), 2005 | The co-change evidence floor and the mining hygiene that makes co-change usable | PDF fetched from the author's copy at thomas-zimmermann.com and text extracted 2026-08-01. Quotations at point of use in FR-K2 and FR-A5 |
 
 No other external source is cited, because no requirement below depends on one.
@@ -172,10 +173,11 @@ consequence's reuse arm and completeness's invariant arm — are derivable from
 Phase 0's own stores and are deferred only because no criterion covers them.
 
 Consequence and warning fire on a pending edit, which requires injecting context
-without issuing a permission decision. The hooks contract makes this structurally
-available: `PreToolUseHookSpecificOutput` declares `permissionDecision` and
-`additionalContext` as independently optional. FR-O4's property is that no code
-path *can* issue a permission decision.
+without issuing a permission decision — `PreToolUse` accepts `additionalContext`
+independently of `permissionDecision`, both being optional fields of its output.
+Coupling and completeness ride `PostToolUse`, which accepts `additionalContext`
+as *"a string added to Claude's context alongside the tool result"*. FR-O4's
+property is that no code path *can* issue a permission decision on either.
 
 - **FR-A1** — Per event the oracle answers internally: given what the agent is
   doing now, do I know something it almost certainly does not that would change
@@ -239,10 +241,14 @@ path *can* issue a permission decision.
 - **FR-D5** — Co-change claims always state their evidence ratio, never as
   certainty. Grounded in the same study's own framing of confidence as a
   likelihood, not a guarantee.
-- **P0-5** — A stop-grade whisper clears a raised bar, because it is the only
-  whisper that spends a turn rather than riding an existing boundary, and each
-  such delivery is recorded as a continuation event so the owner can see how
-  often a turn was extended. `RETHINK.md:363–379`, decision 12.
+- **P0-5** — A stop-grade whisper clears a raised bar — the ordinary bar plus a
+  configured delta, defaulting to the bar's own top decile — because it is the
+  only whisper that spends a turn rather than riding an existing boundary. Each
+  delivery is recorded as a continuation event, **and each candidate the raised
+  bar suppresses is recorded too**, so the owner sees both what the capability
+  cost and what it withheld. Reporting only the turns spent would show the price
+  of the owner's decision 12 and never its effect. `RETHINK.md:363–379`.
+  `[P0-D-11]`
 
 ## 6. Self-observability
 
@@ -262,7 +268,8 @@ The owner cannot be the failure detector. `RETHINK.md:350–354`, decision 10:
   whisper sent if any, and subsequent evidence that the agent acted on it.
 - **P0-6** — `ctxoracle status` computes and reports, from those logs: the silence
   rate (events with no whisper ÷ events observed), the added-latency distribution
-  against FR-O3, and the continuation count. `[P0-D-1]`
+  against FR-O3, the continuation count, and the count of candidates the
+  raised stop bar suppressed. `[P0-D-1]`
 
 ## 7. Threat model
 
@@ -429,6 +436,14 @@ path.
   session is Phase 1. Naming the CLI as the Phase 0 channel is what makes the
   requirement satisfiable rather than a writer with no input.
 
+- **P0-D-11 — The stop-bar delta has a stated default and its effect is
+  reported, not only its cost.** An earlier draft left the delta unquantified,
+  making the requirement untestable, and reported only turns spent. The owner
+  ruled the completion-claim capability a must-have and accepted its turn cost;
+  reporting the cost without the suppression count would tell him what the
+  decision spent and never what it bought. The top-decile default is a judgment
+  expected to move once Phase 0 has run.
+
 ## 12. Acceptance criteria
 
 Phase 0 is complete when all of the following pass and the owner has run it on a
@@ -484,8 +499,8 @@ real project without incident.
   the diagnostic log and surfaced by `ctxoracle status` in plain language, with
   zero errors and zero added output in the agent's session.
 - **AC-14 (measurements → P0-6)** — After a fixture session, `ctxoracle status`
-  reports the silence rate, the added-latency distribution against NF-1, and the
-  continuation count.
+  reports the silence rate, the added-latency distribution against NF-1, the
+  continuation count, and the suppressed-at-stop-bar count.
 - **AC-15 (zero ceremony → P0-7)** — An agent with no knowledge of the oracle
   completes a task with it active, produces no oracle-specific output, and
   receives whispers throughout.
