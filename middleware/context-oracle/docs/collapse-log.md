@@ -19,6 +19,99 @@ goes hollow is itself data.
 
 ---
 
+## 2026-08-01 — the Phase 0 spec, round 3
+
+**Verifying a source establishes only the claims you aimed at it.** The Phase 0 spec
+downloaded the 242 KB hooks reference and string-matched every quotation it made — the
+correct fix for the previous round's fabricated citation, and it worked: 27 of 27 spans
+verbatim. Three of round 3's heaviest findings were nonetheless answerable from that
+same file, because the method checked every *positive* claim the document made about the
+contract and inherited every *negative* one. "Phase 0 cannot detect a completion claim"
+was never checked against the file that contains `last_assistant_message`.
+Class: **unverified**. A document's claims about what a source does *not* contain are
+claims about the source, and they need the same instrument aimed at them. When a
+requirement says a phase lacks a capability, grep the contract for the capability before
+writing the sentence.
+→ `docs/reviews/2026-08-01-collapse-hunt-phase0-spec-rebuild-2.md` (Q1, Q4, Q5).
+
+**An owner ruling names a moment; the nearest event is not that moment, and the fix for
+that is not a cap.** `[OWNER-12]` accepted the turn cost of speaking at a completion
+claim. Round 2 found Phase 0 spending it at every turn boundary and the remedy taken was
+to bound the volume — an honest-looking fix that implemented a blunter capability and
+attributed it to the ruling. The actual remedy was a field the harness already supplies.
+Class: **mechanism-not-mission**. Bounding the blast radius of a mechanism that
+recognises the wrong thing is not a fix; it is the wrong thing, rationed.
+→ same file (Q1).
+
+**Three rounds running, the device installed to close a finding became the next round's
+heaviest finding.** §3's disposition table (added to close a coverage gap) was wrong in
+ten rows, then in eleven more. §4's source table (closed to two entries) orphaned six
+source keys. §2's arm table (split to give per-arm reasons) gave a reason its own P0-1
+contradicted. Each was re-checked along the axis that is cheap — arithmetic, set
+membership, row presence — and not along the axis it asserts.
+Class: **wrong-check**. For every whole-document attestation, write down the check that
+would *falsify* the substantive claim and run that one. The mechanical proxy passing is
+not evidence; it is the reason nobody looked.
+→ `docs/reviews/2026-08-01-round-3-expert-review-phase0-spec.md` (S1, M1, M2, Systemic 1).
+
+**Disclosing an unsourced claim is not removing it.** The warning-priority clause
+survived three rounds: deleted once, restored for identifier fidelity, then kept with a
+decision record stating the ranking is decided elsewhere. That left the requirement text
+asserting a precedence two other passages denied — and an implementer builds to the
+requirement.
+Class: **posture**. An annotation does not neutralise normative text. Delete it, or send
+it to the owner as a ranking he has not made.
+→ same file (S2).
+
+**Two instrument failures that would each have produced a confidently wrong finding.**
+`pdfminer.six` interleaves the ROSE paper's two columns mid-sentence, so a verbatim
+quotation fails a string match; a second engine resolved it. Two hooks quotations failed
+a naive match only because of markdown link syntax in the raw source. And `file(1)`
+reports that PDF as 10 pages when it has 17 — page count was used in a prior round to
+confirm the right paper.
+Class: **unverified**. A negative result from one extraction tool is a result about the
+tool until a second one agrees.
+→ same file (Instrument corrections).
+
+## 2026-08-01 — the Phase 0 spec, rounds 1 and 2
+
+**The fix for a finding is where the next finding is created.** In round 2 of the
+Phase 0 spec, three of the four heaviest findings were false claims the document
+made about *itself*, and each sat in the device installed the round before to close
+an earlier finding: a disposition table added to close a coverage gap was wrong in
+ten of its forty-four rows; a namespace rule added to close an identifier collision
+was broken twice in the section beneath it; a source list closed to two entries
+achieved that by deleting the requirements needing the others, leaving a test with
+no requirement behind it.
+Class: **unverified**. The generator is that a device asserting a property of the
+whole document is written once and never re-checked against the document it
+describes, while the individual requirement it was written to fix does get
+re-checked. Treat any newly-added summary, table, partition or namespace rule as
+the *first* thing the next round verifies, not the settled part.
+→ `docs/reviews/2026-08-01-round-2-expert-review-phase0-spec.md` (S1, S3),
+`docs/reviews/2026-08-01-collapse-hunt-phase0-spec-rebuild.md` (N2, N3, N4).
+
+**A quotation carried from a prior project document and re-attributed to the
+primary source reads as verified and is not.** The Phase 0 spec attributed a
+sentence about `PreToolUse` permission behaviour to the harness documentation; the
+string appears nowhere in the 242 KB reference and matched exactly one thing — the
+v1 spec, where it sits under a source tag. It entered *with* the fix for a prior
+round's finding about that same paragraph.
+Class: **unverified**. Re-deriving a fact from source means opening the source, not
+copying the sentence a sibling document attributes to it.
+→ `docs/reviews/2026-08-01-round-2-expert-review-phase0-spec.md` (S1).
+
+**A ruling about a *moment* was implemented as an *event*, and nothing recorded
+that they differ.** `[OWNER-12]` accepted the turn cost of speaking when an agent
+claims completion. `Stop` fires whenever the agent finishes responding; telling the
+two apart needs the transcript reader, deferred to a later phase. Neither spec
+recorded the contract sentence that separates them, so the accepted cost was
+silently spent at every turn boundary with no per-session bound anywhere.
+Class: **mechanism-not-mission**. When an owner ruling names a moment, record the
+mechanism that recognises that moment — and if the phase has none, say so in the
+requirement rather than letting the nearest event stand in for it.
+→ `docs/reviews/2026-08-01-collapse-hunt-phase0-spec-rebuild.md` (N1).
+
 ## 2026-07-17 — architecture session
 
 Every collapse below was found by the **owner**, not by any safeguard — the
@@ -145,8 +238,10 @@ written are recorded so the traps are inherited.
    erroneous action **is** the evidence — so an external cross-check surfacing that
    specific conflict at the decision moment *is* a material fact it doesn't know
    (the same logic by which FR-M has the oracle watch its own conduct). Defaulting
-   it off would gut a thing built to solve the owner's core problem: mistakes
-   neither he nor the agent catches.
+   it off would gut an owner-approved capability that surfaces mistakes neither
+   he nor the agent catches. *(Phrase corrected 2026-08-01: this read "the
+   owner's core problem." The tool has no core problem — see the 2026-08-01
+   entry below.)*
    **The one genuinely valid residual (kept):** don't *nag* — speak the specific
    conflict with its pointer, not a step-by-step checklist recital; that is
    noise-calibration governed by the §9.2 false-fire ladder, and per spec §14 the
@@ -422,3 +517,88 @@ architecture should exist yet.
 half survives every round, the split is the finding. Ask what separates them before
 applying a fifth batch of fixes to the failing half. A defect that reproduces along
 a boundary already named in the spec is a structural defect, not a quality one.
+
+## 2026-08-01 — ten collapses in one session
+
+Ten propositions or artifacts were caught this day; nine by the independent
+adversarial pass, one by Max Cogar. **Full findings for each are in
+`docs/reviews/2026-08-01-*.md`** — this entry carries only the lessons, per the
+information policy's one-line-plus-a-pointer rule. *(These entries originally
+reproduced the review findings in full, which is the same policy violation ten
+times over. Condensed the same day.)*
+
+**Caught by Max Cogar, logged as a process failure:**
+
+1. **"The core problem the tool exists to solve"** — an agent's superlative,
+   wrapped around the owner's quoted words in `RETHINK.md`, had propagated to the
+   spec, this log, a review pass that quoted it back as its standard, and a live
+   scope decision. **Lesson: no ranking claim about this tool's purposes, genres,
+   triggers or moments enters any document unless the owner stated it in those
+   words, quoted and attributed.** A reduction inside a *rationale* is more
+   durable than one inside a decision, because reviewers check decisions against
+   sources and read rationale as prose.
+
+**Caught by the adversarial pass, written after the artifact (cost: a commit, a
+revert and a correction each):**
+
+2. **The Phase 0 genre cut** (14 findings). **Lesson: when the argument for
+   excluding something is that it isn't worth saying, that is a bar argument —
+   per candidate, at runtime, tunable — never a scope argument. A bar suppresses;
+   a build plan deletes. The tool getting quieter is not the tool getting
+   smaller.**
+3. **Crediting the owner with an answer the documents already contained.**
+   **Lesson: before recording that something was missing, read the file you are
+   about to say it was missing from. When the owner points at something,
+   establish whether he is supplying it or citing it — the default is citing.**
+4. **The Phase 0 purpose block** (17 findings). **Lesson: a purpose sentence is a
+   claim about what a thing can do and needs the same verification as any other.
+   "X is necessary for Y" is not "X exists for Y". A criterion that cannot
+   exclude is not a test; one that excludes at build-plan level is the prior
+   collapse in new clothes. The spec does not cite numbered architecture
+   decisions as authority.**
+5. **A separate Phase 0 spec** (19 findings). **Lesson: when a defect is named as
+   "X was done twice", the remedy removes one of the two — it never adds a third.
+   A new document needs a written precedence rule before its first sentence.**
+6. **The phase-assignment table** (23 findings). **Lesson: a verified premise
+   confers no verification on its consequences. A table is not a summary — every
+   cell is a claim. "Every X is Y" under a table is an attestation, and the
+   standing instruction is to treat one as a defect on sight. The falsifiable
+   column is the one that gets dropped.**
+
+**Caught by the adversarial pass, run before the artifact (cost: one subagent
+each, nothing written or reverted):**
+
+7. **Uptake detection under FR-A4.** **Lesson: a requirement and a metric can
+   share a predicate's name, a subject key, and the same source sentence and
+   still be opposite tests — one asks "has the agent already got this?"
+   (suppress), the other "did the agent take this?" (score). The detector one
+   rejects may be exactly the detector the other requires. A stated limitation is
+   a bound only when independent of the decision it feeds; otherwise it is a
+   hedge.**
+8. **Phase 1's exit "has no pass condition".** **Lesson: "every other X" is a
+   claim about a set and is only as good as the enumeration behind it. A real
+   finding dressed past its evidence leaves the dressing for the next session to
+   inherit.**
+9. **An entry-gate/exit-gate conflict between the spec and `CLAUDE.md`.** There
+   was none. **Lesson: when two documents appear to conflict, check whether one
+   is quoting the other before deciding which wins — identical wording is
+   evidence of copying, not corroboration. Ask what a question unblocks before
+   ranking it.**
+10. **The seven-genre Phase 0 list** (13 findings). **Lesson: a criterion that
+    admits every member but one on both its conjuncts, and that one member on a
+    single conjunct, was reverse-engineered from a list already chosen. And after
+    a run of kills the authoring instinct learns that *inclusive* proposals
+    survive — every safeguard here points at exclusion, so an inclusive error has
+    nothing watching for it. Being wrong in the safe direction is still being
+    wrong.**
+
+**The thread through half of them.** Four separate failures were the same act:
+declaring a mechanism missing without reading the line defining it; claiming
+"every other X" without enumerating; quoting a paragraph to the em-dash where the
+continuation reversed the reading; and asserting what sibling sentences contain
+without opening them. **Stopping too early against a source that is right there.**
+
+**The process lesson that changed the session.** The first six were written and
+then hunted. The last four were hunted and then written. Cost of the first order:
+a commit, a revert and a correction each. Cost of the second: one subagent, and
+nothing to undo. **Dispatch the pass before writing into a document, not after.**

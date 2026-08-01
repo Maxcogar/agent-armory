@@ -3,6 +3,105 @@
 *Plain-language project status, updated at the end of every working
 session. Newest entry first.*
 
+## 2026-08-01 — Phase 0 has its own spec; three review rounds in, needs a fourth
+
+**Where the project is.** Still design phase, no code. What is new is that the
+first buildable phase now has a requirement document of its own —
+`docs/specs/spec-context-oracle-phase0.md` — instead of being a slice of the v1
+spec that nobody could check. It has been rebuilt three times against independent
+review and is currently **unreviewed since the last rebuild**.
+
+**Why a separate document, given a previous attempt at this was killed.** The
+earlier attempt failed because it copied Phase 0 out of the v1 spec, creating a
+second place where the same requirements lived. This one does not copy. It states
+what Phase 0 does, and for every one of the v1 spec's 65 requirements it records
+one of three dispositions: in force here, in force but narrowed here (with the
+narrowing written down), or deferred to a named later phase. So the two documents
+cannot drift into disagreeing without it being visible.
+
+**What the review rounds found, and what it cost.** Two independent passes ran on
+each version — one checking facts and citations, one attacking whether the
+decisions actually serve the mission.
+
+- Round 1 returned 20 findings and 16 more from the adversarial pass.
+- I then audited it myself and found 14 further defects the reviews had not
+  reached.
+- Round 2 returned 14 and 21. Eleven of each prior round's findings had genuinely
+  closed; the rest recurred somewhere new.
+- Round 3 returned 7 and 23. **Every round-2 finding closed, with no regressions** —
+  the first time that has happened to this document. The fact-checking pass has gone
+  20 to 14 to 7.
+
+**The pattern worth knowing.** In round 2, three of the four heaviest findings
+were false statements the document made *about itself* — and each sat in the
+device added the round before to close an earlier finding. A table claiming 44
+requirements were unchanged was wrong in ten rows. A rule saying "this document
+invents no new requirement identifiers" was broken twice in the section below it.
+A source list claiming no other sources were needed had achieved that by deleting
+the requirements that needed them — while a test for one of those deleted
+requirements was left in place. Fixing a finding is where the next finding gets
+created, reliably enough to plan for.
+
+**The single most consequential fix, and round 3 reversed it.** The tool is meant to
+speak when an agent claims it is done — your decision, and the turn it costs was
+accepted on that basis. Round 2 found that the harness event used for this fires every
+time the agent finishes responding, not only at a completion claim. My fix said Phase 0
+cannot tell those apart until a later phase, and capped the whispers instead.
+
+Round 3 checked the harness documentation for the thing I said was missing and found it
+there: the event hands the hook the text of what the agent just said, specifically so
+hooks do not have to go digging in the transcript. So Phase 0 *can* tell a completion
+claim from an ordinary pause, and now does — by matching the wording of that final
+message, the same simple technique the tool already uses elsewhere. Your capability
+fires at the moment you ruled on. The cap stays, but now for an honest reason: word
+matching over-fires, so the session total is still bounded.
+
+The lesson is written into the collapse log and it is the sharpest one this project has
+produced: I verified every claim the document made about the harness, and inherited
+every claim about what the harness *lacked*. Checking a source only proves what you
+pointed it at.
+
+**Other things that were wrong and are now fixed.** A sentence quoted as coming
+from the harness documentation is not in it — it had been carried over from the v1
+spec and re-labelled as a primary source; the real wording is now used. The
+timeout figures were wrong. A rule requiring merge commits to be excluded from the
+history mining had been dropped while the test for it stayed. A command letting
+you type facts into the tool had no genre left that could ever say them back — a
+writer with no reader. The first-sessions rule was letting the weakest evidence in
+the system be the first thing a project ever hears.
+
+**What is true now.** The spec is 715 lines. Every one of the v1 spec's 65
+requirements has a stated disposition; every requirement it defines has either an
+acceptance criterion or a named inspection; the identifier rules it states about
+itself are mechanically checked and hold; and every quotation from the research
+paper and the harness documentation has been matched character-for-character
+against the primary source.
+
+**What is broken or unknown.** The spec has not been reviewed since this rebuild,
+and on this project's record that means it has findings in it. Nothing has ever
+been run, so every number the later phases are tuned from is still unmeasured.
+Two values are deliberately left to the architecture rather than guessed: the
+numeric threshold the tool speaks above, and the internals of how candidates are
+scored.
+
+**One finding was deliberately not applied.** A reviewer asked for a line to be
+added to the v1 spec marking its Phase 0 exit superseded. You instructed that the
+v1 spec not be touched, so it was not. The Phase 0 spec states the precedence
+itself, and `CLAUDE.md` now routes a new session to the right document, which
+covers the same ground from the other side.
+
+**What is next, concretely:**
+
+1. **A third review round on the rebuilt spec** — both passes, as always. It is
+   the only way to find out whether this rebuild repeated the pattern above.
+2. **Then `docs/architecture-context-oracle-phase0.md`** — the first design
+   document for the first buildable phase, which the build rules require before
+   any code.
+3. **Then plan, build, and run it** — everything still undecided is waiting on
+   measurements only a running Phase 0 can produce.
+
+**Nothing needed from you.**
+
 ## 2026-07-31 — the fix cycle is over; next is a Phase 0 requirement set
 
 **Where the project is.** Still design phase, no code — and the architecture

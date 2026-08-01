@@ -372,11 +372,23 @@ tool grading its own paperwork. An oracle is measured on:
     verification genres.
 
     **The owner's ruling: keep it.** In his words, *"having the oracle speak
-    when an agent claims it's done is a must-have feature in my mind."* The
-    completion claim is the single highest-value moment the oracle has — it is
-    exactly where an unregistered conflict (an agent reporting done without
-    having verified) becomes actionable, and it is the core problem the tool
-    exists to solve: mistakes neither the owner nor the agent catches.
+    when an agent claims it's done is a must-have feature in my mind."* A
+    completion claim is one of the moments at which an unregistered conflict —
+    an agent reporting done without having verified — becomes actionable. The
+    ruling is that the capability stays and its turn cost is accepted. It is
+    **not** a ranking of this moment against the others.
+
+    *(Corrected 2026-08-01 on the owner's instruction. The previous text read
+    "the single highest-value moment the oracle has … and it is the core problem
+    the tool exists to solve: mistakes neither the owner nor the agent catches."
+    Both claims were agent-written framing wrapped around the owner's quoted
+    words, and both are wrong. **This tool has no core problem.** The owner has
+    stated repeatedly that agents keep collapsing a deliberately broad tool onto
+    one purpose, and that doing so guarantees what gets built is not the tool he
+    asked for — this is the second full remake caused by it. The mission is §1
+    of this document and the mission sentence: deliver the fact that would
+    change the agent's next decision, across all twelve FR-A2 genres, none of
+    them primary. Logged in `docs/collapse-log.md`.)*
 
     **What this does not license.** The no-gates rule is unchanged: `decision:
     "block"` stays structurally absent everywhere, and the oracle never prevents
