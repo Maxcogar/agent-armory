@@ -3,51 +3,70 @@
 *Plain-language project status, updated at the end of every working
 session. Newest entry first.*
 
-## 2026-07-31 — session ended by the owner; the fix cycle is over
+## 2026-07-31 — the fix cycle is over; next is a Phase 0 requirement set
 
-**Where the project is:** still design phase, no code — and the architecture
-document is not fixable by more rounds of fixing. The process's own stop-signal
-fired, and the reason turned out to be a structural problem you found, not I.
+**Where the project is.** Still design phase, no code — and the architecture
+document cannot be repaired by more rounds of fixing. The process's own
+stop-signal fired. The cause is structural and sits above the architecture, in
+how the spec and the build phases relate to each other.
 
-**The plain version.** We reviewed the architecture four times, hard, with two
-independent reviewers each time. Round 2 found 10 problems, round 3 found 14,
-round 4 found 16. Every batch of fixes created about as many new problems as it
-closed — round 4's six worst were inside the very thing I built in round 3 to
-stop that happening. At that point the process has an automatic rule that says
-stop fixing, the foundation is wrong. It fired.
+**What is next, concretely.** Three steps, in order, before any more design work:
 
-**Why it kept failing — and you're the one who found it.** You asked why three
-build phases live in one spec. That was the whole answer. The spec says each
-phase can only be finished after the previous one has *actually run* and produced
-real numbers. But the rules told us to design all three phases up front. So
+1. **Work out which requirements belong to Phase 0.** The spec has 57
+   requirements and none says which build phase it belongs to. The answer is
+   already derivable: §12 lists Phase 0's components, and each of the nine
+   Phase 0 exit criteria names its own requirements. Write those tags into the
+   spec, so the boundary is settled once, in the spec, and can be checked.
+2. **Settle the contradictions that exercise turns up.** At least one exists
+   already: exit criterion AC-2 belongs to Phase 0 but depends on the model
+   judgment, which is Phase 1 and does not exist yet. Each is quick to settle
+   once visible; none can be settled while invisible.
+3. **Assemble the Phase 0 architecture from the parts that already survived** —
+   not by rewriting from scratch. Those parts were attacked four times and held,
+   and several were re-run live and came out exactly right. The parts that failed
+   every round are all Phase 1 and 2, and are not needed yet.
+
+Then review it, plan it, build it, and **run it** — because everything still
+undecided is waiting on measurements only a running Phase 0 can produce.
+
+**Why the old path failed, and you are the one who found it.** You asked why
+three build phases live in one spec. That was the whole answer. The spec says
+each phase can only be finished after the previous one has actually run and
+produced real numbers. But the rules said design all three up front. So
 everything for phases 2 and 3 was being designed against measurements nobody has
-taken, because nothing has ever been run. That's why the same half of the
-document collapsed in every single round while the other half held every time.
-The evidence was in front of me for four rounds and I reported the pattern twice
-without asking why it was there.
+taken, because nothing has ever been run. That is why the same half of the
+document collapsed in every round while the other half held every time. The
+evidence sat in front of me for four rounds; I reported the pattern twice without
+asking why it was there.
 
-**What survives:** your decisions in RETHINK; the spec's first-phase material;
-the store design, the event contract, the shim, the indexer, the security
-scanner, the repo-identity mechanism — several of which held up under reviewers
-actively trying to break them and re-running them; and everything we proved by
-running it (the login trick works, the tool lock-down works, the timings, the
-turn behaviour). Four reviews and two logs are a genuinely useful record of how
-this fails.
+**What changed in the project this session, beyond the review work.**
+- The build rules now say the design is written **one phase at a time** instead
+  of all three up front. That is the fix for the cause above.
+- The spec now says plainly that the phase-2 and phase-3 requirements are
+  provisional until the measurements they depend on exist.
+- Project status was being duplicated in a repo-wide file, which is how the
+  outside copy went two weeks stale while the inside one stayed current. That
+  duplicate is removed. **This file is the state of record.** Handoffs describe
+  what a session did; they do not set state.
 
-**What doesn't survive:** the design for the thinking half — the judgment core,
-the two conduct nudges you asked for, the "when to speak" dial, the learning
-loop. Not because the work was careless, but because it couldn't be done yet.
+**What survives.** Your decisions in RETHINK; the spec's Phase 0 material; the
+store design, the event contract, the shim, the indexer, the security scanner and
+the repo-identity mechanism — several held up under reviewers actively trying to
+break them; and everything proved by running it (the login trick, the tool
+lock-down, the timings, the turn behaviour). The four reviews and the collapse log
+are a genuinely useful record of how this fails.
 
-**A correction I owe you, and it's the second one on the same point.** I told you
-the tool's model command "fails every time," then told you it "depends on the
-wording." Both wrong. Under the setting the design actually uses it succeeds 10
-out of 10. Nothing about the tool changes; what changes is that you were handed a
-confident wrong answer twice by me.
+**What does not survive.** The design for the thinking half — the judgment core,
+the two conduct nudges you asked for, the "when to speak" dial, the learning loop.
+Not because the work was careless, but because it could not be done yet.
 
-**Nothing needed from you.** A full handoff for the next session is written at
-`docs/handoffs/2026-07-31-tripwire-fired-structural-defect.md`, including an
-explicit warning to double-check my judgment about what to do next, because I was
-wrong about that three times today.
+**A correction I owe you, the second on the same point.** I told you the tool's
+model command "fails every time", then that it "depends on the wording". Both
+wrong. Under the setting the design actually uses it succeeds 10 out of 10.
+Nothing about the tool changes; what changes is that you were handed a confident
+wrong answer twice by me.
+
+**Nothing needed from you.**
 
 ## 2026-07-30
 
