@@ -19,6 +19,60 @@ goes hollow is itself data.
 
 ---
 
+## 2026-08-01 — the Phase 0 spec, round 3
+
+**Verifying a source establishes only the claims you aimed at it.** The Phase 0 spec
+downloaded the 242 KB hooks reference and string-matched every quotation it made — the
+correct fix for the previous round's fabricated citation, and it worked: 27 of 27 spans
+verbatim. Three of round 3's heaviest findings were nonetheless answerable from that
+same file, because the method checked every *positive* claim the document made about the
+contract and inherited every *negative* one. "Phase 0 cannot detect a completion claim"
+was never checked against the file that contains `last_assistant_message`.
+Class: **unverified**. A document's claims about what a source does *not* contain are
+claims about the source, and they need the same instrument aimed at them. When a
+requirement says a phase lacks a capability, grep the contract for the capability before
+writing the sentence.
+→ `docs/reviews/2026-08-01-collapse-hunt-phase0-spec-rebuild-2.md` (Q1, Q4, Q5).
+
+**An owner ruling names a moment; the nearest event is not that moment, and the fix for
+that is not a cap.** `[OWNER-12]` accepted the turn cost of speaking at a completion
+claim. Round 2 found Phase 0 spending it at every turn boundary and the remedy taken was
+to bound the volume — an honest-looking fix that implemented a blunter capability and
+attributed it to the ruling. The actual remedy was a field the harness already supplies.
+Class: **mechanism-not-mission**. Bounding the blast radius of a mechanism that
+recognises the wrong thing is not a fix; it is the wrong thing, rationed.
+→ same file (Q1).
+
+**Three rounds running, the device installed to close a finding became the next round's
+heaviest finding.** §3's disposition table (added to close a coverage gap) was wrong in
+ten rows, then in eleven more. §4's source table (closed to two entries) orphaned six
+source keys. §2's arm table (split to give per-arm reasons) gave a reason its own P0-1
+contradicted. Each was re-checked along the axis that is cheap — arithmetic, set
+membership, row presence — and not along the axis it asserts.
+Class: **wrong-check**. For every whole-document attestation, write down the check that
+would *falsify* the substantive claim and run that one. The mechanical proxy passing is
+not evidence; it is the reason nobody looked.
+→ `docs/reviews/2026-08-01-round-3-expert-review-phase0-spec.md` (S1, M1, M2, Systemic 1).
+
+**Disclosing an unsourced claim is not removing it.** The warning-priority clause
+survived three rounds: deleted once, restored for identifier fidelity, then kept with a
+decision record stating the ranking is decided elsewhere. That left the requirement text
+asserting a precedence two other passages denied — and an implementer builds to the
+requirement.
+Class: **posture**. An annotation does not neutralise normative text. Delete it, or send
+it to the owner as a ranking he has not made.
+→ same file (S2).
+
+**Two instrument failures that would each have produced a confidently wrong finding.**
+`pdfminer.six` interleaves the ROSE paper's two columns mid-sentence, so a verbatim
+quotation fails a string match; a second engine resolved it. Two hooks quotations failed
+a naive match only because of markdown link syntax in the raw source. And `file(1)`
+reports that PDF as 10 pages when it has 17 — page count was used in a prior round to
+confirm the right paper.
+Class: **unverified**. A negative result from one extraction tool is a result about the
+tool until a second one agrees.
+→ same file (Instrument corrections).
+
 ## 2026-08-01 — the Phase 0 spec, rounds 1 and 2
 
 **The fix for a finding is where the next finding is created.** In round 2 of the

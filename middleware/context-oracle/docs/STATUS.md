@@ -3,7 +3,7 @@
 *Plain-language project status, updated at the end of every working
 session. Newest entry first.*
 
-## 2026-08-01 — Phase 0 has its own spec; it has survived two review rounds and needs a third
+## 2026-08-01 — Phase 0 has its own spec; three review rounds in, needs a fourth
 
 **Where the project is.** Still design phase, no code. What is new is that the
 first buildable phase now has a requirement document of its own —
@@ -28,6 +28,9 @@ decisions actually serve the mission.
   reached.
 - Round 2 returned 14 and 21. Eleven of each prior round's findings had genuinely
   closed; the rest recurred somewhere new.
+- Round 3 returned 7 and 23. **Every round-2 finding closed, with no regressions** —
+  the first time that has happened to this document. The fact-checking pass has gone
+  20 to 14 to 7.
 
 **The pattern worth knowing.** In round 2, three of the four heaviest findings
 were false statements the document made *about itself* — and each sat in the
@@ -39,15 +42,24 @@ the requirements that needed them — while a test for one of those deleted
 requirements was left in place. Fixing a finding is where the next finding gets
 created, reliably enough to plan for.
 
-**The single most consequential fix.** The tool is meant to speak when an agent
-claims it is done — your decision, and the turn it costs was accepted on that
-basis. The harness event the design uses for this fires **every time the agent
-finishes responding**, not only at a completion claim, and telling those apart
-needs the transcript reader that belongs to a later phase. So Phase 0 was set to
-spend that accepted cost at every turn boundary, with nothing capping the session
-total. Your decision is untouched — the capability stays. What the spec now does
-is say plainly what Phase 0 can and cannot recognise, cap it at 3 such whispers
-per session, and count them so you can see the real total.
+**The single most consequential fix, and round 3 reversed it.** The tool is meant to
+speak when an agent claims it is done — your decision, and the turn it costs was
+accepted on that basis. Round 2 found that the harness event used for this fires every
+time the agent finishes responding, not only at a completion claim. My fix said Phase 0
+cannot tell those apart until a later phase, and capped the whispers instead.
+
+Round 3 checked the harness documentation for the thing I said was missing and found it
+there: the event hands the hook the text of what the agent just said, specifically so
+hooks do not have to go digging in the transcript. So Phase 0 *can* tell a completion
+claim from an ordinary pause, and now does — by matching the wording of that final
+message, the same simple technique the tool already uses elsewhere. Your capability
+fires at the moment you ruled on. The cap stays, but now for an honest reason: word
+matching over-fires, so the session total is still bounded.
+
+The lesson is written into the collapse log and it is the sharpest one this project has
+produced: I verified every claim the document made about the harness, and inherited
+every claim about what the harness *lacked*. Checking a source only proves what you
+pointed it at.
 
 **Other things that were wrong and are now fixed.** A sentence quoted as coming
 from the harness documentation is not in it — it had been carried over from the v1
