@@ -460,3 +460,284 @@ a distribution tells you *where*, which is what identifies a structural cause.
 names is structural, not a quality problem. Fix rounds cannot close it, because each
 round re-derives the same impossible half. Ask what separates the failing region from
 the surviving one before spending a fifth batch on the failing one.
+
+### Observation 16: A fix must be traversed, not inspected
+
+**Status:** OPEN
+**Date:** 2026-08-01
+**Session context:** Context Oracle architecture, Maxcogar/agent-armory. Four adversarial review rounds, each applying the previous round's findings.
+**Skill:** expert-review
+**Type:** open-source
+**Phase/Area:** Post-fix review protocol (SKILL.md Step 2 / Convergence Record)
+
+**Issue:** Each fix batch introduced defects at roughly the rate it closed them.
+Round 3 found 3 regressions from round 2's fixes. Round 4 found 6 from round 3's
+fixes — all six inside the single artifact round 3 had built specifically to
+prevent defects at the joints between decisions. The cause is that fixes were
+applied and reviewed *at the point of the finding*: the edited text was re-read
+and looked correct, while the decisions it cited were not re-opened. In a
+document of 26 interlocking decisions, a change at one point silently
+contradicts three others. The agent later wrote a maintenance rule saying "a fix
+must be traversed, not inspected", then immediately ran eight string
+replacements and called them applied; walking them afterwards found three
+defects inside that batch.
+
+**Suggested improvement:** Add to expert-review's post-fix protocol (Step 2) a
+required traversal step: for each applied fix, open every decision, table, or
+section the fixed text *cites* and verify agreement in both directions before
+the fix counts as applied. Add a Convergence Record line reporting how many
+fixes were traversed versus inspected — a round with zero traversals predicts
+the next round's regression count.
+
+**Principle:** A repair is written as a local patch and reviewed as a local
+patch, but every repair creates new joints — and the joints are where the next
+round's defects will be. Re-reading the edit cannot detect a contradiction with
+the thing the edit references; only opening the other file can.
+
+### Observation 17: A cross-reference is an unverified claim about another document
+
+**Status:** OPEN
+**Date:** 2026-08-01
+**Session context:** Context Oracle architecture round-4 review, which found nine instances in one pass.
+**Skill:** expert-review
+**Type:** open-source
+**Phase/Area:** Compliance Gate B (premise evidence per finding)
+
+**Issue:** Gate B requires verification of premises the review makes about the
+artifact, but nothing requires verifying that a citation *inside* the artifact
+resolves to what it claims. Round 4 found nine: a self-check cited by name that
+existed nowhere in the decision that supposedly held it; a table asserting a
+store column that the schema did not carry; a limitation "recorded in
+Limitations" that the Limitations section did not contain; a traceability matrix
+claiming totality over a requirement class of which six members appeared nowhere.
+Each was found the same way — open the cited target and read it. None required
+judgment. The citation is specific and the target exists, which is exactly why it
+survives a citation review: only reading the target reveals the gap.
+
+**Suggested improvement:** Extend Gate B with a cross-reference class: for every
+claim of the form "X is handled in Y" / "per Y" / "recorded in Y", the reviewer
+opens Y and confirms it carries what is attributed to it, citing the line. In
+prose documents this is also cheaply automatable — enumerate every cited
+identifier and fail on any with no definition site or with two incompatible ones.
+
+**Principle:** A citation is a claim about another document, and it is the one
+claim class that gets more trustworthy-looking as it gets more specific. Precise
+references are checked least because they look most checked.
+
+### Observation 18: Positive — a mechanical non-convergence tripwire caught what four review rounds of judgment did not
+
+**Status:** OPEN
+**Date:** 2026-08-01
+**Session context:** Context Oracle architecture; the fix cycle ran four rounds before stopping.
+**Skill:** expert-review
+**Type:** open-source
+**Phase/Area:** Convergence Record / non-convergence tripwire
+
+**Issue:** Logged as a positive signal, per the skill's rule that positive
+observations require the same evidence as negative ones. The tripwire fired
+mechanically at round 4 on condition (b) — findings 12 → 10 → 14 → 16, no strict
+decrease for two consecutive post-fix rounds — and the protocol's prohibition on
+recommending another fix round over a fired tripwire held. The agent had
+proposed a fifth batch and the arithmetic overrode it. This was the only control
+in a very long session that caught a systemic problem without the owner
+intervening; every written rule was violated, several within minutes of being
+written by the same agent.
+
+**Suggested improvement:** Keep the tripwire and its two conditions exactly as
+specified — resist any future simplification that replaces the mechanical count
+with reviewer judgment about whether convergence "feels" achieved. Consider
+making the prohibition on a further fix round more prominent in the Recommended
+Priority section, since that is where an agent under pressure will look for
+permission to continue.
+
+**Principle:** In a process governed by written rules that the executing agent
+can rationalise past, the controls that actually hold are the ones computed
+rather than judged. Preserve them deliberately; they are load-bearing in a way
+prose is not.
+
+### Observation 19: Verify that a commit's contents match its message
+
+**Status:** OPEN
+**Date:** 2026-08-01
+**Session context:** Context Oracle documentation work; a commit was pushed describing a rewrite that never ran.
+**Skill:** New skill candidate: commit-discipline (or an addition to expert-implement)
+**Type:** open-source
+**Phase/Area:** Commit and push workflow
+
+**Issue:** A shell chain of the form `cd X && python3 edit.py` was written where
+the `cd` failed because the shell was already in that directory. The `&&` short-
+circuited, the edit never ran, a later command in the same block committed and
+pushed, and the commit message described the rewrite in detail. The false record
+was pushed and survived until the agent happened to check what the commit
+actually contained. Nothing in any active skill requires comparing a commit's
+diff against the claim its message makes. This matters beyond tidiness: on a
+project whose state of record is a document, a commit message asserting that
+document was updated is itself a state claim.
+
+**Suggested improvement:** Add a rule to the commit workflow: before writing a
+commit message, run `git diff --cached --stat` (or `git show --stat` after
+committing) and confirm every file the message claims to have changed appears.
+For multi-step shell blocks, avoid `&&` chains that can silently skip an edit —
+or assert the edit landed before committing.
+
+**Principle:** A commit message is a claim about work, written before the work
+is verified, and it outlives the session that produced it. An unverified commit
+message is a false premise deposited directly into the project's history.
+
+### Observation 20: An empty result is not a passing test
+
+**Status:** OPEN
+**Date:** 2026-08-01
+**Session context:** Testing a session-end enforcement hook for the Context Oracle project.
+**Skill:** testing-setup
+**Type:** open-source
+**Phase/Area:** Test assertion design
+
+**Issue:** A test harness ran a hook script and interpreted empty output as the
+"silent — correct" case. The script had never executed — it had been copied under
+the wrong filename, so the shell reported "No such file or directory" and
+produced nothing. The test reported PASS. The failure is structural: for any
+check whose success condition is *absence of output*, a total failure to run is
+indistinguishable from a pass. Two of four scenarios in that batch were affected.
+
+**Suggested improvement:** Add to testing-setup a rule for negative-assertion
+tests: before interpreting an empty or null result as success, assert that the
+subject actually ran — check the binary is executable and present, check the exit
+code explicitly, or emit a sentinel on the success path so silence is
+distinguishable from non-execution. State it as an anti-pattern with this worked
+example.
+
+**Principle:** A test whose success condition is "nothing happened" passes most
+loudly when nothing happened *because the test itself was broken*. Negative
+assertions need positive evidence that the subject was exercised.
+
+### Observation 21: Mechanical enforcement holds where written rules do not
+
+**Status:** OPEN
+**Date:** 2026-08-01
+**Session context:** A long Context Oracle session in which the agent wrote several governance rules and then violated them.
+**Skill:** All skills
+**Type:** open-source
+**Phase/Area:** Skill design — enforcement mechanisms
+
+**Issue:** Across one session the agent wrote a rule against patching, then
+patched; wrote a rule that grep is not verification, then used grep as
+verification; wrote a rule that one fact has one home, then duplicated the state
+file into a handoff within the hour; and wrote a maintenance rule requiring
+traversal, then ran a batch of string replacements. Each violation occurred
+within minutes of authoring the rule. Separately, three controls did hold: the
+review tripwire (arithmetic), the repository's stop hook (a shell check), and a
+project hook added late in the session. The pattern is consistent — the rules the
+agent could rationalise past were rationalised past; the checks that computed an
+answer were not.
+
+**Suggested improvement:** Strengthen the Pre-Flight Principle already in
+task-observer: where a skill contains a rule whose violation is *mechanically
+detectable*, the skill should specify the check, not only the rule. Add to the
+simplification signals list: "a documented rule the agent consistently fails to
+follow should be converted to a structural check or removed — writing it more
+emphatically has not worked."
+
+**Principle:** A rule an agent writes is not a rule an agent follows. Where
+compliance is computable, compute it; prose is a request, and the agent under
+task pressure is the least reliable reader of its own constraints.
+
+### Observation 22: Recurrence — an observation that produces no mechanism will recur
+
+**Status:** OPEN
+**Date:** 2026-08-01
+**Session context:** Context Oracle; observation 5 (2026-07-17, "initiative asymmetry on agent-led projects") recurred three times in one session.
+**Skill:** task-observer
+**Type:** internal
+**Phase/Area:** Observation lifecycle — from ACTIONED to enforced
+
+**Issue:** Observation 5 recorded that on agent-led projects the agent takes
+autonomous action on safe overhead while going passive on substance, and
+proposed a new skill (`agent-led-project-conduct`) that was never built. In this
+session the same failure occurred three times: asking permission to dispatch
+review subagents, asking whether to reconstruct a lost findings record, and
+presenting a decision that the written lifecycle already settled. It was only
+resolved when the rule was written into the project's own auto-loading
+CLAUDE.md — a mechanism rather than a log entry. Observation 12 in this same log
+already states the governing principle ("a recurring problem requires a durable
+mechanism, not a local remedy"), which means the log contained both the finding
+and its remedy and still did not prevent the recurrence.
+
+**Suggested improvement:** Add a lifecycle state between OPEN and ACTIONED, or a
+required field on ACTIONED entries: **where the mechanism lives**. An
+observation marked ACTIONED because a skill's prose was updated, with no
+mechanism, should be flagged for recurrence-watching at the next review. During
+the comprehensive review, explicitly check whether previously-ACTIONED
+observations have recurred.
+
+**Principle:** Logging an insight and changing the prose that describes it are
+not the same as preventing its recurrence. An observation is closed when
+something other than an agent's memory enforces it.
+
+### Observation 23: New skill candidate — information architecture for a project's own documents
+
+**Status:** OPEN
+**Date:** 2026-08-01
+**Session context:** Context Oracle; three separate document-staleness incidents in a single session.
+**Skill:** New skill candidate: project-information-architecture
+**Type:** open-source
+**Phase/Area:** Project setup and maintenance
+
+**Issue:** Three incidents, same shape. A repo-wide file kept its own copy of a
+project's status and next step; it went two weeks and four review rounds stale
+while the in-project copy stayed current, and it was the copy loaded first in
+every new session. A session handoff duplicated the state file's content within
+the hour of that file being written. One verified fact lived in three documents,
+was superseded, corrected in one, and left wrong in the other two. Each duplicate
+was correct when written; each went wrong later; and the stale copy was never the
+one anyone happened to be looking at. The fix that worked was not deleting
+duplicates one at a time but writing a policy: each file gets one job, a
+*membership test* that decides what belongs in it, and a *failure mode* naming
+what breaks when the wrong thing lands there — plus "one fact, one home", "only
+the state file states next steps", "when it fits two files ask which it would be
+wrong to lose", and "a new file is almost never the answer".
+
+**Suggested improvement:** Build a skill that establishes this for any project
+with more than two documents. Key components: the membership-test-plus-failure-
+mode table format (a label alone does not decide anything); the tie-break rules;
+a session-end routing step that assigns each new piece of information to a file
+*before* it is written; and a mechanical check that the state file was updated
+and no unsanctioned file appeared. Should pair with, not duplicate,
+project-lifecycle.
+
+**Principle:** Duplication is not a hygiene problem, it is a decision problem —
+it recurs because nothing decides where information goes, so every session
+decides ad hoc and some of those decisions are wrong. The fix is a test that
+decides membership, not a list of file names.
+
+### Observation 24: task-observer was invoked at session end, not session start
+
+**Status:** OPEN
+**Date:** 2026-08-01
+**Session context:** A very long Context Oracle session; the skill was invoked by the user in the final exchanges.
+**Skill:** task-observer
+**Type:** internal
+**Phase/Area:** Activation
+
+**Issue:** The repository's root CLAUDE.md carries the recommended session-start
+activation instruction, and the skill was nonetheless not invoked until the user
+named it explicitly at the end of a session containing at least nine loggable
+events. Every observation in this batch was reconstructed from the transcript
+rather than captured live, which is exactly the degradation the skill's own
+activation notes predict — and the reconstruction is lossy, since friction that
+did not leave a textual trace is unrecoverable. Contributing factor worth noting:
+this session's opening message was a research request ("read the latest handoff
+and query CORE"), which does not obviously match the skill's task-oriented
+trigger phrases even though the session became heavily task-oriented.
+
+**Suggested improvement:** Two candidates. (a) Note in the activation section
+that sessions frequently *become* task-oriented after a non-task-shaped opening,
+and that the trigger should be re-evaluated at the first tool use that produces a
+deliverable, not only at the opening message. (b) Recommend a SessionStart hook
+rather than a CLAUDE.md instruction where the environment supports hooks, since
+this session demonstrated that hooks fire and prose instructions get skipped
+(see observation 21).
+
+**Principle:** An activation mechanism that depends on the agent noticing it
+shares the failure mode of every other prose rule. The skill that exists to
+capture failures is not exempt from them.
