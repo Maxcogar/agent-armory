@@ -98,6 +98,10 @@ No other external source is cited, because no requirement below depends on one.
   the capability and accepts its turn cost. The hooks contract confirms
   `stop_hook_active` exists and that a continuation cap exists; this requirement
   bounds the oracle to one and does not depend on the cap's value.
+- **FR-O5** — The oracle speaks only on an observed harness event. It runs no
+  timer, no idle detector and no polling loop, and it never initiates a whisper
+  outside an event it was handed. `[P0-D-7]`
+
 - **P0-1** — `StopFailure` is observation-only: recorded, never delivered on. The
   hooks lifecycle lists it as a once-per-turn event alongside `Stop`.
 - **P0-2** — Session state is keyed per consumer from the first implementation,
@@ -181,6 +185,13 @@ path *can* issue a permission decision.
   value over what the agent can trivially self-discover."*
   `RETHINK.md:198–199`: *"Ship with the bar set high and lower it against
   measured hit rate."*
+- **FR-A6** — **Corpus floor.** Below a configured minimum of mined history for
+  a region, history-backed genres stay silent regardless of any individual
+  pair's support and confidence. FR-A5b's floors are computed per pair and
+  cannot express corpus thinness: a pair seen three times out of three clears
+  support ≥ 3 and confidence 1.0 in a repository with eight commits, which is
+  the modal condition of a first run on a shallow clone. `[P0-D-8]`
+
 - **FR-A5b** — **Warn-grade evidence floor.** A whisper delivered in the ⚠ warning
   format on history-derived evidence requires co-change support ≥ 3 and
   confidence ≥ 0.9. Zimmermann et al. 2005 set exactly this operating point and
@@ -366,12 +377,25 @@ path.
   fewer than three cannot clear warn-grade. A second configurable minimum would
   be an ungrounded knob doing work the floors already do.
 
-- **P0-D-7 — There is no separate "never on a timer" requirement.** An earlier
-  draft carried one, citing `RETHINK.md` for a rule that is not there; its real
-  source was a paper this document does not use. FR-O1 enumerates the oracle's
-  triggers exhaustively, so anything absent from that list — a timer, an idle
-  detector, a polling loop — is already not a trigger. A separate prohibition
-  would be an ungrounded requirement restating what the enumeration settles.
+- **P0-D-7 — FR-O5 is stated as a requirement, not left to FR-O1's list.** An
+  earlier draft deleted it, reasoning that FR-O1 enumerates the triggers
+  exhaustively so a timer is already excluded. That reasoning is false in both
+  directions: FR-O1's list contains an event that is not a whisper trigger
+  (session start) and omits two the oracle acts on (`StopFailure`,
+  `SubagentStop`). Phase 0 is also the first phase with a warm background
+  service (C-2), which is exactly what makes a timer possible. The prohibition
+  is therefore load-bearing and is stated. Grounding is a judgment, not a cited
+  standard: an unbidden whisper on a timer is an interaction channel the owner
+  has never approved, and every approved channel in `RETHINK.md` §6 is a
+  response to something the agent did.
+
+- **P0-D-8 — The corpus floor is a separate requirement from the evidence
+  floors.** An earlier draft deleted it as redundant with FR-A5b. It is not:
+  FR-A5b is evaluated per co-change pair, and a thin corpus produces pairs with
+  high support and perfect confidence. The floors filter weak *pairs*; nothing
+  else filters a weak *history*, and a first run on a shallow clone is where
+  the tool's credibility is set (`RETHINK.md:227–229` on passive value; the
+  first-impressions concern the v1 spec records as FR-A7).
 
 ## 12. Acceptance criteria
 
@@ -384,6 +408,13 @@ real project without incident.
   latency budget.
 - **AC-2 (silence → FR-A1, FR-A3, `[P0-D-5]`)** — Replaying a recorded session of
   routine events produces whispers on at most 10% of events.
+- **AC-2b (marginal value → FR-A5a, FR-A4)** — Two replays of the same event
+  over the same store. In the first, the fact the oracle would whisper is
+  already in the consumer's read set for that session: the oracle stays silent.
+  In the second it is not: the oracle speaks. This is the only criterion that
+  tests the mission's own clause — that the fact be one the agent almost
+  certainly does not already have — rather than testing that a genre fires.
+
 - **AC-3 (no deny → FR-O4, FR-O4a, FR-O3)** — No shim code path can return a
   blocking decision; induced service failure and induced timeout each yield
   silence and an unimpeded agent; a `Stop` carrying `stop_hook_active: true`
