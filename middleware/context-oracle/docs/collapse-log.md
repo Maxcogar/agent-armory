@@ -642,3 +642,67 @@ session had already logged the lesson it violated. The mechanism is working — 
 kills came from the adversarial pass, not from Max Cogar — but the authoring side
 is not learning within a session from entries it wrote hours earlier. Dispatch the
 hunt *before* writing into the spec, not after.
+
+## 2026-08-01 — a separate Phase 0 spec: solving the half that was never broken
+
+**Caught by the independent collapse-hunt** (`docs/reviews/2026-08-01-collapse-hunt-phase0-spec-draft.md`,
+19 findings, 6 structural). Third killed artifact in one session. The file was
+deleted the day it was written.
+
+**What collapsed.** A new `docs/specs/spec-context-oracle-phase0.md`, justified by
+the claim that the 2026-07-31 fix was half-applied — the collapse log named
+*"specifying and architecting"* Phases 1 and 2 twice, and only the architecting
+half was fixed.
+
+**The question that killed it:** *"Name the file from which a Phase 1 requirement
+was removed."* None. The defect the 2026-07-31 entry names is **specifying Phases 1
+and 2 against nothing** — a defect located entirely in the Phase 1/2 material.
+Re-stating **Phase 0** in a second file does not touch it. Net movement against the
+defect: zero. Net duplication: one full requirement set, of the half that survived
+every review round.
+
+**Class: wrong-check.** The quote was accurate and the inference from it was
+backwards.
+
+**The remedy was already written, and had been read.** `STATUS.md`, step 1 of the
+2026-07-31 entry: *"Work out which requirements belong to Phase 0 … Write those
+tags into the spec, so the boundary is settled once, in the spec, and can be
+checked."* The killed document's own requirements section **is** a phase-tag list —
+exported to a separate file that then needs a precedence rule it does not have. The
+agent had read that STATUS step at the start of the session and summarised it to
+Max Cogar.
+
+**Standing lessons:**
+
+1. **When a defect is named as "X was done twice", the remedy removes one of the
+   two — it never adds a third.** Before writing a new document, name what the
+   existing documents lose. If the answer is "nothing", the new document is a
+   duplicate no matter how well it is written.
+2. **A new spec needs a precedence rule against the old one, in writing, before its
+   first sentence.** This draft said "the parent text governs" in one section and
+   overrode the parent in two others. `CLAUDE.md`'s information policy predicted
+   exactly this ("the two diverge and nothing tells you which is current"); it took
+   one document to arrive.
+3. **Reading a lesson is not inheriting it, and the interval is now hours.** The
+   draft declared a bar term missing without reading the line that defines it
+   (`architecture:1059–1060` — *"For the mechanical Lane 1 genres (no model)
+   `materiality` defaults to the genre's base weight"*), which is the standing
+   lesson logged **earlier the same day** for the same failure. Same for the
+   measurement contradiction: §9.2's *"by the distiller"* was read; §6.3's
+   *"`status` (health metrics §9.2…)"* and NF-2's *"measured and reported by
+   `ctxoracle status`"* were not, and `status` is Phase 0.
+4. **An "open questions" heading does not launder a decision.** The draft stated
+   *"Phase 0 ships the full bar"* in bold inside the section headed "Open questions
+   this spec cannot close."
+
+**What survived and is kept:** Phase 0 is not degraded mode (re-verified). And
+FR-X6 is Phase 0 by necessity, because Phase 0 emits whispers and FR-X6 applies to
+every whisper — which **corrects a finding of record** in the preceding hunt, whose
+closing section stated Phase 0's component list has no FR-X6 whisper log.
+
+**Session tally, recorded because the rate is the finding.** Three artifacts
+written, three killed, all by the adversarial pass rather than by Max Cogar. The
+mechanism is working. The authoring side is not learning within the session from
+entries it wrote hours earlier — twice it declared something missing without
+reading the file, after writing the lesson against exactly that. The dispatch-first
+order was adopted only on the third attempt.

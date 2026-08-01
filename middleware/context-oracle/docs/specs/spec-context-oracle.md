@@ -864,14 +864,25 @@ exclusive-purpose claim, was undecidable on its own materials, and supplied a
 build-plan-level exclusion lever of exactly the form the preceding hunt had spent
 fourteen findings removing.
 
-**The discovery that blocks the question, and is a defect in this section
-independent of that draft:** *no Phase 0 component computes either metric Phase 1's
-exit names.* §9.2's metrics are *"Measured from the FR-X6 log by the distiller"*
-(§9.2), uptake detection is the distiller's, and the distiller is **Phase 2**
-(§12 below). Phase 1's exit — *"measured silence and hit rates reviewed against
-the bar"* — therefore depends on a Phase 2 component. Until that is resolved,
-"which measurements must Phase 0 produce" has no answer, and any membership rule
-derived from it rests on nothing.
+**This spec contradicts itself on who computes the health metrics, and it blocks
+the question above.** §9.2 says its metrics are *"Measured from the FR-X6 log **by
+the distiller**"*, and the distiller is Phase 2. But §6.3 assigns `status` the
+*"health metrics §9.2"*, NF-2 says session token overhead is *"measured and
+reported by `ctxoracle status`"*, and `status` is Phase 0. Two sections give the
+job to a Phase 0 component and one gives it to a Phase 2 component.
+
+*(Corrected 2026-08-01, same day. This paragraph first stated flatly that "no
+Phase 0 component computes either metric Phase 1's exit names," reasoning only
+from §9.2 and never reading §6.3 or NF-2 — the third instance in one day of
+recording something as missing without reading the file it was said to be missing
+from. The narrower live question is what remains below.)*
+
+**What is genuinely unresolved:** hit rate needs an uptake predicate evaluated per
+delivered whisper, and no section assigns that recording to any phase. Silence
+rate, latency and token overhead need only data §12's Phase 0 components already
+produce (FR-M1's outcome-per-event log; FR-X6's whisper log, which applies to
+every whisper and is therefore Phase 0 by necessity, since Phase 0 emits
+whispers).
 
 **What settling this requires** (recorded as the shape of the work, not as a
 decision): the specific measurements Phase 0 must emit, each named with the

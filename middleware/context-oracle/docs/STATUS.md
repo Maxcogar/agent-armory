@@ -51,21 +51,37 @@ drafted and written into the spec; the independent pass returned **seventeen
 findings** and it was removed the same day
 (`docs/reviews/2026-08-01-collapse-hunt-phase0-purpose.md`).
 
-**What it found on the way is the real result of this session:** *nothing in
-Phase 0 computes the measurements Phase 1 is waiting for.* The thing that computes
-them — the distiller — is **Phase 2**. So Phase 1 is gated on a Phase 2 component.
-That contradiction was already in the spec before today and it is now the thing
-blocking everything else: until it is settled, "what must Phase 0 produce" has no
-answer, and any rule for what goes in Phase 0 rests on nothing.
+**A third attempt was also killed.** I then wrote a separate Phase 0 spec, on the
+reasoning that your 07-31 question — *"3 phases in one spec. WHY?"* — had only ever
+been half-answered. The hunt asked the one question that settles it: *name the file
+from which a Phase 1 requirement was removed.* None. The problem you found was that
+Phases 1 and 2 were being **specified against nothing**; writing Phase 0 out again
+in a second file does not touch that, and creates a second place where
+requirements live. Nineteen findings. The file is deleted, and the real remedy
+turns out to be the one already written here on 07-31 — tag each requirement in
+the spec with the phase it belongs to.
+
+**A correction I owe you on the last thing I told you.** I reported that Phase 1 is
+gated on a Phase 2 component and called it the session's real finding. That was
+overstated, and I got it the same way as the other two: by reading one section and
+not the two that answer it. §9.2 does say the distiller measures the metrics — but
+§6.3 gives `ctxoracle status` the *"health metrics §9.2"*, NF-2 says overhead is
+*"measured and reported by `ctxoracle status`"*, and `status` is Phase 0. The spec
+contradicts itself about who computes them; it does not straightforwardly gate
+Phase 1 on Phase 2. What is genuinely unassigned is narrower: recording whether a
+whisper was acted on. That is real, and it is still step 1 — but it is a smaller
+thing than I told you.
 
 **What is next, concretely, in order:**
 
-1. **Settle the measurement contradiction.** Write the list: each measurement
-   Phase 0 must emit, the component that computes it, where it is stored, and
-   which later decision it unblocks. If the honest answer is that Phase 0 needs a
-   piece currently assigned to Phase 2, move that piece — with the reason
-   recorded. This is a list, not a rule; the previous two attempts both failed by
-   writing a rule first.
+1. **Settle who computes the health metrics, then write the list** — each
+   measurement Phase 0 must emit, the component that computes it, where it is
+   stored, and which later decision it unblocks. Read §6.3 and NF-2 alongside §9.2
+   first; the answer may already be in the spec. This is a list, not a rule: three
+   attempts failed this session by writing a rule ahead of its premises.
+1b. **Tag every requirement in the spec with its phase** (the 07-31 step, still
+   undone). This is what makes the Phase 0 boundary checkable, and it is what the
+   deleted document was reaching for by the wrong route.
 2. **Fix the bar (finding R4-4).** The tool's measure of whether a fact is worth
    saying has three terms, and one of them — how easily the agent could have got
    the fact itself — is deleted in exactly the mode Phase 0 was set to run in.
