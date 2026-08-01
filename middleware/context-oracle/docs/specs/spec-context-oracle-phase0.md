@@ -98,8 +98,6 @@ No other external source is cited, because no requirement below depends on one.
   the capability and accepts its turn cost. The hooks contract confirms
   `stop_hook_active` exists and that a continuation cap exists; this requirement
   bounds the oracle to one and does not depend on the cap's value.
-- **FR-O5** — Whisper opportunities are harness event boundaries only, never
-  timers or idle detection. `RETHINK.md:183–186`.
 - **P0-1** — `StopFailure` is observation-only: recorded, never delivered on. The
   hooks lifecycle lists it as a once-per-turn event alongside `Stop`.
 - **P0-2** — Session state is keyed per consumer from the first implementation,
@@ -108,7 +106,7 @@ No other external source is cited, because no requirement below depends on one.
   model built for one consumer cannot acquire a second without being rebuilt.
 - **FR-K1** — A structural index: files, symbols, import and reference edges,
   directory topology, generated/vendored/build-output zones, test topology, and
-  per-region verification commands. Incremental. `RETHINK.md` §4 Tier 2.
+  per-region verification commands. Incremental. `RETHINK.md:130–132`.
 - **FR-K2** — A co-change graph mined from git history at file and symbol
   granularity. Two mining rules are requirements, not options, both from
   Zimmermann et al. 2005: transactions affecting more than 30 entities are
@@ -121,7 +119,8 @@ No other external source is cited, because no requirement below depends on one.
 - **FR-K6** — Every record carries provenance — a `file:line` span, a commit
   hash, a dated human statement, or a learned-record reference — and a trust
   label separating repository-derived text from human-stated origin. Records
-  without provenance are unrepresentable. `RETHINK.md` §4.
+  without provenance are unrepresentable. `RETHINK.md:77–78`: provenance exists
+  *"so the agent can weigh and verify"* the claim.
 - **FR-K7** — Staleness never blocks and never spams: a stale index lowers
   confidence, usually to silence, and triggers background refresh.
 - **FR-K8** — Stores are per-repository and per-user, both outside the repository
@@ -156,7 +155,8 @@ path *can* issue a permission decision.
 - **FR-A1** — Per event the oracle answers internally: given what the agent is
   doing now, do I know something it almost certainly does not that would change
   what it does next? Default answer no → silence. Answered deterministically in
-  Phase 0. `RETHINK.md` §5.
+  Phase 0. `RETHINK.md:170`: *"do I know something it almost certainly doesn't
+  that would"* change what it does next.
 - **FR-A2** — At most one whisper per event, within a per-session injected-token
   budget. Warnings get priority within the budget, never exemption from it.
   `RETHINK.md:175–176`.
@@ -182,9 +182,11 @@ path *can* issue a permission decision.
   would make the genre unable to fire while AC-5 requires that it does. `[P0-D-3]`
 - **FR-D1** — Whisper format: `[oracle]` prefix, genre tag, confidence tag when
   below high, a claim of one to five sentences, at least one verifiable pointer,
-  optionally a one-line "so what". `RETHINK.md` §6.
+  optionally a one-line "so what". `RETHINK.md:187–188`: *"one topic, one to five
+  sentences, always with a verifiable pointer (`file:line`, commit)"*; `:195`:
+  *"every whisper carries a stable prefix (e.g. `[oracle]`)"*.
 - **FR-D2** — Informative, never imperative: facts and consequences, never
-  commands. `RETHINK.md` §6.
+  commands. `RETHINK.md:193–194`.
 - **FR-D3** — Warning subtype: ⚠ marker, the mechanical evidence, the concrete
   consequence, and an explicit false-fire clause inviting correction. Never a
   block. `RETHINK.md:314–323`, decision 3: *"Every intervention, including
@@ -282,7 +284,8 @@ credential handling do not arise here. They return with Phase 1.
 - **NF-3** — Indexing is incremental after first build.
 - **P0-7** — Ceremony count is zero: the agent is never required to produce any
   oracle-specific format, tag, file or request, and an oracle-unaware agent gets
-  full value. `RETHINK.md` §2.5, §7.
+  full value. `RETHINK.md:227–229`: *"This is symbiosis, not ceremony …
+  oracle-unaware agent still gets full passive value."*
 - **C-1** — Cold-container ready: installs and indexes with no native toolchain,
   no prebuilt-binary download, and no network access beyond what the harness
   already has. `RETHINK.md:324–327`, decision 4, requires sandbox compatibility.
@@ -292,7 +295,8 @@ credential handling do not arise here. They return with Phase 1.
 - **C-2** — Session state persists warm across hook invocations with sub-second
   access; cold-starting per event cannot meet NF-1.
 - **C-3** — Harness-specific knowledge lives in the shims; the service speaks a
-  harness-neutral event contract. `RETHINK.md` §11.
+  harness-neutral event contract. `RETHINK.md:291`: *"Thin hook shims: forward
+  harness events to the daemon; relay whispers."*
 - **C-4** — `ctxoracle init` is explicit and minimal — wire hooks, create the
   out-of-tree store, nothing else — and `deinit` removes the wiring cleanly.
   Passive auto-bootstrap into a project tree is prohibited.
@@ -346,6 +350,13 @@ path.
   with fewer than two co-change observations cannot clear suggestion-grade, and
   fewer than three cannot clear warn-grade. A second configurable minimum would
   be an ungrounded knob doing work the floors already do.
+
+- **P0-D-7 — There is no separate "never on a timer" requirement.** An earlier
+  draft carried one, citing `RETHINK.md` for a rule that is not there; its real
+  source was a paper this document does not use. FR-O1 enumerates the oracle's
+  triggers exhaustively, so anything absent from that list — a timer, an idle
+  detector, a polling loop — is already not a trigger. A separate prohibition
+  would be an ungrounded requirement restating what the enumeration settles.
 
 ## 12. Acceptance criteria
 
