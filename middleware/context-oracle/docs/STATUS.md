@@ -59,6 +59,40 @@ the 2026-07-31 entry in `docs/collapse-log.md`.
   duplicate is removed. **This file is the state of record.** Handoffs describe
   what a session did; they do not set state.
 
+**Open findings — 32 from round 4, triaged against the Phase 0 re-scope.** The
+tripwire fired before these were applied, so all 32 are open. They were recorded
+only inside the two round-4 review files, which is a pointer, not tracking — and
+the re-scope changes which of them still matter. Triage by the decision each one
+targets:
+
+**Bears on Phase 0 — must be resolved during the Phase 0 assembly (12):**
+
+| # | What it blocks |
+|---|---|
+| R4-4 | D20 deletes `self_serve_cost` in degraded mode — so **Phase 0 ships the exact bar round 2 collapsed**, with no term for what the agent could get itself |
+| R4-6 / R4-C3 | Coupling's grounding pointer (`commit hash`) does not exist in the schema and D17 refuses to store it — **blocks AC-1 and AC-6, both Phase 0 exits** |
+| R4-5 / R4-C11 | Orientation's landmine arm marked "no v1 writer" when D18 names two, one built for Phase 0 — and the `genre_dark` check it defers to does not exist |
+| R4-C7 | Verification's bound fact cites test-topology mining D16 does not do; on a single-package repo it maps everything to one command |
+| R4-C13 | Completeness lost FR-A2's free `edit-completed` trigger, so its whole output now spends a turn |
+| R4-C10 | Answer-drift was moved into Phase 0 in a table note, contradicting spec FR-J3 and §12 |
+| R4-3 / R4-C14 / R4-C6 | D24's write classes do not enumerate every table, and the anti-ratchet's only evidence sits in the droppable class |
+| R4-C1 | The FR-A5 evidence floor's applicability to the generated-file warning is undecided — blocks AC-5, a Phase 0 exit |
+| R4-C2 | `self_serve_class` asserted per genre for a per-candidate function |
+| R4-1 | `prov_kind` pointer shape stated two incompatible ways (the D6 half is Phase 0 schema) |
+| R4-9 | **Systemic, fifth round** — cross-references certifying what their targets do not carry. A process defect, not a Phase defect; it applies to whatever gets written next |
+| R4-C4 | Warning's uptake predicate measures compliance, inverting the rule it cites (Warning is a Phase 0 genre) |
+
+**Phase 1 or 2 — deferred until those phases are architected (20):** R4-2, R4-7,
+R4-8, R4-10, R4-11, R4-12, R4-13, R4-14, R4-15, R4-16, R4-C5, R4-C8, R4-C9,
+R4-C12, R4-C15, R4-C16, and the Phase-1 halves of R4-1, R4-3, R4-C1, R4-C14.
+These target the judgment core, the conduct genres, the learning loop and D10a —
+none of which Phase 0 contains. **Deferred is not closed.** They return when
+Phase 1 is architected, against measurements that exist by then.
+
+*(R4-7 and R4-8 — the Spike 1 evidence and the D11 timeout — were corrected in
+place during this session; they are listed as deferred because D11 itself is
+Phase 1, not because the corrections are pending.)*
+
 **What survives.** Your decisions in RETHINK; the spec's Phase 0 material; the
 store design, the event contract, the shim, the indexer, the security scanner and
 the repo-identity mechanism — several held up under reviewers actively trying to
