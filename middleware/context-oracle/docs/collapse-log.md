@@ -478,3 +478,78 @@ compared to.
 decision 12 and from spec [OWNER-12], each with an in-place correction note; the
 2026-07-30 entry above corrected in place; the Phase 0 scoping recommendation
 re-derived without it (see `docs/STATUS.md`).
+
+## 2026-08-01 — the Phase 0 genre cut: filtering a bar's job through the build plan
+
+**Caught by the independent collapse-hunt, not by the owner** — the mechanism
+working as designed, one turn after the entry above records it failing. Fourteen
+findings; the proposal did not survive.
+
+**What collapsed.** A proposal to cut Phase 0's genre set from five (spec §12's
+reference to FR-J3) to three — coupling, generated-file warning, completeness —
+deferring orientation and verification to "a later phase."
+
+**The question that killed it (F9):** *"R4-4 says Phase 0's bar has no
+`self_serve_cost` term. Your orientation deferral argues its structural arm is
+'trivially self-serveable' — a `self_serve_cost` argument. So either R4-4 is
+fixed, and the bar filters that arm per candidate at runtime, making the deferral
+unnecessary; or R4-4 is not fixed, and Phase 0 has no term that can express your
+argument at all. Both branches remove the deferral."*
+
+**Class: reduction**, with **wrong-check** underneath.
+
+**The generalisable lesson — a bar suppresses, a build plan deletes.**
+`decision-impact = materiality × structural_weight × self_serve_cost`
+(architecture D10, verified at `docs/architecture-context-oracle.md:1098`), and
+`self_serve_cost` is *"deterministic and derived from the fact's own provenance
+class"* — it needs no model, so it is fully available in Phase 0. Every cut in
+the proposal was a materiality judgment: this content is too easy for the agent
+to get itself. That is exactly what the bar computes, **per candidate, at
+runtime, tunably**. Making it at build-plan level instead makes it permanent,
+per-genre, and — worst — unmeasurable, because a genre that never ships produces
+no data with which to revisit the call. R4-C2 already collapsed the per-genre
+reading of `self_serve_class`; this proposal committed the same error one layer
+up, where the consequence does not expire.
+
+**Standing lesson.** *When the argument for excluding something is that it isn't
+worth saying, that is a bar argument, not a scope argument.* Route it to the
+mechanism that decides worth per instance and can be re-tuned from measurement.
+Cutting at build-plan level converts a tunable runtime judgment into an
+irreversible one and destroys the evidence needed to revisit it. **The tool
+getting quieter is not the tool getting smaller.**
+
+**Three further errors worth inheriting:**
+
+1. **A false premise that had already been caught once (F7).** The proposal
+   deferred orientation on the grounds that D18's landmine writer is
+   unspecified. D18 names it: *"v1's only writers are `human_facts` promotion
+   … and the literal-match landmine path for orientation"*
+   (`architecture-context-oracle.md:2169`), and Lane 1 carries *"prompt →
+   structural entry points + literal landmine matches (orientation)"* (`:1037`).
+   `STATUS.md` records this exact error being made, caught, and corrected on
+   2026-07-31 — and the author had read that correction earlier in the same
+   session before restating the error. **Reading a correction is not inheriting
+   it.** Re-derive from the source the correction points at, not from the
+   memory of having read the correction.
+2. **A deferral with no destination is a descope (F1).** Spec §12's Phase 1 and
+   Phase 2 lists contain neither orientation nor verification, so "defer to a
+   later phase" named a phase that does not exist. D10a's standard for an honest
+   gap is a live genre with deferred *content* and a named filling condition
+   (`:1363`). Sequencing is the agent's call; scope is the owner's — a deferral
+   without a destination silently converts one into the other.
+3. **Acceptance-criterion coverage was used to define scope (F2).** Only AC-1
+   and AC-5 name a genre among Phase 0's nine exits — true, and verified. But
+   criteria verify requirements; requirements define scope. Thin AC coverage is
+   a finding against the AC set. The proposal also applied the rule
+   asymmetrically, keeping completeness, which fails the same test.
+
+**What survived the hunt, and is now better evidenced.** Phase 0 is **not**
+degraded mode. Degraded mode is a runtime fallback for an unreachable model path
+(FR-J3, D20); Phase 0 is a build stage where the model layer does not exist yet.
+Spec §12 fuses them (*"Degraded mode is the product at this phase"*) while
+placing AC-10, the criterion that verifies degraded mode, in Phase 2. The
+architecture's own build order corroborates the split: all Lane 1 genres complete
+at step 7 and the Phase 0 exit falls at step 8, while D20's degraded state
+machine is step 9 — *after* the exit (`:2704`–`:2709`). The consequence to settle
+is F8's: de-equating them leaves FR-J3's air-gap guarantee (RETHINK §12 decision
+2) with no phase assigned.

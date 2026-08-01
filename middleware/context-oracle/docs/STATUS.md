@@ -3,6 +3,76 @@
 *Plain-language project status, updated at the end of every working
 session. Newest entry first.*
 
+## 2026-08-01 — two inherited premises came apart; no genres are being cut
+
+**Where the project is.** Still design phase, no code. Nothing was built this
+session. What changed is that three things every recent session had been treating
+as settled turned out not to be, and the next step moved because of it.
+
+**What you corrected, and what it cost.** `RETHINK.md` recorded your ruling that
+the oracle should speak when an agent claims it's done. Around your actual words,
+an agent had written that this is *"the single highest-value moment the oracle
+has"* and *"the core problem the tool exists to solve."* Neither is yours. By the
+time you caught it, it had spread to the spec, into the collapse log, into a
+review pass that quoted it back as the standard it was reviewing against, and
+into this session, where it was the argument for a decision about what the first
+buildable version contains. All fixed, your words preserved, with a standing rule
+now written down: no ranking claim about this tool's purposes or genres enters any
+document unless you said it in those words. The lesson is that a superlative
+placed in a *rationale* survives review, because reviewers check decisions against
+sources and read rationale as prose. Four rounds read that line.
+
+**Phase 0 is not degraded mode.** Degraded mode is what the tool does when it
+can't reach the model at runtime. Phase 0 is the stage where that half isn't
+built yet. The spec had fused them — and then put the test that verifies degraded
+mode in Phase 2, which is the contradiction that gives it away. This matters
+practically: as written, the first running version would have raised its own bar
+to compensate for a model that was never meant to be there, announced "degraded
+mode" to you when nothing had degraded, and produced its measurements against a
+handicapped setting — and those measurements are what every later phase is tuned
+from.
+
+**A proposal was tried and killed.** The idea recorded here on 2026-07-31 —
+narrow the first version to two genres — was worked out properly, came out as
+three, and was then destroyed by the independent adversarial pass, which returned
+fourteen findings. It was the reduction pattern again: every argument for cutting
+a genre was really an argument that its content isn't worth saying, and *that is
+the confidence bar's job*, computed per whisper and tunable from data. Deciding it
+in the build plan makes it permanent and unmeasurable. Two of the three cuts also
+rested on premises that were false or incomplete — one of them an error this file
+had already caught and corrected a day earlier. **No genre is being cut.** The
+mechanism worked as designed here: the hunt caught it, not you.
+
+**What is next, concretely, in order:**
+
+1. **Fix the bar (finding R4-4).** The tool's measure of whether a fact is worth
+   saying has three terms, and one of them — how easily the agent could have got
+   the fact itself — is deleted in exactly the mode Phase 0 was set to run in.
+   Restore it. Most of what the killed proposal wanted then happens automatically,
+   per whisper, at runtime.
+2. **Separate Phase 0 from degraded mode in the spec**, and give FR-J3's
+   air-gap guarantee a phase of its own — it is a real promise (your decision 2)
+   and currently no phase builds it.
+3. **Derive Phase 0's genre set instead of inheriting it.** One table: does the
+   genre need the model, does its store table exist yet, is its trigger
+   available, what does delivering it cost. Then reconcile against the spec.
+   Two memberships are contested and must be settled rather than assumed —
+   consequence, and answer drift.
+4. **Then** the remaining Phase 0 findings, then the Phase 0 architecture, then
+   review, plan, build, and **run it**.
+
+**What is broken or unknown.** The 32 round-4 findings are still open; the twelve
+Phase 0 ones are listed in the 2026-07-31 entry below and that triage still
+stands. The architecture document is still not signed off and is not a base to
+edit — Phase 0 gets its own document. Nothing has ever been run, so every number
+the later phases depend on is still unmeasured.
+
+**Nothing needed from you.** One thing you may want to rule on when convenient:
+`RETHINK.md` line 112 calls the co-change graph *"the single highest-value
+signal."* That is a ranking of signals rather than of purposes, so the new rule
+doesn't reach it — but it is the sentence a future session would cite to argue
+coupling is the genre that matters. Say the word and it goes.
+
 ## 2026-07-31 — the fix cycle is over; next is a Phase 0 requirement set
 
 **Where the project is.** Still design phase, no code — and the architecture
