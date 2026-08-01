@@ -1076,6 +1076,34 @@ FR-L1, §12 and §13 against each other. Each blocks something named.*
   deciding it constitutes uptake of a given whisper are different acts, and the
   two documents place them in different phases. **Blocks hit rate**, which is
   named in Phase 1's exit — so it blocks that exit's meaning.
+
+  **One route to answering this is closed; recorded so it is not re-walked.** It
+  is tempting to argue that Phase 0 already holds the detector, because FR-A4
+  forbids repeating what the agent has *"visibly acted on"* and the architecture
+  notes the subject key *"already exists for FR-A4 dedup"*. That argument fails,
+  and it fails on the substance rather than on a technicality. FR-A4's arm
+  resolves, through its own `[RETHINK §5]` citation, to *"never repeat a whisper
+  whose content the agent has visibly incorporated (**opened the pointed file,
+  used the named helper**)"* — and that is precisely the detector the architecture
+  **rejected**, on the grounds that it *"scores the tool's best outcome as a
+  failure: an agent told there is a second write-site, which then edits it
+  directly … never opens the file the pointer named."* The replacement predicate
+  is the whisper's subject being edited, tested or referenced *by any route*.
+  FR-A4 and uptake share a subject key and a source sentence, and are opposite
+  tests: one asks *has the agent already got this* (so stay quiet), the other asks
+  *did the agent take this* (so score it). **Establishing FR-A4 in Phase 0 does
+  not establish hit rate.** What Phase 0 can compute in-session is a
+  *pointer-followed rate*; if that is ever wanted, it is named as such and routed
+  through the architecture's existing "no uptake detector — hit rate not
+  measured" path, never reported as hit rate.
+
+- **Phase 1's exit states no pass condition** (§12): it reads *"measured silence
+  and hit rates reviewed against the bar"* — no threshold, no genre scope, no
+  observation window, and no named reviewer. Every other phase exit resolves to
+  acceptance criteria, and AC-2 shows what a stated condition looks like
+  (*"at most 10% of events"*). Settling uptake's phase does not fix this; it only
+  makes it visible. **Blocks Phase 1's exit from being checkable at all**, which
+  is a larger gap than the item above.
 - **FR-J3 has no phase** (§12): neither Phase 0, 1 nor 2 names it, while
   `[OWNER-2]` and RETHINK §12 decision 2 (*"a deterministic-only degraded mode
   remains mandatory for true air-gap"*) make it a v1 obligation. Compounding it,

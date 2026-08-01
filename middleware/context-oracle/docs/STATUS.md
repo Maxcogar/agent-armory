@@ -94,16 +94,37 @@ row the whole change existed to establish. The idea is right and still owed; tha
 execution asserted verification that does not exist, which is the thing this
 project treats as worse than no work at all.
 
+**One route to hit rate is now closed, on the substance.** The obvious move is to
+say Phase 0 already has the detector, because FR-A4 forbids repeating what the
+agent has *"visibly acted on"*. It doesn't work, and it's worth knowing why: that
+phrase resolves to *"opened the pointed file, used the named helper"* — which is
+exactly the test the design **threw out**, because it scores the tool's best
+outcome as a failure. An agent told there's a second write-site, which then goes
+and edits it directly, never opens the file the whisper pointed at. FR-A4 and
+uptake share a key and a sentence and ask opposite questions: *has the agent
+already got this* versus *did the agent take this*. This is written into §14 so
+the next session doesn't spend a pass rediscovering it.
+
+**And a bigger thing turned up behind it.** Phase 1's exit reads *"measured
+silence and hit rates reviewed against the bar."* There is no number in it — no
+threshold, no window, no scope, nobody named to do the reviewing. Every other exit
+in the spec resolves to a testable criterion. So even if the uptake question were
+settled tomorrow, Phase 1 still could not be exited, because there is nothing
+there to pass. That is the larger gap and it is now recorded.
+
 **What is next, concretely, in order:**
 
-1. **Settle where uptake detection lives** — Phase 0 alongside the recording, or
-   Phase 2 with the distiller. Everything about hit rate follows from it, and
-   Phase 1's exit is written as if the answer were already Phase 0.
-2. **Rebuild the per-requirement phase table** (the 07-31 step, still owed). Build
-   the "verified by" column mechanically from §13, and write `— none` where a
-   requirement has no criterion, because that is the true and useful answer: §14
-   now records that FR-L1, FR-X6, FR-O1, FR-K1, NF-2 and four of five constraints
-   have no criterion at all.
+1. **Give Phase 1's exit a pass condition** — or accept that Phase 1 has no exit.
+   This outranks the uptake question, because it is what the uptake question was
+   in service of.
+2. **Settle where uptake detection lives**, knowing the FR-A4 route is closed:
+   either the distiller keeps it and Phase 0 reports a *pointer-followed rate*
+   under its own honest name, or detection moves and the cost of moving it is
+   stated. Not a naming question — the two measure different things.
+3. **Rebuild the per-requirement phase table** (the 07-31 step, still owed), with
+   the "verified by" column built mechanically from §13 and `— none` written
+   wherever a requirement has no criterion. That is the true answer for FR-L1,
+   FR-X6, FR-O1, FR-K1, NF-2 and four of the five constraints.
 2. **Fix the bar (finding R4-4).** The tool's measure of whether a fact is worth
    saying has three terms, and one of them — how easily the agent could have got
    the fact itself — is deleted in exactly the mode Phase 0 was set to run in.

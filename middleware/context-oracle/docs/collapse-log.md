@@ -773,3 +773,74 @@ continuation count. **Hit rate is not established** — FR-L1 records uptake
 *evidence*, the architecture assigns uptake *detection* to the distiller, and
 those are different acts in different phases. That question, not the genre set, is
 what Phase 1's exit currently rests on.
+
+## 2026-08-01 — the same key, the same sentence, opposite tests
+
+**Caught by the independent collapse-hunt, before a word was written into any
+document.** Fifth pass of the day and the first run in the right order: the claim
+was attacked as a proposition, so nothing had to be deleted afterwards.
+
+**The proposition.** That uptake detection is already a Phase 0 obligation, because
+FR-A4 forbids repeating what the agent has *"visibly acted on"*, and the
+architecture's own uptake decision notes in passing that *"the subject key already
+exists for FR-A4 dedup"*. If true, hit rate would be available in Phase 0 and
+Phase 1's exit would be unblocked.
+
+**The question that killed it:** *"Step 9b names FR-L1's detector by its clauses
+and rejects it. FR-A4's 'visibly acted on' is that same clause list, from the same
+RETHINK sentence. So which predicate does Phase 0 already have — the one 9b
+rejected, or the one 9b specified?"*
+
+The rejected one. FR-A4's arm resolves through its `[RETHINK §5]` citation to
+*"opened the pointed file, used the named helper"* — verbatim the detector the
+architecture threw out because it *"scores the tool's best outcome as a failure:
+an agent told there is a second write-site, which then edits it directly … never
+opens the file the pointer named."* The replacement is *"subject … edited, tested,
+or referenced by any route … **not only the pointer being followed**"* — an
+explicit rejection of the very arm the proposition offered as its machinery.
+
+**Class: wrong-check.**
+
+**Standing lesson.** *A requirement and a metric can share a predicate's name, a
+subject key, and the same source sentence, and still be opposite tests* — because
+one asks **"has the agent already got this?"** (and suppresses) while the other
+asks **"did the agent take this?"** (and scores). Sharing the key is not sharing
+the detector, and the detector one of them **rejects** may be exactly the detector
+the other **requires**. When a derivation turns on two requirements "using the same
+machinery", check the direction of the test, not just the identifier.
+
+**Two corollaries worth inheriting:**
+
+1. **A stated limitation is a bound only when it is independent of the decision it
+   feeds; otherwise it is a hedge.** "Hit rate, in-session uptake only" sounds
+   honest. But in-session detection systematically undercounts exactly the
+   stop-class genres — Completeness and Verification fire at the last observable
+   moment — and the number's declared use is *per-genre admission*. A limitation
+   correlated with the decision it informs is the hollowness `CLAUDE.md` warns a
+   hedge carries to the owner.
+2. **A nullable column is evidence about write ordering, not about which phase
+   writes it.** `whisper_log.uptake` is null at insert because the row is written
+   before delivery and uptake is unknowable at that instant. The previous hunt
+   read it as "the shape of a deferred writer" and this one corrected that. What
+   *is* real evidence: the write has no durability class in D24 at all, which is
+   open finding R4-C6.
+
+**What the hunt established, and it is worth having.** Phase 0 can detect,
+in-session, that this consumer opened a pointed file or used a named helper — a
+derivation, not a spec statement, whose only acceptance criterion is a Phase 1
+exit. That is a **pointer-followed rate**, not hit rate, and naming it correctly is
+the whole point.
+
+**The larger finding, which nothing recorded.** Phase 1's exit — *"measured
+silence and hit rates reviewed against the bar"* — states **no pass condition**:
+no threshold, no genre scope, no observation window, no named reviewer. Every
+other phase exit resolves to acceptance criteria; AC-2 shows what a real condition
+looks like. Settling uptake's phase would not unblock Phase 1's exit, because
+there is nothing there to satisfy. Recorded in §14.
+
+**Process note.** This was the fifth artifact of the day aimed at the same
+conclusion, and the fourth hunt had predicted it in writing: *"if detection is
+Phase 2, hit rate is still behind a Phase 2 component, and the headline conclusion
+is false the same way its two predecessors were, one layer down."* It was. The
+difference is that this time the hunt ran before the writing, so the cost was one
+subagent instead of a commit, a revert and a correction.
