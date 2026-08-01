@@ -68,6 +68,43 @@ if [ -n "$STRAY" ]; then
   requirements to the spec, design to docs/architecture-*.md."
 fi
 
+# 4. Reviews are written once and never edited — editing one destroys the closure
+#    record the next round is required to check against.
+EDITED_REVIEW="$(git diff --name-only --diff-filter=M "$BASE" 2>/dev/null; git diff --name-only --diff-filter=M 2>/dev/null)"
+EDITED_REVIEW="$(printf '%s' "$EDITED_REVIEW" | grep "^$PROJECT/docs/reviews/" | grep -v "README.md$" || true)"
+if [ -n "$EDITED_REVIEW" ]; then
+  PROBLEMS="${PROBLEMS}
+- **An existing review file was edited** ($(printf '%s' "$EDITED_REVIEW" | tr '\n' ' ')).
+  Reviews are written once and never edited — the next round's closure ledger is
+  checked against them, so editing one destroys the record it is checked against.
+  Corrections go in the NEXT round's review, not by rewriting the last one."
+fi
+
+# 5. A new review landed but no durable lesson was recorded. A review that found
+#    something generalisable and left it only in the review file means the trap is
+#    re-sprung next time — that is the collapse-log's whole job.
+NEW_REVIEW="$(printf '%s' "$NEW_DOCS" | grep "^$PROJECT/docs/reviews/.*\.md$" | grep -v "README.md$" || true)"
+if [ -n "$NEW_REVIEW" ] && ! printf '%s' "$CHANGED" | grep -q "^$PROJECT/docs/collapse-log.md$"; then
+  PROBLEMS="${PROBLEMS}
+- **A review was added but docs/collapse-log.md was not updated.** If the review
+  found nothing that generalises past its own instance, that is fine — but decide
+  it deliberately. A lesson left only in a review file is never read before
+  designing, which is how the same trap gets re-sprung."
+fi
+
+# 6. Keep documents in sync (CLAUDE.md, Engineering standard): a design change
+#    without any record of what changed or why leaves the spec and the state stale.
+if printf '%s' "$CHANGED" | grep -q "^$PROJECT/docs/architecture-"; then
+  if ! printf '%s' "$CHANGED" | grep -qE "^$PROJECT/(docs/specs/|docs/STATUS.md|docs/collapse-log.md)"; then
+    PROBLEMS="${PROBLEMS}
+- **The architecture changed, but the spec, STATUS.md and the collapse log did
+  not.** CLAUDE.md's engineering standard requires documents kept in sync: a
+  change to behaviour updates the spec, a change to scope updates §2 and §14, and
+  a design decision that collapsed belongs in the log. Silent design drift is how
+  the architecture and the spec stopped agreeing."
+  fi
+fi
+
 [ -z "$PROBLEMS" ] && exit 0
 
 MSG="[information policy — middleware/context-oracle/CLAUDE.md]
