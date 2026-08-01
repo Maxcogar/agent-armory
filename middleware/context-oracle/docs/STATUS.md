@@ -21,31 +21,58 @@ how the spec and the build phases relate to each other.
    already: exit criterion AC-2 belongs to Phase 0 but depends on the model
    judgment, which is Phase 1 and does not exist yet. Each is quick to settle
    once visible; none can be settled while invisible.
-3. **Assemble the Phase 0 architecture from the parts that already survived** —
-   not by rewriting from scratch. Those parts were attacked four times and held,
-   and several were re-run live and came out exactly right. The parts that failed
-   every round are all Phase 1 and 2, and are not needed yet.
+3. **Design the Phase 0 architecture. This is design work, not assembly.**
+   *(Corrected 2026-07-31: this step previously said "assemble from the parts
+   that already survived — those parts were attacked four times and held." That
+   was false, and it was the justification for treating Phase 0 as nearly done.
+   Round 3's own traversal table shows **four of Phase 0's five genres break**:
+   orientation at retrieval, warning at the bar, completeness at delivery,
+   verification at the bar and again at delivery. Only **coupling** survives end
+   to end. The claim came from generalising "the findings split along the phase
+   boundary" — which was about which *decisions* collapsed — into "Phase 0 is
+   solid", and never re-deriving it.)*
 
-   Carry over, re-verifying each rather than copying its text: D2 (process
-   model), D3/D4 (runtime and store engine), D5 (repo identity), D6/D7 (schemas),
-   D8 (event contract), D9 (shim), D13's mechanical/template path only, D16
-   (indexer), D17 (miner), D19 (security scanner), D21 (diagnostics), D22 (CLI),
-   D23 (config), D24 (concurrency and audit ordering), D26's Phase 0 fixtures.
-   Take D10 only in its deterministic subset — Lane 1, the candidate pool, and
-   the bar *without* the materiality term. Exclude D10's Lane 2, D11, D12, D14,
-   D15, D18's mining, D20 and D10a: all Phase 1 or 2, and all of them the
-   material that failed every round. Known open repairs the Phase 0 assembly must
-   carry are in the round-4 review files; the largest is that three tables
-   (`cochange_file_pairs`, `ref_edges`, `open_questions`) have no provenance
-   block, which blocks two Phase 0 exit criteria as written.
+   **What genuinely survived adversarial re-execution**, and can be carried
+   forward on that basis: D5 (repo identity — re-run, exact to the digit), D3/D4
+   (`node:sqlite` capabilities — executed), D24 (audit ordering — read complete
+   in both directions). Three mechanisms.
+
+   **What was never seriously attacked** — the genre traversal only began in
+   round 3, so the infrastructure decisions were reviewed for internal
+   correctness and not against the genres they serve: D2, D6/D7, D8, D9, D13's
+   mechanical path, D16, D17, D19, D21, D22, D23, D26's Phase 0 fixtures, and
+   D10's deterministic subset. **Not attacked is not verified.** Carry them as
+   drafts to re-derive, not as settled work.
+
+   **The four genre gaps, each with one nameable blocker:**
+   - *Orientation* — its landmine and invariant content has no writer until D18's
+     mining (Phase 2). What ships without it is entry points, which the agent can
+     find itself, so the bar suppresses it.
+   - *Warning* — blocked on one undecided sentence: whether FR-A5's evidence
+     floor, written for history-backed facts, applies to a genre with no history.
+     A spec decision, not a design problem. Blocks AC-5.
+   - *Verification* — needs a region→command mapping. D16 builds a command list
+     from `package.json`, which is one `Read` away and does not clear the bar.
+   - *Completeness* — lost FR-A2's free `edit-completed` trigger, so it only
+     fires at stop, where it costs a turn.
+
+   Also blocking: `cochange_file_pairs`, `ref_edges` and `open_questions` carry
+   no provenance block, which breaks AC-1 and AC-6 as written.
+
+   **Worth evaluating first, unvalidated:** coupling works today and warning is
+   one decision away. A Phase 0 of those two would be a real running tool
+   producing the measurements everything downstream waits on, without designing
+   three more genres against nothing. That is a reading of the traversal table,
+   not a conclusion any review reached — check it before acting on it.
 
 Then review it, plan it, build it, and **run it** — because everything still
 undecided is waiting on measurements only a running Phase 0 can produce.
 
 **Why the old path failed, in one line.** Everything for phases 2 and 3 was being
 designed against measurements nobody has taken, because nothing has ever been
-run — so that half of the document collapsed in every review round while the
-other half held every time. You found it, by asking why three build phases live
+run — so the *decisions* belonging to those phases collapsed in every review
+round. (Phase 0's decisions collapsed less often, which is not the same as
+holding: four of its five genres still fail traversal — see step 3.) You found it, by asking why three build phases live
 in one spec. The full account, and the lesson future sessions inherit from it, is
 the 2026-07-31 entry in `docs/collapse-log.md`.
 
