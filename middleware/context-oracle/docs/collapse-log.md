@@ -19,6 +19,45 @@ goes hollow is itself data.
 
 ---
 
+## 2026-08-01 — the Phase 0 spec, rounds 1 and 2
+
+**The fix for a finding is where the next finding is created.** In round 2 of the
+Phase 0 spec, three of the four heaviest findings were false claims the document
+made about *itself*, and each sat in the device installed the round before to close
+an earlier finding: a disposition table added to close a coverage gap was wrong in
+ten of its forty-four rows; a namespace rule added to close an identifier collision
+was broken twice in the section beneath it; a source list closed to two entries
+achieved that by deleting the requirements needing the others, leaving a test with
+no requirement behind it.
+Class: **unverified**. The generator is that a device asserting a property of the
+whole document is written once and never re-checked against the document it
+describes, while the individual requirement it was written to fix does get
+re-checked. Treat any newly-added summary, table, partition or namespace rule as
+the *first* thing the next round verifies, not the settled part.
+→ `docs/reviews/2026-08-01-round-2-expert-review-phase0-spec.md` (S1, S3),
+`docs/reviews/2026-08-01-collapse-hunt-phase0-spec-rebuild.md` (N2, N3, N4).
+
+**A quotation carried from a prior project document and re-attributed to the
+primary source reads as verified and is not.** The Phase 0 spec attributed a
+sentence about `PreToolUse` permission behaviour to the harness documentation; the
+string appears nowhere in the 242 KB reference and matched exactly one thing — the
+v1 spec, where it sits under a source tag. It entered *with* the fix for a prior
+round's finding about that same paragraph.
+Class: **unverified**. Re-deriving a fact from source means opening the source, not
+copying the sentence a sibling document attributes to it.
+→ `docs/reviews/2026-08-01-round-2-expert-review-phase0-spec.md` (S1).
+
+**A ruling about a *moment* was implemented as an *event*, and nothing recorded
+that they differ.** `[OWNER-12]` accepted the turn cost of speaking when an agent
+claims completion. `Stop` fires whenever the agent finishes responding; telling the
+two apart needs the transcript reader, deferred to a later phase. Neither spec
+recorded the contract sentence that separates them, so the accepted cost was
+silently spent at every turn boundary with no per-session bound anywhere.
+Class: **mechanism-not-mission**. When an owner ruling names a moment, record the
+mechanism that recognises that moment — and if the phase has none, say so in the
+requirement rather than letting the nearest event stand in for it.
+→ `docs/reviews/2026-08-01-collapse-hunt-phase0-spec-rebuild.md` (N1).
+
 ## 2026-07-17 — architecture session
 
 Every collapse below was found by the **owner**, not by any safeguard — the

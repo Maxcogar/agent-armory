@@ -3,222 +3,92 @@
 *Plain-language project status, updated at the end of every working
 session. Newest entry first.*
 
-## 2026-08-01 — two inherited premises came apart; no genres are being cut
+## 2026-08-01 — Phase 0 has its own spec; it has survived two review rounds and needs a third
 
-**Where the project is.** Still design phase, no code. Nothing was built this
-session. What changed is that three things every recent session had been treating
-as settled turned out not to be, and the next step moved because of it.
+**Where the project is.** Still design phase, no code. What is new is that the
+first buildable phase now has a requirement document of its own —
+`docs/specs/spec-context-oracle-phase0.md` — instead of being a slice of the v1
+spec that nobody could check. It has been rebuilt three times against independent
+review and is currently **unreviewed since the last rebuild**.
 
-**What you corrected, and what it cost.** `RETHINK.md` recorded your ruling that
-the oracle should speak when an agent claims it's done. Around your actual words,
-an agent had written that this is *"the single highest-value moment the oracle
-has"* and *"the core problem the tool exists to solve."* Neither is yours. By the
-time you caught it, it had spread to the spec, into the collapse log, into a
-review pass that quoted it back as the standard it was reviewing against, and
-into this session, where it was the argument for a decision about what the first
-buildable version contains. All fixed, your words preserved, with a standing rule
-now written down: no ranking claim about this tool's purposes or genres enters any
-document unless you said it in those words. The lesson is that a superlative
-placed in a *rationale* survives review, because reviewers check decisions against
-sources and read rationale as prose. Four rounds read that line.
+**Why a separate document, given a previous attempt at this was killed.** The
+earlier attempt failed because it copied Phase 0 out of the v1 spec, creating a
+second place where the same requirements lived. This one does not copy. It states
+what Phase 0 does, and for every one of the v1 spec's 65 requirements it records
+one of three dispositions: in force here, in force but narrowed here (with the
+narrowing written down), or deferred to a named later phase. So the two documents
+cannot drift into disagreeing without it being visible.
 
-**Phase 0 is not degraded mode.** Degraded mode is what the tool does when it
-can't reach the model at runtime. Phase 0 is the stage where that half isn't
-built yet. The spec had fused them — and then put the test that verifies degraded
-mode in Phase 2, which is the contradiction that gives it away. This matters
-practically: as written, the first running version would have raised its own bar
-to compensate for a model that was never meant to be there, announced "degraded
-mode" to you when nothing had degraded, and produced its measurements against a
-handicapped setting — and those measurements are what every later phase is tuned
-from.
+**What the review rounds found, and what it cost.** Two independent passes ran on
+each version — one checking facts and citations, one attacking whether the
+decisions actually serve the mission.
 
-**A proposal was tried and killed.** The idea recorded here on 2026-07-31 —
-narrow the first version to two genres — was worked out properly, came out as
-three, and was then destroyed by the independent adversarial pass, which returned
-fourteen findings. It was the reduction pattern again: every argument for cutting
-a genre was really an argument that its content isn't worth saying, and *that is
-the confidence bar's job*, computed per whisper and tunable from data. Deciding it
-in the build plan makes it permanent and unmeasurable. Two of the three cuts also
-rested on premises that were false or incomplete — one of them an error this file
-had already caught and corrected a day earlier. **No genre is being cut.** The
-mechanism worked as designed here: the hunt caught it, not you.
+- Round 1 returned 20 findings and 16 more from the adversarial pass.
+- I then audited it myself and found 14 further defects the reviews had not
+  reached.
+- Round 2 returned 14 and 21. Eleven of each prior round's findings had genuinely
+  closed; the rest recurred somewhere new.
 
-**A second proposal was tried and killed, and it found something bigger.** You
-asked what the purpose of Phase 0 is. The honest answer was that the spec states
-the phase *dependency* — each phase is gated on evidence only the previous one can
-produce by running — but never a rule deciding what belongs in a phase. A rule was
-drafted and written into the spec; the independent pass returned **seventeen
-findings** and it was removed the same day
-(`docs/reviews/2026-08-01-collapse-hunt-phase0-purpose.md`).
+**The pattern worth knowing.** In round 2, three of the four heaviest findings
+were false statements the document made *about itself* — and each sat in the
+device added the round before to close an earlier finding. A table claiming 44
+requirements were unchanged was wrong in ten rows. A rule saying "this document
+invents no new requirement identifiers" was broken twice in the section below it.
+A source list claiming no other sources were needed had achieved that by deleting
+the requirements that needed them — while a test for one of those deleted
+requirements was left in place. Fixing a finding is where the next finding gets
+created, reliably enough to plan for.
 
-**A third attempt was also killed.** I then wrote a separate Phase 0 spec, on the
-reasoning that your 07-31 question — *"3 phases in one spec. WHY?"* — had only ever
-been half-answered. The hunt asked the one question that settles it: *name the file
-from which a Phase 1 requirement was removed.* None. The problem you found was that
-Phases 1 and 2 were being **specified against nothing**; writing Phase 0 out again
-in a second file does not touch that, and creates a second place where
-requirements live. Nineteen findings. The file is deleted, and the real remedy
-turns out to be the one already written here on 07-31 — tag each requirement in
-the spec with the phase it belongs to.
+**The single most consequential fix.** The tool is meant to speak when an agent
+claims it is done — your decision, and the turn it costs was accepted on that
+basis. The harness event the design uses for this fires **every time the agent
+finishes responding**, not only at a completion claim, and telling those apart
+needs the transcript reader that belongs to a later phase. So Phase 0 was set to
+spend that accepted cost at every turn boundary, with nothing capping the session
+total. Your decision is untouched — the capability stays. What the spec now does
+is say plainly what Phase 0 can and cannot recognise, cap it at 3 such whispers
+per session, and count them so you can see the real total.
 
-**A correction I owe you on the last thing I told you.** I reported that Phase 1 is
-gated on a Phase 2 component and called it the session's real finding. That was
-overstated, and I got it the same way as the other two: by reading one section and
-not the two that answer it. §9.2 does say the distiller measures the metrics — but
-§6.3 gives `ctxoracle status` the *"health metrics §9.2"*, NF-2 says overhead is
-*"measured and reported by `ctxoracle status`"*, and `status` is Phase 0. The spec
-contradicts itself about who computes them; it does not straightforwardly gate
-Phase 1 on Phase 2. What is genuinely unassigned is narrower: recording whether a
-whisper was acted on. That is real, and it is still step 1 — but it is a smaller
-thing than I told you.
+**Other things that were wrong and are now fixed.** A sentence quoted as coming
+from the harness documentation is not in it — it had been carried over from the v1
+spec and re-labelled as a primary source; the real wording is now used. The
+timeout figures were wrong. A rule requiring merge commits to be excluded from the
+history mining had been dropped while the test for it stayed. A command letting
+you type facts into the tool had no genre left that could ever say them back — a
+writer with no reader. The first-sessions rule was letting the weakest evidence in
+the system be the first thing a project ever hears.
 
-**The measurement question is half-answered, and the spec now says which half.**
-Reading §9.2, §6.3, NF-2 and FR-L1 together settled the part that was a
-misattribution: FR-L1 gives the per-event log — *"candidates considered, whisper
-sent, and subsequent evidence of uptake"* — to the session service, which is a
-Phase 0 component. §9.2's "measured by the distiller" was too broad, and it is
-corrected. Recording, computing and learning are three jobs and only the third is
-Phase 2. **Phase 0 emits silence rate, latency and continuation count.**
+**What is true now.** The spec is 715 lines. Every one of the v1 spec's 65
+requirements has a stated disposition; every requirement it defines has either an
+acceptance criterion or a named inspection; the identifier rules it states about
+itself are mechanically checked and hold; and every quotation from the research
+paper and the harness documentation has been matched character-for-character
+against the primary source.
 
-**Hit rate is still not established, and that is the live blocker.** FR-L1 records
-*evidence* of uptake; the architecture assigns *detection* of uptake to the
-distiller, and the store column for it is nullable — the shape of something
-written later. Recording that a file was opened is Phase 0; deciding that opening
-it counts as uptake of a particular whisper is a join, and the two documents put
-that join in different phases. Phase 1's exit is gated on hit rate, so this is
-what that exit currently rests on.
+**What is broken or unknown.** The spec has not been reviewed since this rebuild,
+and on this project's record that means it has findings in it. Nothing has ever
+been run, so every number the later phases are tuned from is still unmeasured.
+Two values are deliberately left to the architecture rather than guessed: the
+numeric threshold the tool speaks above, and the internals of how candidates are
+scored.
 
-A phase table for every requirement was also written this session and removed:
-its "verified by" column was wrong in twelve of forty-one rows, including the one
-row the whole change existed to establish. The idea is right and still owed; that
-execution asserted verification that does not exist, which is the thing this
-project treats as worse than no work at all.
-
-**One route to hit rate is now closed, on the substance.** The obvious move is to
-say Phase 0 already has the detector, because FR-A4 forbids repeating what the
-agent has *"visibly acted on"*. It doesn't work, and it's worth knowing why: that
-phrase resolves to *"opened the pointed file, used the named helper"* — which is
-exactly the test the design **threw out**, because it scores the tool's best
-outcome as a failure. An agent told there's a second write-site, which then goes
-and edits it directly, never opens the file the whisper pointed at. FR-A4 and
-uptake share a key and a sentence and ask opposite questions: *has the agent
-already got this* versus *did the agent take this*. This is written into §14 so
-the next session doesn't spend a pass rediscovering it.
-
-**I then overstated what was behind it, and the next pass caught me.** I reported
-that Phase 1's exit states no pass condition and that every other phase exit
-resolves to a testable criterion. Both wrong. Phase 1's exit lists seven criteria,
-and *all three* phases end with the same kind of unmeasured trailing sentence —
-Phase 0's is "the owner runs it on a real project without incident." I described
-something all three do as a fault in one, without reading the other two. Same
-mistake as earlier in the day, one screen away this time.
-
-**And then I overstated the *replacement* finding too, and a seventh pass settled
-it.** I said the spec and the project's build rule disagreed about that sentence —
-entry gate or exit gate — and made it step 1. They don't disagree. The spec's own
-"how to read" paragraph says both things: exit clauses are measurements, *and* a
-phase's design-readiness runs through the measurements its own exit names. The
-build rule was quoting the second half. What made them look like they conflicted
-was that the build rule carried a full copy of the spec's sentence plus a claim
-that Phase 0 produces both numbers — and that copy went stale when hit rate's
-producibility became doubtful. **The whole thing was one duplicated sentence.** It
-is now a pointer, four words shorter, and the spec is untouched.
-
-That was worth ten minutes, not a step 1 — the pass that settled it said so, and
-it was right. Two real defects did surface on the way, and they are in §14: the
-spec's design-readiness rule is unsatisfiable at Phase 2 (it would require Phase 2
-to have already run), and **nobody ever reviews Phase 0's numbers** — its exit
-names a run but no measurement and no review, while the metrics start being
-emitted the moment it runs.
-
-**The list below was five steps and is now one.** A pass asked which of the open
-items the spec has to answer and which belong to the architect — a question nobody
-had asked — and most of what I had queued turned out not to gate anything. Settling
-uptake detection is a *Phase 1* question, and the build rule forbids resolving
-Phase 1 before Phase 0 has run; the phase table is owed but gates nothing; and the
-bar finding (R4-4) is an architecture matter whose Phase 0 premise disappears once
-the degraded-mode sentence below is fixed. Steps 4 and 5 were the real work, and
-they merge.
+**One finding was deliberately not applied.** A reviewer asked for a line to be
+added to the v1 spec marking its Phase 0 exit superseded. You instructed that the
+v1 spec not be touched, so it was not. The Phase 0 spec states the precedence
+itself, and `CLAUDE.md` now routes a new session to the right document, which
+covers the same ground from the other side.
 
 **What is next, concretely:**
 
-**That edit is done.** The adversarial pass ran first and returned thirteen
-findings; the edit went in corrected. What the spec now says:
-
-- **Phase 0 builds six genres**, named directly instead of by pointing at the
-  degraded-mode list: orientation, coupling, generated-file warning, completeness,
-  verification, and consequence. Consequence moves earlier — it needs no model, and
-  it is struck from Phase 1 in the same edit. **Nothing is dropped from the tool.**
-- **Answer drift stays in Phase 1.** I had it in the six. The pass caught that the
-  thing which writes its open questions is the narration reader, which the spec
-  places in Phase 1 — in a sentence I had written myself earlier the same day,
-  fifteen lines above the paragraph I was editing.
-- **Phase 0 is no longer called degraded mode.** It ships the ordinary bar and
-  announces nothing, because nothing has degraded.
-- **Degraded mode has a phase at last** — Phase 1, with the model path it is the
-  fallback for. Its own genre list was amended too, or a model failure would have
-  switched off a genre that never needed one.
-- **Phase 0's parts list was re-derived from its own nine tests** rather than
-  patched: it was missing the command-line tool, the secret scanner and the
-  whisper log.
-- **One thing I proposed was not written.** I claimed a sentence made the
-  generated-file warning impossible to fire. The pass read the whole sentence and
-  showed it doesn't — the qualifier I'd stopped short of exempts that warning. The
-  real defect is in the architecture, and it's recorded there.
-
-**Next: `docs/architecture-context-oracle-phase0.md`** — the first design document
-for the first buildable phase. Nothing blocks it now.
-
-**Deferred, with the reason** (these were steps 1–3 and gate nothing): where
-uptake detection lives — Phase 1, per the build rule; the per-requirement phase
-table — owed, and its real product is the acceptance-criteria gap already in §14;
-finding R4-4 — an input to the new architecture, not a prerequisite.
-
-*(For the record, the items below this line were the previous next-steps list:)*
-
-1. **Settle where uptake detection lives**, knowing the FR-A4 route is closed:
-   either the distiller keeps it and Phase 0 reports a *pointer-followed rate*
-   under its own honest name, or detection moves and the cost of moving it is
-   stated. Not a naming question — the two measure different things.
-3. **Rebuild the per-requirement phase table** (the 07-31 step, still owed), with
-   the "verified by" column built mechanically from §13 and `— none` written
-   wherever a requirement has no criterion. That is the true answer for FR-L1,
-   FR-X6, FR-O1, FR-K1, NF-2 and four of the five constraints.
-2. **Fix the bar (finding R4-4).** The tool's measure of whether a fact is worth
-   saying has three terms, and one of them — how easily the agent could have got
-   the fact itself — is deleted in exactly the mode Phase 0 was set to run in.
-   Restore it.
-3. **Separate Phase 0 from degraded mode in the spec**, and give FR-J3's
-   air-gap guarantee a phase of its own — it is a real promise (your decision 2)
-   and currently no phase builds it.
-4. **Then** derive Phase 0's contents, settling the two contested memberships
-   (consequence, answer drift) rather than assuming them; then the remaining
-   Phase 0 findings, then the Phase 0 architecture, then review, plan, build, and
-   **run it**.
-
-**A process note that belongs to you, not to the work.** Three proposals were
-written this session and two were killed by the adversarial pass — both times for
-the same underlying reason, and the second time after this session had already
-written down the lesson it then broke. The mechanism is doing its job: neither
-kill came from you. But the honest reading is that writing into the spec *before*
-dispatching the pass is what produced both, and the next session should dispatch
-first.
-
-**What is broken or unknown.** The 32 round-4 findings are still open; the twelve
-Phase 0 ones are listed in the 2026-07-31 entry below and that triage still
-stands. The architecture document is still not signed off and is not a base to
-edit — Phase 0 gets its own document. Nothing has ever been run, so every number
-the later phases depend on is still unmeasured.
+1. **A third review round on the rebuilt spec** — both passes, as always. It is
+   the only way to find out whether this rebuild repeated the pattern above.
+2. **Then `docs/architecture-context-oracle-phase0.md`** — the first design
+   document for the first buildable phase, which the build rules require before
+   any code.
+3. **Then plan, build, and run it** — everything still undecided is waiting on
+   measurements only a running Phase 0 can produce.
 
 **Nothing needed from you.**
-
-*(I earlier offered you a ruling on `RETHINK.md` line 112 — *"the single
-highest-value signal"* — arguing the no-superlatives rule reached rankings of
-purposes but not of signals. Withdrawn: the rule bans *"the single highest-value
-X"* in those exact words, the line sits in RETHINK §4, which is agent-authored
-analysis rather than §12 where your decisions live, and no record attributes it to
-you. So it was already decided and I should have applied the rule instead of
-handing you the question. It changes no phase, genre or requirement either way.)*
 
 ## 2026-07-31 — the fix cycle is over; next is a Phase 0 requirement set
 
