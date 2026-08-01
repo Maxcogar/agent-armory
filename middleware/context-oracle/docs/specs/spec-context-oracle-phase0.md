@@ -180,8 +180,6 @@ path *can* issue a permission decision.
 - **P0-4** — The generated-file warning is **not** subject to FR-A5's floors. Its
   evidence is a zone marker, not history, and a co-change floor applied to it
   would make the genre unable to fire while AC-5 requires that it does. `[P0-D-3]`
-- **FR-A6** — Below a configurable minimum of mined history per region,
-  history-backed genres stay silent rather than guess.
 - **FR-D1** — Whisper format: `[oracle]` prefix, genre tag, confidence tag when
   below high, a claim of one to five sentences, at least one verifiable pointer,
   optionally a one-line "so what". `RETHINK.md` §6.
@@ -336,6 +334,19 @@ path.
   oracle's own budget; FR-O4a bounds the oracle to one continuation regardless of
   what the cap permits.
 
+- **P0-D-5 — AC-2's 10% whisper-rate ceiling is a judgment, not a measurement.**
+  No published figure maps to per-event whisper rates for an agent consumer. Ten
+  percent operationalizes `RETHINK.md`'s "silence is the default" posture into
+  something a fixture replay can check, and it is expected to move once Phase 0
+  has run and produced a real rate. It is stated as a number so the criterion is
+  testable, not because the number is established.
+
+- **P0-D-6 — There is no separate cold-start floor.** FR-A5's evidence floors
+  already produce silence on a region with too little mined history: a region
+  with fewer than two co-change observations cannot clear suggestion-grade, and
+  fewer than three cannot clear warn-grade. A second configurable minimum would
+  be an ungrounded knob doing work the floors already do.
+
 ## 12. Acceptance criteria
 
 Phase 0 is complete when all of the following pass and the owner has run it on a
@@ -345,8 +356,8 @@ real project without incident.
   known co-change pair, an observed edit to one file yields a coupling whisper
   naming the other, with its evidence ratio and a git-history pointer, inside the
   latency budget.
-- **AC-2 (silence → FR-A1, FR-A2)** — Replaying a recorded session of routine
-  events produces whispers on at most 10% of events.
+- **AC-2 (silence → FR-A1, FR-A2, `[P0-D-5]`)** — Replaying a recorded session of
+  routine events produces whispers on at most 10% of events.
 - **AC-3 (no deny → FR-O4, FR-O4a, FR-O3)** — No shim code path can return a
   blocking decision; induced service failure and induced timeout each yield
   silence and an unimpeded agent; a `Stop` carrying `stop_hook_active: true`
