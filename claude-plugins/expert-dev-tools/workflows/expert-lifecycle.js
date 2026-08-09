@@ -29,8 +29,34 @@ const AGENT = {
   acceptance: NS + 'expert-acceptance',
   diagnostician: NS + 'expert-diagnostician',
   closeout: NS + 'expert-closeout',
+  corrector: NS + 'expert-corrector',
 }
 const ROUND_CAP = 5
+// The standards each artifact type is judged against. The reviewer names a standard per
+// finding (skills/expert-review/SKILL.md:565); leaving the choice open let three of five spec
+// reviewers grade against expert-spec/SKILL.md's process clauses instead — an unbounded
+// ruler that varies per round. See docs/investigate.md 5a, 5b.
+const RULER = {
+  spec: 'ISO/IEC/IEEE 29148:2018 requirement characteristics (Complete, Consistent, ' +
+        'Unambiguous, Verifiable, Traceable) and the standards the spec itself names',
+  architecture: "the spec's requirements and the standards the architecture itself names",
+  plan: "the spec, the architecture, and the plan's own output contract",
+  implementation: 'the plan, and the named external standards each changed file is subject to',
+}
+// Each artifact's own output contract, cited by literal path (S9). The reviewer checks the
+// artifact against this contract's required STRUCTURE — distinct from RULER, which judges
+// content. The implementation gate has no entry: a diff has no output contract distinct from
+// the plan authorising it, and RULER.implementation already binds that gate (Q-21).
+const OUTPUT_CONTRACT = {
+  spec: 'skills/expert-spec/SKILL.md, the "## Output" section',
+  architecture: 'skills/expert-architecture/SKILL.md, the "Output contract" block at line 66 ' +
+                '(that file carries no markdown headings, so it is cited by line)',
+  plan: 'skills/expert-plan/references/output-contract.md (the whole file)',
+}
+// Carried in every review dispatch: the authoring skill is not the ruler.
+const NOT_THE_RULER =
+  "The authoring skill's process rules are not the standard — judge the artifact, not the " +
+  'process that produced it.'
 const LENSES = ['correctness', 'security', 'faithfulness-to-plan']
 // The six owner-gate types — exactly the spec 3.4 escalation list; the script
 // has no other path to the owner.
@@ -47,12 +73,33 @@ const GATE = {
 // Schemas (kept to the load-bearing fields per architecture C4)
 // ---------------------------------------------------------------------------
 const S_STR = { type: 'string' }
+// A finding's (or a re-derived section's) location. Exactly two forms parse:
+// `path:start-end` (a line range; `path:line` is the one-line case) or
+// `path#section`. runGate's fix-site-regression detector parses the range and its
+// unclosed-class detector tests set membership, so a free-form location silently
+// disables both.
+const LOCATION_RE = /^[^\s:#]+(?::\d+(?:-\d+)?|#\S+)$/
+const LOCATION = { type: 'string', pattern: LOCATION_RE.source }
 const EVIDENCE = {
   type: 'array',
   items: {
     type: 'object',
-    required: ['claim_type', 'tool', 'citation', 'result'],
-    properties: { claim_type: S_STR, tool: S_STR, citation: S_STR, result: S_STR },
+    // `observed` and `asserted` are split out of the former single free-form
+    // `result`, which is retained. A fabrication now has to sit in a named
+    // field — the verbatim tool output, or the claimed outcome — rather than
+    // hiding in prose that conflates the two.
+    // Additive in properties: `result` is retained but is no longer required —
+    // in the required set it is replaced by the two fields it was conflating.
+    required: ['claim_type', 'tool', 'citation', 'observed', 'asserted'],
+    properties: {
+      claim_type: S_STR,
+      tool: S_STR,
+      citation: S_STR,
+      subject: S_STR,   // what the entry is about; entries sharing it must agree
+      observed: S_STR,  // VERBATIM tool output, quoted, not summarized
+      asserted: S_STR,  // the outcome claimed from that output
+      result: S_STR,
+    },
   },
 }
 const PHASE_SCHEMA = {
@@ -61,6 +108,29 @@ const PHASE_SCHEMA = {
   properties: {
     status: { type: 'string', enum: ['completed', 'halted'] },
     artifact_path: S_STR,
+    // What a correction re-derived, and the class sweep behind each entry. The
+    // corrector is obliged to emit this by skills/expert-correct/SKILL.md and by
+    // agents/expert-corrector.md; runGate's two detectors are inert without it.
+    sections_rederived: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['location', 'class_sweep'],
+        properties: {
+          location: LOCATION,
+          source: S_STR,
+          finding_addressed: S_STR,
+          class_sweep: {
+            type: 'object',
+            required: ['searched', 'found'],
+            properties: {
+              searched: S_STR,                        // what the sweep searched for
+              found: { type: 'array', items: S_STR }, // every location the search returned
+            },
+          },
+        },
+      },
+    },
     evidence: EVIDENCE,
     halt: {
       type: 'object',
@@ -104,8 +174,8 @@ const VERDICT_SCHEMA = {
       type: 'array',
       items: {
         type: 'object',
-        required: ['classification', 'standard'],
-        properties: { classification: S_STR, standard: S_STR, premise_evidence: S_STR, location: S_STR },
+        required: ['classification', 'standard', 'location'],
+        properties: { classification: S_STR, standard: S_STR, premise_evidence: S_STR, location: LOCATION },
       },
     },
   },
@@ -217,12 +287,67 @@ function sampleIndices(n, seed) {
   return picked
 }
 
+// Parse a location in the LOCATION grammar. Returns {file, start, end} for a
+// range form, {file, section} for a section form, or null when it parses as
+// neither — an unparseable location fires no detector rather than guessing.
+const LOCATION_RANGE_RE = /^([^\s:#]+):(\d+)(?:-(\d+))?$/
+const LOCATION_SECTION_RE = /^([^\s:#]+)#(\S+)$/
+function parseLocation(loc) {
+  if (typeof loc !== 'string') return null
+  if (!LOCATION_RE.test(loc)) return null
+  const r = LOCATION_RANGE_RE.exec(loc)
+  if (r) return { file: r[1], start: +r[2], end: r[3] === undefined ? +r[2] : +r[3] }
+  const s = LOCATION_SECTION_RE.exec(loc)
+  return s ? { file: s[1], section: s[2] } : null
+}
+
+// Did this round's findings show that the last round's correction failed?
+// (a) fix-site regression — a finding lands inside what the last round re-derived:
+//     same file AND (overlapping line ranges OR equal section identifier).
+// (b) incomplete class sweep — a finding lands at a location the sweep FOUND and
+//     did NOT correct. Set membership, never string similarity: a location the
+//     sweep never found is a NEW class, not an unclosed one, and must not fire.
+// Matching on the finding's `standard` instead is wrong on its own evidence — a
+// standard recurring at a new location is the normal shape of iterative review.
+function detectCorrectionFailure(findings, rederived) {
+  const corrected = new Set(rederived.map((s) => s && s.location).filter(Boolean))
+  const sweptOpen = new Set()
+  for (const s of rederived)
+    for (const f of (s && s.class_sweep && s.class_sweep.found) || [])
+      if (!corrected.has(f)) sweptOpen.add(f)
+  for (const finding of findings || []) {
+    const fl = parseLocation(finding && finding.location)
+    if (!fl) continue
+    for (const s of rederived) {
+      const sl = parseLocation(s && s.location)
+      if (!sl || sl.file !== fl.file) continue
+      const hit =
+        sl.section !== undefined
+          ? fl.section !== undefined && fl.section === sl.section
+          : fl.start !== undefined && fl.start <= sl.end && sl.start <= fl.end
+      if (hit) return { kind: 'fix_site_regression', detail: { finding, prior: s } }
+    }
+  }
+  for (const finding of findings || []) {
+    if (finding && sweptOpen.has(finding.location)) {
+      const prior = rederived.find(
+        (s) => s && s.class_sweep && (s.class_sweep.found || []).includes(finding.location)
+      )
+      return { kind: 'unclosed_class', detail: { finding, prior } }
+    }
+  }
+  return null
+}
+
 // One review gate: fresh reviewer each round; up to ROUND_CAP rounds; on
 // NEEDS_FIXES the artifact is remediated and re-reviewed; a cap breach returns
 // NON_CONVERGENCE (the caller escalates). `multiLens` runs the three-lens panel
 // for the implementation-PASS gate — all lenses must PASS.
-async function runGate({ reviewFn, remediateFn, multiLens }) {
+async function runGate({ reviewFn, remediateFn, multiLens, detectFailedCorrection }) {
   const history = []
+  // What the previous round's correction reported re-deriving. Empty until a
+  // correction returns it; the detectors are inert while it is empty.
+  let lastRederived = []
   for (let round = 1; round <= ROUND_CAP; round++) {
     let verdict, findings
     if (multiLens) {
@@ -237,17 +362,42 @@ async function runGate({ reviewFn, remediateFn, multiLens }) {
     }
     history.push({ round, verdict, findings_count: findings.length, findings })
     if (verdict === 'PASS') return { verdict: 'PASS', rounds: round, history }
-    await remediateFn(findings, round)
+    // Detectors run only at the three document gates (D-2 excludes the
+    // implementation gate: its remediateFn dispatches the planner for amend-plan
+    // per architecture D6, so no correction reports sections_rederived there, and
+    // its multi-lens flattening makes per-round finding identity incomparable).
+    if (detectFailedCorrection && round > 1 && lastRederived.length) {
+      const failed = detectCorrectionFailure(findings, lastRederived)
+      if (failed)
+        return { verdict: 'CORRECTION_FAILED', kind: failed.kind, rounds: round, history, detail: failed.detail }
+    }
+    const out = await remediateFn(findings, round)
+    // A corrector that cannot act on a finding says so (skills/expert-correct: a
+    // finding whose named standard it cannot verify is reported back, never
+    // guessed at). Reading only sections_rederived would discard that and burn
+    // the remaining rounds in silence.
+    if (detectFailedCorrection && out && out.status === 'halted')
+      return { verdict: 'CORRECTOR_HALTED', rounds: round, history, halt: out.halt }
+    lastRederived = (out && out.sections_rederived) || []
   }
   return { verdict: 'NON_CONVERGENCE', rounds: ROUND_CAP, history }
 }
 
 // Diagnose a non-routine failure (or run the feedback sweep). Diagnosis always
 // precedes routing (architecture D13).
-async function diagnose(failureDescription, ledger) {
+// The failure record carries THIS segment's evidence. The ledger cannot: the command
+// applies the delta only after the segment returns, and gate_history entries carry
+// findings_count, never findings. Spec F-13 and architecture C3 mandate the failure
+// record alongside the ledger snapshot; without a parameter for it, evidence living in
+// a structured collection was discarded at the dispatch boundary.
+async function diagnose(failureDescription, ledger, failureRecord) {
   const out = await agent(
     `Failure mode. Diagnose this non-routine failure and draft a correction.\n` +
-      `Failure: ${failureDescription}\nLedger snapshot: ${JSON.stringify(ledger)}`,
+      `Failure: ${failureDescription}\n` +
+      `Failure record (evidence from THIS segment; not yet in the ledger): ` +
+      `${JSON.stringify(failureRecord || {})}\n` +
+      `Segment-start ledger snapshot (predates this segment; does NOT contain these rounds): ` +
+      `${JSON.stringify(ledger)}`,
     { agentType: AGENT.diagnostician, schema: DIAGNOSIS_SCHEMA, phase: 'Review', label: 'diagnose' }
   )
   return out && out.diagnosis ? out.diagnosis : null
@@ -278,9 +428,24 @@ function report(delta, extra) {
 const input = normalizeInput(args)
 const ledger = input.ledger || { phase: 'intake', revision: 0 }
 const task = input.task || ledger.task || ''
-const specPath = input.spec_path || (input.artifacts && input.artifacts.spec) || 'docs/specs/spec.md'
-const archPath = input.arch_path || (input.artifacts && input.artifacts.architecture) || 'docs/arch/architecture.md'
-const planPath = input.plan_path || (input.artifacts && input.artifacts.plan) || 'docs/plans/plan.md'
+// Artifact locations have ONE source of truth: the path the authoring agent returns in
+// PHASE_SCHEMA.artifact_path. These are resume hints only — a prior segment's registered path,
+// never a default. There is deliberately no `|| 'docs/…'` fallback: the skills name artifacts
+// `spec-[kebab-case-name].md` while the old fallback was `spec.md`, two conventions that can
+// never agree, and every review dispatch in the A-3 run cited a path that did not exist.
+// After each authoring dispatch the returned artifact_path OVERWRITES these unconditionally
+// when present; if it is still null the phase escalates rather than proceeding on a guess.
+let specPath = input.spec_path || (input.artifacts && input.artifacts.spec) || null
+let archPath = input.arch_path || (input.artifacts && input.artifacts.architecture) || null
+let planPath = input.plan_path || (input.artifacts && input.artifacts.plan) || null
+// The authoring agent's returned path outranks the resume hint (owner ruling, HANDOFF:73-74).
+function resolveArtifactPath(out, current) {
+  return out && out.artifact_path ? out.artifact_path : current
+}
+function missingArtifactPath(phaseName) {
+  delta.phase = phaseName
+  return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.spec_traceable, what_happened: `The ${phaseName} phase produced no artifact path, and there is no default to fall back on.`, options: ['re-run the phase', 'supply the path'], recommendation: 'inspect the phase output' } })
+}
 const seed = (ledger.revision | 0) + 1
 const readerScript = input.reader_script || 'scripts/extract-owner-turns.mjs'
 const transcriptDir = input.transcript_dir || ''
@@ -304,11 +469,19 @@ const dispositions = await feedbackSweep(ledger, readerScript, transcriptDir)
 let feedbackEsc = null
 const failedCorr = dispositions.find((d) => d.verdict === 'failed_correction')
 const sysDefect = dispositions.find((d) => d.verdict === 'systemic_defect')
+const staleDeploy = dispositions.find((d) => d.verdict === 'stale_deployment')
 if (failedCorr) {
   feedbackEsc = { kind: 'failed_correction', disposition: failedCorr, responsible_component: failedCorr.responsible_component, remediation: 'none' }
 } else if (sysDefect) {
-  const dg = await diagnose(`Systemic defect from repeat owner feedback: ${JSON.stringify(sysDefect)}`, ledger)
+  const dg = await diagnose(`Systemic defect from repeat owner feedback: ${JSON.stringify(sysDefect)}`, ledger, { disposition: sysDefect })
   feedbackEsc = { kind: 'systemic_defect', disposition: sysDefect, diagnosis: dg, responsible_component: sysDefect.responsible_component }
+} else if (staleDeploy) {
+  // D15's other half: the running version PREDATES the fix, so the correction did not
+  // fail — the deployment is behind. F-14 defines the verdict and A-9(c) computes it
+  // correctly; without this branch it was computed and discarded, and "update the
+  // plugin" is the entire action the verdict exists to produce. No remediation: the
+  // machine does not modify its own deployment.
+  feedbackEsc = { kind: 'stale_deployment', disposition: staleDeploy, responsible_component: staleDeploy.responsible_component, remediation: 'none' }
 }
 
 let cursor = ledger.phase || 'intake'
@@ -321,27 +494,33 @@ if (cursor === 'spec') {
     `Write the specification for this task.\nTask: ${task}`,
     { agentType: AGENT.spec, schema: PHASE_SCHEMA, phase: 'Spec', label: 'spec' }
   )
+  specPath = resolveArtifactPath(specOut, specPath)
   if (!specOut || specOut.status === 'halted') {
     const d = specOut && specOut.halt ? specOut.halt : { detail: 'spec phase produced no output' }
     delta.phase = 'spec'
     return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.spec_traceable, what_happened: d.detail, options: d.options || [], recommendation: d.recommendation || '' } })
   }
+  if (!specPath) return missingArtifactPath('spec')
+  // Register BEFORE the gate, matching architecture (:the arch phase) and plan. The push
+  // used to sit after the escalation return, so a spec that failed to converge was never
+  // registered — D9 hash anchoring missed the artifact exactly when the owner needed it.
+  delta.artifacts.push({ role: 'spec', path: specPath })
   const gate = await runGate({
-    reviewFn: (round) => agent(`Review the spec at ${specPath} against the task and named standards. Round ${round}.`, { agentType: AGENT.reviewer, schema: VERDICT_SCHEMA, phase: 'Review', label: `review:spec:r${round}` }),
-    remediateFn: (findings) => agent(`Revise the spec at ${specPath} to resolve these findings, then re-verify: ${JSON.stringify(findings)}`, { agentType: AGENT.spec, schema: PHASE_SCHEMA, phase: 'Spec', label: 'revise:spec' }),
+    reviewFn: (round) => agent(`Review the spec at ${specPath} against the task, judged against ${RULER.spec}. Check it against its own output contract at ${OUTPUT_CONTRACT.spec}. ${NOT_THE_RULER} Round ${round}.`, { agentType: AGENT.reviewer, schema: VERDICT_SCHEMA, phase: 'Review', label: `review:spec:r${round}` }),
+    remediateFn: (findings) => agent(`Correct the spec at ${specPath} against these review findings. Re-derive each finding's section from that section's sources — do not edit the sentence the finding points at, and do not re-author the artifact; its untouched sections are correct by the prior round's review. Sweep each finding's class across the whole artifact. Correct only what the findings require. Return sections_rederived: one entry per re-derived section with its location (path:start-end or path#section), the source it was re-derived from, the finding it addresses, and class_sweep {searched, found} listing EVERY location the sweep returned, corrected or not. A finding whose named standard you cannot verify returns status: 'halted' with the reason in halt.detail. Findings: ${JSON.stringify(findings)}`, { agentType: AGENT.corrector, schema: PHASE_SCHEMA, phase: 'Spec', label: 'revise:spec' }),
     multiLens: false,
+    detectFailedCorrection: true,
   })
   record('spec', gate)
-  if (gate.verdict === 'NON_CONVERGENCE') {
-    const dg = await diagnose(`Spec review did not converge in ${ROUND_CAP} rounds.`, ledger)
+  if (gate.verdict !== 'PASS') {
     delta.phase = 'spec'
-    const lastFindings = (gate.history[gate.history.length - 1] || {}).findings || []
-    return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.non_convergence, what_happened: 'Spec review did not converge.', diagnosis: dg, findings: lastFindings, options: ['amend spec', 'revisit task'], recommendation: 'review the diagnosis' } })
+    return report(finish(), { outcome: 'owner_gate', gate: await gateEscalation(gate, 'Spec', 'spec', specPath, ledger) })
   }
   // Spec PASS -> the one intent gate. The command advances phase to 'architecture' on owner
   // approval (S-5); the workflow does not claim the transition here.
+  const specScope = await documentScopeCheck('Spec', 'spec', specPath, ledger)
+  if (specScope) return specScope
   delta.phase = 'spec'
-  delta.artifacts.push({ role: 'spec', path: specPath })
   return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.intent, what_happened: `A specification for "${task}" passed independent review. Confirm it is what you meant before design begins.`, artifact: specPath, options: ['approve', 'request changes'], recommendation: 'read the spec and approve if it matches your intent' } })
 }
 
@@ -352,17 +531,22 @@ if (cursor === 'spec') {
 if (cursor === 'architecture') {
   phase('Architecture')
   const out = await agent(`Produce the architecture from the approved spec at ${specPath}.`, { agentType: AGENT.architect, schema: PHASE_SCHEMA, phase: 'Architecture', label: 'architecture' })
+  archPath = resolveArtifactPath(out, archPath)
   const esc = maybeEscalate(out, 'architecture')
   if (esc) return esc
+  if (!archPath) return missingArtifactPath('architecture')
   delta.artifacts.push({ role: 'architecture', path: archPath })
   const gate = await runGate({
-    reviewFn: (round) => agent(`Review the architecture at ${archPath} against the spec at ${specPath} and named standards. Round ${round}.`, { agentType: AGENT.reviewer, schema: VERDICT_SCHEMA, phase: 'Review', label: `review:arch:r${round}` }),
-    remediateFn: (findings) => agent(`Revise the architecture at ${archPath} to resolve these findings: ${JSON.stringify(findings)}`, { agentType: AGENT.architect, schema: PHASE_SCHEMA, phase: 'Architecture', label: 'revise:arch' }),
+    reviewFn: (round) => agent(`Review the architecture at ${archPath} against the spec at ${specPath}, judged against ${RULER.architecture}. Check it against its own output contract at ${OUTPUT_CONTRACT.architecture}. ${NOT_THE_RULER} Round ${round}.`, { agentType: AGENT.reviewer, schema: VERDICT_SCHEMA, phase: 'Review', label: `review:arch:r${round}` }),
+    remediateFn: (findings) => agent(`Correct the architecture at ${archPath} against these review findings. Re-derive each finding's section from that section's sources — do not edit the sentence the finding points at, and do not re-author the artifact; its untouched sections are correct by the prior round's review. Sweep each finding's class across the whole artifact. Correct only what the findings require. Return sections_rederived: one entry per re-derived section with its location (path:start-end or path#section), the source it was re-derived from, the finding it addresses, and class_sweep {searched, found} listing EVERY location the sweep returned, corrected or not. A finding whose named standard you cannot verify returns status: 'halted' with the reason in halt.detail. Findings: ${JSON.stringify(findings)}`, { agentType: AGENT.corrector, schema: PHASE_SCHEMA, phase: 'Architecture', label: 'revise:arch' }),
     multiLens: false,
+    detectFailedCorrection: true,
   })
   record('architecture', gate)
-  const nc = await maybeNonConvergence(gate, 'Architecture', 'architecture', ledger)
+  const nc = await maybeNonConvergence(gate, 'Architecture', 'architecture', ledger, archPath)
   if (nc) return nc
+  const archScope = await documentScopeCheck('Architecture', 'architecture', archPath, ledger)
+  if (archScope) return archScope
   cursor = 'plan'
 }
 
@@ -370,17 +554,22 @@ if (cursor === 'architecture') {
 if (cursor === 'plan') {
   phase('Plan')
   const out = await agent(`Produce the implementation plan from the spec at ${specPath} and architecture at ${archPath}.`, { agentType: AGENT.planner, schema: PHASE_SCHEMA, phase: 'Plan', label: 'plan' })
+  planPath = resolveArtifactPath(out, planPath)
   const esc = maybeEscalate(out, 'plan')
   if (esc) return esc
+  if (!planPath) return missingArtifactPath('plan')
   delta.artifacts.push({ role: 'plan', path: planPath })
   const gate = await runGate({
-    reviewFn: (round) => agent(`Review the plan at ${planPath} against the spec and architecture and named standards. Round ${round}.`, { agentType: AGENT.reviewer, schema: VERDICT_SCHEMA, phase: 'Review', label: `review:plan:r${round}` }),
-    remediateFn: (findings) => agent(`Revise the plan at ${planPath} to resolve these findings: ${JSON.stringify(findings)}`, { agentType: AGENT.planner, schema: PHASE_SCHEMA, phase: 'Plan', label: 'revise:plan' }),
+    reviewFn: (round) => agent(`Review the plan at ${planPath} against the spec and architecture, judged against ${RULER.plan}. Check it against its own output contract at ${OUTPUT_CONTRACT.plan}. ${NOT_THE_RULER} Round ${round}.`, { agentType: AGENT.reviewer, schema: VERDICT_SCHEMA, phase: 'Review', label: `review:plan:r${round}` }),
+    remediateFn: (findings) => agent(`Correct the plan at ${planPath} against these review findings. Re-derive each finding's section from that section's sources — do not edit the sentence the finding points at, and do not re-author the artifact; its untouched sections are correct by the prior round's review. Sweep each finding's class across the whole artifact. Correct only what the findings require. Return sections_rederived: one entry per re-derived section with its location (path:start-end or path#section), the source it was re-derived from, the finding it addresses, and class_sweep {searched, found} listing EVERY location the sweep returned, corrected or not. A finding whose named standard you cannot verify returns status: 'halted' with the reason in halt.detail. Findings: ${JSON.stringify(findings)}`, { agentType: AGENT.corrector, schema: PHASE_SCHEMA, phase: 'Plan', label: 'revise:plan' }),
     multiLens: false,
+    detectFailedCorrection: true,
   })
   record('plan', gate)
-  const nc = await maybeNonConvergence(gate, 'Plan', 'plan', ledger)
+  const nc = await maybeNonConvergence(gate, 'Plan', 'plan', ledger, planPath)
   if (nc) return nc
+  const planScope = await documentScopeCheck('Plan', 'plan', planPath, ledger)
+  if (planScope) return planScope
   cursor = 'implement'
 }
 
@@ -393,7 +582,7 @@ if (cursor === 'implement') {
   // never machine-selected; hard-rule and environment blocks escalate.
   if (impl && impl.status === 'halted' && impl.stop_report) {
     const cat = impl.stop_report.category
-    const dg = await diagnose(`Implementer STOP (${cat}): ${JSON.stringify(impl.stop_report)}`, ledger)
+    const dg = await diagnose(`Implementer STOP (${cat}): ${JSON.stringify(impl.stop_report)}`, ledger, { stop_report: impl.stop_report, plan: planPath })
     if (cat === 'HARD-RULE-CONFLICT' || cat === 'ENVIRONMENT-BLOCKED') {
       delta.phase = 'implement'
       const gtype = cat === 'ENVIRONMENT-BLOCKED' ? GATE.risk_override : GATE.spec_traceable
@@ -407,23 +596,55 @@ if (cursor === 'implement') {
 
   // Implementation review — multi-lens panel on the PASS round.
   const gate = await runGate({
-    reviewFn: (round, lens) => agent(`Review the implementation diff against the plan at ${planPath}${lens ? ` through the ${lens} lens` : ''}. Round ${round}.`, { agentType: AGENT.reviewer, schema: VERDICT_SCHEMA, phase: 'Review', label: `review:impl:${lens || 'x'}:r${round}` }),
+    reviewFn: (round, lens) => agent(`Review the implementation diff against the plan at ${planPath}, judged against ${RULER.implementation}${lens ? `, through the ${lens} lens` : ''}. ${NOT_THE_RULER} Round ${round}.`, { agentType: AGENT.reviewer, schema: VERDICT_SCHEMA, phase: 'Review', label: `review:impl:${lens || 'x'}:r${round}` }),
     remediateFn: (findings) => agent(`Route these implementation findings to a remediation plan, then re-implement under review: ${JSON.stringify(findings)}`, { agentType: AGENT.planner, schema: PHASE_SCHEMA, phase: 'Plan', label: 'remediate:impl' }),
     multiLens: true,
   })
   record('implementation', gate)
-  const nc = await maybeNonConvergence(gate, 'Implementation', 'implement', ledger)
+  const nc = await maybeNonConvergence(gate, 'Implementation', 'implement', ledger, planPath)
   if (nc) return nc
 
   // Anti-fabrication spot re-run over a deterministic sample of cited evidence.
   const cited = (impl && impl.evidence) || []
+  // Cross-entry consistency, checked BEFORE re-executing anything: entries
+  // describing the same subject must agree. The A-4b fabrication was
+  // self-refuting — one entry's claimed value contradicted another entry's
+  // accurate description of the same function — and nothing looked. This costs
+  // zero re-execution and catches the observed shape independently of which
+  // indices the sample happens to draw.
+  const bySubject = new Map()
+  for (const c of cited) {
+    const k = c && (c.subject || c.citation)
+    if (!k) continue
+    if (!bySubject.has(k)) bySubject.set(k, [])
+    bySubject.get(k).push(c)
+  }
+  let contradiction = null
+  for (const [k, group] of bySubject) {
+    for (let i = 0; i < group.length && !contradiction; i++)
+      for (let j = i + 1; j < group.length; j++)
+        if (group[i].asserted && group[j].asserted && group[i].asserted !== group[j].asserted) {
+          contradiction = { subject: k, a: group[i], b: group[j] }
+          break
+        }
+    if (contradiction) break
+  }
+  if (contradiction) {
+    const dg = await diagnose(
+      'Two cited verifications describing the same subject assert contradictory outcomes (self-refuting evidence).',
+      ledger,
+      { contradiction, cited }
+    )
+    delta.phase = 'implement'
+    return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.spec_traceable, what_happened: `Two cited verifications of "${contradiction.subject}" contradict each other; at least one is fabricated.`, diagnosis: dg, options: ['re-run phase', 'investigate'], recommendation: 'review the diagnosis' } })
+  }
   const idx = sampleIndices(cited.length, seed)
   if (idx.length) {
     const sample = idx.map((i) => cited[i])
     const vr = await agent(`Spot re-run: re-execute each cited verification and report match/mismatch. Cited: ${JSON.stringify(sample)}`, { agentType: AGENT.verifier, schema: VERIFIER_SCHEMA, phase: 'Verify', label: 'spot-rerun' })
     const fabricated = vr && (vr.checks || []).some((c) => c.match === false)
     if (fabricated) {
-      const dg = await diagnose('A cited verification did not reproduce on spot re-run (fabricated compliance).', ledger)
+      const dg = await diagnose('A cited verification did not reproduce on spot re-run (fabricated compliance).', ledger, { checks: vr.checks, sampled_indices: idx, cited: sample, seed })
       delta.phase = 'implement'
       return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.spec_traceable, what_happened: 'A cited verification could not be reproduced.', diagnosis: dg, options: ['re-run phase', 'investigate'], recommendation: 'review the diagnosis' } })
     }
@@ -432,7 +653,7 @@ if (cursor === 'implement') {
   // diff-vs-plan mechanical check
   const dvp = await agent(`Diff-vs-plan: compare git-changed files against the plan's authorized "Files affected" at ${planPath}. Report violations in either direction.`, { agentType: AGENT.verifier, schema: VERIFIER_SCHEMA, phase: 'Verify', label: 'diff-vs-plan' })
   if (dvp && (dvp.checks || []).some((c) => c.match === false)) {
-    const dg = await diagnose('A changed file is outside the plan\'s authorized set (scope violation).', ledger)
+    const dg = await diagnose('A changed file is outside the plan\'s authorized set (scope violation).', ledger, { checks: dvp.checks, plan: planPath })
     delta.phase = 'implement'
     return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.spec_traceable, what_happened: 'An out-of-plan file change was detected.', diagnosis: dg, options: ['amend plan', 'revert change'], recommendation: 'review the diagnosis' } })
   }
@@ -445,7 +666,7 @@ if (cursor === 'ground_truth') {
   const acc = await agent(`Execute each of the spec's acceptance criteria against the running system and report per-criterion pass/fail with observed evidence.`, { agentType: AGENT.acceptance, schema: ACCEPTANCE_SCHEMA, phase: 'Ground truth', label: 'ground-truth' })
   const failed = acc && (acc.criteria || []).filter((c) => c.verdict === 'fail')
   if (failed && failed.length) {
-    const dg = await diagnose(`Ground-truth failure: ${JSON.stringify(failed)}`, ledger)
+    const dg = await diagnose(`Ground-truth failure: ${JSON.stringify(failed)}`, ledger, { failed_criteria: failed })
     delta.phase = 'ground_truth'
     const traceable = dg && dg.classification === 'owner_owned'
     return report(finish(), { outcome: 'owner_gate', gate: { type: traceable ? GATE.spec_traceable : GATE.non_convergence, what_happened: `${failed.length} acceptance criterion(s) failed against the running system.`, diagnosis: dg, correction_draft: dg && dg.correction_draft, options: ['amend', 'investigate'], recommendation: 'review the diagnosis' } })
@@ -453,7 +674,7 @@ if (cursor === 'ground_truth') {
   phase('Verify')
   const recon = await agent(`Whole-chain reconciliation: map every in-scope spec requirement to its implementing diff and verifying evidence, and every diff hunk to its authorizing plan step at ${planPath}. Report anything unmapped in either direction.`, { agentType: AGENT.verifier, schema: VERIFIER_SCHEMA, phase: 'Verify', label: 'reconciliation' })
   if (recon && (recon.checks || []).some((c) => c.match === false)) {
-    const dg = await diagnose('Whole-chain reconciliation found an unmapped requirement or diff hunk.', ledger)
+    const dg = await diagnose('Whole-chain reconciliation found an unmapped requirement or diff hunk.', ledger, { checks: recon.checks, spec: specPath, plan: planPath })
     delta.phase = 'ground_truth'
     return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.spec_traceable, what_happened: 'Reconciliation found an unmapped item.', diagnosis: dg, options: ['amend', 'investigate'], recommendation: 'review the diagnosis' } })
   }
@@ -484,10 +705,63 @@ function maybeEscalate(out, phaseName) {
   }
   return null
 }
-async function maybeNonConvergence(gate, phaseName, resumePhase, led) {
-  if (gate.verdict !== 'NON_CONVERGENCE') return null
+// How each non-PASS runGate outcome reaches the owner. Fail-safe defaults (OWASP
+// secure design; the architecture names this standard for D6 STOP routing at
+// docs/arch/architecture-expert-dev-tools.md:750): a new state must fail CLOSED.
+// The callers below therefore test `!== 'PASS'` rather than enumerating verdicts —
+// an unhandled state that fell through reached the spec gate's GATE.intent return
+// and told the owner the specification passed independent review.
+const CORRECTION_FAILED_TEXT = {
+  fix_site_regression: 'a correction broke the section it edited',
+  unclosed_class: 'a correction closed the named instance and the same standard was violated elsewhere',
+}
+function lastRoundFindings(gate) {
+  return (gate.history[gate.history.length - 1] || {}).findings || []
+}
+async function gateEscalation(gate, phaseName, resumePhase, artifactPath, led) {
+  if (gate.verdict === 'CORRECTION_FAILED') {
+    const d = gate.detail || {}
+    const what = `${phaseName} review stopped at round ${gate.rounds}: ${CORRECTION_FAILED_TEXT[gate.kind] || gate.kind}.`
+    const dg = await diagnose(what, led, { kind: gate.kind, finding: d.finding, prior: d.prior, rounds: gate.history })
+    return { type: GATE.non_convergence, what_happened: what, diagnosis: dg, detail: d, findings: lastRoundFindings(gate), options: ['amend the artifact', 'revisit upstream'], recommendation: 'review the diagnosis — the next round would start from a worse artifact' }
+  }
+  if (gate.verdict === 'CORRECTOR_HALTED') {
+    const h = gate.halt || {}
+    const what = `${phaseName} correction halted at round ${gate.rounds}: ${h.detail || 'the corrector could not act on a finding'}.`
+    const dg = await diagnose(what, led, { kind: 'corrector_halted', halt: h, gate: resumePhase, artifact: artifactPath, rounds: gate.history })
+    return { type: GATE.non_convergence, what_happened: what, diagnosis: dg, halt: h, findings: lastRoundFindings(gate), options: ['amend the artifact', 'supply the standard the corrector could not verify'], recommendation: 'the corrector stated why it could not proceed — read halt.detail' }
+  }
+  // NON_CONVERGENCE, and any state not enumerated above: fail closed.
+  const what = `${phaseName} review did not converge.`
+  const dg = await diagnose(`${phaseName} review did not converge in ${ROUND_CAP} rounds.`, led, { gate: resumePhase, artifact: artifactPath, rounds: gate.history })
+  return { type: GATE.non_convergence, what_happened: what, diagnosis: dg, findings: lastRoundFindings(gate), options: ['amend', 'revisit upstream'], recommendation: 'review the diagnosis' }
+}
+// Mechanical scope control for the three DOCUMENT phases (S20). The implementation
+// phase has had diff-vs-plan since the start; a document phase had nothing, so the
+// spec phase's stray scratch-note.txt was caught only because a reviewer happened to
+// notice it in round 4. Least privilege applied to write scope (NIST SP 800-53 AC-6):
+// a document phase is authorized to write exactly ONE path. Not the full diff-vs-plan
+// job — there is no plan yet at the spec phase, so the authorized set is one path.
+// A stray file escalates; it never discards the phase's work, and the plugin cannot
+// sandbox an agent's writes at runtime, so detection-and-escalation is the control
+// available.
+async function documentScopeCheck(phaseName, resumePhase, artifactPath, led) {
+  const sc = await agent(
+    `Document-phase scope check: compare the git-changed files against the single artifact this phase was authorized to write, "${artifactPath}". Report every other changed file as a violation. The authorized set is one path — not a plan's Files-affected list.`,
+    { agentType: AGENT.verifier, schema: VERIFIER_SCHEMA, phase: 'Verify', label: 'doc-scope' }
+  )
+  const violations = ((sc && sc.checks) || []).filter((c) => c.match === false)
+  if (!violations.length) return null
   delta.phase = resumePhase
-  const dg = await diagnose(`${phaseName} review did not converge in ${ROUND_CAP} rounds.`, led)
-  const lastFindings = (gate.history[gate.history.length - 1] || {}).findings || []
-  return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.non_convergence, what_happened: `${phaseName} review did not converge.`, diagnosis: dg, findings: lastFindings, options: ['amend', 'revisit upstream'], recommendation: 'review the diagnosis' } })
+  const dg = await diagnose(
+    `${phaseName} phase wrote outside its authorized artifact path (scope violation).`,
+    led,
+    { checks: sc.checks, phase: resumePhase, authorized: artifactPath }
+  )
+  return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.spec_traceable, what_happened: `The ${phaseName} phase changed a file outside the single artifact it was authorized to write (${artifactPath}).`, diagnosis: dg, findings: [], options: ['accept the extra file', 'revert the extra file'], recommendation: 'review the diagnosis' } })
+}
+async function maybeNonConvergence(gate, phaseName, resumePhase, led, artifactPath) {
+  if (gate.verdict === 'PASS') return null
+  delta.phase = resumePhase
+  return report(finish(), { outcome: 'owner_gate', gate: await gateEscalation(gate, phaseName, resumePhase, artifactPath, led) })
 }

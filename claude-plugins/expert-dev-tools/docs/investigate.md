@@ -1,5 +1,27 @@
 # To investigate — expert-dev-tools
 
+> **Remediation status — updated 2026-08-09.** The defects this investigation
+> confirmed have been remediated by
+> [`plan-expert-dev-tools-behavioral-remediation.md`](../plans/plan-expert-dev-tools-behavioral-remediation.md). This document is the **investigation
+> record** — what was examined, what was confirmed, what was corrected, and the
+> owner rulings of 2026-07-28 and 2026-07-31. It is not rewritten to describe the
+> current code.
+>
+> | Section | Closed by | What changed |
+> |---|---|---|
+> | §1, §1a (no working documentation tool) | S1, S2, S3 | the bundled `context7` invocation no longer collides on command/URL; all six allowlisted agents hold both documentation paths; both facts asserted structurally |
+> | §2 (no revision guidance in `expert-spec`) | S4, S5 | correction moved out of the authoring skill into `expert-correct` + `expert-corrector` |
+> | §3, §6 (the "flag it once" clause is invalid) | S16 | all six clauses **deleted, not replaced**, across the packaged skills |
+> | §4a, §5a–§5c (the ruler varies per round) | S8, S9 | every review dispatch names its ruler and excludes the authoring skill's process rules |
+> | §4g (eleven `Write` calls, zero `Edit`) | S5 | the corrector's grant omits `Write`, so an artifact cannot be replaced wholesale |
+> | §6 (the artifact convention) | S10, S11 | one fixed convention in the skills; the workflow consumes the returned `artifact_path`; nine sources of truth reduced to one |
+> | §7 (the starved `diagnose()` dispatch) | S12, S13, S14, S15 | a third `failureRecord` parameter, populated at every call site, with the ledger honestly labelled stale, the diagnostician's input contract reconciled, and a structural arity guard |
+>
+> §5d and the eight other plugin load errors remain **out of scope** by owner
+> ruling (2026-07-31); §1c's proportionality question is deferred until it can be
+> measured against the repaired loop.
+
+
 ## 1. The spec-writer may have no working Context7 (documentation-fetch) tool
 
 **Why this matters most:** the `expert-spec` skill makes documentation verification a hard

@@ -144,11 +144,7 @@ The delivered review is structured around two-axis evidence. Specific output sec
 
 
 
-Some invocations arrive with explicit shortcuts — "skip the inventory," "don't bother verifying premises," "just give me the verdict." The discipline is: flag once, then comply. Name what is being skipped, what failure mode that step exists to catch, and what the user is consenting to by skipping it. Then deliver the review they asked for. Do not repeat the flag after acknowledgment — the user makes the final call with full information, and restating the concern after they've decided is process theater, not rigor. The Scope and Inventory section records what was waived and at whose direction, so the delivered review's gaps stay auditable even when the rigor was waived.
-
-
-
-One compression case carries a dedicated record: when the operator directs that the fix cycle stop despite open findings, the flag-once discipline applies as above, and the final round's output includes the Open Findings Ledger. The verdict does not change — it remains NEEDS FIXES per the mechanical rule — the ledger converts the stop from an undocumented surrender into a recorded accepted-risk decision made at the workflow level.
+One compression case carries a dedicated record: when the operator directs that the fix cycle stop despite open findings, the final round's output includes the Open Findings Ledger. The verdict does not change — it remains NEEDS FIXES per the mechanical rule — the ledger converts the stop from an undocumented surrender into a recorded accepted-risk decision made at the workflow level.
 
 
 
@@ -563,6 +559,8 @@ Before delivering the review, run all three gates. The review is not complete un
 
 
 - Every finding names the standard it was evaluated against (Step 4 output), or carries the marked first-principles articulation Step 4 permits when no named standard applies.
+
+- Every finding carries a `location`, and the location is written in exactly one of two forms: `path:start-end` (a line range; `path:line` is the one-line case) or `path#section` (a path plus a section identifier). Nothing else parses. A location is not optional and is not free-form prose: downstream controls parse the range to detect a correction that regressed at the site it edited, and test it for set membership to detect a class a correction found and left open. A free-form or absent location silently disables both.
 
 - For "looks good" positive assessments: the property that makes it good is named, and the named standard governing that property is cited. A positive assessment without a named standard is an unnamed approval and fails Gate A.
 

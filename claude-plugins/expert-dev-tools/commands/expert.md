@@ -60,8 +60,13 @@ project.
 
 where `<snapshot>` is a JSON object: `{ ledger: <the current ledger>, task:
 "$ARGUMENTS", spec_path, arch_path, plan_path, reader_script, transcript_dir }`
-(artifact paths from the ledger's `artifact_index`, or the project defaults under
-`docs/`).
+(artifact paths from the ledger's `artifact_index` only — omit any path the
+`artifact_index` does not carry). **Do not supply a project default under `docs/`.**
+The artifact's location has one source of truth: the path the authoring agent
+returns, which the workflow consumes and which outranks anything passed in here.
+A default supplied at this point always wins on a fresh run, because the
+`artifact_index` is empty then — which is exactly how every review dispatch in
+the A-3 run came to cite a path that did not exist.
 
 The workflow runs in the background and returns a **SEGMENT_REPORT**. Wait for
 it. It ran from the ledger's phase through the machine gates to the next owner
@@ -94,8 +99,17 @@ From the SEGMENT_REPORT's `ledger_delta` and its top-level fields:
 - **Feedback (F-14).** Persist the advanced `feedback_marker` and any signature
   updates from the report's `feedback` dispositions and `feedback_escalation`.
   When a disposition or escalation reports a **recurrence** of an existing
-  signature, append it as a new `occurrences[]` entry (with its `plugin_version`)
-  on the matched signature record, so a corrected-then-recurred signature is
+  signature, **upsert** it on the matched signature record, keyed on
+  `(project, session_file)`: append a new `occurrences[]` entry (with its
+  `plugin_version`) **only when no existing occurrence on that record shares both
+  values**; otherwise update that existing entry's `date` and `plugin_version` in
+  place. Both key fields are already required on every occurrence by
+  `ledger.schema.json`, so no schema change is involved. Re-reading the same
+  transcript is not a new occurrence — one diagnostician reported four
+  occurrences where another correctly deduped identical input to two, and the
+  occurrence count is what drives the repeat-complaint signal. A
+  `feedback_marker` reset re-reads history that is already recorded; it **must
+  not** double-count it. This is what makes a corrected-then-recurred signature
   detectable from stored data (used by the STATUS predicate below).
   **Shared-machinery** signatures go to
   `${CLAUDE_PLUGIN_DATA}/defect-history.json`; project-scoped signatures go to the
@@ -112,7 +126,13 @@ From the SEGMENT_REPORT's `ledger_delta` and its top-level fields:
   `state: "open"`, or `state: "corrected"` with an `occurrences[]` entry whose
   `plugin_version` is at or above that record's `correction.fixed_in_version`
   (compared as semantic versions — this second case is exactly a
-  `failed_correction`, spec A-9(b)); the transient sweep verdicts
+  `failed_correction`, spec A-9(b)); **or `state: "corrected"` with an
+  `occurrences[]` entry whose `plugin_version` is *below* that record's
+  `correction.fixed_in_version` — that is a `stale_deployment` (D15), and it is
+  surfaced as an open item reading "your plugin is behind; update it"**. The
+  stale branch is a separate predicate because a stale record's occurrences sit
+  below `fixed_in_version` and so match neither of the other two branches, which
+  is why the verdict was computed and then went nowhere; the transient sweep verdicts
   (`systemic_defect` / `failed_correction`) are never stored on the record, so this
   predicate keys on `state`, `occurrences`, and `correction` — so a feedback
   escalation stays visible here, not only when first presented** (F-14); budget;
@@ -146,11 +166,22 @@ When a gate carries `findings` (a review-derived gate), present those findings �
 the standard each was judged against and where it is — not merely that the review
 did not pass; the full set is in that phase's `.claude/expert/reviews/` record.
 
+**Feedback dispositions (F-14).** Present the report's plain `feedback` array —
+every disposition the sweep returned, with its signature, occurrence count and
+verdict — not only the single `feedback_escalation`. A `course_correction` never
+builds an escalation, so presenting escalations alone hides everything the sweep
+found that did not rise to one.
+
 **Feedback escalations (F-14).** When the report carries a `feedback_escalation`,
 present it to the owner as an owner-owned item alongside whatever gate or
 completion the segment produced (it is not one of the six gate types):
 - `systemic_defect` — present the attached `diagnosis` (root cause + correction
   draft) so the owner approves or rejects a proposed fix.
+- `stale_deployment` — the fix for this signature exists, but the running plugin
+  predates it. State plainly that **the plugin is behind and needs updating**,
+  naming the signature's `correction.fixed_in_version` and the `plugin_version`
+  on the recurring occurrence. Dispatch **no** remediation: the machine does not
+  modify its own deployment.
 - `failed_correction` — a fix that did not hold. Present the **original diagnosis,
   the applied correction, and the new evidence, and dispatch NO remediation.**
   Assemble the content by looking up `feedback_escalation.disposition.signature`

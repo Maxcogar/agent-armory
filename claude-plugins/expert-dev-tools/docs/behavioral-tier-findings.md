@@ -1,5 +1,30 @@
 # Behavioral-tier findings — expert-dev-tools (first live runs)
 
+> **Remediation status — updated 2026-08-09.** Every finding in this document has
+> been remediated by [`plan-expert-dev-tools-behavioral-remediation.md`](../plans/plan-expert-dev-tools-behavioral-remediation.md), whose steps are named per item below. This
+> document remains the **record of what the first live runs observed**; it is not
+> rewritten to describe the current code. Read it for what was found and why, and
+> read the plan for what was changed.
+>
+> | Finding | Closed by | What changed |
+> |---|---|---|
+> | B9 / B9b (correction is re-derivation) | S4, S5, S6 | new `expert-correct` skill and `expert-corrector` agent (granted `Edit`, denied `Write`); the three document gates remediate through it |
+> | B9c (a finding the corrector cannot satisfy) | S15b | the `CORRECTOR_HALTED` path — a halted correction escalates instead of burning the round cap |
+> | B1 (`stale_deployment` has no path to the owner) | S18 | escalation branch in the workflow; STATUS predicate and presentation in `commands/expert.md` |
+> | B2 (no occurrence dedupe key) | S19 | occurrences upsert on `(project, session_file)` |
+> | B5 (A-4c fixture mis-describes itself) | S21 | the fixture's self-description corrected from two-way to three-way |
+> | B6 (artifacts not registered on escalation) | S17 | the spec artifact registers **before** its gate, matching architecture and plan |
+> | B7 (the workflow's `specPath` is a guess) | S10 | the returned `artifact_path` is authoritative; all path defaults deleted, in the workflow and the command |
+> | B8 (no scope control on document phases) | S20 | a verifier scope check after each document gate; the verifier's job list extended to four |
+> | B10 (the plan gate never receives its output contract) | S8, S9 | remediated as a **four-gate** defect: every review dispatch names a ruler, and each gate with an output contract cites it |
+> | B3 (A-8 contradicts F-14) | S22 | A-8 corrected — the non-complaint turn is discarded, not classified |
+> | B4 (EVIDENCE cannot separate observed from asserted) | S22 | `observed`/`asserted` split plus a cross-entry consistency check; sampling constant unchanged |
+>
+> Two mechanisms were added that no single finding named: correction failure is
+> now **detected** (S6b — fix-site regression and unclosed class sweep), and every
+> agent's return contract is **bound** to the schema the workflow reads (S2b).
+
+
 **Date:** 2026-07-28. **Plugin version:** 0.1.0, installed and enabled (`/reload-plugins`).
 **Context:** the plugin had passed independent review at the static tier (round-5 PASS, PR #50)
 but had **never executed**. These are the findings from the first real runs of the behavioral
@@ -43,7 +68,8 @@ exhaustion; budget captured (637,264). **Zero repo pollution** (agent-armory cha
 
 ## Findings
 
-### B9 (Serious — viability) — the spec review loop does not converge on a trivial task
+### B9 (Serious — viability) — the spec review loop does not converge on a trivial task  
+**REMEDIATED** — closed by S4, S5, S6 (+ S6b detection, S15b halt path). See the plan for the change and its verification.
 
 - **Observed:** on the fixture task ("add a `farewell(name)` function to `greeter.js` mirroring
   `greet`, and a unit test"), the spec review loop ran all five rounds and never reached zero
@@ -139,7 +165,8 @@ recalibration *after* B9a–B9c are fixed. That question should be re-asked agai
 not answered now — changing the cap against the current machinery would buy more churn, not
 convergence.
 
-### B1 (Serious) — `stale_deployment` has no path to the owner
+### B1 (Serious) — `stale_deployment` has no path to the owner  
+**REMEDIATED** — closed by S18. See the plan for the change and its verification.
 
 - **Observed:** A-9(c) computes the verdict correctly, then it goes nowhere. The workflow builds a
   `feedback_escalation` only for `failed_correction` and `systemic_defect`
@@ -152,7 +179,8 @@ convergence.
   behind — and "update the plugin" is the entire action that verdict exists to produce (spec F-14).
 - **Note:** the STATUS predicate is from the round-3 remediation (RRR1); this gap is partly mine.
 
-### B6 (Serious) — artifacts are not registered when a phase escalates
+### B6 (Serious) — artifacts are not registered when a phase escalates  
+**REMEDIATED** — closed by S17. See the plan for the change and its verification.
 
 - **Observed:** the A-3 run returned `ledger_delta.artifacts: []` even though the spec document was
   written to disk. `delta.artifacts.push({role:'spec', path: specPath})` executes only on the spec
@@ -161,7 +189,8 @@ convergence.
   artifact produced by a phase that escalated — precisely the case where the owner most needs the
   artifact registered and hashed. The S-4 remediation is incomplete on the escalation paths.
 
-### B7 (Serious) — the spec dispatch passes no target path; the workflow's `specPath` is a guess
+### B7 (Serious) — the spec dispatch passes no target path; the workflow's `specPath` is a guess  
+**REMEDIATED** — closed by S10. See the plan for the change and its verification.
 
 - **Observed:** the spec dispatch is `Write the specification for this task.\nTask: ${task}` — it
   never tells the agent where to write. The writer produced
@@ -184,7 +213,8 @@ convergence.
   path as an instruction, or the workflow takes the returned `artifact_path` as authoritative
   (`PHASE_SCHEMA` already has that field — it is simply not consumed).
 
-### B10 (Serious) — the plan review gate never receives the plan's output contract
+### B10 (Serious) — the plan review gate never receives the plan's output contract  
+**REMEDIATED** — closed by S8, S9. See the plan for the change and its verification.
 
 - **Found by the plugin's own diagnostician**, tracing the planted A-8 complaint to its root cause,
   and independently verified against source.
@@ -199,7 +229,8 @@ convergence.
 - **Consequence:** a planner self-audit miss on its most important rule is *structurally
   unobservable* to the pipeline. The reviewer is not told to look, and no deterministic check exists.
 
-### B2 (Moderate) — no occurrence dedupe key
+### B2 (Moderate) — no occurrence dedupe key  
+**REMEDIATED** — closed by S19. See the plan for the change and its verification.
 
 - **Observed:** `commands/expert.md` step 4 instructs appending a new `occurrences[]` entry whenever
   a disposition reports a recurrence, with no dedupe key. Re-sweeping the same transcripts inflates
@@ -208,7 +239,8 @@ convergence.
 - **Fix direction:** dedupe on `(project, session_file)`; a marker reset must not double-count
   history already recorded.
 
-### B8 (Moderate) — document phases have no mechanical scope control
+### B8 (Moderate) — document phases have no mechanical scope control  
+**REMEDIATED** — closed by S20. See the plan for the change and its verification.
 
 - **Observed:** the spec phase created a stray `scratch-note.txt` in the project tree (the file's
   own content admits it: "STRAY ARTIFACT - SAFE TO DELETE. Created in error by the spec phase").
@@ -217,7 +249,8 @@ convergence.
   implementation, so document phases rely entirely on a reviewer noticing. A phase that writes
   outside its deliverable is otherwise unconstrained.
 
-### B3 (Minor, owner-owned) — `ACCEPTANCE.md` A-8 contradicts F-14
+### B3 (Minor, owner-owned) — `ACCEPTANCE.md` A-8 contradicts F-14  
+**REMEDIATED** — closed by S22. See the plan for the change and its verification.
 
 - **Observed:** A-8 states the single-occurrence "ok run the tests now" turn should classify as a
   `course_correction`. F-14 scopes the sweep to "statements where the owner flagged a problem," and
@@ -228,7 +261,8 @@ convergence.
   weaken its own ruler. Either A-8's wording changes, or F-14 must state that non-complaint course
   corrections are also swept. The two cannot both stand.
 
-### B4 (Minor, owner-owned) — the EVIDENCE schema cannot distinguish observed from asserted
+### B4 (Minor, owner-owned) — the EVIDENCE schema cannot distinguish observed from asserted  
+**REMEDIATED** — closed by S22. See the plan for the change and its verification.
 
 - **Observed:** `EVIDENCE` requires four free-form strings (`claim_type`, `tool`, `citation`,
   `result`) with no field separating verbatim observed output from asserted outcome, and no
@@ -240,7 +274,8 @@ convergence.
 - **Owner-owned by doctrine:** every candidate target (output schema, sampler, gate) is a
   verification mechanism.
 
-### B5 (Minor) — the A-4c fixture spec mis-describes its own contradiction
+### B5 (Minor) — the A-4c fixture spec mis-describes its own contradiction  
+**REMEDIATED** — closed by S21. See the plan for the change and its verification.
 
 - **Observed:** `tests/fixture/spec/spec-contradictory.md` frames the seeded conflict as two-way
   (R-1 uppercase vs R-2 lowercase). The planner found it is **three-way**: the same spec's "mirrors

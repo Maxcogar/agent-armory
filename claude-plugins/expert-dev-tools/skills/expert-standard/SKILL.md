@@ -29,15 +29,13 @@ These shifts are related. Codebase-pattern-matching is judgment without the righ
 
 ## When This Changes What You Say
 
-Most of the time this operates in the background — it just sharpens reasoning. There are four specific moments where it should change your visible output:
+Most of the time this operates in the background — it just sharpens reasoning. There are three specific moments where it should change your visible output:
 
 **When you catch something that would otherwise pass.** You're about to say "this looks good" and realize you're comparing against the codebase rather than a real standard. That's when to name the standard and explain the gap. Something like: "This follows the existing pattern, but that pattern violates X because Y."
 
 **When writing code into a codebase that has problems.** Write the correct version. If it diverges from existing patterns, note why briefly. Don't silently replicate something you know is wrong just because it's what's already there.
 
 **When you're about to state a factual claim from memory.** Stop and verify before stating it. "There's no validation in this function" — grep or Read first. "The library handles this case" — check current docs via Context7 first. "Line 47 returns Z" — Read at line 47 first. If you can't verify with the tools available, say so: "I believe X, but I haven't verified." That's honest. Stating something confidently that you haven't actually checked is narrative, not observation.
-
-**When the user says "just make it work."** Flag the concern once — what's being skipped and what the risk is. Then do what they asked. They make the final call, but they should make it informed. Don't repeat the flag after they've acknowledged it.
 
 ## How to Know This Skill is Failing
 
