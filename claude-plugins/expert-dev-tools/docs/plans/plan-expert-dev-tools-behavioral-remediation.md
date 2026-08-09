@@ -75,8 +75,9 @@ narrowing.
 
 ## 3. Standards that govern this plan
 
-**Re-derived from §7's 26 Source annotations, 2026-07-31.** §3 is a restating surface: it is rebuilt
-from the steps, never appended to (§7 maintenance rule 3).
+**Re-derived from §7's 26 Source annotations, 2026-08-11**, in the same walk that re-derived §1's
+Goal, §2, §5, §11, §12, §13's counts and §14 after the last step edit. §3 is a restating surface: it
+is rebuilt from the steps, never appended to (§7 maintenance rule 3).
 
 | Standard | Steps it governs, and what it governs there |
 |---|---|
@@ -86,12 +87,12 @@ from the steps, never appended to (§7 maintenance rule 3).
 | **architecture D5/D11 refinement** (`docs/arch/…:863`, owner directive) | **S2** — the reviewer's WebFetch/WebSearch denial, which excludes it from S2's grant. Asserted at `check-structure.mjs:71`, whose `(F3)` label is the test author's attribution, not the spec's text (claim 6). |
 | **Design by Contract (Meyer)** | **S2b, S6b, S9, S14, S20** — caller and agent must agree. S14 fixes agent-promises-more; S2b and S6b fix caller-expects-more; S9 cites only contracts that exist; S20 pairs a new dispatch with the agent's job list. |
 | **The generation rule** (claim 27, `cd2f27b`: "Scripts that *generate* a derived surface are the fix; scripts that *audit* prose are the problem") | **S2b** — `returns:`/`jobs:` is a derived surface with a generator. D-8 records the surfaces where generation is unavailable. |
-| **Regression-detection principle** (`testing-standards.md`: every fixed defect gets a check that would have caught it) | **S3, S6b, S7, S15, T-2b** — each correction carries the assertion that would have caught it. |
+| **Regression-detection principle** (`skills/expert-plan/references/testing-standards.md:91` — a fixed bug gets a test that **reproduces it first, failing on the broken code**, then passes on the fix; claim 56) | **S3, S6b, S7, S15, T-2b** — each correction carries the assertion that would have caught it, **demonstrated failing against the pre-fix state** before it counts as a regression guard. |
 | **APS Fusion re-derivation discipline** (`mcp-servers/aps-fusion-mcp-server/HANDOFF.md` @ `755bf9b`, `cd2f27b` — claim 27) | **S4, S5, S6b** — the correction method, and the evidence that patching *and* re-authoring both fail. |
 | **Single Responsibility Principle (SOLID)** | **S4** — authoring and correcting are different disciplines; one document serving both serves one badly. |
 | **Architecture D6** | **S6, S6b, S15b** — the implementation gate remediates via amend-plan through the planner, which is why the corrector and both detectors are scoped away from it. |
 | **`skills/expert-review/SKILL.md:111`** | **S8** — "The plan, spec, or architecture is the validation reference, **not the quality standard**" — the clause the dispatches failed to carry. |
-| **ISO/IEC/IEEE 29148:2018** requirement characteristics | **S8** (the spec gate's external ruler), **S10, S11, S17** (§5.2.6 Consistent — one artifact-path convention against six sources; one registration point across three phases). |
+| **ISO/IEC/IEEE 29148:2018** requirement characteristics | **S8** (the spec gate's external ruler), **S10, S11, S17** (§5.2.6 Consistent — one artifact-path convention against the nine sources claim 13 enumerates, including the skill/agent pair S11 must move together; one registration point across three phases). |
 | **Single Source of Truth** (Beck, *Once and Only Once*) | **S10, S11** — the artifact path is stated once and derived everywhere else. |
 | **Owner rulings** (`docs/HANDOFF.md`; `docs/investigate.md` §6) | **S10, S11** (the skill's convention wins; the workflow consumes `artifact_path`), **S16** (deletion, no replacement), and §2's scope exclusions. |
 | **spec F-13 + architecture C3** | **S12, S13** — the approved contract requiring "failure record + ledger snapshot + journal excerpt"; the workflow is brought into compliance, the contract is not bent to the code. |
@@ -100,7 +101,7 @@ from the steps, never appended to (§7 maintenance rule 3).
 | **spec F-14 + architecture D15** | **S18, S19** — the four feedback verdicts and the corrected/stale split. |
 | **Idempotence of a recorded observation** | **S19** — re-reading the same transcript is not a new occurrence; dedupe on `(project, session_file)`. |
 | **The plugin's correction doctrine** (`docs/behavioral-tier-findings.md`) | **S22** — the machine may not *weaken* its own ruler; every change there strengthens it. |
-| **`expert-plan/references/testing-standards.md`** | **S21** (test data must describe the state it represents) and **§12** — per-type requirements and the fake-test anti-pattern catalog. |
+| **`skills/expert-plan/references/testing-standards.md`** (`:21` forward-derived test data, `:91` regression demonstration, `:123` the anti-pattern catalog; claim 56) | **S21** (test data is forward-derived, never shaped backward from the assertion) and **§12** — per-type requirements and the fake-test anti-pattern catalog. |
 | **ISO/IEC/IEEE 29119-4:2021 test design techniques** | **§12** — every specification names its technique. |
 | **Software Engineering at Google** (Unit Testing / Test Doubles) | **§12** — real-by-default, state over interactions, never double the subject. |
 | **expert-plan Step 8 documentation-sync requirement** | **S23** — if the code changes and the docs do not, the docs are now wrong. |
@@ -120,7 +121,13 @@ diverges from it. S12–S13 bring the code into compliance. Recorded as register
 ## 5. Files affected
 
 **Re-derived from §7's step set** (§7 maintenance rule 1 — this section restates, it never
-originates). **Last re-derived: 2026-07-31, against the current 26-step set.** The **five**
+originates). **Last re-derived: 2026-08-11, by walking §7 step by step and emitting each step's
+"What changes" file set, against the current 26-step set.** That walk returned the same file set as
+the previous one: the step edits since it — round 5's to S5's frontmatter *values* and S15b's
+Verification field, round 6's to S5's agent-shape sentence, round 7's to four `testing-standards.md`
+restatements and three owner-ruling Source lines — change what steps *say* and which line they cite,
+not which files they touch, so the tables below are unchanged and the attestation records the
+re-derivation rather than a revision. The **five**
 sublists below are jointly "§5's file list" for T-21's purposes: Created, Modified—configuration,
 Modified—agents, Modified—skills, Modified—workflow/command/tests/docs. There is no wildcard row;
 S23's document set was enumerated at plan time.
@@ -128,8 +135,8 @@ S23's document set was enumerated at plan time.
 **Created (3)**
 | Path | Steps |
 |---|---|
-| `skills/expert-correct/SKILL.md` | S4 (creates, incl. the corrector's return contract) |
-| `agents/expert-corrector.md` | S5 (creates, frontmatter **and** body) |
+| `skills/expert-correct/SKILL.md` | S4 (creates, incl. the corrector's return contract), S6b (part 4 — the `class_sweep` reporting obligation) |
+| `agents/expert-corrector.md` | S5 (creates, frontmatter **and** body), S2b (`returns:`/`jobs:` contract keys), S6b (part 4 — the same obligation in the body and in `returns:`) |
 | `README.md` | S1 (records the `.mcp.json` invocation reason), S23 (writes it) — **does not exist today**; `find -iname "readme*"` over the plugin returns nothing, so this is a creation, not a modification |
 
 **Modified — configuration (1)**
@@ -144,22 +151,22 @@ the three denylist agents are modified too — they were untouched before S2b ex
 
 | Path | Steps |
 |---|---|
-| `agents/expert-spec-writer.md` | S2 (grant), S2b (contract) |
+| `agents/expert-spec-writer.md` | S2 (grant), S2b (contract) — `:16` already writes to `docs/specs/`, S11's convention, so no paired edit is due |
 | `agents/expert-implementer.md` | S2 (grant), S2b |
 | `agents/expert-verifier.md` | S2 (grant), S2b, **S20 (jobs: 3 → 4)** |
 | `agents/expert-diagnostician.md` | S2 (grant), S2b, S14 (contract text) |
 | `agents/expert-acceptance.md` | S2 (grant), S2b |
 | `agents/expert-closeout.md` | S2 (grant), S2b |
-| `agents/expert-reviewer.md` | **S2b only** — no grant change (`arch:863` denies it WebFetch/WebSearch); it emits `findings[].location`, so it needs the contract |
-| `agents/expert-architect.md` | **S2b only** |
-| `agents/expert-planner.md` | **S2b only** |
+| `agents/expert-reviewer.md` | S2b (contract), **S6b (part 5 — the `findings[].location` grammar)** — no grant change (`arch:863` denies it WebFetch/WebSearch) |
+| `agents/expert-architect.md` | S2b (contract), **S11 (`docs/arch/` → `docs/architectures/` at `:16`, the paired agent-side edit)** |
+| `agents/expert-planner.md` | **S2b only** — `:17` already writes to `docs/plans/`, which is S11's convention, so no paired edit is due |
 
 **Modified — skills (7)**
 | Path | Steps |
 |---|---|
 | `skills/expert-spec/SKILL.md` | S11, S16 |
 | `skills/expert-standard/SKILL.md` | S16 |
-| `skills/expert-review/SKILL.md` | S16 |
+| `skills/expert-review/SKILL.md` | S16, **S6b (part 5 — the `findings[].location` grammar)** |
 | `skills/expert-architecture/SKILL.md` | S11, S16 |
 | `skills/expert-architecture-portable/SKILL.md` | S11, S16 |
 | `skills/expert-mcp-overhaul/SKILL.md` | S16 |
@@ -169,13 +176,16 @@ the three denylist agents are modified too — they were untouched before S2b ex
 | Path | Steps |
 |---|---|
 | `workflows/expert-lifecycle.js` | S6, S6b, S8, S9, S10, S12, S13, S15b, S17, S18, S20, **S22** (`EVIDENCE` split) |
-| `commands/expert.md` | **S10** (the sixth artifact-path source), S18, S19 |
+| `commands/expert.md` | **S10** (the artifact-path source that outranks the workflow — claim 13), S18, S19 |
 | `tests/structural/check-structure.mjs` | S3, S7, S15, **S2b** (the contract-binding assertion) |
 | `tests/fixture/spec/spec-contradictory.md` | S21 |
 | `tests/ACCEPTANCE.md` | **S22** (A-8 corrected to match spec F-14) |
 | `docs/investigate.md` | S23 (mark remediated items) |
 | `docs/behavioral-tier-findings.md` | S23 (mark remediated items) |
-| `README.md` | S1 (created), S23 |
+
+`README.md` is **not** repeated here: S1 and S23 are both carried in its Created row above, so the
+union of the five sublists is a set rather than a multiset — which is what T-21 compares against
+`git diff --stat`.
 
 **What S22 does and does not touch.** S22 **edits both** `tests/ACCEPTANCE.md` (A-8) and
 `workflows/expert-lifecycle.js` (the `EVIDENCE` split plus the cross-entry consistency check), in
@@ -225,16 +235,29 @@ transcripts — the labour this session performed manually.
 
 ## 7. Plan
 
-**Maintenance rule for this section — read before editing any step (D-8).** Six sections duplicate
-information that originates here: §2's coverage table, §5's file list, §11's claims, §12's test IDs,
-§14's register, and each step's own dependency list. None of them is generated, so each is a drift
-site, and drift in exactly this shape is what fired the APS Fusion tripwire (claim 27).
+**Maintenance rule for this section — read before editing any step (D-8).** **Nine surfaces**
+duplicate information that originates here — the list is D-8's, and the two are one set:
+
+| # | Surface | What it restates |
+|---|---|---|
+| 1 | §1's Goal sentence | scope → steps |
+| 2 | §2's coverage reconciliation | requested element → step IDs |
+| 3 | §3's standards registry | standard → step IDs |
+| 4 | §5's file list | path → step IDs |
+| 5 | §11's claims | claim → step IDs |
+| 6 | §12's test specifications | test → step, and every step's Verification field → test IDs |
+| 7 | §13's counts | step-set arithmetic (e.g. "twelve of the twenty-six") |
+| 8 | §14's register | question → the step it arose in |
+| 9 | §7's own per-step dependency lists | step → step IDs (26 of them, one per step) |
+
+None of the nine is generated, so each is a drift site, and drift in exactly this shape is what
+fired the APS Fusion tripwire (claim 27). Surfaces 1–8 are sections *outside* §7 and are what rule 3
+governs; surface 9 lives inside §7 and is re-derived by the step walk itself.
 
 Therefore:
 
 1. **§7 is the origin.** A step's "What changes" and "Dependencies" fields are authoritative for
-   which files it touches and what it follows. The other five sections restate; they never
-   originate.
+   which files it touches and what it follows. Surfaces 1–8 above restate; they never originate.
 2. **References run one way where the contract permits it.** §11 claims name the steps that depend
    on them; steps do not carry claim numbers.
 
@@ -243,16 +266,22 @@ Therefore:
    their steps *and* step Verification fields name their test IDs. That pair is bidirectional by
    contract; rule 3 is what keeps it consistent. Do not one-way it.
 3. **Editing a step re-derives the restating sections; it never patches them.** Adding, removing,
-   renaming or re-scoping any step means walking **§1's Goal sentence, §2, §3, §5, §11, §12, §13
-   and §14** and re-deriving each from the current step set — not locating and amending the lines
-   that mention that step. A step rename that is grep-and-replaced through the restating sections is
-   the failure this rule exists to prevent.
+   renaming or re-scoping any step means walking **surfaces 1–8 above — §1's Goal sentence, §2, §3,
+   §5, §11, §12, §13 and §14** — and re-deriving each from the current step set, not locating and
+   amending the lines that mention that step. (Surface 9 is §7's own dependency lists, re-derived by
+   the step walk that this rule starts from.) A step rename that is grep-and-replaced through the
+   restating sections is the failure this rule exists to prevent.
 
    **Keep this enumeration complete.** A maintenance rule blind to one of the surfaces it governs
    cannot catch that surface drifting, and the enumeration is itself hand-maintained. When a section
-   restating step data is added to the plan, add it here in the same edit.
+   restating step data is added to the plan, add it to the table above, to D-8's surface list, and to
+   §15's G-3 count in the same edit — those three are one set stated in three places, and a figure
+   that moves in one and not the others is this rule's own failure mode. The surfaces are numbered
+   rather than counted in prose for that reason: a reader reconciles the three statements by
+   identifier, and a missing surface is visible as a gap in the sequence rather than as a disagreement
+   between two totals.
 4. **A finding in any restating section is a class signal, not an instance.** If a reviewer finds
-   one drifted entry, all six sections are re-derived before the finding is reported closed.
+   one drifted entry, all nine surfaces are re-derived before the finding is reported closed.
 5. **Any step that changes what the workflow expects of an agent carries a paired edit to that
    agent's governing document, listed in §5.** Agent markdown is a *contract*, not configuration.
    Round 1 of review found this violated three times — a corrector with no body, a required return
@@ -324,8 +353,12 @@ WebSearch`, and — for the two that hold no documentation tool at all — add
 `agents/expert-reviewer.md`, `agents/expert-architect.md`, `agents/expert-planner.md` are **not
 touched** — they run denylists and already inherit a working host Context7.
 
-**Source.** `expert-spec/SKILL.md:163` requires verification "via Context7 or the authoritative
-source"; owner ruling (HANDOFF): "When information is missing, the agent goes and finds it."
+**Source.** `skills/expert-spec/SKILL.md:155` requires verification "via Context7 or the authoritative
+source" (claim 32; **not** `:163`, which is the flag-once clause S16 deletes — citing that line would
+leave this step's stated authority pointing at a passage this plan removes); owner ruling, `docs/HANDOFF.md:68–80` (claim 60) — the rulings section is binding and does not
+record this one in the words the plan previously quoted; what it records is that correction is
+re-derivation and that the plugin's own conventions govern, from which an agent's obligation to
+reach documentation follows.
 `docs/investigate.md` §1a, §4e.
 
 **Why this approach.**
@@ -396,6 +429,21 @@ Three edits:
    `frontmatter()` suffices for the **agent** side only; the workflow side above is new parsing and
    is specified as such.
 
+   **What a `returns:` entry asserts — schema conformance, not per-agent emission (D-9).** The oracle
+   derives the required set from the *dispatched schema*, and four agents share `PHASE_SCHEMA`:
+   `AGENT.spec` (`:322`), `AGENT.architect` (`:354`), `AGENT.planner` (`:372`) and, under S6, the
+   corrector (`:331`, `:360`, `:378` — claim 36). Once S6b part 1 adds `sections_rederived` to that
+   schema, all four must declare it, including three authoring agents that never re-derive a section;
+   symmetrically the corrector must declare `evidence`, which its method does not produce. **That is
+   correct under this design and is not a defect to be engineered around.** `returns:` declares *the
+   response shape this agent's dispatches are validated against* — the union of its schemas' declared
+   properties — and does **not** declare that the agent populates every field on every return.
+   `PHASE_SCHEMA.required` is `['status']` (claim 36), so every other property is optional at the
+   schema level and an unpopulated field is a well-formed return. A reader must therefore not treat a
+   name in `returns:` as an obligation to emit; the obligations live in the agent bodies and skills,
+   which is where S6b part 4 puts the `sections_rederived` obligation and puts it on the corrector
+   alone. D-9 records the alternative that was rejected and why.
+
 **Source.** Review round 2, SYS-2 and C-1; round 1 SYS-1 (the same class at three earlier sites);
 Design by Contract (Meyer), named in §3.
 
@@ -443,7 +491,9 @@ unusual invocation is protected from a future tidy-up.
 nothing asserted it. A correction with no regression guard is a correction that recurs.
 
 **Why this approach.** Trivial-plus: the standard is the general regression-test principle
-(`testing-standards.md`, Regression tests — every fixed bug gets a test that would have caught it).
+(`skills/expert-plan/references/testing-standards.md:91`, Regression tests — the test must reproduce
+the bug first, failing on the broken code, then pass on the fix; a regression test that never failed
+has not demonstrated it can. Claim 56).
 The four-part expansion is not required for adding an assertion to an existing suite whose shape is
 already fixed.
 
@@ -524,8 +574,10 @@ artifact beyond what a review round catches. Recoverable.
 ### S5 — Create the corrector agent with no `Write`
 
 **What changes.** Create `agents/expert-corrector.md` — frontmatter **and body**, matching the shape
-of the nine existing agent files (all nine verified: `---`-delimited frontmatter, `skills:` before
-`tools:`, and a role body; e.g. `expert-architect.md:11` opens "Your first action: invoke
+of the nine existing agent files — all nine carry `---`-delimited frontmatter, a `skills:` key at
+`:4`, and a role body, and the six that also carry `tools:` place it after `skills:` at `:6`
+(claim 44; the other three run denylists and carry no `tools:` key at all). E.g.
+`agents/expert-architect.md:12` opens (claim 34) "Your first action: invoke
 `Skill(…)`"):
 
 ```markdown
@@ -537,19 +589,38 @@ skills:
   - expert-dev-tools:expert-correct
 tools: Read, Grep, Glob, Edit, Skill, mcp__plugin_expert-dev-tools_context7, WebFetch, WebSearch
 disallowedTools: mcp__claude_ai_CORE_Memory__memory_ingest
-jobs: 1
+jobs: 3
 returns:
   - status
   - artifact_path
+  - evidence
   - sections_rederived
   - halt
 ---
 ```
 
 `returns:` and `jobs:` are S2b's contract keys, present here because S2b's binding assertion runs
-against **every** agent including this one. Omitting them turns the structural tier red at CP-2 with
-no authorized remedy — the exact outcome that withdrew S7's earlier guard. `agents/expert-corrector.md`
-is therefore listed under **both** S5 (created) and S2b (contract keys) in §5.
+against **every** agent including this one. Omitting them, or declaring either wrongly, turns the
+structural tier red at CP-2 with no authorized remedy — the outcome that withdrew S7's earlier guard.
+`agents/expert-corrector.md` is therefore listed in §5 under **all three** of the steps that shape
+it: S5 (created), S2b (contract keys), and S6b (part 4 — the `class_sweep` reporting obligation
+added to its body and its `returns:`).
+
+**Both values are derived from S2b's oracle, not chosen.** The oracle asserts `returns:` ⊇ the union
+of the top-level `properties:` names of every schema the agent is dispatched with, and `jobs:` = the
+count of distinct dispatch `label` values targeting it.
+
+- **`returns:` — five entries.** The corrector is dispatched only by the three document gates'
+  `remediateFn`, all three of which pass `schema: PHASE_SCHEMA` (claim 36); S6 changes `agentType`
+  only, never `schema`. `PHASE_SCHEMA.properties` declares `status`, `artifact_path`, `evidence`,
+  `halt` (claim 36), and S6b part 1 adds `sections_rederived` — a union of five. **`evidence` is in
+  the list because the oracle demands it, not because the corrector's method produces it**; see D-9,
+  which settles what a `returns:` entry asserts.
+- **`jobs: 3` — one per document gate.** The three `remediateFn` dispatch labels the corrector
+  inherits under S6 are `revise:spec`, `revise:arch` and `revise:plan` (claim 36). S6 replaces the
+  agent at each site and changes no label, so the corrector answers three distinct dispatches. The
+  implementation gate's `remediateFn` is untouched by S6 and dispatches the planner, so it
+  contributes no label here.
 
 The body states, at minimum:
 
@@ -725,8 +796,8 @@ every gate runs to `ROUND_CAP`. Highly visible on the first behavioral run; no d
    under this step.
 
    S2b does **not** subsume this: `returns:` names field *presence*, not *format*, and detector (a)
-   needs a parseable range. The plan previously deferred to "the same `location` shape reviewers
-   use" — a shape that source shows does not exist.
+   needs a parseable range. Nor may the grammar be left to "the shape reviewers already use" — source
+   shows no such shape exists (claim 31), so the format has to be stated here rather than referred to.
 
    Without all three, `lastRederived` is `[]` on every round and **both detectors are inert while
    their test passes green** — the double supplying the very input whose real-world absence is the
@@ -758,8 +829,11 @@ escape hatch — restated on evidence that exists, unlike its original claim);
 
 1. *Decision.* Have the corrector report the sections it re-derived, and escalate when the next
    round's finding lands inside one of them.
-2. *Authoritative standard.* Regression-detection principle (`testing-standards.md`: every fixed
-   defect gets a check that would have caught it), applied to the correction loop itself. The
+2. *Authoritative standard.* Regression-detection principle
+   (`skills/expert-plan/references/testing-standards.md:91`, claim 56): a fixed defect gets a check
+   that reproduces it first — failing against the pre-fix state — and passes after, since "a
+   regression test that never failed has not demonstrated it can". Applied to the correction loop
+   itself, T-22's three executed cases are what supply that demonstration. The
    loop currently counts rounds, not per-finding progress, so a correction that made things worse
    at its own fix site is invisible to it.
 3. *Why it applies here.* This is the one failure mode the plan's central mechanism cannot guard
@@ -830,7 +904,7 @@ each `reviewFn` with an explicit ruler. Introduce a module-level constant:
 
 ```js
 // The standards each artifact type is judged against. The reviewer names a standard per
-// finding (expert-review SKILL.md:561); leaving the choice open let three of five spec
+// finding (skills/expert-review/SKILL.md:565); leaving the choice open let three of five spec
 // reviewers grade against expert-spec/SKILL.md's process clauses instead — an unbounded
 // ruler that varies per round. See docs/investigate.md §5a, §5b.
 const RULER = {
@@ -871,7 +945,7 @@ states the authoring artifact is not the quality standard), §5c (all four gates
    gate's missing external ruler.
 3. *Why it applies here.* Three of five reviewers read `expert-spec/SKILL.md` and graded against its
    clauses; the two that did not graded against ISO 29148 — a perfect correlation. The reviewer must
-   name a standard per finding (`expert-review/SKILL.md:561`), is told nothing about which, and has
+   name a standard per finding (`skills/expert-review/SKILL.md:565`, claim 33), is told nothing about which, and has
    a long normative-sounding document available. Naming the ruler removes the discretion that made
    the bar vary between rounds.
 4. *What this is NOT — and why.* **Not a lowering of the bar**: the owner's ruling that the
@@ -949,7 +1023,8 @@ unreadable, visibly.
   hint.
 - If, after the authoring dispatch, the path is still `null`, escalate `spec_traceable` with
   "the phase produced no artifact path" rather than proceeding against a guess.
-- **Sixth source, in `commands/expert.md:61–64`** — "artifact paths from the ledger's
+- **The source that outranks the workflow, in `commands/expert.md:61–64`** (claim 13's sixth of
+  nine) — "artifact paths from the ledger's
   `artifact_index`, **or the project defaults under `docs/`**". Delete the defaults clause. This one
   **outranks** the workflow: on a fresh run `artifact_index` is empty, the command supplies its own
   `docs/` default into `input.spec_path`, and with the original precedence order the returned
@@ -969,8 +1044,8 @@ workflow consumes `artifact_path`. B7.
 1. *Decision.* Make the agent's returned `artifact_path` the single source of truth for each
    artifact's location, and remove the workflow's competing defaults.
 2. *Authoritative standard.* Single Source of Truth (Beck, *Once and Only Once*); ISO/IEC/IEEE
-   29148:2018 §5.2.6 (Consistent) — a system with five sources of truth for one filename is
-   internally inconsistent.
+   29148:2018 §5.2.6 (Consistent) — a system with nine sources of truth for one filename (claim 13)
+   is internally inconsistent.
 3. *Why it applies here.* `PHASE_SCHEMA.artifact_path` already exists (line 63) and is never read.
    The skills name files `spec-[kebab-case-name].md`; the workflow's fallback was `spec.md`. Those
    two conventions can never agree, and in the A-3 run every review dispatch cited a path that did
@@ -1001,15 +1076,29 @@ becomes a single fixed statement: the artifact is written to `docs/specs/` /
 `docs/architectures/` / `docs/plans/` respectively, named `spec-` / `architecture-` /
 `plan-[kebab-case-name].md`, creating the directory if absent.
 
-**Source.** Owner ruling (HANDOFF): "Artifact locations are standardized, not proposed. One fixed
-convention, applied without asking." `docs/investigate.md` §6.
+**Paired agent-side edit (§7 maintenance rule 5).** `agents/expert-architect.md:16` reads "Write the
+architecture to `docs/arch/`" — the directory this step moves away from — and the workflow dispatches
+that agent for the architecture phase, instructing it (`:12`) to invoke the very skill this step
+changes. Change `:16` to `docs/architectures/`. Without it the step's stated goal, "one fixed
+convention", delivers two. The other two agents that name an artifact directory already agree and are
+**not** edited: `agents/expert-planner.md:17` writes to `docs/plans/` and
+`agents/expert-spec-writer.md:16` writes to `docs/specs/`, both read 2026-08-09 (claim 13). That
+agreement is recorded here so it is a checked property rather than an incidental one.
+
+**Source.** Owner ruling, `docs/HANDOFF.md:73–74` (claim 60), which states: "The skill's artifact
+convention is the standard (`spec-[kebab-case-name].md` under `docs/specs/`); the workflow consumes
+the agent's returned `artifact_path`." Restated at `docs/investigate.md:463–468` (§6, claim 57),
+which adds that the "propose a location and get confirmation" clauses go with the fallback, "the
+location is standard, so there is nothing to propose."
 
 **Why this approach.**
 
 1. *Decision.* Replace the conditional location logic in all four skills with one fixed convention.
 2. *Authoritative standard.* The owner ruling is the governing authority here, reinforced by Single
    Source of Truth.
-3. *Why it applies here.* Five sources of truth existed for one filename. Removing four leaves one.
+3. *Why it applies here.* Nine sources of truth existed for one filename (claim 13). S10 removes the
+   workflow's three defaults and the command's; S11 fixes the four skills and brings
+   `agents/expert-architect.md` into line; the two remaining agent sources already agree. One is left.
    The "propose and get confirmation" clauses additionally create an owner interrupt for a decision
    the owner has already made once, globally.
 4. *What this is NOT — and why.* **Not keeping the "established location" escape for
@@ -1150,8 +1239,11 @@ top-level commas in the argument list, skipping the `async function diagnose` de
 **Why this approach.**
 
 1. *Decision.* Guard the evidence channel with a mechanical arity assertion.
-2. *Authoritative standard.* Regression-test principle (`testing-standards.md`): every fixed defect
-   gets a test that would have caught it. `check-structure.mjs:76-91` asserts only that the workflow
+2. *Authoritative standard.* Regression-test principle
+   (`skills/expert-plan/references/testing-standards.md:91`, claim 56): every fixed defect gets a
+   test that reproduces it first, failing on the broken code, then passes on the fix — which for
+   this step means the arity assertion is run against the current two-argument call sites and
+   observed to fail before S12/S13 land. `check-structure.mjs:76-91` asserts only that the workflow
    parses and passes the linter — which is exactly why the starved dispatch survived the automated
    tiers and round-1 review.
 3. *Why it applies here.* The defect's signature is a *missing argument*, which is syntactically
@@ -1223,7 +1315,9 @@ the corrector cannot act on has no escape hatch — this is that hatch, and S6b 
 and S15's arity assertion — which counts every call site rather than a fixed number — covers them).
 Unblocks nothing.
 
-**Verification.** T-22, extended to assert the caller path at all four gates, not merely that the
+**Verification.** **T-23** for part 2's `CORRECTOR_HALTED` path — the escape hatch coverage element
+(2a) maps to this step and to nothing else, so it carries its own specification rather than riding on
+another step's. **T-22** for part 1's `CORRECTION_FAILED` path, extended to assert the caller path at all four gates, not merely that the
 verdict exists.
 
 **Impact if wrong.** This is the step whose failure is worst in the whole plan: wired wrongly in the
@@ -1248,8 +1342,11 @@ escalate spuriously — loud, recoverable, and visible on the first run.
 
 Where the surrounding paragraph exists only to host the clause, the paragraph goes with it.
 
-**Source.** Owner ruling (HANDOFF): *"'Flag it once, then do what they asked' is 100% invalid. Not
-following the instructions is never an available option, and no skill may suggest it is."*
+**Source.** Owner ruling, recorded in two places (claims 57, 60). `docs/investigate.md:207–208`
+carries it verbatim and dated: *"Owner ruling (2026-07-28): 100% invalid. Not following the
+instructions is not an available option, and the skills must not suggest it is."*
+`docs/HANDOFF.md:72` carries the binding disposition: "The six 'flag once, then comply' clauses are
+deleted, not replaced. There is no gap to fill."
 Owner ruling 2026-07-31 (`docs/investigate.md` §6): deletion, **not** replacement — there is no gap
 to fill, because the answer to "what does an agent do when pushed to skip a step" is that it does
 the work.
@@ -1431,7 +1528,9 @@ those as well.
 
 **Why this approach.** Trivial: the fixture still triggers the control it exists to trigger; its
 self-description is simply inaccurate, and an inaccurate fixture misleads whoever reads it next.
-Standard: `testing-standards.md` — test data must describe the state it actually represents.
+Standard: `skills/expert-plan/references/testing-standards.md:21` (claim 56) — test data is
+forward-derived from a realistic state, never shaped backward from what the assertion needs; a
+fixture whose self-description does not match the state it encodes fails that on its face.
 
 **Dependencies.** None.
 
@@ -1675,8 +1774,11 @@ two rounds.
 surfaces**, every one a duplicate of information that lives in §7's steps.
 
 **This list is itself a hand-maintained enumeration with no generator** — the class describing
-itself. It and maintenance rule 3's enumeration are the same set and must be edited together; a
-surface missing from either is a surface nothing checks.
+itself, and demonstrably subject to it. It, §7's maintenance preamble table, and §15's G-3 count are
+the same set stated in three places and must be edited together; a surface missing from any of the
+three is a surface nothing checks, and a *count* that moves in one and not the others is the same
+defect one level up. The surfaces are numbered 1–9 in the preamble table so a reader reconciles by
+identifier rather than by recounting prose.
 
 **Generation is the documented fix and it is unavailable here.** APS Fusion's rule is "scripts that
 *generate* a derived surface are the fix; scripts that *audit* prose are the problem" — and this
@@ -1694,17 +1796,46 @@ reduces the drift surface; it does not remove it, and the residual is recorded i
 rather than presented as closed.
 
 **Why this is recorded as a decision rather than silently applied:** the honest reading is that the
-output contract mandates six duplicated surfaces on a prose artifact and supplies no generator,
+output contract mandates **nine** duplicated surfaces on a prose artifact and supplies no generator,
 which makes drift a property of the format. That is a finding about the *contract*, and it is not
 this plan's to change.
+
+**D-9 — `returns:` asserts schema conformance, not per-agent emission.** S2b's oracle derives each
+agent's required `returns:` set from the schemas it is dispatched with. Four agents share
+`PHASE_SCHEMA` (claim 36), so once S6b part 1 adds `sections_rederived` all four must declare it —
+including three authoring agents that never re-derive a section — and the corrector must declare
+`evidence`, which its method does not produce. The choice is what `returns:` then *means*.
+
+*Decision.* `returns:` declares the response shape an agent's dispatches are validated against, not a
+list of fields it promises to populate. S2b part 1 and S5 state this explicitly so no reader infers an
+obligation from a declaration.
+
+*Reasoning.* The alternative — narrowing the oracle to the intersection of the schema's properties
+with the fields each agent's own governing document obliges — makes `returns:` a genuine per-agent
+contract, which is closer to S2b's original phrasing. It was rejected on three grounds. First, it
+destroys the property that makes the assertion decidable: the intersection's second operand lives in
+agent *prose*, and S7 already establishes that `check-structure.mjs` has no prose parser and that a
+prose-counting oracle is undecidable — the same reason S7's earlier guard was withdrawn. Second, it
+inverts the assertion's safety direction: a superset rule can demand a field the workflow ignores but
+can never miss one it consumes, while an intersection rule can silently drop a field the workflow
+reads the moment an agent's prose omits it, which is the SYS-2 defect S2b exists to close. Third, the
+looser reading costs nothing real — `PHASE_SCHEMA.required` is `['status']`, so an undeclared field is
+a well-formed absence rather than a contract breach.
+
+*What this decision does not claim.* It does not claim `returns:` is a per-agent obligation register;
+it explicitly is not, and the obligations that matter — `sections_rederived` and `class_sweep` on the
+corrector — are created in agent bodies and skills by S6b part 4, on the corrector alone. A future
+reader wanting to know what an agent must actually emit reads its body, not its frontmatter.
 
 ---
 
 ## 11. Verification of factual claims
 
-**Citation rule for this section (class fix, 2026-07-31).** Claim 27 went stale mid-authoring
-because it cited a mutable file by path alone and that file was rewritten by another session four
-hours later. Path-only citation of anything editable is therefore forbidden here:
+**Citation rule for this section.** A claim citing a mutable file by path alone stops being checkable
+the moment that file is edited, and the next reader cannot distinguish "this was never true" from
+"this was true and the source moved" — a failure claim 27 demonstrates, its source having been
+rewritten by another session during this plan's authoring. Path-only citation of anything editable is
+therefore forbidden here:
 
 - **Files inside this plugin** — cited by path and line range. They are the artifact under change;
   the plan's own steps are what move them, and every step that does so is listed in §5.
@@ -1715,6 +1846,87 @@ hours later. Path-only citation of anything editable is therefore forbidden here
 - **Documentation** — Context7 library ID with the date of lookup, or a fetched URL with its date.
 
 A reviewer can check any entry below without trusting that the cited file still reads as it did.
+
+**Registration rule for §7.** Unregistered citations do not get re-derived, and citations that are
+never re-derived are the ones that stop reproducing. Therefore: **any `path:line` citation appearing
+anywhere in §7 — in a Source line, a Verification line, a code comment, a table cell, a rejected-
+alternative block, or a literal example — requires a §11 entry; so does any statement §7 makes about
+a file's contents even where no line is cited, since §11's definition covers "what a doc currently
+says". §7 and §11 are reconciled in both directions after any step edit.** A citation with no entry
+is non-compliance in the same way a claim with no entry is.
+
+**The population this rule covers — stated by enumeration, because two walks under-scoped it.** The
+class is *every proposition §7 asserts about the contents of any file it references, of whatever
+kind*. It is **not** limited to source files, and the phrase "a file's contents" above must be read
+that way. Four kinds, all in scope, none privileged:
+
+| Kind | Examples in this plan | What a walk that stops early tends to miss |
+|---|---|---|
+| **Source files** | `workflows/expert-lifecycle.js`, `tests/structural/check-structure.mjs`, `.mcp.json`, `scripts/ledger.schema.json` | — (this is the kind that gets swept first) |
+| **Agent and skill markdown read as configuration** | `agents/*.md`, `skills/*/SKILL.md` | — |
+| **Input documents** | `docs/investigate.md`, `docs/behavioral-tier-findings.md` | what a finding records, what a section withdraws, what an owner ruling says |
+| **Governing documents and named standards** | `docs/specs/spec-expert-dev-tools.md`, `docs/arch/architecture-expert-dev-tools.md`, `docs/HANDOFF.md`, `skills/expert-plan/references/testing-standards.md`, `skills/expert-plan/references/output-contract.md` | the requirement or clause a step cites as its authority |
+
+**The last two kinds are where §7 draws its authority, and they are the ones a source-file-shaped walk
+reads past.** A diagnostic follows from that: if a walk's output is uniformly one kind, the population
+was drawn too narrowly regardless of how many propositions it emitted. Both prior walks failed this
+check — the first at a yield of 2, the second at a yield of 12 in which every entry concerned a `.js`,
+`.json`, `.mjs`, or agent/skill file and not one concerned the five documents the steps cite as their
+source. **Begin the walk by enumerating the referenced documents, then walk §7 per document**;
+enumerating first is what makes the population checkable before the entries are written.
+
+**Citation form for documents.** §11's citation rule permits four forms, and "path plus section
+anchor" is not among them — an anchor does not survive the section being renamed or moved, which is
+the same failure the rule exists to prevent. **The line-range requirement binds the §11 entry**, which
+is where evidence lives: every document proposition registered below carries a path and line range,
+read at that range on the stated date — except where the proposition is about a file *as a whole*, in
+which case the form is path plus commit and the entry says why no range applies (claim 61 is the sole
+instance). §7's own Source lines may name a section anchor as a *locator*
+(`docs/investigate.md` §6 is easier to find than `:455–468`), because the registered entry carries the
+range the next reader re-derives from — but a §7 statement whose §11 entry gives only an anchor is
+non-compliance, and a §7 Source line that **quotes** a document must quote it in the words the
+document uses, with the range in its entry.
+
+**How the reconciliation is performed** — the rule names a mechanism, because the rule alone has not
+been sufficient: extract every `path:line` token from §7 with
+`grep -noE '[A-Za-z0-9_./-]+\.(md|mjs|js|json):[0-9]+([–,-][0-9]+)*'`, then walk §7 top to bottom for
+file-content statements carrying no line token, and match both emissions against §11's entries in
+both directions. Registering only the instances a review names does not satisfy this rule — the
+review's list is a sample of what the walk returns, never the specification of the fix.
+
+**Last reconciled: 2026-08-11**, by the walk above over the 26-step set, with the population defined
+by the four-kind enumeration above before any entry was written.
+
+- *Line-cited half.* The extraction command returns **37 occurrences over 33 distinct tokens** —
+  three tokens repeat (`skills/expert-plan/references/testing-standards.md:91` ×3,
+  `expert-review/SKILL.md:111` ×2, `skills/expert-review/SKILL.md:565` ×2), and collapsing range
+  suffixes to path-plus-start-line gives 32. **All 33 distinct tokens resolve to an entry.** The two figures are stated separately and
+  labelled because they differ: an occurrence count and a distinct-token count answer different
+  questions, and a partition quoted over one population while described over the other is not
+  checkable by the reader it is written for.
+- *Line-free half.* The walk emits **eighteen** propositions §7 asserts about a file's contents
+  without citing a line — twelve about source and configuration files (claims 44–55) and **six about
+  the input and governing documents** (claims 56–61).
+
+**Yield as a diagnostic, and what it did not catch.** A yield in the low single digits is a signal to
+re-run this clause: §7 is roughly 1,380 lines drawing on more than twenty distinct files, so a return
+of 2 — which the 2026-08-09 walk recorded — is not plausible on its face, and that arithmetic is
+checkable without reading source. But a plausible-looking yield is not sufficient: the 2026-08-10 walk
+returned twelve, which passes the size test and was still incomplete, because every one of the twelve
+concerned a source or configuration file. **The stronger check is compositional, not numerical** — if
+a walk's output is uniformly one kind of file, the population was drawn too narrowly no matter how
+many propositions it emitted. Both checks are now stated in the population table above, which is why
+that table exists rather than a prose instruction to walk carefully.
+
+**What this walk re-executed, stated rather than implied:** claims 44–55 were verified at source as
+they were written; claims 36, 37, 38, 39 and 40 were re-executed because the new entries share their
+files and premises; claim 44's counted search re-verified the agent-set facts claims 4 and 34 rest on.
+Claims 1–35 and 41–43 carry the read dates in their own entries and were **not** re-executed on
+2026-08-10 — each was verified at its stated date, and this section does not claim otherwise.
+**The second clause has no extraction command and cannot have one** —
+deciding whether a sentence asserts something about a file's contents is a semantic judgment, not a
+pattern match — so it is walked step by step, and the yield is stated so the next reader can weigh it
+against the section's size rather than trust it.
 
 1. **`mcp__plugin_expert-dev-tools_context7__*` registers zero tools** (S1, S2). *Evidence — test
    reproduction:* `ToolSearch` with `select:mcp__plugin_expert-dev-tools_context7__resolve-library-id,mcp__plugin_expert-dev-tools_context7__query-docs`
@@ -1777,15 +1989,36 @@ A reviewer can check any entry below without trusting that the cited file still 
     (`artifact_path: S_STR` in `PHASE_SCHEMA`); no read of `artifact_path` occurs anywhere in the
     file (content absence, scope = the complete file: `grep -c artifact_path` over the **493**-line
     file returns **1**, the schema declaration at `:63`; there is no read in the body).
-13. **Six sources of truth for the artifact path, one of which outranks the workflow** (S10, S11).
-    *Evidence — file reads, re-derived by a scan over the complete plugin 2026-07-31:*
-    `skills/expert-spec/SKILL.md:349`, `skills/expert-architecture/SKILL.md:456,458`,
-    `skills/expert-architecture-portable/SKILL.md:302`, `skills/expert-plan/SKILL.md:390`,
-    `workflows/expert-lifecycle.js:281`, and `commands/expert.md:61–64`, which supplies "the project
-    defaults under `docs/`" into `input.spec_path`. **The sixth is the load-bearing one:** because
-    `:281` reads `input.spec_path` first, the command's default wins on every fresh run and the
-    agent's returned `artifact_path` is never reached, so any fix that does not invert that
-    precedence leaves B7 open.
+13. **Nine sources of truth for the artifact path, one of which outranks the workflow and three of
+    which sit in `agents/`** (S10, S11). *Evidence — file reads, re-derived 2026-08-09 by a scan whose
+    stated scope is the scope it covers.* The scan is
+    `grep -rn "docs/specs\|docs/arch\|docs/plans\|docs/architectures"` over **`agents/`, `commands/`,
+    `skills/` and `workflows/`** — the four directories in which this plugin states artifact
+    locations — each hit then read at its line. `agents/` is named explicitly because a scan of the
+    skills and the workflow alone returns six and misses the three agent-side sources, which are the
+    ones S11's paired edit turns on. The nine:
+    - `skills/expert-spec/SKILL.md:349`
+    - `skills/expert-architecture/SKILL.md:456,458`
+    - `skills/expert-architecture-portable/SKILL.md:302`
+    - `skills/expert-plan/SKILL.md:390`
+    - `workflows/expert-lifecycle.js:281–283` (the three `||` defaults)
+    - `commands/expert.md:63–64` — "the project defaults under `docs/`", inside the `<snapshot>`
+      definition at `:61–64`
+    - `agents/expert-architect.md:16` — "Write the architecture to `docs/arch/`"
+    - `agents/expert-planner.md:17` — "Write the plan to `docs/plans/`"
+    - `agents/expert-spec-writer.md:16` — "writes the spec to `docs/specs/`"
+
+    **The command's is the load-bearing one for precedence:** because `:281` reads `input.spec_path`
+    first, the command's default wins on every fresh run and the agent's returned `artifact_path` is
+    never reached, so any fix that does not invert that precedence leaves B7 open.
+    **`agents/expert-architect.md:16` is the load-bearing one for consistency:** it names
+    `docs/arch/` while S11 moves the architecture skill to `docs/architectures/`, and the workflow
+    dispatches that agent for that phase, so without S11's paired agent-side edit the step delivers
+    two conventions rather than one. The other two agent sources already agree with S11's conventions
+    and are therefore recorded as agreeing rather than edited.
+    *Scope note:* `skills/expert-implement/references/review-handoff.md:47,50` also contain
+    `docs/plans/plan-7.md`, and are excluded — that is illustrative text inside a worked example
+    handoff, not a statement of where an artifact is written.
 14. **`diagnose()` is two-parameter with eight call sites** (S12, S13). *Evidence — file read:*
     `workflows/expert-lifecycle.js:247` (declaration) and call sites at `:310, 336, 396, 426, 435,
     448, 456, 490`.
@@ -1889,6 +2122,339 @@ A reviewer can check any entry below without trusting that the cited file still 
     adds it to `required` and gives it a grammar; S2b cannot substitute, because `returns:` names
     field presence and not format.
 
+**Claims 32–43 register the citations and file-content claims §7 makes outside the numbered list
+above**, under the registration rule in this section's preamble. Every one was re-read at its cited
+line on 2026-08-09, in a single walk over §7 rather than from any prior document's line numbers.
+The walk that produced them is recorded in the preamble's reconciliation note.
+
+32. **`expert-spec` requires verification "via Context7 or the authoritative source"** (S2, F-2).
+    *Evidence — file read:* `skills/expert-spec/SKILL.md:155`, under the bold lead "**Verify against
+    current documentation.**". Not to be confused with `:163`, the flag-once clause claim 18
+    registers as an S16 deletion site — a distinct passage eight lines below, and the citation that
+    would point S2's authority at text this plan removes.
+33. **The reviewer is required to name a standard per finding** (S8). *Evidence — line-numbered file
+    read of `skills/expert-review/SKILL.md:557–566`, 2026-08-09:* the bullet is at **`:565`** —
+    "Every finding names the standard it was evaluated against (Step 4 output), or carries the marked
+    first-principles articulation Step 4 permits when no named standard applies." It sits under the
+    heading `### Gate A — Frame evidence per finding` at **`:561`**, with `:562`, `:563` and `:564`
+    blank between them; `:559` and `:560` are also blank. Corroborated by `grep -n`, which returns the
+    heading at `:561` and the bullet at `:565`.
+34. **The nine existing agent bodies open with a skill-invocation instruction** (S5).
+    *Evidence — file read plus counted search:* `agents/expert-architect.md:12` — "Your first action:
+    invoke `Skill(expert-dev-tools:expert-architecture)` and"; `grep -n "first action"` over that file
+    returns exactly **1** hit, at `:12`. `:11` is blank.
+35. **`check-structure.mjs` asserts the declared MCP server set contains `context7`** (S1, Q-1).
+    *Evidence — file read:* `tests/structural/check-structure.mjs:100` —
+    `check('T-A2c mcp: mcpServers wrapper declares context7 + clear-thought', servers.includes('context7') && servers.includes('clear-thought'))`.
+    This is the claim behind S1's decision to change the invocation string rather than rename the
+    server key, and behind Q-1's disposition.
+36. **`PHASE_SCHEMA`'s property set, and the three `remediateFn` dispatches the corrector inherits**
+    (S5, S6, S2b, D-9). *Evidence — file read, 2026-08-09:* `workflows/expert-lifecycle.js:58–75` —
+    `PHASE_SCHEMA.properties` declares exactly four top-level names: `status` (`:62`),
+    `artifact_path` (`:63`), `evidence` (`:64`, `evidence: EVIDENCE`) and `halt` (`:65`);
+    `required` is `['status']` (`:60`). S6b part 1 adds `sections_rederived`, making the union five.
+    *Evidence — counted search plus read:* `grep -n "label: 'revise"` returns **3** hits — `:331`
+    `label: 'revise:spec'`, `:360` `label: 'revise:arch'`, `:378` `label: 'revise:plan'` — and each
+    line read in full shows `schema: PHASE_SCHEMA` on the same dispatch. This is what fixes S5's
+    `returns:` at five entries and `jobs:` at 3; declaring either otherwise fails S2b's assertion.
+37. **The `allowlist`/`readonlyAllow` partition and what each branch asserts** (S2 part 4, S5 part 4,
+    S7). *Evidence — file read, 2026-08-09:* `tests/structural/check-structure.mjs:48` declares
+    `const allowlist = new Set([...])` with the six allowlisted agents; `:49` declares
+    `readonlyAllow` as three of those six; `:64` `if (allowlist.has(name)) {` opens the allowlist
+    branch, `:65` asserts `!!fm.tools && tools.includes('Skill')`, `:66` asserts (for `readonlyAllow`
+    members only) `!tools.includes('Write') && !tools.includes('Edit')`; `:67`'s `else` branch is the
+    denylist path, which at `:68` asserts `!fm.tools` and at `:69` asserts `Agent` and `Task` are
+    denied. This supports three distinct step propositions: that allowlisted agents must carry a
+    `tools:` allowlist (S2), that a denylist grants `Agent`/`Task` (S5), and that `expert-corrector`
+    must be added to `allowlist` but **not** to `readonlyAllow`, since `:66` forbids `Edit` (S7).
+38. **The `frontmatter()` parser already reads YAML block sequences** (S2b edit 1). *Evidence — file
+    read, 2026-08-09:* `tests/structural/check-structure.mjs:14–34` — `function frontmatter(path)`
+    at `:14`; the block-sequence branch is `:22–28`, comment at `:22` ("YAML block sequence: `key:`
+    on its own line followed by `  - item` lines"), key match at `:23`, lookahead at `:24`,
+    accumulation loop at `:26`, assignment at `:27`, `continue` at `:28`; the scalar branch is
+    `:30–31`. So `returns:` (a sequence) and `jobs:` (a scalar) are both readable with no new parsing
+    machinery on the agent side.
+39. **`agents/expert-verifier.md` states three jobs, in a numbered list** (S7, S20 part 2).
+    *Evidence — file read plus counted search, 2026-08-09:* `:11` reads "dispatches you for one of
+    three mechanical jobs, named in your prompt:" (`grep -n "one of three"` → exactly **1** hit, at
+    `:11`); the enumeration occupies `:13–22` as a markdown numbered list — `1.` **Spot re-run**
+    (`:13`), `2.` **Diff-vs-plan** (`:17`), `3.` **Reconciliation** (`:20`). S20 part 2 changes the
+    count to four and adds a fourth entry; S7 cites the list's *format* as one of the two reasons a
+    prose-counting oracle is undecidable.
+40. **`agents/expert-diagnostician.md` enumerates its modes as bold-headed paragraphs, and promises a
+    run-journal excerpt** (S7, S14). *Evidence — file read plus counted search, 2026-08-09:* `:14`
+    reads "The orchestrator dispatches you in one of two modes, named in your prompt:"; the two modes
+    are bold-headed paragraphs, `**Failure mode.**` at `:16` and `**Feedback-sweep mode.**` at `:28`
+    — a different format from the verifier's numbered list, which is the second half of S7's
+    undecidability argument. `grep -n journal` over the file returns exactly **1** hit, at `:19`,
+    inside the Failure-mode paragraph: "plus the ledger snapshot and run-journal excerpt". That is
+    the input promise S14 replaces with "failure record" to match what S12/S13 actually send.
+41. **The architecture names OWASP fail-safe defaults for D6 STOP routing** (S15b).
+    *Evidence — file read, 2026-08-09:* `docs/arch/architecture-expert-dev-tools.md:750` —
+    `| OWASP secure-design fail-safe defaults | OWASP | D6 STOP routing |`, a row in the
+    architecture's standards table. Distinct from claim 6, which registers `:863` for the reviewer's
+    WebFetch/WebSearch denial — a different line and a different proposition.
+42. **The command upserts artifacts by path** (S17). *Evidence — file read, 2026-08-09:*
+    `commands/expert.md:74–80` — the "Register artifacts (S-4 / D9)" bullet instructs, for each
+    `ledger_delta.artifacts` entry, to compute the SHA-256 and "**upsert** it into the ledger
+    `artifact_index`", preserving the prior approval fields "unless the hash drifted". This is why
+    S17's impact note holds that a double push collapses rather than duplicating. Distinct from
+    claim 17, which registers `:46–50` and `:70–105` for a different proposition (the delta is
+    applied only after the segment returns).
+43. **Each document gate's output contract, and the implementation gate's absence of one** (S9).
+    *Evidence — file reads plus counted searches, 2026-08-09:* `skills/expert-spec/SKILL.md:345`
+    reads `## Output`. `skills/expert-architecture/SKILL.md:66` reads `Output contract` as an
+    **unheaded** line, and `grep -c "^#"` over that file returns **0**, so it carries no markdown
+    heading anywhere and must be cited by line rather than by section name.
+    `grep -c "^#"` over `skills/expert-implement/SKILL.md` returns **12**, and reading all twelve
+    shows none is an Output section — the nearest, `## Step 6 — Final report`, governs the
+    implementer's report to the orchestrator rather than the diff under review. These three facts are
+    what make S9's per-gate table verified per row and what scope the implementation gate out of that
+    step (Q-21).
+
+**Claims 44–55 register the propositions §7 asserts about a file's contents without citing a line**,
+the second clause of this section's registration rule. Every one was re-read or re-executed at source
+on 2026-08-10.
+
+44. **The nine agent files' frontmatter shape, and which three carry no `tools:` key** (S2, S5).
+    *Evidence — counted search over the complete agent set, each hit read:* `grep -c "^tools:"` per
+    file returns **1** for `expert-acceptance`, `expert-closeout`, `expert-diagnostician`,
+    `expert-implementer`, `expert-spec-writer`, `expert-verifier`, and **0** for `expert-architect`,
+    `expert-planner`, `expert-reviewer` — the three S2 leaves untouched because they run denylists.
+    `grep -c "^skills:"` returns 1 for all nine, at `:4` in every file; `head -1` is `---` in all
+    nine. **Stated precisely, because S5's shorthand is loose:** `skills:` precedes `tools:` in the
+    **six** files that carry both (`skills:` `:4`, `tools:` `:6`); in the other three `tools:` is
+    absent altogether, so the ordering claim is vacuous rather than satisfied there. What holds of all
+    nine is `---`-delimited frontmatter, a `skills:` key at `:4`, and a role body.
+45. **Content absence — no agent or skill file names any of the seven schema fields the workflow
+    reads; `stop_report` appears in exactly one** (S2b). *Evidence — compound search-plus-read,
+    scope = every file under `agents/` and `skills/`, re-executed 2026-08-10:* the search that
+    defined the candidate set is
+    `grep -rlE "artifact_path|sections_rederived|finding_addressed|premise_evidence|files_changed|correction_draft|responsible_component" agents/ skills/`, which returns **0 files** — so the
+    candidate set is empty and there is nothing to read. `grep -rl "stop_report" agents/ skills/`
+    returns exactly **1 file**, `agents/expert-implementer.md`, read at that file to confirm the
+    mention is the agent's own return description. Scope covered: all nine agent files and all nine
+    skill directories; no file was excluded.
+46. **Content absence — seven of the nine agents enumerate no job count** (S2b). *Evidence — compound
+    search-plus-read, scope = the complete agent set, re-executed 2026-08-10:*
+    `grep -rn "one of two\|one of three\|one of four" agents/` returns exactly **2 hits** —
+    `expert-verifier.md:11` ("one of three mechanical jobs") and `expert-diagnostician.md:14` ("one of
+    two modes"), both read at the line and both registered by claims 39 and 40. The remaining seven
+    files — `expert-acceptance`, `expert-architect`, `expert-closeout`, `expert-implementer`,
+    `expert-planner`, `expert-reviewer`, `expert-spec-writer` — return no hit and were each opened to
+    confirm no differently-worded enumeration exists. This is what makes S2b's `jobs:` key an addition
+    rather than a restatement.
+47. **The `AGENT` map, and the property accesses the workflow makes off structured returns** (S2b,
+    S6). *Evidence — file read:* `workflows/expert-lifecycle.js:22–32` is `const AGENT = { … }`
+    mapping nine keys — `spec`, `architect`, `planner`, `implementer`, `reviewer`, `verifier`,
+    `acceptance`, `diagnostician`, `closeout` — each to `NS + '<agent-file-name>'`; S6 adds a tenth,
+    `corrector`. *Evidence — counted search, each hit read:* the four property accesses S2b names as
+    the dataflow it declines to analyse are `impl.stop_report` (`:394`), `vr.checks` (`:424`),
+    `acc.criteria` (`:446`) and `co.core_draft` (`:468`), confirming that what the workflow *reads* is
+    a strict subset of the declared schema surface — the premise of S2b's conservative-assertion
+    argument and of D-9.
+48. **`runGate` is one shared function called at four sites, and only the implementation gate is
+    multi-lens** (S6b). *Evidence — counted search plus reads:* `grep -n "runGate("` returns **5**
+    hits — the declaration `async function runGate({ reviewFn, remediateFn, multiLens })` at `:224`
+    and callers at `:329`, `:358`, `:376`, `:409`. `:231` reads
+    `findings = results.flatMap((v) => v.findings || [])`, the multi-lens flattening that makes
+    per-round finding identity incomparable at that gate. `:411` is the implementation gate's
+    `remediateFn`, dispatching `agentType: AGENT.planner` with `label: 'remediate:impl'` — the
+    amend-plan path architecture D6 governs, which is why no corrector runs there and no
+    `sections_rederived` is produced. Together these are why S6b's detectors take a flag and are
+    enabled at three gates rather than four.
+49. **`maybeNonConvergence`'s declaration and its three call sites** (S13). *Evidence — counted
+    search plus read:* `grep -n "maybeNonConvergence("` returns **4** hits — the declaration
+    `async function maybeNonConvergence(gate, phaseName, resumePhase, led)` at `:487` and callers at
+    `:364` (architecture), `:382` (plan) and `:415` (implementation), each read to confirm the
+    argument it would pass as `artifactPath`: `archPath`, `planPath`, `planPath` respectively. This is
+    the premise for S13's added parameter and for its eighth failure-record row.
+50. **The two `NON_CONVERGENCE` predicates and what the spec gate returns when one is missed**
+    (S15b). *Evidence — file read, 2026-08-10:* `:335` reads
+    `if (gate.verdict === 'NON_CONVERGENCE') {` and `:488` reads
+    `if (gate.verdict !== 'NON_CONVERGENCE') return null` — both exact-string tests, which is why a
+    new verdict falls through both. `:343–345` is the fall-through destination at the spec gate:
+    `:344` pushes the spec artifact and `:345` returns
+    `gate: { type: GATE.intent, what_happened: 'A specification for "${task}" passed independent
+    review…' }`. So an unhandled `CORRECTION_FAILED` or `CORRECTOR_HALTED` at that gate tells the
+    owner the specification passed review, which is the fail-open defect S15b closes.
+51. **`skills/expert-spec/SKILL.md` is an authoring document containing no revision guidance** (S4).
+    *Evidence — file read plus compound content-absence search, scope = the complete skill file,
+    2026-08-10:* `:11` opens "You are writing a specification. A spec is a contract between intent and
+    execution…". The search defining the candidate set for revision guidance is
+    `grep -icE "revis(e|ion)"` over the file, which returns **0** — no candidate to read. This is why
+    dispatching correction work into it produced re-authoring rather than re-derivation, and why S4
+    creates a separate skill instead of adding a revision mode here.
+52. **`ledger.schema.json` already carries the two fields the `stale_deployment` split needs** (S18).
+    *Evidence — file read:* `scripts/ledger.schema.json:168` declares
+    `"plugin_version": { "type": ["string", "null"] }` on an occurrence; `:177–184` declares the
+    `correction` object, whose `required` is `["artifact", "change", "fixed_in_version"]` with
+    `"fixed_in_version": { "type": "string" }`, and whose description states it "drives the
+    failed_correction vs stale_deployment split (D15)". So S18 needs no schema change.
+53. **The current state of the two test artifacts S21 and S22 correct** (S21, S22). *Evidence — file
+    reads, 2026-08-10:* `tests/fixture/spec/spec-contradictory.md:1–6` frames itself as
+    "Fixture spec (A-4c) — seeded contradiction… carries a deliberate, internal contradiction", the
+    self-description S21 corrects from two-way to three-way. `tests/ACCEPTANCE.md:90` is the
+    `## A-8 — feedback loop` heading, the section S22 edit 1 corrects.
+54. **The `EVIDENCE` schema's free-form `result`, and the sampling constant S22 must not change**
+    (S22). *Evidence — file read:* `workflows/expert-lifecycle.js:50–56` declares `const EVIDENCE`
+    whose item `properties` are `{ claim_type: S_STR, tool: S_STR, citation: S_STR, result: S_STR }`
+    — `result` is a single free-form string, which is the field S22 splits into `observed` and
+    `asserted`. `:202` carries the comment "Rate = max(2, ceil(0.1*n))" and `:207` implements it as
+    `Math.min(n, Math.max(2, Math.ceil(0.1 * n)))`. T-20 asserts this expression is unchanged, which
+    is the property the correction doctrine protects.
+55. **S23's related-docs enumeration is a dated tool result over a stated scope** (S23).
+    *Evidence — tool result, recorded with its scope and date:* `codegraph_find_related_docs`, run
+    **2026-07-31** over the five JS files in the plan's blast radius, returned **23** documents, which
+    §7 enumerates as 3 + 9 + 11. **The denominator is not re-checkable today and is recorded as
+    such:** the step states 23 of the plugin's **44** docs at plan time, while
+    `find . -name "*.md" | wc -l` returns **57** on 2026-08-10 — the growth being this review series'
+    own round records, which did not exist at plan time. The 23-document set is therefore pinned by
+    its date and by §7's own enumeration rather than by a re-runnable count, and T-21's membership
+    test reads the enumeration, not the denominator. *Related content absence, same date:*
+    `find . -iname "readme*"` returns **0**, which is why §5 lists `README.md` under Created rather
+    than Modified.
+
+**Claims 56–61 register what §7 asserts about the contents of the five documents it draws authority
+from** — the input and governing kinds in the population table above. The document set was enumerated
+first, by `grep -oE '[A-Za-z0-9_./-]+\.(md|mjs|js|json)'` over §7 and partitioning the result by kind;
+§7 was then walked once per document. Every quotation below was re-read at its line range on
+2026-08-11, and each carries a line range rather than a section anchor, per the citation-form rule
+above.
+
+56. **`testing-standards.md`'s regression clause requires a demonstrated failure, not merely a check
+    that would have caught the defect** (S3, S6b, S7, S15, S21, T-2b, §3, §12). *Evidence — file read
+    at `skills/expert-plan/references/testing-standards.md:91`, located by `grep -n -i "regression"`
+    (1 hit):* the clause reads, verbatim — "**Regression tests** — every fixed bug gets a test that
+    reproduces it first (fails on the broken code), then passes on the fix. A regression test that
+    never failed has not demonstrated it can."
+    **This claim corrects the plan rather than certifying it.** §7 previously restated the clause four
+    times as "a check/test that would have caught it", which states a *property* and drops the
+    *procedure* the source requires — the very reading the clause's second sentence warns against. All
+    four sites now carry the demonstration requirement: §3's registry row, S4's Source line, S6b's
+    Gate-3 standard, and S15's Gate-3 standard. **Consequence for the plan:** T-2b's two must-fail
+    cases and T-22's three executed cases are not decoration — they are what discharges this standard,
+    and a regression assertion added by S3, S7 or S15 without an observed pre-fix failure does not
+    satisfy it.
+
+    **The same document's other two clauses §7 and §12 cite, read in the same pass:**
+    `:21` — "**Test data is forward-derived, never backward-fabricated.** Data comes from the real
+    schema via migrations, from named fixtures representing realistic states, or from generators with
+    stated properties. Data shaped backward from the assertions — constructed so the assertion passes
+    — converts the test into `assert(x == x)`." This is the clause S21 cites (a fixture must represent
+    the state it claims) and the one T-22's and T-23's *Data* fields discharge by stating their cases
+    are forward-derived from observed runs. `:123` — the heading "**The Fake-Test Anti-Pattern
+    Catalog**", whose item 3 at `:129` is "**Backward-fabricated data.** Test data constructed from the
+    assertion's expected values", the catalog §12's preamble names.
+57. **What `docs/investigate.md` records at the sections §7 cites** (S1, S2, S4, S5, S8, S9, S10, S11,
+    S12, S13, S16, S23). *Evidence — heading enumeration plus reads, 2026-08-11:*
+    `grep -nE "^#{1,3} "` returns 21 headings, confirming every cited section exists — §1 (`:3`),
+    §1a (`:67`), §1c (`:134`), §2 (`:172`), §3 (`:198`), §4 (`:245`), §4a (`:254`), §4b (`:269`),
+    §4e (`:305`), §4g (`:347`), §5 (`:371`), §5a (`:373`), §5b (`:394`), §5c (`:424`), §5d (`:446`),
+    §6 (`:455`), §7 (`:472`). The propositions §7 rests on, each read at its range:
+    - `:207–208` — the owner ruling S16 cites, verbatim: "**Owner ruling (2026-07-28): 100% invalid.**
+      Not following the instructions is not an available option, and the skills must not suggest it
+      is." `:210–212` records that the construction is not confined to `expert-spec` and names
+      `expert-standard`, which is why S16 sweeps all six sites.
+    - `:457–461` — §6's deletion-not-replacement ruling, and the sentence S16 relies on: §3's earlier
+      note that removal "leaves that situation unaddressed unless something takes its place" is
+      "**withdrawn** — it presumed a legitimate skip path exists. All six sites are removals."
+    - `:463–468` — §6's artifact-convention ruling, which S10 and S11 cite: the skill's convention is
+      the standard, the workflow "must consume the agent's returned `PHASE_SCHEMA.artifact_path`,
+      which already exists and is simply not read", the `'docs/specs/spec.md'` fallback is removed,
+      and the "propose a location and get confirmation" clauses go with it.
+58. **What `docs/behavioral-tier-findings.md` records at the B-items §7 cites** (S6b, S15b, S17, S18,
+    S19, S20, S21, S22, S23, §2). *Evidence — heading enumeration plus reads, 2026-08-11:*
+    `grep -nE "^#{2,3} "` locates every cited item — B9 (`:46`), B1 (`:142`), B6 (`:155`), B7
+    (`:164`), B10 (`:187`), B2 (`:202`), B8 (`:211`), B3 (`:220`), B4 (`:231`), B5 (`:243`) — with
+    B9a/B9b/B9c at `:105`, `:118`, `:127` inside B9. The propositions §7 rests on:
+    - `:275–280` — the 2026-07-31 amendment. **Content absence with its scope stated:** B9a is
+      "**retracted** by owner ruling", and **B9c's stated evidence is "withdrawn" — "(rounds 4–5 share
+      no finding); the defect may be real but this run does not show it."** This is why S6b restates
+      B9c on evidence that exists rather than citing its original claim, and why S15b rather than S6b
+      carries the escape hatch. `grep -n "B9a\|B9b\|B9c"` returns 9 hits, all read; no other passage
+      reinstates the withdrawn evidence.
+    - `:277–278` — B9b confirmed by measurement: "eleven `Write` calls and **zero** `Edit` calls across
+      all six spec-writer dispatches", the premise S4 and S5 rest on (corroborated independently by
+      claim 26).
+    - `:222–225` — B3's premise, which S22 restates: A-8 expects `course_correction` for the single
+      "ok run the tests now" turn while F-14 scopes the sweep to problem reports, and "**Two
+      independent diagnosticians** reached that conclusion and explicitly refused to adopt the
+      document's expectation."
+    - `:233–236` — B4's premise: `EVIDENCE` "requires four free-form strings (`claim_type`, `tool`,
+      `citation`, `result`) with no field separating verbatim observed output from asserted outcome",
+      and in A-4b the fabricated entry was "**self-refuting** — index 1's claimed value contradicted
+      index 3's accurate description of the same function."
+    - `:220` and `:231` — both B3 and B4 are labelled "(Minor, **owner-owned**)", which is the source
+      label Q-12's superseding ruling departs from and the reason that departure needed an owner
+      ruling rather than a planner's judgment.
+59. **What the spec and architecture require at the clauses §7 cites as authority** (S12, S13, S15b,
+    S18, S19, S22). *Evidence — file reads, 2026-08-11:*
+    - `docs/specs/spec-expert-dev-tools.md:198–207` — **F-13**, verbatim on the point S12 rests on: a
+      non-routine failure "is diagnosed before it is routed: a dedicated diagnostic pass gathers the
+      evidence (**ledger, run journal, artifacts, the failing output**), identifies the root cause with
+      evidence rather than restating the symptom, and drafts the specific correction that removes it."
+      Four channels, which is the count §6's F-3 and S12 both use.
+    - `docs/specs/spec-expert-dev-tools.md:217–232` — **F-14**: the sweep runs "at segment boundaries —
+      never mid-phase", reads transcripts "from the last processed position forward", identifies
+      "statements where the owner flagged a problem", and treats a signature occurring more than once
+      as a systemic defect. The problem-flagged scoping is what S22's B3 correction turns on, and the
+      read-position marker at `:232` ("Read-position markers are per project") is what S19's dedupe key
+      must not double-count.
+    - `docs/specs/spec-expert-dev-tools.md:119–132` — **§3.4**, "Owner escalation policy (exhaustive
+      list)", enumerating the gate types S15b and S18 must not add to. The architecture's traceability
+      row at `docs/arch/architecture-expert-dev-tools.md:659` states the same bound mechanically:
+      "§3.4 escalations 1–6 | SEGMENT_REPORT.gate.type enum — exactly six values."
+    - `docs/arch/architecture-expert-dev-tools.md:126–129` — **C3**, verbatim on the point S12 rests
+      on: non-routine failures "flow through one router in C3: dispatch expert-diagnostician **with the
+      failure record + ledger snapshot + journal excerpt** → receive DIAGNOSIS".
+    - `docs/arch/architecture-expert-dev-tools.md:532–542` — **D15**, the corrected-versus-stale split
+      S18 implements: every signature "carries `state` and, once fixed, its `correction` with the
+      `fixed_in_version` the fix landed in", and "a recurrence is classified by version:
+      `failed_correction` when the running version already contains the fix…, `stale_deployment` when
+      it predates the fix (update needed). Both are barred from the automatic correction path."
+60. **What `docs/HANDOFF.md` records as binding owner rulings** (S2, S4, S10, S11, S16, S22, §2).
+    *Evidence — file read at `docs/HANDOFF.md:66–80`, the "Owner rulings — binding, do not re-open"
+    section, 2026-08-11.* The five rulings §7 and §2 rest on, in the document's own words:
+    - `:68–71` — "**Correction is re-derivation. Never patching, never re-authoring.** Both neighbours
+      fail: re-authoring discards untouched sections; patching leaves the class unswept. The
+      load-bearing half is the **class sweep**, and on an artifact carrying hand-maintained
+      enumerations no sweep discipline converges — the surfaces have to be converted, not swept
+      harder." (S4, S5, D-1 — and the clause after the dash is the same conclusion §15's G-3 reaches.)
+    - `:72` — "**The six 'flag once, then comply' clauses are deleted, not replaced.** There is no gap
+      to fill." (S16.)
+    - `:73–74` — "**The skill's artifact convention is the standard** (`spec-[kebab-case-name].md`
+      under `docs/specs/`); the workflow consumes the agent's returned `artifact_path`." (S10, S11.)
+    - `:75–77` — "**B3 and B4 are resolved, not surfaced.** The correction doctrine bars *weakening* a
+      verification mechanism, not touching one. A-8 is corrected to match spec F-14; `EVIDENCE` gains
+      an observed/asserted split and a cross-entry consistency check, sampling constant unchanged."
+      (S22, Q-12.)
+    - `:78–80` — "**`ROUND_CAP` and the binary verdict enum stay out of bounds.** The strictness of the
+      Expert skills is not the suspect." and "The remaining plugin load errors are not relevant."
+      (§2's exclusions, Q-13, Q-16, Q-20.)
+
+    **This claim corrects the plan rather than certifying it.** §7 previously presented three of these
+    rulings as verbatim quotations in wordings that appear nowhere in `docs/HANDOFF.md` or anywhere
+    else in the repository — "When information is missing, the agent goes and finds it", "Artifact
+    locations are standardized, not proposed. One fixed convention, applied without asking", and a
+    composite "flag it once… is 100% invalid" attributed to HANDOFF. **Content absence, scope = every
+    markdown file in the repository:** `grep -rn` for the first two strings returns **0 hits** outside
+    this plan and the review records quoting it. The rulings' *substance* is correct at
+    `docs/HANDOFF.md:68–80` and the "100% invalid" wording is genuine but belongs to
+    `docs/investigate.md:207–208` (claim 57), dated 2026-07-28. The three Source lines now quote the
+    documents that exist and cite them by line range.
+61. **`skills/expert-plan/references/output-contract.md` is the plan's own governing contract** (§7's
+    S9 table, §12's preamble). *Evidence — pinned-revision read, whole file at commit `94a640a`.*
+    **This is the one document proposition here that takes no line range, and correctly so:** S9's
+    table asserts a property of the file *as a whole* — that it is "a dedicated contract document",
+    the strongest of the four gates' cases, as against the architecture skill's unheaded block and the
+    implement skill's absent Output section. A whole-file property has no line to cite, so the form is
+    path plus commit, which is the citation rule's form for a file whose contents may move. A range
+    would be narrower than the claim and would misrepresent what S9 relies on. The
+    working-tree copy is under active edit by separate work and is therefore **not** the version any
+    claim here rests on; `git show 94a640a:claude-plugins/expert-dev-tools/skills/expert-plan/references/output-contract.md`
+    is the reachable form, per this section's citation rule for mutable files.
+
 ---
 
 ## 12. Test specifications
@@ -1934,10 +2500,14 @@ declared} (fails), {field declared and not read} (passes; over-declaration is no
 *Must NOT assert:* that any agent *behaves* according to its `returns:` — that is the behavioural
 tier. And no assertion may be satisfied by the corrector alone; the check runs over all ten.
 *Fails when:* any agent omits `returns:` or `jobs:`; any field the workflow reads is absent from the
-owning agent's `returns:`; or `jobs:` disagrees with the dispatch-label count. **Must-fail case,
-executed:** temporarily remove `sections_rederived` from `expert-corrector.md`'s `returns:` and
-confirm the suite goes red — without it the assertion has never demonstrated it can fail, which is
-the defect that left round 2's controls green over a dead path.
+owning agent's `returns:`; or `jobs:` disagrees with the dispatch-label count. **Must-fail cases,
+both executed — one per half of the assertion:** (a) temporarily remove `sections_rederived` from
+`expert-corrector.md`'s `returns:` and confirm the suite goes red; (b) temporarily set that file's
+`jobs:` to `1` and confirm the suite goes red, since the corrector answers three dispatch labels
+(claim 36). Both are required because each half fails independently: the `returns:` half and the
+`jobs:` half are separate assertions over separate data, and an executed failure of one demonstrates
+nothing about the other. Without a demonstrated failure a green assertion is indistinguishable from
+an assertion running over a dead path.
 
 **T-3 — the S1 invocation form is guarded.**
 *Behavior verified:* S3's assertion exists and the `.mcp.json` form matches it.
@@ -1996,13 +2566,19 @@ unfalsifiable — which is what let S9's defect through.
 (`'docs/specs/spec.md'`, `'docs/arch/architecture.md'`, `'docs/plans/plan.md'`) remains, or
 `artifact_path` is never read.
 
-**T-10 — the four skills state one fixed location.**
-*Behavior verified:* S11 — none of the four contains "propose a location", "get confirmation", or
-"if there's an established location".
+**T-10 — the four skills state one fixed location, and no agent contradicts it.**
+*Behavior verified:* S11 — none of the four skills contains "propose a location", "get confirmation",
+or "if there's an established location"; **and** none of the three agent files that name an artifact
+directory names one the skills no longer use. `agents/expert-architect.md` reads
+`docs/architectures/`, `agents/expert-planner.md` reads `docs/plans/`, and
+`agents/expert-spec-writer.md` reads `docs/specs/`; no file under `agents/` contains `docs/arch/`.
 *Level:* unit (content absence over a bounded, enumerated file set).
-*Real/double boundary:* none. *Data:* the four real skill files.
+*Real/double boundary:* none. *Data:* the four real skill files **and the three real agent files** —
+a four-file scope cannot see the skill/agent contradiction S11's paired edit removes, which is why
+the scope is seven.
 *Must NOT assert:* the presence of specific replacement prose. *Fails when:* any of the three
-phrases survives in any of the four files.
+phrases survives in any of the four skills, or any file under `agents/` names an artifact directory
+other than `docs/specs/`, `docs/architectures/` or `docs/plans/`.
 
 **T-11 — `diagnose()` takes three parameters and labels the ledger as stale.**
 *Behavior verified:* S12. *Level:* unit (static source assertion). *Real/double boundary:* none.
@@ -2089,6 +2665,18 @@ supplying the inputs that drive the asserted verdict). Justified: the real funct
 subagents, which is neither fast nor deterministic, and the subject under test is `runGate`'s
 comparison logic, not the agents. `runGate` itself runs real — it is the subject and is never
 doubled.
+**Production obligation for the doubled inputs.** The `remediateFn` stub supplies
+`sections_rederived` and, inside each item, `class_sweep` — inputs `runGate` reads and which drive
+both asserted verdicts — so this specification names who is obliged to supply them in production and
+where each obligation is written: `agents/expert-corrector.md` is obliged by its `returns:`
+frontmatter, which names `sections_rederived` (S5, extended by S6b part 4); the corrector's *method*
+is obliged by the structured return contract in `skills/expert-correct/SKILL.md`, which requires each
+re-derived section to carry `location`, `source` and `class_sweep` (S4, extended by S6b part 4); and
+the field is declared at `PHASE_SCHEMA.properties.sections_rederived` (S6b part 1), which is what the
+workflow validates the return against. That is the same three-way pairing S6b part 4 enumerates. If
+any one of the three is dropped, `lastRederived` is `[]` on every round and both detectors are inert
+in production while this test stays green — which is why the pairing is stated here rather than left
+to a cross-read of three steps.
 *Data:* forward-derived from the observed A-3 case, not fabricated to pass. Round 1's stub returns a
 finding at `spec.md:271-273`; the remediate stub returns
 `sections_rederived: [{location: 'spec.md:265-280'}]`; round 2's stub returns a finding at
@@ -2118,8 +2706,46 @@ intent; and no assertion targets the stubs' call counts.
 either verdict** (the false-positive guard); or an adjacent-but-non-overlapping finding produces
 `fix_site_regression`.
 
+**T-23 — the corrector's halt reaches the owner instead of burning the round cap.**
+*Behavior verified:* **S15b part 2** — when `remediateFn` returns `status: 'halted'`, `runGate` stops
+the loop and returns `{ verdict: 'CORRECTOR_HALTED', rounds, history, halt }` carrying the corrector's
+`halt` payload, and **both** caller sites escalate it as `GATE.non_convergence` rather than advancing
+the phase. This is the sole implementation of coverage element (2a), B9c's escape hatch.
+*Level:* unit (static source assertion over the workflow for the caller wiring), plus one **executed**
+case exercising `runGate` directly.
+*Real/double boundary:* `runGate` runs real — it is the subject and is never doubled. `reviewFn` and
+`remediateFn` are hand-supplied **stubs** (Meszaros: stub — canned returns supplying the inputs that
+drive the asserted verdict), justified because the real functions dispatch subagents, which is neither
+fast nor deterministic, and the subject is `runGate`'s handling of the returned status rather than the
+agents. **Production obligation for the doubled input:** the `status` field the stub supplies is
+obliged of `agents/expert-corrector.md` by its `returns:` frontmatter, which names `status` and `halt`
+(S5); of the corrector's method by `skills/expert-correct/SKILL.md`, which requires a finding whose
+named standard cannot be verified to return `status: 'halted'` with the reason in `halt.detail` (S4);
+and declared at `PHASE_SCHEMA.properties.status`, whose enum is `['completed', 'halted']`, and
+`PHASE_SCHEMA.properties.halt` (claim 36). Without those three the halted return is unobliged and this
+test is green over a path that cannot execute.
+*Data:* forward-derived from S4's specified halt case, not fabricated to pass. Round 1's `reviewFn`
+stub returns `NEEDS_FIXES` with one finding whose `standard` names an authority the corrector cannot
+reach; the `remediateFn` stub returns
+`{ status: 'halted', halt: { category: 'PREMISE-FALSE', detail: 'named standard not verifiable' } }`.
+A second partition supplies `status: 'completed'` with a normal `sections_rederived` payload, which
+must **not** produce `CORRECTOR_HALTED`.
+*Technique:* equivalence partitioning on the returned `status` — `'halted'` (fires), `'completed'`
+(does not fire), and `status` absent (does not fire; the loop continues, since `PHASE_SCHEMA.required`
+is `['status']` only and an absent status is a malformed return, not a halt).
+*Must NOT assert:* the corrector's reason text, which is free-form by design; nor the stub's call
+counts; nor that the halt is correct — the control routes a halt, it does not adjudicate one.
+*Fails when:* a `status: 'halted'` return does not produce `verdict: 'CORRECTOR_HALTED'`; or the
+returned object omits `halt`, so the owner is told a gate failed without being told why; or either
+caller site advances the phase rather than escalating — **including the spec gate, where falling
+through reaches the `GATE.intent` return and tells the owner the specification passed review**; or a
+`status: 'completed'` return produces the verdict.
+
 **T-21 — the changed-file set matches the plan.**
-*Behavior verified:* `git diff --stat` equals §5's file list, in both directions.
+*Behavior verified:* **S23** — the documentation sync completes with the plan's whole change set
+accounted for: `git diff --stat` equals §5's file list, in both directions. §5 is the **oracle** this
+specification compares against, not the step it traces to; S23's Verification field names T-21, which
+is the other half of the bidirectional pair §7 maintenance rule 2 requires.
 *Level:* integration. *Real/double boundary:* none — the real diff.
 *Data:* the real working tree. *Must NOT assert:* line counts, which vary legitimately.
 *Fails when:* any file is changed that §5 does not list, or any listed file is unchanged.
@@ -2159,7 +2785,12 @@ either verdict** (the false-positive guard); or an adjacent-but-non-overlapping 
   confirmed before anything is built on it. If it fails, S2's WebFetch/WebSearch grants still give
   every agent a working documentation path, so the plan degrades rather than blocks.
 - **Coupling hotspot touched:** `workflows/expert-lifecycle.js` is modified by **twelve of the
-  twenty-six** steps (§5, re-derived 2026-07-31). It has zero import-dependents, so the graph blast radius is nil — but it is
+  twenty-six** steps — S6, S6b, S8, S9, S10, S12, S13, S15b, S17, S18, S20, S22. **Both counts
+  re-derived 2026-08-11** in the same §7 walk as §1's Goal, §2, §3, §5, §11, §12 and §14: the twelve
+  are §5's workflow row read back against the step bodies, and the twenty-six are the step set
+  enumerated (S1, S2, S2b, S3, S4, S5, S6, S6b, S7, S8, S9, S10, S11, S12, S13, S14, S15, S15b, S16,
+  S17, S18, S19, S20, S21, S22, S23). That walk confirmed both figures unchanged rather than revising
+  them. It has zero import-dependents, so the graph blast radius is nil — but it is
   the plugin's single point of orchestration, and every behavioural property runs through it. CP-3
   exists for this.
 - **Irreversibility:** none. Every change is to a text file under version control; no migration, no
@@ -2190,23 +2821,42 @@ either verdict** (the false-positive guard); or an adjacent-but-non-overlapping 
 | Q-15 | Can `Edit`-only break if a correction must create a file? | S5 | 1 | No — at a review gate the artifact exists by definition. Recorded as D-1's sensitivity note. |
 | Q-16 | Is the round-cap question re-asked here? | §2 | 1 | No — `behavioral-tier-findings.md` defers it until measured against the repaired loop; asking now would answer against replaced machinery. Recorded as a scope exclusion. |
 | Q-17 | Is correction patching, or re-derivation from sources? | S4, S5 | 2 | **Owner answered 2026-07-31: never patching.** Re-derivation is the discipline; both patching and re-authoring are forbidden, per claim 27. Incorporated in S4 (method), S5 (grant), D-1 (the four-behaviour table), §13 (risk). Supersession recorded in the round-01 review. |
-| Q-18 | Should this plan build the fix-site-regression control? | §13 | 1 | **Yes — S6b.** First disposed of as out-of-scope follow-up; that was effort-based deferral wearing a scope label, which this skill names as non-compliance, and it left the plan's own largest stated risk unguarded. Re-derived: the control is fully specifiable now. Its one apparent blocker — that comparing findings round-over-round misses the observed R4→R5 case — is what *forces* the `sections_rederived` field, not what blocks the design. |
+| Q-18 | Should this plan build the fix-site-regression control? | §13 | 1 | **Yes — S6b.** *Superseded disposition, retained inline because nothing external overturned it (see the sweep note below):* the control was first disposed of as an out-of-scope follow-up. That was effort-based deferral wearing a scope label, which this skill names as non-compliance, and it left the plan's own largest stated risk unguarded. Re-derived: the control is fully specifiable now. Its one apparent blocker — that comparing findings round-over-round misses the observed R4→R5 case — is what *forces* the `sections_rederived` field, not what blocks the design. |
 | Q-19 | Does the corrector need to report what it touched, or can findings be compared round-over-round? | S6b | 1 | It must report. R4's finding located `scratch-note.txt`; R5's landed at `spec.md:271-273` — different locations, so a findings-to-findings comparison misses the one real instance in the run. Closed by claim 28 and S6b part 4. |
 | Q-20 | Does S6b's new verdict violate the ROUND_CAP / verdict-enum prohibition? | S6b | 1 | No. `CORRECTION_FAILED` (with `kind`) is a `runGate` return value, not a member of `VERDICT_SCHEMA.verdict` (which stays `PASS` \| `NEEDS_FIXES`), and it adds an exit *before* the cap without moving it. `runGate` already returns a third non-enum state, `'NON_CONVERGENCE'`. Closed by file read of `workflows/expert-lifecycle.js:96–112`, `:224–243`, `:33`. |
+| Q-22 | What does a `returns:` entry assert — that the agent's dispatches are validated against that shape, or that the agent emits that field? | S2b, S5 | 1 | **Schema conformance, not per-agent emission.** Four agents share `PHASE_SCHEMA` (claim 36), so the oracle requires all four to declare `sections_rederived` and requires the corrector to declare `evidence`, regardless of what each produces. Closed by **D-9**, which states the reading, records the rejected intersection-oracle alternative and why it is undecidable, and directs a reader wanting actual emission obligations to the agent bodies S6b part 4 edits. |
 | Q-21 | Does every gate have an output contract S9 can cite? | S9 | 1 | No — three of four. `skills/expert-implement/SKILL.md` has 12 headings and no Output section; its nearest governs the implementer's report to the orchestrator, not the diff under review. A diff has no output contract distinct from the plan authorising it, which S8 already binds. The implementation gate is scoped out of S9 rather than pointed at a section that does not exist. |
 
-**Reconciliation sweep.** Eight passes, the last over the document as it stands after review round
-3, adding **zero** entries. Passes 1–3 built Q-1…Q-16 from the steps, decisions, test
+**Reconciliation sweep. Thirteen passes, the last over the document as it stands after round 7's
+fixes, adding zero entries.** Passes 1–3 built Q-1…Q-16 from the steps, decisions, test
 specifications, risks and coverage table; passes 4–5 followed the owner's rulings on the correction
 discipline and the fix-site-regression control (Q-17…Q-20 plus claims 27–29); passes 6–8 followed
-review rounds 1–3 (Q-21, plus the supersessions on Q-3 and Q-12).
+review rounds 1–3 (Q-21, plus the supersessions on Q-3 and Q-12); **pass 9** covered round 4's
+fixes — S2's re-cited Source, S11's paired agent-side edit, the §11 registration rule and claims
+32–35 — and added zero entries, none of those edits having raised a question the register did not
+already carry; **pass 10** covered round 5's fixes and added **one**, Q-22, since settling what a
+`returns:` entry asserts (D-9) is a question the plan had left implicit; **pass 11** re-walked the
+document after Q-22 was written and added zero; **pass 12** covered round 6's fixes — the twelve
+line-free claims 44–55, §11's corrected yield attestation, S5's precision fix and §13's re-derivation
+— and added **zero**, none of those raising a question the register did not already carry. Claims 44
+and 51 sharpened two propositions the plan had stated loosely, which is a precision correction rather
+than an open question. **Pass 13** covered round 7's fixes — the six document claims 56–61, the four
+corrected `testing-standards.md` restatements, the three corrected owner-ruling Source lines, §11's
+population enumeration and re-derived attestation arithmetic — and added **zero**. The two
+corrections it carried (the regression clause's demonstration requirement, and three rulings quoted in
+words their source does not use) are premise corrections recorded in claims 56 and 60; neither opens a
+question, because both sources state an answer the plan now reproduces.
 
 **Zero entries are open:** seventeen bin-1 entries closed with evidence pointers, four bin-2 entries
-closed with the owner's answer and the step incorporating it, zero bin-3. Four dispositions were
-superseded after first being written — Q-3, Q-12, Q-17, Q-18. Each states its current answer here;
-the superseded version and the reasoning that overturned it are in the corresponding
-`docs/reviews/plan-behavioral-remediation-round-0N.md` record, which is where drafting history
-belongs.
+closed with the owner's answer and the step incorporating it, one further bin-1 entry (Q-22) closed
+by D-9, zero bin-3. Four dispositions were superseded after first being written — Q-3, Q-12, Q-17,
+Q-18. Each states its current answer here. **For Q-3, Q-12 and Q-17 the superseded version and the
+reasoning that overturned it are in the review record named in that entry** — round-01 for Q-3 and
+Q-17, round-02 for Q-12 — because each was overturned by a review finding. **Q-18's supersession was
+not review-driven**: the plan overturned its own earlier deferral while writing §13's risk analysis,
+so there is no round record to hold it and its superseded reasoning is retained inline in the entry
+itself. That is the convention: superseded reasoning lives in the record of whatever overturned it,
+and inline only when nothing external did.
 
 ### Review rounds
 
@@ -2250,6 +2900,115 @@ Each class carries a mechanism, not only its instances, because fixing instances
 class is what produced three findings in each of the APS Fusion plan cycle's last two rounds
 (claim 27).
 
+**Round 2 — independent, post-fix. Verdict: NEEDS FIXES, 13 findings (1 Critical, 1 Systemic,
+4 Serious, 4 Moderate, 3 Minor). All 13 applied.** Full record:
+`docs/reviews/plan-behavioral-remediation-round-02.md`.
+
+| Finding | Where it landed |
+|---|---|
+| C-1 — S7's prose-counting class guard has no decidable oracle and no test specification | guard withdrawn from S7; replaced by **S2b**'s machine-readable `returns:`/`jobs:` binding |
+| SYS-2 — agent return contracts are not bound to the schemas the workflow reads | **S2b** (new step), plus its §2 coverage row and the `check-structure.mjs` binding assertion |
+| S-1 — `findings[].location` is consumed by detector (a) but obliged by nothing | S6b part 5 (deferred to round 3, closed there) |
+| S-2 — detector (b)'s match rule was undefined | rebuilt as set membership over `class_sweep.found`, scoped to the three document gates |
+| S-3 — S9 cites output-contract sections that do not exist | S9's per-gate table verified per row; implementation gate scoped out; Q-21 |
+| S-4 — claim 13 undercounts the artifact-path sources | claim 13 re-derived and S10's precedence inverted (the enumeration half re-opened at round 4 — see below) |
+| M-1 — reviewer denial attributed to a spec that lacks the terms | re-verified by `grep -c` over the spec → 0 |
+| M-2 — cross-reference drift, four instances in §5 and §13 | §5 and §13 counts corrected (re-opened at round 4 — see below) |
+| M-3 — §14 states the wrong round-1 count | §14 corrected to 13 findings, 6 Serious alongside SYS-1 |
+| M-4 — S23's document set is a wildcard | `codegraph_find_related_docs` run at plan time; 23 docs enumerated into three groups |
+| Mi-1 — §7 rule 2's §12 clause forbids what the output contract requires | rule 2's clause withdrawn, replaced by an explicit bidirectionality requirement |
+| Mi-2 — Q-20 names the wrong verdict constant | Q-20 names `CORRECTION_FAILED` |
+| Mi-3 — S18's Verification names only half its test set | S18's Verification names T-16 **and** T-17 |
+
+**Round 3 — independent, post-fix. Verdict: NEEDS FIXES, 10 findings (1 Systemic, 7 Serious,
+1 Moderate, 1 Minor). All 10 applied.** Full record:
+`docs/reviews/plan-behavioral-remediation-round-03.md` — **reconstructed on 2026-08-08** from the
+round-3 reviewer's message in the session transcript, after round 4's F4 found that no round-3 record
+had ever been written to disk while §2 cited its findings S-1, S-5 and S-6 as sources. The file
+carries a header stating its provenance.
+
+| Finding | Where it landed |
+|---|---|
+| SYS-1 — round-2 corrections applied at their named sites and not swept through the restating sections (7 instances) | §1's Goal, §2's coverage table, §5, §3's registry and §14's class analysis re-derived; §3 added to §7 rule 3's enumeration and to D-8's surface list |
+| S-1 — S2b's binding assertion fails against `expert-corrector`, which no step gives `returns:`/`jobs:` | S5's frontmatter block gains `returns:` and `jobs:`; the corrector listed under S2b in §5 |
+| S-2 — detector (b)'s `class_sweep` inputs exist in no schema and are obliged by no producer | `class_sweep` added to S6b part 1's literal `PHASE_SCHEMA` block; all three of S6b part 4's paired edits extended to oblige it |
+| S-3 — T-22 specifies the detector-(b) design S6b explicitly rejected | T-22's detector-(b) half re-derived to set membership, with the false-positive case as the third executed case |
+| S-4 — S2b has no test specification | **T-2b** written with all five fields |
+| S-5 — S2b's binding assertion is specified at a level the implementer cannot build from | S2b edit 3 re-specified as literal matching over `AGENT`, `agent(` options and `<NAME>_SCHEMA` blocks, with the declared-surface scope stated |
+| S-6 — `findings[].location` is optional and format-free; round 2's stated remedy was never written into a step | **S6b part 5** (new part), with the paired `agents/expert-reviewer.md` and `skills/expert-review/SKILL.md` edits |
+| S-7 — Q-12's recorded owner answer contradicts S22 | Q-12's disposition rewritten to the round-2 ruling, with the supersession recorded |
+| M-1 — drafting-history self-corrections retained throughout | reduced but not closed at round 3; closed at round 5 by converting each note to a current-state statement (a distinction a future editor needs) or deleting it, so the plan asserts what is true now and the round records hold what changed |
+| Mi-1 — claim 31 verifies a property of the withdrawn detector design | claim 31 re-derived against the current detectors |
+
+**Round 4 — independent, post-fix. Verdict: NEEDS FIXES, 7 findings (1 Systemic, 3 Serious,
+2 Moderate, 1 Minor). All 7 applied.** Full record:
+`docs/reviews/plan-behavioral-remediation-round-04.md`.
+
+| Finding | Where it landed |
+|---|---|
+| F1 — §5 not re-derived; three step bodies assert a §5 listing that does not exist | §5 re-derived by walking §7 step by step; the four affected rows now carry S6b and S2b |
+| F2 — claim 13 undercounts the artifact-path sources; S11 introduces a skill/agent contradiction | claim 13 re-derived to nine; S11 gains the paired `agents/expert-architect.md:16` edit; T-10's scope widened to seven files |
+| F3 — four `path:line` citations in step prose have no §11 entry, three of which do not reproduce | the four corrected and registered as claims 32–35; §11 gains the registration rule (its class sweep completed at round 5 — see below) |
+| F4 — the round-3 review record is unreachable while §2 cites its findings | record recovered verbatim from the session transcript and written to `docs/reviews/plan-behavioral-remediation-round-03.md` with a provenance header; §14 gains Round 2 and Round 3 blocks |
+| F5 — §5's fourth sublist headed (7) over 8 rows; `README.md` in two sublists | emitted by §5's re-derivation; `README.md` appears once, under Created, carrying S1 and S23 |
+| F6 — T-21's specification names no step | T-21's *Behavior verified* opens with S23, with §5 named as the oracle |
+| F7 — T-22's stub supplies `sections_rederived` without naming the production obligation | T-22 gains the three-way production-obligation clause |
+
+**Round 5 — independent, post-fix. Verdict: NEEDS FIXES, 9 findings (1 Systemic, 2 Serious,
+4 Moderate, 2 Minor). All 9 applied.** Full record:
+`docs/reviews/plan-behavioral-remediation-round-05.md`.
+
+| Finding | Where it landed |
+|---|---|
+| F2 (Systemic) — §11's registration rule was applied only to the four instances round 4 named | the rule gains a stated reconciliation *mechanism*; the walk was run over the whole of §7 and produced claims 36–43 |
+| F1 — S5's corrector frontmatter fails S2b's binding assertion on both halves | `jobs: 3` and `returns:` gains `evidence`, both derived from S2b's oracle and registered as claim 36; T-2b gains a `jobs:`-mismatch must-fail case |
+| F3 — S15b's `CORRECTOR_HALTED` path has no test specification | **T-23** written with all five fields; S15b's Verification field names T-23 and T-22 per half |
+| F4 — S2b's schema-derived oracle cannot express a per-agent contract | settled as **D-9** and registered as Q-22; S2b part 1 states what `returns:` asserts |
+| F5 — claim 33's heading and blank-line premise is false, imported from round 4's finding text | claim 33 re-derived from a line-numbered read: heading `:561`, blanks `:562–564`, bullet `:565`; claims 32, 34, 35 re-read in the same walk |
+| F6 — drafting-history self-corrections retained while §14 records the class closed | every site converted to a current-state statement or deleted; §14's round-3 disposition row corrected to say what actually happened |
+| F7 — §14's sweep attestation stale at eight passes | passes 9, 10 and 11 recorded, pass 10 adding Q-22 and pass 11 confirming zero |
+| F8 — §3's re-derivation attestation predates the last step edit | §3 re-derived and dated 2026-08-09 in the same walk |
+| F9 — §14's supersession-location claim is false for Q-18 | the sentence now scopes the record-held supersessions to Q-3, Q-12 and Q-17 and states Q-18's is inline, with the convention given |
+
+**Round 6 — independent, post-fix. Verdict: NEEDS FIXES, 2 findings (1 Systemic, 1 Minor). Both
+applied.** Full record: `docs/reviews/plan-behavioral-remediation-round-06.md`.
+
+| Finding | Where it landed |
+|---|---|
+| F1 (Systemic) — the registration rule's line-free clause was attested at a yield of 2 against a much larger population | the clause walked step by step, producing **claims 44–55**; §11's attestation now reports the real yield, states that the clause cannot be reduced to a command, and names a low yield as the signal to re-run it |
+| F2 — §13's counts attestation predates the last walk | §13's twelve-of-twenty-six re-derived and dated with the other restating surfaces, in §5's "confirmed unchanged" form |
+
+**Round 7 — independent, post-fix. Verdict: NEEDS FIXES, 2 findings (1 Systemic, 1 Minor). Both
+applied.** Full record: `docs/reviews/plan-behavioral-remediation-round-07.md`.
+
+| Finding | Where it landed |
+|---|---|
+| F1 (Systemic) — the line-free walk swept source files only, leaving every statement about the plan's input and governing **documents** unregistered | §11's rule gains a **four-kind population enumeration** stated as a table, with the walk required to enumerate the referenced documents before walking; the document population produced **claims 56–61**; the four `testing-standards.md` restatements corrected to carry the demonstration requirement the source states; a citation-form rule added, since section anchors are not one of §11's four permitted forms |
+| F2 — §11's attestation reported "28 distinct tokens" with a 20 + 8 partition that reconciles over neither population | both figures re-derived and labelled — 36 occurrences over 32 distinct tokens, the three repeating tokens named — and the yield diagnostic strengthened from a numerical test to a **compositional** one |
+
+**Convergence trajectory across the seven rounds.** R1 = 13 → R2 = 13 → R3 = 10 → R4 = 7 → R5 = 9 →
+R6 = 2 → R7 = 2. Round 7's flow counts: closed 1, new 1, regressions 0, recurring 1. **Both tripwire
+conditions held at round 7 for the first time in the series** — 1 ≥ 1 for condition (a), and 2 → 2 is
+not a strict decrease for condition (b) — arming both counters at 1 against a threshold of 2. Round 7
+also recorded the first demonstrated consequence of the registration gap: `testing-standards.md`'s
+regression clause, cited four times and never registered, had stopped reproducing. The round-8 pass
+found a second instance of the same shape independently — three owner rulings quoted in wordings that
+appear nowhere in the documents they cite (claim 60) — which is the mechanism §11's preamble names,
+observed twice. Flow counts: round 3 closed 8, new 3, regressions 3, recurring 4; round 4 closed 9, new 1,
+regressions 0, recurring 6; round 5 closed 7, new 3, regressions 3, recurring 3; round 6 closed 8,
+new 1, regressions 0, recurring 1. **Both tripwire counters stand at zero after round 6**: condition
+(a) has never held (1 is not ≥ 8 this round), and condition (b) — which held at round 5 on 7 → 9 —
+reset when 9 → 2 delivered a strict decrease. Round 6 is the first round since round 4 to record zero
+regressions, meaning the prior round's fixes did not manufacture the next round's findings, and the
+first of all six to record zero Serious findings.
+
+**The signal the counts do not carry.** Every round to date has found drift in at least one of the
+nine restating surfaces (G-3), six of six. What round 6 established is *where the boundary sits*: the
+half of §11's registration rule expressed as a re-executable command held under independent
+re-execution at the exact result count, and the half expressed as prose instruction did not. That is
+this plan's own evidence for D-8's and G-3's thesis, produced on itself rather than imported from APS
+Fusion, and it is the argument for the output-contract change G-3 proposes.
+
 ---
 
 ## 15. Gaps acknowledged
@@ -2269,9 +3028,12 @@ is a bounded gap rather than an open question. *Attempt evidence:* `/plugin` sur
 message; on-disk MCP logs under `%LOCALAPPDATA%\claude-cli-nodejs` for this project are stale
 (December). *What would resolve it:* the full plugin diagnostic view, if the owner ever wants it.
 
-**G-3 — the cross-reference drift class is reduced, not closed.** Six sections of this plan restate
-information originating in §7, none of them generated (D-8). Round 1 of review found drift in three
-of them. *Attempt evidence:* the documented fix is generation, not auditing — APS Fusion HANDOFF,
+**G-3 — the cross-reference drift class is reduced, not closed.** **Nine surfaces** of this plan
+restate information originating in §7, none of them generated — enumerated identically in D-8 and in
+§7's maintenance preamble, which are one set stated in two places. **Every review round to date has
+found drift in at least one of them, and one round found drift in the enumeration of the surfaces
+itself** — the measured rate at which discipline alone holds this class, recorded here because it is
+the evidence bearing on whether the class is closable by the means available. *Attempt evidence:* the documented fix is generation, not auditing — APS Fusion HANDOFF,
 commit `cd2f27b`: "Scripts that *generate* a derived surface are the fix; scripts that *audit* prose
 are the problem." Generation was evaluated and is unavailable: it requires every step to carry
 machine-readable file and coverage declarations, which changes the output contract's document

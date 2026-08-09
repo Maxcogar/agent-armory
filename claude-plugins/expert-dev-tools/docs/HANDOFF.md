@@ -81,14 +81,27 @@ agent that could not verify anything external. Nothing was stable enough to conv
 
 ## What to do
 
-**Round 4 of independent review is owed.** Roughly forty edits were made to the plan after round 3
-returned, none checked by anyone but their author — which is the category this project has now
-recorded three times as the one self-review does not catch.
+**The plan-review loop ran rounds 4 through 8 and ended by tripwire** (records at
+`docs/reviews/plan-behavioral-remediation-round-04.md` through `-round-08.md`; the recovered
+round-03 record is also on disk). Trajectory 13 → 13 → 10 → 7 → 9 → 2 → 2 → 3; round 8 fired both
+tripwire conditions. Eight rounds produced no finding of missing work, no wrong design decision,
+and no build-order defect — the residual churn was the plan's hand-maintained bookkeeping surfaces,
+and round 8's three open findings are errata (four numbers, one step label) recorded in its record.
+**The owner approved the plan's substance 2026-08-09.** The plan was then executed in full — 26/26
+steps, structural tier 191/191, unit tier 17/17, diff-vs-§5 exact at 27 files — and that
+implementation is under its own independent review (`docs/reviews/implementation-round-01.md` when
+persisted).
 
-Dispatch it to a **fresh** reviewer with the artifact, the prior-round records, the plan's inputs,
-and the governing output contract — **pointers only.** No summary of what changed, no map of where
-to look, no defence of any decision. Author-supplied direction is what compromised five of six
-rounds on the sister project.
+**Any further plan-review dispatch cites the output contract by commit.** The plan was authored
+under the contract at `94a640a`; the working-tree contract has since been revised (generated-regions
+regime, `docs/SKILL-CHANGELOG.md` entries 6 onward — the changelog is the authoritative
+enumeration; this pointer deliberately names no upper bound) and by its own Applicability paragraph does not
+govern plans authored before it. An unpinned dispatch would grade the plan against a contract it
+structurally cannot satisfy.
+
+Dispatch reviews to a **fresh** reviewer each round — **pointers only.** No summary of what changed,
+no map of where to look, no defence of any decision. Author-supplied direction is what compromised
+five of six rounds on the sister project.
 
 After that, in order: owner approval of the plan, then implementation, then re-run the behavioural
 tier from A-3 segment 1 (~1.5 M subagent tokens, ~2 h — an owner spend decision), then re-run A-4a
