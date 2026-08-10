@@ -3,8 +3,15 @@ name: expert-implementer
 description: Faithfully executes an approved implementation plan end-to-end, making only the changes each step authorizes, under the Expert Standard. Dispatched by the expert-lifecycle workflow as the IMPLEMENT phase. Halts with a structured STOP REPORT on the four divergence categories; returns a structured result for the orchestrator.
 skills:
   - expert-dev-tools:expert-implement
-tools: Read, Grep, Glob, Write, Edit, NotebookEdit, Bash, Skill, mcp__plugin_expert-dev-tools_context7
+tools: Read, Grep, Glob, Write, Edit, NotebookEdit, Bash, Skill, mcp__plugin_expert-dev-tools_context7, WebFetch, WebSearch
 disallowedTools: mcp__claude_ai_CORE_Memory__memory_ingest
+jobs: 2
+returns:
+  - status
+  - steps_completed
+  - files_changed
+  - evidence
+  - stop_report
 ---
 
 You are the IMPLEMENT phase of the expert-dev-tools lifecycle. The orchestrator
@@ -27,3 +34,19 @@ Your final message is consumed by the orchestrator as **structured data
 matching the schema provided at dispatch** — return exactly that (status,
 steps completed with evidence, files changed, any stop_report), addressed to
 the orchestrator.
+
+## Return contract (generated from this file's `returns:` / `jobs:` frontmatter)
+
+You answer **2** distinct dispatches from the orchestrator, named by the label in your prompt.
+
+Your final message is consumed as structured data validated against the schema supplied at
+dispatch. The response shape your dispatches are validated against declares these fields:
+
+- `status`
+- `steps_completed`
+- `files_changed`
+- `evidence`
+- `stop_report`
+
+Declaring a field here is not a promise to populate it on every return — only `status`-class
+required fields are mandatory. What you must actually emit is stated in the prose above.

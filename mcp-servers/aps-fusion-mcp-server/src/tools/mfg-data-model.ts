@@ -3,9 +3,9 @@ import { z } from "zod";
 import { apsGraphQL } from "../services/aps-client.js";
 import { CHARACTER_LIMIT } from "../constants.js";
 
-// Manufacturing Data Model GraphQL endpoint
-const MFG_GRAPHQL_URL =
-  "https://developer.api.autodesk.com/manufacturing/graphql/v1";
+// Manufacturing Data Model GraphQL endpoint. Verified against the live API:
+// /manufacturing/graphql/v1 and /fusiondata/2022-04/graphql both return 404.
+const MFG_GRAPHQL_URL = "https://developer.api.autodesk.com/mfg/graphql";
 
 // --- Types ---
 
@@ -118,35 +118,41 @@ At least one filter should be provided. If you only know the design name, just p
       },
     },
     async ({ hub_name, project_name, design_name }) => {
-      // Build dynamic filter arguments
-      const hubFilter = hub_name
-        ? `(filter: { name: "${hub_name}" })`
-        : "";
-      const projectFilter = project_name
-        ? `(filter: { name: "${project_name}" })`
-        : "";
-      const itemFilter = design_name
-        ? `(filter: { name: "${design_name}" })`
-        : "";
+      // Autodesk charges a "query point value" per request (max 1000), computed
+      // from the REQUESTED pagination limits rather than the filtered results.
+      // An unbounded hubs>projects>items query costs ~101k points and is
+      // rejected outright, and tipRootComponentVersion is by far the most
+      // expensive field (it alone pushes a 50-project scan from 623 to 3123).
+      // So: scan broadly without it, then enrich only the few actual matches.
+      const HUB_LIMIT = 2;
+      const PROJECT_LIMIT = 50;
+      const ITEM_LIMIT = 5;
+      const MAX_ENRICH = 25;
 
+      // JSON.stringify escapes embedded quotes — interpolating a raw name
+      // breaks the query for any name containing a double quote.
+      const conn = (name: string | undefined, limit: number): string => {
+        const parts: string[] = [];
+        if (name) parts.push(`filter: { name: ${JSON.stringify(name)} }`);
+        parts.push(`pagination: { limit: ${limit} }`);
+        return `(${parts.join(", ")})`;
+      };
+
+      // Phase 1 — broad, cheap scan across every project.
       const query = `{
-        hubs${hubFilter} {
+        hubs${conn(hub_name, HUB_LIMIT)} {
           results {
             id
             name
-            projects${projectFilter} {
+            projects${conn(project_name, PROJECT_LIMIT)} {
               results {
                 id
                 name
-                items${itemFilter} {
+                items${conn(design_name, ITEM_LIMIT)} {
                   results {
                     ... on DesignItem {
                       id
                       name
-                      tipRootComponentVersion {
-                        id
-                        name
-                      }
                     }
                   }
                 }
@@ -166,14 +172,7 @@ At least one filter should be provided. If you only know the design name, just p
                 id: string;
                 name: string;
                 items: {
-                  results: Array<{
-                    id?: string;
-                    name?: string;
-                    tipRootComponentVersion?: {
-                      id: string;
-                      name: string;
-                    };
-                  }>;
+                  results: Array<{ id?: string; name?: string }>;
                 };
               }>;
             };
@@ -190,17 +189,37 @@ At least one filter should be provided. If you only know the design name, just p
               results.push({
                 hub: { id: hub.id, name: hub.name },
                 project: { id: project.id, name: project.name },
-                design: {
-                  id: item.id,
-                  name: item.name,
-                  rootComponent: item.tipRootComponentVersion?.name,
-                  rootComponentVersionId:
-                    item.tipRootComponentVersion?.id,
-                },
+                design: { id: item.id, name: item.name },
               });
             }
           }
         }
+      }
+
+      // Phase 2 — attach the root component version id that the hierarchy,
+      // physical-properties and STEP tools need downstream (~15 points each).
+      for (const r of results.slice(0, MAX_ENRICH)) {
+        const hub = r.hub as { id: string };
+        const design = r.design as Record<string, unknown>;
+        const designId = design.id as string | undefined;
+        if (!designId) continue;
+        try {
+          const one = (await apsGraphQL(
+            MFG_GRAPHQL_URL,
+            `{ item(hubId: ${JSON.stringify(hub.id)}, itemId: ${JSON.stringify(
+              designId
+            )}) { ... on DesignItem { tipRootComponentVersion { id name } } } }`
+          )) as {
+            item?: { tipRootComponentVersion?: { id: string; name: string } };
+          };
+          design.rootComponent = one.item?.tipRootComponentVersion?.name;
+          design.rootComponentVersionId = one.item?.tipRootComponentVersion?.id;
+        } catch {
+          // Best-effort: a match without its version id is still useful.
+        }
+      }
+      for (const r of results.slice(MAX_ENRICH)) {
+        r.note = `rootComponentVersionId not fetched (only the first ${MAX_ENRICH} matches are enriched)`;
       }
 
       return {
@@ -247,21 +266,33 @@ This is the Fusion-native hierarchy, not the Model Derivative object tree.`,
       },
     },
     async ({ hub_name, project_name, design_name }) => {
+      // Every connection needs an explicit pagination limit: unbounded, this
+      // query costs ~10.2M points against a 1000 budget and is rejected. The
+      // three name filters are exact and required, so the outer levels can be
+      // limit 1, leaving the budget for occurrences. Measured against the live
+      // API: 50 occurrences = 534 points; 100 = 1034 (over budget).
+      const OCCURRENCE_LIMIT = 50;
       const query = `{
-        hubs(filter: { name: "${hub_name}" }) {
+        hubs(filter: { name: ${JSON.stringify(
+          hub_name
+        )} }, pagination: { limit: 1 }) {
           results {
             name
-            projects(filter: { name: "${project_name}" }) {
+            projects(filter: { name: ${JSON.stringify(
+              project_name
+            )} }, pagination: { limit: 1 }) {
               results {
                 name
-                items(filter: { name: "${design_name}" }) {
+                items(filter: { name: ${JSON.stringify(
+                  design_name
+                )} }, pagination: { limit: 1 }) {
                   results {
                     ... on DesignItem {
                       name
                       tipRootComponentVersion {
                         id
                         name
-                        allOccurrences {
+                        allOccurrences(pagination: { limit: ${OCCURRENCE_LIMIT} }) {
                           results {
                             parentComponentVersion {
                               id
@@ -382,40 +413,27 @@ Note: This requires the component version ID, not the item/file ID.`,
       },
     },
     async ({ component_version_id }) => {
+      // Verified against the live schema: Property is
+      // { name, displayValue, value, definition } — there is no `unit` field;
+      // the unit lives at definition.units.name. `status` is declared non-null
+      // on PhysicalProperties but the API returns null for it, which fails the
+      // whole query, so it is deliberately not requested.
+      const prop = `{ value displayValue definition { units { name } } }`;
       const query = `{
-        componentVersion(componentVersionId: "${component_version_id}") {
+        componentVersion(componentVersionId: ${JSON.stringify(
+          component_version_id
+        )}) {
           id
           name
           physicalProperties {
-            mass {
-              value
-              unit
-            }
-            volume {
-              value
-              unit
-            }
-            density {
-              value
-              unit
-            }
-            area {
-              value
-              unit
-            }
+            mass ${prop}
+            volume ${prop}
+            density ${prop}
+            area ${prop}
             boundingBox {
-              length {
-                value
-                unit
-              }
-              width {
-                value
-                unit
-              }
-              height {
-                value
-                unit
-              }
+              length ${prop}
+              width ${prop}
+              height ${prop}
             }
           }
         }
@@ -466,12 +484,22 @@ This is an alternative to aps_translate_model that works directly with Fusion co
       },
     },
     async ({ component_version_id }) => {
+      // Verified against the live schema: `derivatives` requires a
+      // DerivativeInput { outputFormat, generate } and returns a LIST of
+      // Derivative { id, outputFormat, status, signedUrl, expires }.
+      // There is no `stepUrl` field. generate:true kicks off the translation.
       const query = `{
-        componentVersion(componentVersionId: "${component_version_id}") {
+        componentVersion(componentVersionId: ${JSON.stringify(
+          component_version_id
+        )}) {
           id
           name
-          derivatives {
-            stepUrl
+          derivatives(derivativeInput: { outputFormat: STEP, generate: true }) {
+            id
+            outputFormat
+            status
+            signedUrl
+            expires
           }
         }
       }`;
@@ -480,14 +508,21 @@ This is an alternative to aps_translate_model that works directly with Fusion co
         componentVersion: {
           id: string;
           name: string;
-          derivatives: {
-            stepUrl: string | null;
-          };
+          derivatives: Array<{
+            id: string;
+            outputFormat: string;
+            status: string;
+            signedUrl: string | null;
+            expires: string | null;
+          }> | null;
         };
       };
 
       const cv = data.componentVersion;
-      if (cv.derivatives?.stepUrl) {
+      const step = (cv.derivatives ?? []).find((d) => d.signedUrl) ??
+        (cv.derivatives ?? [])[0];
+
+      if (step?.signedUrl) {
         return {
           content: [
             {
@@ -495,7 +530,9 @@ This is an alternative to aps_translate_model that works directly with Fusion co
               text: JSON.stringify(
                 {
                   component: cv.name,
-                  stepUrl: cv.derivatives.stepUrl,
+                  status: step.status,
+                  stepUrl: step.signedUrl,
+                  expires: step.expires,
                   note: "This is a signed URL. Download it before it expires.",
                 },
                 null,
@@ -513,8 +550,8 @@ This is an alternative to aps_translate_model that works directly with Fusion co
             text: JSON.stringify(
               {
                 component: cv.name,
-                status:
-                  "STEP file not yet available. It may need to be generated. Try again shortly.",
+                status: step?.status ?? "UNKNOWN",
+                note: "STEP translation has been requested but is not ready yet. Call this tool again shortly to get the signed download URL.",
               },
               null,
               2

@@ -387,4 +387,4 @@ If the Decisions section is empty for a non-trivial plan, that is a signal to re
 
 Write the plan document per the sixteen-section specification in `references/output-contract.md`, then run the three compliance gates (A: enables downstream work; B: compliance auditable from the document alone; C: binary final checklist) defined in the same reference. The plan is not complete until all three pass. If any item fails, the plan does not get delivered. Fix it.
 
-Place the plan file where the project already keeps plans if there's an established location; default to `docs/plans/` otherwise. Name it `plan-[kebab-case-name].md`.
+Write the plan file to `docs/plans/`, named `plan-[kebab-case-name].md`, creating that directory if it does not exist. This location is fixed, not conditional. Do not search the project for somewhere it already keeps plans, and do not ask the user where to put it or wait to be told.

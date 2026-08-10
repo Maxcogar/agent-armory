@@ -93,9 +93,18 @@ With the fixture transcripts in `tests/fixture/transcripts/` as the project's
 transcripts, run a segment. Expect the feedback sweep to detect the planted
 repeated complaint (the "TODO placeholder" signature appears in both sessions —
 already confirmed extractable by the reader) as a `systemic_defect` naming the
-planner, and the single-occurrence "run the tests" turn as a
-`course_correction`, without interrupting the in-flight phase (verify the run
-journal shows uninterrupted phase execution).
+planner, and the single "ok run the tests now" turn to be **discarded** —
+**not** classified `course_correction` — without interrupting the in-flight
+phase (verify the run journal shows uninterrupted phase execution).
+
+The discard is what spec F-14 requires, and this criterion previously asserted
+the opposite. F-14 scopes the sweep to "statements where the owner flagged a
+problem"; "ok run the tests now" flags none, so it is out of the sweep's scope
+entirely rather than being a low-severity member of it. Widening the sweep to
+non-complaints would dilute the repeat-complaint signal the requirement exists
+to produce. Two independent diagnosticians read both documents, followed the
+spec, and explicitly refused this criterion's former expectation — a derived
+document contradicting its source is a defect in the derived document.
 
 ## A-9 — cross-project recurrence + failed correction
 

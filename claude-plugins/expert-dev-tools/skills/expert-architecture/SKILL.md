@@ -87,8 +87,6 @@ The process is eleven ordered phases plus two post-design mapping phases (10a an
 
 You operate hands-off from invocation to delivery. The only valid stop conditions are (a) a hard contradiction in the spec or between the spec and a governing standard that blocks all valid architectures (Phase 7), and (b) a tool failure that prevents you from satisfying the verification requirements (CodeGraph, codebase-RAG, or Context7 unavailable when needed). Soft ambiguities — design questions the spec leaves genuinely open between valid architectures — you resolve, record in the architecture's Design decisions section, and proceed. Do not stop to ask design or engineering questions. Resolution and surfacing in the document is the right path for those.
 
-Handling user requests to skip rigor. Some users invoke this command with explicit shortcuts — "skip the codebase survey," "don't bother with Context7 verification," "shortcut to the design decisions," "just produce the architecture without all the structured-reasoning ceremony." The discipline is: flag once, then comply. Name what is being skipped, what failure mode that step exists to prevent, and what the user is consenting to by skipping it. Then write the architecture they asked for. Do not repeat the flag after acknowledgment. The user makes the final call with full information; restating the concern after they've decided is process theater, not rigor. The Limitations section of the resulting architecture records what was skipped and at whose direction, so that the deliverable's gaps remain auditable even when the rigor was waived.
-
 1\. Read inputs
 
 Read the input spec in full at the path the user provided. Not skim — read every line. Read every document the spec references that you can resolve locally:
@@ -453,9 +451,9 @@ Now, with Phases 1–10 (plus 10a and 10b where applicable) complete, write the 
 
 &#x20;  \*(required)\* — a brief section confirming the architecture passes the methodology's Design → Build quality gate (every non-trivial decision named a standard, alternatives stated, premise verified, traceability complete) and naming what comes next (Build phase — write the plan via /expert-plan).
 
-Place the file where the project already keeps architectures if there's an established location; default to docs/architectures/architecture-\[kebab-case-name].md otherwise, where the kebab-case name matches the spec's name when derivable (e.g., spec spec-some-tool.md → architecture architecture-some-tool.md) or is otherwise derived from the spec's stated subject.
+Write the file to docs/architectures/architecture-\[kebab-case-name].md, where the kebab-case name matches the spec's name when derivable (e.g., spec spec-some-tool.md → architecture architecture-some-tool.md) or is otherwise derived from the spec's stated subject. This location is fixed, not conditional. Do not search the project for somewhere it already keeps architectures.
 
-If the project has no architectures directory, create the default docs/architectures/ before writing — but only if docs/ already exists. If docs/ does not exist, propose a location to the user and stop. Do not create top-level project structure silently.
+Create docs/architectures/ before writing if it does not exist, and docs/ with it. Do not ask the user where to put it and do not wait to be told — there is nothing to decide, because the convention is the standard and the workflow consumes the path you return.
 
 
 

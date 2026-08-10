@@ -160,10 +160,6 @@ This is where the philosophy does its heaviest work. A requirement is only as go
 
 
 
-**When the user wants to skip this step** — they want a quick spec, they want to replicate the current system's behavior, they don't want to wait for standard research — note what's being skipped and what the risk is. An ungrounded spec produces ungrounded architecture and ungrounded implementation; the cost compounds downstream. Flag it once, then write the spec they asked for. They make the final call with full information. Don't repeat the flag after they've acknowledged it.
-
-
-
 ### 4. Pressure-test for contradictions
 
 
@@ -346,7 +342,7 @@ Then check:
 
 
 
-Write the spec as a markdown document named `spec-[kebab-case-name].md`. Place it where the project already keeps specs if there's an established location; default to `docs/specs/` otherwise. If the project has no docs directory, propose a location and get confirmation rather than creating structure silently.
+Write the spec as a markdown document named `spec-[kebab-case-name].md` under `docs/specs/`, creating that directory if it does not exist. This location is fixed, not conditional. Do not search the project for somewhere it already keeps specs, and do not ask the user where to put it or wait to be told. There is nothing to decide — the convention is the standard, and the workflow consumes the path you return.
 
 
 

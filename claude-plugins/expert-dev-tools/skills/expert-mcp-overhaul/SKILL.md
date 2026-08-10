@@ -29,8 +29,6 @@ The one authority that can compress a step is the user, and only through the com
 
 **No ungoverned changes.** Not one line of server code is written or modified outside a plan step that names it. Work discovered mid-execution produces a plan amendment (Phase 7), not an ad-hoc edit. This is the rule that makes the delta between the audited server and the delivered server fully accounted for.
 
-**User-initiated compression.** If the user asks to skip or shorten a step, flag once before complying: state what is being compressed, what that step was designed to catch, and what they are consenting to. Then comply without re-flagging the same compression again. The user holds final authority; your job is to make the trade visible, not to refuse it — and to record the compression in the closeout so the delivered state is honest about what was skipped.
-
 ## Question discipline
 
 Questions are welcome — every good question raises the user's confidence that the result will match what they expect. But a question is a tool with a failure mode: it can offload work that was yours to do. So every question passes through this gate before it is asked.

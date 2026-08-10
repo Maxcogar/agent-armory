@@ -144,11 +144,7 @@ The delivered review is structured around two-axis evidence. Specific output sec
 
 
 
-Some invocations arrive with explicit shortcuts — "skip the inventory," "don't bother verifying premises," "just give me the verdict." The discipline is: flag once, then comply. Name what is being skipped, what failure mode that step exists to catch, and what the user is consenting to by skipping it. Then deliver the review they asked for. Do not repeat the flag after acknowledgment — the user makes the final call with full information, and restating the concern after they've decided is process theater, not rigor. The Scope and Inventory section records what was waived and at whose direction, so the delivered review's gaps stay auditable even when the rigor was waived.
-
-
-
-One compression case carries a dedicated record: when the operator directs that the fix cycle stop despite open findings, the flag-once discipline applies as above, and the final round's output includes the Open Findings Ledger. The verdict does not change — it remains NEEDS FIXES per the mechanical rule — the ledger converts the stop from an undocumented surrender into a recorded accepted-risk decision made at the workflow level.
+One compression case carries a dedicated record: when the operator directs that the fix cycle stop despite open findings, the final round's output includes the Open Findings Ledger. The verdict does not change — it remains NEEDS FIXES per the mechanical rule — the ledger converts the stop from an undocumented surrender into a recorded accepted-risk decision made at the workflow level.
 
 
 
@@ -226,6 +222,8 @@ Sources for the inventory, in order of authority:
 
 A Post-fix review is not a special protocol — it is an ordinary full review whose inventory is constructed by the rule above. The full process runs unchanged over that inventory: same standard-naming, same premise verification, same proactive systemic scans, verdict derived fresh from this pass's own finding set.
 
+**Each round is performed by a reviewer that has not seen the prior round.** The prior round's findings reach this review as a written record — the fourth inventory source above — and never as the reviewer's own retained context. A reviewer still holding its own prior findings, and the author's replies to them, is anchored to the defect space it already mapped: it checks whether its notes were addressed instead of reviewing the artifact, and the resulting report is indistinguishable from a real review. Independence is a property of the reviewer's starting state, not only of how neutrally it is briefed. Where rounds are dispatched to subagents, each round gets a fresh dispatch; where a human reviews, the prior round's reviewer is not the one to run the next.
+
 
 
 Output the inventory at the top of your working notes as a markdown checklist. Each file becomes `[x]` only after one of these completes:
@@ -289,6 +287,8 @@ Then draw the bright line for unavailability. An isolated verification gap on a 
 - **Claims imported from prior documents** (handoff docs, prior plans, memory summaries, earlier review passes, spec excerpts): re-derive from source. A claim in a prior artifact is a candidate, not a finding. Importing it by reference without re-verification is the same failure as codebase pattern-matching — just with a different source document.
 
 - **Comment claims inside the artifact** (code comments, docstrings, or inline notes asserting "verified via X on date," "handled elsewhere," "safe because Y"): these are claims by the author, never verification. A comment lives inside the artifact under review — it is not a prior document, and the prior-document rule does not reach it, so it gets its own: re-derive the claimed fact from source with the instrument its claim type requires. Empirically, accepting a comment's verification claim at face value produced a fully failed review pass.
+
+- **Claims about files outside the artifact under review** (a sibling project's document, a shared standard, another repository's source, a run transcript): verify by reading, as any claim of its type requires — then **cite it by an immutable identifier, never by path alone.** A file under version control is cited by path *and commit*. A file outside version control (run transcripts, plugin caches, generated logs) is cited by path and date, with its unpinnable status stated. A path-and-date citation to a mutable file stops being checkable the moment that file changes, and in a repository with parallel sessions that can be hours. Empirically: a reviewed artifact's designated load-bearing claim quoted three sentences from a sibling project's document, accurately, and an unrelated session rewrote that document four hours later — the quote was correct when taken and unreachable when checked, and the replacement text contradicted the generalization built on it. The failure is the citation format, not the author's honesty, which is exactly why it is fixed here rather than treated as a lapse.
 
 - **Structural-vs-existence distinction.** CodeGraph answers "what imports what" and "what's in the blast radius." It does not answer "does this symbol exist" or "does this line say this." For absence claims and literal-content claims, use grep or Read — not CodeGraph.
 
@@ -559,6 +559,8 @@ Before delivering the review, run all three gates. The review is not complete un
 
 
 - Every finding names the standard it was evaluated against (Step 4 output), or carries the marked first-principles articulation Step 4 permits when no named standard applies.
+
+- Every finding carries a `location`, and the location is written in exactly one of two forms: `path:start-end` (a line range; `path:line` is the one-line case) or `path#section` (a path plus a section identifier). Nothing else parses. A location is not optional and is not free-form prose: downstream controls parse the range to detect a correction that regressed at the site it edited, and test it for set membership to detect a class a correction found and left open. A free-form or absent location silently disables both.
 
 - For "looks good" positive assessments: the property that makes it good is named, and the named standard governing that property is cited. A positive assessment without a named standard is an unnamed approval and fails Gate A.
 
