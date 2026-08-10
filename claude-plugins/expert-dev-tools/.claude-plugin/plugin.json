@@ -1,6 +1,6 @@
 {
   "name": "expert-dev-tools",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "An end-to-end engineering lifecycle for Claude Code: packages the Expert-series skills and adds a gated spec → architecture → plan → implement → review → ground-truth → closeout workflow that runs the phases, operates independent-review gates to a binary PASS, enforces anti-fabrication and diagnosis-before-routing, and involves the owner only at defined decision points.",
   "author": {
     "name": "Max Cogar"
