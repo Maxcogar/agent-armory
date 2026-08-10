@@ -283,7 +283,7 @@ check('T-A2c mcp: does NOT declare codegraph/codebase-rag (D8)', !servers.some((
 // `context7` — line 100 above asserts it, and the key is not the dedupe key.
 const c7 = (mcp.mcpServers || {}).context7 || {};
 const c7args = Array.isArray(c7.args) ? c7.args : [];
-check('T-3 mcp: context7 still resolves @upstash/context7-mcp', c7args.includes('@upstash/context7-mcp'));
+check('T-3 mcp: context7 still resolves @upstash/context7-mcp', c7args.some((a) => a === '@upstash/context7-mcp' || a.startsWith('@upstash/context7-mcp@')));
 check('T-3 mcp: context7 invocation is not the colliding bare-npx form',
   !(c7.command === 'npx' && c7args.length === 2 && c7args[0] === '-y' && c7args[1] === '@upstash/context7-mcp'));
 
