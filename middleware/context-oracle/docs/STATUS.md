@@ -65,6 +65,16 @@ process says stop fixing and rethink the document rather than patch it again.
    inside itself; the table points at where that is stated instead of asserting it
    separately, so there is nothing left for it to contradict. Write the edit-timing
    fact into the document while doing it.
+
+   **Run `python3 docs/specs/check-phase0-spec.py` before and after.** It does the
+   mechanical checks by script that I have done by hand and gotten wrong: coverage of
+   all 65 requirements, no invented identifiers, criterion numbering, every
+   requirement covered by a criterion or an inspection, every decision recorded and
+   referenced, every internal reference resolving. It deliberately does **not** check
+   whether a requirement means the same as v1's — that needs judgment, which is why
+   the document should stop claiming it. On its first run it found four requirements
+   (FR-A2, FR-K3, FR-K4, FR-K5) listed as in force with no definition in the body;
+   that is part of the rebuild.
 2. **Round 5 review, both passes.** If the count does not drop, the stop-rule fires
    and the answer stops being another fix round.
 3. **Then the Phase 0 architecture document**, then plan, then build, then **run
