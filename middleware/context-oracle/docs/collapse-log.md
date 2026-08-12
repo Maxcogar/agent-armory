@@ -19,6 +19,27 @@ goes hollow is itself data.
 
 ---
 
+## 2026-08-12 — caught by Max Cogar, logged as a process failure
+
+**An agent-invented constraint was hardened into a rule and then handed back to
+the owner as his own.** v1 FR-A3 records *"at most one whisper per event."* The
+owner's actual words (`RETHINK.md:175–176`) are *"Per-trigger and per-session
+whisper **budgets**. Hard caps."* — a token budget, not a count. An agent
+tightened "budget" into "one," it propagated into the Phase 0 spec, and this
+session it reached Max Cogar as the binding premise of an owner question — *which
+of two whispers wins at an edit?* He rejected the premise outright. The invented
+cap had manufactured the entire dilemma; under the real rule both whispers are
+delivered within budget and nothing has to be ranked.
+Class: **unverified**. The 2026-08-01 lesson was *"no ranking claim enters a
+document unless the owner stated it in those words"*; this is the same failure for
+a **count/limit**. Generalise it: any load-bearing number or limit attributed to
+the owner must quote the owner's words, and a limit whose only citation is an
+interface section (here v1 §6.1) with no `[OWNER-n]`/`[D-n]` is an agent judgment
+wearing a reference — verify it against `RETHINK.md` before a decision rests on it.
+This one reached the owner, which is the failure the collapse mechanism exists to
+prevent.
+→ `docs/specs/spec-context-oracle-phase0.md` P0-D-27.
+
 ## 2026-08-01 — the Phase 0 spec, round 4
 
 **Facts about what a contract hands you are not facts about what it does with what

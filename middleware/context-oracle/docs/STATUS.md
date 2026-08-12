@@ -1,113 +1,70 @@
 # Context Oracle — status
 
-*Plain-language project status, updated at the end of every working
-session. Newest entry first.*
+*Plain-language project status, rewritten at the end of every working session.
+It states the current state and what to do next; the evidence lives in
+`docs/reviews/`, the durable lessons in `docs/collapse-log.md`.*
 
-## 2026-08-01 — Phase 0 has a spec; four review rounds in; one real discovery about what the tool can do
+## 2026-08-12 — Phase 0 spec: round 5 converged; an owner correction applied; a verification pass, then architecture
 
-**Where the project is.** Still design phase, **no code**. The first buildable phase
-now has a requirement document of its own,
-`docs/specs/spec-context-oracle-phase0.md`, and it has been through four rounds of
-independent review — two passes each round, one checking facts and citations, one
-attacking whether the decisions serve the mission. Round 4's findings are **not yet
-applied**. That is the next piece of work and it is described at the bottom.
+**Where the project is.** Still design phase, **no code**. The Phase 0
+requirement document (`docs/specs/spec-context-oracle-phase0.md`) was rebuilt
+from scratch against round 4's findings, then put through round 5 — both
+independent passes, one checking facts and citations, one attacking whether each
+decision serves the mission. **Round 5 is the first clean result in this
+document's history**: every prior finding genuinely closed, none recurring, none
+regressed, and the non-convergence tripwire did not fire. The fact-checking pass
+went 9 → 2 findings (both minor, applied); the adversarial pass went 16 → 5
+(all applied).
 
-**The one thing you should know about what the tool can do.** Round 4 found, in the
-harness documentation, that a message the oracle sends about an edit is attached to
-the *result* of that edit. So the warning "that file is generated build output"
-arrives immediately **after** the write, not before it. Three of the seven whisper
-types are affected — consequence, and the generated- and vendored-file warnings.
-The other four (orientation, coupling, completeness, verification) are unaffected,
-because they were always meant to fire on something already finished.
+**What round 5 found, and why it mattered.** Two of the five new adversarial
+findings were mistakes the rebuild itself introduced — one of them a hollow
+mechanism (a scoring "zone term" claimed to do something it mathematically could
+not), which is the exact trap this project keeps springing. All are fixed. The
+heaviest finding was a real security gap: the harness gives a hook a field
+(`updatedInput`) that can silently rewrite the agent's edit before it runs, and
+the spec had only blocked the *deny* paths. The requirement now structurally
+forbids every mutation field, so "the oracle never changes the repo" has a
+mechanism behind it, not just a promise.
 
-**Why this is a limitation and not a failure.** None of those three guards against
-something irreversible. Editing build output is not destructive, it is futile — the
-edit evaporates at the next build. Editing vendored code is lost at the next
-dependency update. Consequence is about call sites, not damage. All three warn about
-**wasted work and wrong assumptions**, and the whisper still reaches the agent before
-its *next* action, so it stops the waste from compounding and lets the agent undo the
-one edit that triggered it. There is also no alternative: the only mechanism that
-shows anything before a tool runs is the permission prompt, which is the gate you
-ruled out. This is the ceiling of what a non-blocking tool can do on an edit.
-It is judgment, not measurement — nothing has been run.
-
-**What four rounds have actually settled.** The completion-claim mechanism (the tool
-now recognises when an agent says it is done, by reading the text of what it just
-said, rather than firing at every pause); the evidence thresholds and where each
-number comes from; the security model; and every requirement's relationship to the
-main spec. Every quotation in the document has been matched character-for-character
-against its source — 36 of 36 in round 4.
-
-**What keeps going wrong, and it is mine.** The document carries a summary table
-saying "these requirements are unchanged from the main spec." It has been wrong in
-ten rows, then eleven, then eight — three rebuilds, four rounds, same error. Each
-time I correct the rows a review names and never re-check the rest. Round 4 also
-caught a regression I caused: I renumbered the tests and did not update four things
-pointing at them. And five of nine source pointers I added — to close a finding
-about missing sources — pointed at the wrong source, because I added them without
-checking them.
-
-**The review trajectory, honestly.** The fact-checking pass has gone 20 → 14 → 7 →
-9 findings. It stopped falling this round. The reviewers' own stop-rule is armed on
-its first condition for the first time: if round 5 opens more than it closes, the
-process says stop fixing and rethink the document rather than patch it again.
+**One correction Max Cogar made by hand — logged because the review mechanism did
+not catch it.** The spec assumed the oracle says at most **one** whisper per
+event. That count is **not the owner's rule.** The owner set per-trigger and
+per-session **token budgets** (hard caps); an agent had quietly hardened "budget"
+into "exactly one," and it manufactured a false dilemma — which of two genuinely
+useful notes must "win" at a single edit. Corrected: the per-event limit is the
+token budget, so when two notes each clear the bar and fit the budget, **both are
+delivered**. There is nothing to rank and nothing to sacrifice. This dissolved an
+owner question a draft had raised earlier this session. Recorded as decision
+P0-D-27.
 
 **What is next, concretely:**
 
-1. **Apply round 4's findings by rebuilding the spec, and change what §3's table
-   claims.** Keep the index — all 65 of the main spec's requirements accounted for
-   exactly once, which is how an architect knows what Phase 0 owes and that nothing
-   was dropped. That half is arithmetic, is script-checked, and has held every
-   round. What goes is the column asserting a requirement is *identical* to the main
-   spec: that is a second copy of what the requirement text already says, and it is
-   the copy that goes stale — wrong in ten rows, then eleven, then eight, across
-   three rebuilds. Each requirement states its own relationship to the main spec
-   inside itself; the table points at where that is stated instead of asserting it
-   separately, so there is nothing left for it to contradict. Write the edit-timing
-   fact into the document while doing it.
+1. **One more verification review pass** over the applied fixes and the
+   token-budget correction. A load-bearing assumption changed, and this session's
+   own edits introduced defects twice, so the changes are re-attacked before the
+   document is called finished. If it comes back clean, the spec is
+   architecture-ready.
+2. **Then the Phase 0 architecture document**, then plan, then build, then **run
+   it.** Every number the design is tuned from is still unmeasured, because
+   nothing has ever been run — that is the whole reason Phase 0 exists.
 
-   **Run `python3 docs/specs/check-phase0-spec.py` before and after.** It does the
-   mechanical checks by script that I have done by hand and gotten wrong: coverage of
-   all 65 requirements, no invented identifiers, criterion numbering, every
-   requirement covered by a criterion or an inspection, every decision recorded and
-   referenced, every internal reference resolving. It deliberately does **not** check
-   whether a requirement means the same as v1's — that needs judgment, which is why
-   the document should stop claiming it. On its first run it found four requirements
-   (FR-A2, FR-K3, FR-K4, FR-K5) listed as in force with no definition in the body;
-   that is part of the rebuild.
-2. **Round 5 review, both passes.** If the count does not drop, the stop-rule fires
-   and the answer stops being another fix round.
-3. **Then the Phase 0 architecture document**, then plan, then build, then **run
-   it** — every number the later phases are tuned from is still unmeasured because
-   nothing has ever been run.
+**What is broken or unknown.** Nothing is built. The edit-timing and
+delivery reasoning throughout the spec is judgment, not measurement.
 
-**What is broken or unknown.** Round 4's 25 findings are open. Nothing has been
-built. The edit-timing limitation above is reasoned, not measured.
-
-**Nothing needed from you.**
+**A question for the owner (a plain yes/no).** The parent v1 spec still contains
+the same unsourced "at most one whisper per event" wording that Phase 0 just
+corrected. Phase 0 governs Phase 0, so nothing is blocked — but should the v1 spec
+be corrected too, so the two documents agree? If left unanswered, v1 stays as-is.
 
 ## What is still open, and where it lives
 
-This file states the state; the evidence lives in the review documents. Nothing
-below is a copy of them — each line says what is open and where to read it.
+**Round 5 of the Phase 0 spec — all findings applied.** Two passes:
+`docs/reviews/2026-08-12-round-5-expert-review-phase0-spec.md` (2 minor) and
+`docs/reviews/2026-08-12-round-5-collapse-hunt-phase0-spec.md` (5 findings + 4
+minors). Each finding's fix is in the current spec; the reviews are the evidence
+of record.
 
-**Round 4 of the Phase 0 spec — 25 findings, none applied.** Nine from the
-fact-checking pass, sixteen (plus ten minors) from the adversarial pass.
-`docs/reviews/2026-08-01-round-4-expert-review-phase0-spec.md` and
-`docs/reviews/2026-08-01-round-4-collapse-hunt-phase0-spec.md`. These are step 1
-above.
-
-**The old whole-scope architecture document — 32 findings, none applied, and the
-document is not a base to edit.** It was abandoned as a base on 2026-07-31 when the
-review cycle's own stop-rule fired; Phase 0 gets its own architecture document
-instead. The findings were triaged then: **12 bear on Phase 0** and are inputs to
-that new document — they are not closed and must be resolved while writing it — and
-**20 belong to Phases 1 and 2**, which are not being architected yet. Deferred is not
-closed. The triage and every finding's detail are in
-`docs/reviews/2026-07-30-round-4-expert-review.md` and
-`docs/reviews/2026-07-30-round-4-collapse-hunt.md`.
-
-*Earlier session entries were removed from this file on 2026-08-01. It states the
-current state and is rewritten each session rather than appended to, per
-`CLAUDE.md`; the history is in git, the evidence in `docs/reviews/`, and the durable
-lessons in `docs/collapse-log.md`.*
+**The Phase 0 architecture document does not exist yet.** The old whole-scope
+architecture document is retained as input to Phase 1's architecture, not as a
+base to edit (see `docs/collapse-log.md`, 2026-07-31). The Phase 0 architecture is
+written after the verification pass above clears.
