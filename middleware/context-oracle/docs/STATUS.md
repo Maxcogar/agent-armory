@@ -54,11 +54,17 @@ process says stop fixing and rethink the document rather than patch it again.
 
 **What is next, concretely:**
 
-1. **Apply round 4's findings by rebuilding the spec — and delete the summary table
-   rather than correct it an eighth time.** Each requirement will state how it
-   differs from the main spec inside itself, where it cannot drift out of sync.
-   That removes the thing that has generated the same error four rounds running.
-   Write the edit-timing fact into the document while doing it.
+1. **Apply round 4's findings by rebuilding the spec, and change what §3's table
+   claims.** Keep the index — all 65 of the main spec's requirements accounted for
+   exactly once, which is how an architect knows what Phase 0 owes and that nothing
+   was dropped. That half is arithmetic, is script-checked, and has held every
+   round. What goes is the column asserting a requirement is *identical* to the main
+   spec: that is a second copy of what the requirement text already says, and it is
+   the copy that goes stale — wrong in ten rows, then eleven, then eight, across
+   three rebuilds. Each requirement states its own relationship to the main spec
+   inside itself; the table points at where that is stated instead of asserting it
+   separately, so there is nothing left for it to contradict. Write the edit-timing
+   fact into the document while doing it.
 2. **Round 5 review, both passes.** If the count does not drop, the stop-rule fires
    and the answer stops being another fix round.
 3. **Then the Phase 0 architecture document**, then plan, then build, then **run

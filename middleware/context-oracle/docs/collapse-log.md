@@ -58,6 +58,12 @@ Class: **wrong-check**. When a claim about the whole document has been falsified
 consecutive rounds, the remedy is to remove the claim — state each fact where it cannot
 drift — rather than to re-assert it more carefully. Correcting it again is choosing the
 form that has already failed.
+**The removal is of the claim, not of the view.** Separate what a summary device
+*indexes* from what it *asserts*. §3's coverage half (all 65 accounted for exactly
+once) is mechanically checkable and held every round; its sameness half duplicated the
+requirement text and drifted from it. Delete the duplicate assertion and keep the
+index pointing at where each fact is stated — deleting the whole device would cost the
+one-page view a downstream reader genuinely needs.
 → same file (S1, Systemic 1).
 
 ## 2026-08-01 — the Phase 0 spec, round 3
