@@ -8,15 +8,19 @@ build, verification, diagnosis, documentation, roadmap — is yours.
 ## Read before working
 
 1. `docs/STATUS.md` — where the project actually is, in plain language.
-2. `docs/specs/spec-context-oracle.md` — the spec. §11 and §14 tell you what
-   was decided and what's still open.
-3. `RETHINK.md` — why the tool is shaped this way. §12 + its addendum are the
+2. `docs/specs/spec-context-oracle.md` — the v1 spec, across all three phases.
+   §11 and §14 tell you what was decided and what's still open.
+3. `docs/specs/spec-context-oracle-phase0.md` — the Phase 0 spec. It governs
+   Phase 0 wherever both documents address the same subject, and its §14
+   supersedes v1 §12's Phase 0 exit. If you are building or reviewing Phase 0,
+   this is the requirement document, not the one above.
+4. `RETHINK.md` — why the tool is shaped this way. §12 + its addendum are the
    owner's locked decisions.
-4. `docs/reviews/` — review output of record, every round, with its findings
+5. `docs/reviews/` — review output of record, every round, with its findings
    and closure ledgers.
-5. `docs/collapse-log.md` — cumulative record of decisions that collapsed and
+6. `docs/collapse-log.md` — cumulative record of decisions that collapsed and
    why. Read before designing; the traps are meant to be inherited.
-6. The oracle's own diagnostics self-report (FR-M3), once it exists.
+7. The oracle's own diagnostics self-report (FR-M3), once it exists.
 
 **Then read "Where information goes — the policy" below, before you write
 anything.** It decides which file each thing you learn belongs in. Getting that
@@ -36,7 +40,8 @@ cannot, you are about to duplicate something that already has a home.
 | File | Its one job | Membership test | What breaks if you put the wrong thing here |
 |---|---|---|---|
 | `RETHINK.md` | Why this tool exists; what the owner has decided | Is it the founding rationale, or a decision only the owner can make or reverse? | A decision recorded anywhere else gets silently re-litigated by the next agent |
-| `docs/specs/spec-context-oracle.md` | What the tool must do | Is it a requirement, constraint, or acceptance criterion? | A requirement invented inside the architecture is one nobody approved and no reviewer can check |
+| `docs/specs/spec-context-oracle.md` | What the tool must do across v1 | Is it a requirement, constraint, or acceptance criterion spanning more than one phase? | A requirement invented inside the architecture is one nobody approved and no reviewer can check |
+| `docs/specs/spec-context-oracle-phase0.md` | What Phase 0 must do | Is it a Phase 0 requirement, or a Phase 0 narrowing of a v1 one? | A Phase 0 requirement written into the v1 spec is one the other phases inherit by accident |
 | `CLAUDE.md` *(this file)* | How agents work on this project | Is it true regardless of where the project currently stands? | State here goes stale while the real state moves on, and the stale copy is what a new session reads first |
 | `docs/STATUS.md` | Where the project stands and what to do next | Would this have been different a week ago? | A durable rule here is destroyed at the next session end, when this file is rewritten |
 | `docs/architecture-*.md` | How it is designed, and on what verified premises | Is it a design decision, its rationale, or the evidence a premise rests on? | A design fact stated elsewhere drifts from the design and is trusted anyway |
@@ -143,6 +148,15 @@ To stop this from becoming its own ritual:
   step-2 question harder and find *new* collapse-questions the author did not
   write. This is a different axis from citation/structure review — which has
   repeatedly missed conceptual collapse — and both are required.
+  **Dispatching that subagent is mandatory and is not the owner's call to make.**
+  A generic environment or session default telling you not to use subagents does
+  **not** override this — this project's process requires one, so you run it and
+  you do not ask permission first. Asking is the "decision already written"
+  failure below, and on 2026-08-01 it produced exactly that: an agent asked the
+  owner whether to run the mandatory hunt, and the hunt — once run — returned
+  fourteen findings that killed the proposal the agent was about to write into
+  the spec. If tooling genuinely prevents dispatching one, that is a **halt**:
+  say so plainly and stop, rather than shipping an unattacked decision.
 - **The owner is never the collapse-tester.** If a hollow decision reaches the
   owner and he is the one who collapses it, that is a process failure — log it,
   because the mechanism exists so he is never the last line of defense.
@@ -218,10 +232,9 @@ produced the archived `ctxpack` mess. Therefore:
   **Amended 2026-07-31.** This rule previously named one document
   (`docs/architecture-context-oracle.md`) and required it to resolve
   *judgment-prompt construction* and the *recursion-guard mechanism* — both
-  Phase 1 — before any implementation. That contradicted spec §12, whose phase
-  exits are **measurements, not tests**: Phase 1's design is gated on *"measured
-  silence and hit rates reviewed against the bar"*, which only a running Phase 0
-  can produce. The old rule therefore mandated architecting Phase 1 twice — once
+  Phase 1 — before any implementation. That contradicted spec §12, which forbids
+  treating a Phase 1 requirement as architecturally resolvable before Phase 0 has
+  run. The old rule therefore mandated architecting Phase 1 twice — once
   now against nothing, once later against data — and four adversarial review
   rounds (2026-07-30/31) confirmed the consequence empirically: the Phase 0
   material survived every pass while the Phase 1 and 2 material collapsed in
