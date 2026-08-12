@@ -33,8 +33,8 @@ speaks when a lookup keyed by what the agent just did finds something the agent
 almost certainly does not already have. Every whisper carries a pointer and blocks
 nothing. It reaches the agent at the decision it bears on — or, for the three
 genres that fire on a pending edit, immediately after that edit and before the
-agent's next action, which §4 shows is the earliest a non-blocking tool can
-deliver on an edit and which §7 and `[P0-D-26]` justify.
+agent's next action, which §4 shows is the earliest a whisper *keyed to the edit
+event* can deliver, and which §7 and `[P0-D-26]` justify.
 
 **Mission**, `RETHINK.md:15–24`: the tool exists because *"agents under-read the
 codebase, don't know when their context is sufficient, and fill the gaps with
@@ -108,8 +108,9 @@ a trigger narrowing recorded in §3's FR-A2 row, not a dropped arm.
 
 The v1 spec carries 65 `FR-*`/`NF-*`/`C-*` requirements. Each is disposed exactly
 once below, into one of three sets: in force unchanged, in force but narrowed, or
-deferred. That the three sets partition v1's 65 exactly once is checked mechanically
-by `docs/specs/check-phase0-spec.py` (coverage, no overlap, no minted identifier).
+deferred. That the three sets partition v1's 65 exactly once — coverage, no minted
+identifier, and the unchanged and narrowed sets disjoint — is checked mechanically
+by `docs/specs/check-phase0-spec.py`.
 
 A requirement is in the **unchanged** list only when its Phase 0 text preserves
 v1's meaning; any Phase 0 difference — a clause dropped, added, or tightened — puts
@@ -121,15 +122,16 @@ own definition is the single place its Phase 0 form is stated. (`docs/collapse-l
 three consecutive rounds; the fix is to delete the claim and state each fact where it
 cannot drift, not to re-assert it.)
 
-**In force in Phase 0, unchanged (21).** FR-O2, FR-O3, FR-O4, FR-O5 (§5); FR-K1,
+**In force in Phase 0, unchanged (20).** FR-O2, FR-O3, FR-O5 (§5); FR-K1,
 FR-K2, FR-K6, FR-K7, FR-K8 (§6); FR-A1 (§8); FR-D1, FR-D2, FR-D4, FR-D5 (§9);
 FR-X4, FR-X8 (§10); FR-M4 (§11); NF-1, NF-3 (§11); C-3, C-5 (§11).
 
-**In force but narrowed here (27).**
+**In force but narrowed here (28).**
 
 | v1 requirement | Narrowing | Where stated |
 |---|---|---|
 | FR-O1 — observation set | Narration reading across turns is deferred to Phase 1; `SubagentStop`, `StopFailure` and `SessionEnd` are added; `SessionStart`'s `source` field is given a job for all five of its values | §5, P0-D-20 |
+| FR-O4 — no deny path | v1 makes a blocking decision structurally absent; Phase 0 additionally makes the harness's pre/post-execution mutation output fields structurally absent (`updatedInput`, `updatedToolOutput`) and the `"defer"` decision, none of which v1's "no blocking decision" enumerated | §5, §4 |
 | FR-O4a — continuation bound | Phase 0 delivers only on `Stop`; `SubagentStop` is observed for the bound and FR-O6's key but Phase 0 emits nothing on it; v1's one-continuation-per-stop bound and *"never prevents a turn from ending"* are retained | §5 |
 | FR-O6 — per-consumer delivery | Phase 0 keys session state per consumer and delivers only to the main agent | §5, P0-D-10 |
 | FR-A2 — twelve whisper genres | Six are built; six deferred per §2's table; six arms narrowed and one retained per §2's arm table; and the stop-class genres' trigger narrows from v1's every-stop to a completion-claim stop | §7, P0-3 |
@@ -179,7 +181,7 @@ because it moves whenever the sibling document is edited).
 |---|---|---|
 | `RETHINK.md` — §1, §2.3, §4, §5, §6, §11, §12 and addenda (303–399) | The mission; the relevance metric; the knowledge tiers; the attention and delivery posture; the store/daemon/shim split; the owner's locked decisions | Read 2026-08-01; every cited range re-verified against current source |
 | `spec-context-oracle.md` (v1) | Requirement identifiers and meanings; principles P1–P9; v1 §12's "Phase 0's bar" (`:895–901`) | Read 2026-08-01 |
-| Claude Code hooks documentation (`code.claude.com/docs/en/hooks`) | The observation and delivery interface | Downloaded raw 2026-08-01 (242,078 bytes) and string-matched. Facts below, split by direction |
+| Claude Code hooks documentation (`code.claude.com/docs/en/hooks`) | The observation and delivery interface | String-matched against the raw download; facts below, split by direction. The 242,078-byte figure is the 2026-08-01 snapshot — the contract is versioned and grows, so C-5's re-verification at implementation, not this byte count, is the standing guarantee against drift |
 | Zimmermann, Weißgerber, Diehl, Zeller, IEEE TSE 31(6), 2005 `[ROSE-05]` | The co-change evidence floors and part of the mining hygiene | PDF fetched (17 pages), text extracted with two independent engines because one interleaves the two-column layout mid-sentence; every quotation string-matched verbatim |
 | Zimmermann & Weißgerber, MSR 2004 `[MSR-04]` | Merge- and bulk-commit exclusion | Carried from v1's source table |
 | Hassan & Holt, ICSM 2004 `[HH-04]` | Raw co-change precision 0.06 without pruning; the suggestion-grade floor | Carried from v1's source table |
@@ -251,6 +253,17 @@ evidence about the second (`docs/collapse-log.md`, 2026-08-01 round 4).
   returns it (FR-O4), so `additionalContext` is always delivered.
 - **`Stop` and `SubagentStop` accept `additionalContext`** for *"non-error feedback
   that continues the conversation"* — the continuation cost `[OWNER-12]` ruled on.
+- **A hook's `hookSpecificOutput` object carries more than `additionalContext`, and
+  the other members act on the agent, not just alongside it.** `PreToolUse` accepts
+  `updatedInput`, which *"replaces a tool's arguments before it runs"* / *"Modifies the
+  tool's input parameters before execution … Replaces the entire input object"*;
+  `PostToolUse` accepts `updatedToolOutput`, which *"replaces the tool's result"* so the
+  model reads oracle-authored text as the tool's own output; and both carry
+  `permissionDecision`. Phase 0 emits **only** `additionalContext` on every event; every
+  other member — `updatedInput`, `updatedToolOutput`, `permissionDecision`, `decision` —
+  is structurally absent (FR-O4), because `updatedInput`/`updatedToolOutput` are the
+  channels through which the oracle could mutate the agent's action, which the mission
+  forbids absolutely.
 - **The harness screens injected text.** *"Text framed as out-of-band system commands
   can trigger Claude's prompt-injection defenses, which causes Claude to surface the
   text to you instead of treating it as context."*
@@ -290,11 +303,19 @@ evidence about the second (`docs/collapse-log.md`, 2026-08-01 round 4).
   3 s, after which the event resolves to silence and the candidate may carry to the
   next event. `RETHINK.md:179–181`: *"A hook that slows the agent is a gate by
   another name. Answer within ~1–2s or stay silent this round."*
-- **FR-O4** — **No deny path exists, structurally.** No shim code path can return a
-  blocking or deferring decision — `deny`, `block`, or `"defer"` — on any event.
-  `RETHINK.md:314–323`, decision 3; the corollary at `:393–399` bars gates in every
-  form. Excluding `"defer"` also keeps `additionalContext` deliverable, which the
-  harness discards under that decision (§4).
+- **FR-O4** — **No deny path and no mutation path exist, structurally.** No shim code
+  path can return a blocking or deferring decision — `deny`, `block`, or `"defer"` — nor
+  a harness output field that changes the agent's action: not `PreToolUse`'s
+  `updatedInput` (which "replaces a tool's arguments before it runs", §4) and not
+  `PostToolUse`'s `updatedToolOutput` (which replaces the tool's result). The shims emit
+  **only** `additionalContext`; every other `hookSpecificOutput` member is structurally
+  absent (§4's output list). `RETHINK.md:314–323`, decision 3; the corollary at
+  `:393–399` bars gates in every form. This is what gives FR-X5's *"never mutates the
+  repo"* and FR-D2's *"informative, never imperative"* a structural backing rather than a
+  promise: the pre-execution channel that could rewrite the agent's edit is closed by
+  construction, so T4's mutation cannot be laundered through the agent. Excluding
+  `"defer"` also keeps `additionalContext` deliverable, which the harness discards under
+  that decision (§4).
 - **FR-O4a** — **Continuation is bounded to one per stop.** The oracle emits on `Stop`
   only when `stop_hook_active` is false, extending a turn at most once per stop and
   never chaining, and it never prevents a turn from ending. The same one-per-stop rule
@@ -416,13 +437,20 @@ on an edit. `[P0-D-26]`
 completeness and verification can both have a candidate; at a `PreToolUse` edit in a
 generated or vendored zone, a warning candidate and a consequence candidate can both
 arise. They are ordered by FR-A5's per-candidate score, and since every Phase 0 genre
-carries the same base weight (`[P0-D-18]`) that ordering carries no genre precedence.
-The zone term inside `structural_weight` (`[P0-D-18]`) is what a generated- or
-vendored-zone warning candidate rides on when it competes with consequence — the
-channel `[OWNER-3]` requires carry generated-file protection — and P0-4's per-genre
-delivered count makes a systematic shut-out on any channel visible. Completeness also
-has a `PostToolUse` arm; verification fires only at a completion-claim stop, so its
-larger exposure is not competition with completeness but every stop the
+carries the same base weight and `structural_weight` carries no genre term
+(`[P0-D-18]`), that ordering carries **no genre precedence** — which means the
+generated-/vendored-zone warning is **displaceable** at its own edit: both candidates
+share the same edit-vs-read and zone values, so the only differentiator is blast
+radius, and a consequence candidate with many call sites can outscore the warning. This
+is a real tension with `[OWNER-3]`, which requires that generated-file protection take
+the form of a loud warning whisper — it does not, in the owner's stated words, rank that
+whisper above a consequence at a contested edit, so Phase 0's default is that no genre
+term forces the warning to win. **Whether the protection must instead be *guaranteed* at
+that edit is an open owner question** (`[P0-D-27]`): guaranteeing it requires a genre
+ranking the standing directive forbids without the owner stating it. Until then, P0-4's
+per-genre delivered count is the monitor for a systematic shut-out on any channel.
+Completeness also has a `PostToolUse` arm; verification fires only at a completion-claim
+stop, so its larger exposure is not competition with completeness but every stop the
 completion-claim test does not match (P0-3), which P0-4 counts.
 
 ## 8. When Phase 0 speaks
@@ -489,12 +517,15 @@ completion-claim test does not match (P0-3), which P0-4 counts.
   only the highest-confidence candidates speak: the generated and vendored warnings,
   whose evidence is a zone marker; coupling **at the P0-5 warn-grade floor** rather
   than the looser suggestion grade; and **orientation's landmine arm, whose evidence
-  is an owner statement**. `[COVERITY-10]` is the ground — a tool's first reports set
-  its credibility — and it is an argument about *loose evidence*, not about the owner's
-  own words: a fact the owner stated himself is the highest-trust record class the
-  store carries (FR-K6), so admitting it is the strongest first impression the tool can
-  make, not the weakest. Orientation's *entry-point* arm and the other genres stay
-  silent in the window. `[P0-D-4]` `[P0-D-8]`
+  is an owner statement** and which fires only on an explicit task-shape match the owner
+  authored. `[COVERITY-10]` is the ground — a tool's first reports set its credibility —
+  and that risk lives in the *relevance of what fires*, so what admits the landmine arm
+  is that it fires only when a promoted owner record matches the task shape: a relevant
+  first report by construction, not a loose guess. (The record's high trust answers a
+  different objection — is the fact credible — not `[COVERITY-10]`'s, which is whether the
+  first *report* is.) Orientation's *entry-point* arm — a lexical match of the same class
+  but without the owner's authored task binding — and the other genres stay silent in the
+  window. `[P0-D-4]` `[P0-D-8]`
 - **P0-2** — Phase 0 ships the bar with no degraded-mode delta and issues no
   degraded-mode notice. v1 §12 states the reason: the raised-bar delta belongs to
   degraded mode, *"which compensates for a lost intent signal; Phase 0 has not lost
@@ -514,9 +545,12 @@ completion-claim test does not match (P0-3), which P0-4 counts.
     `last_assistant_message` matches the completion-claim test. This gates *stop*
     delivery on the claim, and is the FR-A2 trigger narrowing §3 records: it is a
     discriminator for a real stopping point, not a ranking of this moment above the
-    others (`[OWNER-12]` is explicit that it is *not* such a ranking). At a stop where
-    the agent has not claimed completion — mid-task narration, a question to the user —
-    spending a continuation on it is the every-turn-boundary cost round 2 removed.
+    others (`[OWNER-12]` is explicit that it is *not* such a ranking). The mission-need
+    the gate serves is **reservation**: the 3 scarce stop-continuations below must be
+    spent on completion claims, not exhausted by a run of mid-task stops early in a
+    session that would starve the `[OWNER-12]` must-have when it finally arrives. (The
+    per-stop and per-session caps already bound *volume*; the gate is what protects the
+    must-have from *starvation*, which the caps alone do not.)
   - It must clear the ordinary bar plus a configured delta, **defaulting to zero** —
     no raised bar until measurement licenses one.
   - At most **3 stop-grade whispers per session** (configurable). This bounds the
@@ -525,8 +559,12 @@ completion-claim test does not match (P0-3), which P0-4 counts.
     suppresses is recorded; and each stop where the test did not match is counted, so
     the owner sees what the capability cost, what it withheld, and how often it
     declined to fire. A non-matching count cannot by itself separate a correct
-    non-match from a missed claim; AC-12 fixtures both the positive and the
-    false-negative case so the test's behaviour is measurable.
+    non-match from a **missed** claim — a genuine completion the pattern set failed to
+    recognise, which silences the `[OWNER-12]` moment. AC-12 fixtures the positive case
+    and the *true*-negative case (a stop that is genuinely not a completion), and
+    requires the exit run to report the pattern set's miss rate against a labelled
+    corpus of completion phrasings, so the false-negative rate is measured rather than
+    assumed (the P0-D-17 standard for a test whose pattern set is the architect's).
 
 ## 9. Delivery
 
@@ -639,10 +677,14 @@ could fail a hundred ways in front of me and I wouldn't know."*
   what broke on its own channel.
 - **P0-4** — `ctxoracle status` computes and reports, from those logs: the **whisper
   count**; the silence rate, **decomposed by suppressor** — events with no candidate,
-  candidates suppressed as already-seen/told/incorporated (FR-A4), candidates below
-  FR-A6's corpus or region floor, candidates inside FR-A7's first-sessions window,
-  candidates suppressed because FR-A3's budget was spent, candidates below the bar, and
-  events on a consumer Phase 0 does not deliver to (FR-O6); the added-latency
+  candidates the agent could self-serve because it had **already seen** the fact (FR-A4;
+  the `RETHINK.md:53–60` marginal-value signal that measures whether the oracle competes
+  with the agent's own grep/glob, which §1 says the run exists to learn), candidates
+  suppressed as **already told or visibly incorporated** (FR-A4 dedup — a distinct
+  signal), candidates below FR-A6's corpus or region floor, candidates inside FR-A7's
+  first-sessions window, candidates suppressed because FR-A3's budget was spent,
+  candidates below the bar, and events on a consumer Phase 0 does not deliver to (FR-O6);
+  the added-latency
   distribution against FR-O3; the continuation count and the count of stops where the
   completion-claim test did not match; the count of candidates a non-zero stop-bar
   delta suppressed; the session injected-token total against FR-A3's budget; and the
@@ -747,10 +789,20 @@ individual whispers.
   credibility. Admitting suggestion-grade coupling would make the loosest evidence in
   the system the first thing a project hears, which the ground forbids. That same ground
   is about loose evidence, so it does **not** exclude the two zone warnings (marker
-  evidence) or orientation's landmine arm (an owner statement, the store's
-  highest-trust class): withholding an owner's own words for three sessions would be the
-  opposite of a good first impression. AC-33 exists because P0-5's 3% feedback and
-  FR-A6's floors compound toward silence on exactly the run that certifies Phase 0.
+  evidence). It also does not exclude orientation's landmine arm — but the ground for
+  admitting that arm is **firing relevance, not record trust**. `[COVERITY-10]`'s risk is
+  that the first *reports* be credible, which is a property of what fires, not of what is
+  stored; the landmine arm earns admission because it fires only on an explicit task-shape
+  match the owner authored, so when it fires early it is relevant by construction rather
+  than a loose guess. (The record's high trust is real but answers the different question
+  of whether the fact is credible; conflating the two — as an earlier draft did — would
+  admit a high-trust fact that could still fire irrelevantly in session 1, the exact
+  first-impression hit the ground warns of.) Withholding an owner's own *relevant* words
+  for three sessions would be the opposite of a good first impression, which is why the
+  relevance-gated arm is admitted rather than withheld. AC-13 tests the gate: the arm
+  fires on a matching prompt and stays silent on a non-matching one within the window.
+  AC-33 exists because P0-5's 3% feedback and FR-A6's floors compound toward silence on
+  exactly the run that certifies Phase 0.
 - **P0-D-9 — The stop-bar delta defaults to zero.** A distribution-relative default is
   uncomputable on the first run, which is the run Phase 0 exists to perform, so the delta
   ships at zero and moves on measurement.
@@ -804,10 +856,15 @@ individual whispers.
   zone — so no genre term survives one term over either. (The retained 2026-07-22
   architecture, kept as input to Phase 1, defines `structural_weight` with a genre
   factor; that definition is **not** inherited here — `docs/collapse-log.md`,
-  2026-07-22.) The zone term is what a zone warning's candidate rides on when it
-  competes with consequence at a `PreToolUse` edit (§7), which is genre-neutral because
-  the zone, not the genre, carries the weight. AC-11 and P0-4's per-genre delivered
-  counts remain the detector for a systematic shut-out.
+  2026-07-22.) A consequence of no genre term is that at a `PreToolUse` edit **in** a
+  generated or vendored zone, the warning candidate and the consequence candidate share
+  the same zone value, so the zone term cannot privilege the warning — it is displaceable
+  by a higher-blast-radius consequence (§7). Making the warning *win* would require a
+  genre term, which this decision forbids; whether `[OWNER-3]` requires that guarantee is
+  the open owner question `[P0-D-27]`. The detector for a systematic shut-out on any
+  channel is P0-4's per-genre delivered count, not an acceptance criterion — no Phase 0
+  criterion fixtures the `PreToolUse` competition, because what it should assert depends
+  on the answer to `[P0-D-27]`.
 - **P0-D-19 — Pointer-only is FR-X2's default on `[OWASP-PI]`'s ground, not the
   harness's.** The harness warns that text framed as out-of-band *system commands* is
   surfaced to the user rather than delivered; that is a hazard for relayed imperative
@@ -824,10 +881,13 @@ individual whispers.
   suppresses exactly the facts most worth re-delivering. `"clear"` needs nothing because
   C-2's `SessionEnd` teardown has already fired (the harness applies its `SessionEnd`
   budget to `/clear`), and `"startup"` starts clean. The replayed tokens are reported in
-  NF-2 for observability but are not charged against FR-A3's new-whisper budget, because
-  charging context the agent already carries against a budget that never resets would
-  ratchet a long resume chain into permanent silence while measuring as healthy — the
-  2026-07-22 collapse the log records.
+  NF-2 for observability but are not charged against FR-A3's new-whisper budget. The
+  budget exists to bound the oracle's *attention* cost (`RETHINK.md` §5), and the replay
+  adds no *new* oracle attention: because the delivered-set is reseeded on resume, dedup
+  guarantees no whisper is re-injected, so the per-session net-new stays capped at the
+  2,000-token budget. Charging the replay too would double-count context the agent
+  already carries and ratchet a long resume chain into permanent silence while measuring
+  as healthy — the 2026-07-22 collapse the log records.
 - **P0-D-21 — The audit trail gets a read surface.** §1 makes the owner's after-the-fact
   audit a consumer requirement; `status` reports aggregates only, so without `ctxoracle
   log` the trail exists and nothing can read it. Phase 0 shipping an unreadable audit
@@ -861,9 +921,30 @@ individual whispers.
   irreversible (a futile edit to build output or vendored code, or a call-site count —
   never damage), the whisper still lands before the agent's next action so it can undo
   the edit and stop the waste compounding, and the only channel that shows anything
-  before a tool runs is the permission prompt, the gate `[OWNER-3]` rules out. A
-  non-blocking tool cannot deliver earlier on an edit; §7 states this and the genre
-  table's `Fires on` column names the triggering event, not the delivery moment.
+  before a tool runs is the permission prompt, the gate `[OWNER-3]` rules out. This is
+  the ceiling for a whisper **keyed to the edit event**; the same fact could reach the
+  agent genuinely pre-edit if keyed to the read or search that precedes the edit (where
+  coupling already fires) — that read-keyed consequence arm is out of Phase 0 scope, not
+  impossible, and is deferred with its reason (it fires before an edit is confirmed, so
+  its marginal value is lower and its false-fire rate higher; the read-set dedup and the
+  bar would have to absorb that). §7 and the genre table's `Fires on` column name the
+  triggering event, not the delivery moment.
+
+- **P0-D-27 — Whether generated-file protection must be *guaranteed* at a contested
+  `PreToolUse` edit is an open owner question; Phase 0's default is best-effort.** At an
+  edit in a generated or vendored zone, a warning candidate and a consequence candidate
+  can both arise, and because no genre term is permitted in the score (P0-D-18) the
+  warning is displaceable by a higher-blast-radius consequence (§7). `[OWNER-3]` locks
+  that generated-file protection *take the form of a loud warning whisper*; it does not,
+  in the owner's stated words, rank that whisper above consequence at a contested edit.
+  The standing directive forbids introducing a genre ranking unless the owner states it,
+  so Phase 0 ships the mission-consistent default — no genre precedence, the warning
+  best-effort, P0-4's per-genre delivered count as the shut-out monitor — and this
+  document records the question for the owner rather than resolving it with a scoring
+  term that cannot carry the ranking: *at a single edit where both a generated-file
+  warning and a call-site consequence apply, must the warning always be the one
+  delivered?* If yes, that is a genre ranking he states and it becomes a narrowing here
+  with its own criterion; if no, the default stands.
 
 ## 14. Acceptance criteria
 
@@ -881,8 +962,8 @@ spoke is not a passing exit; it is a result. AC-33 states what that obligates.
 - **AC-2 (silence → FR-A1, FR-A3, P0-4)** — Replaying a recorded session of routine
   events produces whispers on at most 10% of **deliverable** events — those on a
   consumer Phase 0 delivers to — and `status` reports the silence rate decomposed by
-  suppressor (no candidate, FR-A4, FR-A6, FR-A7, FR-A3, below-bar, undeliverable), each
-  counted separately. `[P0-D-14]`
+  suppressor (no candidate, already-seen and already-told reported separately per FR-A4,
+  FR-A6, FR-A7, FR-A3, below-bar, undeliverable), each counted separately. `[P0-D-14]`
 - **AC-3 (marginal value → FR-A5, FR-A4)** — Two replays of the same event over the
   same store: where the fact is already in the consumer's read set the oracle stays
   silent; where it is not, it speaks. An orientation candidate that would fire early
@@ -893,10 +974,13 @@ spoke is not a passing exit; it is a result. AC-33 states what that obligates.
   200-transaction corpus floor produces neither; and a fixture above it with a region
   below the 20-transaction region floor stays silent for that region while speaking
   elsewhere.
-- **AC-5 (no deny → FR-O4, FR-O4a, FR-O3)** — No shim path can return a blocking or
-  deferring decision; induced failure and induced timeout each yield silence and an
-  unimpeded agent; `stop_hook_active: true` produces silence; and no output extends the
-  loop by more than one continuation per stop.
+- **AC-5 (no deny, no mutation → FR-O4, FR-O4a, FR-O3)** — No shim path can return a
+  blocking or deferring decision (`deny`, `block`, `"defer"`) or a mutation field
+  (`updatedInput`, `updatedToolOutput`) — static inspection plus an adversarial fixture
+  in which a shim attempts to `updatedInput` a generated-file edit into its source
+  confirms the edit reaches the tool unchanged; induced failure and induced timeout each
+  yield silence and an unimpeded agent; `stop_hook_active: true` produces silence; and no
+  output extends the loop by more than one continuation per stop.
 - **AC-6 (pristine tree → C-4, FR-K8, FR-X5)** — After `init`, index, a full session and
   `deinit`, the only ever-touched file in the tree is the harness settings file, whose
   written content is the hook wiring and the `SessionEnd` timeout and nothing else, and
@@ -925,16 +1009,21 @@ spoke is not a passing exit; it is a result. AC-33 states what that obligates.
   multi-stop fixture in which both genres have candidates, `status` reports a non-zero
   delivered count for each.
 - **AC-12 (completion-claim recognition → P0-3, FR-O1)** — A stop whose
-  `last_assistant_message` states completion draws a stop-grade whisper; a stop whose
-  message does not — mid-task narration, a question to the user — draws none and is
-  counted by `status` as a non-matching stop; and in a session with more matching stops
-  than the bound, at most 3 stop-grade whispers are delivered with the remainder
-  recorded as suppressed.
+  `last_assistant_message` states completion draws a stop-grade whisper (positive); a
+  stop that is genuinely not a completion — mid-task narration, a question to the user —
+  draws none and is counted by `status` as a non-matching stop (true negative); over a
+  labelled corpus of completion-phrased messages, `status` reports the pattern set's
+  **miss rate** — completions the test failed to recognise — so the false-negative that
+  silences the `[OWNER-12]` moment is measured, not assumed; and in a session with more
+  matching stops than the bound, at most 3 stop-grade whispers are delivered with the
+  remainder recorded as suppressed.
 - **AC-13 (first sessions → FR-A7, P0-D-8)** — In a project's first 3 sessions, an event
   that would otherwise draw orientation's **entry-point** arm, consequence, completeness
   or verification draws none, and a suggestion-grade coupling candidate also draws none;
-  while both warning arms, a coupling candidate at the warn-grade floor, and orientation's
-  **landmine** arm on an owner-entered record all fire.
+  while both warning arms and a coupling candidate at the warn-grade floor fire. For
+  orientation's **landmine** arm, a prompt matching an owner-entered record's task shape
+  fires within the window, and a prompt that does **not** match it stays silent within the
+  window — the relevance gate P0-D-8 admits the arm on.
 - **AC-14 (secrets → FR-X1)** — Fixture secrets in tracked files and git history never
   appear in plaintext in any store file, whisper, or log.
 - **AC-15 (least privilege → FR-X5, FR-X7)** — An instrumented run shows no writes
