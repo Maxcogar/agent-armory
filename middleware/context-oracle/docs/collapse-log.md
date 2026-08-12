@@ -19,6 +19,47 @@ goes hollow is itself data.
 
 ---
 
+## 2026-08-01 — the Phase 0 spec, round 4
+
+**Facts about what a contract hands you are not facts about what it does with what
+you return.** §4 recorded eleven verified hook-contract facts and every one was about
+hook *input*. The genre table is entirely a claim about *output placement*, and the
+sentence governing it — `PreToolUse` context is delivered *"next to the tool result"* —
+sat one paragraph from text §4 already quoted twice. Three of seven genres were
+specified to arrive before an action that the contract delivers them after.
+Class: **unverified**. When a document's claims split into input and output, verifying
+one half exhaustively is not progress on the other; enumerate both axes before
+attesting to having read a contract.
+→ `docs/reviews/2026-08-01-round-4-collapse-hunt-phase0-spec.md` (F1).
+
+**A citation finding closed by adding citations nobody checked.** Nine *"Carried from
+v1 :n"* pointers were added to close a finding that requirements depended on uncited
+sources. Five of the nine resolved to a different source than the one they named.
+Class: **unverified**. The fix for an unverified-reference finding is the one fix that
+cannot be applied unverified — every pointer added to close it is a new instance of it.
+→ same file (F4).
+
+**Renumbering identifiers without re-deriving what cites them.** A rebuild renumbered
+21 acceptance criteria; four clauses at three sites still named the old numbers, which
+now denote different criteria. The verifying script checked that every reference
+*resolves* and reported zero dangling.
+Class: **wrong-check**. Resolution is not support. A reference check must compare what
+the citing sentence claims against what the cited item says, or it certifies only that
+no identifier is missing.
+→ `docs/reviews/2026-08-01-round-4-expert-review-phase0-spec.md` (S2).
+
+**A device that has been false in every round it has existed should be deleted, not
+corrected.** §3's "unchanged" column: wrong in ten rows, then eleven, then eight,
+across three rebuilds. Each rebuild fixed the rows the review named. Twelve
+whole-document attestation devices were located in round 4 and seven fail; every device
+with a substantive axis fails on that axis while passing its mechanical proxy, and the
+five that hold are the five whose only axis is mechanical.
+Class: **wrong-check**. When a claim about the whole document has been falsified in
+consecutive rounds, the remedy is to remove the claim — state each fact where it cannot
+drift — rather than to re-assert it more carefully. Correcting it again is choosing the
+form that has already failed.
+→ same file (S1, Systemic 1).
+
 ## 2026-08-01 — the Phase 0 spec, round 3
 
 **Verifying a source establishes only the claims you aimed at it.** The Phase 0 spec
