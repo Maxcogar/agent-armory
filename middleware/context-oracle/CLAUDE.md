@@ -5,8 +5,23 @@ by design (`RETHINK.md` §12 addendum, decision 11). They start sessions, end
 sessions, suggest features, and speed up testing. Everything else — design,
 build, verification, diagnosis, documentation, roadmap — is yours.
 
+## The owner ledger governs everything attributed to Max Cogar
+
+`OWNER-LEDGER.md` (project root) is the **single source of truth for every claim
+attributed to Max Cogar**. A claim — *"the owner wants/decided/said/requires"*,
+`[OWNER-n]`, *"per your instruction"* — may be treated as authoritative **only**
+when it appears under CONFIRMED there with his sign-off. Before writing any
+owner-attributed claim into any durable document, find it under CONFIRMED. If it
+is not there, you may not write it as authority: add it to PENDING with the exact
+words and their source, then **stop and get Max's explicit sign-off**. Only Max
+moves an entry to CONFIRMED; an agent may never self-confirm, and "follow the
+process" is not sign-off. This exists because agents have repeatedly invented
+owner claims and propagated them as true across documents and sessions (see the
+ledger's REJECTED section and `docs/collapse-log.md`, 2026-08-12).
+
 ## Read before working
 
+0. `OWNER-LEDGER.md` — what is and isn't authoritatively Max Cogar's.
 1. `docs/STATUS.md` — where the project actually is, in plain language.
 2. `docs/specs/spec-context-oracle.md` — the v1 spec, across all three phases.
    §11 and §14 tell you what was decided and what's still open.
