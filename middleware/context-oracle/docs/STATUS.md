@@ -50,13 +50,14 @@ phrase matching.
 
 **What to do next:**
 
-1. **Max Cogar's sign-off on `OWNER-LEDGER.md`'s 12 pending entries.** Only he can
-   move an entry to CONFIRMED; until then they are provisional.
-2. **Design real enforcement for the owner-ledger — not phrase matching.** This is
-   an open problem, not a settled approach.
-3. **Independently verify the token-budget correction** to the Phase 0 spec.
-4. **Then the Phase 0 architecture document**, then plan, build, and run it — every
+1. **Independently verify the token-budget correction** to the Phase 0 spec (it
+   landed after the round-5 passes, so it is the one unreviewed change).
+2. **Then the Phase 0 architecture document**, then plan, build, and run it — every
    number the design is tuned from is still unmeasured, which is why Phase 0 exists.
+
+The owner-claims ledger (`OWNER-LEDGER.md`) is a separate thread Max is directing;
+its 12 entries are his existing RETHINK §12 decisions, and a real enforcement
+mechanism for it is unbuilt (not phrase matching). It is not a blocker on the spec.
 
 **A question for the owner (plain yes/no).** The parent v1 spec still carries the
 same unsourced "at most one whisper per event" wording that Phase 0 corrected.
@@ -69,8 +70,9 @@ two documents agree? If unanswered, v1 stays as-is.
   `docs/reviews/2026-08-12-round-5-expert-review-phase0-spec.md` (2 minor) and
   `docs/reviews/2026-08-12-round-5-collapse-hunt-phase0-spec.md` (5 findings + 4
   minors). The token-budget correction landed after them and is not yet reviewed.
-- **The owner-claims ledger** — `OWNER-LEDGER.md` (project root). 12 entries pending
-  Max's sign-off; a real (non-phrase-matching) enforcement mechanism is unbuilt.
+- **The owner-claims ledger** — `OWNER-LEDGER.md` (project root). Holds Max's
+  existing RETHINK §12 decisions and two rejected fabrications; a real
+  (non-phrase-matching) enforcement mechanism is unbuilt. A thread Max is directing.
 - **The Phase 0 architecture document does not exist yet.** It is written after the
   correction is verified; the old whole-scope architecture stays as input to Phase 1,
   not a base to edit (`docs/collapse-log.md`, 2026-07-31).
