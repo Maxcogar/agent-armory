@@ -5,82 +5,74 @@ state and what to do next; the evidence lives in `docs/reviews/`, the durable
 lessons in `docs/collapse-log.md`, and everything attributed to Max Cogar in
 `OWNER-LEDGER.md`.*
 
-## 2026-08-13 — The token-budget correction is now independently verified and repaired; the Phase 0 spec is clean; next is the Phase 0 architecture document
+## 2026-08-13 (later) — Max Cogar ruled the token/whisper budget OUT entirely; the Phase 0 spec is reopened; the removal is decided but NOT yet applied to the spec
 
-**Where the project is.** Still design phase, **no code**. The one item the last
-session left open — the token-budget correction (`P0-D-27`), which had landed *after*
-the round-5 review passes and so had never been independently reviewed — is now
-verified and repaired. With that closed, the Phase 0 requirement document
-(`docs/specs/spec-context-oracle-phase0.md`) has **no outstanding unreviewed change**,
-and the spec's own check script passes 8/8.
+**The decision that changes everything.** Max Cogar ruled that **no arbitrary
+limit gates the oracle's operation** — *"either the information its giving the
+agent is important, or its not. at no point should an arbitrary limit influence
+how that operates."* Recorded as **OL-C1 (CONFIRMED)** in `OWNER-LEDGER.md` — the
+**first confirmed owner decision** in the ledger. The per-session/per-trigger
+token budget is rejected as never his (**OL-R3**): it was introduced in
+`RETHINK.md` §5 rationale, was **not** one of his §12 decisions, and was treated
+as settled through every review round until he questioned it this session.
 
-**What the verification did.** Two independent adversarial passes (both recorded in
-`docs/reviews/`, dated 2026-08-13). The correction's intent was right — multiple
-whispers per event; the count-of-one was your rejected fabrication — but as it had
-landed it was incomplete and over-reached in three ways, all now fixed:
+**Read this before trusting the spec:** the **ledger now says no budget, but the
+Phase 0 spec still contains it.** `FR-A3` still reads "budgets," and
+`FR-A5` / §7 / `AC-2` / `AC-28` / `NF-2` / `P0-D-15/16/27/28` still depend on it.
+The removal is **decided, not yet applied.** Do not trust those passages.
 
-1. The single-whisper count it claimed to remove **still survived in two other
-   requirements** — `FR-A5` ("only the top candidate above the bar is spoken") and
-   `FR-O2` ("relay at most one whisper back"). Both corrected: every whisper that
-   clears the high bar is delivered within the session budget, and the shim relays all
-   of them.
-2. The new rule leaned on a "per-trigger token budget" with **no value and no
-   source**. Rather than invent a number in a phase built to *measure* numbers, Phase 0
-   now sets **no** separate per-trigger number: the per-trigger cap defaults to the
-   session cap, and a tighter cap (and any ordering of whispers if one were ever
-   needed) is **deferred to Phase 1**, where the exit-run data that would set it will
-   exist. The session's own hard cap still bounds everything meanwhile. Recorded as
-   `[P0-D-28]`.
-3. The "token" denomination had been **attributed to you**. Your words are "per-trigger
-   and per-session whisper budgets, hard caps" — no denomination. The token reading is
-   now labeled a derived document judgment everywhere it appears.
+**What this supersedes.** Earlier this session I "verified and repaired" the
+token-budget correction (P0-D-27/28) and called the thread closed. That is dead:
+the budget those decisions made coherent is being removed. **PR #59's
+token-budget work is largely superseded**, and the Phase 0 spec is **reopened**,
+not near-done. I was wrong to report it as nearly finished.
 
-**The fix that matters most for the next session.** The second pass caught that
-`OWNER-LEDGER.md` — the file every session reads *first* as the authority for what is
-yours — still said "your rule is a token budget," re-committing the exact
-over-attribution the correction was fixing. `OL-R1` now matches your verbatim words
-and flags the token reading as the document's judgment, not yours. This is the class of
-error this project most repeatedly makes, and the authority file was quietly carrying
-one.
-
-**How this was caught.** By the independent passes, **not** by you. That is the
-mechanism working as designed — the owner is not meant to be the substance-reviewer.
-The recurring lesson (a correction must sweep *every* copy of the old rule, and must
-not replace an unsourced limit with a new unsourced number) is logged in
-`docs/collapse-log.md` (2026-08-13).
+**Why the budget is wrong (so it is not re-litigated).** The mission delivers
+"the fact that would change the agent's next decision." Such facts are rare, so
+the **bar** (confidence × decision-impact × marginal value) is the volume control
+at the level that matters — relevance, per decision. A global token/session quota
+is a wrong-shaped duplicate whose only distinctive effect is going mute
+mid-session, possibly right before the decisive moment — it can defeat the
+mission. The one legitimate residual concern (a malfunctioning oracle spamming)
+belongs to self-observability (FR-M): **detect and surface** the fault, never
+silence a real whisper.
 
 **What to do next:**
 
-1. **Write the Phase 0 architecture document** — `docs/architecture-context-oracle-phase0.md`,
-   derived from the now-clean Phase 0 spec, resolving the design questions the spec
-   assigns to the architect for Phase 0, and adversarially reviewed with all findings
-   applied (same discipline as the spec). This is the next lifecycle stage and the spec
-   is ready for it. The existing whole-scope architecture stays as **input to Phase 1**,
-   not a base to edit (`docs/collapse-log.md`, 2026-07-31).
-2. **Then plan, build, and run Phase 0** against the spec's §12 exits and §14 acceptance
-   criteria — every number the design is tuned from is still unmeasured, which is why
-   Phase 0 exists.
+1. **Apply the budget removal to the Phase 0 spec** as one careful pass, then put
+   it through an independent review against this corrected foundation. Reshaped
+   `FR-A3` anchor: *"No limit gates delivery; the bar is the sole arbiter — no
+   per-session or per-trigger budget of any kind; nothing suppresses a whisper
+   that clears the bar (`[OL-C1]`); a malfunctioning oracle is detected and
+   surfaced via FR-M, never silenced."* Cascade: `FR-A5` (drop "within budget"),
+   §7 (every candidate that clears the bar is delivered), `AC-2` (make the 10% a
+   descriptive expectation, not an enforced throttle — derivable from OL-C1),
+   `AC-28` (multiple above-bar whispers all delivered, nothing caps them), `NF-2`
+   (overhead reported, not capped), retire/rewrite `P0-D-15/16/27/28`, fix §3's
+   `FR-A3` row.
+2. **v1 spec correction stays deferred** until Phase 0 is complete, per Max
+   Cogar. v1 `FR-A3` still carries the rejected budget (OL-R3) and the
+   "at most one whisper per event" fabrication (OL-R1). Do not touch v1 yet.
 
-**A question for you (plain yes/no).** The parent v1 spec
-(`docs/specs/spec-context-oracle.md`) still carries the same unsourced "at most one
-whisper per event" wording that Phase 0 just corrected. Phase 0 governs Phase 0, so
-nothing is blocked — should v1 be corrected to match, or left as-is? If unanswered, v1
-stays as-is.
+**Open question for the owner (awaiting his answer, a or b):** (a) excise just
+the budget, or (b) also run the same "mission-grounded vs arbitrary" lens over
+the rest of the Phase 0 spec — since the budget was not the only mechanism that
+slipped through every review. The sweep proceeds once he answers.
+
+**A process rule Max directed this session (wording proposed in chat, NOT yet
+approved, so NOT yet encoded).** Every owner decision must be (1) stated
+explicitly in the document, (2) quoted to Max in chat, and (3) explicitly
+approved or denied before any work rests on it — applying to already-assumed
+premises, not just new claims. It goes into `CLAUDE.md` and strengthens the
+`OWNER-LEDGER.md` rules **once he approves the exact wording.**
 
 ## What is still open, and where it lives
 
-- **The token-budget correction thread is closed.** Verified across two independent
-  passes (`docs/reviews/2026-08-13-verification-p0-d-27-token-budget-phase0-spec.md`
-  and `…-reverification-p0-d-27-corrected-phase0-spec.md`) and repaired across `FR-A3`,
-  `FR-A5`, `FR-O2`, the §3 disposition, `P0-D-27`, new `P0-D-28`, `AC-28`, and
-  `OWNER-LEDGER.md` OL-R1.
-- **The owner-claims ledger** — `OWNER-LEDGER.md`. Its 12 PENDING entries still await
-  your sign-off; nothing there is authoritative until you confirm it. A real
-  (non-phrase-matching) enforcement mechanism for it is still unbuilt — a thread you are
-  directing, not a blocker on the spec.
-- **The Phase 0 architecture document does not exist yet.** It is the next stage now
-  that the spec is clean.
-
-## This session's PR
-
-`https://github.com/Maxcogar/agent-armory/pull/59` — the verification and repair above.
+- **`OWNER-LEDGER.md`** — OL-C1 (CONFIRMED: no arbitrary limit), OL-R3 (REJECTED:
+  the budget), OL-R1 (corrected). OL-1…OL-12 remain PENDING his review; nothing
+  there is authoritative until he confirms it.
+- **The Phase 0 budget removal** — decided (OL-C1), **not yet applied** to the
+  spec. This is the next build step (above).
+- **PR #59** (`https://github.com/Maxcogar/agent-armory/pull/59`) — its
+  token-budget work is largely superseded; its body still describes the old
+  "fix" and needs updating once GitHub is reachable again.

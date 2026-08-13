@@ -49,10 +49,16 @@ until you confirm it. Load-bearing phrases are quoted verbatim.
 
 | ID | The false attribution | What's actually true | Caught |
 |---|---|---|---|
-| OL-R1 | "At most one whisper per event." | Not yours. Your rule is a per-trigger / per-session **budget, hard caps** (RETHINK:175–176, verbatim: *"Per-trigger and per-session whisper budgets. Hard caps."* — no denomination stated), **not a count**. An agent hardened "budget" into "one"; it manufactured a false dilemma about which whisper "wins." The token denomination the Phase 0 spec uses is a derived document judgment (`[P0-D-28]`), explicitly **not** attributed to you. | Max, 2026-08-12 (see P0-D-27, P0-D-28) |
+| OL-R1 | "At most one whisper per event." | Not yours. An agent hardened an **invented budget** into a count of one, manufacturing a false dilemma about which whisper "wins." The budget it was hardened from is **also not yours** (OL-R3); your actual rule is OL-C1 — importance alone decides, no arbitrary limit. | Max, 2026-08-12 (count); 2026-08-13 (budget) |
 | OL-R2 | "The core problem the tool exists to solve." | Not your words — an agent's superlative wrapped around your quote; it propagated to four documents and a review pass. | Max, 2026-08-01 (see collapse-log.md) |
+| OL-R3 | Any per-session or per-trigger token/whisper budget that limits the oracle's operation. | Not yours. An agent introduced it in `RETHINK.md` §5 rationale — never one of your `RETHINK.md` §12 decisions — and it was treated as settled through every review round until you ruled it out (OL-C1). | Max, 2026-08-13 |
 
 ## ✅ CONFIRMED — signed off by Max
 
-*(none yet — the PENDING list above is awaiting your review. Nothing is treated
-as authoritative until it moves here.)*
+| ID | Decision (your words) | Confirmed |
+|---|---|---|
+| OL-C1 | **No arbitrary limit gates the oracle's operation.** Whether to speak is decided solely by whether the information is important: *"either the information its giving the agent is important, or its not. at no point should an arbitrary limit influence how that operates."* Every per-session / per-trigger token or count budget is removed as an operational gate; the bar (importance / marginal value) is the sole arbiter, and a malfunction is surfaced by diagnostics, never by suppressing whispers. | Max, in chat, 2026-08-13 |
+
+*(The PENDING list above — OL-1…OL-12 — still awaits your review; nothing there
+is authoritative until you confirm it. If OL-C1 above misstates your words, say so
+and I'll correct it — it is recorded from your message, not my interpretation.)*
