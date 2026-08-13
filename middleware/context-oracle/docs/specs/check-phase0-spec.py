@@ -102,6 +102,29 @@ else:
     if defined_but_deferred:
         fail("disposition", f"listed as deferred but defined in the body: {defined_but_deferred}")
 
+    # Three-set refinement. §3 splits the in-Phase-0 set into an "unchanged" prose
+    # list and a "narrowed" table and claims they are disjoint and together cover
+    # in_phase0. Check that, so the claim is mechanically backed rather than an
+    # attestation the reader must trust (expert review round 5, m1).
+    unchanged_seg = section(disp, "unchanged (", "**In force but narrowed")
+    narrowed_seg = section(disp, "narrowed here (", "**Deferred whole")
+    unchanged_ids = expand(unchanged_seg)
+    narrowed_ids = set(re.findall(rf"(?m)^\|\s*({REQ})\s+—", narrowed_seg))
+    overlap = sorted(unchanged_ids & narrowed_ids)
+    if overlap:
+        fail("disposition", f"listed as both unchanged and narrowed: {overlap}")
+    union = unchanged_ids | narrowed_ids
+    if union != in_phase0:
+        lists_only = sorted(union - in_phase0)
+        derived_only = sorted(in_phase0 - union)
+        fail("disposition",
+             f"unchanged∪narrowed ≠ in-Phase-0 set (lists-only {lists_only}, "
+             f"derived-only {derived_only})")
+    if not overlap and union == in_phase0:
+        ok("disposition",
+           f"unchanged ({len(unchanged_ids)}) and narrowed ({len(narrowed_ids)}) "
+           f"disjoint and cover the {len(in_phase0)} in-Phase-0 requirements")
+
 # ---------------------------------------------------------------- namespaces
 minted = sorted(p0_ids - v1_ids)
 if minted:
