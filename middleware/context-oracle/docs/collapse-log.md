@@ -19,6 +19,41 @@ goes hollow is itself data.
 
 ---
 
+## 2026-08-13 — the fix to a hollow decision was itself two-thirds hollow (caught by independent passes, not the owner)
+
+**A correction that removed an unsourced owner-attributed limit left the old rule
+standing in two other places and replaced it with a *second* unsourced number.**
+The 2026-08-12 correction (`P0-D-27`) fixed `FR-A3`'s invented "at most one whisper
+per event." But the same single-whisper rule survived verbatim in `FR-A5` (*"only the
+top candidate above the bar is spoken"*) and `FR-O2` (*"relay at most one whisper
+back"*, still listed "unchanged" in §3) — so the delivery mechanism and the scoring
+requirement both still said "one." And the replacement, "fits the per-trigger token
+budget," rested on a per-trigger number that had **no value and no source** — a fresh
+unsourced limit in place of the one just removed.
+Class: **unverified**. A correction is not done when the decision that named the
+defect is edited; it is done when *every copy* of the defective rule is swept and the
+replacement is itself sourced or explicitly deferred. Fix: `FR-A5`/`FR-O2` corrected;
+Phase 0 now fixes **no** per-trigger number (defaults to the session cap, tighter cap
+deferred to Phase 1 where P0-4's data will set it) — machinery removed, not invented
+(`P0-D-28`).
+
+**And the over-attribution the correction was fixing had propagated into the
+correction's own record.** The "token" denomination — a reconstruction, since the
+owner's words (`RETHINK.md:175–176`) say only *"whisper budgets, hard caps"* — had
+been written as the owner's rule into `FR-A3`, `P0-D-27`, `OWNER-LEDGER.md` OL-R1, and
+even the 2026-08-12 entry below (*"a token budget, not a count"*). OL-R1 mattered most:
+`CLAUDE.md` has agents read the ledger **first** as the authority for what is Max
+Cogar's, so a latent over-attribution there re-commits the exact class OL-R1 exists to
+record. Fixed in the spec and in OL-R1; token denomination now labeled a derived
+document judgment everywhere.
+Class: **unverified** (again). Generalise: when you correct an owner-attribution, grep
+for the attributed phrase across *all* files — the reconstruction that caused the
+collapse tends to have already spread to the very documents that record the fix.
+**Process note:** none of this reached Max Cogar. Two independent adversarial passes
+caught it — the first the incomplete sweep and unsourced number, the second the
+ledger over-attribution. This is the mechanism working as designed: the owner is not
+the substance-reviewer.
+
 ## 2026-08-12 — caught by Max Cogar, logged as a process failure
 
 **An agent-invented constraint was hardened into a rule and then handed back to

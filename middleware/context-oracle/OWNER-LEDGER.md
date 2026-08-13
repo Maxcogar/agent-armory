@@ -49,7 +49,7 @@ until you confirm it. Load-bearing phrases are quoted verbatim.
 
 | ID | The false attribution | What's actually true | Caught |
 |---|---|---|---|
-| OL-R1 | "At most one whisper per event." | Not yours. Your rule is a per-trigger / per-session **token budget** (RETHINK:175–176, "hard caps"), not a count. An agent hardened "budget" into "one"; it manufactured a false dilemma about which whisper "wins." | Max, 2026-08-12 (see P0-D-27) |
+| OL-R1 | "At most one whisper per event." | Not yours. Your rule is a per-trigger / per-session **budget, hard caps** (RETHINK:175–176, verbatim: *"Per-trigger and per-session whisper budgets. Hard caps."* — no denomination stated), **not a count**. An agent hardened "budget" into "one"; it manufactured a false dilemma about which whisper "wins." The token denomination the Phase 0 spec uses is a derived document judgment (`[P0-D-28]`), explicitly **not** attributed to you. | Max, 2026-08-12 (see P0-D-27, P0-D-28) |
 | OL-R2 | "The core problem the tool exists to solve." | Not your words — an agent's superlative wrapped around your quote; it propagated to four documents and a review pass. | Max, 2026-08-01 (see collapse-log.md) |
 
 ## ✅ CONFIRMED — signed off by Max
