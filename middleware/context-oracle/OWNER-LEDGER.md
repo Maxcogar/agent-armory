@@ -58,7 +58,9 @@ until you confirm it. Load-bearing phrases are quoted verbatim.
 | ID | Decision (your words) | Confirmed |
 |---|---|---|
 | OL-C1 | **No arbitrary limit gates the oracle's operation.** Whether to speak is decided solely by whether the information is important: *"either the information its giving the agent is important, or its not. at no point should an arbitrary limit influence how that operates."* Every per-session / per-trigger token or count budget is removed as an operational gate; the bar (importance / marginal value) is the sole arbiter, and a malfunction is surfaced by diagnostics, never by suppressing whispers. | Max, in chat, 2026-08-13 |
+| OL-C2 | **A corrective / steering feature — small, personal, and NOT a primary feature or the oracle's primary role** (his emphasis: *"THIS IS JUST A SMALL FEATURE FOR MY OWN PERSONAL BENEFIT… NOT THE PRIMARY ROLE OF THE ORACLE, NOR… A PRIMARY FEATURE."*). In his words: not fully against corrective actions; the prior hard-no was because agents *"got absolutely fucking obsessed with 'gates'"* and *"making the working agent take a goddamn test to see if it had a good enough plan to proceed,"* which *"was terrible and didn't work."* What he wanted: *"structured steering/correcting with a more deterministic trigger,"* and *"NOT trying to code in piles of rules and shit for when it should trigger."* The trigger is deterministic because the oracle is *"aware of my expert dev tools that I use,"* with *"their structures programmed into the oracle so the oracle would know when they're activated, what steps are within the expert skill being used, what actions the agent should be taking if they actually follow the skills, and so on."* This is the precise version of what the vague OL-9 (process conformance) was reaching for; OL-9's separate "answer drift" element still awaits his ruling. | Max, in chat, 2026-08-13 |
 
 *(The PENDING list above — OL-1…OL-12 — still awaits your review; nothing there
-is authoritative until you confirm it. If OL-C1 above misstates your words, say so
-and I'll correct it — it is recorded from your message, not my interpretation.)*
+is authoritative until you confirm it. If OL-C1 or OL-C2 above misstates your
+words, say so and I'll correct it — they are recorded from your messages, not my
+interpretation.)*
