@@ -19,6 +19,36 @@ goes hollow is itself data.
 
 ---
 
+## 2026-08-16 — the rebuilt spec re-sprang two known traps and silenced the mission's own priority
+
+Three durable lessons from the rebuild's independent reviews (full evidence:
+`docs/reviews/2026-08-16-expert-review-spec-rebuild.md` and
+`…-collapse-hunt-spec-rebuild.md`):
+
+- **The owner-attribution-through-rationale channel re-opened — again.** The author
+  attributed a latency figure to Max Cogar by citing `RETHINK.md` §5 (rationale, not
+  a §12 decision) — provenance-identical to the REJECTED budget (OL-R3). Lesson,
+  generalised: **`RETHINK.md`'s non-§12 prose is not an owner source.** Any
+  `[OL…]`/"the owner's rule" citation must resolve to a CONFIRMED ledger entry; a
+  cite to RETHINK rationale is an agent judgment wearing the owner's name. Class:
+  unverified. (Caught by the review mechanism, not the owner — the design working.)
+
+- **A learning loop that only demotes ratchets to silence.** The rebuild specified
+  demotion (a requirement) but left promotion a bare principle — re-springing the
+  2026-07-22 #1 trap ("the tool converges to near-total silence and measures as
+  healthy"). Lesson: **any de-noising loop needs an explicit up-signal (re-explore /
+  re-promote) with a requirement and an anti-convergence acceptance test, not a
+  slogan.** A down-signal without a matching up-signal is a silence machine. Class:
+  mechanism-not-mission.
+
+- **"The bar decides" can silence the exact fact the mission wants.** A
+  multiplicative bar plus a high-confidence floor suppressed the uncertain hazard —
+  but `[OL-3]` (a wasted sentence is the worst case) makes *false silence* the
+  costlier error, so a precision floor optimises the wrong side. Lesson: **when the
+  cost of speaking is bounded and low, uncertainty is a reason to speak (flagged),
+  not to suppress; manage precision empirically (demotion) rather than a-priori.**
+  Do not let a quality filter quietly become a relevance gate. Class: wrong-check.
+
 ## 2026-08-13 — the fix to a hollow decision was itself two-thirds hollow (caught by independent passes, not the owner)
 
 **A correction that removed an unsourced owner-attributed limit left the old rule
