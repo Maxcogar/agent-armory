@@ -700,6 +700,21 @@ check('T-24 scope-check: prior-artifact hashes are injected from the ledger inde
   wfSrc.includes('a.sha256 && isHashPinnedRole(a) && a.path !== artifactPath'));
 check('T-24 scope-check: hash-mismatched upstream artifact is named a violation',
   wfSrc.includes('current hash DIFFERS from its recorded hash') && wfSrc.includes('unauthorized upstream edit'));
+// T-24y: the under-coverage predicate EXECUTED (F6-1) - neutering it must turn
+// this block red, which round 6's mutation MD showed the text pins alone cannot.
+{
+  const vuc = new Function('const Math_ = Math;' + declOf(wfSrc, 'const verifierUnderCovered =').replace('Math.max', 'Math_.max') + '\nreturn verifierUnderCovered;')();
+  check('T-24y under-coverage: null return is under-covered', vuc(null, 1) === true);
+  check('T-24y under-coverage: empty checks are under-covered', vuc({ checks: [] }, 1) === true);
+  check('T-24y under-coverage: short return vs expected count is under-covered', vuc({ checks: [{}] }, 5) === true);
+  check('T-24y under-coverage: exact expected count passes', vuc({ checks: [{}, {}, {}, {}, {}] }, 5) === false);
+  check('T-24y under-coverage: expectedMin floors at 1 (0 or undefined never exempts)', vuc({ checks: [] }, 0) === true && vuc({ checks: [{}] }, undefined) === false);
+}
+check('T-24 scope-check: a missing artifact-sha256 entry escalates (fail-closed hash recording)',
+  /if \(!hex\) \{/.test(wfSrc) && wfSrc.includes('did not return the required artifact-sha256 entry'));
+check('T-24 control_fault gate type exists and the under-coverage gate uses it',
+  wfSrc.includes("control_fault: 'control_fault'") && wfSrc.includes('type: GATE.control_fault'));
+
 // T-24x: the ground-truth guard predicate EXECUTED against constructed ledger
 // shapes - refusals observed, not just asserted as source text (F5-3, closed on
 // its third recurrence by the same lift-and-run mechanism T-22/T-23 use).

@@ -67,6 +67,9 @@ const GATE = {
   risk_override: 'risk_override',
   non_convergence: 'non_convergence',
   core_approval: 'core_approval',
+  // A mechanical control could not run or returned nothing - the phase is
+  // UNVERIFIED (not failed, not non-convergent); re-run is the usual answer.
+  control_fault: 'control_fault',
 }
 
 // ---------------------------------------------------------------------------
@@ -461,10 +464,10 @@ const implementationArtifacts = () => (ledger.artifact_index || []).concat(delta
 // F5-2: a verifier that returns nothing verified nothing. Every consumer of a
 // VERIFIER_SCHEMA return goes through this; an empty return is a failed control,
 // never a passed one (fail-closed).
-const verifierEmpty = (v) => !v || !Array.isArray(v.checks) || v.checks.length === 0
-const emptyVerifierGate = (what, resumePhase) => {
+const verifierUnderCovered = (v, expectedMin) => !v || !Array.isArray(v.checks) || v.checks.length < Math.max(1, expectedMin || 1)
+const underCoveredVerifierGate = (what, resumePhase, got, expected) => {
   delta.phase = resumePhase
-  return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.non_convergence, what_happened: `The ${what} verifier returned no checks - the control did not run, so its subject is unverified. Fail-closed: the phase does not pass on an empty control.`, options: ['re-run the phase', 'investigate the verifier dispatch'], recommendation: 're-run; an empty verifier return is an infrastructure or dispatch fault, not evidence of correctness' } })
+  return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.control_fault, what_happened: `The ${what} verifier returned ${got} check(s) where at least ${expected} were expected - the control did not (fully) run, so its subject is unverified. Fail-closed: the phase does not pass on an under-covered control.`, options: ['re-run the phase', 'investigate the verifier dispatch'], recommendation: 're-run; an under-covered verifier return is an infrastructure or dispatch fault, not evidence of correctness' } })
 }
 const reviewRecords = []
 function record(gate, gateResult) {
@@ -678,7 +681,7 @@ if (cursor === 'implement') {
   if (idx.length) {
     const sample = idx.map((i) => cited[i])
     const vr = await agent(`Spot re-run: re-execute each cited verification and report match/mismatch. Cited: ${JSON.stringify(sample)}`, { agentType: AGENT.verifier, schema: VERIFIER_SCHEMA, phase: 'Verify', label: 'spot-rerun' })
-    if (verifierEmpty(vr)) return emptyVerifierGate('spot re-run', 'implement')
+    if (verifierUnderCovered(vr, sample.length)) return underCoveredVerifierGate('spot re-run', 'implement', (vr && vr.checks || []).length, sample.length)
     const fabricated = (vr.checks || []).some((c) => c.match === false)
     if (fabricated) {
       const dg = await diagnose('A cited verification did not reproduce on spot re-run (fabricated compliance).', ledger, { checks: vr.checks, sampled_indices: idx, cited: sample, seed })
@@ -689,7 +692,7 @@ if (cursor === 'implement') {
 
   // diff-vs-plan mechanical check
   const dvp = await agent(`Diff-vs-plan: compare git-changed files against the plan's authorized "Files affected" at ${planPath}. Report violations in either direction.`, { agentType: AGENT.verifier, schema: VERIFIER_SCHEMA, phase: 'Verify', label: 'diff-vs-plan' })
-  if (verifierEmpty(dvp)) return emptyVerifierGate('diff-vs-plan', 'implement')
+  if (verifierUnderCovered(dvp, 1)) return underCoveredVerifierGate('diff-vs-plan', 'implement', (dvp && dvp.checks || []).length, 1)
   if ((dvp.checks || []).some((c) => c.match === false)) {
     const dg = await diagnose('A changed file is outside the plan\'s authorized set (scope violation).', ledger, { checks: dvp.checks, plan: planPath })
     delta.phase = 'implement'
@@ -730,7 +733,7 @@ if (cursor === 'ground_truth') {
   }
   phase('Verify')
   const recon = await agent(`Whole-chain reconciliation: map every in-scope spec requirement to its implementing diff and verifying evidence, and every diff hunk to its authorizing plan step at ${planPath}. Report anything unmapped in either direction.`, { agentType: AGENT.verifier, schema: VERIFIER_SCHEMA, phase: 'Verify', label: 'reconciliation' })
-  if (verifierEmpty(recon)) return emptyVerifierGate('reconciliation', 'ground_truth')
+  if (verifierUnderCovered(recon, 1)) return underCoveredVerifierGate('reconciliation', 'ground_truth', (recon && recon.checks || []).length, 1)
   if ((recon.checks || []).some((c) => c.match === false)) {
     const dg = await diagnose('Whole-chain reconciliation found an unmapped requirement or diff hunk.', ledger, { checks: recon.checks, spec: specPath, plan: planPath })
     delta.phase = 'ground_truth'
@@ -831,7 +834,7 @@ async function documentScopeCheck(phaseName, resumePhase, artifactPath, led) {
     `Document-phase scope check against recorded state. The single artifact this phase was authorized to write is "${artifactPath}". Artifacts with recorded SHA-256 hashes - from the ledger index (recorded at ledger load) and from earlier phases of THIS segment (recorded by each phase's own scope check): ${JSON.stringify((((led || {}).artifact_index || []).concat(delta.artifacts || [])).filter((a) => a.sha256 && isHashPinnedRole(a) && a.path !== artifactPath).map((a) => ({ path: a.path, sha256: a.sha256 })))}. Rules, in order: (1) a changed/untracked file that IS the authorized path - authorized; (2) a hash-listed artifact whose CURRENT hash still equals its recorded hash - unchanged residue, report as residue, not a violation; (3) a hash-listed artifact whose current hash DIFFERS from its recorded hash - an unauthorized upstream edit (prior segment or earlier this segment, either interleaving), a VIOLATION; (4) the orchestrator's .claude/expert bookkeeping files - bookkeeping, not a violation; (5) any other changed file - a VIOLATION. Compute the hashes yourself and report the comparison per file. Additionally: ALWAYS include one extra check entry whose cited_claim is exactly "artifact-sha256", whose match is true, and whose re_execution contains the current SHA-256 hex digest of the authorized artifact "${artifactPath}" - this records the artifact's hash for later phases' scope checks. The authorized set is one path - not a plan's Files-affected list.`,
     { agentType: AGENT.verifier, schema: VERIFIER_SCHEMA, phase: 'Verify', label: 'doc-scope' }
   )
-  if (verifierEmpty(sc)) return emptyVerifierGate(`${phaseName} scope-check`, resumePhase)
+  if (verifierUnderCovered(sc, 1)) return underCoveredVerifierGate(`${phaseName} scope-check`, resumePhase, (sc && sc.checks || []).length, 1)
   const checks = sc.checks
   // Record the verifier-computed hash on this phase's artifact entry, so later
   // phases' scope checks compare against it (the workflow cannot hash; the
@@ -845,7 +848,7 @@ async function documentScopeCheck(phaseName, resumePhase, artifactPath, led) {
     // Fail closed here instead, where the cause (the verifier not returning the
     // requested hash entry) is visible and re-runnable.
     delta.phase = resumePhase
-    return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.non_convergence, what_happened: `The ${phaseName} scope-check verifier did not return the required artifact-sha256 entry for ${artifactPath}, so later phases could not distinguish this artifact from an unauthorized edit.`, options: ['re-run the phase', 'investigate the verifier dispatch'], recommendation: 're-run; the hash record is what keeps later scope checks honest' } })
+    return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.control_fault, what_happened: `The ${phaseName} scope-check verifier did not return the required artifact-sha256 entry for ${artifactPath}, so later phases could not distinguish this artifact from an unauthorized edit.`, options: ['re-run the phase', 'investigate the verifier dispatch'], recommendation: 're-run; the hash record is what keeps later scope checks honest' } })
   }
   const mine = (delta.artifacts || []).find((a) => a.path === artifactPath)
   if (mine && !mine.sha256) mine.sha256 = hex[0]

@@ -186,6 +186,9 @@ Read the SEGMENT_REPORT's `outcome`:
   - `risk_override` — a STOP where amend-plan isn't viable; accepting risk is
     the owner's call (never auto-selected)
   - `non_convergence` — a review loop hit its round cap
+  - `control_fault` — a mechanical control (a verifier dispatch) could not run or
+    returned less than it was asked to check; the phase is **unverified**, not failed —
+    re-running the phase is the usual answer
   - `core_approval` — the drafted CORE ingestion message; **present it for
     approval and never ingest it yourself** (you have no CORE-ingest tool, and
     ingestion is the owner's decision alone, per the repo CORE protocol)
