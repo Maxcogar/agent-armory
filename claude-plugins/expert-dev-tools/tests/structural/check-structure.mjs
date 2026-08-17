@@ -443,7 +443,7 @@ check('T-18 the scope check is dispatched to the verifier under one label',
   }
   const oldChecks = baseline('tests/structural/check-structure.mjs');
   if (oldChecks) {
-    const labels = [...oldChecks.matchAll(/check\(\s*[`'"]([^`'"]{8,60})/g)].map((m) => m[1]);
+    const labels = [...oldChecks.matchAll(/check\(\s*[`'"]([^`'"]{8,160})/g)].map((m) => m[1]);
     const src = readFileSync(join(ROOT, 'tests/structural/check-structure.mjs'), 'utf8');
     // A RENAMED label is not a removed check. S7 changed two labels' cardinality
     // word (nine -> ten) when the corrector skill and agent landed; the assertions
@@ -455,6 +455,14 @@ check('T-18 the scope check is dispatched to the verifier under one label',
     // guessed by widening the normalizer. Each entry names the exact baseline label
     // and the exact label that supersedes it, with the finding that forced the swap.
     const REPLACED_BY_STRENGTHENING = [
+      {
+        was: 'T-24 scope-check: same-segment earlier-phase outputs are exempt by path list',
+        now: 'T-24 scope-check: each phase RECORDS its artifact hash via the verifier',
+        why: 'corrections-0.3.0 round-4 F4-3: the path-list exemption (with an mtime-ordering ' +
+             'condition) was replaced by uniform hash comparison - each phase\'s scope-check ' +
+             'verifier records the artifact\'s SHA-256, so same-segment artifacts are checked ' +
+             'exactly like prior-segment ones, both edit interleavings.',
+      },
       {
         was: 'T-A2a workflow: valid JS syntax',
         now: 'T-A2a workflow: parses as a workflow body (strict)',
@@ -477,7 +485,7 @@ check('T-18 the scope check is dispatched to the verifier under one label',
     // allowlist below writes this very label into the file, which is exactly how
     // this guard was found reporting green over a deleted check.
     const goneFrom = (baselineLabels, currentSrc) => {
-      const here = new Set([...currentSrc.matchAll(/check\(\s*[`'"]([^`'"]{8,60})/g)].map((m) => norm(m[1])));
+      const here = new Set([...currentSrc.matchAll(/check\(\s*[`'"]([^`'"]{8,160})/g)].map((m) => norm(m[1])));
       return baselineLabels.filter((l) => {
         if (here.has(norm(l))) return false;              // structural: in check( position
         const now = supersededBy.get(l);
@@ -654,14 +662,22 @@ check('T-24 gt-guard: build-completeness reads the LATEST implementation verdict
   wfSrc.includes("implGates[implGates.length - 1].verdict === 'PASS'"));
 check('T-24 gt-guard: target traceability is in the refusal predicate',
   wfSrc.includes('!specApproved || !implPassed || implArts.length === 0'));
+check('T-24 gt-guard: refusal is an answerable owner gate, and no terminal failed outcome exists',
+  wfSrc.includes('Ground-truth dispatch refused: ${why}') && !wfSrc.includes("outcome: 'failed'"));
+check('T-24 shared accumulator: implement gate and gt-guard read the same registered set',
+  (wfSrc.match(/implementationArtifacts\(\)/g) || []).length >= 2);
+check('T-24 shared role predicate: hash pinning excludes implementation everywhere',
+  wfSrc.includes("const isHashPinnedRole = (a) => a.role !== 'implementation'") && wfSrc.includes('isHashPinnedRole(a) && a.path !== artifactPath'));
 check('T-24 gt-guard: implement phase PRODUCES role implementation artifacts',
   wfSrc.includes("delta.artifacts.push({ role: 'implementation', path: f })"));
 check('T-24 scope-check: prior-artifact hashes are injected from the ledger index',
-  wfSrc.includes('artifact_index || [])).filter((a) => a.sha256 && a.path !== artifactPath)'));
+  wfSrc.includes('a.sha256 && isHashPinnedRole(a) && a.path !== artifactPath'));
 check('T-24 scope-check: hash-mismatched upstream artifact is named a violation',
   wfSrc.includes('current hash DIFFERS from its recorded hash') && wfSrc.includes('unauthorized upstream edit'));
-check('T-24 scope-check: same-segment earlier-phase outputs are exempt by path list',
-  wfSrc.includes('Earlier phases of THIS segment already wrote'));
+check('T-24 scope-check: each phase RECORDS its artifact hash via the verifier',
+  wfSrc.includes("cited_claim === 'artifact-sha256'") && wfSrc.includes('mine.sha256 = hex[0]'));
+check('T-24 scope-check: no mtime proxy remains in the exemption rules',
+  !wfSrc.includes('last-modified time predates'));
 
 console.log(failures ? `\nSTRUCTURAL TESTS FAILED (${failures})` : '\nSTRUCTURAL TESTS PASSED');
 process.exit(failures ? 1 : 0);

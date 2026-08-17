@@ -451,6 +451,12 @@ const readerScript = input.reader_script || 'scripts/extract-owner-turns.mjs'
 const transcriptDir = input.transcript_dir || ''
 
 const delta = { phase: ledger.phase, artifacts: [], gate_history: [], amendments: [], budget: { total_tokens: 0 } }
+// Shared control expressions (round-4 re-derivation): every control reads these,
+// never a local proxy. Implementation outputs are never hash-pinned (they are
+// verified by tests and ground truth; the command's step-2 re-hash exempts the
+// same role) - one predicate, used by every consumer.
+const isHashPinnedRole = (a) => a.role !== 'implementation'
+const implementationArtifacts = () => (ledger.artifact_index || []).concat(delta.artifacts || []).filter((a) => a.role === 'implementation')
 const reviewRecords = []
 function record(gate, gateResult) {
   for (const h of gateResult.history) {
@@ -614,10 +620,13 @@ if (cursor === 'implement') {
     delta.artifacts.push({ role: 'implementation', path: f })
   }
 
-  // F3-1: files_changed is optional in IMPLEMENT_SCHEMA, so an implementer that
-  // omits it would otherwise sail to the ground-truth guard and strand there.
-  // Surface it here as an answerable gate instead of a terminal refusal later.
-  if (!((impl && impl.files_changed) || []).length) {
+  // F3-1/F4-1: files_changed is optional in IMPLEMENT_SCHEMA, so an implementer
+  // that omits it would otherwise sail to the ground-truth guard and strand
+  // there. The condition reads the ACCUMULATED registered implementation
+  // artifacts (ledger + this segment, including the amend path's re-implement
+  // registration), so it is idempotent on resume and does not fire falsely
+  // after an amend cycle. Surfaced as an answerable gate.
+  if (implementationArtifacts().length === 0) {
     delta.phase = 'implement'
     return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.spec_traceable, what_happened: 'The implementer completed without reporting any changed files, so no build output is traceable to the executed plan. Ground truth cannot target anything until this is resolved.', options: ['re-run the implement phase', 'investigate'], recommendation: 're-run the implement phase; if it genuinely changed nothing, the plan itself needs the owner\'s attention' } })
   }
@@ -694,7 +703,7 @@ if (cursor === 'ground_truth') {
   //   (c) build-completeness - the LATEST implementation review verdict is PASS (a
   //       PASS that predates a later re-review does not count).
   const specApproved = !!specPath && (ledger.artifact_index || []).some((a) => a.role === 'spec' && a.path === specPath && a.approved_by_owner === true)
-  const implArts = (ledger.artifact_index || []).concat(delta.artifacts || []).filter((a) => a.role === 'implementation')
+  const implArts = implementationArtifacts()
   const implGates = (ledger.gate_history || []).concat(delta.gate_history || []).filter((g) => g.gate === 'implementation')
   const implPassed = implGates.length > 0 && implGates[implGates.length - 1].verdict === 'PASS'
   if (!specApproved || !implPassed || implArts.length === 0) {
@@ -788,15 +797,28 @@ async function gateEscalation(gate, phaseName, resumePhase, artifactPath, led) {
 // available.
 // The workflow runtime cannot execute processes (no child_process/spawn - it only
 // dispatches agents), so draft C's literal git-status-at-dispatch baseline is not
-// implementable here. The adaptation: recorded hashes from the ledger index are
-// injected as computed inputs, same-segment outputs are named by path with an
-// mtime-ordering condition, and the dispatched verifier executes the comparisons.
+// implementable here. The adaptation: every document phase's scope-check verifier
+// records the authorized artifact's SHA-256 into delta.artifacts, so later phases
+// compare against recorded hashes uniformly - prior-segment AND same-segment, both
+// edit interleavings - with implementation outputs excluded by the shared role
+// predicate (they are test-verified, not hash-pinned).
 async function documentScopeCheck(phaseName, resumePhase, artifactPath, led) {
   const sc = await agent(
-    `Document-phase scope check against recorded state. The single artifact this phase was authorized to write is "${artifactPath}". Prior-segment artifacts with the SHA-256 hashes recorded at ledger load: ${JSON.stringify((((led || {}).artifact_index || [])).filter((a) => a.sha256 && a.path !== artifactPath).map((a) => ({ path: a.path, sha256: a.sha256 })))}. Earlier phases of THIS segment already wrote (each scope-checked at its own phase): ${JSON.stringify((delta.artifacts || []).filter((a) => a.path !== artifactPath).map((a) => a.path))}. Rules, in order: (1) a changed/untracked file that IS the authorized path — authorized; (2) a hash-listed prior artifact whose CURRENT hash still equals its recorded hash — unchanged prior-segment residue, report as residue, not a violation; (3) a hash-listed prior artifact whose current hash DIFFERS from its recorded hash — an unauthorized upstream edit, a VIOLATION; (4) a file in the earlier-phases-of-this-segment list — exempt ONLY if its last-modified time predates the authorized artifact's write (check mtimes/git); if it was modified AFTER this phase began writing, that is an unauthorized upstream edit within this segment, a VIOLATION; (5) the orchestrator's .claude/expert bookkeeping files — bookkeeping, not a violation; (6) any other changed file — a VIOLATION. Compute the hashes yourself and report the comparison per file. The authorized set is one path — not a plan's Files-affected list.`,
+    `Document-phase scope check against recorded state. The single artifact this phase was authorized to write is "${artifactPath}". Artifacts with recorded SHA-256 hashes - from the ledger index (recorded at ledger load) and from earlier phases of THIS segment (recorded by each phase's own scope check): ${JSON.stringify((((led || {}).artifact_index || []).concat(delta.artifacts || [])).filter((a) => a.sha256 && isHashPinnedRole(a) && a.path !== artifactPath).map((a) => ({ path: a.path, sha256: a.sha256 })))}. Rules, in order: (1) a changed/untracked file that IS the authorized path - authorized; (2) a hash-listed artifact whose CURRENT hash still equals its recorded hash - unchanged residue, report as residue, not a violation; (3) a hash-listed artifact whose current hash DIFFERS from its recorded hash - an unauthorized upstream edit (prior segment or earlier this segment, either interleaving), a VIOLATION; (4) the orchestrator's .claude/expert bookkeeping files - bookkeeping, not a violation; (5) any other changed file - a VIOLATION. Compute the hashes yourself and report the comparison per file. Additionally: ALWAYS include one extra check entry whose cited_claim is exactly "artifact-sha256", whose match is true, and whose re_execution contains the current SHA-256 hex digest of the authorized artifact "${artifactPath}" - this records the artifact's hash for later phases' scope checks. The authorized set is one path - not a plan's Files-affected list.`,
     { agentType: AGENT.verifier, schema: VERIFIER_SCHEMA, phase: 'Verify', label: 'doc-scope' }
   )
-  const violations = ((sc && sc.checks) || []).filter((c) => c.match === false)
+  const checks = (sc && sc.checks) || []
+  // Record the verifier-computed hash on this phase's artifact entry, so later
+  // phases' scope checks compare against it (the workflow cannot hash; the
+  // dispatched verifier can - this is the round-3 primary remedy, implemented
+  // at the only point in the pipeline that can execute a hash).
+  const hashEntry = checks.find((c) => c.cited_claim === 'artifact-sha256')
+  const hex = hashEntry && /[0-9a-f]{64}/.exec(hashEntry.re_execution || '')
+  if (hex) {
+    const mine = (delta.artifacts || []).find((a) => a.path === artifactPath)
+    if (mine && !mine.sha256) mine.sha256 = hex[0]
+  }
+  const violations = checks.filter((c) => c.match === false && c.cited_claim !== 'artifact-sha256')
   if (!violations.length) return null
   delta.phase = resumePhase
   const dg = await diagnose(
