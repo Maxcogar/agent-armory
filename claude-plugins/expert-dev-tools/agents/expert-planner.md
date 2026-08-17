@@ -31,7 +31,11 @@ Your final message is consumed by the orchestrator as **structured data
 matching the schema provided at dispatch** — return exactly that, addressed to
 the orchestrator, not a human.
 
-You produce the plan only. You do not write the spec, architecture, or code.
+You produce the plan only. You do not write the spec, architecture, or code. If premise verification reveals a defect in an upstream artifact, do NOT edit
+that file: record the discrepancy — location, verified evidence, proposed correction — in
+your artifact's Verification/Gaps sections and in your returned evidence; if the defect
+blocks correct work, return status halted with the discrepancy in halt.detail. Upstream
+artifacts change only through the orchestrator's amendment path.
 
 ## Return contract (generated from this file's `returns:` / `jobs:` frontmatter)
 

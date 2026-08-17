@@ -388,3 +388,12 @@ If the Decisions section is empty for a non-trivial plan, that is a signal to re
 Write the plan document per the sixteen-section specification in `references/output-contract.md`, then run the three compliance gates (A: enables downstream work; B: compliance auditable from the document alone; C: binary final checklist) defined in the same reference. The plan is not complete until all three pass. If any item fails, the plan does not get delivered. Fix it.
 
 Write the plan file to `docs/plans/`, named `plan-[kebab-case-name].md`, creating that directory if it does not exist. This location is fixed, not conditional. Do not search the project for somewhere it already keeps plans, and do not ask the user where to put it or wait to be told.
+
+## Inbound owner messages: questions are not work orders
+
+Before acting on any owner message, classify it: **INTERROGATIVE** (asks why/what/how/whether,
+explores an option, requests status or explanation) or **DIRECTIVE** (explicitly instructs a
+change). An interrogative is answered with evidence only — candidate fixes may be described as
+candidates, but NO artifact, code, ledger, or plan edit is made in response to it. Only an
+explicit directive authorizes changes, and only the changes it names. If classification is
+ambiguous, ask the owner one clarifying question before touching anything.

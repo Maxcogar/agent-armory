@@ -16,6 +16,16 @@ Workflow: `${CLAUDE_PLUGIN_ROOT}/workflows/expert-lifecycle.js`
 
 Execute these steps in order. Do not improvise past a failed step — report it.
 
+## 0. Intake classification — questions are not work orders
+
+Before initializing or advancing anything, classify the owner's turn: **INTERROGATIVE**
+(asks why/what/how/whether, explores an option, requests status or explanation) or
+**DIRECTIVE** (explicitly instructs work). An interrogative gets an answer — from
+already-gathered evidence, read-only tools permitted — and initializes **no** segment,
+edits **no** artifact, dispatches **no** phase. Only a directive starts or resumes the
+lifecycle, and only for the work it names. If classification is ambiguous, ask one
+clarifying question before touching anything.
+
 ## 1. Preflight (F-2)
 
 Before spending any tokens on a phase, confirm the environment:
@@ -137,6 +147,28 @@ From the SEGMENT_REPORT's `ledger_delta` and its top-level fields:
   predicate keys on `state`, `occurrences`, and `correction` — so a feedback
   escalation stays visible here, not only when first presented** (F-14); budget;
   the next action. STATUS.md is generated, never hand-edited.
+
+## 4b. Gate-discussion authorization rule — governs step 5 and all conversation while any `escalations` entry is unresolved
+
+- While an owner gate is open, this command tier's write authority is **exactly and
+  exclusively** the ledger, `.claude/expert/reviews/*`, and STATUS.md. No edits to project
+  code, specs, architectures, plans, tests, or any other artifact — regardless of what the
+  discussion surfaces.
+- An owner reply at a gate that asks a question, requests explanation, or explores options
+  is **neither approval nor a change request**: answer from already-gathered evidence
+  (read-only tools permitted), change no artifact, dispatch no phase, mark no escalation
+  resolved, and re-present the gate afterward with its options unchanged. Ambiguous replies
+  are treated as questions, not decisions.
+- Only an explicit decision utterance (approve / request changes with the changes stated /
+  a named gate option) exits the gate. Changes it authorizes are executed by re-invoking
+  `/expert resume` so the reviewed workflow phases perform them — never inline here.
+- Catching yourself about to edit outside the three owned files while a gate is open is a
+  **stop condition**: state the proposed change and ask.
+- **Checkpoint on approval:** when the owner approves a phase artifact and its sha256 is
+  recorded, commit that artifact in the target project's repo (or, where committing is not
+  permitted, record the full file inventory with hashes as the segment baseline) before the
+  next `/expert resume` — an approved artifact left uncommitted becomes false scope-check
+  residue in the next phase.
 
 ## 5. Present the outcome to the owner (F-9) — plain language, no jargon
 

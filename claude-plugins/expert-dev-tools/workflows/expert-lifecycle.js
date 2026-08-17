@@ -491,7 +491,7 @@ if (cursor === 'intake') cursor = 'spec'
 if (cursor === 'spec') {
   phase('Spec')
   const specOut = await agent(
-    `Write the specification for this task.\nTask: ${task}`,
+    `Write the specification for this task.\nTask: ${task}\nYou are authorized to write exactly one file: the specification artifact you create. Change nothing else in the repository.`,
     { agentType: AGENT.spec, schema: PHASE_SCHEMA, phase: 'Spec', label: 'spec' }
   )
   specPath = resolveArtifactPath(specOut, specPath)
@@ -530,7 +530,7 @@ if (cursor === 'spec') {
 // ---- ARCHITECTURE -------------------------------------------------------
 if (cursor === 'architecture') {
   phase('Architecture')
-  const out = await agent(`Produce the architecture from the approved spec at ${specPath}.`, { agentType: AGENT.architect, schema: PHASE_SCHEMA, phase: 'Architecture', label: 'architecture' })
+  const out = await agent(`Produce the architecture from the approved spec at ${specPath}. You are authorized to write exactly one file: the architecture artifact you create. Change nothing else in the repository. If premise verification reveals a defect in an upstream artifact, do NOT edit that file: record the discrepancy (location, verified evidence, proposed correction) in your returned evidence, or return status halted with it in halt.detail. Upstream artifacts change only through the orchestrator's amendment path.`, { agentType: AGENT.architect, schema: PHASE_SCHEMA, phase: 'Architecture', label: 'architecture' })
   archPath = resolveArtifactPath(out, archPath)
   const esc = maybeEscalate(out, 'architecture')
   if (esc) return esc
@@ -553,7 +553,7 @@ if (cursor === 'architecture') {
 // ---- PLAN ---------------------------------------------------------------
 if (cursor === 'plan') {
   phase('Plan')
-  const out = await agent(`Produce the implementation plan from the spec at ${specPath} and architecture at ${archPath}.`, { agentType: AGENT.planner, schema: PHASE_SCHEMA, phase: 'Plan', label: 'plan' })
+  const out = await agent(`Produce the implementation plan from the spec at ${specPath} and architecture at ${archPath}. You are authorized to write exactly one file: the plan artifact you create. Change nothing else in the repository. If premise verification reveals a defect in an upstream artifact, do NOT edit that file: record the discrepancy (location, verified evidence, proposed correction) in your returned evidence, or return status halted with it in halt.detail. Upstream artifacts change only through the orchestrator's amendment path.`, { agentType: AGENT.planner, schema: PHASE_SCHEMA, phase: 'Plan', label: 'plan' })
   planPath = resolveArtifactPath(out, planPath)
   const esc = maybeEscalate(out, 'plan')
   if (esc) return esc
@@ -663,7 +663,16 @@ if (cursor === 'implement') {
 // ---- GROUND TRUTH + reconciliation --------------------------------------
 if (cursor === 'ground_truth') {
   phase('Ground truth')
-  const acc = await agent(`Execute each of the spec's acceptance criteria against the running system and report per-criterion pass/fail with observed evidence.`, { agentType: AGENT.acceptance, schema: ACCEPTANCE_SCHEMA, phase: 'Ground truth', label: 'ground-truth' })
+  // Sequencing + payload-coherence guard: verification may only target the build this
+  // lifecycle produced, sourced from THIS ledger's spec — never a pre-existing artifact
+  // or another project's criteria (acceptance run 2026-08-17: all 27 failures in one
+  // dispatch were predetermined by target selection, not implementation defects).
+  const implPassed = (ledger.gate_history || []).concat(delta.gate_history || []).some((g) => g.gate === 'implementation' && g.verdict === 'PASS')
+  if (!specPath || !implPassed) {
+    delta.phase = 'ground_truth'
+    return report(finish(), { outcome: 'failed', failure: { kind: 'ledger_integrity', detail: !specPath ? 'Ground-truth dispatch refused: no spec artifact in this ledger to source criteria from.' : 'Ground-truth dispatch refused: no implementation PASS is recorded for this lifecycle, so there is no build traceable to the executed plan to verify.' } })
+  }
+  const acc = await agent(`Execute each acceptance criterion of the spec at ${specPath} — that spec's requirements ONLY; no other project's or document's criteria apply — against the running system this lifecycle's executed plan produced in the ledger task's target project. Report per-criterion pass/fail with observed evidence.`, { agentType: AGENT.acceptance, schema: ACCEPTANCE_SCHEMA, phase: 'Ground truth', label: 'ground-truth' })
   const failed = acc && (acc.criteria || []).filter((c) => c.verdict === 'fail')
   if (failed && failed.length) {
     const dg = await diagnose(`Ground-truth failure: ${JSON.stringify(failed)}`, ledger, { failed_criteria: failed })
@@ -747,7 +756,7 @@ async function gateEscalation(gate, phaseName, resumePhase, artifactPath, led) {
 // available.
 async function documentScopeCheck(phaseName, resumePhase, artifactPath, led) {
   const sc = await agent(
-    `Document-phase scope check: compare the git-changed files against the single artifact this phase was authorized to write, "${artifactPath}". Report every other changed file as a violation. The authorized set is one path — not a plan's Files-affected list.`,
+    `Document-phase scope check: determine which files THIS phase's agent changed — attribute changes since this phase was dispatched, using git status/log against the latest checkpoint commit plus file modification times; files already dirty from prior segments (e.g. an approved but not-yet-checkpointed artifact) and the orchestrator's own .claude/expert bookkeeping are NOT this phase's writes — then compare that attributed set against the single artifact this phase was authorized to write, "${artifactPath}". Report every other file changed by THIS phase as a violation, and name any prior-segment residue separately as residue (not a violation). The authorized set is one path — not a plan's Files-affected list.`,
     { agentType: AGENT.verifier, schema: VERIFIER_SCHEMA, phase: 'Verify', label: 'doc-scope' }
   )
   const violations = ((sc && sc.checks) || []).filter((c) => c.match === false)

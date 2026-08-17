@@ -576,3 +576,45 @@ execution; the fence-indentation site's fourth consecutive finding). Applied 202
   loop ran rounds 4–8 and ended by tripwire, the owner approved the plan's substance 2026-08-09,
   the plan was executed 26/26 with both tiers green, and the implementation is under its own
   review. The dispatch-pinning paragraph survives verbatim, as the review directed.
+
+---
+
+### 16 · `skills/expert-standard/SKILL.md` · third axis + fifth failure signal · **authorization before action**
+
+**Trigger.** Behavioral-acceptance feedback sweeps (2026-08-17, runs wf_61b4beae through
+wf_70b31630) escalated the questions-treated-as-work-orders signature in every segment (5-9
+occurrences per sweep) with the same root cause: the always-on frame governs judgment and
+observation but has no authorization axis, so the helpfulness default converts owner questions
+into unauthorized edits. Owner approved the correction 2026-08-17 (deferred correction #1).
+
+**Anchors and changes (applied to the plugin copy; propagate per this changelog's rules):**
+- "Two shifts, working together. Neither alone is sufficient." → "Three shifts…None alone…"
+- New shift paragraph inserted before "These shifts are related.": **Act only on authorization,
+  not on inference of intent** — name the authorizing instruction before any Edit/Write/commit/
+  dispatch; a question is never authorization; candidates stay candidates during diagnosis;
+  engage every point of a multi-point message.
+- "Four signals" → "Five signals"; new **Unauthorized changes** signal inserted before
+  "**Assessment gaps.**": an artifact changed and no owner instruction can be quoted that
+  ordered the change.
+
+---
+
+### 17 · `skills/expert-plan/SKILL.md` + `skills/expert-implement/SKILL.md` · appended section · **inbound owner messages**
+
+**Trigger.** Same acceptance-sweep evidence as entry 16; the phase-skill half of the same class
+(deferred correction #1/#5 family): both skills governed only questions the agent ASKS, never
+messages the owner sends.
+
+**Anchor.** Appended as a new final section, identical text in both: "## Inbound owner messages:
+questions are not work orders" — classify INTERROGATIVE vs DIRECTIVE before acting; interrogatives
+get evidence-only answers with no artifact/code/ledger/plan edit; only explicit directives
+authorize changes, and only those named; ambiguity → one clarifying question. expert-implement
+additionally binds the rule to its Step-3 scope: an owner question mid-execution never expands the
+step's authorized scope.
+
+**Related (not in skills/, recorded for cross-reference):** the same correction batch (v0.3.0)
+adds commands/expert.md §0 intake classification and §4b gate-discussion authorization; write-scope
+statements + upstream-defect reporting channel to the three authoring dispatch prompts and agent
+files; phase-attribution language to the scope check; and the ground-truth sequencing/coherence
+guard in workflows/expert-lifecycle.js. Evidence: ACCEPTANCE-RESULTS-2026-08-17.md and the five
+defect-history correction drafts.

@@ -45,3 +45,7 @@ dispatch. The response shape your dispatches are validated against declares thes
 
 Declaring a field here is not a promise to populate it on every return — only `status`-class
 required fields are mandatory. What you must actually emit is stated in the prose above.
+
+You write exactly one file: the specification artifact. Change nothing else in the
+repository. A defect found in any input is recorded in the spec's open-questions/evidence
+or returned in halt.detail — never fixed in place by you.

@@ -217,3 +217,15 @@ When the user resolves a STOP REPORT — A (amend plan), B (override), or C (abo
 - It does not produce architecture documents. That is an architecture step (e.g. `/architecture`).
 - It does not grade its own output. The independent review is dispatched to a neutral subagent, per "Hand off to independent review."
 - It does not mark the project's status doc "Complete" on its own say-so. Only an independent review PASS justifies that; until then the honest state is "code-complete, pending independent review."
+
+## Inbound owner messages: questions are not work orders
+
+Before acting on any owner message, classify it: **INTERROGATIVE** (asks why/what/how/whether,
+explores an option, requests status or explanation) or **DIRECTIVE** (explicitly instructs a
+change). An interrogative is answered with evidence only — candidate fixes may be described as
+candidates, but NO artifact, code, ledger, or plan edit is made in response to it. Only an
+explicit directive authorizes changes, and only the changes it names. If classification is
+ambiguous, ask the owner one clarifying question before touching anything.
+
+In this skill specifically: an owner question mid-execution never expands the current
+step's authorized scope — the Step-3 scope rule binds until an explicit directive changes it.
