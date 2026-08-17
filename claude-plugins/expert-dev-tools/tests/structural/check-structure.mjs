@@ -456,6 +456,32 @@ check('T-18 the scope check is dispatched to the verifier under one label',
     // and the exact label that supersedes it, with the finding that forced the swap.
     const REPLACED_BY_STRENGTHENING = [
       {
+        was: 'T-24 gt-guard: target traceability is in the refusal predicate',
+        now: 'T-24 gt-guard: refusal predicate is the extracted pure function',
+        why: 'corrections-0.3.0 round-5 F5-3: the inline predicate was extracted into ' +
+             'groundTruthPreconditions so T-24x can lift and EXECUTE it; the text pin now ' +
+             'targets the call site, and five executed T-24x cases observe the refusals.',
+      },
+      {
+        was: 'T-24 shared accumulator: implement gate and gt-guard read the same registered set',
+        now: 'T-24 shared accumulator: the implement gate reads the registered set',
+        why: 'corrections-0.3.0 round-5: the gt-guard side moved into the extracted pure ' +
+             'function (executed by T-24x); the remaining text pin covers the implement gate.',
+      },
+      {
+        was: 'T-24 gt-guard: refusal is an answerable owner gate, and no terminal failed outcome exists',
+        now: 'T-24 every workflow outcome is complete or owner_gate (no terminal failed, reworded or not)',
+        why: 'corrections-0.3.0 round-5 F5-4: the quote-specific assertion is replaced by a ' +
+             'semantic scan over every outcome literal, immune to rewording.',
+      },
+      {
+        was: 'T-24 scope-check: no mtime proxy remains in the exemption rules',
+        now: 'T-24 scope-check: no time-based exemption in the scope rules (semantic, reword-resistant)',
+        why: 'corrections-0.3.0 round-5 F5-4: mutation probe M4 showed a REWORDED mtime rule ' +
+             'passed the verbatim-sentence pin; the replacement matches the concept by regex ' +
+             'over the scope-check prompt region.',
+      },
+      {
         was: 'T-24 scope-check: same-segment earlier-phase outputs are exempt by path list',
         now: 'T-24 scope-check: each phase RECORDS its artifact hash via the verifier',
         why: 'corrections-0.3.0 round-4 F4-3: the path-list exemption (with an mtime-ordering ' +
@@ -660,12 +686,12 @@ check('T-24 gt-guard: spec must be owner-approved in the LEDGER index',
   /const specApproved = [^\n]*approved_by_owner === true/.test(wfSrc));
 check('T-24 gt-guard: build-completeness reads the LATEST implementation verdict',
   wfSrc.includes("implGates[implGates.length - 1].verdict === 'PASS'"));
-check('T-24 gt-guard: target traceability is in the refusal predicate',
-  wfSrc.includes('!specApproved || !implPassed || implArts.length === 0'));
-check('T-24 gt-guard: refusal is an answerable owner gate, and no terminal failed outcome exists',
-  wfSrc.includes('Ground-truth dispatch refused: ${why}') && !wfSrc.includes("outcome: 'failed'"));
-check('T-24 shared accumulator: implement gate and gt-guard read the same registered set',
-  (wfSrc.match(/implementationArtifacts\(\)/g) || []).length >= 2);
+check('T-24 gt-guard: refusal predicate is the extracted pure function',
+  wfSrc.includes('const gt = groundTruthPreconditions(ledger, delta, specPath)'));
+check('T-24 every workflow outcome is complete or owner_gate (no terminal failed, reworded or not)',
+  (() => { const outs = [...wfSrc.matchAll(/outcome:\s*'(\w+)'/g)].map((m) => m[1]); return outs.length > 0 && outs.every((o) => o === 'complete' || o === 'owner_gate'); })());
+check('T-24 shared accumulator: the implement gate reads the registered set',
+  wfSrc.includes('if (implementationArtifacts().length === 0) {'));
 check('T-24 shared role predicate: hash pinning excludes implementation everywhere',
   wfSrc.includes("const isHashPinnedRole = (a) => a.role !== 'implementation'") && wfSrc.includes('isHashPinnedRole(a) && a.path !== artifactPath'));
 check('T-24 gt-guard: implement phase PRODUCES role implementation artifacts',
@@ -674,10 +700,31 @@ check('T-24 scope-check: prior-artifact hashes are injected from the ledger inde
   wfSrc.includes('a.sha256 && isHashPinnedRole(a) && a.path !== artifactPath'));
 check('T-24 scope-check: hash-mismatched upstream artifact is named a violation',
   wfSrc.includes('current hash DIFFERS from its recorded hash') && wfSrc.includes('unauthorized upstream edit'));
+// T-24x: the ground-truth guard predicate EXECUTED against constructed ledger
+// shapes - refusals observed, not just asserted as source text (F5-3, closed on
+// its third recurrence by the same lift-and-run mechanism T-22/T-23 use).
+{
+  const gtp = new Function(declOf(wfSrc, 'function groundTruthPreconditions(') + '\nreturn groundTruthPreconditions;')();
+  const spec = { role: 'spec', path: 'S.md', approved_by_owner: true };
+  const impl = { role: 'implementation', path: 'x.js' };
+  const passGate = { gate: 'implementation', verdict: 'PASS' };
+  const failGate = { gate: 'implementation', verdict: 'NEEDS_FIXES' };
+  const L = (arts, gates) => ({ artifact_index: arts, gate_history: gates });
+  check('T-24x refuses when the spec is not owner-approved',
+    gtp(L([{ ...spec, approved_by_owner: false }, impl], [passGate]), { artifacts: [], gate_history: [] }, 'S.md').ok === false);
+  check('T-24x refuses when the LATEST implementation verdict is not PASS (earlier PASS does not count)',
+    gtp(L([spec, impl], [passGate, failGate]), { artifacts: [], gate_history: [] }, 'S.md').ok === false);
+  check('T-24x refuses when no implementation artifacts are registered',
+    gtp(L([spec], [passGate]), { artifacts: [], gate_history: [] }, 'S.md').ok === false);
+  check('T-24x proceeds when all three preconditions hold (same-segment artifacts count)',
+    gtp(L([spec], [passGate]), { artifacts: [impl], gate_history: [] }, 'S.md').ok === true);
+  check('T-24x refusal reason names the failed precondition',
+    /owner-approved/.test(gtp(L([{ ...spec, approved_by_owner: false }], []), {}, 'S.md').why));
+}
 check('T-24 scope-check: each phase RECORDS its artifact hash via the verifier',
   wfSrc.includes("cited_claim === 'artifact-sha256'") && wfSrc.includes('mine.sha256 = hex[0]'));
-check('T-24 scope-check: no mtime proxy remains in the exemption rules',
-  !wfSrc.includes('last-modified time predates'));
+check('T-24 scope-check: no time-based exemption in the scope rules (semantic, reword-resistant)',
+  (() => { const i = wfSrc.indexOf('Document-phase scope check'); const region = wfSrc.slice(i, wfSrc.indexOf('`', i + 10)); return i > 0 && !/(mtime|last[- ]modified|modif\w*\s+(?:time|before|after)|timestamp)/i.test(region); })());
 
 console.log(failures ? `\nSTRUCTURAL TESTS FAILED (${failures})` : '\nSTRUCTURAL TESTS PASSED');
 process.exit(failures ? 1 : 0);

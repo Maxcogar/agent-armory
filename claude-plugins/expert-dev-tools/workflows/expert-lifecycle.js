@@ -186,6 +186,7 @@ const VERIFIER_SCHEMA = {
   properties: {
     checks: {
       type: 'array',
+      minItems: 1,
       items: {
         type: 'object',
         required: ['cited_claim', 'match'],
@@ -457,6 +458,14 @@ const delta = { phase: ledger.phase, artifacts: [], gate_history: [], amendments
 // same role) - one predicate, used by every consumer.
 const isHashPinnedRole = (a) => a.role !== 'implementation'
 const implementationArtifacts = () => (ledger.artifact_index || []).concat(delta.artifacts || []).filter((a) => a.role === 'implementation')
+// F5-2: a verifier that returns nothing verified nothing. Every consumer of a
+// VERIFIER_SCHEMA return goes through this; an empty return is a failed control,
+// never a passed one (fail-closed).
+const verifierEmpty = (v) => !v || !Array.isArray(v.checks) || v.checks.length === 0
+const emptyVerifierGate = (what, resumePhase) => {
+  delta.phase = resumePhase
+  return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.non_convergence, what_happened: `The ${what} verifier returned no checks - the control did not run, so its subject is unverified. Fail-closed: the phase does not pass on an empty control.`, options: ['re-run the phase', 'investigate the verifier dispatch'], recommendation: 're-run; an empty verifier return is an infrastructure or dispatch fault, not evidence of correctness' } })
+}
 const reviewRecords = []
 function record(gate, gateResult) {
   for (const h of gateResult.history) {
@@ -669,7 +678,8 @@ if (cursor === 'implement') {
   if (idx.length) {
     const sample = idx.map((i) => cited[i])
     const vr = await agent(`Spot re-run: re-execute each cited verification and report match/mismatch. Cited: ${JSON.stringify(sample)}`, { agentType: AGENT.verifier, schema: VERIFIER_SCHEMA, phase: 'Verify', label: 'spot-rerun' })
-    const fabricated = vr && (vr.checks || []).some((c) => c.match === false)
+    if (verifierEmpty(vr)) return emptyVerifierGate('spot re-run', 'implement')
+    const fabricated = (vr.checks || []).some((c) => c.match === false)
     if (fabricated) {
       const dg = await diagnose('A cited verification did not reproduce on spot re-run (fabricated compliance).', ledger, { checks: vr.checks, sampled_indices: idx, cited: sample, seed })
       delta.phase = 'implement'
@@ -679,7 +689,8 @@ if (cursor === 'implement') {
 
   // diff-vs-plan mechanical check
   const dvp = await agent(`Diff-vs-plan: compare git-changed files against the plan's authorized "Files affected" at ${planPath}. Report violations in either direction.`, { agentType: AGENT.verifier, schema: VERIFIER_SCHEMA, phase: 'Verify', label: 'diff-vs-plan' })
-  if (dvp && (dvp.checks || []).some((c) => c.match === false)) {
+  if (verifierEmpty(dvp)) return emptyVerifierGate('diff-vs-plan', 'implement')
+  if ((dvp.checks || []).some((c) => c.match === false)) {
     const dg = await diagnose('A changed file is outside the plan\'s authorized set (scope violation).', ledger, { checks: dvp.checks, plan: planPath })
     delta.phase = 'implement'
     return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.spec_traceable, what_happened: 'An out-of-plan file change was detected.', diagnosis: dg, options: ['amend plan', 'revert change'], recommendation: 'review the diagnosis' } })
@@ -702,15 +713,11 @@ if (cursor === 'ground_truth') {
   //       the implement phase's files_changed registration above);
   //   (c) build-completeness - the LATEST implementation review verdict is PASS (a
   //       PASS that predates a later re-review does not count).
-  const specApproved = !!specPath && (ledger.artifact_index || []).some((a) => a.role === 'spec' && a.path === specPath && a.approved_by_owner === true)
-  const implArts = implementationArtifacts()
-  const implGates = (ledger.gate_history || []).concat(delta.gate_history || []).filter((g) => g.gate === 'implementation')
-  const implPassed = implGates.length > 0 && implGates[implGates.length - 1].verdict === 'PASS'
-  if (!specApproved || !implPassed || implArts.length === 0) {
+  const gt = groundTruthPreconditions(ledger, delta, specPath)
+  const implArts = gt.implArts
+  if (!gt.ok) {
     delta.phase = 'ground_truth'
-    const why = !specApproved ? 'the criteria source is not an owner-approved spec registered in this ledger (payload-coherence check; approval happens at the intent gate, so this always spans segments)'
-      : !implPassed ? 'the latest implementation review in this ledger is not a PASS, so there is no verified build'
-      : 'no implementation artifacts are registered, so there is no build output traceable to the executed plan to target (target-traceability check)'
+    const why = gt.why
     return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.spec_traceable, what_happened: `Ground-truth dispatch refused: ${why}.`, options: ['resume after the missing precondition is repaired (re-run the phase that should have produced it)', 'investigate the ledger'], recommendation: 'repair the precondition and resume; this refusal exists so verification can never target a build the lifecycle did not produce' } })
   }
   const acc = await agent(`Execute each acceptance criterion of the spec at ${specPath} — that spec's requirements ONLY; no other project's or document's criteria apply — against the running system this lifecycle's executed plan produced in the ledger task's target project${implArts.length ? ` (registered implementation artifacts: ${implArts.map((a) => a.path).join(', ')})` : ''}. Report per-criterion pass/fail with observed evidence.`, { agentType: AGENT.acceptance, schema: ACCEPTANCE_SCHEMA, phase: 'Ground truth', label: 'ground-truth' })
@@ -723,7 +730,8 @@ if (cursor === 'ground_truth') {
   }
   phase('Verify')
   const recon = await agent(`Whole-chain reconciliation: map every in-scope spec requirement to its implementing diff and verifying evidence, and every diff hunk to its authorizing plan step at ${planPath}. Report anything unmapped in either direction.`, { agentType: AGENT.verifier, schema: VERIFIER_SCHEMA, phase: 'Verify', label: 'reconciliation' })
-  if (recon && (recon.checks || []).some((c) => c.match === false)) {
+  if (verifierEmpty(recon)) return emptyVerifierGate('reconciliation', 'ground_truth')
+  if ((recon.checks || []).some((c) => c.match === false)) {
     const dg = await diagnose('Whole-chain reconciliation found an unmapped requirement or diff hunk.', ledger, { checks: recon.checks, spec: specPath, plan: planPath })
     delta.phase = 'ground_truth'
     return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.spec_traceable, what_happened: 'Reconciliation found an unmapped item.', diagnosis: dg, options: ['amend', 'investigate'], recommendation: 'review the diagnosis' } })
@@ -786,6 +794,22 @@ async function gateEscalation(gate, phaseName, resumePhase, artifactPath, led) {
   const dg = await diagnose(`${phaseName} review did not converge in ${ROUND_CAP} rounds.`, led, { gate: resumePhase, artifact: artifactPath, rounds: gate.history })
   return { type: GATE.non_convergence, what_happened: what, diagnosis: dg, findings: lastRoundFindings(gate), options: ['amend', 'revisit upstream'], recommendation: 'review the diagnosis' }
 }
+// Pure predicate for the ground-truth sequencing/coherence guard. Extracted as a
+// named function so the structural tier can lift and EXECUTE it against constructed
+// ledger shapes (same mechanism as runGate for T-22/T-23) - refusals are observed,
+// not just asserted as source text.
+function groundTruthPreconditions(led, dlt, specPathArg) {
+  const specApproved = !!specPathArg && ((led || {}).artifact_index || []).some((a) => a.role === 'spec' && a.path === specPathArg && a.approved_by_owner === true)
+  const implArts = ((led || {}).artifact_index || []).concat((dlt || {}).artifacts || []).filter((a) => a.role === 'implementation')
+  const implGates = ((led || {}).gate_history || []).concat((dlt || {}).gate_history || []).filter((g) => g.gate === 'implementation')
+  const implPassed = implGates.length > 0 && implGates[implGates.length - 1].verdict === 'PASS'
+  const ok = specApproved && implPassed && implArts.length > 0
+  const why = ok ? '' : !specApproved ? 'the criteria source is not an owner-approved spec registered in this ledger (payload-coherence check; approval happens at the intent gate, so this always spans segments)'
+    : !implPassed ? 'the latest implementation review in this ledger is not a PASS, so there is no verified build'
+    : 'no implementation artifacts are registered, so there is no build output traceable to the executed plan to target (target-traceability check)'
+  return { ok, why, implArts }
+}
+
 // Mechanical scope control for the three DOCUMENT phases (S20). The implementation
 // phase has had diff-vs-plan since the start; a document phase had nothing, so the
 // spec phase's stray scratch-note.txt was caught only because a reviewer happened to
@@ -807,17 +831,24 @@ async function documentScopeCheck(phaseName, resumePhase, artifactPath, led) {
     `Document-phase scope check against recorded state. The single artifact this phase was authorized to write is "${artifactPath}". Artifacts with recorded SHA-256 hashes - from the ledger index (recorded at ledger load) and from earlier phases of THIS segment (recorded by each phase's own scope check): ${JSON.stringify((((led || {}).artifact_index || []).concat(delta.artifacts || [])).filter((a) => a.sha256 && isHashPinnedRole(a) && a.path !== artifactPath).map((a) => ({ path: a.path, sha256: a.sha256 })))}. Rules, in order: (1) a changed/untracked file that IS the authorized path - authorized; (2) a hash-listed artifact whose CURRENT hash still equals its recorded hash - unchanged residue, report as residue, not a violation; (3) a hash-listed artifact whose current hash DIFFERS from its recorded hash - an unauthorized upstream edit (prior segment or earlier this segment, either interleaving), a VIOLATION; (4) the orchestrator's .claude/expert bookkeeping files - bookkeeping, not a violation; (5) any other changed file - a VIOLATION. Compute the hashes yourself and report the comparison per file. Additionally: ALWAYS include one extra check entry whose cited_claim is exactly "artifact-sha256", whose match is true, and whose re_execution contains the current SHA-256 hex digest of the authorized artifact "${artifactPath}" - this records the artifact's hash for later phases' scope checks. The authorized set is one path - not a plan's Files-affected list.`,
     { agentType: AGENT.verifier, schema: VERIFIER_SCHEMA, phase: 'Verify', label: 'doc-scope' }
   )
-  const checks = (sc && sc.checks) || []
+  if (verifierEmpty(sc)) return emptyVerifierGate(`${phaseName} scope-check`, resumePhase)
+  const checks = sc.checks
   // Record the verifier-computed hash on this phase's artifact entry, so later
   // phases' scope checks compare against it (the workflow cannot hash; the
   // dispatched verifier can - this is the round-3 primary remedy, implemented
   // at the only point in the pipeline that can execute a hash).
   const hashEntry = checks.find((c) => c.cited_claim === 'artifact-sha256')
   const hex = hashEntry && /[0-9a-f]{64}/.exec(hashEntry.re_execution || '')
-  if (hex) {
-    const mine = (delta.artifacts || []).find((a) => a.path === artifactPath)
-    if (mine && !mine.sha256) mine.sha256 = hex[0]
+  if (!hex) {
+    // F5-1: without a recorded hash, this artifact would fall to the catch-all
+    // VIOLATION rule at the NEXT phase's scope check - a delayed false halt.
+    // Fail closed here instead, where the cause (the verifier not returning the
+    // requested hash entry) is visible and re-runnable.
+    delta.phase = resumePhase
+    return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.non_convergence, what_happened: `The ${phaseName} scope-check verifier did not return the required artifact-sha256 entry for ${artifactPath}, so later phases could not distinguish this artifact from an unauthorized edit.`, options: ['re-run the phase', 'investigate the verifier dispatch'], recommendation: 're-run; the hash record is what keeps later scope checks honest' } })
   }
+  const mine = (delta.artifacts || []).find((a) => a.path === artifactPath)
+  if (mine && !mine.sha256) mine.sha256 = hex[0]
   const violations = checks.filter((c) => c.match === false && c.cited_claim !== 'artifact-sha256')
   if (!violations.length) return null
   delta.phase = resumePhase
