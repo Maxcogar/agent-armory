@@ -591,7 +591,10 @@ if (cursor === 'implement') {
     // PREMISE-FALSE / BLAST-RADIUS -> auto amend-plan -> re-implement (remediation
     // goes through the planner then the implementer; reviewed like any change).
     await agent(`Amend the plan at ${planPath} per this diagnosis, then re-verify: ${JSON.stringify(dg)}`, { agentType: AGENT.planner, schema: PHASE_SCHEMA, phase: 'Plan', label: 'amend:plan' })
-    await agent(`Execute the amended plan at ${planPath}.`, { agentType: AGENT.implementer, schema: IMPLEMENT_SCHEMA, phase: 'Implement', label: 're-implement' })
+    const impl2 = await agent(`Execute the amended plan at ${planPath}.`, { agentType: AGENT.implementer, schema: IMPLEMENT_SCHEMA, phase: 'Implement', label: 're-implement' })
+    for (const f of (impl2 && impl2.files_changed) || []) {
+      delta.artifacts.push({ role: 'implementation', path: f })
+    }
   }
 
   // Implementation review — multi-lens panel on the PASS round.
@@ -609,6 +612,14 @@ if (cursor === 'implement') {
   // this producer that check could never hold).
   for (const f of (impl && impl.files_changed) || []) {
     delta.artifacts.push({ role: 'implementation', path: f })
+  }
+
+  // F3-1: files_changed is optional in IMPLEMENT_SCHEMA, so an implementer that
+  // omits it would otherwise sail to the ground-truth guard and strand there.
+  // Surface it here as an answerable gate instead of a terminal refusal later.
+  if (!((impl && impl.files_changed) || []).length) {
+    delta.phase = 'implement'
+    return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.spec_traceable, what_happened: 'The implementer completed without reporting any changed files, so no build output is traceable to the executed plan. Ground truth cannot target anything until this is resolved.', options: ['re-run the implement phase', 'investigate'], recommendation: 're-run the implement phase; if it genuinely changed nothing, the plan itself needs the owner\'s attention' } })
   }
 
   // Anti-fabrication spot re-run over a deterministic sample of cited evidence.
@@ -691,7 +702,7 @@ if (cursor === 'ground_truth') {
     const why = !specApproved ? 'the criteria source is not an owner-approved spec registered in this ledger (payload-coherence check; approval happens at the intent gate, so this always spans segments)'
       : !implPassed ? 'the latest implementation review in this ledger is not a PASS, so there is no verified build'
       : 'no implementation artifacts are registered, so there is no build output traceable to the executed plan to target (target-traceability check)'
-    return report(finish(), { outcome: 'failed', failure: { kind: 'ledger_integrity', detail: `Ground-truth dispatch refused: ${why}.` } })
+    return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.spec_traceable, what_happened: `Ground-truth dispatch refused: ${why}.`, options: ['resume after the missing precondition is repaired (re-run the phase that should have produced it)', 'investigate the ledger'], recommendation: 'repair the precondition and resume; this refusal exists so verification can never target a build the lifecycle did not produce' } })
   }
   const acc = await agent(`Execute each acceptance criterion of the spec at ${specPath} — that spec's requirements ONLY; no other project's or document's criteria apply — against the running system this lifecycle's executed plan produced in the ledger task's target project${implArts.length ? ` (registered implementation artifacts: ${implArts.map((a) => a.path).join(', ')})` : ''}. Report per-criterion pass/fail with observed evidence.`, { agentType: AGENT.acceptance, schema: ACCEPTANCE_SCHEMA, phase: 'Ground truth', label: 'ground-truth' })
   const failed = acc && (acc.criteria || []).filter((c) => c.verdict === 'fail')
@@ -775,9 +786,14 @@ async function gateEscalation(gate, phaseName, resumePhase, artifactPath, led) {
 // A stray file escalates; it never discards the phase's work, and the plugin cannot
 // sandbox an agent's writes at runtime, so detection-and-escalation is the control
 // available.
+// The workflow runtime cannot execute processes (no child_process/spawn - it only
+// dispatches agents), so draft C's literal git-status-at-dispatch baseline is not
+// implementable here. The adaptation: recorded hashes from the ledger index are
+// injected as computed inputs, same-segment outputs are named by path with an
+// mtime-ordering condition, and the dispatched verifier executes the comparisons.
 async function documentScopeCheck(phaseName, resumePhase, artifactPath, led) {
   const sc = await agent(
-    `Document-phase scope check against recorded state. The single artifact this phase was authorized to write is "${artifactPath}". Prior-segment artifacts with the SHA-256 hashes recorded at ledger load: ${JSON.stringify((((led || {}).artifact_index || [])).filter((a) => a.sha256 && a.path !== artifactPath).map((a) => ({ path: a.path, sha256: a.sha256 })))}. Earlier phases of THIS segment already wrote (each scope-checked at its own phase): ${JSON.stringify((delta.artifacts || []).filter((a) => a.path !== artifactPath).map((a) => a.path))}. Rules, in order: (1) a changed/untracked file that IS the authorized path — authorized; (2) a hash-listed prior artifact whose CURRENT hash still equals its recorded hash — unchanged prior-segment residue, report as residue, not a violation; (3) a hash-listed prior artifact whose current hash DIFFERS from its recorded hash — an unauthorized upstream edit, a VIOLATION; (4) a file in the earlier-phases-of-this-segment list — prior phase output, not a violation (its own phase was checked); (5) the orchestrator's .claude/expert bookkeeping files — bookkeeping, not a violation; (6) any other changed file — a VIOLATION. Compute the hashes yourself and report the comparison per file. The authorized set is one path — not a plan's Files-affected list.`,
+    `Document-phase scope check against recorded state. The single artifact this phase was authorized to write is "${artifactPath}". Prior-segment artifacts with the SHA-256 hashes recorded at ledger load: ${JSON.stringify((((led || {}).artifact_index || [])).filter((a) => a.sha256 && a.path !== artifactPath).map((a) => ({ path: a.path, sha256: a.sha256 })))}. Earlier phases of THIS segment already wrote (each scope-checked at its own phase): ${JSON.stringify((delta.artifacts || []).filter((a) => a.path !== artifactPath).map((a) => a.path))}. Rules, in order: (1) a changed/untracked file that IS the authorized path — authorized; (2) a hash-listed prior artifact whose CURRENT hash still equals its recorded hash — unchanged prior-segment residue, report as residue, not a violation; (3) a hash-listed prior artifact whose current hash DIFFERS from its recorded hash — an unauthorized upstream edit, a VIOLATION; (4) a file in the earlier-phases-of-this-segment list — exempt ONLY if its last-modified time predates the authorized artifact's write (check mtimes/git); if it was modified AFTER this phase began writing, that is an unauthorized upstream edit within this segment, a VIOLATION; (5) the orchestrator's .claude/expert bookkeeping files — bookkeeping, not a violation; (6) any other changed file — a VIOLATION. Compute the hashes yourself and report the comparison per file. The authorized set is one path — not a plan's Files-affected list.`,
     { agentType: AGENT.verifier, schema: VERIFIER_SCHEMA, phase: 'Verify', label: 'doc-scope' }
   )
   const violations = ((sc && sc.checks) || []).filter((c) => c.match === false)

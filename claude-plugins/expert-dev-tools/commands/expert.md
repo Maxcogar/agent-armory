@@ -47,7 +47,7 @@ Before spending any tokens on a phase, confirm the environment:
 - If the ledger is missing, initialize a fresh one at `intake` (revision 0,
   empty arrays, `budget.total_tokens` 0, `feedback_marker` `{session_file:null,
   line:0}`) and create the `.claude/expert/` directory.
-- Otherwise read it, and **re-hash every `artifact_index` entry**: compute the
+- Otherwise read it, and **re-hash every `artifact_index` entry except `role: "implementation"`** (implementation outputs are re-verified by tests and ground truth, not hash-pinning; hashing source files here would append a spurious `amendments` entry on every legitimate later edit): compute the
   SHA-256 of each artifact on disk and compare to the stored `sha256`. On any
   mismatch, mark that artifact **amended** (append to `amendments`) and, if the
   artifact's `approved_by_owner` was true, invalidate that approval. A **spec**

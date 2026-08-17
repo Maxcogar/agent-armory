@@ -645,6 +645,9 @@ check('T-23 the escalation builder handles both new states',
 // ---- T-24: ground-truth guard + scope-check are orchestrator predicates (0.3.0) ----
 // Source-text assertions in the tier's established style: each names the property
 // a mutation would have to remove, so deleting a predicate turns the tier red.
+// They are text assertions, not refusal observations, because the workflow body
+// is not importable and no execution harness for it exists; the refusal behavior
+// itself was traced and mutation-probed in review (corrections-0.3.0 rounds 2-3).
 check('T-24 gt-guard: spec must be owner-approved in the LEDGER index',
   /const specApproved = [^\n]*approved_by_owner === true/.test(wfSrc));
 check('T-24 gt-guard: build-completeness reads the LATEST implementation verdict',
