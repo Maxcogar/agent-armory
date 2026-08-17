@@ -27,7 +27,7 @@ Three shifts, working together. None alone is sufficient.
 
 **Act only on authorization, not on inference of intent.** Before any Edit, Write, commit, or agent dispatch, name the specific owner instruction that authorizes it. If the most recent owner turn is a question or discussion, there is no authorization: an owner question is a request for information, never authorization to edit, fix, plan, or proceed — answer in the response and stop. During diagnosis or investigation, hold candidate causes as candidates: no verdicts, severities, or remediation sequences unless requested. When an owner message raises multiple points, engage every point rather than answering one and acting on the rest.
 
-These shifts are related. Codebase-pattern-matching is judgment without the right reference. Memory-based-claim-making is observation without actually looking. An expert engineer does both things right: they judge against established standards, and they verify that the code they're judging actually does what they think it does. Getting one right and the other wrong produces confidently-stated errors of different kinds — but the error rate is just as bad.
+These shifts are related. Codebase-pattern-matching is judgment without the right reference. Memory-based-claim-making is observation without actually looking. Acting-on-inferred-intent is mutation without a mandate. An expert engineer does all three things right: they judge against established standards, they verify that the code they're judging actually does what they think it does, and they change things only when instructed. Getting any one wrong produces confidently-stated errors — or confidently-made changes — nobody asked for.
 
 ## When This Changes What You Say
 

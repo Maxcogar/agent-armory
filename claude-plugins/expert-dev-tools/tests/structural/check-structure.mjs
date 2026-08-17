@@ -642,5 +642,23 @@ check('T-23 both caller sites route non-PASS through the shared escalation build
 check('T-23 the escalation builder handles both new states',
   /gate\.verdict === 'CORRECTION_FAILED'/.test(wfSrc) && /gate\.verdict === 'CORRECTOR_HALTED'/.test(wfSrc));
 
+// ---- T-24: ground-truth guard + scope-check are orchestrator predicates (0.3.0) ----
+// Source-text assertions in the tier's established style: each names the property
+// a mutation would have to remove, so deleting a predicate turns the tier red.
+check('T-24 gt-guard: spec must be owner-approved in the LEDGER index',
+  /const specApproved = [^\n]*approved_by_owner === true/.test(wfSrc));
+check('T-24 gt-guard: build-completeness reads the LATEST implementation verdict',
+  wfSrc.includes("implGates[implGates.length - 1].verdict === 'PASS'"));
+check('T-24 gt-guard: target traceability is in the refusal predicate',
+  wfSrc.includes('!specApproved || !implPassed || implArts.length === 0'));
+check('T-24 gt-guard: implement phase PRODUCES role implementation artifacts',
+  wfSrc.includes("delta.artifacts.push({ role: 'implementation', path: f })"));
+check('T-24 scope-check: prior-artifact hashes are injected from the ledger index',
+  wfSrc.includes('artifact_index || [])).filter((a) => a.sha256 && a.path !== artifactPath)'));
+check('T-24 scope-check: hash-mismatched upstream artifact is named a violation',
+  wfSrc.includes('current hash DIFFERS from its recorded hash') && wfSrc.includes('unauthorized upstream edit'));
+check('T-24 scope-check: same-segment earlier-phase outputs are exempt by path list',
+  wfSrc.includes('Earlier phases of THIS segment already wrote'));
+
 console.log(failures ? `\nSTRUCTURAL TESTS FAILED (${failures})` : '\nSTRUCTURAL TESTS PASSED');
 process.exit(failures ? 1 : 0);
