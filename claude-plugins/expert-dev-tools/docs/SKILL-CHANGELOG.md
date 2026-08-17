@@ -579,42 +579,74 @@ execution; the fence-indentation site's fourth consecutive finding). Applied 202
 
 ---
 
-### 16 · `skills/expert-standard/SKILL.md` · third axis + fifth failure signal · **authorization before action**
+## 2026-08-17
 
-**Trigger.** Behavioral-acceptance feedback sweeps (2026-08-17, runs wf_61b4beae through
-wf_70b31630) escalated the questions-treated-as-work-orders signature in every segment (5-9
-occurrences per sweep) with the same root cause: the always-on frame governs judgment and
-observation but has no authorization axis, so the helpfulness default converts owner questions
-into unauthorized edits. Owner approved the correction 2026-08-17 (deferred correction #1).
+Two changes, from the behavioral-acceptance feedback sweeps (runs wf_61b4beae through
+wf_70b31630): every sweep escalated the questions-treated-as-work-orders class (5-9 occurrences),
+root-caused to the absence of any authorization rule in the always-on frame and the phase skills.
+Owner approved 2026-08-17 (deferred corrections #1/#5; the same 0.3.0 batch also changed
+commands/, agents/, and workflows/ — their record is git, per this file's scope rule).
 
-**Anchors and changes (applied to the plugin copy; propagate per this changelog's rules):**
-- "Two shifts, working together. Neither alone is sufficient." → "Three shifts…None alone…"
-- New shift paragraph inserted before "These shifts are related.": **Act only on authorization,
-  not on inference of intent** — name the authorizing instruction before any Edit/Write/commit/
-  dispatch; a question is never authorization; candidates stay candidates during diagnosis;
-  engage every point of a multi-point message.
-- "Four signals" → "Five signals"; new **Unauthorized changes** signal inserted before
-  "**Assessment gaps.**": an artifact changed and no owner instruction can be quoted that
-  ordered the change.
+---
+
+### 16 · `skills/expert-standard/SKILL.md` · four edits · **the authorization axis**
+
+**16a — "The Shift" intro.** Replace `Two shifts, working together. Neither alone is sufficient.`
+with `Three shifts, working together. None alone is sufficient.`
+
+**16b — third shift paragraph.** Insert immediately before the paragraph beginning
+`These shifts are related.`:
+
+> **Act only on authorization, not on inference of intent.** Before any Edit, Write, commit, or
+> agent dispatch, name the specific owner instruction that authorizes it. If the most recent owner
+> turn is a question or discussion, there is no authorization: an owner question is a request for
+> information, never authorization to edit, fix, plan, or proceed — answer in the response and
+> stop. During diagnosis or investigation, hold candidate causes as candidates: no verdicts,
+> severities, or remediation sequences unless requested. When an owner message raises multiple
+> points, engage every point rather than answering one and acting on the rest.
+
+**16c — failure-signal count.** Replace `Four signals that the Expert Standard isn't being
+applied:` with `Five signals…`; insert immediately before `**Assessment gaps.**`:
+
+> **Unauthorized changes.** An artifact changed and no owner instruction can be quoted that
+> ordered the change. The tell is a question in the transcript followed by an edit: the owner
+> asked "why" or "what if" and something got modified. If you cannot point at the directive that
+> authorized a mutation, the mutation was the helpfulness default acting, not you following an
+> instruction.
+
+**16d — frontmatter description (activation surface).** Insert before `If Claude is producing or
+evaluating engineering work, this skill applies`:
+
+> Also activates before any Edit, Write, commit, or agent dispatch made in response to an owner
+> message — the authorization axis: name the instruction that authorizes the change, and if the
+> owner's turn was a question or discussion, answer it and change nothing.
+
+**Why.** The sweeps' diagnosis, verbatim root cause: the frame "governs only two axes (judge
+against named standards; verify claims against source) and contains no authorization axis," so
+"the default helpfulness bias ('a question about a problem implies a desire for the fix') decides,
+and questions convert into unauthorized changes." Evidence: eight sweep dispositions across five
+runs; the owner's standing memory feedback_questions_are_not_work_orders.md predating them.
 
 ---
 
 ### 17 · `skills/expert-plan/SKILL.md` + `skills/expert-implement/SKILL.md` · appended section · **inbound owner messages**
 
-**Trigger.** Same acceptance-sweep evidence as entry 16; the phase-skill half of the same class
-(deferred correction #1/#5 family): both skills governed only questions the agent ASKS, never
-messages the owner sends.
+**Anchor.** Appended as a new final section, identical in both files:
 
-**Anchor.** Appended as a new final section, identical text in both: "## Inbound owner messages:
-questions are not work orders" — classify INTERROGATIVE vs DIRECTIVE before acting; interrogatives
-get evidence-only answers with no artifact/code/ledger/plan edit; only explicit directives
-authorize changes, and only those named; ambiguity → one clarifying question. expert-implement
-additionally binds the rule to its Step-3 scope: an owner question mid-execution never expands the
-step's authorized scope.
+> ## Inbound owner messages: questions are not work orders
+>
+> Before acting on any owner message, classify it: **INTERROGATIVE** (asks why/what/how/whether,
+> explores an option, requests status or explanation) or **DIRECTIVE** (explicitly instructs a
+> change). An interrogative is answered with evidence only — candidate fixes may be described as
+> candidates, but NO artifact, code, ledger, or plan edit is made in response to it. Only an
+> explicit directive authorizes changes, and only the changes it names. If classification is
+> ambiguous, ask the owner one clarifying question before touching anything.
 
-**Related (not in skills/, recorded for cross-reference):** the same correction batch (v0.3.0)
-adds commands/expert.md §0 intake classification and §4b gate-discussion authorization; write-scope
-statements + upstream-defect reporting channel to the three authoring dispatch prompts and agent
-files; phase-attribution language to the scope check; and the ground-truth sequencing/coherence
-guard in workflows/expert-lifecycle.js. Evidence: ACCEPTANCE-RESULTS-2026-08-17.md and the five
-defect-history correction drafts.
+expert-implement additionally appends:
+
+> In this skill specifically: an owner question mid-execution never expands the current
+> step's authorized scope — the Step-3 scope rule binds until an explicit directive changes it.
+
+**Why.** Same evidence as 16. Both skills governed only questions the agent ASKS (expert-plan's
+question register; expert-implement's scope rule is defined against the plan alone) — no rule
+existed for messages the owner sends.
