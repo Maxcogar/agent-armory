@@ -703,7 +703,11 @@ check('T-24 scope-check: hash-mismatched upstream artifact is named a violation'
 // T-24y: the under-coverage predicate EXECUTED (F6-1) - neutering it must turn
 // this block red, which round 6's mutation MD showed the text pins alone cannot.
 {
-  const vuc = new Function('const Math_ = Math;' + declOf(wfSrc, 'const verifierUnderCovered =').replace('Math.max', 'Math_.max') + '\nreturn verifierUnderCovered;')();
+  // F7-3: verifierUnderCovered is an expression-bodied arrow on one line; declOf
+  // is a brace-matching declaration extractor and over-captures past it. Extract
+  // exactly the definition line instead.
+  const vucLine = (wfSrc.match(/const verifierUnderCovered =[^\n]*/) || [''])[0];
+  const vuc = new Function(vucLine + '\nreturn verifierUnderCovered;')();
   check('T-24y under-coverage: null return is under-covered', vuc(null, 1) === true);
   check('T-24y under-coverage: empty checks are under-covered', vuc({ checks: [] }, 1) === true);
   check('T-24y under-coverage: short return vs expected count is under-covered', vuc({ checks: [{}] }, 5) === true);
@@ -712,6 +716,20 @@ check('T-24 scope-check: hash-mismatched upstream artifact is named a violation'
 }
 check('T-24 scope-check: a missing artifact-sha256 entry escalates (fail-closed hash recording)',
   /if \(!hex\) \{/.test(wfSrc) && wfSrc.includes('did not return the required artifact-sha256 entry'));
+// F7-1: the controls are pinned at their DEPLOYMENT, not only their definition -
+// occurrence counts, the same pattern T-23 uses. Round 7's six surviving mutations
+// (deleting individual call sites, reverting sample.length, flipping one
+// control_fault, neutering the gt.ok branch) each turn one of these red.
+check('T-24 deployment: verifierUnderCovered guards all four consumption sites',
+  (wfSrc.match(/verifierUnderCovered\(/g) || []).length >= 4);
+check('T-24 deployment: underCoveredVerifierGate raised at all four sites',
+  (wfSrc.match(/underCoveredVerifierGate\(/g) || []).length >= 4);
+check('T-24 deployment: the spot re-run expects its full sample count',
+  wfSrc.includes('verifierUnderCovered(vr, sample.length)'));
+check('T-24 deployment: both control gates carry GATE.control_fault',
+  (wfSrc.match(/GATE\.control_fault/g) || []).length >= 2);
+check('T-24 deployment: the ground-truth guard branches on the extracted predicate result',
+  wfSrc.includes('if (!gt.ok) {'));
 check('T-24 control_fault gate type exists and the under-coverage gate uses it',
   wfSrc.includes("control_fault: 'control_fault'") && wfSrc.includes('type: GATE.control_fault'));
 
