@@ -759,7 +759,7 @@ check('T-24 deployment: the ground-truth guard branches on the extracted predica
   let memberCount = -1;
   try {
     const obj = new Function('"use strict"; return {' + gateBody + '};')();
-    memberCount = Object.getOwnPropertyNames(obj).length;
+    memberCount = Reflect.ownKeys(obj).length;
   } catch (e) { /* memberCount stays -1: unevaluable literal fails the check */ }
   const words = { six: 6, seven: 7, eight: 8, nine: 9 };
   const stated = /The (six|seven|eight|nine) owner-gate types/.exec(wfSrc);
