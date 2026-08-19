@@ -1,6 +1,45 @@
 # HANDOFF — expert-dev-tools
 
-**Date:** 2026-08-08 (work performed 2026-07-31)
+**Date:** 2026-08-19
+
+## Current state (2026-08-19) — read this section; everything below it is historical
+
+The remediation arc this document describes is **finished**: the plan was implemented, the
+behavioral acceptance tier ran end to end with every criterion PASSING
+(`.claude/expert/ACCEPTANCE-RESULTS-2026-08-17.md` in the repo root), and the five
+owner-approved corrections shipped as **v0.3.0** (PR #60, merge commit `bb7107b`), reviewed to
+PASS at zero findings across twelve rounds
+(`docs/reviews/corrections-0.3.0-round-01.md` … `-round-12.md`). The plugin is deployed at
+0.3.0 and the five corrected signatures are closed in
+`~/.claude/plugins/data/expert-dev-tools/defect-history.json`.
+
+### ⚠ STILL NEEDS CORRECTING — seven open defect signatures
+
+The 2026-08-17 feedback sweep recorded **twelve** systemic-defect signatures. Five were
+corrected in v0.3.0. The remaining **seven are still open** in the defect-history store — they
+were diagnosed but never had corrections designed, approved, or implemented. As of 2026-08-19
+no correction work for them exists anywhere:
+
+| Open signature | Occurrences | Responsible component |
+|---|---|---|
+| instruction-reinterpretation — owner's stated request silently narrowed or replaced with assumed intent | 8 | orchestrator intake / expert-standard frame |
+| premature-completion-claims — incomplete work declared complete; deliverables hedged; unresolved items relocated | 11 | expert-implement / expert-plan completeness gates |
+| agent-quits-midtask — session stalls awaiting owner input instead of continuing the assigned work | 6 | expert-lifecycle continuation/halt policy |
+| role-boundary-violations in review loop — reviewer prescribing fixes; orchestrator transcribing findings | 5 | expert-review skill + lifecycle dispatch contract |
+| opining-without-reading-source — pattern-matching instead of verifying | 5 | expert-standard verification discipline |
+| patching-instead-of-rederivation — corrections applied as downstream patches | 2 | expert-correct correction doctrine |
+| skill-activation-missed — /expert-implement invoked but skill not activated | 2 | expert-implement command/skill wiring |
+
+The next body of work on this plugin is correcting these seven: diagnose root cause per
+signature (the evidence pointers are in each signature's `occurrences` entry in the defect
+store), draft corrections for owner approval, implement, review to PASS, ship as v0.4.x, and
+mark the signatures corrected. Note that some may already be partially mitigated by the v0.3.0
+changes (e.g. the intake authorization axis bears on instruction-reinterpretation) — each needs
+re-measurement, not assumption.
+
+---
+
+## Historical record below (2026-08-08, superseded)
 
 ## Where this stands
 
