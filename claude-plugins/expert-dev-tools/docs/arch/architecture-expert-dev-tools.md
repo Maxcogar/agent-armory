@@ -226,12 +226,13 @@ stores, at ledger-write time — same single-writer discipline as D3.
 
 **SEGMENT_REPORT protocol (C3 → C2).** `{outcome: "owner_gate" | "complete" |
 "failed", gate?: {type: intent | spec_traceable | business | risk_override |
-non_convergence | core_approval, what_happened, diagnosis?, correction_draft?,
-options[], recommendation},
+non_convergence | core_approval | control_fault, what_happened, diagnosis?,
+correction_draft?, options[], recommendation},
 ledger_delta: {phase, artifacts[], gate_history[], amendments[], budget},
-completion?: {report_path, pr_url, core_draft}}`. The six gate types are
-exactly the spec §3.4 escalation list; the script has no other path to the
-owner.
+completion?: {report_path, pr_url, core_draft}}`. The seven gate types are
+exactly the spec §3.4 escalation list (amended 2026-08-19, owner decision
+F7-2: `control_fault` added — a mechanical control could not run; the phase
+is unverified); the script has no other path to the owner.
 
 **Control flow per segment:** route from `args.phase` → dispatch phase agent →
 review loop (fresh reviewer per round; single lens for document gates;

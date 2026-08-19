@@ -177,7 +177,7 @@ Read the SEGMENT_REPORT's `outcome`:
 - **`owner_gate`** — present the `gate` in plain terms: what happened, the
   options, and your recommendation. If the gate carries a `diagnosis` and
   `correction_draft`, show the root cause and the proposed fix so the owner
-  approves or rejects a solution, not a bare problem. The six gate types and
+  approves or rejects a solution, not a bare problem. The seven gate types and
   what each asks:
   - `intent` — "Is this spec what you meant?" (the one intent gate)
   - `spec_traceable` — a downstream issue that traces to the spec; needs the
@@ -209,7 +209,7 @@ found that did not rise to one.
 
 **Feedback escalations (F-14).** When the report carries a `feedback_escalation`,
 present it to the owner as an owner-owned item alongside whatever gate or
-completion the segment produced (it is not one of the six gate types):
+completion the segment produced (it is not one of the seven gate types):
 - `systemic_defect` — present the attached `diagnosis` (root cause + correction
   draft) so the owner approves or rejects a proposed fix.
 - `stale_deployment` — the fix for this signature exists, but the running plugin

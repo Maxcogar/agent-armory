@@ -133,6 +133,16 @@ The owner is interrupted for exactly these, and nothing else:
    propagation cycles.
 6. **CORE ingestion approval** — the drafted ingestion message. Never
    auto-ingested. No exceptions, ever.
+7. **Control faults** — a mechanical control (a verifier dispatch) could not
+   run, or returned less than it was asked to check. The phase is
+   **unverified** — not failed, and not non-convergent: no review loop ran to
+   a cap, and nothing traces to spec intent. Re-running the phase is the
+   usual answer. *(Amended 2026-08-19 by owner decision, corrections-0.3.0
+   round-7 finding F7-2: the acceptance run surfaced control failures —
+   empty verifier returns, a mis-targeted ground-truth dispatch — that fit
+   none of the six original types; typing them honestly beats stretching
+   `non_convergence` or `spec_traceable`. Evidence and review records:
+   docs/reviews/corrections-0.3.0-round-05.md through -07.md.)*
 
 Engineering questions are never escalated. They are bin-1: the phase agent's
 job, per expert-plan's own rule.
