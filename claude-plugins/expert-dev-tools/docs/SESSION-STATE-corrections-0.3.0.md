@@ -1,6 +1,9 @@
 # Session state — corrections-0.3.0 loop (write-through for context compaction)
 
-Updated 2026-08-19. This file is the authoritative continuation point if the session compacts.
+Updated 2026-08-19 (post-PASS). Review loop COMPLETE: round 12 PASS at zero findings; PR #60 open
+(https://github.com/Maxcogar/agent-armory/pull/60). Remaining: owner merges; /plugin update to
+0.3.0 + reload; mark five defect-store signatures corrected (fixed_in_version 0.3.0 + merge
+commit); CORE draft for owner approval. Earlier next-actions below are historical.
 
 ## Where things stand
 
