@@ -456,6 +456,14 @@ check('T-18 the scope check is dispatched to the verifier under one label',
     // and the exact label that supersedes it, with the finding that forced the swap.
     const REPLACED_BY_STRENGTHENING = [
       {
+        was: 'T-24 gate-count comment matches the GATE literal (all member forms; spreads fail closed)',
+        now: 'T-24 gate-count comment matches the evaluated GATE literal (fail-closed on unevaluable)',
+        why: 'corrections-0.3.0 round-10 tripwire rework: two rounds of widening the source-text ' +
+             'lexer each left member forms it could not see (F9-1, F10-1). The literal is now ' +
+             'lifted and evaluated, so the language counts its own members; anything unevaluable ' +
+             'in isolation throws and the check fails closed.',
+      },
+      {
         was: 'T-24 gate-count comment matches the GATE literal',
         now: 'T-24 gate-count comment matches the GATE literal (all member forms; spreads fail closed)',
         why: 'corrections-0.3.0 round-9 F9-1: the original counter recognized bare-identifier ' +
@@ -741,29 +749,22 @@ check('T-24 deployment: the ground-truth guard branches on the extracted predica
 // literal's member count, so the next amendment's propagation miss is a red
 // test, not a review finding.
 {
+  // Round-10 foundational rework (tripwire-fired F9-1/F10-1 class): the pin no
+  // longer lexes source text - it LIFTS the GATE literal and EVALUATES it, so
+  // every member form JavaScript can express (bare/quoted/computed keys,
+  // inline members, split lines, getters, methods, inline spreads) is counted
+  // by the language itself, and anything that cannot evaluate in isolation
+  // (an external-reference spread, a free identifier) throws -> fail closed.
   const gateBody = braced(wfSrc, wfSrc.indexOf('const GATE = {'));
-  // F9-1: count EVERY member form at depth 0 - bare, single-quoted, and
-  // double-quoted keys, and computed keys - and fail closed on any spread,
-  // since a spread makes the member count unverifiable from source text.
-  let memberCount = 0;
-  let hasSpread = false;
-  let depth = 0;
-  const memberRe = /^\s*(?:(['"])(?:(?!\1).)+\1|\[[^\]]+\]|[A-Za-z_$][\w$]*)\s*:/;
-  for (const rawLine of gateBody.split('\n')) {
-    const line = rawLine.replace(/\/\/.*$/, '');
-    if (depth === 0) {
-      if (/^\s*\.\.\./.test(line)) hasSpread = true;
-      else if (memberRe.test(line)) memberCount++;
-    }
-    for (const ch of line) {
-      if (ch === '{' || ch === '[' || ch === '(') depth++;
-      else if (ch === '}' || ch === ']' || ch === ')') depth--;
-    }
-  }
+  let memberCount = -1;
+  try {
+    const obj = new Function('"use strict"; return {' + gateBody + '};')();
+    memberCount = Object.getOwnPropertyNames(obj).length;
+  } catch (e) { /* memberCount stays -1: unevaluable literal fails the check */ }
   const words = { six: 6, seven: 7, eight: 8, nine: 9 };
   const stated = /The (six|seven|eight|nine) owner-gate types/.exec(wfSrc);
-  check('T-24 gate-count comment matches the GATE literal (all member forms; spreads fail closed)',
-    !hasSpread && !!stated && words[stated[1]] === memberCount);
+  check('T-24 gate-count comment matches the evaluated GATE literal (fail-closed on unevaluable)',
+    memberCount > 0 && !!stated && words[stated[1]] === memberCount);
 }
 check('T-24 control_fault gate type exists and the under-coverage gate uses it',
   wfSrc.includes("control_fault: 'control_fault'") && wfSrc.includes('type: GATE.control_fault'));
