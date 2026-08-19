@@ -456,6 +456,13 @@ check('T-18 the scope check is dispatched to the verifier under one label',
     // and the exact label that supersedes it, with the finding that forced the swap.
     const REPLACED_BY_STRENGTHENING = [
       {
+        was: 'T-24 gate-count comment matches the GATE literal',
+        now: 'T-24 gate-count comment matches the GATE literal (all member forms; spreads fail closed)',
+        why: 'corrections-0.3.0 round-9 F9-1: the original counter recognized bare-identifier ' +
+             'keys only, so a quoted-key or spread member evaded the count. The replacement ' +
+             'counts every member form at depth 0 and fails closed on spreads.',
+      },
+      {
         was: 'T-24 gt-guard: target traceability is in the refusal predicate',
         now: 'T-24 gt-guard: refusal predicate is the extracted pure function',
         why: 'corrections-0.3.0 round-5 F5-3: the inline predicate was extracted into ' +
@@ -735,11 +742,28 @@ check('T-24 deployment: the ground-truth guard branches on the extracted predica
 // test, not a review finding.
 {
   const gateBody = braced(wfSrc, wfSrc.indexOf('const GATE = {'));
-  const memberCount = topKeys(gateBody).length;
+  // F9-1: count EVERY member form at depth 0 - bare, single-quoted, and
+  // double-quoted keys, and computed keys - and fail closed on any spread,
+  // since a spread makes the member count unverifiable from source text.
+  let memberCount = 0;
+  let hasSpread = false;
+  let depth = 0;
+  const memberRe = /^\s*(?:(['"])(?:(?!\1).)+\1|\[[^\]]+\]|[A-Za-z_$][\w$]*)\s*:/;
+  for (const rawLine of gateBody.split('\n')) {
+    const line = rawLine.replace(/\/\/.*$/, '');
+    if (depth === 0) {
+      if (/^\s*\.\.\./.test(line)) hasSpread = true;
+      else if (memberRe.test(line)) memberCount++;
+    }
+    for (const ch of line) {
+      if (ch === '{' || ch === '[' || ch === '(') depth++;
+      else if (ch === '}' || ch === ']' || ch === ')') depth--;
+    }
+  }
   const words = { six: 6, seven: 7, eight: 8, nine: 9 };
   const stated = /The (six|seven|eight|nine) owner-gate types/.exec(wfSrc);
-  check('T-24 gate-count comment matches the GATE literal',
-    !!stated && words[stated[1]] === memberCount);
+  check('T-24 gate-count comment matches the GATE literal (all member forms; spreads fail closed)',
+    !hasSpread && !!stated && words[stated[1]] === memberCount);
 }
 check('T-24 control_fault gate type exists and the under-coverage gate uses it',
   wfSrc.includes("control_fault: 'control_fault'") && wfSrc.includes('type: GATE.control_fault'));
