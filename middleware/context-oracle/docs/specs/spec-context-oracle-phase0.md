@@ -122,20 +122,21 @@ own definition is the single place its Phase 0 form is stated. (`docs/collapse-l
 three consecutive rounds; the fix is to delete the claim and state each fact where it
 cannot drift, not to re-assert it.)
 
-**In force in Phase 0, unchanged (20).** FR-O2, FR-O3, FR-O5 (§5); FR-K1,
+**In force in Phase 0, unchanged (19).** FR-O3, FR-O5 (§5); FR-K1,
 FR-K2, FR-K6, FR-K7, FR-K8 (§6); FR-A1 (§8); FR-D1, FR-D2, FR-D4, FR-D5 (§9);
 FR-X4, FR-X8 (§10); FR-M4 (§11); NF-1, NF-3 (§11); C-3, C-5 (§11).
 
-**In force but narrowed here (28).**
+**In force but narrowed here (29).**
 
 | v1 requirement | Narrowing | Where stated |
 |---|---|---|
+| FR-O2 — shims relay whispers | v1 relays *"at most one whisper back"*; Phase 0 relays every whisper the service returned for the event, because P0-D-27 replaces v1's unsourced one-whisper count with FR-A3's token budget and more than one whisper may fire at an event | §5, P0-D-27 |
 | FR-O1 — observation set | Narration reading across turns is deferred to Phase 1; `SubagentStop`, `StopFailure` and `SessionEnd` are added; `SessionStart`'s `source` field is given a job for all five of its values | §5, P0-D-20 |
 | FR-O4 — no deny path | v1 makes a blocking decision structurally absent; Phase 0 additionally makes the harness's pre/post-execution mutation output fields structurally absent (`updatedInput`, `updatedToolOutput`) and the `"defer"` decision, none of which v1's "no blocking decision" enumerated | §5, §4 |
 | FR-O4a — continuation bound | Phase 0 delivers only on `Stop`; `SubagentStop` is observed for the bound and FR-O6's key but Phase 0 emits nothing on it; v1's one-continuation-per-stop bound and *"never prevents a turn from ending"* are retained | §5 |
 | FR-O6 — per-consumer delivery | Phase 0 keys session state per consumer and delivers only to the main agent | §5, P0-D-10 |
 | FR-A2 — twelve whisper genres | Six are built; six deferred per §2's table; six arms narrowed and one retained per §2's arm table; and the stop-class genres' trigger narrows from v1's every-stop to a completion-claim stop | §7, P0-3 |
-| FR-A3 — budgets | v1's unsourced *"warnings get priority within the budget"* clause is deliberately not carried; v1's unsourced *"at most one whisper per event"* count is corrected to the per-trigger token budget the owner actually set, so more than one whisper may fire at an event within budget; the 2,000-token per-session default and the orientation-counts-against-it clause are v1's and retained | §8, P0-D-15, P0-D-27 |
+| FR-A3 — budgets | v1's unsourced *"warnings get priority within the budget"* clause is deliberately not carried; v1's unsourced *"at most one whisper per event"* count is corrected — the owner set *"per-trigger and per-session whisper budgets, hard caps"* and rejected the count-of-one, so more than one whisper may fire at an event within budget; the token denomination and the per-trigger default (= the session cap in Phase 0) are this document's judgment, `[P0-D-28]`; the 2,000-token per-session default and the orientation-counts-against-it clause are v1's and retained | §8, P0-D-15, P0-D-27, P0-D-28 |
 | FR-A4 — dedup | v1's two sets — what the agent was told, and what it read — are restored across the resume/fork/compact session boundaries the harness crosses without a context boundary | §8, P0-D-20 |
 | FR-A5 — the bar | Three terms per v1 §12's "Phase 0's bar"; no degraded-mode rise (P0-2); evidence floors elaborated as P0-5/P0-6; all mechanical genres carry equal base weight so no genre precedence arises | §8, P0-D-6, P0-D-18 |
 | FR-A6 — cold-start floor | v1 states one per-region floor with no value; Phase 0 states two, corpus (200 transactions) and region (20), both with values | §8, P0-D-7 |
@@ -295,8 +296,10 @@ evidence about the second (`docs/collapse-log.md`, 2026-08-01 round 4).
   service's termination signal (C-2). `SubagentStart` is not observed: the consumer
   key is recoverable from `agent_id` on the subagent's own tool events, which FR-O6
   already keys.
-- **FR-O2** — Shims contain no decision logic. They forward the event and relay at
-  most one whisper back.
+- **FR-O2** — Shims contain no decision logic. They forward the event and relay back
+  **every** whisper the service returned for that event — one or more — in the order
+  the service returned them; the budget is the service's to enforce (FR-A3), not the
+  shim's. `[P0-D-27]`
 - **FR-O3** — **Fail open, fast.** Any shim or service error, timeout, or missing
   store yields silence, never an error in the agent's flow. The oracle enforces its
   own budget rather than the harness's: added latency p95 ≤ 1.5 s per event, ceiling
@@ -437,15 +440,15 @@ on an edit. `[P0-D-26]`
 verification can both have a candidate; at a `PreToolUse` edit in a generated or
 vendored zone, a warning candidate and a consequence candidate can both arise. FR-A3's
 per-event limit is a token budget, not a count (`[P0-D-27]`), so when each independently
-clears the bar and they fit the per-trigger budget **both are delivered** — a
+clears the bar and both fit the session budget **both are delivered** — a
 generated-file warning and a call-site consequence at the same edit go together, and no
 genre has to be sacrificed to the other. The `[OWNER-3]` generated-file protection is
-therefore not displaced by a competing consequence; it rides its own budget slot.
-Genres compete **only** when the per-trigger budget cannot hold everything that cleared
-the bar — and then FR-A5's per-candidate score orders them, which carries no genre
-precedence because every base weight is equal and `structural_weight` holds no genre
-term (`[P0-D-18]`). P0-4's per-genre delivered count is the monitor for a channel that
-is systematically crowded out in the budget-tight case. Verification fires only at a
+therefore not displaced by a competing consequence; nothing has to be ranked above
+anything. In Phase 0 the per-trigger cap defaults to the session cap (`[P0-D-28]`), so
+the case where a per-event cap cannot hold everything that cleared the bar does not
+arise, and the score-ordering that would resolve it is deferred to Phase 1; P0-4's
+per-genre delivered count is what will tell Phase 1 whether any channel is being crowded
+out and whether a tighter per-trigger cap is warranted. Verification fires only at a
 completion-claim stop, so its larger exposure is not competition but every stop the
 completion-claim test does not match (P0-3), which P0-4 counts.
 
@@ -454,18 +457,24 @@ completion-claim test does not match (P0-3), which P0-4 counts.
 - **FR-A1** — Per event the oracle answers internally: given what the agent is doing
   now, do I know something it almost certainly does not that would change what it does
   next? Default answer no → silence. `RETHINK.md:169–171`.
-- **FR-A3** — **Per-trigger and per-session injected-token budgets, both hard caps**
-  (`RETHINK.md:175–176`, *"Per-trigger and per-session whisper budgets. Hard caps."*).
-  The per-session default is 2,000 tokens, configurable, and orientation counts against
-  it; the 2,000 is v1 `[D-10]`, derived there as roughly five orientation-size whispers
-  at the owner's ~400-token orientation bound — so changing the orientation cap changes
-  this number's meaning. **The per-event limit is the per-trigger token budget, not a
-  count of one**: when more than one whisper independently clears the bar at a single
-  event and they fit the per-trigger budget, more than one is delivered (`[P0-D-27]`). In
-  practice the high bar (FR-A5) and dedup (FR-A4) leave at most one at most events; the
-  multiple-whisper case is the genuinely material collision — e.g. a generated-file
-  warning and a call-site consequence at the same edit, both delivered. v1's
-  warning-priority clause is deliberately not carried. `[P0-D-4]` `[P0-D-15]`
+- **FR-A3** — **Per-trigger and per-session injected-token budgets, both hard caps.**
+  The owner's decision is `RETHINK.md:175–176`, *"Per-trigger and per-session whisper
+  budgets. Hard caps."* — that both budgets exist and are hard caps; the token
+  denomination is this document's, derived in `[P0-D-28]`. The per-session default is
+  2,000 tokens, configurable, and orientation counts against it; the 2,000 is v1
+  `[D-10]`, derived there as roughly five orientation-size whispers at the owner's
+  ~400-token orientation bound — so changing the orientation cap changes this number's
+  meaning. **The per-event limit is a token budget, not a count of one**: every whisper
+  that independently clears the bar at a single event and fits the budget is delivered
+  (`[P0-D-27]`). Phase 0 sets **no separate per-trigger number** — the per-trigger cap
+  defaults to the session cap (`[P0-D-28]`), so within a session only the 2,000-token
+  cap binds; a tighter per-trigger cap is deferred to Phase 1, and the value it would
+  take is precisely what the Phase 0 exit-run data (P0-4's per-genre delivered counts)
+  exists to inform. In practice the high bar (FR-A5) and dedup (FR-A4) leave at most one
+  whisper at most events; the multiple-whisper case is the genuinely material collision
+  — e.g. a generated-file warning and a call-site consequence at the same edit, both
+  delivered. v1's warning-priority clause is deliberately not carried.
+  `[P0-D-4]` `[P0-D-15]`
 - **FR-A4** — Never tell the agent what it has already seen (`RETHINK.md:138`), been
   told, or visibly incorporated (`:177–178`); orientation candidates decay out of
   consideration once the agent is deep in the task (`:175–176`). This rests on two
@@ -476,8 +485,15 @@ completion-claim test does not match (P0-3), which P0-4 counts.
   the read set is cleared because the agent's context no longer holds what it read (§4,
   FR-O1). `[P0-D-20]`
 - **FR-A5** — Each candidate carries **confidence × decision-impact × marginal
-  value**, and only the top candidate above the bar is spoken. All three terms are
-  computable without a model, per v1 §12's "Phase 0's bar"
+  value**, and that score decides whether the candidate clears the bar. **Every
+  candidate that clears the bar is spoken**, bounded only by FR-A3's session token
+  budget (`[P0-D-27]`); v1's *"only the top candidate above the bar is spoken"* was the
+  unsourced single-whisper rule and is not carried. Ranking above-bar candidates
+  against one another would matter only if a per-trigger cap could not hold them all —
+  which does not arise in Phase 0, where the per-trigger cap defaults to the session
+  budget (FR-A3, `[P0-D-28]`), so that ordering is deferred to Phase 1 with the rest of
+  per-event budget tuning. All three terms are computable without a model, per v1 §12's
+  "Phase 0's bar"
   (`spec-context-oracle.md:895–901`): decision-impact decomposes into `materiality`,
   which falls back to the genre's base weight for mechanical genres, and
   `structural_weight`, which is deterministic and computed from **per-candidate
@@ -861,9 +877,10 @@ individual whispers.
   2026-07-22.) No genre term is needed to protect the `[OWNER-3]` generated-file warning
   at a contested edit, because FR-A3's per-event limit is a token budget, not a count
   (`[P0-D-27]`): the warning and a competing consequence are both delivered when both
-  clear the bar and fit the budget, so nothing has to be ranked above anything. Genres
-  are ordered by the score only in the rarer budget-tight case, and P0-4's per-genre
-  delivered count monitors for a channel crowded out there.
+  clear the bar and fit the budget, so nothing has to be ranked above anything. Score
+  ordering among above-bar candidates would matter only under a tight per-trigger cap,
+  which Phase 0 does not have (`[P0-D-28]`); P0-4's per-genre delivered count monitors
+  whether any channel is being crowded out — the data Phase 1 needs to decide that cap.
 - **P0-D-19 — Pointer-only is FR-X2's default on `[OWASP-PI]`'s ground, not the
   harness's.** The harness warns that text framed as out-of-band *system commands* is
   surfaced to the user rather than delivered; that is a hazard for relayed imperative
@@ -929,19 +946,39 @@ individual whispers.
   bar would have to absorb that). §7 and the genre table's `Fires on` column name the
   triggering event, not the delivery moment.
 
-- **P0-D-27 — The per-event limit is a token budget, not a count of one.** v1 FR-A3
+- **P0-D-27 — The per-event limit is a budget, not a count of one.** v1 FR-A3
   reads *"at most one whisper per event"*, but that count has no `[OWNER-n]`/`[D-n]`
-  source; the owner's words are `RETHINK.md:175–176`, *"Per-trigger and per-session
-  whisper budgets. Hard caps."* — a **token** budget. Max Cogar confirmed on 2026-08-12
-  that a one-whisper-per-event cap was never intended. Phase 0 therefore delivers every
-  whisper that independently clears the bar and fits the per-trigger token budget at an
+  source. The owner's written decision is `RETHINK.md:175–176`, *"Per-trigger and
+  per-session whisper budgets. Hard caps."*, and Max Cogar confirmed on 2026-08-12 that
+  a one-whisper-per-event cap was never intended (OWNER-LEDGER OL-R1). Phase 0 therefore
+  delivers every whisper that independently clears the bar and fits the budget at an
   event. The high bar and dedup leave at most one at most events, but a genuinely
   material collision — a generated-file warning and a call-site consequence at one edit —
   delivers both rather than forcing a contest the invented cap created. This is why there
-  is no `[OWNER-3]`-vs-no-precedence tension: nothing has to "win" when both can be said,
-  and genres compete only in the rarer case where the per-trigger budget cannot hold all
-  that cleared. (The same unsourced count is in v1 FR-A3; correcting v1's own wording is
-  the owner's call and is flagged in `docs/STATUS.md`.)
+  is no `[OWNER-3]`-vs-no-precedence tension: nothing has to "win" when both can be said.
+  What the budget is denominated in, and how per-event contention would be resolved if it
+  ever arose, are settled in `[P0-D-28]` — not here, and not attributed to the owner.
+  (The same unsourced count is in v1 FR-A3; correcting v1's own wording is the owner's
+  call and is flagged in `docs/STATUS.md`.)
+
+- **P0-D-28 — The budget is token-denominated, and Phase 0 sets no per-trigger number.**
+  The owner named that per-trigger and per-session budgets exist and are hard caps
+  (`RETHINK.md:175–176`) but gave neither a denomination nor a value. This document reads
+  both as **token**-denominated, and that reading is derived, not the owner's word: the
+  per-session budget is already tokens (2,000, v1 `[D-10]`); `RETHINK.md` §5 frames the
+  oracle's whole cost as the agent's attention/overhead, which is token-measured; and a
+  per-trigger cap in a different currency than the per-session cap it nests inside would
+  be incoherent — the owner's rejection of the count-of-one (OL-R1) is against a count
+  denomination, not for one. **Phase 0 fixes no separate per-trigger value.** The
+  per-trigger cap defaults to the session cap, so within a session only the 2,000-token
+  hard cap binds and the oracle can never flood the session regardless of per-event
+  volume. A tighter per-trigger cap — and the score-ordering that would decide which
+  above-bar candidates ride a tight cap — are **deferred to Phase 1**, for the reason
+  Phase 0 exists: the value cannot be set without data on how many whispers actually clear
+  the bar at a single event, which is exactly what P0-4's per-genre delivered counts
+  produce on the exit run. Inventing a per-trigger number now would be a tuning guess in
+  the phase built to replace guesses with measurement. This is this document's judgment,
+  not the owner's.
 
 ## 14. Acceptance criteria
 
@@ -1073,12 +1110,12 @@ spoke is not a passing exit; it is a result. AC-33 states what that obligates.
   a transaction touching more than 30 entities, and a transaction older than the horizon
   yields a graph in which none of the three contributed an edge; appending new history
   refreshes the graph incrementally without a full rebuild.
-- **AC-28 (budgets, not a count → FR-A3, P0-D-15, P0-D-27)** — At a single edit where a
-  generated-file warning and a call-site consequence each clear the bar and both fit the
-  per-trigger budget, **both are delivered** (the per-event limit is the token budget,
-  not a count of one); once the session token budget is spent, no further whisper is
-  delivered, including a warning; and no requirement grants a warning budget precedence
-  (`[P0-D-15]`).
+- **AC-28 (budgets, not a count → FR-A3, P0-D-15, P0-D-27, P0-D-28)** — At a single edit
+  where a generated-file warning and a call-site consequence each clear the bar and both
+  fit the session budget (Phase 0 sets no tighter per-trigger cap, `[P0-D-28]`), **both
+  are delivered** (the per-event limit is a token budget, not a count of one); once the
+  session token budget is spent, no further whisper is delivered, including a warning;
+  and no requirement grants a warning budget precedence (`[P0-D-15]`).
 - **AC-29 (uptake evidence → FR-L1)** — After a fixture session containing a delivered
   whisper and a subsequent agent action on its pointer, the FR-L1 record for that event
   contains the candidate set, the whisper sent, and the uptake evidence, and is readable.

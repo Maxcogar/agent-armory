@@ -5,74 +5,74 @@ state and what to do next; the evidence lives in `docs/reviews/`, the durable
 lessons in `docs/collapse-log.md`, and everything attributed to Max Cogar in
 `OWNER-LEDGER.md`.*
 
-## 2026-08-12 — Phase 0 spec through round 5 plus one owner correction; a dedicated owner-claims ledger started; its enforcement still to be designed
+## 2026-08-16 — Full restart: owner claims ratified, the spec rebuilt from scratch and independently reviewed; three owner questions are the only thing between here and the Phase A architecture
 
-**Where the project is.** Still design phase, **no code**. The Phase 0 requirement
-document (`docs/specs/spec-context-oracle-phase0.md`) was rebuilt against round 4's
-findings and taken through round 5 — two independent passes, one checking facts and
-citations, one attacking whether each decision serves the mission. Round 5 was the
-**first clean result in this document's history**: every prior finding genuinely
-closed, none recurring, none regressed, the non-convergence tripwire did not fire.
-The fact-checking pass went 9 → 2 findings; the adversarial pass 16 → 5. All were
-applied.
+**What happened.** Max Cogar called a restart after the project kept getting
+rebuilt on assumptions attributed to him that he never confirmed. Two things were
+established this session and everything else was rebuilt on them:
 
-**The security fix worth knowing.** The harness gives a hook fields that can
-silently rewrite the agent's edit before it runs (`updatedInput`) or replace a
-tool's result (`updatedToolOutput`). The spec had blocked only the deny paths; the
-requirement (FR-O4) now structurally forbids every such mutation field, so "the
-oracle never changes the repo" rests on a mechanism, not a promise.
+1. **The owner ledger is now fully ratified.** `OWNER-LEDGER.md` — every owner claim
+   (OL-1…OL-12, plus OL-C1 "no arbitrary limit gates operation" and OL-C2 "the
+   corrective feature is small/personal/non-primary") is CONFIRMED in his own words;
+   OL-12 was reworded and approved; the budget concept is REJECTED (OL-R3). Nothing
+   owner-attributed is pending. **New standing rule:** nothing may be attributed to
+   Max unless it is CONFIRMED in the ledger with his sign-off in chat.
 
-**The owner correction.** The spec (inheriting v1) assumed the oracle says at most
-**one** whisper per event. That count was never Max Cogar's rule — his rule is a
-per-trigger and per-session **token budget** (`RETHINK.md:175–176`), not a count. An
-agent had hardened "budget" into "one," and it manufactured a false dilemma about
-which of two useful notes must "win" at an edit. Corrected: the per-event limit is
-the token budget, so when two notes each clear the bar and fit the budget, **both are
-delivered**. Recorded as decision P0-D-27; logged in `docs/collapse-log.md` as a
-process failure, because Max caught it, not the review mechanism.
+2. **The v1 spec was rebuilt from scratch** (`docs/specs/spec-context-oracle.md`),
+   written only on the confirmed foundation + the mission + named,
+   current-verified standards + recorded judgments. The old `spec-context-oracle.md`
+   and `spec-context-oracle-phase0.md` are superseded (the rebuild replaced the
+   former; the phase0 file is dead — see "cleanup owed" below).
 
-**Not yet verified.** The token-budget correction was made *after* the round-5
-review passes ran, so it has not been independently reviewed. That verification is
-outstanding.
+**The spec was independently reviewed (both axes) and all findings applied.** Two
+fresh reviewers (`docs/reviews/2026-08-16-*`): an expert/structure pass (1 Critical,
+1 Serious, 5 Moderate, 5 Minor) and an adversarial collapse-hunt (mission-fidelity).
+Every finding was applied in one revision. The three that matter most:
+- The bar as first written **silenced the uncertain hazard** — the exact
+  possible-disaster fact OL-3 says to speak. Fixed: FR-A5a speaks it *flagged*.
+- The learning loop **only demoted** (a one-way ratchet to silence, a re-sprung
+  2026-07-22 trap). Fixed: FR-L3b requires promotion/re-exploration.
+- A latency figure was **attributed to Max through RETHINK §5 rationale** — the same
+  poisoned channel as the rejected budget. Fixed: it is a recorded judgment (D-31),
+  not his. (All three logged in `docs/collapse-log.md`, 2026-08-16.)
 
-**New, owner-directed — a dedicated ledger for everything attributed to Max Cogar.**
-Across the owner's projects, agents have repeatedly invented claims attributed to
-him and propagated them as true, corrupting the work. His directive: every such
-claim must live in one dedicated file, be referenced whenever it is involved, and
-require his **explicit sign-off before work proceeds** on it. A pilot file,
-`OWNER-LEDGER.md`, now exists — the 12 owner decisions on record in `RETHINK.md` §12
-are listed PENDING his confirmation (nothing is treated as authoritative until he
-signs), and two known fabrications (one-whisper-per-event; "the core problem") are
-listed REJECTED so they cannot return. `CLAUDE.md` now points to it. **The
-enforcement mechanism is unsolved:** an automated phrase/pattern-matching check was
-proposed and rejected as inadequate. A real design is still owed, and it must not be
-phrase matching.
+**What is verified vs assumed in the spec:** the hooks contract and `node:sqlite`/
+FTS5 facts were re-verified 2026-08-16 (FTS5 is NOT in stock `node:sqlite` — a false
+premise in the old spec, now a stated constraint C-2). A set of standards are marked
+"prior pass; re-confirm at build" in §9 — load-bearing concepts, exact wording to be
+re-fetched before each is built on (spec §13). This is carried openly, not hidden.
 
 **What to do next:**
 
-1. **Independently verify the token-budget correction** to the Phase 0 spec (it
-   landed after the round-5 passes, so it is the one unreviewed change).
-2. **Then the Phase 0 architecture document**, then plan, build, and run it — every
-   number the design is tuned from is still unmeasured, which is why Phase 0 exists.
+1. **Max answers the three questions in spec §13 (Q1–Q3).** They are the only open
+   owner items and two could change the spec:
+   - **Q1 — Answer-drift genre.** His ledger contradicts itself (OL-9 in-scope vs
+     OL-C2 "awaits ruling"); it is also the weakest mission fit. *Recommendation:
+     drop it.* Not built until he rules.
+   - **Q2 — Uncertain-hazard voice.** The tool now *speaks* low-confidence hazards
+     flagged (derived from OL-3 + OL-C1). *Confirm, or name a confidence below which
+     it should stay quiet.*
+   - **Q3 — v1 language set.** Which languages ship first (prior proposal: TS/JS/TSX
+     + Python). A scope preference only he sets.
+2. **Apply his answers, then a short confirmation review of just those changes**
+   (no point reviewing a spec with open owner questions that could move it).
+3. **Then the Phase A architecture document** — deterministic core — per the
+   lifecycle.
 
-The owner-claims ledger (`OWNER-LEDGER.md`) is a separate thread Max is directing;
-its 12 entries are his existing RETHINK §12 decisions, and a real enforcement
-mechanism for it is unbuilt (not phrase matching). It is not a blocker on the spec.
+**Cleanup owed (agent's, not blocking):** the superseded `spec-context-oracle-phase0.md`
+and the stale references to it in `CLAUDE.md`'s read-list should be removed once the
+rebuilt spec is settled; and `CLAUDE.md`'s description of the spec as "v1 across
+three phases + a separate phase0 spec" should be updated to the one-spec, phases-as-
+build-order structure. Left for the settle point so it isn't half-done now.
 
-**A question for the owner (plain yes/no).** The parent v1 spec still carries the
-same unsourced "at most one whisper per event" wording that Phase 0 corrected.
-Phase 0 governs Phase 0, so nothing is blocked — should v1 be corrected too so the
-two documents agree? If unanswered, v1 stays as-is.
+**PR:** `https://github.com/Maxcogar/agent-armory/pull/59` (draft) now carries the
+restart + rebuilt spec; its early commits (the dead token-budget "correction") are
+superseded history.
 
 ## What is still open, and where it lives
 
-- **Round 5 of the Phase 0 spec — all findings applied.** Two passes:
-  `docs/reviews/2026-08-12-round-5-expert-review-phase0-spec.md` (2 minor) and
-  `docs/reviews/2026-08-12-round-5-collapse-hunt-phase0-spec.md` (5 findings + 4
-  minors). The token-budget correction landed after them and is not yet reviewed.
-- **The owner-claims ledger** — `OWNER-LEDGER.md` (project root). Holds Max's
-  existing RETHINK §12 decisions and two rejected fabrications; a real
-  (non-phrase-matching) enforcement mechanism is unbuilt. A thread Max is directing.
-- **The Phase 0 architecture document does not exist yet.** It is written after the
-  correction is verified; the old whole-scope architecture stays as input to Phase 1,
-  not a base to edit (`docs/collapse-log.md`, 2026-07-31).
+- **Spec owner questions Q1–Q3** — in `docs/specs/spec-context-oracle.md` §13. The
+  only thing gating the architecture phase.
+- **`OWNER-LEDGER.md`** — fully ratified; nothing pending.
+- **The Phase A architecture document does not exist yet** — it is written after
+  Q1–Q3 are answered and the confirmation review passes.
