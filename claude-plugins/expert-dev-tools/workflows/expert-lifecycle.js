@@ -58,8 +58,9 @@ const NOT_THE_RULER =
   "The authoring skill's process rules are not the standard — judge the artifact, not the " +
   'process that produced it.'
 const LENSES = ['correctness', 'security', 'faithfulness-to-plan']
-// The six owner-gate types — exactly the spec 3.4 escalation list; the script
-// has no other path to the owner.
+// The seven owner-gate types — exactly the spec 3.4 escalation list (amended
+// 2026-08-19, owner decision F7-2: control_fault added); the script has no
+// other path to the owner.
 const GATE = {
   intent: 'intent',
   spec_traceable: 'spec_traceable',

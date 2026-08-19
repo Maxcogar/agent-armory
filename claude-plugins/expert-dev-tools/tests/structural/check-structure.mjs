@@ -730,6 +730,17 @@ check('T-24 deployment: both control gates carry GATE.control_fault',
   (wfSrc.match(/GATE\.control_fault/g) || []).length >= 2);
 check('T-24 deployment: the ground-truth guard branches on the extracted predicate result',
   wfSrc.includes('if (!gt.ok) {'));
+// F8-1 class closure: the comment's stated gate count must equal the GATE
+// literal's member count, so the next amendment's propagation miss is a red
+// test, not a review finding.
+{
+  const gateBody = braced(wfSrc, wfSrc.indexOf('const GATE = {'));
+  const memberCount = topKeys(gateBody).length;
+  const words = { six: 6, seven: 7, eight: 8, nine: 9 };
+  const stated = /The (six|seven|eight|nine) owner-gate types/.exec(wfSrc);
+  check('T-24 gate-count comment matches the GATE literal',
+    !!stated && words[stated[1]] === memberCount);
+}
 check('T-24 control_fault gate type exists and the under-coverage gate uses it',
   wfSrc.includes("control_fault: 'control_fault'") && wfSrc.includes('type: GATE.control_fault'));
 

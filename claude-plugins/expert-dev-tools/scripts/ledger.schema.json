@@ -100,7 +100,7 @@
       }
     },
     "escalations": {
-      "description": "Owner escalations raised; gate_type is one of the six in spec 3.4, plus control_fault (0.3.0: a mechanical control could not run - the phase is unverified).",
+      "description": "Owner escalations raised; gate_type is one of the seven in spec 3.4 (control_fault added by the 2026-08-19 amendment: a mechanical control could not run - the phase is unverified).",
       "type": "array",
       "items": {
         "type": "object",
