@@ -100,7 +100,7 @@
       }
     },
     "escalations": {
-      "description": "Owner escalations raised; gate_type is one of the six in spec 3.4.",
+      "description": "Owner escalations raised; gate_type is one of the seven in spec 3.4 (control_fault added by the 2026-08-19 amendment: a mechanical control could not run - the phase is unverified).",
       "type": "array",
       "items": {
         "type": "object",
@@ -109,7 +109,7 @@
         "properties": {
           "gate_type": {
             "type": "string",
-            "enum": ["intent", "spec_traceable", "business", "risk_override", "non_convergence", "core_approval"]
+            "enum": ["intent", "spec_traceable", "business", "risk_override", "non_convergence", "core_approval", "control_fault"]
           },
           "segment": { "type": "integer", "minimum": 0 },
           "resolved": { "type": "boolean" }

@@ -576,3 +576,77 @@ execution; the fence-indentation site's fourth consecutive finding). Applied 202
   loop ran rounds 4–8 and ended by tripwire, the owner approved the plan's substance 2026-08-09,
   the plan was executed 26/26 with both tiers green, and the implementation is under its own
   review. The dispatch-pinning paragraph survives verbatim, as the review directed.
+
+---
+
+## 2026-08-17
+
+Two changes, from the behavioral-acceptance feedback sweeps (runs wf_61b4beae through
+wf_70b31630): every sweep escalated the questions-treated-as-work-orders class (5-9 occurrences),
+root-caused to the absence of any authorization rule in the always-on frame and the phase skills.
+Owner approved 2026-08-17 (deferred corrections #1/#5; the same 0.3.0 batch also changed
+commands/, agents/, and workflows/ — their record is git, per this file's scope rule).
+
+---
+
+### 16 · `skills/expert-standard/SKILL.md` · four edits · **the authorization axis**
+
+**16a — "The Shift" intro.** Replace `Two shifts, working together. Neither alone is sufficient.`
+with `Three shifts, working together. None alone is sufficient.`
+
+**16b — third shift paragraph.** Insert immediately before the paragraph beginning
+`These shifts are related.`:
+
+> **Act only on authorization, not on inference of intent.** Before any Edit, Write, commit, or
+> agent dispatch, name the specific owner instruction that authorizes it. If the most recent owner
+> turn is a question or discussion, there is no authorization: an owner question is a request for
+> information, never authorization to edit, fix, plan, or proceed — answer in the response and
+> stop. During diagnosis or investigation, hold candidate causes as candidates: no verdicts,
+> severities, or remediation sequences unless requested. When an owner message raises multiple
+> points, engage every point rather than answering one and acting on the rest.
+
+**16c — failure-signal count.** Replace `Four signals that the Expert Standard isn't being
+applied:` with `Five signals…`; insert immediately before `**Assessment gaps.**`:
+
+> **Unauthorized changes.** An artifact changed and no owner instruction can be quoted that
+> ordered the change. The tell is a question in the transcript followed by an edit: the owner
+> asked "why" or "what if" and something got modified. If you cannot point at the directive that
+> authorized a mutation, the mutation was the helpfulness default acting, not you following an
+> instruction.
+
+**16d — frontmatter description (activation surface).** Insert before `If Claude is producing or
+evaluating engineering work, this skill applies`:
+
+> Also activates before any Edit, Write, commit, or agent dispatch made in response to an owner
+> message — the authorization axis: name the instruction that authorizes the change, and if the
+> owner's turn was a question or discussion, answer it and change nothing.
+
+**Why.** The sweeps' diagnosis, verbatim root cause: the frame "governs only two axes (judge
+against named standards; verify claims against source) and contains no authorization axis," so
+"the default helpfulness bias ('a question about a problem implies a desire for the fix') decides,
+and questions convert into unauthorized changes." Evidence: eight sweep dispositions across five
+runs; the owner's standing memory feedback_questions_are_not_work_orders.md predating them.
+
+---
+
+### 17 · `skills/expert-plan/SKILL.md` + `skills/expert-implement/SKILL.md` · appended section · **inbound owner messages**
+
+**Anchor.** Appended as a new final section, identical in both files:
+
+> ## Inbound owner messages: questions are not work orders
+>
+> Before acting on any owner message, classify it: **INTERROGATIVE** (asks why/what/how/whether,
+> explores an option, requests status or explanation) or **DIRECTIVE** (explicitly instructs a
+> change). An interrogative is answered with evidence only — candidate fixes may be described as
+> candidates, but NO artifact, code, ledger, or plan edit is made in response to it. Only an
+> explicit directive authorizes changes, and only the changes it names. If classification is
+> ambiguous, ask the owner one clarifying question before touching anything.
+
+expert-implement additionally appends:
+
+> In this skill specifically: an owner question mid-execution never expands the current
+> step's authorized scope — the Step-3 scope rule binds until an explicit directive changes it.
+
+**Why.** Same evidence as 16. Both skills governed only questions the agent ASKS (expert-plan's
+question register; expert-implement's scope rule is defined against the plan alone) — no rule
+existed for messages the owner sends.

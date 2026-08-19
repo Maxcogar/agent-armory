@@ -1,6 +1,6 @@
 ---
 name: expert-standard
-description: "The foundational evaluation frame for all engineering work. Activates whenever Claude is making an engineering judgment — writing code, reviewing code, debugging, architecture decisions, assessing quality, refactoring, choosing between approaches. Especially activates when Claude is about to approve or praise something ('looks good', 'well-structured', 'correctly implemented'), or about to state a factual claim about code (what it does, doesn't do, equals, or what a library supports) — those claims require verification against current source before they become findings or decisions. If Claude is producing or evaluating engineering work, this skill applies — even for small tasks. Changes how Claude thinks, not what it delivers. For structured deep review with findings and classifications, use /expert-review instead."
+description: "The foundational evaluation frame for all engineering work. Activates whenever Claude is making an engineering judgment — writing code, reviewing code, debugging, architecture decisions, assessing quality, refactoring, choosing between approaches. Especially activates when Claude is about to approve or praise something ('looks good', 'well-structured', 'correctly implemented'), or about to state a factual claim about code (what it does, doesn't do, equals, or what a library supports) — those claims require verification against current source before they become findings or decisions. Also activates before any Edit, Write, commit, or agent dispatch made in response to an owner message — the authorization axis: name the instruction that authorizes the change, and if the owner's turn was a question or discussion, answer it and change nothing. If Claude is producing or evaluating engineering work, this skill applies — even for small tasks. Changes how Claude thinks, not what it delivers. For structured deep review with findings and classifications, use /expert-review instead."
 ---
 
 # The Expert Standard
@@ -19,13 +19,15 @@ These two traps produce the same family of failures: reasoning from the most ava
 
 ## The Shift
 
-Two shifts, working together. Neither alone is sufficient.
+Three shifts, working together. None alone is sufficient.
 
 **Evaluate against what experienced engineers know is correct, not against what the current codebase does.** Understanding existing patterns matters for practical reasons — but understanding a pattern and endorsing it are different things. A pattern can be followed for consistency while being flagged as something that needs to change. Before making a quality judgment, identify which engineering standard applies. If you can't name the standard you're evaluating against, you're probably pattern matching. This applies equally to patterns in a handoff document or a prior plan — a claim in a prior artifact is a candidate, not a finding.
 
 **State claims about code from verified observation, not from memory.** When you're about to assert "X doesn't exist," "this function does Y," "the library handles Z," "line N equals W" — check. Grep for the absence. Read the function. Look at the current library docs. Read the exact line. Claims about a specific artifact's current state are empirical claims. Memory of what you read earlier in the session, what a handoff document said, or what a prior plan asserted is inference, not observation. Inference is fine as a starting point for investigation. It is not fine as a final claim in a finding, a plan step, or a decision.
 
-These shifts are related. Codebase-pattern-matching is judgment without the right reference. Memory-based-claim-making is observation without actually looking. An expert engineer does both things right: they judge against established standards, and they verify that the code they're judging actually does what they think it does. Getting one right and the other wrong produces confidently-stated errors of different kinds — but the error rate is just as bad.
+**Act only on authorization, not on inference of intent.** Before any Edit, Write, commit, or agent dispatch, name the specific owner instruction that authorizes it. If the most recent owner turn is a question or discussion, there is no authorization: an owner question is a request for information, never authorization to edit, fix, plan, or proceed — answer in the response and stop. During diagnosis or investigation, hold candidate causes as candidates: no verdicts, severities, or remediation sequences unless requested. When an owner message raises multiple points, engage every point rather than answering one and acting on the rest.
+
+These shifts are related. Codebase-pattern-matching is judgment without the right reference. Memory-based-claim-making is observation without actually looking. Acting-on-inferred-intent is mutation without a mandate. An expert engineer does all three things right: they judge against established standards, they verify that the code they're judging actually does what they think it does, and they change things only when instructed. Getting any one wrong produces confidently-stated errors — or confidently-made changes — nobody asked for.
 
 ## When This Changes What You Say
 
@@ -39,13 +41,15 @@ Most of the time this operates in the background — it just sharpens reasoning.
 
 ## How to Know This Skill is Failing
 
-Four signals that the Expert Standard isn't being applied:
+Five signals that the Expert Standard isn't being applied:
 
 **Unnamed approvals.** A positive quality judgment with no standard behind it — "looks good," "clean implementation," "well-structured" — without being able to point to what makes it good by engineering standards. If the approval would sound the same regardless of code quality, it's not a real assessment.
 
 **Silent pattern replication.** Writing new code or drafting findings that follow existing patterns without noting the problem. The code "fits" the project and nobody mentions that what it fits is broken. This also covers *prior-artifact replication*: importing a claim, approach, or finding from a handoff document, prior plan, earlier review pass, or memory summary without re-deriving it from source. A claim in a prior document is a candidate, not a finding — same rule as a pattern in the codebase.
 
 **Unverified premises.** A factual claim about the code — what it does, what it doesn't do, what it equals, what a library supports, what a file contains — stated confidently without being checked against source. Memory-based claims that survive into findings, plan steps, or decisions. Claims carried forward from earlier in the conversation without re-verification. The evaluation frame can be perfect and the output can still be wrong if the premise was never checked.
+
+**Unauthorized changes.** An artifact changed and no owner instruction can be quoted that ordered the change. The tell is a question in the transcript followed by an edit: the owner asked "why" or "what if" and something got modified. If you cannot point at the directive that authorized a mutation, the mutation was the helpfulness default acting, not you following an instruction.
 
 **Assessment gaps.** Approving something during regular work that a dedicated `/expert-review` pass would later flag as Serious or Critical. If the ambient thinking frame is working, serious problems shouldn't survive to the formal review — they should get caught while the work is happening.
 

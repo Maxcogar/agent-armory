@@ -16,6 +16,16 @@ Workflow: `${CLAUDE_PLUGIN_ROOT}/workflows/expert-lifecycle.js`
 
 Execute these steps in order. Do not improvise past a failed step — report it.
 
+## 0. Intake classification — questions are not work orders
+
+Before initializing or advancing anything, classify the owner's turn: **INTERROGATIVE**
+(asks why/what/how/whether, explores an option, requests status or explanation) or
+**DIRECTIVE** (explicitly instructs work). An interrogative gets an answer — from
+already-gathered evidence, read-only tools permitted — and initializes **no** segment,
+edits **no** artifact, dispatches **no** phase. Only a directive starts or resumes the
+lifecycle, and only for the work it names. If classification is ambiguous, ask one
+clarifying question before touching anything.
+
 ## 1. Preflight (F-2)
 
 Before spending any tokens on a phase, confirm the environment:
@@ -37,7 +47,7 @@ Before spending any tokens on a phase, confirm the environment:
 - If the ledger is missing, initialize a fresh one at `intake` (revision 0,
   empty arrays, `budget.total_tokens` 0, `feedback_marker` `{session_file:null,
   line:0}`) and create the `.claude/expert/` directory.
-- Otherwise read it, and **re-hash every `artifact_index` entry**: compute the
+- Otherwise read it, and **re-hash every `artifact_index` entry except `role: "implementation"`** (implementation outputs are re-verified by tests and ground truth, not hash-pinning; hashing source files here would append a spurious `amendments` entry on every legitimate later edit): compute the
   SHA-256 of each artifact on disk and compare to the stored `sha256`. On any
   mismatch, mark that artifact **amended** (append to `amendments`) and, if the
   artifact's `approved_by_owner` was true, invalidate that approval. A **spec**
@@ -138,6 +148,28 @@ From the SEGMENT_REPORT's `ledger_delta` and its top-level fields:
   escalation stays visible here, not only when first presented** (F-14); budget;
   the next action. STATUS.md is generated, never hand-edited.
 
+## 4b. Gate-discussion authorization rule — governs step 5 and all conversation while any `escalations` entry is unresolved
+
+- While an owner gate is open, this command tier's write authority is **exactly and
+  exclusively** the ledger, `.claude/expert/reviews/*`, and STATUS.md. No edits to project
+  code, specs, architectures, plans, tests, or any other artifact — regardless of what the
+  discussion surfaces.
+- An owner reply at a gate that asks a question, requests explanation, or explores options
+  is **neither approval nor a change request**: answer from already-gathered evidence
+  (read-only tools permitted), change no artifact, dispatch no phase, mark no escalation
+  resolved, and re-present the gate afterward with its options unchanged. Ambiguous replies
+  are treated as questions, not decisions.
+- Only an explicit decision utterance (approve / request changes with the changes stated /
+  a named gate option) exits the gate. Changes it authorizes are executed by re-invoking
+  `/expert resume` so the reviewed workflow phases perform them — never inline here.
+- Catching yourself about to edit outside the three owned files while a gate is open is a
+  **stop condition**: state the proposed change and ask.
+- **Checkpoint on approval:** when the owner approves a phase artifact and its sha256 is
+  recorded, commit that artifact in the target project's repo (or, where committing is not
+  permitted, record the full file inventory with hashes as the segment baseline) before the
+  next `/expert resume` — an approved artifact left uncommitted becomes false scope-check
+  residue in the next phase.
+
 ## 5. Present the outcome to the owner (F-9) — plain language, no jargon
 
 Read the SEGMENT_REPORT's `outcome`:
@@ -145,7 +177,7 @@ Read the SEGMENT_REPORT's `outcome`:
 - **`owner_gate`** — present the `gate` in plain terms: what happened, the
   options, and your recommendation. If the gate carries a `diagnosis` and
   `correction_draft`, show the root cause and the proposed fix so the owner
-  approves or rejects a solution, not a bare problem. The six gate types and
+  approves or rejects a solution, not a bare problem. The seven gate types and
   what each asks:
   - `intent` — "Is this spec what you meant?" (the one intent gate)
   - `spec_traceable` — a downstream issue that traces to the spec; needs the
@@ -154,6 +186,9 @@ Read the SEGMENT_REPORT's `outcome`:
   - `risk_override` — a STOP where amend-plan isn't viable; accepting risk is
     the owner's call (never auto-selected)
   - `non_convergence` — a review loop hit its round cap
+  - `control_fault` — a mechanical control (a verifier dispatch) could not run or
+    returned less than it was asked to check; the phase is **unverified**, not failed —
+    re-running the phase is the usual answer
   - `core_approval` — the drafted CORE ingestion message; **present it for
     approval and never ingest it yourself** (you have no CORE-ingest tool, and
     ingestion is the owner's decision alone, per the repo CORE protocol)
@@ -174,7 +209,7 @@ found that did not rise to one.
 
 **Feedback escalations (F-14).** When the report carries a `feedback_escalation`,
 present it to the owner as an owner-owned item alongside whatever gate or
-completion the segment produced (it is not one of the six gate types):
+completion the segment produced (it is not one of the seven gate types):
 - `systemic_defect` — present the attached `diagnosis` (root cause + correction
   draft) so the owner approves or rejects a proposed fix.
 - `stale_deployment` — the fix for this signature exists, but the running plugin

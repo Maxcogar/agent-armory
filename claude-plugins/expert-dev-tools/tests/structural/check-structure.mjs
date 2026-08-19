@@ -443,7 +443,7 @@ check('T-18 the scope check is dispatched to the verifier under one label',
   }
   const oldChecks = baseline('tests/structural/check-structure.mjs');
   if (oldChecks) {
-    const labels = [...oldChecks.matchAll(/check\(\s*[`'"]([^`'"]{8,60})/g)].map((m) => m[1]);
+    const labels = [...oldChecks.matchAll(/check\(\s*[`'"]([^`'"]{8,160})/g)].map((m) => m[1]);
     const src = readFileSync(join(ROOT, 'tests/structural/check-structure.mjs'), 'utf8');
     // A RENAMED label is not a removed check. S7 changed two labels' cardinality
     // word (nine -> ten) when the corrector skill and agent landed; the assertions
@@ -455,6 +455,55 @@ check('T-18 the scope check is dispatched to the verifier under one label',
     // guessed by widening the normalizer. Each entry names the exact baseline label
     // and the exact label that supersedes it, with the finding that forced the swap.
     const REPLACED_BY_STRENGTHENING = [
+      {
+        was: 'T-24 gate-count comment matches the GATE literal (all member forms; spreads fail closed)',
+        now: 'T-24 gate-count comment matches the evaluated GATE literal (fail-closed on unevaluable)',
+        why: 'corrections-0.3.0 round-10 tripwire rework: two rounds of widening the source-text ' +
+             'lexer each left member forms it could not see (F9-1, F10-1). The literal is now ' +
+             'lifted and evaluated, so the language counts its own members; anything unevaluable ' +
+             'in isolation throws and the check fails closed.',
+      },
+      {
+        was: 'T-24 gate-count comment matches the GATE literal',
+        now: 'T-24 gate-count comment matches the GATE literal (all member forms; spreads fail closed)',
+        why: 'corrections-0.3.0 round-9 F9-1: the original counter recognized bare-identifier ' +
+             'keys only, so a quoted-key or spread member evaded the count. The replacement ' +
+             'counts every member form at depth 0 and fails closed on spreads.',
+      },
+      {
+        was: 'T-24 gt-guard: target traceability is in the refusal predicate',
+        now: 'T-24 gt-guard: refusal predicate is the extracted pure function',
+        why: 'corrections-0.3.0 round-5 F5-3: the inline predicate was extracted into ' +
+             'groundTruthPreconditions so T-24x can lift and EXECUTE it; the text pin now ' +
+             'targets the call site, and five executed T-24x cases observe the refusals.',
+      },
+      {
+        was: 'T-24 shared accumulator: implement gate and gt-guard read the same registered set',
+        now: 'T-24 shared accumulator: the implement gate reads the registered set',
+        why: 'corrections-0.3.0 round-5: the gt-guard side moved into the extracted pure ' +
+             'function (executed by T-24x); the remaining text pin covers the implement gate.',
+      },
+      {
+        was: 'T-24 gt-guard: refusal is an answerable owner gate, and no terminal failed outcome exists',
+        now: 'T-24 every workflow outcome is complete or owner_gate (no terminal failed, reworded or not)',
+        why: 'corrections-0.3.0 round-5 F5-4: the quote-specific assertion is replaced by a ' +
+             'semantic scan over every outcome literal, immune to rewording.',
+      },
+      {
+        was: 'T-24 scope-check: no mtime proxy remains in the exemption rules',
+        now: 'T-24 scope-check: no time-based exemption in the scope rules (semantic, reword-resistant)',
+        why: 'corrections-0.3.0 round-5 F5-4: mutation probe M4 showed a REWORDED mtime rule ' +
+             'passed the verbatim-sentence pin; the replacement matches the concept by regex ' +
+             'over the scope-check prompt region.',
+      },
+      {
+        was: 'T-24 scope-check: same-segment earlier-phase outputs are exempt by path list',
+        now: 'T-24 scope-check: each phase RECORDS its artifact hash via the verifier',
+        why: 'corrections-0.3.0 round-4 F4-3: the path-list exemption (with an mtime-ordering ' +
+             'condition) was replaced by uniform hash comparison - each phase\'s scope-check ' +
+             'verifier records the artifact\'s SHA-256, so same-segment artifacts are checked ' +
+             'exactly like prior-segment ones, both edit interleavings.',
+      },
       {
         was: 'T-A2a workflow: valid JS syntax',
         now: 'T-A2a workflow: parses as a workflow body (strict)',
@@ -477,7 +526,7 @@ check('T-18 the scope check is dispatched to the verifier under one label',
     // allowlist below writes this very label into the file, which is exactly how
     // this guard was found reporting green over a deleted check.
     const goneFrom = (baselineLabels, currentSrc) => {
-      const here = new Set([...currentSrc.matchAll(/check\(\s*[`'"]([^`'"]{8,60})/g)].map((m) => norm(m[1])));
+      const here = new Set([...currentSrc.matchAll(/check\(\s*[`'"]([^`'"]{8,160})/g)].map((m) => norm(m[1])));
       return baselineLabels.filter((l) => {
         if (here.has(norm(l))) return false;              // structural: in check( position
         const now = supersededBy.get(l);
@@ -641,6 +690,110 @@ check('T-23 both caller sites route non-PASS through the shared escalation build
   (wfSrc.match(/gate\.verdict === 'PASS'\) return null/g) || []).length === 1);
 check('T-23 the escalation builder handles both new states',
   /gate\.verdict === 'CORRECTION_FAILED'/.test(wfSrc) && /gate\.verdict === 'CORRECTOR_HALTED'/.test(wfSrc));
+
+// ---- T-24: ground-truth guard + scope-check are orchestrator predicates (0.3.0) ----
+// Source-text assertions in the tier's established style: each names the property
+// a mutation would have to remove, so deleting a predicate turns the tier red.
+// They are text assertions, not refusal observations, because the workflow body
+// is not importable and no execution harness for it exists; the refusal behavior
+// itself was traced and mutation-probed in review (corrections-0.3.0 rounds 2-3).
+check('T-24 gt-guard: spec must be owner-approved in the LEDGER index',
+  /const specApproved = [^\n]*approved_by_owner === true/.test(wfSrc));
+check('T-24 gt-guard: build-completeness reads the LATEST implementation verdict',
+  wfSrc.includes("implGates[implGates.length - 1].verdict === 'PASS'"));
+check('T-24 gt-guard: refusal predicate is the extracted pure function',
+  wfSrc.includes('const gt = groundTruthPreconditions(ledger, delta, specPath)'));
+check('T-24 every workflow outcome is complete or owner_gate (no terminal failed, reworded or not)',
+  (() => { const outs = [...wfSrc.matchAll(/outcome:\s*'(\w+)'/g)].map((m) => m[1]); return outs.length > 0 && outs.every((o) => o === 'complete' || o === 'owner_gate'); })());
+check('T-24 shared accumulator: the implement gate reads the registered set',
+  wfSrc.includes('if (implementationArtifacts().length === 0) {'));
+check('T-24 shared role predicate: hash pinning excludes implementation everywhere',
+  wfSrc.includes("const isHashPinnedRole = (a) => a.role !== 'implementation'") && wfSrc.includes('isHashPinnedRole(a) && a.path !== artifactPath'));
+check('T-24 gt-guard: implement phase PRODUCES role implementation artifacts',
+  wfSrc.includes("delta.artifacts.push({ role: 'implementation', path: f })"));
+check('T-24 scope-check: prior-artifact hashes are injected from the ledger index',
+  wfSrc.includes('a.sha256 && isHashPinnedRole(a) && a.path !== artifactPath'));
+check('T-24 scope-check: hash-mismatched upstream artifact is named a violation',
+  wfSrc.includes('current hash DIFFERS from its recorded hash') && wfSrc.includes('unauthorized upstream edit'));
+// T-24y: the under-coverage predicate EXECUTED (F6-1) - neutering it must turn
+// this block red, which round 6's mutation MD showed the text pins alone cannot.
+{
+  // F7-3: verifierUnderCovered is an expression-bodied arrow on one line; declOf
+  // is a brace-matching declaration extractor and over-captures past it. Extract
+  // exactly the definition line instead.
+  const vucLine = (wfSrc.match(/const verifierUnderCovered =[^\n]*/) || [''])[0];
+  const vuc = new Function(vucLine + '\nreturn verifierUnderCovered;')();
+  check('T-24y under-coverage: null return is under-covered', vuc(null, 1) === true);
+  check('T-24y under-coverage: empty checks are under-covered', vuc({ checks: [] }, 1) === true);
+  check('T-24y under-coverage: short return vs expected count is under-covered', vuc({ checks: [{}] }, 5) === true);
+  check('T-24y under-coverage: exact expected count passes', vuc({ checks: [{}, {}, {}, {}, {}] }, 5) === false);
+  check('T-24y under-coverage: expectedMin floors at 1 (0 or undefined never exempts)', vuc({ checks: [] }, 0) === true && vuc({ checks: [{}] }, undefined) === false);
+}
+check('T-24 scope-check: a missing artifact-sha256 entry escalates (fail-closed hash recording)',
+  /if \(!hex\) \{/.test(wfSrc) && wfSrc.includes('did not return the required artifact-sha256 entry'));
+// F7-1: the controls are pinned at their DEPLOYMENT, not only their definition -
+// occurrence counts, the same pattern T-23 uses. Round 7's six surviving mutations
+// (deleting individual call sites, reverting sample.length, flipping one
+// control_fault, neutering the gt.ok branch) each turn one of these red.
+check('T-24 deployment: verifierUnderCovered guards all four consumption sites',
+  (wfSrc.match(/verifierUnderCovered\(/g) || []).length >= 4);
+check('T-24 deployment: underCoveredVerifierGate raised at all four sites',
+  (wfSrc.match(/underCoveredVerifierGate\(/g) || []).length >= 4);
+check('T-24 deployment: the spot re-run expects its full sample count',
+  wfSrc.includes('verifierUnderCovered(vr, sample.length)'));
+check('T-24 deployment: both control gates carry GATE.control_fault',
+  (wfSrc.match(/GATE\.control_fault/g) || []).length >= 2);
+check('T-24 deployment: the ground-truth guard branches on the extracted predicate result',
+  wfSrc.includes('if (!gt.ok) {'));
+// F8-1 class closure: the comment's stated gate count must equal the GATE
+// literal's member count, so the next amendment's propagation miss is a red
+// test, not a review finding.
+{
+  // Round-10 foundational rework (tripwire-fired F9-1/F10-1 class): the pin no
+  // longer lexes source text - it LIFTS the GATE literal and EVALUATES it, so
+  // every member form JavaScript can express (bare/quoted/computed keys,
+  // inline members, split lines, getters, methods, inline spreads) is counted
+  // by the language itself, and anything that cannot evaluate in isolation
+  // (an external-reference spread, a free identifier) throws -> fail closed.
+  const gateBody = braced(wfSrc, wfSrc.indexOf('const GATE = {'));
+  let memberCount = -1;
+  try {
+    const obj = new Function('"use strict"; return {' + gateBody + '};')();
+    memberCount = Reflect.ownKeys(obj).length;
+  } catch (e) { /* memberCount stays -1: unevaluable literal fails the check */ }
+  const words = { six: 6, seven: 7, eight: 8, nine: 9 };
+  const stated = /The (six|seven|eight|nine) owner-gate types/.exec(wfSrc);
+  check('T-24 gate-count comment matches the evaluated GATE literal (fail-closed on unevaluable)',
+    memberCount > 0 && !!stated && words[stated[1]] === memberCount);
+}
+check('T-24 control_fault gate type exists and the under-coverage gate uses it',
+  wfSrc.includes("control_fault: 'control_fault'") && wfSrc.includes('type: GATE.control_fault'));
+
+// T-24x: the ground-truth guard predicate EXECUTED against constructed ledger
+// shapes - refusals observed, not just asserted as source text (F5-3, closed on
+// its third recurrence by the same lift-and-run mechanism T-22/T-23 use).
+{
+  const gtp = new Function(declOf(wfSrc, 'function groundTruthPreconditions(') + '\nreturn groundTruthPreconditions;')();
+  const spec = { role: 'spec', path: 'S.md', approved_by_owner: true };
+  const impl = { role: 'implementation', path: 'x.js' };
+  const passGate = { gate: 'implementation', verdict: 'PASS' };
+  const failGate = { gate: 'implementation', verdict: 'NEEDS_FIXES' };
+  const L = (arts, gates) => ({ artifact_index: arts, gate_history: gates });
+  check('T-24x refuses when the spec is not owner-approved',
+    gtp(L([{ ...spec, approved_by_owner: false }, impl], [passGate]), { artifacts: [], gate_history: [] }, 'S.md').ok === false);
+  check('T-24x refuses when the LATEST implementation verdict is not PASS (earlier PASS does not count)',
+    gtp(L([spec, impl], [passGate, failGate]), { artifacts: [], gate_history: [] }, 'S.md').ok === false);
+  check('T-24x refuses when no implementation artifacts are registered',
+    gtp(L([spec], [passGate]), { artifacts: [], gate_history: [] }, 'S.md').ok === false);
+  check('T-24x proceeds when all three preconditions hold (same-segment artifacts count)',
+    gtp(L([spec], [passGate]), { artifacts: [impl], gate_history: [] }, 'S.md').ok === true);
+  check('T-24x refusal reason names the failed precondition',
+    /owner-approved/.test(gtp(L([{ ...spec, approved_by_owner: false }], []), {}, 'S.md').why));
+}
+check('T-24 scope-check: each phase RECORDS its artifact hash via the verifier',
+  wfSrc.includes("cited_claim === 'artifact-sha256'") && wfSrc.includes('mine.sha256 = hex[0]'));
+check('T-24 scope-check: no time-based exemption in the scope rules (semantic, reword-resistant)',
+  (() => { const i = wfSrc.indexOf('Document-phase scope check'); const region = wfSrc.slice(i, wfSrc.indexOf('`', i + 10)); return i > 0 && !/(mtime|last[- ]modified|modif\w*\s+(?:time|before|after)|timestamp)/i.test(region); })());
 
 console.log(failures ? `\nSTRUCTURAL TESTS FAILED (${failures})` : '\nSTRUCTURAL TESTS PASSED');
 process.exit(failures ? 1 : 0);
