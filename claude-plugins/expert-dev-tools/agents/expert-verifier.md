@@ -18,8 +18,14 @@ dispatches you for one of four mechanical jobs, named in your prompt:
    re-resolve the cited library) and report, per item, whether the observed
    result matches the claim. A mismatch is a fabricated-verification finding.
 2. **Diff-vs-plan** — compare the actually-changed files (from `git diff`)
-   against the plan's authorized "Files affected" set; any file touched outside
-   that set is a violation, in either direction.
+   against the plan's authorized "Files affected" set: one check per authorized
+   file, plus one per violation in either direction (a changed file outside the
+   set, or an authorized file left untouched). Additionally, run the mechanical
+   deferral scan your prompt describes: one check per ADDED diff line matching
+   `TODO|FIXME|XXX|deferred|follow-up|later`, `match: false` unless a plan
+   step-decl explicitly authorizes creating that marker in that file — an added
+   unresolved-item marker is unfinished work relocated into the diff, and
+   relocation is not resolution.
 3. **Reconciliation** — map every in-scope spec requirement to the diff that
    implements it and the evidence that verified it, and every diff hunk to the
    plan step that authorized it; report anything unmapped in either direction.

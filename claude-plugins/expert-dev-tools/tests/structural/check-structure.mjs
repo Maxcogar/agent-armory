@@ -851,5 +851,107 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
     /\*\*Reinterpreted requests\.\*\*/.test(std));
 }
 
+// ---- T-26: implementation-completeness enforcement (corrections-0.4.0, premature-completion-claims) ----
+// C2's predicate and C1's recorded-facts reader are lifted from the workflow
+// source and EXECUTED against constructed cases (the T-24x mechanism) — the
+// refusals are observed, never asserted as source text. Text pins cover only
+// what cannot execute here: dispatch wording and deployment call sites.
+{
+  // Note: wfSrc was read before this tier's edits never touch it mid-run; re-read
+  // is unnecessary. Lift the two pure predicates.
+  const fns = new Function([
+    declOf(wfSrc, 'function recordedPlanFacts('),
+    declOf(wfSrc, 'function implementationCompleteness('),
+    'return { recordedPlanFacts, implementationCompleteness }',
+  ].join('\n'))();
+  const { recordedPlanFacts: rpf, implementationCompleteness: icp } = fns;
+  const STEPS = ['S1', 'S2', 'S3'];
+  const evFor = (ids) => ids.map((s) => ({ claim_type: 'test', tool: 'Bash', citation: 'x', observed: 'y', asserted: 'z', step: s }));
+  // (a) full step set + per-step evidence ⇒ pass.
+  check('T-26 exec (a) full step set with per-step evidence passes',
+    icp(STEPS, { status: 'completed', steps_completed: STEPS, evidence: evFor(STEPS) }).ok === true);
+  // (b) one missing step ID ⇒ refuse, naming that ID.
+  const b = icp(STEPS, { status: 'completed', steps_completed: ['S1', 'S3'], evidence: evFor(STEPS) });
+  check('T-26 exec (b) a missing step ID refuses and names it',
+    b.ok === false && b.kind === 'incomplete' && Array.isArray(b.missing_steps) && b.missing_steps.length === 1 && b.missing_steps[0] === 'S2');
+  // (c) completed with empty evidence ⇒ refuse.
+  const c = icp(STEPS, { status: 'completed', steps_completed: STEPS, evidence: [] });
+  check('T-26 exec (c) completed with empty evidence refuses', c.ok === false && c.kind === 'incomplete');
+  // (c2) a step with no evidence entry referencing it ⇒ refuse, naming it.
+  const c2 = icp(STEPS, { status: 'completed', steps_completed: STEPS, evidence: evFor(['S1', 'S2']) });
+  check('T-26 exec (c2) a completed step without an evidence[].step reference refuses and names it',
+    c2.ok === false && c2.kind === 'incomplete' && c2.missing_steps.length === 1 && c2.missing_steps[0] === 'S3');
+  // (d) halted partial return ⇒ no refusal (halts stay expressible).
+  check('T-26 exec (d) a halted partial return is never refused',
+    icp(STEPS, { status: 'halted', steps_completed: ['S1'], evidence: [] }).ok === true);
+  // (e) no recorded step index ⇒ control_fault, never an open pass.
+  const e = icp(null, { status: 'completed', steps_completed: STEPS, evidence: evFor(STEPS) });
+  check('T-26 exec (e) a missing recorded step index is a control_fault (fail-closed)',
+    e.ok === false && e.kind === 'control_fault');
+  check('T-26 exec (e2) an EMPTY recorded step index is also a control_fault',
+    icp([], { status: 'completed', evidence: [] }).kind === 'control_fault');
+  // recordedPlanFacts: latest recorded plan entry wins; same-segment delta counts;
+  // an index-less ledger yields null fields (the control_fault input to (e)).
+  const planEntry = { role: 'plan', path: 'P.md', step_ids: STEPS, element_count: 7, files_count: 4 };
+  check('T-26 exec recordedPlanFacts reads the recorded facts from the ledger index',
+    rpf({ artifact_index: [planEntry] }, { artifacts: [] }, 'P.md').element_count === 7);
+  check('T-26 exec recordedPlanFacts: a same-segment delta entry counts and the LATEST recorded entry wins',
+    rpf({ artifact_index: [planEntry] }, { artifacts: [{ ...planEntry, element_count: 9 }] }, 'P.md').element_count === 9);
+  check('T-26 exec recordedPlanFacts: no recorded index yields null step_ids (the fail-closed input)',
+    rpf({ artifact_index: [{ role: 'plan', path: 'P.md' }] }, {}, 'P.md').step_ids === null);
+  // C3 executed: the floor derived from a recorded element_count of 7 makes a
+  // one-check verifier return under-covered (extends the T-24y vuc pins).
+  const vucLine26 = (wfSrc.match(/const verifierUnderCovered =[^\n]*/) || [''])[0];
+  const vuc26 = new Function(vucLine26 + '\nreturn verifierUnderCovered;')();
+  const floor26 = Math.max(1, rpf({ artifact_index: [planEntry] }, {}, 'P.md').element_count | 0);
+  check('T-26 exec C3 floor: one summary check against a recorded element_count of 7 is under-covered',
+    floor26 === 7 && vuc26({ checks: [{}] }, floor26) === true);
+  check('T-26 exec C3 floor: seven checks against the same floor pass',
+    vuc26({ checks: [{}, {}, {}, {}, {}, {}, {}] }, floor26) === false);
+  // Deployment pins: the gate is wired at the implement phase and both floors
+  // derive from recorded facts, not the literal 1 (T-23/F7-1 pattern).
+  check('T-26 deployment: the implement phase calls the completeness predicate on recorded step_ids',
+    wfSrc.includes('const planFacts = recordedPlanFacts(ledger, delta, planPath)') &&
+    wfSrc.includes('const compl = implementationCompleteness(planFacts.step_ids, impl)'));
+  check('T-26 deployment: the completeness refusal branches carry control_fault and spec_traceable gates',
+    /if \(compl\.kind === 'control_fault'\)/.test(wfSrc) && /Premature completion claim: \$\{compl\.reason\}/.test(wfSrc));
+  check('T-26 deployment: diff-vs-plan floor derives from the recorded files count',
+    wfSrc.includes('const filesFloor = Math.max(1, planFacts.files_count | 0)') &&
+    wfSrc.includes('verifierUnderCovered(dvp, filesFloor)'));
+  check('T-26 deployment: reconciliation floor derives from the recorded element count',
+    wfSrc.includes('recordedPlanFacts(ledger, delta, planPath).element_count | 0') &&
+    wfSrc.includes('verifierUnderCovered(recon, reconFloor)'));
+  // C1 producer + consumer pins: the plan-phase scope check requests the step
+  // index, records it, and fails closed when it cannot be parsed.
+  check('T-26 C1: the plan-phase scope-check dispatch requests the plan-step-index record',
+    wfSrc.includes('cited_claim exactly "plan-step-index"') &&
+    wfSrc.includes('cited_claim exactly "plan-element-count"') &&
+    wfSrc.includes('cited_claim exactly "plan-files-count"'));
+  check('T-26 C1: the recorded facts land on the plan artifact entry',
+    wfSrc.includes('mine.step_ids = stepIds') && wfSrc.includes('mine.element_count = elementCount') && wfSrc.includes('mine.files_count = filesCount'));
+  check('T-26 C1: an unparseable plan-index record fails closed as control_fault',
+    wfSrc.includes('did not return a parseable plan-step-index') &&
+    (() => { const i = wfSrc.indexOf('did not return a parseable plan-step-index'); const region = wfSrc.slice(Math.max(0, i - 400), i); return /GATE\.control_fault/.test(region); })());
+  // C4: the deferral scan is in the diff-vs-plan dispatch, added-lines-only,
+  // with the marker alternation, and the verifier agent carries the same job.
+  const dvpDispatch = (/Diff-vs-plan: compare git-changed files[^`]*/.exec(wfSrc) || [''])[0];
+  check('T-26 C4: the diff-vs-plan dispatch carries the mechanical deferral scan on ADDED lines',
+    /deferral scan/.test(dvpDispatch) && /ADDED lines only/.test(dvpDispatch) &&
+    dvpDispatch.includes('TODO|FIXME|XXX|deferred|follow-up|later') &&
+    /match is false UNLESS a step-decl/.test(dvpDispatch));
+  check('T-26 C4: the verifier agent job 2 carries the deferral scan',
+    (() => { const v = rd('agents/expert-verifier.md'); return /deferral scan/.test(v) && v.includes('TODO|FIXME|XXX|deferred|follow-up|later'); })());
+  // C2 schema + C5 prose alignment.
+  check('T-26 EVIDENCE schema carries the additive optional step field',
+    /step: S_STR/.test((/const EVIDENCE = \{[\s\S]*?\n\}/.exec(wfSrc) || [''])[0]));
+  check('T-26 C5: the implementer agent no longer carries the not-a-promise-to-populate caveat',
+    !/not a promise to populate/.test(rd('agents/expert-implementer.md')));
+  check('T-26 C5: the implementer agent states the mechanical completeness contract',
+    /reconciles mechanically/.test(rd('agents/expert-implementer.md')) &&
+    /premature completion claim/.test(rd('agents/expert-implementer.md')));
+  check('T-26 C5: expert-implement SKILL final report notes the mechanical step reconciliation',
+    /reconciled mechanically against the plan's declared step IDs/.test(rd('skills/expert-implement/SKILL.md')));
+}
+
 console.log(failures ? `\nSTRUCTURAL TESTS FAILED (${failures})` : '\nSTRUCTURAL TESTS PASSED');
 process.exit(failures ? 1 : 0);

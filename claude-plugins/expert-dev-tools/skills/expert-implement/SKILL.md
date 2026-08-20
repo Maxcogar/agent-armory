@@ -174,7 +174,7 @@ Whether you finish all steps in scope or halt with a STOP REPORT, your final mes
 
 1. **Preflight verdict** — `PREFLIGHT PASS` (one line per category checked) or `PREFLIGHT FAIL` with the report.
 2. **`TodoWrite` final state** — every entry with its terminal status (`completed`, `in_progress`, `pending`, `cancelled`).
-3. **Steps completed** — plan step numbers, each with the verification command and a one-line summary of its observed output.
+3. **Steps completed** — plan step numbers, each with the verification command and a one-line summary of its observed output. When you are dispatched by the expert-lifecycle orchestrator, this list is reconciled mechanically against the plan's declared step IDs: a `completed` status with any plan step missing from the list, or without evidence referencing each step, is refused as a premature completion claim. Only a `halted` return may be partial.
 4. **Files changed** — every file created, modified, or deleted, mapped to the plan's "Files affected." Any file you touched that the plan did not list is called out explicitly with reasoning (and likely should have been a BLAST-RADIUS-EXCEEDS-PLAN stop).
 5. **Stop report (if any)** — the structured block from Step 4, verbatim. Empty if execution completed.
 6. **State of the working tree** — what is committed, what is uncommitted, what tests pass, what is red, and the exact commands to reproduce the state.

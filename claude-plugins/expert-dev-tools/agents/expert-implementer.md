@@ -48,5 +48,9 @@ dispatch. The response shape your dispatches are validated against declares thes
 - `evidence`
 - `stop_report`
 
-Declaring a field here is not a promise to populate it on every return — only `status`-class
-required fields are mandatory. What you must actually emit is stated in the prose above.
+A `completed` return is a completeness claim the orchestrator reconciles mechanically:
+`steps_completed` must list EVERY step ID declared by the plan's step-decl blocks, and
+`evidence` must be non-empty with each plan step referenced by at least one entry's
+`step` field. A completed status with any plan step unaccounted for — in the step list
+or in the evidence — is refused as a premature completion claim. A `halted` return is
+exempt: report the steps and evidence you actually have, with the stop_report.

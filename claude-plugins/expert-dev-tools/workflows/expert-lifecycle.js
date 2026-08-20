@@ -103,6 +103,11 @@ const EVIDENCE = {
       observed: S_STR,  // VERBATIM tool output, quoted, not summarized
       asserted: S_STR,  // the outcome claimed from that output
       result: S_STR,
+      // The plan step ID (S<number>) this entry verifies. Additive and optional
+      // at the schema so halted partial returns stay expressible; a COMPLETED
+      // implementation return is held to it by implementationCompleteness, the
+      // predicate, not the schema (premature-completion correction, 0.4.0).
+      step: S_STR,
     },
   },
 }
@@ -658,6 +663,22 @@ if (cursor === 'implement') {
     return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.spec_traceable, what_happened: 'The implementer completed without reporting any changed files, so no build output is traceable to the executed plan. Ground truth cannot target anything until this is resolved.', options: ['re-run the implement phase', 'investigate'], recommendation: 're-run the implement phase; if it genuinely changed nothing, the plan itself needs the owner\'s attention' } })
   }
 
+  // Implementation-completeness gate (premature-completion correction C2). The
+  // controls below detect FABRICATED positive claims; this one detects OMISSION —
+  // a completed status that leaves recorded plan steps unaccounted for, the
+  // measured premature-completion shape. It consumes the step index the plan
+  // phase's scope check recorded (C1); the predicate is pure so the structural
+  // tier lifts and EXECUTES it, same mechanism as groundTruthPreconditions.
+  const planFacts = recordedPlanFacts(ledger, delta, planPath)
+  const compl = implementationCompleteness(planFacts.step_ids, impl)
+  if (!compl.ok) {
+    delta.phase = 'implement'
+    if (compl.kind === 'control_fault') {
+      return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.control_fault, what_happened: `Implementation completeness could not be verified: ${compl.reason}. The completed claim is UNVERIFIED, not accepted.`, options: ['re-run the plan phase so its scope check records the step index', 'investigate the ledger'], recommendation: 're-run the plan phase; without the recorded step index a completed claim is unverifiable, and unverifiable fails closed' } })
+    }
+    return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.spec_traceable, what_happened: `Premature completion claim: ${compl.reason}. Unaccounted step IDs: ${(compl.missing_steps || []).join(', ')}.`, options: ['re-run the implement phase to complete the unaccounted steps', 'amend the plan if these steps should not exist'], recommendation: 'a completed status must account for every plan step with per-step evidence; review the unaccounted list' } })
+  }
+
   // Anti-fabrication spot re-run over a deterministic sample of cited evidence.
   const cited = (impl && impl.evidence) || []
   // Cross-entry consistency, checked BEFORE re-executing anything: entries
@@ -705,13 +726,19 @@ if (cursor === 'implement') {
     }
   }
 
-  // diff-vs-plan mechanical check
-  const dvp = await agent(`Diff-vs-plan: compare git-changed files against the plan's authorized "Files affected" at ${planPath}. Report violations in either direction.`, { agentType: AGENT.verifier, schema: VERIFIER_SCHEMA, phase: 'Verify', label: 'diff-vs-plan' })
-  if (verifierUnderCovered(dvp, 1)) return underCoveredVerifierGate('diff-vs-plan', 'implement', (dvp && dvp.checks || []).length, 1)
+  // diff-vs-plan mechanical check. The coverage floor is the plan's RECORDED
+  // files count (C3), not the literal 1 — an authorized-but-untouched file is a
+  // violation only a per-file check can see, so a single summary check is
+  // under-coverage. The deferral scan (C4) is the structural counterpart of
+  // "unresolved items relocated instead of resolved": relocation now leaves a
+  // detectable marker in the diff, routed through the same diagnose-then-gate.
+  const filesFloor = Math.max(1, planFacts.files_count | 0)
+  const dvp = await agent(`Diff-vs-plan: compare git-changed files against the plan's authorized "Files affected" at ${planPath}. Report one check per file in the authorized set (match true only when its state matches the plan), plus one check per violation in either direction — a changed file outside the set, or an authorized file left untouched. Additionally, run a mechanical deferral scan: over the diff's ADDED lines only, report one check per added line matching TODO|FIXME|XXX|deferred|follow-up|later. Such a check's match is false UNLESS a step-decl in the plan at ${planPath} explicitly authorizes creating that marker in that file; cite the file:line and matched marker in cited_claim and the authorizing plan step (or "none") in re_execution. An added unresolved-item marker is unfinished work relocated into the diff, and relocation is not resolution.`, { agentType: AGENT.verifier, schema: VERIFIER_SCHEMA, phase: 'Verify', label: 'diff-vs-plan' })
+  if (verifierUnderCovered(dvp, filesFloor)) return underCoveredVerifierGate('diff-vs-plan', 'implement', (dvp && dvp.checks || []).length, filesFloor)
   if ((dvp.checks || []).some((c) => c.match === false)) {
-    const dg = await diagnose('A changed file is outside the plan\'s authorized set (scope violation).', ledger, { checks: dvp.checks, plan: planPath })
+    const dg = await diagnose('Diff-vs-plan violation: a changed file outside the plan\'s authorized set, an authorized file left untouched, or an unauthorized deferral marker (TODO/FIXME/deferred) added by the diff.', ledger, { checks: dvp.checks, plan: planPath })
     delta.phase = 'implement'
-    return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.spec_traceable, what_happened: 'An out-of-plan file change was detected.', diagnosis: dg, options: ['amend plan', 'revert change'], recommendation: 'review the diagnosis' } })
+    return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.spec_traceable, what_happened: 'A diff-vs-plan violation was detected (out-of-plan change, untouched authorized file, or unauthorized deferral marker).', diagnosis: dg, options: ['amend plan', 'revert change'], recommendation: 'review the diagnosis' } })
   }
   cursor = 'ground_truth'
 }
@@ -747,8 +774,13 @@ if (cursor === 'ground_truth') {
     return report(finish(), { outcome: 'owner_gate', gate: { type: traceable ? GATE.spec_traceable : GATE.non_convergence, what_happened: `${failed.length} acceptance criterion(s) failed against the running system.`, diagnosis: dg, correction_draft: dg && dg.correction_draft, options: ['amend', 'investigate'], recommendation: 'review the diagnosis' } })
   }
   phase('Verify')
-  const recon = await agent(`Whole-chain reconciliation: map every in-scope spec requirement to its implementing diff and verifying evidence, and every diff hunk to its authorizing plan step at ${planPath}. Report anything unmapped in either direction.`, { agentType: AGENT.verifier, schema: VERIFIER_SCHEMA, phase: 'Verify', label: 'reconciliation' })
-  if (verifierUnderCovered(recon, 1)) return underCoveredVerifierGate('reconciliation', 'ground_truth', (recon && recon.checks || []).length, 1)
+  // C3: the coverage floor is the plan's RECORDED element count, not the literal
+  // 1 — one summary check ("all mapped", match true) cannot witness a whole-chain
+  // reconciliation, and the F5-2 fail-closed principle only binds when the floor
+  // derives from the artifact under test.
+  const reconFloor = Math.max(1, recordedPlanFacts(ledger, delta, planPath).element_count | 0)
+  const recon = await agent(`Whole-chain reconciliation: map every in-scope spec requirement to its implementing diff and verifying evidence, and every diff hunk to its authorizing plan step at ${planPath}. Report one check per in-scope requirement (match true only when it maps to both its implementing diff and its verifying evidence), plus one check per diff hunk that has no authorizing plan step. A single summary check is not a reconciliation.`, { agentType: AGENT.verifier, schema: VERIFIER_SCHEMA, phase: 'Verify', label: 'reconciliation' })
+  if (verifierUnderCovered(recon, reconFloor)) return underCoveredVerifierGate('reconciliation', 'ground_truth', (recon && recon.checks || []).length, reconFloor)
   if ((recon.checks || []).some((c) => c.match === false)) {
     const dg = await diagnose('Whole-chain reconciliation found an unmapped requirement or diff hunk.', ledger, { checks: recon.checks, spec: specPath, plan: planPath })
     delta.phase = 'ground_truth'
@@ -828,6 +860,49 @@ function groundTruthPreconditions(led, dlt, specPathArg) {
   return { ok, why, implArts }
 }
 
+// Pure predicates for the implementation-completeness gate (premature-completion
+// correction, corrections-0.4.0). Extracted as named functions so the structural
+// tier can lift and EXECUTE them against constructed shapes — refusals observed,
+// not just asserted as source text (same mechanism as groundTruthPreconditions).
+//
+// recordedPlanFacts: the plan's machine-recorded ground truth (step_ids,
+// element_count, files_count), written onto the plan's artifact entry by the plan
+// phase's scope check (C1). Latest recorded entry for the plan path wins; a plan
+// with no recorded index returns null fields, which the consumer treats as a
+// control fault, never an open pass.
+function recordedPlanFacts(led, dlt, planPathArg) {
+  const entries = (((led || {}).artifact_index) || []).concat(((dlt || {}).artifacts) || [])
+    .filter((a) => a && a.role === 'plan' && (!planPathArg || a.path === planPathArg))
+  for (let i = entries.length - 1; i >= 0; i--) {
+    if (Array.isArray(entries[i].step_ids) && entries[i].step_ids.length)
+      return { step_ids: entries[i].step_ids, element_count: entries[i].element_count, files_count: entries[i].files_count }
+  }
+  return { step_ids: null, element_count: null, files_count: null }
+}
+// implementationCompleteness: a COMPLETED implementation return must account for
+// every recorded plan step. This closes the omission axis the anti-fabrication
+// net cannot see — steps never reported, evidence never given. Every refusal
+// conditions on status === 'completed', so halted partial returns stay
+// expressible; a missing step index is a control fault (fail-closed), because a
+// completed claim that cannot be reconciled is unverified, not accepted.
+function implementationCompleteness(stepIds, impl) {
+  if (!impl || impl.status !== 'completed') return { ok: true }
+  if (!Array.isArray(stepIds) || stepIds.length === 0)
+    return { ok: false, kind: 'control_fault', reason: 'no plan step index is recorded in the ledger, so a completed claim cannot be reconciled against the plan\'s declared steps' }
+  const done = new Set((impl.steps_completed || []).filter((s) => typeof s === 'string'))
+  const missing = stepIds.filter((id) => !done.has(id))
+  if (missing.length)
+    return { ok: false, kind: 'incomplete', missing_steps: missing, reason: `${missing.length} of ${stepIds.length} plan steps are unaccounted for in steps_completed; a completed status with missing steps is a premature completion claim` }
+  const ev = Array.isArray(impl.evidence) ? impl.evidence : []
+  if (ev.length === 0)
+    return { ok: false, kind: 'incomplete', missing_steps: stepIds.slice(), reason: 'a completed status with an empty evidence array carries no verification at all; absence of verification is refused, not passed' }
+  const evidenced = new Set(ev.map((e) => e && e.step).filter((s) => typeof s === 'string'))
+  const unevidenced = stepIds.filter((id) => !evidenced.has(id))
+  if (unevidenced.length)
+    return { ok: false, kind: 'incomplete', missing_steps: unevidenced, reason: `${unevidenced.length} of ${stepIds.length} completed plan steps have no evidence entry referencing them (evidence[].step)` }
+  return { ok: true }
+}
+
 // Mechanical scope control for the three DOCUMENT phases (S20). The implementation
 // phase has had diff-vs-plan since the start; a document phase had nothing, so the
 // spec phase's stray scratch-note.txt was caught only because a reviewer happened to
@@ -845,8 +920,15 @@ function groundTruthPreconditions(led, dlt, specPathArg) {
 // edit interleavings - with implementation outputs excluded by the shared role
 // predicate (they are test-verified, not hash-pinned).
 async function documentScopeCheck(phaseName, resumePhase, artifactPath, led) {
+  // Premature-completion correction C1 (producer): at the PLAN phase only, the
+  // scope-check verifier additionally records the plan's machine-readable ground
+  // truth — the step-decl ID set and the element/files counts — exactly as
+  // artifact-sha256 records the hash. The implement phase's completeness gate
+  // (C2) and the derived coverage floors (C3) consume these recorded facts.
+  const planIndexRequest = resumePhase !== 'plan' ? '' :
+    ' Additionally, because the authorized artifact is the PLAN: include three more check entries recording the plan\'s machine-readable ground truth, each with match true. (a) cited_claim exactly "plan-step-index": re_execution lists EVERY step ID (each S<number> token declared on a "step:" line) extracted mechanically from the plan\'s step-decl fenced blocks, comma-separated - a grep, not judgment. (b) cited_claim exactly "plan-element-count": re_execution is the integer count of entries in the plan\'s plan-elements block. (c) cited_claim exactly "plan-files-count": re_execution is the integer count of distinct files in the plan\'s authorized "Files affected" list.'
   const sc = await agent(
-    `Document-phase scope check against recorded state. The single artifact this phase was authorized to write is "${artifactPath}". Artifacts with recorded SHA-256 hashes - from the ledger index (recorded at ledger load) and from earlier phases of THIS segment (recorded by each phase's own scope check): ${JSON.stringify((((led || {}).artifact_index || []).concat(delta.artifacts || [])).filter((a) => a.sha256 && isHashPinnedRole(a) && a.path !== artifactPath).map((a) => ({ path: a.path, sha256: a.sha256 })))}. Rules, in order: (1) a changed/untracked file that IS the authorized path - authorized; (2) a hash-listed artifact whose CURRENT hash still equals its recorded hash - unchanged residue, report as residue, not a violation; (3) a hash-listed artifact whose current hash DIFFERS from its recorded hash - an unauthorized upstream edit (prior segment or earlier this segment, either interleaving), a VIOLATION; (4) the orchestrator's .claude/expert bookkeeping files - bookkeeping, not a violation; (5) any other changed file - a VIOLATION. Compute the hashes yourself and report the comparison per file. Additionally: ALWAYS include one extra check entry whose cited_claim is exactly "artifact-sha256", whose match is true, and whose re_execution contains the current SHA-256 hex digest of the authorized artifact "${artifactPath}" - this records the artifact's hash for later phases' scope checks. The authorized set is one path - not a plan's Files-affected list.`,
+    `Document-phase scope check against recorded state. The single artifact this phase was authorized to write is "${artifactPath}". Artifacts with recorded SHA-256 hashes - from the ledger index (recorded at ledger load) and from earlier phases of THIS segment (recorded by each phase's own scope check): ${JSON.stringify((((led || {}).artifact_index || []).concat(delta.artifacts || [])).filter((a) => a.sha256 && isHashPinnedRole(a) && a.path !== artifactPath).map((a) => ({ path: a.path, sha256: a.sha256 })))}. Rules, in order: (1) a changed/untracked file that IS the authorized path - authorized; (2) a hash-listed artifact whose CURRENT hash still equals its recorded hash - unchanged residue, report as residue, not a violation; (3) a hash-listed artifact whose current hash DIFFERS from its recorded hash - an unauthorized upstream edit (prior segment or earlier this segment, either interleaving), a VIOLATION; (4) the orchestrator's .claude/expert bookkeeping files - bookkeeping, not a violation; (5) any other changed file - a VIOLATION. Compute the hashes yourself and report the comparison per file. Additionally: ALWAYS include one extra check entry whose cited_claim is exactly "artifact-sha256", whose match is true, and whose re_execution contains the current SHA-256 hex digest of the authorized artifact "${artifactPath}" - this records the artifact's hash for later phases' scope checks. The authorized set is one path - not a plan's Files-affected list.${planIndexRequest}`,
     { agentType: AGENT.verifier, schema: VERIFIER_SCHEMA, phase: 'Verify', label: 'doc-scope' }
   )
   if (verifierUnderCovered(sc, 1)) return underCoveredVerifierGate(`${phaseName} scope-check`, resumePhase, (sc && sc.checks || []).length, 1)
@@ -867,7 +949,25 @@ async function documentScopeCheck(phaseName, resumePhase, artifactPath, led) {
   }
   const mine = (delta.artifacts || []).find((a) => a.path === artifactPath)
   if (mine && !mine.sha256) mine.sha256 = hex[0]
-  const violations = checks.filter((c) => c.match === false && c.cited_claim !== 'artifact-sha256')
+  // C1 (consumer side): parse the three plan-index entries into the plan's
+  // artifact entry. Missing or unparseable entries fail closed as control_fault,
+  // mirroring the artifact-sha256 logic above — a plan without a recorded step
+  // index would make every later "completed" claim unverifiable (C2 refuses it).
+  const RECORD_CLAIMS = new Set(['plan-step-index', 'plan-element-count', 'plan-files-count'])
+  if (resumePhase === 'plan') {
+    const rec = (name) => checks.find((c) => c.cited_claim === name)
+    const stepEntry = rec('plan-step-index')
+    const stepIds = stepEntry ? [...new Set((stepEntry.re_execution || '').match(/\bS\d+\b/g) || [])] : []
+    const intOf = (name) => { const e = rec(name); const m = e && /\d+/.exec(e.re_execution || ''); return m ? parseInt(m[0], 10) : NaN }
+    const elementCount = intOf('plan-element-count')
+    const filesCount = intOf('plan-files-count')
+    if (!stepIds.length || !Number.isInteger(elementCount) || elementCount < 1 || !Number.isInteger(filesCount) || filesCount < 1) {
+      delta.phase = resumePhase
+      return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.control_fault, what_happened: `The ${phaseName} scope-check verifier did not return a parseable plan-step-index / plan-element-count / plan-files-count record for ${artifactPath}, so the implement phase would have no recorded ground truth to reconcile a completed claim against.`, options: ['re-run the phase', 'investigate the verifier dispatch'], recommendation: 're-run; the recorded step index is what makes a later completed claim verifiable' } })
+    }
+    if (mine) { mine.step_ids = stepIds; mine.element_count = elementCount; mine.files_count = filesCount }
+  }
+  const violations = checks.filter((c) => c.match === false && c.cited_claim !== 'artifact-sha256' && !RECORD_CLAIMS.has(c.cited_claim))
   if (!violations.length) return null
   delta.phase = resumePhase
   const dg = await diagnose(
