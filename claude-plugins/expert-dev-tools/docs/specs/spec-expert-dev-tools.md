@@ -62,6 +62,14 @@ approval.
   `/expert`, and global hard-gating of edits made outside the workflow was
   judged unwanted friction. This is not a deferral; out-of-band enforcement is
   simply not this plugin's job.
+  *Amended 2026-08-20 by owner decision (corrections-0.4.0, agent-quits-midtask
+  diagnosis): the 2026-07-22 ruling excludes hooks that block TOOL USE. A
+  Stop-event continuation gate — a hook that intercepts only the end-of-turn
+  decision while a lifecycle is mid-phase with no open owner gate, and blocks
+  no tool use — is inside scope. It makes §3.4's "exactly these, and nothing
+  else" halt list executable at the one decision point the workflow cannot
+  reach. Evidence: defect signature agent-quits-midtask (6 occurrences),
+  docs/diagnostics/corrections-0.4.0/agent-quits-midtask.md.*
 - Changes to other plugins, marketplace configs, or `skills/Expert-Skills/`
   (the source copies stay untouched; the plugin carries its own repaired
   copies). Per repo standing rules.
@@ -423,4 +431,6 @@ claude-plugins/expert-dev-tools/
 Architecture document for the plugin (component design of the workflow script,
 schemas, agent contracts, ledger format), then plan, then build — per the
 lifecycle this plugin itself enforces. There is no pending governance-hook
-layer: out-of-band enforcement is out of scope (§2), not deferred.
+layer: out-of-band TOOL-USE enforcement is out of scope (§2), not deferred.
+(The §2 amendment of 2026-08-20 admits the Stop-event continuation gate, which
+blocks no tool use; it is the sole hook the plugin declares.)
