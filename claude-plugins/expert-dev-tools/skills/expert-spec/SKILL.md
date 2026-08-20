@@ -346,6 +346,10 @@ Write the spec as a markdown document named `spec-[kebab-case-name].md` under `d
 
 
 
+The spec must contain a `## Request traceability` section. It (a) quotes the owner's verbatim request in full — when the dispatch carries it between `<<<OWNER_REQUEST` and `OWNER_REQUEST>>>` markers, that text, unedited; (b) maps each clause of that request to the requirement ID(s) that cover it; and (c) explicitly lists any clause no requirement covers, with why. The verbatim request — not any restatement of it — is what the spec answers to: a clause that is dropped, renamed, or narrowed without an entry here is a reviewable defect, not a drafting choice.
+
+
+
 ## What comes after
 
 

@@ -8,6 +8,7 @@
   "required": [
     "revision",
     "task",
+    "task_verbatim",
     "phase",
     "artifact_index",
     "gate_history",
@@ -26,6 +27,11 @@
     "task": {
       "description": "The owner's task statement that opened this lifecycle.",
       "type": "string"
+    },
+    "task_verbatim": {
+      "description": "The owner's request turn, verbatim and unmodified; `task` may be a working title, `task_verbatim` may not be edited, summarized, or normalized.",
+      "type": "string",
+      "minLength": 1
     },
     "phase": {
       "description": "Current lifecycle phase. F-1 routing may take the spec->plan short path.",

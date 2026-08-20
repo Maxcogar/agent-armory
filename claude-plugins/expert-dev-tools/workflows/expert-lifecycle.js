@@ -433,6 +433,12 @@ function report(delta, extra) {
 const input = normalizeInput(args)
 const ledger = input.ledger || { phase: 'intake', revision: 0 }
 const task = input.task || ledger.task || ''
+// The owner's request, verbatim (instruction-reinterpretation correction, 0.4.0):
+// `task` is whatever the orchestrator composed at intake — the paraphrase point.
+// `taskVerbatim` is the owner's own turn text, captured by the command at intake
+// (commands/expert.md §0) and never edited, summarized, or normalized. It is the
+// authoritative statement of the request; every spec-phase dispatch carries it.
+const taskVerbatim = input.task_verbatim || ledger.task_verbatim || ''
 // Artifact locations have ONE source of truth: the path the authoring agent returns in
 // PHASE_SCHEMA.artifact_path. These are resume hints only — a prior segment's registered path,
 // never a default. There is deliberately no `|| 'docs/…'` fallback: the skills name artifacts
@@ -506,11 +512,19 @@ if (failedCorr) {
 let cursor = ledger.phase || 'intake'
 if (cursor === 'intake') cursor = 'spec'
 
+// The spec phase runs only on the owner's captured words. Without them, the spec
+// writer's sole view of the request would be the orchestrator's restatement —
+// exactly the reinterpretation defect. A halt, not a fallback (fail-closed).
+if (cursor === 'spec' && !taskVerbatim) {
+  delta.phase = 'spec'
+  return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.control_fault, what_happened: 'The owner\'s request text was not captured into task_verbatim, so the spec phase would run on a restatement of the request rather than the request itself. The phase did not run.', options: ['capture the owner\'s turn verbatim into the ledger and re-invoke', 'supply task_verbatim in the snapshot'], recommendation: 'capture the request verbatim per commands/expert.md §0 and resume; the verbatim text is the spec phase\'s authoritative input' } })
+}
+
 // ---- SPEC ---------------------------------------------------------------
 if (cursor === 'spec') {
   phase('Spec')
   const specOut = await agent(
-    `Write the specification for this task.\nTask: ${task}\nYou are authorized to write exactly one file: the specification artifact you create. Change nothing else in the repository.`,
+    `Write the specification for this task.\nTask: ${task}\nOwner's request, verbatim (the authoritative statement of what to build — the Task line above is a working title, not the request):\n<<<OWNER_REQUEST\n${taskVerbatim}\nOWNER_REQUEST>>>\nYou are authorized to write exactly one file: the specification artifact you create. Change nothing else in the repository.`,
     { agentType: AGENT.spec, schema: PHASE_SCHEMA, phase: 'Spec', label: 'spec' }
   )
   specPath = resolveArtifactPath(specOut, specPath)
@@ -525,7 +539,7 @@ if (cursor === 'spec') {
   // registered — D9 hash anchoring missed the artifact exactly when the owner needed it.
   delta.artifacts.push({ role: 'spec', path: specPath })
   const gate = await runGate({
-    reviewFn: (round) => agent(`Review the spec at ${specPath} against the task, judged against ${RULER.spec}. Check it against its own output contract at ${OUTPUT_CONTRACT.spec}. ${NOT_THE_RULER} Round ${round}.`, { agentType: AGENT.reviewer, schema: VERDICT_SCHEMA, phase: 'Review', label: `review:spec:r${round}` }),
+    reviewFn: (round) => agent(`Review the spec at ${specPath} against the task, judged against ${RULER.spec}. Check it against its own output contract at ${OUTPUT_CONTRACT.spec}. Owner's request, verbatim (the authoritative statement of what the spec must cover):\n<<<OWNER_REQUEST\n${taskVerbatim}\nOWNER_REQUEST>>>\nEvery clause of the verbatim request must trace to the spec per its output contract's Request-traceability section; a dropped, renamed, or narrowed clause is a finding. ${NOT_THE_RULER} Round ${round}.`, { agentType: AGENT.reviewer, schema: VERDICT_SCHEMA, phase: 'Review', label: `review:spec:r${round}` }),
     remediateFn: (findings) => agent(`Correct the spec at ${specPath} against these review findings. Re-derive each finding's section from that section's sources — do not edit the sentence the finding points at, and do not re-author the artifact; its untouched sections are correct by the prior round's review. Sweep each finding's class across the whole artifact. Correct only what the findings require. Return sections_rederived: one entry per re-derived section with its location (path:start-end or path#section), the source it was re-derived from, the finding it addresses, and class_sweep {searched, found} listing EVERY location the sweep returned, corrected or not. A finding whose named standard you cannot verify returns status: 'halted' with the reason in halt.detail. Findings: ${JSON.stringify(findings)}`, { agentType: AGENT.corrector, schema: PHASE_SCHEMA, phase: 'Spec', label: 'revise:spec' }),
     multiLens: false,
     detectFailedCorrection: true,
@@ -540,7 +554,7 @@ if (cursor === 'spec') {
   const specScope = await documentScopeCheck('Spec', 'spec', specPath, ledger)
   if (specScope) return specScope
   delta.phase = 'spec'
-  return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.intent, what_happened: `A specification for "${task}" passed independent review. Confirm it is what you meant before design begins.`, artifact: specPath, options: ['approve', 'request changes'], recommendation: 'read the spec and approve if it matches your intent' } })
+  return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.intent, what_happened: `A specification for "${task}" passed independent review. Your request, verbatim:\n<<<OWNER_REQUEST\n${taskVerbatim}\nOWNER_REQUEST>>>\nConfirm the spec is what you meant — its Request traceability section maps each clause of that request to the requirements that cover it — before design begins.`, artifact: specPath, options: ['approve', 'request changes'], recommendation: 'read the spec against your verbatim request above and approve if it matches your intent' } })
 }
 
 // After intent approval the command re-invokes with phase='architecture'.

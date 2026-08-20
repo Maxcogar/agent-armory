@@ -3,7 +3,7 @@
 // Validates a ledger file against scripts/ledger.schema.json. Supports exactly the
 // JSON Schema draft-2020-12 keywords the ledger schema uses: type (incl. union arrays),
 // required, properties, additionalProperties (false | subschema), enum, minimum,
-// minItems, pattern, items, $ref (#/$defs/*), $defs. No external dependencies.
+// minLength, minItems, pattern, items, $ref (#/$defs/*), $defs. No external dependencies.
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -54,6 +54,10 @@ export function validate(data, schema, root, path, errors) {
 
   if (schema.minimum !== undefined && typeof data === 'number' && data < schema.minimum) {
     errors.push(`${path}: ${data} is below minimum ${schema.minimum}`);
+  }
+
+  if (schema.minLength !== undefined && typeof data === 'string' && data.length < schema.minLength) {
+    errors.push(`${path}: string length ${data.length} is below minLength ${schema.minLength}`);
   }
 
   if (schema.pattern !== undefined && typeof data === 'string' && !new RegExp(schema.pattern).test(data)) {

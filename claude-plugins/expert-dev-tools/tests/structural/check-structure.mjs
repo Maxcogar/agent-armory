@@ -795,5 +795,61 @@ check('T-24 scope-check: each phase RECORDS its artifact hash via the verifier',
 check('T-24 scope-check: no time-based exemption in the scope rules (semantic, reword-resistant)',
   (() => { const i = wfSrc.indexOf('Document-phase scope check'); const region = wfSrc.slice(i, wfSrc.indexOf('`', i + 10)); return i > 0 && !/(mtime|last[- ]modified|modif\w*\s+(?:time|before|after)|timestamp)/i.test(region); })());
 
+// ---- T-25: verbatim-request propagation (corrections-0.4.0, instruction-reinterpretation) ----
+// The owner's request must exist as a schema-required, machine-propagated artifact
+// (task_verbatim), be interpolated verbatim into the spec authoring AND review
+// dispatches, fail closed when uncaptured, and be a reviewable section of the spec's
+// output contract. Checks 1-3 pin the executable enforcement; 4-6 pin the prose
+// carriers (presence — the only property a structural test can assert of prose).
+{
+  // (1) The schema is PARSED and its evaluated shape asserted — not lexed.
+  const schema = JSON.parse(readFileSync(join(ROOT, 'scripts/ledger.schema.json'), 'utf8'));
+  check('T-25 ledger schema: required includes task_verbatim',
+    Array.isArray(schema.required) && schema.required.includes('task_verbatim'));
+  check('T-25 ledger schema: task_verbatim is a non-empty string whose description says verbatim',
+    !!(schema.properties && schema.properties.task_verbatim) &&
+    schema.properties.task_verbatim.type === 'string' &&
+    schema.properties.task_verbatim.minLength === 1 &&
+    /verbatim/i.test(schema.properties.task_verbatim.description || ''));
+  // The validator ENFORCES minLength (lift-and-run through the real exported
+  // validate, same module the preflight executes): an empty capture is rejected.
+  const { validate: vld } = await import('../../scripts/validate-ledger.mjs');
+  const mini = { type: 'object', required: ['task_verbatim'], properties: { task_verbatim: schema.properties.task_verbatim } };
+  check('T-25 validator rejects an empty task_verbatim (minLength enforced, executed)',
+    vld({ task_verbatim: '' }, mini, mini, '$', []).length > 0 &&
+    vld({ task_verbatim: 'x' }, mini, mini, '$', []).length === 0);
+  // (2) Both spec-phase dispatches interpolate the verbatim anchor block.
+  const anchorRe = /<<<OWNER_REQUEST\\n\$\{taskVerbatim\}\\nOWNER_REQUEST>>>/;
+  const specAuthor = (/Write the specification for this task[^`]*/.exec(wfSrc) || [''])[0];
+  const specReview = (/Review the spec at [^`]*/.exec(wfSrc) || [''])[0];
+  check('T-25 spec authoring dispatch interpolates the verbatim anchor block', anchorRe.test(specAuthor));
+  check('T-25 spec review dispatch interpolates the anchor and demands clause traceability',
+    anchorRe.test(specReview) && /dropped, renamed, or narrowed clause is a finding/.test(specReview));
+  check('T-25 intent gate presents the verbatim request to the owner',
+    (() => { const i = wfSrc.indexOf('type: GATE.intent'); return i > 0 && anchorRe.test(wfSrc.slice(i, wfSrc.indexOf('} })', i))); })());
+  // (3) Missing capture fails closed before the spec phase, as a control_fault.
+  check('T-25 missing-verbatim intake halts via a control_fault gate (fail-closed, reachable from intake)',
+    /if \(cursor === 'spec' && !taskVerbatim\)/.test(wfSrc) &&
+    /GATE\.control_fault, what_happened: 'The owner\\'s request text was not captured into task_verbatim/.test(wfSrc));
+  // (4) The spec output contract requires the Request traceability section.
+  const specOut = rd('skills/expert-spec/SKILL.md');
+  const outRegion = specOut.slice(specOut.indexOf('## Output'), specOut.indexOf('## What comes after'));
+  check('T-25 expert-spec output contract requires a Request traceability section quoting the verbatim request',
+    /## Request traceability/.test(outRegion) && /verbatim request in full/.test(outRegion) &&
+    /dropped, renamed, or narrowed/.test(outRegion));
+  // (5) The command's §0 carries the verbatim-capture step.
+  const s0 = cmd.slice(cmd.indexOf('## 0.'), cmd.indexOf('## 1.'));
+  check('T-25 command §0 captures the owner turn verbatim into task_verbatim',
+    /task_verbatim/.test(s0) && /verbatim/.test(s0));
+  check('T-25 command snapshot passes task_verbatim to the workflow',
+    /task_verbatim/.test(cmd.slice(cmd.indexOf('## 3.'), cmd.indexOf('## 4.'))));
+  // (6) expert-standard carries the fidelity clause and the sixth failure signal.
+  const std = rd('skills/expert-standard/SKILL.md');
+  check('T-25 expert-standard third shift carries the words-not-restatement fidelity clause',
+    /acting on the owner's words, not on a restatement of them/.test(std));
+  check('T-25 expert-standard carries the Reinterpreted requests failure signal',
+    /\*\*Reinterpreted requests\.\*\*/.test(std));
+}
+
 console.log(failures ? `\nSTRUCTURAL TESTS FAILED (${failures})` : '\nSTRUCTURAL TESTS PASSED');
 process.exit(failures ? 1 : 0);

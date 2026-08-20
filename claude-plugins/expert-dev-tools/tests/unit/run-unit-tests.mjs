@@ -20,7 +20,7 @@ function check(label, cond) {
 
 // ---- T-U1: ledger validator ------------------------------------------------
 const goodLedger = {
-  revision: 3, task: 't', phase: 'plan',
+  revision: 3, task: 't', task_verbatim: 'the owner\'s request turn, word for word', phase: 'plan',
   artifact_index: [{ role: 'spec', path: 'docs/specs/x.md', sha256: 'a'.repeat(64), approved_by_owner: true, approval_segment: 1 }],
   gate_history: [{ gate: 'plan', round: 2, verdict: 'PASS', findings_count: 0, tokens: 1200 }],
   amendments: [], escalations: [{ gate_type: 'intent', segment: 1, resolved: true }],
@@ -48,6 +48,8 @@ check('T-U1 rejects bad sha256 pattern', bad((c) => { c.artifact_index[0].sha256
 check('T-U1 rejects invented verdict (middle-verdict ban)', bad((c) => { c.gate_history[0].verdict = 'PASS WITH NOTES'; }));
 check('T-U1 rejects empty occurrences (minItems)', bad((c) => { c.signature_history[0].occurrences = []; }));
 check('T-U1 rejects non-integer revision', bad((c) => { c.revision = 1.5; }));
+check('T-U1 rejects missing task_verbatim (verbatim capture is required)', bad((c) => delete c.task_verbatim));
+check('T-U1 rejects empty task_verbatim (minLength)', bad((c) => { c.task_verbatim = ''; }));
 
 // ---- T-U2: transcript reader ----------------------------------------------
 const dir = mkdtempSync(join(tmpdir(), 'edt-tu2-'));

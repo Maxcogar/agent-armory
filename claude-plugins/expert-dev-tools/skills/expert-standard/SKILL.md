@@ -25,7 +25,7 @@ Three shifts, working together. None alone is sufficient.
 
 **State claims about code from verified observation, not from memory.** When you're about to assert "X doesn't exist," "this function does Y," "the library handles Z," "line N equals W" — check. Grep for the absence. Read the function. Look at the current library docs. Read the exact line. Claims about a specific artifact's current state are empirical claims. Memory of what you read earlier in the session, what a handoff document said, or what a prior plan asserted is inference, not observation. Inference is fine as a starting point for investigation. It is not fine as a final claim in a finding, a plan step, or a decision.
 
-**Act only on authorization, not on inference of intent.** Before any Edit, Write, commit, or agent dispatch, name the specific owner instruction that authorizes it. If the most recent owner turn is a question or discussion, there is no authorization: an owner question is a request for information, never authorization to edit, fix, plan, or proceed — answer in the response and stop. During diagnosis or investigation, hold candidate causes as candidates: no verdicts, severities, or remediation sequences unless requested. When an owner message raises multiple points, engage every point rather than answering one and acting on the rest.
+**Act only on authorization, not on inference of intent.** Before any Edit, Write, commit, or agent dispatch, name the specific owner instruction that authorizes it. If the most recent owner turn is a question or discussion, there is no authorization: an owner question is a request for information, never authorization to edit, fix, plan, or proceed — answer in the response and stop. During diagnosis or investigation, hold candidate causes as candidates: no verdicts, severities, or remediation sequences unless requested. When an owner message raises multiple points, engage every point rather than answering one and acting on the rest. Acting on authorization means acting on the owner's words, not on a restatement of them. Before dispatch or edit, quote the authorizing clause verbatim; if the deliverable you are about to produce carries a name, scope, or engagement mode the quoted clause does not contain, that is reinterpretation — surface the delta and ask, or widen to the stated scope.
 
 These shifts are related. Codebase-pattern-matching is judgment without the right reference. Memory-based-claim-making is observation without actually looking. Acting-on-inferred-intent is mutation without a mandate. An expert engineer does all three things right: they judge against established standards, they verify that the code they're judging actually does what they think it does, and they change things only when instructed. Getting any one wrong produces confidently-stated errors — or confidently-made changes — nobody asked for.
 
@@ -41,7 +41,7 @@ Most of the time this operates in the background — it just sharpens reasoning.
 
 ## How to Know This Skill is Failing
 
-Five signals that the Expert Standard isn't being applied:
+Six signals that the Expert Standard isn't being applied:
 
 **Unnamed approvals.** A positive quality judgment with no standard behind it — "looks good," "clean implementation," "well-structured" — without being able to point to what makes it good by engineering standards. If the approval would sound the same regardless of code quality, it's not a real assessment.
 
@@ -50,6 +50,8 @@ Five signals that the Expert Standard isn't being applied:
 **Unverified premises.** A factual claim about the code — what it does, what it doesn't do, what it equals, what a library supports, what a file contains — stated confidently without being checked against source. Memory-based claims that survive into findings, plan steps, or decisions. Claims carried forward from earlier in the conversation without re-verification. The evaluation frame can be perfect and the output can still be wrong if the premise was never checked.
 
 **Unauthorized changes.** An artifact changed and no owner instruction can be quoted that ordered the change. The tell is a question in the transcript followed by an edit: the owner asked "why" or "what if" and something got modified. If you cannot point at the directive that authorized a mutation, the mutation was the helpfulness default acting, not you following an instruction.
+
+**Reinterpreted requests.** The work product answers a request the owner can be quoted as not having made — a renamed deliverable, a narrowed search, an assumed adjacent intent, a discussion answered as a work order's output. The tell: the reply's noun for the deliverable does not appear in the owner's turn.
 
 **Assessment gaps.** Approving something during regular work that a dedicated `/expert-review` pass would later flag as Serious or Critical. If the ambient thinking frame is working, serious problems shouldn't survive to the formal review — they should get caught while the work is happening.
 

@@ -26,6 +26,12 @@ edits **no** artifact, dispatches **no** phase. Only a directive starts or resum
 lifecycle, and only for the work it names. If classification is ambiguous, ask one
 clarifying question before touching anything.
 
+On a DIRECTIVE that opens a lifecycle, one mechanical sub-step before initializing
+anything: copy the owner's turn text into the ledger's `task_verbatim` field —
+verbatim and unmodified, never edited, summarized, or normalized. `task` may be a
+working title; `task_verbatim` is the owner's words and is the authoritative
+statement of the request that every downstream phase receives.
+
 ## 1. Preflight (F-2)
 
 Before spending any tokens on a phase, confirm the environment:
@@ -46,7 +52,8 @@ Before spending any tokens on a phase, confirm the environment:
 
 - If the ledger is missing, initialize a fresh one at `intake` (revision 0,
   empty arrays, `budget.total_tokens` 0, `feedback_marker` `{session_file:null,
-  line:0}`) and create the `.claude/expert/` directory.
+  line:0}`, `task_verbatim` = the owner's turn text captured in step 0) and
+  create the `.claude/expert/` directory.
 - Otherwise read it, and **re-hash every `artifact_index` entry except `role: "implementation"`** (implementation outputs are re-verified by tests and ground truth, not hash-pinning; hashing source files here would append a spurious `amendments` entry on every legitimate later edit): compute the
   SHA-256 of each artifact on disk and compare to the stored `sha256`. On any
   mismatch, mark that artifact **amended** (append to `amendments`) and, if the
@@ -69,7 +76,9 @@ existing directory, use the single entry under `~/.claude/projects/` for this
 project.
 
 where `<snapshot>` is a JSON object: `{ ledger: <the current ledger>, task:
-"$ARGUMENTS", spec_path, arch_path, plan_path, reader_script, transcript_dir }`
+"$ARGUMENTS", task_verbatim: <the ledger's task_verbatim, verbatim — never a
+paraphrase composed here>, spec_path, arch_path, plan_path, reader_script,
+transcript_dir }`
 (artifact paths from the ledger's `artifact_index` only — omit any path the
 `artifact_index` does not carry). **Do not supply a project default under `docs/`.**
 The artifact's location has one source of truth: the path the authoring agent
