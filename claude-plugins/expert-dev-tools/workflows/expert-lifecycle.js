@@ -131,10 +131,24 @@ const PHASE_SCHEMA = {
           finding_addressed: S_STR,
           class_sweep: {
             type: 'object',
-            required: ['searched', 'found'],
+            required: ['searched', 'found', 'pattern', 'scope', 'sites_changed'],
             properties: {
               searched: S_STR,                        // what the sweep searched for
+              // The executable half (patching-instead-of-rederivation correction
+              // C1): the sweep is a reproducible computation, not an honesty
+              // claim. runGate re-executes `pattern` over `scope` through the
+              // verifier in the SAME round; executing it must reproduce `found`.
+              pattern: S_STR,                         // the executable regex the sweep ran (Grep syntax)
+              scope: S_STR,                           // the file or glob it ran over (normally the artifact)
               found: { type: 'array', items: S_STR }, // every location the search returned
+              sites_changed: { type: 'array', items: S_STR }, // the found locations actually edited (subset of found)
+              // A found entry outside sites_changed is either escalated (the
+              // skill's hand-maintained-surface path) or explicitly open — named
+              // here with its designation. Silence fails the gate (sweepDiscrepancy).
+              open_sites: {
+                type: 'array',
+                items: { type: 'object', required: ['location', 'designation'], properties: { location: S_STR, designation: S_STR } },
+              },
             },
           },
         },
@@ -317,13 +331,17 @@ function parseLocation(loc) {
 // (b) incomplete class sweep — a finding lands at a location the sweep FOUND and
 //     did NOT correct. Set membership, never string similarity: a location the
 //     sweep never found is a NEW class, not an unclosed one, and must not fire.
+//     Membership is over the UNION of the declared `found` and the verifier's
+//     independently re-executed hits (carried on each entry as re_executed_hits
+//     by runGate's same-round re-execution) — so a narrow self-report cannot
+//     shrink this detector's domain (patching-instead-of-rederivation C3).
 // Matching on the finding's `standard` instead is wrong on its own evidence — a
 // standard recurring at a new location is the normal shape of iterative review.
 function detectCorrectionFailure(findings, rederived) {
   const corrected = new Set(rederived.map((s) => s && s.location).filter(Boolean))
   const sweptOpen = new Set()
   for (const s of rederived)
-    for (const f of (s && s.class_sweep && s.class_sweep.found) || [])
+    for (const f of ((s && s.class_sweep && s.class_sweep.found) || []).concat((s && s.re_executed_hits) || []))
       if (!corrected.has(f)) sweptOpen.add(f)
   for (const finding of findings || []) {
     const fl = parseLocation(finding && finding.location)
@@ -341,7 +359,8 @@ function detectCorrectionFailure(findings, rederived) {
   for (const finding of findings || []) {
     if (finding && sweptOpen.has(finding.location)) {
       const prior = rederived.find(
-        (s) => s && s.class_sweep && (s.class_sweep.found || []).includes(finding.location)
+        (s) => s && ((s.class_sweep && (s.class_sweep.found || []).includes(finding.location)) ||
+          (s.re_executed_hits || []).includes(finding.location))
       )
       return { kind: 'unclosed_class', detail: { finding, prior } }
     }
@@ -349,11 +368,38 @@ function detectCorrectionFailure(findings, rederived) {
   return null
 }
 
+// Pure discrepancy predicate for the same-round sweep re-execution (patching-
+// instead-of-rederivation correction C2). `entry` is one sections_rederived
+// item; `reHits` is the hit list the VERIFIER — an agent that did not perform
+// the correction — produced by executing that entry's declared pattern over its
+// declared scope. Extracted as a named top-level function so the structural
+// tier can lift and EXECUTE it against constructed shapes (the
+// groundTruthPreconditions mechanism) — refusals observed, never asserted.
+// - a re-executed hit absent from the declared `found` is an under-reported
+//   sweep: the self-report was narrower than its own search;
+// - a `found` entry that was neither edited (sites_changed) nor given an
+//   escalation/open designation (open_sites) is a class site left silently
+//   open — the exact shape that resurfaces as next round's "new" finding.
+function sweepDiscrepancy(entry, reHits) {
+  const cs = (entry && entry.class_sweep) || {}
+  const found = Array.isArray(cs.found) ? cs.found : []
+  const foundSet = new Set(found)
+  const missed = (Array.isArray(reHits) ? reHits : []).filter((h) => !foundSet.has(h))
+  if (missed.length) return { kind: 'sweep_underreported', missed }
+  const changed = new Set(Array.isArray(cs.sites_changed) ? cs.sites_changed : [])
+  const designated = new Set((Array.isArray(cs.open_sites) ? cs.open_sites : [])
+    .filter((o) => o && typeof o.location === 'string' && typeof o.designation === 'string' && o.designation.trim() !== '')
+    .map((o) => o.location))
+  const silent = found.filter((f) => !changed.has(f) && !designated.has(f))
+  if (silent.length) return { kind: 'found_left_silently_open', sites: silent }
+  return null
+}
+
 // One review gate: fresh reviewer each round; up to ROUND_CAP rounds; on
 // NEEDS_FIXES the artifact is remediated and re-reviewed; a cap breach returns
 // NON_CONVERGENCE (the caller escalates). `multiLens` runs the three-lens panel
 // for the implementation-PASS gate — all lenses must PASS.
-async function runGate({ reviewFn, remediateFn, multiLens, detectFailedCorrection }) {
+async function runGate({ reviewFn, remediateFn, multiLens, detectFailedCorrection, sweepVerifyFn }) {
   const history = []
   // What the previous round's correction reported re-deriving. Empty until a
   // correction returns it; the detectors are inert while it is empty.
@@ -388,7 +434,32 @@ async function runGate({ reviewFn, remediateFn, multiLens, detectFailedCorrectio
     // the remaining rounds in silence.
     if (detectFailedCorrection && out && out.status === 'halted')
       return { verdict: 'CORRECTOR_HALTED', rounds: round, history, halt: out.halt }
-    lastRederived = (out && out.sections_rederived) || []
+    const rederived = (out && out.sections_rederived) || []
+    // Same-round sweep re-execution (patching-instead-of-rederivation C2). The
+    // class sweep is a reproducible computation, not an honesty claim: every
+    // declared pattern is re-executed over its declared scope by the verifier —
+    // an agent that did not perform the correction — and compared against the
+    // declaration by the pure predicate sweepDiscrepancy. A discrepancy fails
+    // the gate in THIS round, attributably, instead of surfacing as the next
+    // round's "new" findings. A re-execution that did not (fully) run is a
+    // failed control, never a passed one (fail-closed, the F5-2 principle).
+    let reHits = []
+    if (detectFailedCorrection && rederived.length) {
+      if (typeof sweepVerifyFn !== 'function')
+        return { verdict: 'SWEEP_UNVERIFIED', rounds: round, history, detail: { reason: 'no sweep re-execution channel was supplied, so the declared class sweep cannot be independently reproduced' } }
+      const hits = await sweepVerifyFn(rederived, round)
+      if (!Array.isArray(hits) || hits.length !== rederived.length)
+        return { verdict: 'SWEEP_UNVERIFIED', rounds: round, history, detail: { reason: `the sweep re-execution returned ${Array.isArray(hits) ? hits.length : 'no'} hit set(s) for ${rederived.length} declared sweep(s)` } }
+      reHits = hits
+      for (let i = 0; i < rederived.length; i++) {
+        const disc = sweepDiscrepancy(rederived[i], reHits[i])
+        if (disc)
+          return { verdict: 'CORRECTION_FAILED', kind: disc.kind, rounds: round, history, detail: { section: rederived[i], discrepancy: disc, re_executed_hits: reHits[i] } }
+      }
+    }
+    // The re-executed hits ride alongside each declaration so next round's
+    // unclosed_class membership tests the UNION, not the self-report (C3).
+    lastRederived = rederived.map((s, i) => Object.assign({}, s, { re_executed_hits: reHits[i] || [] }))
   }
   return { verdict: 'NON_CONVERGENCE', rounds: ROUND_CAP, history }
 }
@@ -545,9 +616,10 @@ if (cursor === 'spec') {
   delta.artifacts.push({ role: 'spec', path: specPath })
   const gate = await runGate({
     reviewFn: (round) => agent(`Review the spec at ${specPath} against the task, judged against ${RULER.spec}. Check it against its own output contract at ${OUTPUT_CONTRACT.spec}. Owner's request, verbatim (the authoritative statement of what the spec must cover):\n<<<OWNER_REQUEST\n${taskVerbatim}\nOWNER_REQUEST>>>\nEvery clause of the verbatim request must trace to the spec per its output contract's Request-traceability section; a dropped, renamed, or narrowed clause is a finding. ${NOT_THE_RULER} Round ${round}.`, { agentType: AGENT.reviewer, schema: VERDICT_SCHEMA, phase: 'Review', label: `review:spec:r${round}` }),
-    remediateFn: (findings) => agent(`Correct the spec at ${specPath} against these review findings. Re-derive each finding's section from that section's sources — do not edit the sentence the finding points at, and do not re-author the artifact; its untouched sections are correct by the prior round's review. Sweep each finding's class across the whole artifact. Correct only what the findings require. Return sections_rederived: one entry per re-derived section with its location (path:start-end or path#section), the source it was re-derived from, the finding it addresses, and class_sweep {searched, found} listing EVERY location the sweep returned, corrected or not. A finding whose named standard you cannot verify returns status: 'halted' with the reason in halt.detail. Findings: ${JSON.stringify(findings)}`, { agentType: AGENT.corrector, schema: PHASE_SCHEMA, phase: 'Spec', label: 'revise:spec' }),
+    remediateFn: (findings) => agent(`Correct the spec at ${specPath} against these review findings. Re-derive each finding's section from that section's sources — do not edit the sentence the finding points at, and do not re-author the artifact; its untouched sections are correct by the prior round's review. Sweep each finding's class across the whole artifact. Correct only what the findings require. Return sections_rederived: one entry per re-derived section with its location (path:start-end or path#section), the source it was re-derived from, the finding it addresses, and class_sweep {searched, pattern, scope, found, sites_changed} — pattern is the executable regex the sweep ran (Grep syntax) and scope the file or glob it ran over (normally this artifact); found lists EVERY location the search returned, corrected or not; sites_changed lists the found locations you actually edited; every found entry outside sites_changed carries an open_sites entry {location, designation} naming its escalation or explicitly-open status. The pattern is re-executed independently against the artifact this same round: executing it over scope must reproduce found, and a found site neither changed nor designated fails the gate. A finding whose named standard you cannot verify returns status: 'halted' with the reason in halt.detail. Findings: ${JSON.stringify(findings)}`, { agentType: AGENT.corrector, schema: PHASE_SCHEMA, phase: 'Spec', label: 'revise:spec' }),
     multiLens: false,
     detectFailedCorrection: true,
+    sweepVerifyFn: (secs) => reExecuteSweeps(secs),
   })
   record('spec', gate)
   if (gate.verdict !== 'PASS') {
@@ -576,9 +648,10 @@ if (cursor === 'architecture') {
   delta.artifacts.push({ role: 'architecture', path: archPath })
   const gate = await runGate({
     reviewFn: (round) => agent(`Review the architecture at ${archPath} against the spec at ${specPath}, judged against ${RULER.architecture}. Check it against its own output contract at ${OUTPUT_CONTRACT.architecture}. ${NOT_THE_RULER} Round ${round}.`, { agentType: AGENT.reviewer, schema: VERDICT_SCHEMA, phase: 'Review', label: `review:arch:r${round}` }),
-    remediateFn: (findings) => agent(`Correct the architecture at ${archPath} against these review findings. Re-derive each finding's section from that section's sources — do not edit the sentence the finding points at, and do not re-author the artifact; its untouched sections are correct by the prior round's review. Sweep each finding's class across the whole artifact. Correct only what the findings require. Return sections_rederived: one entry per re-derived section with its location (path:start-end or path#section), the source it was re-derived from, the finding it addresses, and class_sweep {searched, found} listing EVERY location the sweep returned, corrected or not. A finding whose named standard you cannot verify returns status: 'halted' with the reason in halt.detail. Findings: ${JSON.stringify(findings)}`, { agentType: AGENT.corrector, schema: PHASE_SCHEMA, phase: 'Architecture', label: 'revise:arch' }),
+    remediateFn: (findings) => agent(`Correct the architecture at ${archPath} against these review findings. Re-derive each finding's section from that section's sources — do not edit the sentence the finding points at, and do not re-author the artifact; its untouched sections are correct by the prior round's review. Sweep each finding's class across the whole artifact. Correct only what the findings require. Return sections_rederived: one entry per re-derived section with its location (path:start-end or path#section), the source it was re-derived from, the finding it addresses, and class_sweep {searched, pattern, scope, found, sites_changed} — pattern is the executable regex the sweep ran (Grep syntax) and scope the file or glob it ran over (normally this artifact); found lists EVERY location the search returned, corrected or not; sites_changed lists the found locations you actually edited; every found entry outside sites_changed carries an open_sites entry {location, designation} naming its escalation or explicitly-open status. The pattern is re-executed independently against the artifact this same round: executing it over scope must reproduce found, and a found site neither changed nor designated fails the gate. A finding whose named standard you cannot verify returns status: 'halted' with the reason in halt.detail. Findings: ${JSON.stringify(findings)}`, { agentType: AGENT.corrector, schema: PHASE_SCHEMA, phase: 'Architecture', label: 'revise:arch' }),
     multiLens: false,
     detectFailedCorrection: true,
+    sweepVerifyFn: (secs) => reExecuteSweeps(secs),
   })
   record('architecture', gate)
   const nc = await maybeNonConvergence(gate, 'Architecture', 'architecture', ledger, archPath)
@@ -599,9 +672,10 @@ if (cursor === 'plan') {
   delta.artifacts.push({ role: 'plan', path: planPath })
   const gate = await runGate({
     reviewFn: (round) => agent(`Review the plan at ${planPath} against the spec and architecture, judged against ${RULER.plan}. Check it against its own output contract at ${OUTPUT_CONTRACT.plan}. ${NOT_THE_RULER} Round ${round}.`, { agentType: AGENT.reviewer, schema: VERDICT_SCHEMA, phase: 'Review', label: `review:plan:r${round}` }),
-    remediateFn: (findings) => agent(`Correct the plan at ${planPath} against these review findings. Re-derive each finding's section from that section's sources — do not edit the sentence the finding points at, and do not re-author the artifact; its untouched sections are correct by the prior round's review. Sweep each finding's class across the whole artifact. Correct only what the findings require. Return sections_rederived: one entry per re-derived section with its location (path:start-end or path#section), the source it was re-derived from, the finding it addresses, and class_sweep {searched, found} listing EVERY location the sweep returned, corrected or not. A finding whose named standard you cannot verify returns status: 'halted' with the reason in halt.detail. Findings: ${JSON.stringify(findings)}`, { agentType: AGENT.corrector, schema: PHASE_SCHEMA, phase: 'Plan', label: 'revise:plan' }),
+    remediateFn: (findings) => agent(`Correct the plan at ${planPath} against these review findings. Re-derive each finding's section from that section's sources — do not edit the sentence the finding points at, and do not re-author the artifact; its untouched sections are correct by the prior round's review. Sweep each finding's class across the whole artifact. Correct only what the findings require. Return sections_rederived: one entry per re-derived section with its location (path:start-end or path#section), the source it was re-derived from, the finding it addresses, and class_sweep {searched, pattern, scope, found, sites_changed} — pattern is the executable regex the sweep ran (Grep syntax) and scope the file or glob it ran over (normally this artifact); found lists EVERY location the search returned, corrected or not; sites_changed lists the found locations you actually edited; every found entry outside sites_changed carries an open_sites entry {location, designation} naming its escalation or explicitly-open status. The pattern is re-executed independently against the artifact this same round: executing it over scope must reproduce found, and a found site neither changed nor designated fails the gate. A finding whose named standard you cannot verify returns status: 'halted' with the reason in halt.detail. Findings: ${JSON.stringify(findings)}`, { agentType: AGENT.corrector, schema: PHASE_SCHEMA, phase: 'Plan', label: 'revise:plan' }),
     multiLens: false,
     detectFailedCorrection: true,
+    sweepVerifyFn: (secs) => reExecuteSweeps(secs),
   })
   record('plan', gate)
   const nc = await maybeNonConvergence(gate, 'Plan', 'plan', ledger, planPath)
@@ -822,6 +896,8 @@ function maybeEscalate(out, phaseName) {
 const CORRECTION_FAILED_TEXT = {
   fix_site_regression: 'a correction broke the section it edited',
   unclosed_class: 'a correction closed the named instance and the same standard was violated elsewhere',
+  sweep_underreported: "a correction's class sweep, re-executed independently, returned sites the correction did not report",
+  found_left_silently_open: 'a correction found class sites it neither changed, escalated, nor declared open',
 }
 function lastRoundFindings(gate) {
   return (gate.history[gate.history.length - 1] || {}).findings || []
@@ -832,6 +908,13 @@ async function gateEscalation(gate, phaseName, resumePhase, artifactPath, led) {
     const what = `${phaseName} review stopped at round ${gate.rounds}: ${CORRECTION_FAILED_TEXT[gate.kind] || gate.kind}.`
     const dg = await diagnose(what, led, { kind: gate.kind, finding: d.finding, prior: d.prior, rounds: gate.history })
     return { type: GATE.non_convergence, what_happened: what, diagnosis: dg, detail: d, findings: lastRoundFindings(gate), options: ['amend the artifact', 'revisit upstream'], recommendation: 'review the diagnosis — the next round would start from a worse artifact' }
+  }
+  if (gate.verdict === 'SWEEP_UNVERIFIED') {
+    // The re-execution control did not (fully) run — the declared sweep is
+    // UNVERIFIED, not accepted and not failed: a control_fault, per the GATE
+    // literal's own definition, mirroring the under-covered-verifier gates.
+    const d = gate.detail || {}
+    return { type: GATE.control_fault, what_happened: `${phaseName} correction round ${gate.rounds}: the class-sweep re-execution did not (fully) run — ${d.reason || 'no hit sets were returned'}. Fail-closed: the correction does not pass on an unexecuted control.`, options: ['re-run the phase', 'investigate the verifier dispatch'], recommendation: 're-run; an unexecuted sweep re-execution is an infrastructure or dispatch fault, not evidence the declared sweep was complete' }
   }
   if (gate.verdict === 'CORRECTOR_HALTED') {
     const h = gate.halt || {}
@@ -901,6 +984,26 @@ function implementationCompleteness(stepIds, impl) {
   if (unevidenced.length)
     return { ok: false, kind: 'incomplete', missing_steps: unevidenced, reason: `${unevidenced.length} of ${stepIds.length} completed plan steps have no evidence entry referencing them (evidence[].step)` }
   return { ok: true }
+}
+
+// Same-round sweep re-execution channel (patching-instead-of-rederivation C2).
+// Mirrors documentScopeCheck's mechanism: the workflow runtime cannot execute
+// searches itself, so the verifier — an agent that did not perform the
+// correction — executes every declared pattern over its declared scope and the
+// workflow compares the results (via sweepDiscrepancy, inside runGate). Returns
+// one hit-location array per declared sweep, in declaration order; returns null
+// when the control did not (fully) run — the caller fails closed on null.
+async function reExecuteSweeps(rederived) {
+  const sweeps = rederived.map((s) => ({
+    pattern: s && s.class_sweep && s.class_sweep.pattern,
+    scope: s && s.class_sweep && s.class_sweep.scope,
+  }))
+  const vr = await agent(
+    `Sweep re-execution: for EACH declared sweep below, in order, execute its pattern (a regex, Grep syntax) over its scope (a file or glob) against the current working tree, and report exactly one check entry per sweep, in the same order: cited_claim is the pattern, re_execution lists EVERY hit as a location in the grammar path:start-end or path#section (comma-separated; the word "none" when the pattern returns no hits), match true. Execute mechanically — a grep, not judgment — and report every hit, corrected or not. You did not perform the correction these sweeps came from; your hits are the independent record it is checked against. Sweeps: ${JSON.stringify(sweeps)}`,
+    { agentType: AGENT.verifier, schema: VERIFIER_SCHEMA, phase: 'Verify', label: 'sweep-rerun' }
+  )
+  if (verifierUnderCovered(vr, sweeps.length) || vr.checks.length !== sweeps.length) return null
+  return vr.checks.map((c) => ((c && c.re_execution) || '').split(/[\s,]+/).filter((t) => LOCATION_RE.test(t)))
 }
 
 // Mechanical scope control for the three DOCUMENT phases (S20). The implementation

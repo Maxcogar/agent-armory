@@ -89,12 +89,24 @@ Your final message is consumed as structured data. Report, in addition to `statu
 - **`source`** — what you re-derived it from: the requirement, standard, upstream artifact, or the
   read that supplied its content.
 - **`finding_addressed`** — the finding this entry answers.
-- **`class_sweep`** — the record of step 3, with two required fields:
+- **`class_sweep`** — the record of step 3, with five required fields:
   - **`searched`** — what the sweep looked for.
+  - **`pattern`** — the executable search the sweep ran: a regex, in Grep syntax. This is the
+    sweep itself, handed over — not a description of it.
+  - **`scope`** — the file or glob `pattern` ran over (normally the artifact path).
   - **`found`** — **every** location the search returned, corrected or not.
+  - **`sites_changed`** — the `found` locations you actually edited for this class (a subset of
+    `found`).
+  - **`open_sites`** (when applicable) — every `found` entry outside `sites_changed`, each with
+    its `location` and a `designation`: either the escalation under "When the class cannot be
+    closed" above, or an explicitly-open item. A found site neither changed nor designated is a
+    class site left silently open, and fails the gate.
 
 **Emitting all of these is not optional.** `location` and `class_sweep` are what the orchestrator
 uses to detect a correction that regressed at its own fix site, and a class that was found and left
-open. Reporting `class_sweep.found` honestly — including locations you did not correct — is what
-makes step 3 auditable rather than asserted. A sweep reported as complete when it was not is the
-failure this field exists to make visible.
+open. The sweep is not taken on trust: the orchestrator re-executes `pattern` over `scope` — through
+an agent that did not perform the correction — **in the same round**, and executing it must
+reproduce `found`. A sweep whose re-execution returns sites you did not report, or whose `found`
+entries were neither changed nor designated, fails the gate that dispatched you, attributably,
+instead of surfacing as the next round's "new" findings. Run the sweep after your edits and report
+its current locations exactly.

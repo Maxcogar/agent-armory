@@ -603,19 +603,27 @@ const gateFns = new Function('parallel', [
   'const LENSES = []',
   declOf(wfSrc, 'function parseLocation('),
   declOf(wfSrc, 'function detectCorrectionFailure('),
+  declOf(wfSrc, 'function sweepDiscrepancy('),
   declOf(wfSrc, 'async function runGate('),
-  'return { runGate, detectCorrectionFailure, parseLocation }',
+  'return { runGate, detectCorrectionFailure, parseLocation, sweepDiscrepancy }',
 ].join('\n'))(() => { throw new Error('multiLens not exercised'); });
 
-const sweep = (searched, found) => ({ searched, found });
+// The stub sweeps carry the executable declaration the schema now requires
+// (pattern/scope/sites_changed); sites_changed defaults to found, the honest
+// fully-closed shape, so cases about the ROUND-LATE detectors stay about them.
+const sweep = (searched, found) => ({ searched, pattern: searched, scope: 'artifact', found, sites_changed: found.slice() });
+// The honest re-execution stub: the verifier reproduces exactly what each sweep
+// declared. Cases that need a dishonest or broken verifier pass their own.
+const echoSweeps = async (secs) => secs.map((s) => (s.class_sweep && s.class_sweep.found) || []);
 // Drive runGate with a scripted sequence of reviewer verdicts and corrector returns.
-async function driveGate(rounds, corrections, detect = true) {
+async function driveGate(rounds, corrections, detect = true, sweepFn = echoSweeps) {
   let i = 0, k = 0;
   return gateFns.runGate({
     reviewFn: async () => rounds[Math.min(i++, rounds.length - 1)],
     remediateFn: async () => corrections[Math.min(k++, corrections.length - 1)],
     multiLens: false,
     detectFailedCorrection: detect,
+    sweepVerifyFn: sweepFn,
   });
 }
 const F = (location, standard = 'ISO/IEC/IEEE 29148:2018 5.2.6') =>
@@ -951,6 +959,93 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
     /premature completion claim/.test(rd('agents/expert-implementer.md')));
   check('T-26 C5: expert-implement SKILL final report notes the mechanical step reconciliation',
     /reconciled mechanically against the plan's declared step IDs/.test(rd('skills/expert-implement/SKILL.md')));
+}
+
+// ---- T-27: executable class sweep + same-round re-execution (corrections-0.4.0,
+// patching-instead-of-rederivation) ----
+// C1 pins the schema by LIFTING and EVALUATING the literal (never lexing source
+// text); C2's predicate and runGate's same-round routing are EXECUTED via the
+// T-22 lift; C3's union is executed against the lifted detectCorrectionFailure.
+{
+  // C1 schema pin — the evaluated PHASE_SCHEMA literal, with its real dependencies.
+  const lit = (name) => `const ${name} = {` + braced(wfSrc, wfSrc.indexOf(`const ${name} = {`)) + '}';
+  const PS = new Function('"use strict";\n' + [reDecls, lit('S_STR'), lit('LOCATION'), lit('EVIDENCE'), lit('PHASE_SCHEMA'), 'return PHASE_SCHEMA'].join('\n'))();
+  const cs = PS.properties.sections_rederived.items.properties.class_sweep;
+  check('T-27 schema: class_sweep.required includes pattern, scope, sites_changed (evaluated, not lexed)',
+    Array.isArray(cs.required) && ['searched', 'found', 'pattern', 'scope', 'sites_changed'].every((f) => cs.required.includes(f)));
+  check('T-27 schema: sites_changed is a string array and open_sites items require location + designation',
+    cs.properties.sites_changed.type === 'array' &&
+    cs.properties.open_sites.items.required.includes('location') && cs.properties.open_sites.items.required.includes('designation'));
+
+  // T-sweep-a: a re-executed hit absent from the declared found is under-reporting.
+  const sd = gateFns.sweepDiscrepancy;
+  const entry = (csw) => ({ location: 'spec.md:10-20', class_sweep: csw });
+  const a = sd(entry({ searched: 'x', pattern: 'x', scope: 'spec.md', found: ['spec.md:10-20'], sites_changed: ['spec.md:10-20'] }), ['spec.md:10-20', 'spec.md:400']);
+  check('T-27 exec (a) a re-executed hit absent from found observes sweep_underreported naming the miss',
+    !!a && a.kind === 'sweep_underreported' && a.missed.length === 1 && a.missed[0] === 'spec.md:400');
+  // T-sweep-b: a found site neither changed nor designated is silently open; designated is not.
+  const bCsw = { searched: 'x', pattern: 'x', scope: 'spec.md', found: ['spec.md:10-20', 'spec.md:400'], sites_changed: ['spec.md:10-20'] };
+  const b = sd(entry(bCsw), ['spec.md:10-20', 'spec.md:400']);
+  check('T-27 exec (b) a found site neither changed nor designated observes found_left_silently_open',
+    !!b && b.kind === 'found_left_silently_open' && b.sites.length === 1 && b.sites[0] === 'spec.md:400');
+  check('T-27 exec (b2) the same site with an escalation designation does not fire',
+    sd(entry({ ...bCsw, open_sites: [{ location: 'spec.md:400', designation: 'escalated: hand-maintained surface' }] }), ['spec.md:10-20', 'spec.md:400']) === null);
+  check('T-27 exec (b3) an EMPTY designation does not count as designated (fail-closed)',
+    sd(entry({ ...bCsw, open_sites: [{ location: 'spec.md:400', designation: '  ' }] }), []).kind === 'found_left_silently_open');
+  // T-sweep-c: an honest complete sweep observes no discrepancy.
+  check('T-27 exec (c) an honest complete sweep observes null (no false positive)',
+    sd(entry({ searched: 'x', pattern: 'x', scope: 'spec.md', found: ['spec.md:10-20'], sites_changed: ['spec.md:10-20'] }), ['spec.md:10-20']) === null);
+
+  // T-sweep-d: lifted runGate with a verifier stub returning an extra hit fails
+  // the gate in the SAME round (rounds === 1), not round + 1.
+  const honest = [{ status: 'completed', sections_rederived: [{ location: 'spec.md:10-20', class_sweep: sweep('x', ['spec.md:10-20']) }] }];
+  const d = await driveGate([F('spec.md:10'), F('spec.md:99')], honest,
+    true, async (secs) => secs.map((s) => (s.class_sweep.found || []).concat(['spec.md:400'])));
+  check('T-27 exec (d) an under-reported sweep yields CORRECTION_FAILED/sweep_underreported in the SAME round',
+    d.verdict === 'CORRECTION_FAILED' && d.kind === 'sweep_underreported' && d.rounds === 1);
+  check('T-27 exec (d2) the escalation detail carries the section and the independent hit set',
+    !!(d.detail && d.detail.section && Array.isArray(d.detail.re_executed_hits)));
+  // Honest verifier, honest sweep: the gate proceeds to the next round (no false positive).
+  check('T-27 exec (c2) with an honest re-execution the gate proceeds and can PASS',
+    (await driveGate([F('spec.md:10'), { verdict: 'PASS', findings: [] }], honest)).verdict === 'PASS');
+  // Fail-closed: a re-execution channel that is missing or under-covered is a
+  // failed control (SWEEP_UNVERIFIED), never a silently passed one.
+  check('T-27 exec fail-closed: a missing re-execution channel yields SWEEP_UNVERIFIED',
+    (await driveGate([F('spec.md:10'), F('spec.md:99')], honest, true, null)).verdict === 'SWEEP_UNVERIFIED');
+  check('T-27 exec fail-closed: a short hit-set return yields SWEEP_UNVERIFIED',
+    (await driveGate([F('spec.md:10'), F('spec.md:99')], honest, true, async () => [])).verdict === 'SWEEP_UNVERIFIED');
+
+  // C3 executed: next-round unclosed_class membership is the UNION of the
+  // declared found and the re-executed hits — a hit only the independent
+  // execution saw still arms the detector.
+  const c3 = gateFns.detectCorrectionFailure(
+    [{ classification: 'Moderate', standard: 's', location: 'spec.md:400' }],
+    [{ location: 'spec.md:10-20', class_sweep: { searched: 'x', pattern: 'x', scope: 'spec.md', found: ['spec.md:10-20'], sites_changed: ['spec.md:10-20'] }, re_executed_hits: ['spec.md:400'] }]);
+  check('T-27 exec C3: a finding at a re-executed-only hit fires unclosed_class (union membership)',
+    !!c3 && c3.kind === 'unclosed_class' && !!c3.detail.prior);
+
+  // Contract-text pins: skill and agent name all five class_sweep fields.
+  for (const f of ['searched', 'pattern', 'scope', 'found', 'sites_changed']) {
+    check(`T-27 contract: expert-correct SKILL.md names class_sweep field ${f}`,
+      new RegExp('`' + f + '`').test(rd('skills/expert-correct/SKILL.md')));
+    check(`T-27 contract: expert-corrector agent names class_sweep field ${f}`,
+      new RegExp('`' + f + '`').test(rd('agents/expert-corrector.md')));
+  }
+  // Deployment pins (the T-23/F7-1 pattern): the mechanism is wired, not just defined.
+  check('T-27 deployment: all three document gates supply the re-execution channel',
+    (wfSrc.match(/sweepVerifyFn: \(secs\) => reExecuteSweeps\(secs\)/g) || []).length === 3);
+  check('T-27 deployment: runGate compares via the extracted pure predicate',
+    wfSrc.includes('const disc = sweepDiscrepancy(rederived[i], reHits[i])'));
+  check('T-27 deployment: the re-execution is dispatched to the verifier under label sweep-rerun',
+    /agentType: AGENT\.verifier[^}]*label: 'sweep-rerun'/.test(wfSrc));
+  check('T-27 deployment: re-executed hits ride on lastRederived for the next-round union',
+    wfSrc.includes('re_executed_hits: reHits[i] || []'));
+  check('T-27 deployment: both discrepancy kinds carry owner-facing escalation text',
+    /sweep_underreported: /.test(wfSrc) && /found_left_silently_open: /.test(wfSrc));
+  check('T-27 deployment: SWEEP_UNVERIFIED routes to a control_fault gate (fail-closed)',
+    (() => { const i = wfSrc.indexOf("gate.verdict === 'SWEEP_UNVERIFIED'"); return i > 0 && /GATE\.control_fault/.test(wfSrc.slice(i, i + 700)); })());
+  check('T-27 deployment: the verifier agent carries the sweep re-execution job',
+    /Sweep re-execution/.test(rd('agents/expert-verifier.md')));
 }
 
 console.log(failures ? `\nSTRUCTURAL TESTS FAILED (${failures})` : '\nSTRUCTURAL TESTS PASSED');

@@ -42,13 +42,19 @@ matching the schema provided at dispatch. Return:
   - `location` — `path:start-end` or `path#section`. No other form parses.
   - `source` — what the section was re-derived from.
   - `finding_addressed` — the finding this entry answers.
-  - `class_sweep` — `searched` (what the sweep looked for) and `found` (**every** location the
-    search returned, corrected or not).
+  - `class_sweep` — `searched` (what the sweep looked for), `pattern` (the executable regex the
+    sweep ran, Grep syntax), `scope` (the file or glob it ran over), `found` (**every** location
+    the search returned, corrected or not), and `sites_changed` (the found locations you actually
+    edited). A `found` entry outside `sites_changed` carries an `open_sites` entry
+    (`location` + `designation`) naming its escalation or explicitly-open status.
 
   Emitting `location` and `class_sweep` is not optional. The orchestrator uses them to detect a
   correction that regressed at its own fix site, and a class that was found and left open; omitting
-  either silently disables both detections. Report `class_sweep.found` honestly, including the
-  locations you did not correct.
+  either silently disables both detections. The sweep is re-executed independently in the same
+  round: an agent that did not perform your correction runs `pattern` over `scope`, and its hits
+  are compared against your `found`. A hit you did not report, or a found site you neither changed
+  nor designated, fails the gate that dispatched you. Run the sweep after your edits and report its
+  current locations exactly.
 
 - `halt` — on a halted return, `category` and `detail` stating which finding you could not act on
   and which named standard you could not verify. Never guess at it, and never silently skip it.
