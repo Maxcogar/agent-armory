@@ -36,6 +36,17 @@ statement of the request that every downstream phase receives.
 
 Before spending any tokens on a phase, confirm the environment:
 
+- **Deployment provenance.** Run the deterministic provenance script and keep its
+  report in the preflight record:
+  `node "${CLAUDE_PLUGIN_ROOT}/scripts/preflight-deployment.mjs" expert-dev-tools <working-tree-path>`
+  — pass the plugin's working-tree path when this project is the plugin's own
+  repo; omit it elsewhere (the report is then provenance-only: cache path,
+  installed version, marketplace commit). Bright line: **no claim about the
+  running plugin's behavior, and no request that the owner
+  reload/update/re-test, is made without quoting this report.** If the report's
+  verdict is STALE, the finding is `stale_deployment` (D15) — present it via
+  step 5's stale-deployment path ("the plugin is behind and needs updating"),
+  never as a live-test verdict against the fix in the working tree.
 - **Required MCPs answer.** The plan and architecture phases hard-require
   CodeGraph, Clear-Thought, and Context7. Confirm each responds (a cheap probe
   call). If any is missing, STOP and report exactly which one, with how to

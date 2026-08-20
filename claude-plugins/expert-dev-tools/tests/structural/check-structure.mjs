@@ -1212,5 +1212,73 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
       ((frontmatter(join(skillsDir, s, 'SKILL.md')) || {}).name || '') === s);
 }
 
+// ---- T-29: deployment-provenance preflight + evidence ladder (corrections-0.4.0,
+// opining-without-reading-source) ----
+// Part A is EXECUTED against fixture registries via the script's documented
+// CLAUDE_CONFIG_DIR override (deterministic, no tokens); the verdicts are
+// observed, never asserted from source text. Part B's prose carriers are pinned
+// by presence — the only property a structural test can assert of prose.
+{
+  const pf = join(ROOT, 'scripts/preflight-deployment.mjs');
+  check('T-29 script preflight-deployment.mjs present', existsSync(pf));
+  let pfSyntaxOk = true;
+  try { execFileSync(process.execPath, ['--check', pf], { stdio: 'pipe' }); } catch { pfSyntaxOk = false; }
+  check('T-29 script passes node --check', pfSyntaxOk);
+
+  const fx = join(ROOT, 'tests/fixture/deployment');
+  const runPf = (cfg, pluginName, worktree) => {
+    const args = [pf, pluginName];
+    if (worktree) args.push(worktree);
+    try {
+      const out = execFileSync(process.execPath, args,
+        { env: { ...process.env, CLAUDE_CONFIG_DIR: join(fx, cfg) }, encoding: 'utf8', stdio: 'pipe' });
+      return { status: 0, out };
+    } catch (e) { return { status: e.status ?? -1, out: String(e.stdout || '') }; }
+  };
+  const pfReport = (out) => { try { return JSON.parse(out.slice(0, out.lastIndexOf('VERDICT:'))); } catch { return null; } };
+
+  const stale = runPf('stale-config', 'fixture-plugin', join(fx, 'worktree'));
+  const staleR = pfReport(stale.out);
+  check('T-29 stale fixture: non-zero exit and a VERDICT: STALE line (fail closed)',
+    stale.status === 1 && /VERDICT: STALE/.test(stale.out));
+  check('T-29 stale fixture: report carries stale:true, the fixture cache_path, and both versions',
+    !!staleR && staleR.stale === true && staleR.installed_version === '0.1.0' &&
+    staleR.worktree_version === '0.2.0' && String(staleR.cache_path).includes('fixture-plugin'));
+  check('T-29 stale fixture: report carries the marketplace commit from the registry record',
+    !!staleR && staleR.installed_commit === 'a'.repeat(40));
+
+  const cur = runPf('current-config', 'fixture-plugin', join(fx, 'worktree'));
+  const curR = pfReport(cur.out);
+  check('T-29 current fixture: exit 0 and a VERDICT: CURRENT line',
+    cur.status === 0 && /VERDICT: CURRENT/.test(cur.out));
+  check('T-29 current fixture: report carries stale:false and matching versions',
+    !!curR && curR.stale === false && curR.installed_version === '0.2.0' && curR.worktree_version === '0.2.0');
+
+  const missing = runPf('current-config', 'no-such-plugin', join(fx, 'worktree'));
+  check('T-29 an unresolvable plugin is UNREADABLE with a non-zero exit (fail closed, never a silent pass)',
+    missing.status === 2 && /VERDICT: UNREADABLE/.test(missing.out));
+
+  // Part A wiring: the command's preflight runs the script and carries the bright line.
+  const s1 = cmd.slice(cmd.indexOf('## 1.'), cmd.indexOf('## 2.'));
+  check('T-29 command step 1 runs preflight-deployment.mjs', /preflight-deployment\.mjs/.test(s1));
+  check('T-29 command step 1 carries the no-claim-without-report bright line',
+    /no claim about the\s+running plugin's behavior/.test(s1) && /without quoting this report/.test(s1));
+  check('T-29 command step 1 routes a STALE verdict to stale_deployment (D15), never a live-test verdict',
+    /`stale_deployment` \(D15\)/.test(s1) && /never as a live-test verdict/.test(s1));
+
+  // Part B anchors: the evidence ladder in the expert-standard body and frontmatter.
+  const std29 = rd('skills/expert-standard/SKILL.md');
+  check('T-29 expert-standard body carries the four-tier evidence ladder ordered docs -> config -> probes -> live',
+    /\(1\) authoritative documentation, \(2\) on-disk configuration and state files, \(3\) cheap read-only command probes, \(4\) live execution/.test(std29));
+  check('T-29 expert-standard body: a live-only declaration must name the checked lower tiers',
+    /can only be verified live/.test(std29) && /named lower tiers that were actually checked/.test(std29));
+  check('T-29 expert-standard failure signals include live-only-declaration and citation-presence',
+    /\*\*Live-only declarations without a lookup trail\.\*\*/.test(std29) &&
+    /\*\*Citation-presence standing in for consultation\.\*\*/.test(std29));
+  const stdFm29 = frontmatter(join(ROOT, 'skills/expert-standard/SKILL.md')) || {};
+  check('T-29 expert-standard frontmatter description carries the live-only activation trigger',
+    /can only be verified live or by running it/.test(stdFm29.description || ''));
+}
+
 console.log(failures ? `\nSTRUCTURAL TESTS FAILED (${failures})` : '\nSTRUCTURAL TESTS PASSED');
 process.exit(failures ? 1 : 0);
