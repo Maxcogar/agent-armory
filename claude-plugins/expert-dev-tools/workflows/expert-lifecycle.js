@@ -186,6 +186,19 @@ const IMPLEMENT_SCHEMA = {
     },
   },
 }
+// Findings-channel bounds (role-boundary correction C1). The findings payload is
+// the one channel that crosses every review-loop role boundary — reviewer ->
+// orchestrator -> corrector dispatch -> persisted review record — so its items
+// are CLOSED: additionalProperties false and a maxLength on every string field.
+// A fix prescription physically does not fit, and a `fix`/`recommendation` field
+// is rejected at validation. One literal feeds both the schema below and the
+// runtime guard findingShapeFault, so the two cannot drift apart.
+const FINDING_BOUNDS = { classification: 40, standard: 300, premise_evidence: 700, location: 200 }
+const FINDING_KEYS = Object.keys(FINDING_BOUNDS)
+// Heuristic tripwire for prescriptions riding inside premise_evidence — not the
+// primary control (the C1 sizing is); it catches the phrasing the measured
+// defect actually used.
+const PRESCRIPTION_RE = /\b(fix by|should (change|be changed)|replace .* with|instead use|recommended fix)\b/i
 const VERDICT_SCHEMA = {
   type: 'object',
   required: ['verdict'],
@@ -198,7 +211,13 @@ const VERDICT_SCHEMA = {
       items: {
         type: 'object',
         required: ['classification', 'standard', 'location'],
-        properties: { classification: S_STR, standard: S_STR, premise_evidence: S_STR, location: LOCATION },
+        additionalProperties: false,
+        properties: {
+          classification: { type: 'string', maxLength: FINDING_BOUNDS.classification },
+          standard: { type: 'string', maxLength: FINDING_BOUNDS.standard },
+          premise_evidence: { type: 'string', maxLength: FINDING_BOUNDS.premise_evidence },
+          location: Object.assign({}, LOCATION, { maxLength: FINDING_BOUNDS.location }),
+        },
       },
     },
   },
@@ -395,6 +414,35 @@ function sweepDiscrepancy(entry, reHits) {
   return null
 }
 
+// Pure findings-shape predicate (role-boundary correction C2 — belt to C1's
+// braces: schema validation is performed by the harness's agent() primitive,
+// whose strictness is not plugin-controlled, so the workflow re-checks the
+// returned shape itself). Extracted as a named top-level function so the test
+// tiers can lift and EXECUTE it (the sweepDiscrepancy mechanism). Returns null
+// for a clean payload, or the first fault:
+// - unknown_keys: a field outside FINDING_KEYS (e.g. `fix`/`recommendation`) —
+//   role-crossing content in a named field;
+// - field_over_bound: a field over its FINDING_BOUNDS cap (or not a string) —
+//   prose-bloat that could carry a prescription or a whole review document;
+// - prescription_in_evidence: a PRESCRIPTION_RE marker inside premise_evidence —
+//   the tripwire for prescriptions that fit under the caps.
+function findingShapeFault(findings) {
+  const list = Array.isArray(findings) ? findings : []
+  for (let i = 0; i < list.length; i++) {
+    const f = list[i]
+    if (!f || typeof f !== 'object' || Array.isArray(f)) return { kind: 'field_over_bound', index: i, field: '(finding is not an object)' }
+    const unknown = Object.keys(f).filter((k) => !FINDING_KEYS.includes(k))
+    if (unknown.length) return { kind: 'unknown_keys', index: i, keys: unknown }
+    for (const k of FINDING_KEYS) {
+      if (f[k] !== undefined && (typeof f[k] !== 'string' || f[k].length > FINDING_BOUNDS[k]))
+        return { kind: 'field_over_bound', index: i, field: k, bound: FINDING_BOUNDS[k] }
+    }
+    if (typeof f.premise_evidence === 'string' && PRESCRIPTION_RE.test(f.premise_evidence))
+      return { kind: 'prescription_in_evidence', index: i }
+  }
+  return null
+}
+
 // One review gate: fresh reviewer each round; up to ROUND_CAP rounds; on
 // NEEDS_FIXES the artifact is remediated and re-reviewed; a cap breach returns
 // NON_CONVERGENCE (the caller escalates). `multiLens` runs the three-lens panel
@@ -417,6 +465,13 @@ async function runGate({ reviewFn, remediateFn, multiLens, detectFailedCorrectio
       findings = (v && v.findings) || []
     }
     history.push({ round, verdict, findings_count: findings.length, findings })
+    // Findings-shape guard (role-boundary correction C2): checked on every
+    // round's payload BEFORE it flows anywhere — into the corrector's dispatch
+    // via remediateFn, or into the persisted review record via history on a
+    // PASS. A fault is a failed control, never a passed one (fail-closed, the
+    // F5-2 principle); the caller routes it to GATE.control_fault.
+    const shapeFault = findingShapeFault(findings)
+    if (shapeFault) return { verdict: 'FINDING_SHAPE_FAULT', rounds: round, history, detail: shapeFault }
     if (verdict === 'PASS') return { verdict: 'PASS', rounds: round, history }
     // Detectors run only at the three document gates (D-2 excludes the
     // implementation gate: its remediateFn dispatches the planner for amend-plan
@@ -915,6 +970,17 @@ async function gateEscalation(gate, phaseName, resumePhase, artifactPath, led) {
     // literal's own definition, mirroring the under-covered-verifier gates.
     const d = gate.detail || {}
     return { type: GATE.control_fault, what_happened: `${phaseName} correction round ${gate.rounds}: the class-sweep re-execution did not (fully) run — ${d.reason || 'no hit sets were returned'}. Fail-closed: the correction does not pass on an unexecuted control.`, options: ['re-run the phase', 'investigate the verifier dispatch'], recommendation: 're-run; an unexecuted sweep re-execution is an infrastructure or dispatch fault, not evidence the declared sweep was complete' }
+  }
+  if (gate.verdict === 'FINDING_SHAPE_FAULT') {
+    // The reviewer return violated the findings contract — unknown keys,
+    // over-bound fields, or a prescription marker (role-boundary correction
+    // C2). The payload was NOT passed onward: a prescription that reaches the
+    // corrector's dispatch recreates both the role-boundary violation and the
+    // patching-instead-of-rederivation failure in one step. A control_fault,
+    // not a review verdict: the round is UNVERIFIED, and re-run is the answer.
+    const d = gate.detail || {}
+    const what_field = d.field ? ` (field: ${d.field})` : d.keys ? ` (keys: ${d.keys.join(', ')})` : ''
+    return { type: GATE.control_fault, what_happened: `${phaseName} review round ${gate.rounds}: the reviewer return violated the findings contract — ${d.kind || 'shape fault'}${what_field} at finding ${typeof d.index === 'number' ? d.index : '?'}. Findings state the standard, the violation, the location, and the premise evidence — never the fix; the payload was withheld from the corrector. Fail-closed: re-run the round.`, options: ['re-run the round', 'investigate the reviewer dispatch'], recommendation: 're-run the round; the corrector re-derives from sources, and a payload that can smuggle prescriptions or prose-bloat past the contract contaminates that re-derivation' }
   }
   if (gate.verdict === 'CORRECTOR_HALTED') {
     const h = gate.halt || {}

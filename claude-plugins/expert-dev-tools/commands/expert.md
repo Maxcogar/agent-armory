@@ -106,8 +106,9 @@ From the SEGMENT_REPORT's `ledger_delta` and its top-level fields:
   entry in the report's `review_records` (`{phase, round, verdict, findings[]}`),
   append a human-readable record to
   `${CLAUDE_PROJECT_DIR}/.claude/expert/reviews/<phase>.md` (create the
-  directory), one section per round giving the verdict and every finding's
-  `classification`, `standard`, `location`, and `premise_evidence`. Register each
+  directory), one section per round giving the verdict and, for each finding,
+  every property named by the workflow's `VERDICT_SCHEMA` findings items — the
+  schema is the field list; do not maintain a copy of it here. Register each
   review file in `artifact_index` with `role: "review"` (hashed like any
   artifact).
 - **Record escalations (S-4).** If `outcome` is `owner_gate`, append an

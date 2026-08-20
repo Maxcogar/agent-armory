@@ -83,5 +83,47 @@ check('T-U2 marker mid-file-a resumes correctly',
 check('T-U2 marker at end yields nothing',
   texts(readOwnerTurns(dir, { session_file: 'b.jsonl', line: 2 })).length === 0);
 
+// ---- T-U3: findings-shape guard (role-boundary correction C2) ---------------
+// The guard is a pure predicate inside the workflow (not an importable module),
+// so it is LIFTED from the source with its own extracted dependencies and
+// EXECUTED — the gate is held demonstrably able to fail (the T-A2a-neg
+// convention), never assumed from source text.
+{
+  const wfSrc = readFileSync(join(HERE, '../../workflows/expert-lifecycle.js'), 'utf8');
+  const grab = (re) => (wfSrc.match(re) || [''])[0];
+  const decl = (header) => {
+    const i = wfSrc.indexOf(header);
+    let depth = 0;
+    for (let j = wfSrc.indexOf('{', i); j < wfSrc.length; j++) {
+      if (wfSrc[j] === '{') depth++;
+      else if (wfSrc[j] === '}' && --depth === 0) return wfSrc.slice(i, j + 1);
+    }
+    throw new Error(`unbalanced: ${header}`);
+  };
+  const lifted = new Function([
+    grab(/const FINDING_BOUNDS =[^\n]*/),
+    grab(/const FINDING_KEYS =[^\n]*/),
+    grab(/const PRESCRIPTION_RE =[^\n]*/),
+    decl('function findingShapeFault('),
+    'return { findingShapeFault, FINDING_BOUNDS }',
+  ].join('\n'))();
+  const { findingShapeFault: fsf, FINDING_BOUNDS: FB } = lifted;
+  const clean = { classification: 'Moderate', standard: 'ISO/IEC/IEEE 29148:2018 5.2.6', location: 'spec.md:10-20', premise_evidence: 'verified by Read at spec.md:10-20' };
+  check('T-U3 a finding carrying a fix key faults (unknown_keys names the key)',
+    (() => { const r = fsf([{ ...clean, fix: 'change line 10 to X' }]); return !!r && r.kind === 'unknown_keys' && r.keys[0] === 'fix'; })());
+  check('T-U3 a recommendation key also faults (the class, not the one spelling)',
+    (fsf([{ ...clean, recommendation: 'use Y instead' }]) || {}).kind === 'unknown_keys');
+  check('T-U3 an over-bound premise_evidence faults (field_over_bound names field and bound)',
+    (() => { const r = fsf([{ ...clean, premise_evidence: 'x'.repeat(FB.premise_evidence + 1) }]); return !!r && r.kind === 'field_over_bound' && r.field === 'premise_evidence' && r.bound === FB.premise_evidence; })());
+  check('T-U3 a premise_evidence at exactly the bound passes (boundary value)',
+    fsf([{ ...clean, premise_evidence: 'x'.repeat(FB.premise_evidence) }]) === null);
+  check('T-U3 a prescription phrase inside premise_evidence faults',
+    (fsf([{ ...clean, premise_evidence: 'the section should be changed to use the shared helper' }]) || {}).kind === 'prescription_in_evidence');
+  check('T-U3 a non-string field faults (fail-closed on type, not just length)',
+    (fsf([{ ...clean, standard: 42 }]) || {}).kind === 'field_over_bound');
+  check('T-U3 a clean four-field finding passes', fsf([clean]) === null);
+  check('T-U3 an empty findings array passes (a clean PASS round is not faulted)', fsf([]) === null);
+}
+
 console.log(failures ? `\nUNIT TESTS FAILED (${failures})` : '\nUNIT TESTS PASSED');
 process.exit(failures ? 1 : 0);

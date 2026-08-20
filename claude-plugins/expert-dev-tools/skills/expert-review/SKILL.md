@@ -400,7 +400,7 @@ If no Critical or Serious findings: explicitly state "No Critical or Serious fin
 
 
 
-Patterns that are wrong across the codebase. Highest priority because fixing them fixes many things at once. Each pattern states: **the proactive grep across the full inventory scope (query, result count, instances enumerated)**, the named standard violated, why this is a systemic failure rather than isolated, what correct looks like.
+Patterns that are wrong across the codebase. Highest priority because fixing them fixes many things at once. Each pattern states: **the proactive grep across the full inventory scope (query, result count, instances enumerated)**, the named standard violated, why this is a systemic failure rather than isolated, what correct looks like — stated as the standard's requirement, never as a patch instruction. When the review is consumed by a correction loop, the corrector re-derives each affected section from its sources; a prescribed fix contaminates that re-derivation into patching the prescribed sentence.
 
 
 

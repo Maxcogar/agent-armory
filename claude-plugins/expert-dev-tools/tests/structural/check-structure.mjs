@@ -601,11 +601,17 @@ const gateFns = new Function('parallel', [
   reDecls,                       // the workflow's own `const *_RE = /…/` lines (S3)
   'const ROUND_CAP = ' + /const ROUND_CAP = (\d+)/.exec(wfSrc)[1],
   'const LENSES = []',
+  // The findings-shape guard's dependencies, EXTRACTED from the workflow rather
+  // than retyped (T-RB, role-boundary correction): runGate now calls
+  // findingShapeFault every round, so the lifted copy needs the real bounds.
+  (wfSrc.match(/const FINDING_BOUNDS =[^\n]*/) || [''])[0],
+  (wfSrc.match(/const FINDING_KEYS =[^\n]*/) || [''])[0],
+  declOf(wfSrc, 'function findingShapeFault('),
   declOf(wfSrc, 'function parseLocation('),
   declOf(wfSrc, 'function detectCorrectionFailure('),
   declOf(wfSrc, 'function sweepDiscrepancy('),
   declOf(wfSrc, 'async function runGate('),
-  'return { runGate, detectCorrectionFailure, parseLocation, sweepDiscrepancy }',
+  'return { runGate, detectCorrectionFailure, parseLocation, sweepDiscrepancy, findingShapeFault }',
 ].join('\n'))(() => { throw new Error('multiLens not exercised'); });
 
 // The stub sweeps carry the executable declaration the schema now requires
@@ -1046,6 +1052,67 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
     (() => { const i = wfSrc.indexOf("gate.verdict === 'SWEEP_UNVERIFIED'"); return i > 0 && /GATE\.control_fault/.test(wfSrc.slice(i, i + 700)); })());
   check('T-27 deployment: the verifier agent carries the sweep re-execution job',
     /Sweep re-execution/.test(rd('agents/expert-verifier.md')));
+}
+
+// ---- T-RB: findings-channel closure (corrections-0.4.0, role-boundary-violations) ----
+// C1 is pinned by LIFTING and EVALUATING the VERDICT_SCHEMA literal (never
+// lexing source text); C2's predicate is executed through the lifted runGate;
+// C3's prose carriers are pinned by presence. The findings payload is the one
+// channel crossing every review-loop role boundary — these checks pin it closed.
+{
+  const lit = (name) => `const ${name} = {` + braced(wfSrc, wfSrc.indexOf(`const ${name} = {`)) + '}';
+  // T-RB1 — the evaluated schema literal, with its real dependencies.
+  const rb = new Function('"use strict";\n' + [reDecls, lit('S_STR'), lit('LOCATION'), lit('FINDING_BOUNDS'), lit('VERDICT_SCHEMA'), 'return { VERDICT_SCHEMA, FINDING_BOUNDS }'].join('\n'))();
+  const fi = rb.VERDICT_SCHEMA.properties.findings.items;
+  const FB = rb.FINDING_BOUNDS;
+  check('T-RB1 schema: findings items declare additionalProperties false (evaluated, not lexed)',
+    fi.additionalProperties === false);
+  const fiProps = Object.entries(fi.properties);
+  check('T-RB1 schema: every findings-item property is a bounded string (maxLength on each)',
+    fiProps.length > 0 && fiProps.every(([, v]) => v.type === 'string' && Number.isInteger(v.maxLength) && v.maxLength > 0));
+  check('T-RB1 schema: bounds come from the shared FINDING_BOUNDS literal (one source, no drift)',
+    fiProps.every(([k, v]) => v.maxLength === FB[k]) &&
+    Object.keys(FB).sort().join() === fiProps.map(([k]) => k).sort().join());
+  check('T-RB1 schema: location keeps its grammar pattern alongside its bound',
+    typeof fi.properties.location.pattern === 'string' && new RegExp(fi.properties.location.pattern).test('spec.md:271-273'));
+
+  // T-RB2 — the guard executed (lift-and-evaluate, the T-24x mechanism), then
+  // its deployment: called in runGate BEFORE remediateFn, routed to control_fault.
+  const fsf = gateFns.findingShapeFault;
+  check('T-RB2 exec: a finding carrying a fix key faults (unknown_keys)',
+    (fsf([{ classification: 'Moderate', standard: 's', location: 'a.md:1', fix: 'do X' }]) || {}).kind === 'unknown_keys');
+  check('T-RB2 exec: an over-bound premise_evidence faults (field_over_bound)',
+    (fsf([{ classification: 'Moderate', standard: 's', location: 'a.md:1', premise_evidence: 'x'.repeat(FB.premise_evidence + 1) }]) || {}).kind === 'field_over_bound');
+  check('T-RB2 exec: a prescription marker inside premise_evidence faults',
+    (fsf([{ classification: 'Moderate', standard: 's', location: 'a.md:1', premise_evidence: 'fix by replacing the guard with a stub' }]) || {}).kind === 'prescription_in_evidence');
+  check('T-RB2 exec: a clean four-field finding passes (no false positive)',
+    fsf([{ classification: 'Moderate', standard: 'ISO/IEC/IEEE 29148:2018 5.2.6', location: 'a.md:1', premise_evidence: 'verified by Read at a.md:1' }]) === null);
+  check('T-RB2 exec: an empty findings array passes (a clean PASS round is not faulted)', fsf([]) === null);
+  const rbGate = await driveGate(
+    [{ verdict: 'NEEDS_FIXES', findings: [{ classification: 'Moderate', standard: 's', location: 'a.md:1', fix: 'patch it' }] }, F('a.md:2')],
+    [{ status: 'completed', sections_rederived: [] }]);
+  check('T-RB2 exec: runGate faults a contract-violating payload in the SAME round, before remediation',
+    rbGate.verdict === 'FINDING_SHAPE_FAULT' && rbGate.rounds === 1 && rbGate.detail.kind === 'unknown_keys');
+  const rg = declOf(wfSrc, 'async function runGate(');
+  check('T-RB2 deployment: runGate calls findingShapeFault before remediateFn',
+    rg.indexOf('findingShapeFault(findings)') > 0 &&
+    rg.indexOf('findingShapeFault(findings)') < rg.indexOf('await remediateFn(findings, round)'));
+  check('T-RB2 deployment: FINDING_SHAPE_FAULT routes to a control_fault gate (fail-closed)',
+    (() => { const i = wfSrc.indexOf("gate.verdict === 'FINDING_SHAPE_FAULT'"); return i > 0 && /GATE\.control_fault/.test(wfSrc.slice(i, i + 900)); })());
+
+  // T-RB3 — the rule stated where the roles read it. The reviewer's Write/Edit
+  // denial is unchanged and already pinned by T-A2b above.
+  check('T-RB3 reviewer agent: findings carry the no-prescription rule ("never the fix")',
+    /never the fix/.test(rd('agents/expert-reviewer.md')));
+  check('T-RB3 review skill: "what correct looks like" is scoped to the standard\'s requirement, not a patch instruction',
+    /stated as the standard's requirement, never as a patch instruction/.test(rd('skills/expert-review/SKILL.md')));
+
+  // T-RB4 — the command's persistence step tracks the schema, not a copy of it
+  // (hand-maintained derived lists are the measured regression engine).
+  check('T-RB4 command step 4: the hand-enumerated finding field list is gone',
+    !cmd.includes('`classification`, `standard`, `location`, and `premise_evidence`'));
+  check('T-RB4 command step 4: persistence references the workflow VERDICT_SCHEMA findings items',
+    /every property named by the workflow's `VERDICT_SCHEMA` findings items/.test(cmd));
 }
 
 console.log(failures ? `\nSTRUCTURAL TESTS FAILED (${failures})` : '\nSTRUCTURAL TESTS PASSED');

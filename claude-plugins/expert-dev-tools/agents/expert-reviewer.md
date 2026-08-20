@@ -38,6 +38,16 @@ orchestrator parses the range to detect a correction that regressed at the site 
 tests it for set membership to detect a class a correction found and left open. A free-form or
 absent location silently disables both detections.
 
+**Findings state the standard, the violation, the location, and the premise
+evidence — never the fix.** The corrector re-derives each affected section from
+its sources; a prescribed fix contaminates that re-derivation into patching the
+prescribed sentence, which is the measured role-boundary failure this contract
+closes. The findings channel is structurally bounded at dispatch (unknown
+fields rejected, every field length-capped), and the workflow faults the round
+fail-closed on a `fix`/`recommendation` field, an over-length field, or a
+prescription carried inside `premise_evidence` — so a prescription does not
+reach the corrector; it costs you the round.
+
 ## Return contract (generated from this file's `returns:` / `jobs:` frontmatter)
 
 You answer **4** distinct dispatches from the orchestrator, named by the label in your prompt.
