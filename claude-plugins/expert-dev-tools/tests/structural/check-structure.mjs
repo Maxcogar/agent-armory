@@ -57,9 +57,14 @@ for (const f of agents) {
   const fm = frontmatter(join(agentsDir, f)) || {};
   const tools = fm.tools || '';
   const dis = fm.disallowedTools || '';
-  const skref = Array.isArray(fm.skills) ? (fm.skills[0] || '').split(':').pop() : '';
+  const skentry = Array.isArray(fm.skills) ? (fm.skills[0] || '') : '';
+  const skref = skentry.split(':').pop();
   check(`T-A2b ${name}: name+description`, fm.name === name && !!fm.description);
-  check(`T-A2b ${name}: skills is a sequence -> packaged skill`, Array.isArray(fm.skills) && packaged.has(skref));
+  // Strengthened from basename to the FULL namespaced name (skill-activation-missed
+  // C3): the grant must name the skill the platform actually registers —
+  // `expert-dev-tools:<packaged dir>` — or the agent's prose Skill(...) call
+  // errors "Unknown skill" the first time it is honestly attempted.
+  check(`T-A2b ${name}: skills entry is the namespaced packaged skill`, Array.isArray(fm.skills) && skentry === `expert-dev-tools:${skref}` && packaged.has(skref));
   check(`T-A2b ${name}: cannot CORE-ingest`, dis.includes(CORE) && !tools.includes(CORE));
   if (allowlist.has(name)) {
     check(`T-A2b ${name}: tools allowlist incl Skill`, !!fm.tools && tools.includes('Skill'));
@@ -510,6 +515,14 @@ check('T-18 the scope check is dispatched to the verifier under one label',
         why: 'implementation-round-01 F-2: `node --check` on the .js path exits 0 for ANY ' +
              'syntax error once `export` is present. The replacement parses the file under ' +
              'the goal the harness executes it in, and T-A2a-neg holds it demonstrably able to fail.',
+      },
+      {
+        was: 'T-A2b ${name}: skills is a sequence -> packaged skill',
+        now: 'T-A2b ${name}: skills entry is the namespaced packaged skill',
+        why: 'corrections-0.4.0 skill-activation-missed C3: the basename comparison could not ' +
+             'see a wrong or missing namespace prefix, the exact drift that makes the prose ' +
+             'Skill(...) call return "Unknown skill". The replacement compares the full ' +
+             'namespaced entry, a strict superset of the basename check.',
       },
     ];
     const supersededBy = new Map(REPLACED_BY_STRENGTHENING.map((r) => [r.was, r.now]));
@@ -1113,6 +1126,90 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
     !cmd.includes('`classification`, `standard`, `location`, and `premise_evidence`'));
   check('T-RB4 command step 4: persistence references the workflow VERDICT_SCHEMA findings items',
     /every property named by the workflow's `VERDICT_SCHEMA` findings items/.test(cmd));
+}
+
+// ---- T-28: verified skill activation (corrections-0.4.0, skill-activation-missed) ----
+// The measured defect: activation asserted by announcement — the Step-0 prose
+// recited, file reads declared to be "the process loaded" — with no Skill call
+// ever made and no loud failure when the skill was absent. C1's predicate and
+// gate router are lifted from the workflow source and EXECUTED (the T-24x
+// mechanism); the schema pin is the evaluated literal, never lexed source text;
+// a negative case proves the prompt-wiring pin can fail.
+{
+  const lit = (name) => `const ${name} = {` + braced(wfSrc, wfSrc.indexOf(`const ${name} = {`)) + '}';
+  // Schema pin — the evaluated IMPLEMENT_SCHEMA literal, with its real dependencies.
+  const IS = new Function('"use strict";\n' + [reDecls, lit('S_STR'), lit('LOCATION'), lit('EVIDENCE'), lit('IMPLEMENT_SCHEMA'), 'return IMPLEMENT_SCHEMA'].join('\n'))();
+  check('T-28 schema: IMPLEMENT_SCHEMA requires skill_activation alongside status (evaluated, not lexed)',
+    Array.isArray(IS.required) && IS.required.includes('status') && IS.required.includes('skill_activation'));
+  check('T-28 schema: skill_activation is declared as a string property',
+    !!IS.properties.skill_activation && IS.properties.skill_activation.type === 'string');
+
+  // Lift and EXECUTE the predicate, the redispatch discriminator, and the gate router.
+  const fns28 = new Function('"use strict";\n' + [
+    lit('GATE'),
+    declOf(wfSrc, 'function skillActivationFault('),
+    (wfSrc.match(/const needsActivationRedispatch =[^\n]*/) || [''])[0],
+    declOf(wfSrc, 'function skillActivationGate('),
+    'return { skillActivationFault, needsActivationRedispatch, skillActivationGate, GATE }',
+  ].join('\n'))();
+  const { skillActivationFault: saf, needsActivationRedispatch: nar, skillActivationGate: sag, GATE: G28 } = fns28;
+  const LAUNCH = 'Launching skill: expert-dev-tools:expert-implement';
+  check('T-28 exec (a) a verbatim launch-line echo on a completed return passes',
+    saf({ status: 'completed', skill_activation: LAUNCH }) === null);
+  check('T-28 exec (b) a completed return with no echo is unverified (fail-closed)',
+    (saf({ status: 'completed' }) || {}).kind === 'unverified');
+  check('T-28 exec (c) a recited announcement that is not the launch line is unverified',
+    (saf({ status: 'completed', skill_activation: 'Activated expert-implement and following it exactly' }) || {}).kind === 'unverified');
+  check('T-28 exec (d) an "Unknown skill" error is unknown_skill even on a halted return',
+    (saf({ status: 'halted', stop_report: { category: 'ENVIRONMENT-BLOCKED' }, skill_activation: 'tool_use_error: Unknown skill: expert-implement' }) || {}).kind === 'unknown_skill');
+  check('T-28 exec (e) an honest halt with a stop_report is exempt (routes via STOP-REPORT path)',
+    saf({ status: 'halted', stop_report: { category: 'ENVIRONMENT-BLOCKED' } }) === null);
+  check('T-28 exec (f) only an unverified echo earns the single re-dispatch',
+    nar({ status: 'completed' }) === true &&
+    nar({ status: 'completed', skill_activation: 'Unknown skill: expert-implement' }) === false &&
+    nar({ status: 'completed', skill_activation: LAUNCH }) === false);
+  check('T-28 exec (g) unknown_skill routes to the environment-defect gate (risk_override), no imitation fallback',
+    sag({ kind: 'unknown_skill', reason: 'r' }).type === G28.risk_override);
+  check('T-28 exec (h) a persistently unverified echo routes to control_fault (fail-closed)',
+    sag({ kind: 'unverified', reason: 'r' }).type === G28.control_fault);
+
+  // Prompt wiring — one predicate serves the positive pin and the negative case.
+  const activationReqWired = (src) =>
+    /const IMPLEMENT_ACTIVATION_REQ = '/.test(src) &&
+    src.includes('Skill(expert-dev-tools:expert-implement)') &&
+    src.includes('"Launching skill:" line') &&
+    /Execute the approved plan at \$\{planPath\} end to end\. \$\{IMPLEMENT_ACTIVATION_REQ\}/.test(src) &&
+    /Execute the amended plan at \$\{planPath\}\. \$\{IMPLEMENT_ACTIVATION_REQ\}/.test(src);
+  check('T-28 both implement dispatch prompts carry the activation requirement', activationReqWired(wfSrc));
+  check('T-28-neg the wiring pin REJECTS a workflow with the requirement stripped (the gate can fail)',
+    !activationReqWired(wfSrc.replace(/ \$\{IMPLEMENT_ACTIVATION_REQ\}/g, '')));
+
+  // Deployment pins (the T-23/F7-1 pattern): both dispatch sites are verified.
+  check('T-28 deployment: both implement dispatch sites run the redispatch discriminator and the fault check',
+    (wfSrc.match(/needsActivationRedispatch\(impl\)/g) || []).length === 1 &&
+    (wfSrc.match(/needsActivationRedispatch\(impl2\)/g) || []).length === 1 &&
+    wfSrc.includes('const actFault = skillActivationFault(impl)') &&
+    wfSrc.includes('const actFault2 = skillActivationFault(impl2)'));
+  check('T-28 deployment: an activation fault routes to an owner gate through skillActivationGate at both sites',
+    wfSrc.includes('gate: skillActivationGate(actFault)') && wfSrc.includes('gate: skillActivationGate(actFault2)'));
+
+  // Agent-file pins (C2): the literal first-action instruction, the error path,
+  // and the declared return field the schema now requires.
+  const implAgent = rd('agents/expert-implementer.md');
+  check('T-28 agent: carries the literal Skill(expert-dev-tools:expert-implement) first-action instruction',
+    implAgent.includes('`Skill(expert-dev-tools:expert-implement)`'));
+  check('T-28 agent: Skill-call error path is halted + ENVIRONMENT-BLOCKED stop_report, never reconstruction',
+    implAgent.includes('ENVIRONMENT-BLOCKED') &&
+    /[Nn]ever reconstruct the skill\s+from memory or from file reads/.test(implAgent));
+  check('T-28 agent: skill_activation is a declared return field',
+    ((frontmatter(join(agentsDir, 'expert-implementer.md')) || {}).returns || []).includes('skill_activation'));
+
+  // Rename-drift guard for the "Unknown skill" failure class, swept across every
+  // packaged skill: the frontmatter name is what the platform registers; a
+  // directory rename without it makes every namespaced reference error.
+  for (const s of skills)
+    check(`T-28 skill ${s}: frontmatter name equals its directory name (rename-drift guard)`,
+      ((frontmatter(join(skillsDir, s, 'SKILL.md')) || {}).name || '') === s);
 }
 
 console.log(failures ? `\nSTRUCTURAL TESTS FAILED (${failures})` : '\nSTRUCTURAL TESTS PASSED');

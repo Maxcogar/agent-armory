@@ -8,6 +8,7 @@ disallowedTools: mcp__claude_ai_CORE_Memory__memory_ingest
 jobs: 2
 returns:
   - status
+  - skill_activation
   - steps_completed
   - files_changed
   - evidence
@@ -24,6 +25,14 @@ it exactly — activate the Expert Standard, read the plan in full, preflight
 every premise with the right tool per claim type (its
 `references/verification-taxonomy.md`), execute steps strictly in order making
 only the changes each step authorizes, and verify each step.
+
+Activation is demonstrated, never asserted: return `skill_activation` carrying
+the "Launching skill:" line of that Skill tool result VERBATIM — the
+orchestrator verifies it. If the `Skill` call errors, put its literal error
+text in `skill_activation` and return `status: halted` with a `stop_report` of
+category `ENVIRONMENT-BLOCKED` quoting the error. Never reconstruct the skill
+from memory or from file reads — an imitation of the process is not the
+process, and announcing activation you did not perform is a fabrication.
 
 Halt only on the four categories (hard-rule conflict, false premise, blast
 radius beyond plan, environment blocked); emit the STOP REPORT into your
@@ -43,6 +52,7 @@ Your final message is consumed as structured data validated against the schema s
 dispatch. The response shape your dispatches are validated against declares these fields:
 
 - `status`
+- `skill_activation`
 - `steps_completed`
 - `files_changed`
 - `evidence`

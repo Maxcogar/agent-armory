@@ -168,9 +168,16 @@ const PHASE_SCHEMA = {
 }
 const IMPLEMENT_SCHEMA = {
   type: 'object',
-  required: ['status'],
+  // skill-activation-missed C1 (0.4.0): skill_activation is REQUIRED — the one
+  // observable trace prose imitation cannot produce is the Skill tool result.
+  // Presence is held by the schema; authenticity by skillActivationFault.
+  required: ['status', 'skill_activation'],
   properties: {
     status: { type: 'string', enum: ['completed', 'halted'] },
+    // The verbatim launch line ("Launching skill" prefix) of the actual Skill
+    // tool result for the packaged expert-implement skill — or, if the call
+    // errored, its literal error text. Never a recitation.
+    skill_activation: S_STR,
     steps_completed: { type: 'array', items: S_STR },
     files_changed: { type: 'array', items: S_STR },
     evidence: EVIDENCE,
@@ -186,6 +193,11 @@ const IMPLEMENT_SCHEMA = {
     },
   },
 }
+// skill-activation-missed C1 (0.4.0): appended to EVERY implementer dispatch
+// prompt. The measured defect was activation-by-announcement — the Step-0 prose
+// recited without the Skill call ever happening — so the requirement demands the
+// one artifact recitation cannot fake: the tool result's own launch line.
+const IMPLEMENT_ACTIVATION_REQ = 'Your FIRST action is invoking Skill(expert-dev-tools:expert-implement) — the actual tool call, not a recitation of the skill from memory. Return skill_activation carrying the "Launching skill:" line of that Skill tool result VERBATIM; if the call errored, skill_activation carries the literal error text and you halt with an ENVIRONMENT-BLOCKED stop report — never reconstruct the skill from memory or from file reads.'
 // Findings-channel bounds (role-boundary correction C1). The findings payload is
 // the one channel that crosses every review-loop role boundary — reviewer ->
 // orchestrator -> corrector dispatch -> persisted review record — so its items
@@ -743,7 +755,20 @@ if (cursor === 'plan') {
 // ---- IMPLEMENT + review + verify + ground truth -------------------------
 if (cursor === 'implement') {
   phase('Implement')
-  const impl = await agent(`Execute the approved plan at ${planPath} end to end.`, { agentType: AGENT.implementer, schema: IMPLEMENT_SCHEMA, phase: 'Implement', label: 'implement' })
+  let impl = await agent(`Execute the approved plan at ${planPath} end to end. ${IMPLEMENT_ACTIVATION_REQ}`, { agentType: AGENT.implementer, schema: IMPLEMENT_SCHEMA, phase: 'Implement', label: 'implement' })
+
+  // skill-activation-missed C1 (0.4.0): activation is demonstrated, never
+  // asserted. An unverified echo earns exactly one re-dispatch with the
+  // instruction made explicit; a second failure gates as a control fault. An
+  // "Unknown skill" error gates immediately (environment defect) — the
+  // halt-not-fallback rule forbids executing from an imitation of the skill.
+  if (needsActivationRedispatch(impl))
+    impl = await agent(`Execute the approved plan at ${planPath} end to end. ${IMPLEMENT_ACTIVATION_REQ} Your previous return did not verify activation: skill_activation must quote the ACTUAL Skill tool result's launch line, not restate the requirement.`, { agentType: AGENT.implementer, schema: IMPLEMENT_SCHEMA, phase: 'Implement', label: 'implement' })
+  const actFault = skillActivationFault(impl)
+  if (actFault) {
+    delta.phase = 'implement'
+    return report(finish(), { outcome: 'owner_gate', gate: skillActivationGate(actFault) })
+  }
 
   // STOP REPORT routing (architecture D6): amend-plan is automatic; override is
   // never machine-selected; hard-rule and environment blocks escalate.
@@ -758,7 +783,15 @@ if (cursor === 'implement') {
     // PREMISE-FALSE / BLAST-RADIUS -> auto amend-plan -> re-implement (remediation
     // goes through the planner then the implementer; reviewed like any change).
     await agent(`Amend the plan at ${planPath} per this diagnosis, then re-verify: ${JSON.stringify(dg)}`, { agentType: AGENT.planner, schema: PHASE_SCHEMA, phase: 'Plan', label: 'amend:plan' })
-    const impl2 = await agent(`Execute the amended plan at ${planPath}.`, { agentType: AGENT.implementer, schema: IMPLEMENT_SCHEMA, phase: 'Implement', label: 're-implement' })
+    let impl2 = await agent(`Execute the amended plan at ${planPath}. ${IMPLEMENT_ACTIVATION_REQ}`, { agentType: AGENT.implementer, schema: IMPLEMENT_SCHEMA, phase: 'Implement', label: 're-implement' })
+    // Same C1 activation verification as the primary dispatch above.
+    if (needsActivationRedispatch(impl2))
+      impl2 = await agent(`Execute the amended plan at ${planPath}. ${IMPLEMENT_ACTIVATION_REQ} Your previous return did not verify activation: skill_activation must quote the ACTUAL Skill tool result's launch line, not restate the requirement.`, { agentType: AGENT.implementer, schema: IMPLEMENT_SCHEMA, phase: 'Implement', label: 're-implement' })
+    const actFault2 = skillActivationFault(impl2)
+    if (actFault2) {
+      delta.phase = 'implement'
+      return report(finish(), { outcome: 'owner_gate', gate: skillActivationGate(actFault2) })
+    }
     for (const f of (impl2 && impl2.files_changed) || []) {
       delta.artifacts.push({ role: 'implementation', path: f })
     }
@@ -1050,6 +1083,41 @@ function implementationCompleteness(stepIds, impl) {
   if (unevidenced.length)
     return { ok: false, kind: 'incomplete', missing_steps: unevidenced, reason: `${unevidenced.length} of ${stepIds.length} completed plan steps have no evidence entry referencing them (evidence[].step)` }
   return { ok: true }
+}
+
+// skillActivationFault (skill-activation-missed C1): verdict on an implement
+// return's activation echo. The measured defect was two back-to-back imitations
+// of activation — the Step-0 announcement recited, then file reads declared to
+// be "the process loaded" — with no Skill call ever made; nothing looked. This
+// predicate looks, and fails closed: no echo, or an echo that is not the Skill
+// tool result's own launch line, is UNVERIFIED, never accepted. An "Unknown
+// skill" error takes precedence over everything (activation was impossible —
+// an environment defect, not a compliance failure). An honest halt with a
+// stop_report is exempt: its error routes through the STOP-REPORT path. Pure,
+// so the structural tier lifts and EXECUTES it (the T-24x mechanism).
+function skillActivationFault(impl) {
+  const ack = (impl && typeof impl.skill_activation === 'string') ? impl.skill_activation.trim() : ''
+  if (/unknown skill/i.test(ack))
+    return { kind: 'unknown_skill', reason: 'the Skill call reported "Unknown skill" — expert-dev-tools:expert-implement is not activatable in this environment at all' }
+  if (impl && impl.status === 'halted' && impl.stop_report) return null
+  if (!ack)
+    return { kind: 'unverified', reason: 'the return carries no skill_activation echo, so activation of expert-dev-tools:expert-implement is asserted at best, never demonstrated' }
+  if (!/launching skill/i.test(ack))
+    return { kind: 'unverified', reason: 'skill_activation does not quote the Skill tool result\'s "Launching skill:" line, so the echo does not demonstrate a real activation' }
+  return null
+}
+// Only an unverified echo earns the single explicit re-dispatch; an "Unknown
+// skill" error re-dispatches nothing — retrying an impossible activation is not
+// a remedy, and imitation is not a fallback.
+const needsActivationRedispatch = (impl) => { const f = skillActivationFault(impl); return !!f && f.kind === 'unverified' }
+// The owner gate for each fault kind. unknown_skill is an environment defect
+// (the ENVIRONMENT-BLOCKED routing convention: risk_override); a persistently
+// unverified echo is a control that could not be confirmed to have run
+// (control_fault, fail-closed per the GATE F5-2 principle).
+function skillActivationGate(fault) {
+  if (fault.kind === 'unknown_skill')
+    return { type: GATE.risk_override, what_happened: `Implementer skill activation failed: ${fault.reason}. Halt-not-fallback: executing the plan from an imitation of the skill is not permitted.`, options: ['repair the plugin installation and re-run the implement phase', 'override (accept risk)', 'abort'], recommendation: 'repair the environment; an "Unknown skill" error means activation was impossible, not optional' }
+  return { type: GATE.control_fault, what_happened: `Two implement dispatches returned without a verifiable skill_activation echo: ${fault.reason}. The execution is UNVERIFIED, not accepted.`, options: ['re-run the implement phase', 'investigate the implementer dispatch'], recommendation: 're-run; work not demonstrably executed under the packaged skill is unverified, and unverifiable fails closed' }
 }
 
 // Same-round sweep re-execution channel (patching-instead-of-rederivation C2).
