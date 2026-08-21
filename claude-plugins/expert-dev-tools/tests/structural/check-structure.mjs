@@ -751,6 +751,21 @@ check('T-18 the scope check is dispatched to the verifier under one label',
              'Skill(...) call return "Unknown skill". The replacement compares the full ' +
              'namespaced entry, a strict superset of the basename check.',
       },
+      {
+        was: 'T-30 exec (i) empty stdin -> exit 0 (a malformed hook payload never traps the session)',
+        now: 'T-30 exec (i) empty stdin with no lifecycle in reach -> exit 0 (a payloadless invocation never crashes the hook)',
+        why: 'corrections-0.4.0 round-7 F1: the baseline case was the only continuation-gate ' +
+             'spawn that bypassed the env-scrubbing helper, so it inherited the ambient ' +
+             'CLAUDE_PROJECT_DIR. It passed whenever no ledger happened to be in reach — a ' +
+             'vacuous green — and went red inside any project running a lifecycle, which is ' +
+             'the condition this plugin itself creates. It also asserted a universal about ' +
+             'MALFORMED payloads from an input the hook does not treat as malformed. The ' +
+             'replacement runs under the helper\'s env rule against a declared ledgerless ' +
+             'root, and the two properties the baseline conflated are pinned separately at ' +
+             'T-30 exec (i2) and (i3). Strictly more behavior is pinned: three verdicts and a ' +
+             'stderr note under controlled roots, where the baseline pinned one verdict under ' +
+             'whatever root the ambient environment happened to supply.',
+      },
     ];
     // A label CORRECTED while its assertion stays byte-identical is a third case,
     // and it does not belong in the list above: nothing was strengthened, so filing
@@ -2293,14 +2308,21 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
   // case: CLAUDE_PROJECT_DIR is the root the hook must prefer, so leaving the ambient
   // value in place would silently point every case at this repo's own ledger. Passing
   // it as null deletes it, which is how the `cwd` fallback is exercised.
+  // The env rule lives in ONE place. Every spawn of the gate in this block builds its
+  // environment here, so no case can quietly inherit the ambient CLAUDE_PROJECT_DIR and
+  // pass because nothing was in reach rather than because the hook behaved.
+  const gateEnv = (projectDir = null) => {
+    const env = { ...process.env };
+    delete env.CLAUDE_PROJECT_DIR;
+    if (projectDir) env.CLAUDE_PROJECT_DIR = projectDir;
+    return env;
+  };
   const runGateHook = (fixtureDir, extra = {}, projectDir = null) => {
     const payload = JSON.stringify({
       session_id: 'fixture', hook_event_name: 'Stop', permission_mode: 'default',
       transcript_path: join(fxc, 'transcript.jsonl'), cwd: join(fxc, fixtureDir), ...extra,
     });
-    const env = { ...process.env };
-    delete env.CLAUDE_PROJECT_DIR;
-    if (projectDir) env.CLAUDE_PROJECT_DIR = projectDir;
+    const env = gateEnv(projectDir);
     // spawnSync, not execFileSync: stderr is load-bearing on BOTH paths here — the block
     // reason on exit 2, and the fail-open note on exit 0 — and execFileSync surfaces
     // stderr only when it throws. A spawn failure has no status; it maps to -1, which
@@ -2309,6 +2331,16 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
     return {
       status: r.error || r.status === null ? -1 : r.status,
       stdout: String(r.stdout || ''),
+      stderr: String(r.stderr || ''),
+    };
+  };
+  // Same spawn, same env rule, but the stdin bytes are the input under test rather than a
+  // well-formed payload — so the degenerate-stdin cases below name the root they run
+  // against instead of inheriting one.
+  const runGateRaw = (input, projectDir = null) => {
+    const r = spawnSync(process.execPath, [gate], { input, encoding: 'utf8', env: gateEnv(projectDir) });
+    return {
+      status: r.error || r.status === null ? -1 : r.status,
       stderr: String(r.stderr || ''),
     };
   };
@@ -2344,8 +2376,30 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
   const corrupt = runGateHook('corrupt');
   check('T-30 exec (h) an unparseable ledger -> exit 0 with a stderr note (fails OPEN by design)',
     corrupt.status === 0 && /unparseable/.test(corrupt.stderr));
-  check('T-30 exec (i) empty stdin -> exit 0 (a malformed hook payload never traps the session)',
-    (() => { try { execFileSync(process.execPath, [gate], { input: '', stdio: 'pipe' }); return true; } catch { return false; } })());
+  // Degenerate stdin. The old single case here asserted "empty stdin -> exit 0 (a
+  // malformed hook payload never traps the session)" while inheriting the ambient
+  // CLAUDE_PROJECT_DIR, so it passed whenever no ledger happened to be in reach and went
+  // red inside any project running a lifecycle — a green that meant nothing either way.
+  // It also conflated inputs the hook treats DIFFERENTLY, which is the reason the
+  // universal in that label was never earned. hooks/continuation-gate.mjs @
+  // `raw.trim() === '' ? null : JSON.parse(raw)`: empty stdin is an ABSENT payload, so the
+  // decision proceeds on the ledger, and only unparseable stdin is the malformed one that
+  // fails open. Every case below names the root it runs against.
+  check('T-30 exec (i) empty stdin with no lifecycle in reach -> exit 0 (a payloadless invocation never crashes the hook)',
+    runGateRaw('', join(fxc, 'no-ledger')).status === 0);
+  // Pins the consequence of treating empty stdin as an absent payload rather than a
+  // malformed one: the ledger still decides, and because no stop_hook_active field can
+  // arrive on this path the loop guard is unavailable — the platform's stop-hook block cap
+  // is then the only bound. Asserted as the behavior that IS, so a change to the null-input
+  // branch cannot pass silently.
+  const emptyBlocking = runGateRaw('', join(fxc, 'no-gate'));
+  check('T-30 exec (i2) empty stdin with the blocking ledger in reach -> exit 2 (an absent payload takes the ledger path, so the loop guard cannot fire here)',
+    emptyBlocking.status === 2 && /§3\.4/.test(emptyBlocking.stderr));
+  // The property the old label's universal actually named, now pinned where it is not
+  // vacuous: a malformed payload fails OPEN even with a blocking ledger reachable.
+  const garbageBlocking = runGateRaw('not a payload', join(fxc, 'no-gate'));
+  check('T-30 exec (i3) unparseable stdin with the blocking ledger in reach -> exit 0 with a stderr note (a malformed payload really never traps the session)',
+    garbageBlocking.status === 0 && /hook input unreadable/.test(garbageBlocking.stderr));
 
   // ---- Round-1 F1: the ledger root is CLAUDE_PROJECT_DIR, not the payload's cwd.
   // The platform hooks contract states the two diverge — CLAUDE_PROJECT_DIR stays at
