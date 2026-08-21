@@ -37,8 +37,25 @@
 // fail-closed gates is intentional and is the correct direction here: this hook is a
 // continuation AID, not an integrity control. Nothing downstream trusts its verdict —
 // the ledger, the review gates, and the verifier remain the integrity surface. A
-// fail-closed bug here would instead trap the owner's session in an unbreakable stop
-// loop over a corrupt JSON file, which is strictly worse than a missed reprompt.
+// fail-closed bug here would instead re-block the owner's session on every successive
+// Stop over a corrupt JSON file, which is strictly worse than a missed reprompt.
+//
+// LOOP BOUNDS, both supplied by the platform and neither by this script. Verified by
+// the evidence ladder, not assumed:
+//   1. `stop_hook_active`. Documented at code.claude.com/docs/en/hooks-guide (read
+//      2026-08-21): "Your hook script needs to check whether it already triggered a
+//      continuation. Parse the `stop_hook_active` field from the JSON input and exit
+//      early if it's `true`". Corroborated on disk in the installed Claude Code
+//      2.1.236 binary (~/.local/share/claude/versions/2.1.236), which builds the Stop
+//      payload as `{...h, hook_event_name:"Stop", stop_hook_active:n, ...}` — the
+//      field is emitted by the platform, not optional decoration. decide() honors it
+//      first, before any I/O.
+//   2. A platform block cap that does not depend on (1) at all. Same page: "Claude
+//      Code overrides a Stop hook after it blocks eight times in a row without
+//      progress", raisable via CLAUDE_CODE_STOP_HOOK_BLOCK_CAP (both the cap message
+//      and the variable are present in the same installed binary). So even a total
+//      failure of the `stop_hook_active` branch is bounded at eight turns by the
+//      host; an unbounded stop loop is not reachable from this script.
 //
 // Input: the Stop hook's stdin JSON — `stop_hook_active`, `cwd`, and the common
 // fields. The ledger root comes from `${CLAUDE_PROJECT_DIR}` when the platform sets
@@ -55,13 +72,28 @@ const BLOCK = 2;
 // The ledger location the /expert command owns (commands/expert.md:13).
 export const LEDGER_REL = join('.claude', 'expert', 'ledger.json');
 
-// Phases after which nothing this gate should demand remains in flight. 'complete'
-// is the workflow's terminal write. 'closeout' is reached only once ground truth AND
-// the whole-chain reconciliation have PASSED (expert-lifecycle.js:951), and because
-// `delta.phase = 'complete'` is written only when the closeout agent RETURNS
-// (:958), an interrupted or abandoned closeout rests at 'closeout' permanently —
-// which is exactly the state the plugin's own repository was found in.
-export const TERMINAL_PHASES = ['closeout', 'complete'];
+// Phases after which nothing this gate should demand remains in flight. Membership is
+// decided by what a phase DOES, never by where its name sits in the phase order.
+//
+// 'complete' is the workflow's only terminal write, so it is the only member.
+//
+// 'closeout' is deliberately NOT a member, though the phase order puts it last but
+// one. A ledger resting at 'closeout' has had ground truth and the whole-chain
+// reconciliation PASS, but expert-lifecycle.js:988 shows the phase's own dispatch is
+// still ahead of it — "write the final report against the spec, commit the verified
+// work and open a PR" — and `delta.phase = 'complete'` is written only after that
+// agent returns (:989). So 'closeout' names precisely the state where the report,
+// the commit, and the PR have NOT happened: maximally in flight, and the abandonment
+// that costs the most recoverable work. Exempting it would make one whole phase
+// permanently unguarded against the very defect (agent-quits-midtask) this gate
+// answers.
+//
+// The real ledger that motivated a closeout exemption is already allowed twice over,
+// by conditions that rest on evidence rather than on a phase name: it is schema-
+// invalid (unresumable), and it is long past STALE_MS (abandoned). An abandoned
+// closeout therefore still ends its turn freely once it is genuinely abandoned; a
+// live one is held to the same standard as every other in-flight phase.
+export const TERMINAL_PHASES = ['complete'];
 
 // A lifecycle segment is advanced within a working session. A ledger untouched for
 // longer than this is not the work in flight in THIS turn. The bound exists because

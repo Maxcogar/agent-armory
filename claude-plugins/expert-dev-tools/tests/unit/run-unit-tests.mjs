@@ -151,17 +151,31 @@ check('T-U2 marker at end yields nothing',
   check('T-U4 an unresolved escalation allows (a legitimate §3.4 halt still halts)',
     code(liveLedger({ escalations: [{ gate_type: 'intent', segment: 2 }] })) === 0);
   // Named literally, NOT looped over TERMINAL_PHASES: a case list derived from the
-  // constant under test shrinks with it, so narrowing the set back to ['complete']
-  // would silently narrow the test too and the round-1 Critical would reopen unseen.
+  // constant under test shrinks with it, so widening the set would silently widen the
+  // test too and the exemption would stop being observed.
   check('T-U4 phase \'complete\' allows (the workflow\'s terminal write)',
     code(liveLedger({ phase: 'complete' })) === 0);
-  check('T-U4 phase \'closeout\' allows — ground truth has PASSED, and an abandoned closeout rests there forever',
-    code(liveLedger({ phase: 'closeout' })) === 0);
-  check('T-U4 TERMINAL_PHASES is exactly those two (a third would exempt a phase with real work in flight)',
-    TERMINAL_PHASES.slice().sort().join(',') === 'closeout,complete');
+  // Round-2 F1: 'closeout' is where the report, the commit, and the PR are still ahead
+  // of the agent (expert-lifecycle.js:988, with delta.phase='complete' written only at
+  // :989 after that dispatch RETURNS). Exempting it by name made one whole phase
+  // permanently unguarded against the defect this gate answers, and bought nothing —
+  // the real ledger that motivated the exemption is allowed twice over by the schema
+  // and staleness conditions, which rest on evidence rather than on a phase name.
+  check('T-U4 phase \'closeout\' BLOCKS when fresh and ungated — the report, commit and PR have not happened yet',
+    code(liveLedger({ phase: 'closeout' })) === 2);
+  check('T-U4 TERMINAL_PHASES is exactly [\'complete\'] (literal pin)',
+    TERMINAL_PHASES.slice().sort().join(',') === 'complete');
+  check('T-U4 TERMINAL_PHASES contains \'complete\' and specifically NOT \'closeout\' (explicit membership, independent of the literal pin)',
+    TERMINAL_PHASES.includes('complete') && !TERMINAL_PHASES.includes('closeout'));
   check('T-U4 every other schema phase still blocks when fresh and ungated (the gate did not become inert)',
-    ['intake', 'spec', 'architecture', 'plan', 'implement', 'implementation_review', 'ground_truth']
+    ['intake', 'spec', 'architecture', 'plan', 'implement', 'implementation_review', 'ground_truth', 'closeout']
       .every((p) => code(liveLedger({ phase: p })) === 2));
+  // The closeout ledger the exemption was added FOR is still allowed — by the schema
+  // and staleness axes, which is the point: evidence, not a phase name.
+  check('T-U4 an abandoned closeout still allows via the staleness axis (the real case never needed the exemption)',
+    code(liveLedger({ phase: 'closeout' }), NOW - STALE_MS - 1000) === 0);
+  check('T-U4 a schema-invalid closeout still allows via the unresumable axis',
+    (() => { const l = JSON.parse(liveLedger({ phase: 'closeout' })); delete l.task_verbatim; const v = decide({}, JSON.stringify(l), NOW, NOW); return v.code === 0 && /not resumable/.test(v.note); })());
   check('T-U4 a ledger missing task_verbatim allows — it is schema-invalid, so `/expert resume` could not run it either',
     (() => { const l = JSON.parse(liveLedger()); delete l.task_verbatim; const v = decide({}, JSON.stringify(l), NOW, NOW); return v.code === 0 && /not resumable/.test(v.note); })());
   check('T-U4 a ledger just inside the activity window still blocks (boundary value)',

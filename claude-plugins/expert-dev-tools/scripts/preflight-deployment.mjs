@@ -36,6 +36,17 @@ import { fileURLToPath } from 'node:url';
 export const COMPARED_TREES = ['agents', 'commands', 'hooks', 'scripts', 'skills', 'workflows'];
 export const COMPARED_FILES = ['.claude-plugin/plugin.json', '.mcp.json'];
 
+// The other half of the coverage contract: what is deliberately OUTSIDE the comparison,
+// declared rather than merely absent. The header above instructs a maintainer to extend
+// COMPARED_TREES when a behavior-bearing tree appears — an instruction nothing could
+// enforce, because the failure it warns about is silent by construction (the verdict
+// still reads CURRENT and no test reddens). Declaring the exclusions makes the two sets
+// a claimed PARTITION of the plugin root, and T-29 asserts that partition is total. A
+// new root entry then fails the structural tier until someone classifies it as compared
+// or excluded, which is the behavior the header's sentence asks for and could not get.
+export const EXCLUDED_TREES = ['docs', 'tests'];
+export const EXCLUDED_FILES = ['README.md'];
+
 export function configDir() {
   return process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude');
 }
@@ -66,11 +77,16 @@ function fileDiff(rel, cachePath, worktreePath) {
 // tree yields an empty map, so "present on one side only" surfaces as added/removed
 // entries rather than being silently skipped. Throws on an unreadable directory or
 // file — the caller records that as a `problems` entry (UNREADABLE), never as CURRENT.
+//
+// The directory read is deliberately NOT wrapped. Swallowing it returned an empty map
+// for a tree that was never actually read, and two unread trees compare EQUAL — the
+// script's one path to a confident CURRENT over a comparison it did not perform, which
+// is the same fail-open shape the whole coverage contract above exists to close. An
+// unreadable tree is an unreadable environment, and this script reports those.
 export function treeDigest(root, rel) {
   const out = new Map();
   const walk = (dir, prefix) => {
-    let entries;
-    try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    const entries = readdirSync(dir, { withFileTypes: true });
     for (const e of entries.sort((x, y) => (x.name < y.name ? -1 : 1))) {
       const p = join(dir, e.name);
       const key = prefix ? `${prefix}/${e.name}` : e.name;
@@ -183,7 +199,18 @@ export function preflightDeployment(pluginName, worktreePath, cfgDir = configDir
         if (d) entry.diffs.push(d);
       }
       for (const rel of COMPARED_TREES) {
-        const d = digestDiff(rel, treeDigest(cachePath, rel), treeDigest(worktreePath, rel));
+        // A tree that could not be digested is recorded as a problem and NEVER folded
+        // into the diff list: an empty-vs-empty comparison of two unread trees is
+        // indistinguishable from agreement, so the only honest verdict is UNREADABLE.
+        let cacheTree, treeTree;
+        try {
+          cacheTree = treeDigest(cachePath, rel);
+          treeTree = treeDigest(worktreePath, rel);
+        } catch (e) {
+          problems.push(`tree '${rel}' could not be read for '${key}': ${e.message}`);
+          continue;
+        }
+        const d = digestDiff(rel, cacheTree, treeTree);
         if (d) entry.diffs.push(d);
       }
       entry.compared = { files: COMPARED_FILES.slice(), trees: COMPARED_TREES.slice() };

@@ -6,7 +6,7 @@ import { readFileSync, readdirSync, existsSync, mkdtempSync, mkdirSync, writeFil
 import { execFileSync, spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
 let failures = 0;
@@ -478,6 +478,18 @@ check('T-18 the scope check is dispatched to the verifier under one label',
     // and the exact label that supersedes it, with the finding that forced the swap.
     const REPLACED_BY_STRENGTHENING = [
       {
+        was: 'T-30 exec (m) phase closeout with every escalation resolved -> exit 0 (post-verification is not in flight)',
+        now: 'T-30 exec (m) a FRESH closeout with every escalation resolved -> exit 2 (the report, commit and PR are still ahead of the agent)',
+        why: 'corrections-0.4.0 round-2 F1: the baseline check asserted the verdict the round-1 ' +
+             'fix produced, and that verdict was wrong — `closeout` is the phase that writes the ' +
+             'report, commits, and opens the PR, so exempting it left one whole phase unguarded ' +
+             'against agent-quits-midtask. The replacement executes the same fixture on a ' +
+             'freshened COPY, so the block is attributable to the phase axis rather than to the ' +
+             'clock, and the abandoned-closeout allow it used to cover is now asserted separately ' +
+             'at T-30 exec (m2) through the staleness axis. Strictly more behavior is pinned: two ' +
+             'verdicts and the block reason, where the baseline pinned one verdict.',
+      },
+      {
         was: 'T-A2c manifest: declares no hooks (divergence §8)',
         now: 'T-A2c hooks: the Stop continuation gate is the only hook, and no tool-use hook exists (spec §2 amendment 2026-08-20)',
         why: 'corrections-0.4.0 agent-quits-midtask: the owner amended spec §2 on 2026-08-20 to ' +
@@ -592,6 +604,12 @@ check('T-18 the scope check is dispatched to the verifier under one label',
     // The case that pins THIS step's defect: presence as data is not presence.
     check('T-A2f a baseline label appearing only as data is still reported gone',
       goneFrom(['a label that exists only as data'], "const x = 'a label that exists only as data'").length === 1);
+  } else {
+    // Fail closed, matching the workflow baseline above. Without this branch an
+    // unreachable `git show` silently removed the deletion guard AND its four
+    // self-tests while the tier still reported PASSED — an error path resolving to
+    // the permissive answer, which is the class this round's F2 was filed under.
+    check('T-20 check-structure baseline reachable from git (the deletion guard cannot be skipped silently)', false);
   }
 }
 
@@ -1386,6 +1404,89 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
       runTmp().status === 2);
   }
 
+  // ---- Round-2 F2: a tree that could not be READ must never contribute CURRENT. The
+  // digest walk used to swallow the directory-read failure and return an empty map, so
+  // two trees that were never opened compared EQUAL — the one path by which this script
+  // could answer CURRENT over a comparison it did not perform, while commands/expert.md
+  // forbids any behavioral claim not resting on this report. Driven by making the tree
+  // path a regular FILE on both sides with different bytes: existsSync passes, the
+  // directory read raises ENOTDIR, and the two sides are demonstrably different.
+  {
+    const tmp2 = mkdtempSync(join(tmpdir(), 'edt-pf-unread-'));
+    const cache2 = join(tmp2, 'cfg', 'plugins', 'cache', 'q');
+    const tree2 = join(tmp2, 'worktree');
+    const w2 = (p, s) => { mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, s); };
+    for (const [root, body] of [[cache2, 'cache side'], [tree2, 'worktree side — different bytes']]) {
+      w2(join(root, '.claude-plugin', 'plugin.json'), JSON.stringify({ name: 'q', version: '1.0.0' }));
+      w2(join(root, 'scripts'), body); // `scripts` is a FILE, not a directory
+    }
+    w2(join(tmp2, 'cfg', 'plugins', 'installed_plugins.json'),
+      JSON.stringify({ version: 2, plugins: { 'q@m': [{ scope: 'user', version: '1.0.0', installPath: cache2 }] } }));
+    let unread;
+    try { unread = { status: 0, out: execFileSync(process.execPath, [pf, 'q', tree2], { env: { ...process.env, CLAUDE_CONFIG_DIR: join(tmp2, 'cfg') }, encoding: 'utf8', stdio: 'pipe' }) }; }
+    catch (e) { unread = { status: e.status ?? -1, out: String(e.stdout || '') }; }
+    check('T-29 an unreadable compared tree is UNREADABLE with exit 2, never CURRENT (a comparison that did not happen is not agreement)',
+      unread.status === 2 && /VERDICT: UNREADABLE/.test(unread.out) && !/VERDICT: CURRENT/.test(unread.out));
+    check('T-29 the UNREADABLE report names the tree it could not read (actionable, not a bare verdict)',
+      /tree 'scripts' could not be read/.test(unread.out));
+  }
+
+  // ---- Round-2 F3: the comparison set IS the verdict's coverage, and the only thing
+  // holding it complete was a comment addressed to a future maintainer. A behavior-
+  // bearing tree added without being listed narrows the verdict silently — CURRENT
+  // still prints, nothing reddens, and commands/expert.md keeps quoting a report whose
+  // scope shrank. The constants are IMPORTED and asserted to partition the real plugin
+  // root, so an unclassified new entry fails this tier instead of passing unseen.
+  {
+    const pfMod = await import(pathToFileURL(pf).href);
+    const { COMPARED_TREES, COMPARED_FILES, EXCLUDED_TREES, EXCLUDED_FILES } = pfMod;
+    // Pinned against LITERALS, not against the constants themselves: a case list derived
+    // from the constant under test shrinks with it and can never fail. The membership
+    // assertions below are stated separately and explicitly for the same reason.
+    check('T-29 COMPARED_TREES is exactly the six behavior-bearing trees (literal pin)',
+      Array.isArray(COMPARED_TREES) &&
+      COMPARED_TREES.slice().sort().join(',') === 'agents,commands,hooks,scripts,skills,workflows');
+    check('T-29 COMPARED_FILES is exactly the two root manifests (literal pin)',
+      Array.isArray(COMPARED_FILES) &&
+      COMPARED_FILES.slice().sort().join(',') === '.claude-plugin/plugin.json,.mcp.json');
+    check('T-29 the excluded sets are exactly docs, tests, and README.md (literal pin)',
+      Array.isArray(EXCLUDED_TREES) && EXCLUDED_TREES.slice().sort().join(',') === 'docs,tests' &&
+      Array.isArray(EXCLUDED_FILES) && EXCLUDED_FILES.slice().sort().join(',') === 'README.md');
+    check('T-29 hooks/ and workflows/ are COMPARED, and docs/ and tests/ are not (explicit membership, independent of the literals above)',
+      COMPARED_TREES.includes('hooks') && COMPARED_TREES.includes('workflows') &&
+      !COMPARED_TREES.includes('docs') && !COMPARED_TREES.includes('tests'));
+    check('T-29 the compared and excluded sets are disjoint (no entry can be claimed both ways)',
+      COMPARED_TREES.every((t) => !EXCLUDED_TREES.includes(t)));
+
+    // The drift guard itself: every real entry of the plugin root must be classified.
+    // Directories holding a COMPARED_FILES path (`.claude-plugin`) are covered by that
+    // file entry, so they are derived from the constant rather than listed a second time.
+    const fileParents = COMPARED_FILES.filter((f) => f.includes('/')).map((f) => f.split('/')[0]);
+    const rootEntries = readdirSync(ROOT, { withFileTypes: true });
+    const unclassifiedDirs = rootEntries.filter((e) => e.isDirectory())
+      .map((e) => e.name)
+      .filter((n) => !COMPARED_TREES.includes(n) && !EXCLUDED_TREES.includes(n) && !fileParents.includes(n));
+    const unclassifiedFiles = rootEntries.filter((e) => e.isFile())
+      .map((e) => e.name)
+      .filter((n) => !COMPARED_FILES.includes(n) && !EXCLUDED_FILES.includes(n));
+    check(`T-29 every plugin-root directory is classified as compared or excluded (unclassified: ${unclassifiedDirs.join(', ') || 'none'})`,
+      unclassifiedDirs.length === 0);
+    check(`T-29 every plugin-root file is classified as compared or excluded (unclassified: ${unclassifiedFiles.join(', ') || 'none'})`,
+      unclassifiedFiles.length === 0);
+    // The guard must be able to FAIL, or it is decoration. Run the same predicate over a
+    // root carrying an unclassified tree and assert it reddens there.
+    check('T-29-neg the root-classification predicate REJECTS an unclassified new tree (the guard can fail)',
+      (() => {
+        const probe = mkdtempSync(join(tmpdir(), 'edt-cov-'));
+        for (const d of [...COMPARED_TREES, ...EXCLUDED_TREES, 'lib']) mkdirSync(join(probe, d));
+        mkdirSync(join(probe, '.claude-plugin'));
+        const missed = readdirSync(probe, { withFileTypes: true }).filter((e) => e.isDirectory())
+          .map((e) => e.name)
+          .filter((n) => !COMPARED_TREES.includes(n) && !EXCLUDED_TREES.includes(n) && !fileParents.includes(n));
+        return missed.length === 1 && missed[0] === 'lib';
+      })());
+  }
+
   // Part A wiring: the command's preflight runs the script and carries the bright line.
   const s1 = cmd.slice(cmd.indexOf('## 1.'), cmd.indexOf('## 2.'));
   check('T-29 command step 1 runs preflight-deployment.mjs', /preflight-deployment\.mjs/.test(s1));
@@ -1406,6 +1507,47 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
   const stdFm29 = frontmatter(join(ROOT, 'skills/expert-standard/SKILL.md')) || {};
   check('T-29 expert-standard frontmatter description carries the live-only activation trigger',
     /can only be verified live or by running it/.test(stdFm29.description || ''));
+}
+
+// ---- T-31: every stated count of an enumerated list matches the list -------
+// Round-2 F4 named one instance ("Eight signals" in expert-standard). The CLASS is
+// hand-maintained derived data: a cardinality word in prose duplicating what the list
+// below it already carries, which drifts on the next edit to the list. Rather than pin
+// the one number, this DISCOVERS every such header across the skills and counts its
+// list, so a new count-headed list is covered the day it is written — the same shape
+// T-24 already applies to the owner-gate-type comment.
+//
+// The entry marker is taken from the FIRST entry after the header and only that form
+// is counted, so a trailing bolded paragraph after a bulleted list is not miscounted
+// as an entry. A header with no list at all fails: it is either a miscount or prose
+// that should not be phrased as a cardinality claim.
+{
+  const CARDINALS = { Two: 2, Three: 3, Four: 4, Five: 5, Six: 6, Seven: 7, Eight: 8, Nine: 9, Ten: 10 };
+  const countHeaders = [];
+  for (const s of readdirSync(join(ROOT, 'skills'))) {
+    const rel = `skills/${s}/SKILL.md`;
+    const lines = readFileSync(join(ROOT, rel), 'utf8').split(/\r?\n/);
+    for (let i = 0; i < lines.length; i++) {
+      const m = /^(Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten)\s+\S/.exec(lines[i]);
+      if (!m) continue;
+      const body = [];
+      for (let j = i + 1; j < lines.length && !/^## /.test(lines[j]); j++) body.push(lines[j]);
+      const first = body.find((l) => /^(- )?\*\*/.test(l));
+      const bullet = first !== undefined && /^- \*\*/.test(first);
+      const counted = first === undefined ? -1
+        : body.filter((l) => (bullet ? /^- \*\*/.test(l) : /^\*\*/.test(l))).length;
+      countHeaders.push({ where: `${rel}:${i + 1}`, stated: CARDINALS[m[1]], counted });
+    }
+  }
+  // The discovery itself must not silently find nothing — an empty sweep would make
+  // every assertion below vacuously true, which is the failure mode this class is about.
+  check(`T-31 the count-header sweep found the known population of stated counts (found ${countHeaders.length})`,
+    countHeaders.length >= 7);
+  check('T-31 expert-standard\'s failure-signal count is among the swept headers (the reported F4 instance is actually covered)',
+    countHeaders.some((h) => h.where.startsWith('skills/expert-standard/SKILL.md') && h.stated === 8 && h.counted === 8));
+  const drifted = countHeaders.filter((h) => h.stated !== h.counted);
+  check(`T-31 every stated count matches its list (drifted: ${drifted.map((d) => `${d.where} says ${d.stated}, has ${d.counted}`).join('; ') || 'none'})`,
+    drifted.length === 0);
 }
 
 // ---- T-30: Stop-event continuation gate (corrections-0.4.0, agent-quits-midtask) ----
@@ -1516,13 +1658,40 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
     runGateHook('no-gate').status === 2);
 
   // ---- Round-1 F2: blocking requires POSITIVE evidence of an in-flight lifecycle.
-  // Both cases below are ledgers that are finished or unresumable while sitting at a
-  // phase that is not the literal string 'complete' — the state the plugin's own
-  // repository was found in, where the gate blocked every end-of-turn and demanded a
-  // `/expert resume` that the ledger's own invalidity made impossible.
-  const atCloseout = runGateHook('closeout');
-  check('T-30 exec (m) phase closeout with every escalation resolved -> exit 0 (post-verification is not in flight)',
-    atCloseout.status === 0);
+  // The unresumable case below is a ledger sitting at a phase that is not the literal
+  // string 'complete' — the state the plugin's own repository was found in, where the
+  // gate blocked every end-of-turn and demanded a `/expert resume` that the ledger's
+  // own invalidity made impossible.
+  //
+  // ---- Round-2 F1: 'closeout' is NOT an exempt phase. The closeout dispatch writes
+  // the report, commits, and opens the PR (expert-lifecycle.js:988) and only then is
+  // `delta.phase = 'complete'` written (:989), so a live closeout is maximally in
+  // flight. Both directions are executed on COPIES in temp dirs, because the mtime is
+  // an input under test here: the checked-in fixture's own mtime is whatever git left,
+  // so asserting either verdict against it in place would measure the clock, not the
+  // phase rule. Freshening it is what makes the block attributable to the phase axis.
+  {
+    const closeoutSrc = readFileSync(join(fxc, 'closeout/.claude/expert/ledger.json'));
+    const atAge = (ageDays) => {
+      const root = mkdtempSync(join(tmpdir(), 'edt-closeout-'));
+      const led = join(root, '.claude', 'expert', 'ledger.json');
+      mkdirSync(dirname(led), { recursive: true });
+      writeFileSync(led, closeoutSrc);
+      const t = (Date.now() - ageDays * 86400000) / 1000;
+      utimesSync(led, t, t);
+      const env = { ...process.env }; env.CLAUDE_PROJECT_DIR = root;
+      const r = spawnSync(process.execPath, [gate],
+        { input: JSON.stringify({ hook_event_name: 'Stop', cwd: root }), encoding: 'utf8', env });
+      return { status: r.error || r.status === null ? -1 : r.status, stderr: String(r.stderr || '') };
+    };
+    const liveCloseout = atAge(0);
+    check('T-30 exec (m) a FRESH closeout with every escalation resolved -> exit 2 (the report, commit and PR are still ahead of the agent)',
+      liveCloseout.status === 2);
+    check('T-30 exec (m) the closeout block carries the reason naming the phase and routing to /expert resume',
+      /closeout/.test(liveCloseout.stderr) && /\/expert resume/.test(liveCloseout.stderr));
+    check('T-30 exec (m2) an ABANDONED closeout -> exit 0 via the staleness axis (the real case the exemption was added for needs no exemption)',
+      atAge(10).status === 0);
+  }
   const unresumable = runGateHook('invalid');
   check('T-30 exec (n) a schema-INVALID ledger -> exit 0 with a note saying it is not resumable (never demand an impossible resume)',
     unresumable.status === 0 && /not schema-valid/.test(unresumable.stderr) && /not resumable/.test(unresumable.stderr));
