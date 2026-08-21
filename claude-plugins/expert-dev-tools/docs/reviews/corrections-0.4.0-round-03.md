@@ -7,6 +7,16 @@ Plugin version under review: `0.4.0` (`.claude-plugin/plugin.json`, Read at HEAD
 Round: **3** (Post-fix review of round 2's four findings).
 Date: 2026-08-21.
 
+> **Erratum — added 2026-08-21, after this review was delivered.** The commit count in
+> the line above is wrong. The original text is left unaltered, because this record is
+> evidence of what the reviewer concluded and when. Re-measured with
+> `git rev-list --count`: `a903b12..927c0f8` holds **9** commits (**10**
+> counting `a903b12` itself); no reading of the branch yields eleven.
+> The figure had begun drifting one commit per round and kept drifting
+> through round 7.
+> Found and corrected post-review in round 8 (finding F8-2). Only the figure is wrong;
+> no conclusion in this record rests on it.
+
 ---
 
 ## Scope and Inventory

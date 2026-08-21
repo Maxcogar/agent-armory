@@ -6,6 +6,19 @@ review only as written records (inventory source 4).
 Target: `claude-plugins/expert-dev-tools/` on branch `claude/edt-corrections-0.4.0`,
 nineteen commits `a903b12..ffac08d` against `origin/main`.
 
+> **Erratum — added 2026-08-21, after this review was delivered.** The commit count in
+> the line above is wrong. The original text is left unaltered, because this record is
+> evidence of what the reviewer concluded and when. Re-measured with
+> `git rev-list --count`: `a903b12..ffac08d` holds **13** commits — **14** counting
+> `a903b12` itself, which is also the count of `origin/main..ffac08d`. No reading of the
+> branch yields nineteen.
+> The same figure is restated once more in the Ship-Readiness Judgment; it is wrong
+> there for the same reason and is covered by this note. The substantive claim it
+> decorates — that no check was silently lost — was independently re-established in
+> round 8 and stands.
+> Found and corrected post-review in round 8 (finding F8-2). Only the figure is wrong;
+> no conclusion in this record rests on it.
+
 Verdict: **NEEDS FIXES (1 finding: 1 Moderate)**. Tripwire: **not fired** (arithmetic
 below, both readings shown). Ship-readiness: **nothing in this diff would harm a user who
 deploys it** — the single finding is confined to one check's environment control and

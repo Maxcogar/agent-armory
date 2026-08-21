@@ -2308,9 +2308,14 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
   // case: CLAUDE_PROJECT_DIR is the root the hook must prefer, so leaving the ambient
   // value in place would silently point every case at this repo's own ledger. Passing
   // it as null deletes it, which is how the `cwd` fallback is exercised.
-  // The env rule lives in ONE place. Every spawn of the gate in this block builds its
-  // environment here, so no case can quietly inherit the ambient CLAUDE_PROJECT_DIR and
-  // pass because nothing was in reach rather than because the hook behaved.
+  // This helper is the env rule for the payload-driven spawns below — runGateHook and
+  // runGateRaw — so neither can quietly inherit the ambient CLAUDE_PROJECT_DIR and pass
+  // because nothing was in reach rather than because the hook behaved. It is NOT the only
+  // place the gate's environment is built: the closeout-age case and the staleness case
+  // further down construct `env` inline, each assigning CLAUDE_PROJECT_DIR unconditionally
+  // to the temp root it just created — safe for the same reason, but by their own
+  // construction rather than through this helper. Nothing enforces the split, so an audit
+  // of this block for ambient inheritance must check those sites as well as this one.
   const gateEnv = (projectDir = null) => {
     const env = { ...process.env };
     delete env.CLAUDE_PROJECT_DIR;

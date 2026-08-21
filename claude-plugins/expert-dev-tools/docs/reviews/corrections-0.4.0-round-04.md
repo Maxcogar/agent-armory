@@ -7,6 +7,16 @@ re-derived from current source before it could support a finding.
 Branch `claude/edt-corrections-0.4.0`, thirteen commits `a903b12..f38a009`, plugin
 `claude-plugins/expert-dev-tools/` at version 0.4.0.
 
+> **Erratum — added 2026-08-21, after this review was delivered.** The commit count in
+> the line above is wrong. The original text is left unaltered, because this record is
+> evidence of what the reviewer concluded and when. Re-measured with
+> `git rev-list --count`: `a903b12..f38a009` holds **10** commits (**11**
+> counting `a903b12` itself); no reading of the branch yields thirteen.
+> The figure had begun drifting one commit per round and kept drifting
+> through round 7.
+> Found and corrected post-review in round 8 (finding F8-2). Only the figure is wrong;
+> no conclusion in this record rests on it.
+
 ---
 
 ## Scope and Inventory

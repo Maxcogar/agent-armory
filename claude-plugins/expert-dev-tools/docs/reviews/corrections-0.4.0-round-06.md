@@ -6,6 +6,16 @@ review only as written records (inventory source 4).
 Target: `claude-plugins/expert-dev-tools/` on branch `claude/edt-corrections-0.4.0`,
 seventeen commits `a903b12..a4b638e` against `origin/main`.
 
+> **Erratum — added 2026-08-21, after this review was delivered.** The commit count in
+> the line above is wrong. The original text is left unaltered, because this record is
+> evidence of what the reviewer concluded and when. Re-measured with
+> `git rev-list --count`: `a903b12..a4b638e` holds **12** commits (**13**
+> counting `a903b12` itself); no reading of the branch yields seventeen.
+> The same figure is restated at two later points in this record; both are wrong for
+> the same reason and are covered by this note.
+> Found and corrected post-review in round 8 (finding F8-2). Only the figure is wrong;
+> no conclusion in this record rests on it.
+
 Verdict: **NEEDS FIXES (2 findings: 2 Moderate)**. Tripwire: **not fired** (arithmetic
 below, both readings shown).
 
