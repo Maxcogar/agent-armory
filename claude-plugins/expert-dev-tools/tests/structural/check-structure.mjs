@@ -3,7 +3,7 @@
 // no tokens spent (plan T-A1 / T-A2, structural tier). Run: node tests/structural/check-structure.mjs
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -274,7 +274,23 @@ for (const name of schemaNames) {
 const manifest = JSON.parse(readFileSync(join(ROOT, '.claude-plugin/plugin.json'), 'utf8'));
 check('T-A2c manifest: kebab-case name', /^[a-z0-9]+(-[a-z0-9]+)*$/.test(manifest.name));
 check('T-A2c manifest: has version', !!manifest.version);
-check('T-A2c manifest: declares no hooks (divergence §8)', !('hooks' in manifest));
+// Superseded the absolute "declares no hooks" pin when the owner amended spec §2 on
+// 2026-08-20 (corrections-0.4.0, agent-quits-midtask). The 2026-07-22 ruling excluded
+// hooks that block TOOL USE; the Stop continuation gate blocks none. The replacement is
+// strictly stronger: it still forbids every hook class the old check forbade — the whole
+// tool-use surface, PreToolUse/PostToolUse and the rest — and additionally pins the one
+// permitted hook to the exact event and the exact script the amendment authorizes, so
+// neither a second hook nor a redirected command can land unnoticed.
+const hooksJson = JSON.parse(readFileSync(join(ROOT, 'hooks/hooks.json'), 'utf8'));
+const hookEvents = Object.keys(hooksJson.hooks || {});
+const stopEntries = (hooksJson.hooks || {}).Stop || [];
+const stopHandlers = stopEntries.flatMap((e) => e.hooks || []);
+check('T-A2c hooks: the Stop continuation gate is the only hook, and no tool-use hook exists (spec §2 amendment 2026-08-20)',
+  !('hooks' in manifest) &&           // still no inline manifest hooks; hooks/hooks.json auto-discovers
+  hookEvents.length === 1 && hookEvents[0] === 'Stop' &&
+  stopEntries.length === 1 && stopHandlers.length === 1 &&
+  stopHandlers[0].type === 'command' &&
+  /\$\{CLAUDE_PLUGIN_ROOT\}\/hooks\/continuation-gate\.mjs/.test(stopHandlers[0].command));
 const mcp = JSON.parse(readFileSync(join(ROOT, '.mcp.json'), 'utf8'));
 const servers = Object.keys(mcp.mcpServers || {}); // strict: a bare map (no mcpServers) yields none and fails (unmasks S-1)
 check('T-A2c mcp: mcpServers wrapper declares context7 + clear-thought', servers.includes('context7') && servers.includes('clear-thought'));
@@ -460,6 +476,15 @@ check('T-18 the scope check is dispatched to the verifier under one label',
     // guessed by widening the normalizer. Each entry names the exact baseline label
     // and the exact label that supersedes it, with the finding that forced the swap.
     const REPLACED_BY_STRENGTHENING = [
+      {
+        was: 'T-A2c manifest: declares no hooks (divergence §8)',
+        now: 'T-A2c hooks: the Stop continuation gate is the only hook, and no tool-use hook exists (spec §2 amendment 2026-08-20)',
+        why: 'corrections-0.4.0 agent-quits-midtask: the owner amended spec §2 on 2026-08-20 to ' +
+             'distinguish the two hook classes — tool-use-blocking governance hooks stay out of ' +
+             'scope, a Stop-event continuation gate is in. The replacement still forbids every ' +
+             'hook class the absolute pin forbade and additionally pins the single permitted ' +
+             'hook to its event and its script, so a second hook cannot land unnoticed.',
+      },
       {
         was: 'T-24 gate-count comment matches the GATE literal (all member forms; spreads fail closed)',
         now: 'T-24 gate-count comment matches the evaluated GATE literal (fail-closed on unevaluable)',
@@ -1278,6 +1303,93 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
   const stdFm29 = frontmatter(join(ROOT, 'skills/expert-standard/SKILL.md')) || {};
   check('T-29 expert-standard frontmatter description carries the live-only activation trigger',
     /can only be verified live or by running it/.test(stdFm29.description || ''));
+}
+
+// ---- T-30: Stop-event continuation gate (corrections-0.4.0, agent-quits-midtask) ----
+// The hook's verdicts are EXECUTED, never read off the source. Each case spawns the real
+// script, pipes a real Stop-hook stdin payload, and observes the exit code the harness
+// would act on: 0 allows the stop, 2 blocks it and feeds stderr back to the agent.
+// A spawn failure yields status -1, which matches no expected code, so every case in
+// this block fails closed rather than silently passing.
+{
+  const gate = join(ROOT, 'hooks/continuation-gate.mjs');
+  check('T-30 hook script continuation-gate.mjs present', existsSync(gate));
+  let gateSyntaxOk = true;
+  try { execFileSync(process.execPath, ['--check', gate], { stdio: 'pipe' }); } catch { gateSyntaxOk = false; }
+  check('T-30 hook script passes node --check', gateSyntaxOk);
+
+  const fxc = join(ROOT, 'tests/fixture/continuation');
+  // The fixtures must be REAL ledgers, or the executed cases below prove nothing about
+  // the shape the /expert command actually writes. Validated against ledger.schema.json
+  // by the plugin's own validator, so a schema change breaks these fixtures loudly.
+  const validator = join(ROOT, 'scripts/validate-ledger.mjs');
+  for (const f of ['complete', 'open-gate', 'no-gate']) {
+    let ok = true;
+    try { execFileSync(process.execPath, [validator, join(fxc, f, '.claude/expert/ledger.json')], { stdio: 'pipe' }); }
+    catch { ok = false; }
+    check(`T-30 fixture ${f}: is a schema-valid ledger (fixtures cannot drift from the real shape)`, ok);
+  }
+  check('T-30 fixture no-ledger: genuinely has no ledger (the inert-session case is real)',
+    !existsSync(join(fxc, 'no-ledger/.claude/expert/ledger.json')));
+
+  // Spawn the gate with a Stop payload naming `cwd`; the script resolves the ledger from
+  // that cwd, never from a hardcoded path — the property that makes it portable.
+  const runGateHook = (fixtureDir, extra = {}) => {
+    const payload = JSON.stringify({
+      session_id: 'fixture', hook_event_name: 'Stop', permission_mode: 'default',
+      transcript_path: join(fxc, 'transcript.jsonl'), cwd: join(fxc, fixtureDir), ...extra,
+    });
+    // spawnSync, not execFileSync: stderr is load-bearing on BOTH paths here — the block
+    // reason on exit 2, and the fail-open note on exit 0 — and execFileSync surfaces
+    // stderr only when it throws. A spawn failure has no status; it maps to -1, which
+    // matches no expected code, so every case fails closed.
+    const r = spawnSync(process.execPath, [gate], { input: payload, encoding: 'utf8' });
+    return {
+      status: r.error || r.status === null ? -1 : r.status,
+      stdout: String(r.stdout || ''),
+      stderr: String(r.stderr || ''),
+    };
+  };
+
+  check('T-30 exec (a) no ledger -> exit 0 (ordinary sessions are never governed)',
+    runGateHook('no-ledger').status === 0);
+  check('T-30 exec (b) phase complete -> exit 0 (a finished lifecycle may end its turn)',
+    runGateHook('complete').status === 0);
+  // The check that proves the correction cannot cause gate-blindness: all seven §3.4 gate
+  // types reach the owner through an unresolved escalations entry, so this path allowing
+  // the stop IS "legitimate halts keep halting".
+  check('T-30 exec (c) mid-phase with an unresolved escalation -> exit 0 (legitimate §3.4 halts still halt)',
+    runGateHook('open-gate').status === 0);
+
+  const blocked = runGateHook('no-gate');
+  check('T-30 exec (d) mid-phase with every escalation resolved -> exit 2 (the untyped halt is blocked)',
+    blocked.status === 2);
+  check('T-30 exec (d) the block carries a non-empty stderr reason naming the phase',
+    blocked.stderr.trim().length > 0 && /implement/.test(blocked.stderr));
+  // The reprompt content is load-bearing: it must route back into the reviewed lifecycle
+  // rather than invite inline work, which is what keeps the step-4b gate rule intact.
+  check('T-30 exec (e) the block reason routes to /expert resume, not to inline work',
+    /\/expert resume/.test(blocked.stderr));
+  check('T-30 exec (f) the block reason names the seven-gate list as the exhaustive test',
+    /§3\.4/.test(blocked.stderr) && /control_fault/.test(blocked.stderr) && /intent/.test(blocked.stderr));
+
+  check('T-30 exec (g) stop_hook_active on the blocking fixture -> exit 0 (loop guard observed)',
+    runGateHook('no-gate', { stop_hook_active: true }).status === 0);
+
+  // Fail OPEN, deliberately: a corrupt ledger must never trap the owner's session in an
+  // unbreakable stop loop. This hook is a continuation aid, not an integrity control —
+  // the asymmetry against the workflow's fail-closed gates is the documented decision.
+  const corrupt = runGateHook('corrupt');
+  check('T-30 exec (h) an unparseable ledger -> exit 0 with a stderr note (fails OPEN by design)',
+    corrupt.status === 0 && /unparseable/.test(corrupt.stderr));
+  check('T-30 exec (i) empty stdin -> exit 0 (a malformed hook payload never traps the session)',
+    (() => { try { execFileSync(process.execPath, [gate], { input: '', stdio: 'pipe' }); return true; } catch { return false; } })());
+
+  // The fail-open policy is a decision a reader must be able to find, not folklore.
+  const gateSrc = rd('hooks/continuation-gate.mjs');
+  check('T-30 the fail-open choice and its asymmetry with the fail-closed gates are documented in the script',
+    /FAIL OPEN, DELIBERATELY/.test(gateSrc) && /fail-closed/.test(gateSrc) &&
+    /continuation AID, not an integrity control/i.test(gateSrc));
 }
 
 console.log(failures ? `\nSTRUCTURAL TESTS FAILED (${failures})` : '\nSTRUCTURAL TESTS PASSED');
