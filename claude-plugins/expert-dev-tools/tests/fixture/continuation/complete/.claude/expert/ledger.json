@@ -1,0 +1,13 @@
+{
+  "revision": 12,
+  "task": "continuation-gate fixture: a finished lifecycle",
+  "task_verbatim": "continuation-gate fixture: a finished lifecycle",
+  "phase": "complete",
+  "artifact_index": [],
+  "gate_history": [],
+  "amendments": [],
+  "escalations": [],
+  "budget": { "total_tokens": 0 },
+  "feedback_marker": { "session_file": null, "line": 0 },
+  "signature_history": []
+}

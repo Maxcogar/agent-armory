@@ -2,10 +2,11 @@
 // and deterministic, manifest and MCP config are well-formed. No agents dispatched,
 // no tokens spent (plan T-A1 / T-A2, structural tier). Run: node tests/structural/check-structure.mjs
 
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { readFileSync, readdirSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, utimesSync, rmSync, cpSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
 let failures = 0;
@@ -57,17 +58,23 @@ for (const f of agents) {
   const fm = frontmatter(join(agentsDir, f)) || {};
   const tools = fm.tools || '';
   const dis = fm.disallowedTools || '';
-  const skref = Array.isArray(fm.skills) ? (fm.skills[0] || '').split(':').pop() : '';
+  const skentry = Array.isArray(fm.skills) ? (fm.skills[0] || '') : '';
+  const skref = skentry.split(':').pop();
   check(`T-A2b ${name}: name+description`, fm.name === name && !!fm.description);
-  check(`T-A2b ${name}: skills is a sequence -> packaged skill`, Array.isArray(fm.skills) && packaged.has(skref));
+  // Strengthened from basename to the FULL namespaced name (skill-activation-missed
+  // C3): the grant must name the skill the platform actually registers —
+  // `expert-dev-tools:<packaged dir>` — or the agent's prose Skill(...) call
+  // errors "Unknown skill" the first time it is honestly attempted.
+  check(`T-A2b ${name}: skills entry is the namespaced packaged skill`, Array.isArray(fm.skills) && skentry === `expert-dev-tools:${skref}` && packaged.has(skref));
   check(`T-A2b ${name}: cannot CORE-ingest`, dis.includes(CORE) && !tools.includes(CORE));
   if (allowlist.has(name)) {
     check(`T-A2b ${name}: tools allowlist incl Skill`, !!fm.tools && tools.includes('Skill'));
     if (readonlyAllow.has(name)) check(`T-A2b ${name}: allowlist excludes write tools`, !tools.includes('Write') && !tools.includes('Edit'));
     // T-3 (S2/S3): every allowlisted agent holds BOTH documentation paths the
     // skills require — the bundled Context7 grant and the fetch/search fallback.
-    // expert-spec/SKILL.md:155 names two acceptable verification routes; an agent
-    // holding one has an unsatisfiable instruction the moment that route fails.
+    // skills/expert-spec/SKILL.md @ `via Context7 or the authoritative source` names
+    // both acceptable verification routes; an agent holding only one has an
+    // unsatisfiable instruction the moment that route fails.
     check(`T-3 ${name}: holds both documentation paths (context7 + WebFetch + WebSearch)`,
       tools.includes('mcp__plugin_expert-dev-tools_context7') && tools.includes('WebFetch') && tools.includes('WebSearch'));
     // T-5 (S5/S7): the corrector's load-bearing property. `Write` would let a
@@ -207,9 +214,11 @@ function topLevelCommas(s) {
 
 // ---- T-A2a: workflow passes the canonical linter (M-1a) --------------------
 const wf = join(ROOT, 'workflows/expert-lifecycle.js');
-// The workflow is ESM-flagged (`export const meta` at :1) but also uses top-level
-// `return` (:688) and top-level `await` (:459). That is legal because the harness
-// runs the body inside an async function (skills/workflow-creator/SKILL.md:142-145).
+// The workflow is ESM-flagged (workflows/expert-lifecycle.js @ `export const meta`) but
+// also uses top-level `return` (workflows/expert-lifecycle.js @ `Unknown lifecycle phase`)
+// and top-level `await`. That is legal because the harness runs the body inside an async
+// function — a property of the workflow host, asserted here by the oracle below rather
+// than cited, because no file in this plugin states it.
 // No standard goal accepts the shape: `node --check` on the .js path exits 0 for ANY
 // syntax error once `export` is present, and `--input-type=module --check` rejects
 // the legitimate top-level return. Compiling the body as an async function is the
@@ -217,7 +226,7 @@ const wf = join(ROOT, 'workflows/expert-lifecycle.js');
 // The "use strict" directive is load-bearing: a bare `new Function` body is sloppy
 // mode, which silently accepts octal literals, `with`, duplicate parameter names,
 // `delete` of an unqualified identifier, assignment to `eval`, and octal escapes —
-// all SyntaxErrors under ECMA-262 §11.2.2 strict code, and all six executed.
+// all SyntaxErrors under ECMA-262 §11.2.2 strict code, and every one executed.
 function parsesAsWorkflowBody(src) {
   try { new Function('"use strict"; return (async function(){' + src.replace(/^export /gm, '') + '\n})'); return true }
   catch { return false }
@@ -269,7 +278,23 @@ for (const name of schemaNames) {
 const manifest = JSON.parse(readFileSync(join(ROOT, '.claude-plugin/plugin.json'), 'utf8'));
 check('T-A2c manifest: kebab-case name', /^[a-z0-9]+(-[a-z0-9]+)*$/.test(manifest.name));
 check('T-A2c manifest: has version', !!manifest.version);
-check('T-A2c manifest: declares no hooks (divergence §8)', !('hooks' in manifest));
+// Superseded the absolute "declares no hooks" pin when the owner amended spec §2 on
+// 2026-08-20 (corrections-0.4.0, agent-quits-midtask). The 2026-07-22 ruling excluded
+// hooks that block TOOL USE; the Stop continuation gate blocks none. The replacement is
+// strictly stronger: it still forbids every hook class the old check forbade — the whole
+// tool-use surface, PreToolUse/PostToolUse and the rest — and additionally pins the one
+// permitted hook to the exact event and the exact script the amendment authorizes, so
+// neither a second hook nor a redirected command can land unnoticed.
+const hooksJson = JSON.parse(readFileSync(join(ROOT, 'hooks/hooks.json'), 'utf8'));
+const hookEvents = Object.keys(hooksJson.hooks || {});
+const stopEntries = (hooksJson.hooks || {}).Stop || [];
+const stopHandlers = stopEntries.flatMap((e) => e.hooks || []);
+check('T-A2c hooks: the Stop continuation gate is the only hook, and no tool-use hook exists (spec §2 amendment 2026-08-20)',
+  !('hooks' in manifest) &&           // still no inline manifest hooks; hooks/hooks.json auto-discovers
+  hookEvents.length === 1 && hookEvents[0] === 'Stop' &&
+  stopEntries.length === 1 && stopHandlers.length === 1 &&
+  stopHandlers[0].type === 'command' &&
+  /\$\{CLAUDE_PLUGIN_ROOT\}\/hooks\/continuation-gate\.mjs/.test(stopHandlers[0].command));
 const mcp = JSON.parse(readFileSync(join(ROOT, '.mcp.json'), 'utf8'));
 const servers = Object.keys(mcp.mcpServers || {}); // strict: a bare map (no mcpServers) yields none and fails (unmasks S-1)
 check('T-A2c mcp: mcpServers wrapper declares context7 + clear-thought', servers.includes('context7') && servers.includes('clear-thought'));
@@ -393,7 +418,7 @@ check('T-15 the spec artifact is pushed exactly once',
   (wfSrc.match(/delta\.artifacts\.push\(\{ role: 'spec'/g) || []).length === 1);
 
 // ---- T-16: stale_deployment builds an escalation ---------------------------
-check('T-16 a stale_deployment branch exists alongside the other two verdicts',
+check('T-16 a stale_deployment branch exists alongside the other verdicts',
   /kind: 'stale_deployment'/.test(wfSrc) && /d\.verdict === 'stale_deployment'/.test(wfSrc));
 
 // ---- T-17: the command carries the dedupe key and the stale branch ---------
@@ -441,20 +466,227 @@ check('T-18 the scope check is dispatched to the verifier under one label',
   } else {
     check('T-20 baseline reachable from git', false);
   }
+  // One extractor for every label read in this block, so the baseline read, the live
+  // read and the guard below cannot drift apart. A label runs to its closing
+  // delimiter: the earlier form stopped at the first quote character INSIDE the
+  // label, which merged distinct labels — see the injectivity assertion below.
+  const capturedLabels = (s) => [...s.matchAll(/check\(\s*(['"`])((?:(?!\1)[^\r\n]){8,600}?)\1/g)].map((m) => m[2]);
   const oldChecks = baseline('tests/structural/check-structure.mjs');
   if (oldChecks) {
-    const labels = [...oldChecks.matchAll(/check\(\s*[`'"]([^`'"]{8,160})/g)].map((m) => m[1]);
+    const labels = capturedLabels(oldChecks);
     const src = readFileSync(join(ROOT, 'tests/structural/check-structure.mjs'), 'utf8');
-    // A RENAMED label is not a removed check. S7 changed two labels' cardinality
-    // word (nine -> ten) when the corrector skill and agent landed; the assertions
-    // behind them are untouched. Normalize the cardinality word before comparing,
-    // so the oracle measures "was a check deleted", not "was a label edited".
-    const norm = (s) => s.replace(/\b(nine|ten|eleven|\d+)\b/g, '#');
+    // A RENAMED label is not a removed check, and there are two ways a label gets
+    // edited while its assertion stays put. A digit becomes '#'. A cardinal WORD is
+    // deleted outright, together with the space or hyphen after it: this block
+    // deletes count restatements from prose for a living, check labels are prose
+    // too, and a label losing the word "four" is that fix landing rather than a
+    // check disappearing (S7 had already forced the narrow version of this, when a
+    // label's cardinality word moved nine -> ten). Deleting rather than substituting
+    // costs the oracle nothing it was relying on, and the injectivity guard below
+    // holds that claim to account: if the normalization ever maps two live labels
+    // together, a real deletion could hide behind the collision, and it fails.
+    const CARDINAL_WORDS = /\b(?:two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty)(?:-\w+)?\b\s?/gi;
+    const norm = (s) => s.replace(CARDINAL_WORDS, '').replace(/\b\d+\b/g, '#');
     // A check REPLACED by a strictly stronger one is not a deleted check. That
     // difference is NOT inferable from the labels, so it is declared here, never
     // guessed by widening the normalizer. Each entry names the exact baseline label
     // and the exact label that supersedes it, with the finding that forced the swap.
     const REPLACED_BY_STRENGTHENING = [
+      // ---- corrections-0.4.0 round-5 F1/F2/F3: the two properties keep their
+      // assertions and lose their overstated labels. The shared ground: a recognizer
+      // for a natural-language construct is a hand-drawn boundary, so a check that
+      // claims the absence of the CLASS overclaims by construction, on whichever axis
+      // the boundary happens to be drawn — directory in rounds 2 to 4, form and file
+      // type in round 5. What is repaired here is the CLAIM as much as the coverage:
+      // each label now states the forms, the numbers and the extensions it covers, and
+      // the block header states what it does not.
+      {
+        was: "T-" + "31 no unpinned cardinality claim exists anywhere in reach (found: ${stated.join('; ') || 'none'})",
+        now: "T-" + "31 no count restatement in header form (a), (c) or (d) exists in any scanned file — the assertion is the absence of THOSE FORMS, never of the class (forms: ${COUNT_FORMS.map(([n]) => n).join('; ')}; numbers: a standalone digit or a number word two through twenty; extensions: ${EXT_LIST}; record tree docs/ out of scan reach; uncovered forms named in this block's header) (found: ${stated.join('; ') || 'none'})",
+        why: 'corrections-0.4.0 round-5 F1. The label announced the absence of a CLASS — every ' +
+             'unpinned cardinality claim, anywhere in reach — over a predicate that recognized ' +
+             'the cardinals two through ten immediately before a terminal colon and nothing ' +
+             'else. Seventy lines carrying the same construct were live in the plugin while it ' +
+             'printed `found: none`, which is worse than no check at all: a maintainer had ' +
+             'been told the class was empty. The successor is strictly stronger on both ' +
+             'halves. Its recognizer covers the named forms over digits and the words two ' +
+             'through twenty (the predecessor\'s construct is one of them, unchanged), and ' +
+             'its label claims only the absence of THOSE FORMS, names them, names the scanned ' +
+             'extensions, and points at the header block where the forms it cannot see are ' +
+             'written down.',
+      },
+      {
+        was: "T-" + "31 no emphasized bare count exists anywhere in reach (found: ${emphasized.join('; ') || 'none'})",
+        now: "T-" + "31 no bare count in emphasis (header form (b)) exists in any scanned file — the assertion is the absence of THAT FORM, never of the class (numbers: a standalone digit or a number word two through twenty; extensions: ${EXT_LIST}) (found: ${emphasized.join('; ') || 'none'})",
+        why: 'round-5 F1, same defect on the same line of reasoning: `anywhere in reach` was ' +
+             'false of the extension axis as well as the form axis. The assertion is unchanged ' +
+             'and its number domain is widened from the cardinals two through ten to the words ' +
+             'two through twenty; the label now states the form it covers and the extensions ' +
+             'the walk collects.',
+      },
+      {
+        was: "T-" + "32 no bare line citation exists anywhere in reach (found: ${bare.join(' | ') || 'none'})",
+        now: "T-" + "32 no bare line citation exists in any scanned file — in code files only comment lines are scanned, for the reason above (extensions: ${EXT_LIST}) (found: ${bare.join(' | ') || 'none'})",
+        why: 'round-5 F3. The scan reads only .md, .mjs, .js, .json (now also .yaml, .yml and ' +
+             '.txt) and, in code files, only comment lines — the comment-line narrowing being ' +
+             'deliberate and reasoned in place, since a location-shaped string on a code line ' +
+             'is test data. Neither narrowing was disclosed by a label reading `anywhere in ' +
+             'reach`. The assertion is unchanged; the label now says what it scanned.',
+      },
+      {
+        was: "T-" + "32 the citations were converted rather than deleted (anchored citations found: ${anchored.length}, floor 10)",
+        now: "T-" + "32 every anchored citation resolves to a file in the plugin (unresolved: ${unresolved.join(' | ') || 'none'})",
+        why: 'round-5 F2: this was a floor on a population the check itself measures, in the ' +
+             'block whose own comment says nothing here has one — the hand-maintained derived ' +
+             'datum this block exists to delete, with two of slack, so removing three ' +
+             'citations would have turned the tier red for no defect and the repair would have ' +
+             'been to edit the floor. Deleted rather than replaced, because the obligation it ' +
+             'named (citations were converted, not deleted) is carried whole by the three ' +
+             'assertions that remain: a deleted citation cannot be an unresolved one, cannot ' +
+             'be a dead anchor, and cannot leave a bare citation behind. The named successor ' +
+             'is the resolution assertion, which is the one that fails if a citation is ' +
+             'replaced by something that does not point at a real file.',
+      },
+      {
+        was: "T-" + "31-neg the cardinality predicate fires on the construct and not on ordinary prose",
+        now: "T-" + "31-neg every recognized form fires, and ordinary prose and identifier numbers do not",
+        why: 'the demonstrable-failure obligation is unchanged and discharged over strictly ' +
+             'more ground: every one of the recognized forms is exercised positively, ' +
+             'alongside the emphasis predicate, and the negative cases now include the ' +
+             'identifier numbers the widened recognizer must not fire on (a section label, a ' +
+             'phase number, a date). An emptiness assertion over a predicate that matches ' +
+             'nothing still cannot pass unnoticed.',
+      },
+      // ---- corrections-0.4.0 round-4 N2/N3: the T-31 sweep is REPLACED by two
+      // absolute properties over the whole plugin. Every entry below names one of the
+      // eight sweep checks it retired. They are listed individually rather than as a
+      // block because this allowlist is the record of what was traded for what, and a
+      // block entry would hide which assertions actually have successors. The shared
+      // ground: rounds 2, 3 and 4 each filed the same defect against this sweep — a
+      // control guarding hand-maintained derived data, whose own reach was itself
+      // hand-maintained — and each fix widened the reach and drew a new boundary. The
+      // successors do not guard the data; the drift-prone FORM is gone from every live
+      // file, and what remains is an emptiness assertion whose reach is the plugin
+      // root minus one declared record tree, so a new tree is covered by default.
+      {
+        was: 'T-31 the sweep admits the full construct population across the skills (admitted ${admitted.length}, floor 24)',
+        now: 'T-31 the reach walk covers the live plugin (files in reach: ${inReach.length}, floor 30)',
+        why: 'the floor moved from a population of admitted PROSE LINES (which must be ' +
+             'kept in step with the prose by hand, and which round-4 N2 showed stopped at ' +
+             'skills/) to a floor on the WALK ITSELF over the whole plugin root. The new ' +
+             'floor cannot drift with content: it fails only if the walker stops descending.',
+      },
+      {
+        was: 'T-31 every admitted count claim is accounted for — counted or designated (unclassified: ${unclassified.map((u) => u.where).join(',
+        now: 'T-31 the reach includes every live tree — agents, commands, hooks, scripts, skills, workflows, tests — and excludes the record tree',
+        why: 'the accounting assertion existed because admitted lines needed individual ' +
+             'adjudication. With the construct removed from every live file there is ' +
+             'nothing to adjudicate, and the property that matters is the one round-4 N2 ' +
+             'found missing: that the scan reaches agents/ and every other live tree, not ' +
+             'skills/ alone. Asserted by membership, not by a maintained list.',
+      },
+      {
+        was: 'T-31 the sweep RESOLVES rather than excuses the population (counted ${counted.length}, floor 18; designated ${designated.length}, ceiling 6)',
+        now: 'T-31 no unpinned cardinality claim exists anywhere in reach (found: ${stated.join(',
+        why: 'the counted-floor/designated-ceiling pair was the machinery that kept the ' +
+             'excused set from growing. Nothing is excused now — the population is zero and ' +
+             'asserted zero across the whole plugin, so there is no excused set to bound.',
+      },
+      {
+        was: 'T-31 every designation still matches exactly one admitted line (stale: ${staleDesignations.map((x) => ',
+        now: 'T-32 every anchored citation',
+        why: 'the designation-liveness check was the good idea inside the old block — a ' +
+             'verbatim excerpt as an anchor, asserted still present at its target. That ' +
+             'idea survives, generalized from three designation anchors to every ' +
+             'cross-file citation in the plugin, which is what round-4 N4 said was ' +
+             'missing. The DESIGNATIONS array it policed no longer exists.',
+      },
+      {
+        was: 'T-31 the emphasis-free skill files are exactly the known one (found: ${proseOnly.join(',
+        now: 'T-31 no emphasized bare count exists anywhere in reach (found: ${emphasized.join(',
+        why: 'the emphasis-free pin existed to stop a NEW file inheriting the ' +
+             'entry-form exemption. There is no exemption to inherit. The successor covers ' +
+             'the emphasis case that mattered and that the old sweep never saw at all: the ' +
+             'ten `You answer **N**` restatements in agents/, each a hand-kept copy of the ' +
+             '`jobs:` value T-2b derives from the workflow dispatch labels.',
+      },
+      {
+        was: 'T-31 every stated count matches its list (drifted: ${drifted.map((d) => ',
+        now: 'T-31 no unpinned cardinality claim exists anywhere in reach (found: ${stated.join(',
+        why: 'round-4 N3: this label claimed "every stated count" while examining 18 of ' +
+             'the 24 the sweep admitted, and a real drift in the remaining 6 passed with the ' +
+             'line printing green. Its successor makes no totality claim it cannot keep — ' +
+             'there are no stated counts left to match, and the assertion is that there ' +
+             'are none, over a reach that is measured rather than announced.',
+      },
+      {
+        was: 'T-31 expert-standard\\',
+        now: 'T-31 no unpinned cardinality claim exists anywhere in reach (found: ${stated.join(',
+        why: 'round-2 F4\'s originally-reported instance ("Eight signals" in ' +
+             'expert-standard) was pinned by name to prove the sweep actually covered it. ' +
+             'The word is deleted from that line, so there is nothing left to cover; the ' +
+             'successor asserts its absence along with the rest of the class.',
+      },
+      {
+        was: 'T-31 the mid-line construct the column-0 matcher missed is counted (expert-implement\\',
+        now: 'T-31 no unpinned cardinality claim exists anywhere in reach (found: ${stated.join(',
+        why: 'round-3 F2\'s planted instance, pinned by name for the same reason. Deleted ' +
+             'from the source line rather than counted, and covered by the emptiness ' +
+             'assertion like every other instance.',
+      },
+      {
+        was: 'T-31-neg the sweep detects a drifted count and an unresolvable admitted line (the guard can fail)',
+        now: 'T-31-neg the cardinality predicate fires on the construct and not on ordinary prose',
+        why: 'the demonstrable-failure obligation is unchanged and still discharged: the ' +
+             'recognizer is exercised on a positive case and on two negatives (a cardinal ' +
+             'with no terminal colon, and one separated from the colon by a sentence ' +
+             'break), so an emptiness assertion over a predicate that matches nothing ' +
+             'cannot pass unnoticed.',
+      },
+      {
+        was: 'T-29 stale fixture: report carries the marketplace commit from the registry record',
+        now: 'T-29 stale fixture: report carries the marketplace commit from the registry record, under a name that says it is the registry\\',
+        why: 'corrections-0.4.0 round-4 N1: `installed_commit` named the registry\'s ' +
+             'unverified claim as though it were a fact read from the installed directory, ' +
+             'the same conflation that let `installed_version` print ' +
+             '"installed 1.0.0 matches working tree 9.9.9". The field is now ' +
+             '`registry_recorded_commit` and the assertion pins the renamed field, so the ' +
+             'report cannot present a registry claim as a disk reading.',
+      },
+      {
+        was: 'T-31 the count-header sweep found the known population of stated counts (found ${countHeaders.length})',
+        now: 'T-31 the sweep admits the full construct population across the skills (admitted ${admitted.length}, floor 24)',
+        why: 'corrections-0.4.0 round-3 F2: the baseline check asserted a floor of 7 over a ' +
+             'discovery predicate anchored at column 0, while its own comment claimed to ' +
+             'discover every count header in the skills — the construct occurs 24 times, so a ' +
+             'drift planted in any of the remaining 17 passed the tier green. The replacement admits ' +
+             'the class by MEANING (a cardinal word, no sentence break, a terminal colon), pins ' +
+             'the floor at the full 24, and is joined by an accounting assertion that fails on ' +
+             'any admitted line the sweep neither counts nor designates. Strictly more behavior ' +
+             'is pinned: the reach of the sweep is now itself asserted, where the baseline could ' +
+             'only assert that the sweep found something.',
+      },
+      {
+        was: 'T-30 exec (m) phase closeout with every escalation resolved -> exit 0 (post-verification is not in flight)',
+        now: 'T-30 exec (m) a FRESH closeout with every escalation resolved -> exit 2 (the report, commit and PR are still ahead of the agent)',
+        why: 'corrections-0.4.0 round-2 F1: the baseline check asserted the verdict the round-1 ' +
+             'fix produced, and that verdict was wrong — `closeout` is the phase that writes the ' +
+             'report, commits, and opens the PR, so exempting it left one whole phase unguarded ' +
+             'against agent-quits-midtask. The replacement executes the same fixture on a ' +
+             'freshened COPY, so the block is attributable to the phase axis rather than to the ' +
+             'clock, and the abandoned-closeout allow it used to cover is now asserted separately ' +
+             'at T-30 exec (m2) through the staleness axis. Strictly more behavior is pinned: two ' +
+             'verdicts and the block reason, where the baseline pinned one verdict.',
+      },
+      {
+        was: 'T-A2c manifest: declares no hooks (divergence §8)',
+        now: 'T-A2c hooks: the Stop continuation gate is the only hook, and no tool-use hook exists (spec §2 amendment 2026-08-20)',
+        why: 'corrections-0.4.0 agent-quits-midtask: the owner amended spec §2 on 2026-08-20 to ' +
+             'distinguish the two hook classes — tool-use-blocking governance hooks stay out of ' +
+             'scope, a Stop-event continuation gate is in. The replacement still forbids every ' +
+             'hook class the absolute pin forbade and additionally pins the single permitted ' +
+             'hook to its event and its script, so a second hook cannot land unnoticed.',
+      },
       {
         was: 'T-24 gate-count comment matches the GATE literal (all member forms; spreads fail closed)',
         now: 'T-24 gate-count comment matches the evaluated GATE literal (fail-closed on unevaluable)',
@@ -511,8 +743,103 @@ check('T-18 the scope check is dispatched to the verifier under one label',
              'syntax error once `export` is present. The replacement parses the file under ' +
              'the goal the harness executes it in, and T-A2a-neg holds it demonstrably able to fail.',
       },
+      {
+        was: 'T-A2b ${name}: skills is a sequence -> packaged skill',
+        now: 'T-A2b ${name}: skills entry is the namespaced packaged skill',
+        why: 'corrections-0.4.0 skill-activation-missed C3: the basename comparison could not ' +
+             'see a wrong or missing namespace prefix, the exact drift that makes the prose ' +
+             'Skill(...) call return "Unknown skill". The replacement compares the full ' +
+             'namespaced entry, a strict superset of the basename check.',
+      },
+      {
+        was: 'T-30 exec (i) empty stdin -> exit 0 (a malformed hook payload never traps the session)',
+        now: 'T-30 exec (i) empty stdin with no lifecycle in reach -> exit 0 (a payloadless invocation never crashes the hook)',
+        why: 'corrections-0.4.0 round-7 F1: the baseline case was the only continuation-gate ' +
+             'spawn that bypassed the env-scrubbing helper, so it inherited the ambient ' +
+             'CLAUDE_PROJECT_DIR. It passed whenever no ledger happened to be in reach — a ' +
+             'vacuous green — and went red inside any project running a lifecycle, which is ' +
+             'the condition this plugin itself creates. It also asserted a universal about ' +
+             'MALFORMED payloads from an input the hook does not treat as malformed. The ' +
+             'replacement runs under the helper\'s env rule against a declared ledgerless ' +
+             'root, and the two properties the baseline conflated are pinned separately at ' +
+             'T-30 exec (i2) and (i3). Strictly more behavior is pinned: three verdicts and a ' +
+             'stderr note under controlled roots, where the baseline pinned one verdict under ' +
+             'whatever root the ambient environment happened to supply.',
+      },
     ];
-    const supersededBy = new Map(REPLACED_BY_STRENGTHENING.map((r) => [r.was, r.now]));
+    // A label CORRECTED while its assertion stays byte-identical is a third case,
+    // and it does not belong in the list above: nothing was strengthened, so filing
+    // it there would falsify the record of what was traded for what. It is declared
+    // here instead. Round-5 F3's standard — a check's label may not claim more than
+    // its assertion establishes — makes this a channel that will be used again, and
+    // an author who has to misfile a correction is an author who leaves the false
+    // label in place.
+    // The `was` strings are ASSEMBLED where the retired label contained a count: a
+    // quotation of a dead label is still a live line in a scanned file, and the
+    // property above would report it. Splitting the literal keeps the record verbatim
+    // at run time while leaving no instance of the form in the source — the same
+    // device the T-A2f cases and the T-31-neg probes use, for the same reason.
+    const RENAMED_LABELS = [
+      // ---- corrections-0.4.0 round-6 N1: the two count properties keep their
+      // assertions again and gain the scanned UNIT in their labels. Round 5 stated
+      // the forms, the numbers and the extensions a label covered but said nothing
+      // about what a "line" was, and the recognizer's line was the physical one —
+      // so `The seven gate types and` / `what each asks:` was caught unwrapped and
+      // invisible wrapped, with a live instance sitting in commands/expert.md while
+      // the label printed `found: none`. The unit is now the joined markdown block,
+      // and the label says so rather than leaving the reader to assume it.
+      {
+        was: "T-" + "31 no count restatement in header form (a), (c) or (d) exists in any scanned file — the assertion is the absence of THOSE FORMS, never of the class (forms: ${COUNT_FORMS.map(([n]) => n).join('; ')}; numbers: a standalone digit or a number word two through twenty; extensions: ${EXT_LIST}; record tree docs/ out of scan reach; uncovered forms named in this block's header) (found: ${stated.join('; ') || 'none'})",
+        now: "T-" + "31 no count restatement in header form (a), (c) or (d) exists in any scanned file — the assertion is the absence of THOSE FORMS, never of the class (forms: ${COUNT_FORMS.map(([n]) => n).join('; ')}; numbers: a standalone digit or a number word two through twenty; extensions: ${EXT_LIST}; scanned unit: in md a markdown block joined across its soft-wrapped lines, elsewhere a physical line; record tree docs/ out of scan reach; uncovered forms named in this block's header) (found: ${stated.join('; ') || 'none'})",
+        why: 'corrections-0.4.0 round-6 N1. The label enumerated everything about the ' +
+             'claim except the unit it was tested against, and that unit was the ' +
+             'physical line, so an ordinary soft wrap defeated a form the label named ' +
+             'as covered. The scan now runs over the joined markdown block; the label ' +
+             'reports the unit so the next reader does not have to infer it, and the ' +
+             'residual for non-markdown files is written into the block header.',
+      },
+      {
+        was: "T-" + "31 no bare count in emphasis (header form (b)) exists in any scanned file — the assertion is the absence of THAT FORM, never of the class (numbers: a standalone digit or a number word two through twenty; extensions: ${EXT_LIST}) (found: ${emphasized.join('; ') || 'none'})",
+        now: "T-" + "31 no bare count in emphasis (header form (b)) exists in any scanned file — the assertion is the absence of THAT FORM, never of the class (numbers: a standalone digit or a number word two through twenty; extensions: ${EXT_LIST}; scanned unit: in md a markdown block joined across its soft-wrapped lines, elsewhere a physical line) (found: ${emphasized.join('; ') || 'none'})",
+        why: 'round-6 N1, same correction on the same line of reasoning: the form (b) ' +
+             'scan moved to the same unit as the others, and its label states it.',
+      },
+      {
+        was: "T-24 deployment: verifierUnderCovered guards all " + "four consumption sites",
+        now: "T-" + "24 deployment: verifierUnderCovered is called at 4 or more sites (a deletion guard over the consumption sites, not a totality claim)",
+        why: 'the assertion is a floor over occurrences of the name in the workflow ' +
+             'source, which is a guard against a call site being deleted. It cannot ' +
+             'establish that every consumption site is guarded, which is what the old ' +
+             'label said.',
+      },
+      {
+        was: "T-24 deployment: underCoveredVerifierGate raised at all " + "four sites",
+        now: "T-" + "24 deployment: underCoveredVerifierGate is raised at 4 or more sites (a deletion guard, not a totality claim)",
+        why: 'same defect, same assertion shape, same correction.',
+      },
+      {
+        was: "T-" + "24 deployment: both control gates carry GATE.control_fault",
+        now: "T-" + "24 deployment: GATE.control_fault appears at 2 or more sites (a deletion guard over the control gates)",
+        why: 'the floor cannot see WHICH sites carry the constant, so it cannot ' +
+             'establish that both control gates do.',
+      },
+      {
+        was: "T-" + "24 deployment: the control-fault gate is raised at every empty-set and under-coverage site",
+        now: "T-" + "24 deployment: GATE.control_fault appears at 4 or more sites (a deletion guard over the empty-set and under-coverage sites)",
+        why: 'the strongest overclaim of the five — "every ... site" over an ' +
+             'occurrence floor that would pass with four occurrences at four wrong ' +
+             'sites.',
+      },
+      {
+        was: "T-27 deployment: all " + "three document gates supply the re-execution channel",
+        now: "T-" + "27 deployment: the re-execution channel is supplied at exactly 3 document-gate sites",
+        why: 'an exact occurrence count rather than a floor, so it fails on an added ' +
+             'site as well as a deleted one; it still cannot establish that the sites ' +
+             'it counted are the document gates. The label reports what is counted.',
+      },
+    ];
+    const supersededBy = new Map(
+      [...REPLACED_BY_STRENGTHENING, ...RENAMED_LABELS].map((r) => [r.was, r.now]));
     // The guard's predicate, named so the T-A2f cases below exercise THIS function
     // rather than a copy of it. A copy could drift into passing while the live
     // guard rots — the defect class this whole plan exists to close.
@@ -526,13 +853,33 @@ check('T-18 the scope check is dispatched to the verifier under one label',
     // allowlist below writes this very label into the file, which is exactly how
     // this guard was found reporting green over a deleted check.
     const goneFrom = (baselineLabels, currentSrc) => {
-      const here = new Set([...currentSrc.matchAll(/check\(\s*[`'"]([^`'"]{8,160})/g)].map((m) => norm(m[1])));
+      const here = new Set(capturedLabels(currentSrc).map(norm));
       return baselineLabels.filter((l) => {
         if (here.has(norm(l))) return false;              // structural: in check( position
         const now = supersededBy.get(l);
         return !(now && here.has(norm(now)));             // replacement must ALSO be in check( position
       });
     };
+    // The oracle compares NORMALIZED labels, so it can report a deleted check only
+    // while the normalization keeps the live labels apart. That is not free, and it
+    // was not always true: while a label was captured only as far as the first quote
+    // character inside it, T-14's and T-28's labels both captured as "T-# no ", and
+    // deleting the T-28 check was reported GREEN by this guard because T-14's label
+    // stood in for it. A mutation probe on a scratch copy demonstrated exactly that,
+    // which is why the capture above now runs to the label's closing delimiter. This
+    // assertion is what stops the property coming back — through a longer
+    // normalization, a shorter capture, or two labels differing only by a count.
+    const liveLabels = capturedLabels(src);
+    const collisions = [];
+    const byNorm = new Map();
+    for (const l of liveLabels) {
+      const k = norm(l);
+      if (byNorm.has(k) && byNorm.get(k) !== l) collisions.push(`${byNorm.get(k)} <-> ${l}`);
+      else byNorm.set(k, l);
+    }
+    check(`T-20 the normalization keeps every live label apart, so no deleted check can hide behind a collision (collisions: ${collisions.join(' | ') || 'none'})`,
+      collisions.length === 0);
+
     const gone = goneFrom(labels, src);
     check('T-20 no check present at baseline was removed', gone.length === 0);
     if (gone.length) console.log(`  (removed: ${gone.join(' | ')})`);
@@ -553,6 +900,12 @@ check('T-18 the scope check is dispatched to the verifier under one label',
     // The case that pins THIS step's defect: presence as data is not presence.
     check('T-A2f a baseline label appearing only as data is still reported gone',
       goneFrom(['a label that exists only as data'], "const x = 'a label that exists only as data'").length === 1);
+  } else {
+    // Fail closed, matching the workflow baseline above. Without this branch an
+    // unreachable `git show` silently removed the deletion guard AND its four
+    // self-tests while the tier still reported PASSED — an error path resolving to
+    // the permissive answer, which is the class this round's F2 was filed under.
+    check('T-20 check-structure baseline reachable from git (the deletion guard cannot be skipped silently)', false);
   }
 }
 
@@ -567,7 +920,7 @@ check('T-18 the scope check is dispatched to the verifier under one label',
 // each item, class_sweep and status: obliged of agents/expert-corrector.md by
 // its `returns:` frontmatter; of the corrector's METHOD by
 // skills/expert-correct/SKILL.md's structured return contract; and declared at
-// PHASE_SCHEMA.properties.sections_rederived. Drop any one of the three and
+// PHASE_SCHEMA.properties.sections_rederived. Drop any one of them and
 // lastRederived is [] every round — both detectors inert in production while
 // these cases stay green.
 // ===========================================================================
@@ -601,21 +954,35 @@ const gateFns = new Function('parallel', [
   reDecls,                       // the workflow's own `const *_RE = /…/` lines (S3)
   'const ROUND_CAP = ' + /const ROUND_CAP = (\d+)/.exec(wfSrc)[1],
   'const LENSES = []',
+  // The findings-shape guard's dependencies, EXTRACTED from the workflow rather
+  // than retyped (T-RB, role-boundary correction): runGate now calls
+  // findingShapeFault every round, so the lifted copy needs the real bounds.
+  (wfSrc.match(/const FINDING_BOUNDS =[^\n]*/) || [''])[0],
+  (wfSrc.match(/const FINDING_KEYS =[^\n]*/) || [''])[0],
+  declOf(wfSrc, 'function findingShapeFault('),
   declOf(wfSrc, 'function parseLocation('),
   declOf(wfSrc, 'function detectCorrectionFailure('),
+  declOf(wfSrc, 'function sweepDiscrepancy('),
   declOf(wfSrc, 'async function runGate('),
-  'return { runGate, detectCorrectionFailure, parseLocation }',
+  'return { runGate, detectCorrectionFailure, parseLocation, sweepDiscrepancy, findingShapeFault }',
 ].join('\n'))(() => { throw new Error('multiLens not exercised'); });
 
-const sweep = (searched, found) => ({ searched, found });
+// The stub sweeps carry the executable declaration the schema now requires
+// (pattern/scope/sites_changed); sites_changed defaults to found, the honest
+// fully-closed shape, so cases about the ROUND-LATE detectors stay about them.
+const sweep = (searched, found) => ({ searched, pattern: searched, scope: 'artifact', found, sites_changed: found.slice() });
+// The honest re-execution stub: the verifier reproduces exactly what each sweep
+// declared. Cases that need a dishonest or broken verifier pass their own.
+const echoSweeps = async (secs) => secs.map((s) => (s.class_sweep && s.class_sweep.found) || []);
 // Drive runGate with a scripted sequence of reviewer verdicts and corrector returns.
-async function driveGate(rounds, corrections, detect = true) {
+async function driveGate(rounds, corrections, detect = true, sweepFn = echoSweeps) {
   let i = 0, k = 0;
   return gateFns.runGate({
     reviewFn: async () => rounds[Math.min(i++, rounds.length - 1)],
     remediateFn: async () => corrections[Math.min(k++, corrections.length - 1)],
     multiLens: false,
     detectFailedCorrection: detect,
+    sweepVerifyFn: sweepFn,
   });
 }
 const F = (location, standard = 'ISO/IEC/IEEE 29148:2018 5.2.6') =>
@@ -735,16 +1102,46 @@ check('T-24 scope-check: a missing artifact-sha256 entry escalates (fail-closed 
 // occurrence counts, the same pattern T-23 uses. Round 7's six surviving mutations
 // (deleting individual call sites, reverting sample.length, flipping one
 // control_fault, neutering the gt.ok branch) each turn one of these red.
-check('T-24 deployment: verifierUnderCovered guards all four consumption sites',
+check('T-24 deployment: verifierUnderCovered is called at 4 or more sites (a deletion guard over the consumption sites, not a totality claim)',
   (wfSrc.match(/verifierUnderCovered\(/g) || []).length >= 4);
-check('T-24 deployment: underCoveredVerifierGate raised at all four sites',
+check('T-24 deployment: underCoveredVerifierGate is raised at 4 or more sites (a deletion guard, not a totality claim)',
   (wfSrc.match(/underCoveredVerifierGate\(/g) || []).length >= 4);
 check('T-24 deployment: the spot re-run expects its full sample count',
   wfSrc.includes('verifierUnderCovered(vr, sample.length)'));
-check('T-24 deployment: both control gates carry GATE.control_fault',
+check('T-24 deployment: GATE.control_fault appears at 2 or more sites (a deletion guard over the control gates)',
   (wfSrc.match(/GATE\.control_fault/g) || []).length >= 2);
 check('T-24 deployment: the ground-truth guard branches on the extracted predicate result',
   wfSrc.includes('if (!gt.ok) {'));
+// ---- Round-3 F1 class, swept into this file: a verdict computed over an EMPTY input
+// set must not resolve to the affirmative answer. The reported instance was the
+// preflight's CURRENT over zero compared files (pinned in the T-29 block). The sweep
+// over this workflow found further instances, each at a dispatch return consumed with no floor:
+// an acceptance return with no criteria read as ground truth PASSED, and a closeout
+// return of nothing wrote `phase = 'complete'`. Pinned at their deployment in the same
+// text-assertion form as the guards above, because the workflow body is not importable.
+check('T-24 empty-set class: an acceptance return with no criteria is a control fault, not a ground-truth pass',
+  wfSrc.includes('const criteria = (acc && Array.isArray(acc.criteria) && acc.criteria) || []') &&
+  /if \(criteria\.length === 0\) \{[\s\S]{0,400}GATE\.control_fault/.test(wfSrc));
+check('T-24 empty-set class: the ground-truth failure scan reads the floored criteria list, not the raw return',
+  wfSrc.includes("const failed = criteria.filter((c) => c.verdict === 'fail')"));
+{
+  // Ordering matters as much as presence: the guard is worthless if completion is
+  // written before it. Sliced to the closeout block so the assertion is about THAT
+  // block's order and cannot be satisfied by a `phase = 'complete'` elsewhere.
+  const coBlock = wfSrc.slice(wfSrc.indexOf("if (cursor === 'closeout') {"));
+  const guardAt = coBlock.indexOf("typeof co.report_path !== 'string'");
+  const completeAt = coBlock.indexOf("delta.phase = 'complete'");
+  check('T-24 empty-set class: closeout inspects its return for a report path BEFORE writing completion',
+    guardAt > -1 && completeAt > -1 && guardAt < completeAt);
+  check('T-24 empty-set class: an unverified closeout resumes at closeout, the phase the continuation gate treats as in flight',
+    /delta\.phase = 'closeout'[\s\S]{0,700}GATE\.control_fault/.test(coBlock));
+}
+// Stated as a floor over the literal: the verifier floors, the acceptance floor and
+// the closeout inspection each raise this gate. The label reports the floor rather
+// than claiming every site is covered, because counting occurrences of a name cannot
+// establish that — round-5 F3's standard, swept across this file's labels.
+check('T-24 deployment: GATE.control_fault appears at 4 or more sites (a deletion guard over the empty-set and under-coverage sites)',
+  (wfSrc.match(/GATE\.control_fault/g) || []).length >= 4);
 // F8-1 class closure: the comment's stated gate count must equal the GATE
 // literal's member count, so the next amendment's propagation miss is a red
 // test, not a review finding.
@@ -765,6 +1162,23 @@ check('T-24 deployment: the ground-truth guard branches on the extracted predica
   const stated = /The (six|seven|eight|nine) owner-gate types/.exec(wfSrc);
   check('T-24 gate-count comment matches the evaluated GATE literal (fail-closed on unevaluable)',
     memberCount > 0 && !!stated && words[stated[1]] === memberCount);
+
+  // Round-4 N2/N3 class sweep. The continuation gate's reprompt carries a SECOND copy
+  // of the same derived data — the gate-type count and every gate-type name — in the
+  // one string an agent actually reads when it is blocked. It is a standalone script
+  // and cannot import the workflow body, so the copy cannot be removed; it is pinned
+  // instead, against the same evaluated literal, which is the only form of stated
+  // cardinality this plugin permits. A gate type added, removed, or renamed in the
+  // workflow now reddens here until the reprompt says the same thing.
+  const hookSrc = readFileSync(join(ROOT, 'hooks/continuation-gate.mjs'), 'utf8');
+  let gateNames = [];
+  try { gateNames = Object.values(new Function('"use strict"; return {' + gateBody + '};')()); } catch { gateNames = []; }
+  const hookStated = /none of the (six|seven|eight|nine) spec §3\.4 gate types/.exec(hookSrc);
+  const unnamed = gateNames.filter((n) => !hookSrc.includes(String(n)));
+  check(`T-24 the continuation gate's reprompt names every evaluated GATE member (missing: ${unnamed.join(', ') || 'none'})`,
+    gateNames.length > 0 && unnamed.length === 0);
+  check('T-24 the continuation gate\'s reprompt states the evaluated GATE member count (fail-closed on unevaluable)',
+    memberCount > 0 && !!hookStated && words[hookStated[1]] === memberCount);
 }
 check('T-24 control_fault gate type exists and the under-coverage gate uses it',
   wfSrc.includes("control_fault: 'control_fault'") && wfSrc.includes('type: GATE.control_fault'));
@@ -785,7 +1199,7 @@ check('T-24 control_fault gate type exists and the under-coverage gate uses it',
     gtp(L([spec, impl], [passGate, failGate]), { artifacts: [], gate_history: [] }, 'S.md').ok === false);
   check('T-24x refuses when no implementation artifacts are registered',
     gtp(L([spec], [passGate]), { artifacts: [], gate_history: [] }, 'S.md').ok === false);
-  check('T-24x proceeds when all three preconditions hold (same-segment artifacts count)',
+  check('T-24x proceeds when all preconditions hold (same-segment artifacts count)',
     gtp(L([spec], [passGate]), { artifacts: [impl], gate_history: [] }, 'S.md').ok === true);
   check('T-24x refusal reason names the failed precondition',
     /owner-approved/.test(gtp(L([{ ...spec, approved_by_owner: false }], []), {}, 'S.md').why));
@@ -794,6 +1208,1288 @@ check('T-24 scope-check: each phase RECORDS its artifact hash via the verifier',
   wfSrc.includes("cited_claim === 'artifact-sha256'") && wfSrc.includes('mine.sha256 = hex[0]'));
 check('T-24 scope-check: no time-based exemption in the scope rules (semantic, reword-resistant)',
   (() => { const i = wfSrc.indexOf('Document-phase scope check'); const region = wfSrc.slice(i, wfSrc.indexOf('`', i + 10)); return i > 0 && !/(mtime|last[- ]modified|modif\w*\s+(?:time|before|after)|timestamp)/i.test(region); })());
+
+// ---- T-25: verbatim-request propagation (corrections-0.4.0, instruction-reinterpretation) ----
+// The owner's request must exist as a schema-required, machine-propagated artifact
+// (task_verbatim), be interpolated verbatim into the spec authoring AND review
+// dispatches, fail closed when uncaptured, and be a reviewable section of the spec's
+// output contract. Checks 1-3 pin the executable enforcement; 4-6 pin the prose
+// carriers (presence — the only property a structural test can assert of prose).
+{
+  // (1) The schema is PARSED and its evaluated shape asserted — not lexed.
+  const schema = JSON.parse(readFileSync(join(ROOT, 'scripts/ledger.schema.json'), 'utf8'));
+  check('T-25 ledger schema: required includes task_verbatim',
+    Array.isArray(schema.required) && schema.required.includes('task_verbatim'));
+  check('T-25 ledger schema: task_verbatim is a non-empty string whose description says verbatim',
+    !!(schema.properties && schema.properties.task_verbatim) &&
+    schema.properties.task_verbatim.type === 'string' &&
+    schema.properties.task_verbatim.minLength === 1 &&
+    /verbatim/i.test(schema.properties.task_verbatim.description || ''));
+  // The validator ENFORCES minLength (lift-and-run through the real exported
+  // validate, same module the preflight executes): an empty capture is rejected.
+  const { validate: vld } = await import('../../scripts/validate-ledger.mjs');
+  const mini = { type: 'object', required: ['task_verbatim'], properties: { task_verbatim: schema.properties.task_verbatim } };
+  check('T-25 validator rejects an empty task_verbatim (minLength enforced, executed)',
+    vld({ task_verbatim: '' }, mini, mini, '$', []).length > 0 &&
+    vld({ task_verbatim: 'x' }, mini, mini, '$', []).length === 0);
+  // (2) Both spec-phase dispatches interpolate the verbatim anchor block.
+  const anchorRe = /<<<OWNER_REQUEST\\n\$\{taskVerbatim\}\\nOWNER_REQUEST>>>/;
+  const specAuthor = (/Write the specification for this task[^`]*/.exec(wfSrc) || [''])[0];
+  const specReview = (/Review the spec at [^`]*/.exec(wfSrc) || [''])[0];
+  check('T-25 spec authoring dispatch interpolates the verbatim anchor block', anchorRe.test(specAuthor));
+  check('T-25 spec review dispatch interpolates the anchor and demands clause traceability',
+    anchorRe.test(specReview) && /dropped, renamed, or narrowed clause is a finding/.test(specReview));
+  check('T-25 intent gate presents the verbatim request to the owner',
+    (() => { const i = wfSrc.indexOf('type: GATE.intent'); return i > 0 && anchorRe.test(wfSrc.slice(i, wfSrc.indexOf('} })', i))); })());
+  // (3) Missing capture fails closed before the spec phase, as a control_fault.
+  check('T-25 missing-verbatim intake halts via a control_fault gate (fail-closed, reachable from intake)',
+    /if \(cursor === 'spec' && !haveOwnerWords\)/.test(wfSrc) &&
+    /GATE\.control_fault, what_happened: `The owner's request text \$\{taskVerbatim \?/.test(wfSrc));
+  // Round-1 F6: a pre-0.4.0 ledger carries the documented migration sentinel, which is
+  // NOT the owner's words. Every other consumer only quotes task_verbatim and is honest
+  // quoting the sentinel; the spec phase is the one that would run ON it, so it must
+  // read the sentinel as absent and gate — otherwise the migration that makes legacy
+  // ledgers resumable would also let a spec be written from a placeholder.
+  check('T-25 the legacy-ledger sentinel counts as NO owner words at the spec phase (a migration must not become a reconstruction)',
+    /const LEGACY_VERBATIM_PREFIX = '\[pre-0\.4\.0 ledger:'/.test(wfSrc) &&
+    /const haveOwnerWords = !!taskVerbatim && !taskVerbatim\.startsWith\(LEGACY_VERBATIM_PREFIX\)/.test(wfSrc));
+  check('T-25 the command documents the legacy migration, its exact sentinel, and that any other error still halts',
+    /\[pre-0\.4\.0 ledger: the owner's original request turn predates task_verbatim and\s+is not recoverable\]/.test(cmd) &&
+    /ONLY validation error/.test(cmd) && /Any other error, alone or alongside it, still halts/.test(cmd));
+  // (4) The spec output contract requires the Request traceability section.
+  const specOut = rd('skills/expert-spec/SKILL.md');
+  const outRegion = specOut.slice(specOut.indexOf('## Output'), specOut.indexOf('## What comes after'));
+  check('T-25 expert-spec output contract requires a Request traceability section quoting the verbatim request',
+    /## Request traceability/.test(outRegion) && /verbatim request in full/.test(outRegion) &&
+    /dropped, renamed, or narrowed/.test(outRegion));
+  // (5) The command's §0 carries the verbatim-capture step.
+  const s0 = cmd.slice(cmd.indexOf('## 0.'), cmd.indexOf('## 1.'));
+  check('T-25 command §0 captures the owner turn verbatim into task_verbatim',
+    /task_verbatim/.test(s0) && /verbatim/.test(s0));
+  check('T-25 command snapshot passes task_verbatim to the workflow',
+    /task_verbatim/.test(cmd.slice(cmd.indexOf('## 3.'), cmd.indexOf('## 4.'))));
+  // (6) expert-standard carries the fidelity clause and the sixth failure signal.
+  const std = rd('skills/expert-standard/SKILL.md');
+  check('T-25 expert-standard third shift carries the words-not-restatement fidelity clause',
+    /acting on the owner's words, not on a restatement of them/.test(std));
+  check('T-25 expert-standard carries the Reinterpreted requests failure signal',
+    /\*\*Reinterpreted requests\.\*\*/.test(std));
+}
+
+// ---- T-26: implementation-completeness enforcement (corrections-0.4.0, premature-completion-claims) ----
+// C2's predicate and C1's recorded-facts reader are lifted from the workflow
+// source and EXECUTED against constructed cases (the T-24x mechanism) — the
+// refusals are observed, never asserted as source text. Text pins cover only
+// what cannot execute here: dispatch wording and deployment call sites.
+{
+  // Note: wfSrc was read before this tier's edits never touch it mid-run; re-read
+  // is unnecessary. Lift the two pure predicates.
+  const fns = new Function([
+    declOf(wfSrc, 'function recordedPlanFacts('),
+    declOf(wfSrc, 'function implementationCompleteness('),
+    'return { recordedPlanFacts, implementationCompleteness }',
+  ].join('\n'))();
+  const { recordedPlanFacts: rpf, implementationCompleteness: icp } = fns;
+  const STEPS = ['S1', 'S2', 'S3'];
+  const evFor = (ids) => ids.map((s) => ({ claim_type: 'test', tool: 'Bash', citation: 'x', observed: 'y', asserted: 'z', step: s }));
+  // (a) full step set + per-step evidence ⇒ pass.
+  check('T-26 exec (a) full step set with per-step evidence passes',
+    icp(STEPS, { status: 'completed', steps_completed: STEPS, evidence: evFor(STEPS) }).ok === true);
+  // (b) one missing step ID ⇒ refuse, naming that ID.
+  const b = icp(STEPS, { status: 'completed', steps_completed: ['S1', 'S3'], evidence: evFor(STEPS) });
+  check('T-26 exec (b) a missing step ID refuses and names it',
+    b.ok === false && b.kind === 'incomplete' && Array.isArray(b.missing_steps) && b.missing_steps.length === 1 && b.missing_steps[0] === 'S2');
+  // (c) completed with empty evidence ⇒ refuse.
+  const c = icp(STEPS, { status: 'completed', steps_completed: STEPS, evidence: [] });
+  check('T-26 exec (c) completed with empty evidence refuses', c.ok === false && c.kind === 'incomplete');
+  // (c2) a step with no evidence entry referencing it ⇒ refuse, naming it.
+  const c2 = icp(STEPS, { status: 'completed', steps_completed: STEPS, evidence: evFor(['S1', 'S2']) });
+  check('T-26 exec (c2) a completed step without an evidence[].step reference refuses and names it',
+    c2.ok === false && c2.kind === 'incomplete' && c2.missing_steps.length === 1 && c2.missing_steps[0] === 'S3');
+  // (d) halted partial return ⇒ no refusal (halts stay expressible).
+  check('T-26 exec (d) a halted partial return is never refused',
+    icp(STEPS, { status: 'halted', steps_completed: ['S1'], evidence: [] }).ok === true);
+  // (e) no recorded step index ⇒ control_fault, never an open pass.
+  const e = icp(null, { status: 'completed', steps_completed: STEPS, evidence: evFor(STEPS) });
+  check('T-26 exec (e) a missing recorded step index is a control_fault (fail-closed)',
+    e.ok === false && e.kind === 'control_fault');
+  check('T-26 exec (e2) an EMPTY recorded step index is also a control_fault',
+    icp([], { status: 'completed', evidence: [] }).kind === 'control_fault');
+  // recordedPlanFacts: latest recorded plan entry wins; same-segment delta counts;
+  // an index-less ledger yields null fields (the control_fault input to (e)).
+  const planEntry = { role: 'plan', path: 'P.md', step_ids: STEPS, element_count: 7, files_count: 4 };
+  check('T-26 exec recordedPlanFacts reads the recorded facts from the ledger index',
+    rpf({ artifact_index: [planEntry] }, { artifacts: [] }, 'P.md').element_count === 7);
+  check('T-26 exec recordedPlanFacts: a same-segment delta entry counts and the LATEST recorded entry wins',
+    rpf({ artifact_index: [planEntry] }, { artifacts: [{ ...planEntry, element_count: 9 }] }, 'P.md').element_count === 9);
+  check('T-26 exec recordedPlanFacts: no recorded index yields null step_ids (the fail-closed input)',
+    rpf({ artifact_index: [{ role: 'plan', path: 'P.md' }] }, {}, 'P.md').step_ids === null);
+  // C3 executed: the floor derived from a recorded element_count of 7 makes a
+  // one-check verifier return under-covered (extends the T-24y vuc pins).
+  const vucLine26 = (wfSrc.match(/const verifierUnderCovered =[^\n]*/) || [''])[0];
+  const vuc26 = new Function(vucLine26 + '\nreturn verifierUnderCovered;')();
+  const floor26 = Math.max(1, rpf({ artifact_index: [planEntry] }, {}, 'P.md').element_count | 0);
+  check('T-26 exec C3 floor: one summary check against a recorded element_count of 7 is under-covered',
+    floor26 === 7 && vuc26({ checks: [{}] }, floor26) === true);
+  check('T-26 exec C3 floor: seven checks against the same floor pass',
+    vuc26({ checks: [{}, {}, {}, {}, {}, {}, {}] }, floor26) === false);
+  // Deployment pins: the gate is wired at the implement phase and both floors
+  // derive from recorded facts, not the literal 1 (T-23/F7-1 pattern).
+  check('T-26 deployment: the implement phase calls the completeness predicate on recorded step_ids',
+    wfSrc.includes('const planFacts = recordedPlanFacts(ledger, delta, planPath)') &&
+    wfSrc.includes('const compl = implementationCompleteness(planFacts.step_ids, impl)'));
+  check('T-26 deployment: the completeness refusal branches carry control_fault and spec_traceable gates',
+    /if \(compl\.kind === 'control_fault'\)/.test(wfSrc) && /Premature completion claim: \$\{compl\.reason\}/.test(wfSrc));
+  check('T-26 deployment: diff-vs-plan floor derives from the recorded files count',
+    wfSrc.includes('const filesFloor = Math.max(1, planFacts.files_count | 0)') &&
+    wfSrc.includes('verifierUnderCovered(dvp, filesFloor)'));
+  check('T-26 deployment: reconciliation floor derives from the recorded element count',
+    wfSrc.includes('recordedPlanFacts(ledger, delta, planPath).element_count | 0') &&
+    wfSrc.includes('verifierUnderCovered(recon, reconFloor)'));
+  // C1 producer + consumer pins: the plan-phase scope check requests the step
+  // index, records it, and fails closed when it cannot be parsed.
+  check('T-26 C1: the plan-phase scope-check dispatch requests the plan-step-index record',
+    wfSrc.includes('cited_claim exactly "plan-step-index"') &&
+    wfSrc.includes('cited_claim exactly "plan-element-count"') &&
+    wfSrc.includes('cited_claim exactly "plan-files-count"'));
+  check('T-26 C1: the recorded facts land on the plan artifact entry',
+    wfSrc.includes('mine.step_ids = stepIds') && wfSrc.includes('mine.element_count = elementCount') && wfSrc.includes('mine.files_count = filesCount'));
+  check('T-26 C1: an unparseable plan-index record fails closed as control_fault',
+    wfSrc.includes('did not return a parseable plan-step-index') &&
+    (() => { const i = wfSrc.indexOf('did not return a parseable plan-step-index'); const region = wfSrc.slice(Math.max(0, i - 400), i); return /GATE\.control_fault/.test(region); })());
+  // C4: the deferral scan is in the diff-vs-plan dispatch, added-lines-only,
+  // with the marker alternation, and the verifier agent carries the same job.
+  const dvpDispatch = (/Diff-vs-plan: compare git-changed files[^`]*/.exec(wfSrc) || [''])[0];
+  check('T-26 C4: the diff-vs-plan dispatch carries the mechanical deferral scan on ADDED lines',
+    /deferral scan/.test(dvpDispatch) && /ADDED lines only/.test(dvpDispatch) &&
+    dvpDispatch.includes('TODO|FIXME|XXX|deferred|follow-up|later') &&
+    /match is false UNLESS a step-decl/.test(dvpDispatch));
+  check('T-26 C4: the verifier agent job 2 carries the deferral scan',
+    (() => { const v = rd('agents/expert-verifier.md'); return /deferral scan/.test(v) && v.includes('TODO|FIXME|XXX|deferred|follow-up|later'); })());
+  // C2 schema + C5 prose alignment.
+  check('T-26 EVIDENCE schema carries the additive optional step field',
+    /step: S_STR/.test((/const EVIDENCE = \{[\s\S]*?\n\}/.exec(wfSrc) || [''])[0]));
+  check('T-26 C5: the implementer agent no longer carries the not-a-promise-to-populate caveat',
+    !/not a promise to populate/.test(rd('agents/expert-implementer.md')));
+  check('T-26 C5: the implementer agent states the mechanical completeness contract',
+    /reconciles mechanically/.test(rd('agents/expert-implementer.md')) &&
+    /premature completion claim/.test(rd('agents/expert-implementer.md')));
+  check('T-26 C5: expert-implement SKILL final report notes the mechanical step reconciliation',
+    /reconciled mechanically against the plan's declared step IDs/.test(rd('skills/expert-implement/SKILL.md')));
+}
+
+// ---- T-27: executable class sweep + same-round re-execution (corrections-0.4.0,
+// patching-instead-of-rederivation) ----
+// C1 pins the schema by LIFTING and EVALUATING the literal (never lexing source
+// text); C2's predicate and runGate's same-round routing are EXECUTED via the
+// T-22 lift; C3's union is executed against the lifted detectCorrectionFailure.
+{
+  // C1 schema pin — the evaluated PHASE_SCHEMA literal, with its real dependencies.
+  const lit = (name) => `const ${name} = {` + braced(wfSrc, wfSrc.indexOf(`const ${name} = {`)) + '}';
+  const PS = new Function('"use strict";\n' + [reDecls, lit('S_STR'), lit('LOCATION'), lit('EVIDENCE'), lit('PHASE_SCHEMA'), 'return PHASE_SCHEMA'].join('\n'))();
+  const cs = PS.properties.sections_rederived.items.properties.class_sweep;
+  check('T-27 schema: class_sweep.required includes pattern, scope, sites_changed (evaluated, not lexed)',
+    Array.isArray(cs.required) && ['searched', 'found', 'pattern', 'scope', 'sites_changed'].every((f) => cs.required.includes(f)));
+  check('T-27 schema: sites_changed is a string array and open_sites items require location + designation',
+    cs.properties.sites_changed.type === 'array' &&
+    cs.properties.open_sites.items.required.includes('location') && cs.properties.open_sites.items.required.includes('designation'));
+
+  // T-sweep-a: a re-executed hit absent from the declared found is under-reporting.
+  const sd = gateFns.sweepDiscrepancy;
+  const entry = (csw) => ({ location: 'spec.md:10-20', class_sweep: csw });
+  const a = sd(entry({ searched: 'x', pattern: 'x', scope: 'spec.md', found: ['spec.md:10-20'], sites_changed: ['spec.md:10-20'] }), ['spec.md:10-20', 'spec.md:400']);
+  check('T-27 exec (a) a re-executed hit absent from found observes sweep_underreported naming the miss',
+    !!a && a.kind === 'sweep_underreported' && a.missed.length === 1 && a.missed[0] === 'spec.md:400');
+  // T-sweep-b: a found site neither changed nor designated is silently open; designated is not.
+  const bCsw = { searched: 'x', pattern: 'x', scope: 'spec.md', found: ['spec.md:10-20', 'spec.md:400'], sites_changed: ['spec.md:10-20'] };
+  const b = sd(entry(bCsw), ['spec.md:10-20', 'spec.md:400']);
+  check('T-27 exec (b) a found site neither changed nor designated observes found_left_silently_open',
+    !!b && b.kind === 'found_left_silently_open' && b.sites.length === 1 && b.sites[0] === 'spec.md:400');
+  check('T-27 exec (b2) the same site with an escalation designation does not fire',
+    sd(entry({ ...bCsw, open_sites: [{ location: 'spec.md:400', designation: 'escalated: hand-maintained surface' }] }), ['spec.md:10-20', 'spec.md:400']) === null);
+  check('T-27 exec (b3) an EMPTY designation does not count as designated (fail-closed)',
+    sd(entry({ ...bCsw, open_sites: [{ location: 'spec.md:400', designation: '  ' }] }), []).kind === 'found_left_silently_open');
+  // T-sweep-c: an honest complete sweep observes no discrepancy.
+  check('T-27 exec (c) an honest complete sweep observes null (no false positive)',
+    sd(entry({ searched: 'x', pattern: 'x', scope: 'spec.md', found: ['spec.md:10-20'], sites_changed: ['spec.md:10-20'] }), ['spec.md:10-20']) === null);
+
+  // T-sweep-d: lifted runGate with a verifier stub returning an extra hit fails
+  // the gate in the SAME round (rounds === 1), not round + 1.
+  const honest = [{ status: 'completed', sections_rederived: [{ location: 'spec.md:10-20', class_sweep: sweep('x', ['spec.md:10-20']) }] }];
+  const d = await driveGate([F('spec.md:10'), F('spec.md:99')], honest,
+    true, async (secs) => secs.map((s) => (s.class_sweep.found || []).concat(['spec.md:400'])));
+  check('T-27 exec (d) an under-reported sweep yields CORRECTION_FAILED/sweep_underreported in the SAME round',
+    d.verdict === 'CORRECTION_FAILED' && d.kind === 'sweep_underreported' && d.rounds === 1);
+  check('T-27 exec (d2) the escalation detail carries the section and the independent hit set',
+    !!(d.detail && d.detail.section && Array.isArray(d.detail.re_executed_hits)));
+  // Honest verifier, honest sweep: the gate proceeds to the next round (no false positive).
+  check('T-27 exec (c2) with an honest re-execution the gate proceeds and can PASS',
+    (await driveGate([F('spec.md:10'), { verdict: 'PASS', findings: [] }], honest)).verdict === 'PASS');
+  // Fail-closed: a re-execution channel that is missing or under-covered is a
+  // failed control (SWEEP_UNVERIFIED), never a silently passed one.
+  check('T-27 exec fail-closed: a missing re-execution channel yields SWEEP_UNVERIFIED',
+    (await driveGate([F('spec.md:10'), F('spec.md:99')], honest, true, null)).verdict === 'SWEEP_UNVERIFIED');
+  check('T-27 exec fail-closed: a short hit-set return yields SWEEP_UNVERIFIED',
+    (await driveGate([F('spec.md:10'), F('spec.md:99')], honest, true, async () => [])).verdict === 'SWEEP_UNVERIFIED');
+
+  // C3 executed: next-round unclosed_class membership is the UNION of the
+  // declared found and the re-executed hits — a hit only the independent
+  // execution saw still arms the detector.
+  const c3 = gateFns.detectCorrectionFailure(
+    [{ classification: 'Moderate', standard: 's', location: 'spec.md:400' }],
+    [{ location: 'spec.md:10-20', class_sweep: { searched: 'x', pattern: 'x', scope: 'spec.md', found: ['spec.md:10-20'], sites_changed: ['spec.md:10-20'] }, re_executed_hits: ['spec.md:400'] }]);
+  check('T-27 exec C3: a finding at a re-executed-only hit fires unclosed_class (union membership)',
+    !!c3 && c3.kind === 'unclosed_class' && !!c3.detail.prior);
+
+  // Contract-text pins: skill and agent name every class_sweep field.
+  for (const f of ['searched', 'pattern', 'scope', 'found', 'sites_changed']) {
+    check(`T-27 contract: expert-correct SKILL.md names class_sweep field ${f}`,
+      new RegExp('`' + f + '`').test(rd('skills/expert-correct/SKILL.md')));
+    check(`T-27 contract: expert-corrector agent names class_sweep field ${f}`,
+      new RegExp('`' + f + '`').test(rd('agents/expert-corrector.md')));
+  }
+  // Deployment pins (the T-23/F7-1 pattern): the mechanism is wired, not just defined.
+  check('T-27 deployment: the re-execution channel is supplied at exactly 3 document-gate sites',
+    (wfSrc.match(/sweepVerifyFn: \(secs\) => reExecuteSweeps\(secs\)/g) || []).length === 3);
+  check('T-27 deployment: runGate compares via the extracted pure predicate',
+    wfSrc.includes('const disc = sweepDiscrepancy(rederived[i], reHits[i])'));
+  check('T-27 deployment: the re-execution is dispatched to the verifier under label sweep-rerun',
+    /agentType: AGENT\.verifier[^}]*label: 'sweep-rerun'/.test(wfSrc));
+  check('T-27 deployment: re-executed hits ride on lastRederived for the next-round union',
+    wfSrc.includes('re_executed_hits: reHits[i] || []'));
+  check('T-27 deployment: both discrepancy kinds carry owner-facing escalation text',
+    /sweep_underreported: /.test(wfSrc) && /found_left_silently_open: /.test(wfSrc));
+  check('T-27 deployment: SWEEP_UNVERIFIED routes to a control_fault gate (fail-closed)',
+    (() => { const i = wfSrc.indexOf("gate.verdict === 'SWEEP_UNVERIFIED'"); return i > 0 && /GATE\.control_fault/.test(wfSrc.slice(i, i + 700)); })());
+  check('T-27 deployment: the verifier agent carries the sweep re-execution job',
+    /Sweep re-execution/.test(rd('agents/expert-verifier.md')));
+}
+
+// ---- T-RB: findings-channel closure (corrections-0.4.0, role-boundary-violations) ----
+// C1 is pinned by LIFTING and EVALUATING the VERDICT_SCHEMA literal (never
+// lexing source text); C2's predicate is executed through the lifted runGate;
+// C3's prose carriers are pinned by presence. The findings payload is the one
+// channel crossing every review-loop role boundary — these checks pin it closed.
+{
+  const lit = (name) => `const ${name} = {` + braced(wfSrc, wfSrc.indexOf(`const ${name} = {`)) + '}';
+  // T-RB1 — the evaluated schema literal, with its real dependencies.
+  const rb = new Function('"use strict";\n' + [reDecls, lit('S_STR'), lit('LOCATION'), lit('FINDING_BOUNDS'), lit('VERDICT_SCHEMA'), 'return { VERDICT_SCHEMA, FINDING_BOUNDS }'].join('\n'))();
+  const fi = rb.VERDICT_SCHEMA.properties.findings.items;
+  const FB = rb.FINDING_BOUNDS;
+  check('T-RB1 schema: findings items declare additionalProperties false (evaluated, not lexed)',
+    fi.additionalProperties === false);
+  const fiProps = Object.entries(fi.properties);
+  check('T-RB1 schema: every findings-item property is a bounded string (maxLength on each)',
+    fiProps.length > 0 && fiProps.every(([, v]) => v.type === 'string' && Number.isInteger(v.maxLength) && v.maxLength > 0));
+  check('T-RB1 schema: bounds come from the shared FINDING_BOUNDS literal (one source, no drift)',
+    fiProps.every(([k, v]) => v.maxLength === FB[k]) &&
+    Object.keys(FB).sort().join() === fiProps.map(([k]) => k).sort().join());
+  check('T-RB1 schema: location keeps its grammar pattern alongside its bound',
+    typeof fi.properties.location.pattern === 'string' && new RegExp(fi.properties.location.pattern).test('spec.md:271-273'));
+
+  // T-RB2 — the guard executed (lift-and-evaluate, the T-24x mechanism), then
+  // its deployment: called in runGate BEFORE remediateFn, routed to control_fault.
+  const fsf = gateFns.findingShapeFault;
+  check('T-RB2 exec: a finding carrying a fix key faults (unknown_keys)',
+    (fsf([{ classification: 'Moderate', standard: 's', location: 'a.md:1', fix: 'do X' }]) || {}).kind === 'unknown_keys');
+  check('T-RB2 exec: an over-bound premise_evidence faults (field_over_bound)',
+    (fsf([{ classification: 'Moderate', standard: 's', location: 'a.md:1', premise_evidence: 'x'.repeat(FB.premise_evidence + 1) }]) || {}).kind === 'field_over_bound');
+  check('T-RB2 exec: a prescription marker inside premise_evidence faults',
+    (fsf([{ classification: 'Moderate', standard: 's', location: 'a.md:1', premise_evidence: 'fix by replacing the guard with a stub' }]) || {}).kind === 'prescription_in_evidence');
+  check('T-RB2 exec: a clean finding passes (no false positive)',
+    fsf([{ classification: 'Moderate', standard: 'ISO/IEC/IEEE 29148:2018 5.2.6', location: 'a.md:1', premise_evidence: 'verified by Read at a.md:1' }]) === null);
+  check('T-RB2 exec: an empty findings array passes (a clean PASS round is not faulted)', fsf([]) === null);
+  const rbGate = await driveGate(
+    [{ verdict: 'NEEDS_FIXES', findings: [{ classification: 'Moderate', standard: 's', location: 'a.md:1', fix: 'patch it' }] }, F('a.md:2')],
+    [{ status: 'completed', sections_rederived: [] }]);
+  check('T-RB2 exec: runGate faults a contract-violating payload in the SAME round, before remediation',
+    rbGate.verdict === 'FINDING_SHAPE_FAULT' && rbGate.rounds === 1 && rbGate.detail.kind === 'unknown_keys');
+  const rg = declOf(wfSrc, 'async function runGate(');
+  check('T-RB2 deployment: runGate calls findingShapeFault before remediateFn',
+    rg.indexOf('findingShapeFault(findings)') > 0 &&
+    rg.indexOf('findingShapeFault(findings)') < rg.indexOf('await remediateFn(findings, round)'));
+  check('T-RB2 deployment: FINDING_SHAPE_FAULT routes to a control_fault gate (fail-closed)',
+    (() => { const i = wfSrc.indexOf("gate.verdict === 'FINDING_SHAPE_FAULT'"); return i > 0 && /GATE\.control_fault/.test(wfSrc.slice(i, i + 900)); })());
+
+  // T-RB3 — the rule stated where the roles read it. The reviewer's Write/Edit
+  // denial is unchanged and already pinned by T-A2b above.
+  check('T-RB3 reviewer agent: findings carry the no-prescription rule ("never the fix")',
+    /never the fix/.test(rd('agents/expert-reviewer.md')));
+  check('T-RB3 review skill: "what correct looks like" is scoped to the standard\'s requirement, not a patch instruction',
+    /stated as the standard's requirement, never as a patch instruction/.test(rd('skills/expert-review/SKILL.md')));
+
+  // T-RB4 — the command's persistence step tracks the schema, not a copy of it
+  // (hand-maintained derived lists are the measured regression engine).
+  check('T-RB4 command step 4: the hand-enumerated finding field list is gone',
+    !cmd.includes('`classification`, `standard`, `location`, and `premise_evidence`'));
+  check('T-RB4 command step 4: persistence references the workflow VERDICT_SCHEMA findings items',
+    /every property named by the workflow's `VERDICT_SCHEMA` findings items/.test(cmd));
+}
+
+// ---- T-28: verified skill activation (corrections-0.4.0, skill-activation-missed) ----
+// The measured defect: activation asserted by announcement — the Step-0 prose
+// recited, file reads declared to be "the process loaded" — with no Skill call
+// ever made and no loud failure when the skill was absent. C1's predicate and
+// gate router are lifted from the workflow source and EXECUTED (the T-24x
+// mechanism); the schema pin is the evaluated literal, never lexed source text;
+// a negative case proves the prompt-wiring pin can fail.
+{
+  const lit = (name) => `const ${name} = {` + braced(wfSrc, wfSrc.indexOf(`const ${name} = {`)) + '}';
+  // Schema pin — the evaluated IMPLEMENT_SCHEMA literal, with its real dependencies.
+  const IS = new Function('"use strict";\n' + [reDecls, lit('S_STR'), lit('LOCATION'), lit('EVIDENCE'), lit('IMPLEMENT_SCHEMA'), 'return IMPLEMENT_SCHEMA'].join('\n'))();
+  check('T-28 schema: IMPLEMENT_SCHEMA requires skill_activation alongside status (evaluated, not lexed)',
+    Array.isArray(IS.required) && IS.required.includes('status') && IS.required.includes('skill_activation'));
+  check('T-28 schema: skill_activation is declared as a string property',
+    !!IS.properties.skill_activation && IS.properties.skill_activation.type === 'string');
+
+  // Lift and EXECUTE the predicate, the redispatch discriminator, and the gate router.
+  const fns28 = new Function('"use strict";\n' + [
+    lit('GATE'),
+    declOf(wfSrc, 'function skillActivationFault('),
+    (wfSrc.match(/const needsActivationRedispatch =[^\n]*/) || [''])[0],
+    declOf(wfSrc, 'function skillActivationGate('),
+    'return { skillActivationFault, needsActivationRedispatch, skillActivationGate, GATE }',
+  ].join('\n'))();
+  const { skillActivationFault: saf, needsActivationRedispatch: nar, skillActivationGate: sag, GATE: G28 } = fns28;
+  const LAUNCH = 'Launching skill: expert-dev-tools:expert-implement';
+  check('T-28 exec (a) a verbatim launch-line echo on a completed return passes',
+    saf({ status: 'completed', skill_activation: LAUNCH }) === null);
+  check('T-28 exec (b) a completed return with no echo is unverified (fail-closed)',
+    (saf({ status: 'completed' }) || {}).kind === 'unverified');
+  check('T-28 exec (c) a recited announcement that is not the launch line is unverified',
+    (saf({ status: 'completed', skill_activation: 'Activated expert-implement and following it exactly' }) || {}).kind === 'unverified');
+  check('T-28 exec (d) an "Unknown skill" error is unknown_skill even on a halted return',
+    (saf({ status: 'halted', stop_report: { category: 'ENVIRONMENT-BLOCKED' }, skill_activation: 'tool_use_error: Unknown skill: expert-implement' }) || {}).kind === 'unknown_skill');
+  check('T-28 exec (e) an honest halt with a stop_report is exempt (routes via STOP-REPORT path)',
+    saf({ status: 'halted', stop_report: { category: 'ENVIRONMENT-BLOCKED' } }) === null);
+  check('T-28 exec (f) only an unverified echo earns the single re-dispatch',
+    nar({ status: 'completed' }) === true &&
+    nar({ status: 'completed', skill_activation: 'Unknown skill: expert-implement' }) === false &&
+    nar({ status: 'completed', skill_activation: LAUNCH }) === false);
+  check('T-28 exec (g) unknown_skill routes to the environment-defect gate (risk_override), no imitation fallback',
+    sag({ kind: 'unknown_skill', reason: 'r' }).type === G28.risk_override);
+  check('T-28 exec (h) a persistently unverified echo routes to control_fault (fail-closed)',
+    sag({ kind: 'unverified', reason: 'r' }).type === G28.control_fault);
+
+  // Prompt wiring — one predicate serves the positive pin and the negative case.
+  const activationReqWired = (src) =>
+    /const IMPLEMENT_ACTIVATION_REQ = '/.test(src) &&
+    src.includes('Skill(expert-dev-tools:expert-implement)') &&
+    src.includes('"Launching skill:" line') &&
+    /Execute the approved plan at \$\{planPath\} end to end\. \$\{IMPLEMENT_ACTIVATION_REQ\}/.test(src) &&
+    /Execute the amended plan at \$\{planPath\}\. \$\{IMPLEMENT_ACTIVATION_REQ\}/.test(src);
+  check('T-28 both implement dispatch prompts carry the activation requirement', activationReqWired(wfSrc));
+  check('T-28-neg the wiring pin REJECTS a workflow with the requirement stripped (the gate can fail)',
+    !activationReqWired(wfSrc.replace(/ \$\{IMPLEMENT_ACTIVATION_REQ\}/g, '')));
+
+  // Deployment pins (the T-23/F7-1 pattern): both dispatch sites are verified.
+  check('T-28 deployment: both implement dispatch sites run the redispatch discriminator and the fault check',
+    (wfSrc.match(/needsActivationRedispatch\(impl\)/g) || []).length === 2 &&
+    wfSrc.includes('const actFault = skillActivationFault(impl)') &&
+    wfSrc.includes('const actFault2 = skillActivationFault(impl)'));
+
+  // ---- Round-1 F4: the amend path must bind its re-implementation into the SAME
+  // variable every downstream control reads. Bound to a block-scoped `impl2`, the
+  // re-implementation was invisible to the completeness gate, the evidence
+  // cross-consistency check and the anti-fabrication sample — all of which then
+  // inspected the HALTED return that opened the branch, where the completeness gate
+  // returns ok unconditionally. The pin below is source-shape, not execution, because
+  // the defect is a binding: the predicate itself was always correct, and executing it
+  // (which M3 does) is exactly what could not see this.
+  // Line comments are stripped first: the fix's own comment NAMES the old variable to
+  // record what went wrong, and a pin that cannot tell code from prose would force
+  // that explanation out of the file to stay green.
+  const amendPathBindsImpl = (src) =>
+    !/\bimpl2\b/.test(src.replace(/\/\/[^\n]*/g, '')) &&
+    /impl = await agent\(`Execute the amended plan/.test(src) &&
+    /implementationCompleteness\(planFacts\.step_ids, impl\)/.test(src) &&
+    /const cited = \(impl && impl\.evidence\) \|\| \[\]/.test(src);
+  check('T-28 the amend path binds its re-implementation into `impl`, so no downstream gate inspects the halted return',
+    amendPathBindsImpl(wfSrc));
+  check('T-28-neg the binding pin REJECTS the block-scoped `impl2` shape (the gate can fail)',
+    !amendPathBindsImpl(wfSrc.replace('impl = await agent(`Execute the amended plan', 'let impl2 = await agent(`Execute the amended plan')));
+  // Same sweep, the other half: the plan-amendment dispatch's own return was discarded
+  // outright — the file's only wholly unconsumed `await agent`. A halted amendment
+  // leaves the plan unchanged, so re-implementing would run it into the same STOP.
+  check('T-28 the plan-amendment dispatch\'s return is consumed, and a halted amendment escalates instead of re-implementing',
+    /const amended = await agent\(`Amend the plan/.test(wfSrc) &&
+    /if \(!amended \|\| amended\.status === 'halted'\)/.test(wfSrc));
+  check('T-28 no `await agent(` return is discarded anywhere in the workflow (the F4 class, swept)',
+    (wfSrc.match(/^\s*await agent\(/gm) || []).length === 0);
+  check('T-28 deployment: an activation fault routes to an owner gate through skillActivationGate at both sites',
+    wfSrc.includes('gate: skillActivationGate(actFault)') && wfSrc.includes('gate: skillActivationGate(actFault2)'));
+
+  // Agent-file pins (C2): the literal first-action instruction, the error path,
+  // and the declared return field the schema now requires.
+  const implAgent = rd('agents/expert-implementer.md');
+  check('T-28 agent: carries the literal Skill(expert-dev-tools:expert-implement) first-action instruction',
+    implAgent.includes('`Skill(expert-dev-tools:expert-implement)`'));
+  check('T-28 agent: Skill-call error path is halted + ENVIRONMENT-BLOCKED stop_report, never reconstruction',
+    implAgent.includes('ENVIRONMENT-BLOCKED') &&
+    /[Nn]ever reconstruct the skill\s+from memory or from file reads/.test(implAgent));
+  check('T-28 agent: skill_activation is a declared return field',
+    ((frontmatter(join(agentsDir, 'expert-implementer.md')) || {}).returns || []).includes('skill_activation'));
+
+  // Rename-drift guard for the "Unknown skill" failure class, swept across every
+  // packaged skill: the frontmatter name is what the platform registers; a
+  // directory rename without it makes every namespaced reference error.
+  for (const s of skills)
+    check(`T-28 skill ${s}: frontmatter name equals its directory name (rename-drift guard)`,
+      ((frontmatter(join(skillsDir, s, 'SKILL.md')) || {}).name || '') === s);
+}
+
+// ---- T-29: deployment-provenance preflight + evidence ladder (corrections-0.4.0,
+// opining-without-reading-source) ----
+// Part A is EXECUTED against fixture registries via the script's documented
+// CLAUDE_CONFIG_DIR override (deterministic, no tokens); the verdicts are
+// observed, never asserted from source text. Part B's prose carriers are pinned
+// by presence — the only property a structural test can assert of prose.
+{
+  const pf = join(ROOT, 'scripts/preflight-deployment.mjs');
+  check('T-29 script preflight-deployment.mjs present', existsSync(pf));
+  let pfSyntaxOk = true;
+  try { execFileSync(process.execPath, ['--check', pf], { stdio: 'pipe' }); } catch { pfSyntaxOk = false; }
+  check('T-29 script passes node --check', pfSyntaxOk);
+
+  const fx = join(ROOT, 'tests/fixture/deployment');
+  const runPf = (cfg, pluginName, worktree) => {
+    const args = [pf, pluginName];
+    if (worktree) args.push(worktree);
+    try {
+      const out = execFileSync(process.execPath, args,
+        { env: { ...process.env, CLAUDE_CONFIG_DIR: join(fx, cfg) }, encoding: 'utf8', stdio: 'pipe' });
+      return { status: 0, out };
+    } catch (e) { return { status: e.status ?? -1, out: String(e.stdout || '') }; }
+  };
+  const pfReport = (out) => { try { return JSON.parse(out.slice(0, out.lastIndexOf('VERDICT:'))); } catch { return null; } };
+
+  const stale = runPf('stale-config', 'fixture-plugin', join(fx, 'worktree'));
+  const staleR = pfReport(stale.out);
+  check('T-29 stale fixture: non-zero exit and a VERDICT: STALE line (fail closed)',
+    stale.status === 1 && /VERDICT: STALE/.test(stale.out));
+  check('T-29 stale fixture: report carries stale:true, the fixture cache_path, and both versions',
+    !!staleR && staleR.stale === true && staleR.installed_version === '0.1.0' &&
+    staleR.worktree_version === '0.2.0' && String(staleR.cache_path).includes('fixture-plugin'));
+  check('T-29 stale fixture: report carries the marketplace commit from the registry record, under a name that says it is the registry\'s claim',
+    !!staleR && staleR.registry_recorded_commit === 'a'.repeat(40));
+
+  const cur = runPf('current-config', 'fixture-plugin', join(fx, 'worktree'));
+  const curR = pfReport(cur.out);
+  check('T-29 current fixture: exit 0 and a VERDICT: CURRENT line',
+    cur.status === 0 && /VERDICT: CURRENT/.test(cur.out));
+  check('T-29 current fixture: report carries stale:false and matching versions',
+    !!curR && curR.stale === false && curR.installed_version === '0.2.0' && curR.worktree_version === '0.2.0');
+
+  const missing = runPf('current-config', 'no-such-plugin', join(fx, 'worktree'));
+  check('T-29 an unresolvable plugin is UNREADABLE with a non-zero exit (fail closed, never a silent pass)',
+    missing.status === 2 && /VERDICT: UNREADABLE/.test(missing.out));
+
+  // ---- Round-1 F3: the verdict's coverage set is the whole contract. Comparing the
+  // two manifests alone rendered CURRENT over a cache whose workflow script and core
+  // skill had been replaced by stubs and one script deleted — while the bright line
+  // at commands/expert.md step 1 forbids any behavioral claim not resting on this
+  // report. Built in a temp dir: the cache and the working tree start byte-identical
+  // (proving the harness itself is not the source of the diff), then behavior files
+  // are mutated with BOTH manifests left untouched.
+  {
+    const tmp = mkdtempSync(join(tmpdir(), 'edt-pf-'));
+    const cache = join(tmp, 'cfg', 'plugins', 'cache', 'p');
+    const tree = join(tmp, 'worktree');
+    const runTmp = () => {
+      try { return { status: 0, out: execFileSync(process.execPath, [pf, 'p', tree], { env: { ...process.env, CLAUDE_CONFIG_DIR: join(tmp, 'cfg') }, encoding: 'utf8', stdio: 'pipe' }) }; }
+      catch (e) { return { status: e.status ?? -1, out: String(e.stdout || '') }; }
+    };
+    const w = (p, s) => { mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, s); };
+    w(join(tree, '.claude-plugin', 'plugin.json'), JSON.stringify({ name: 'p', version: '1.0.0' }));
+    w(join(tree, 'workflows', 'life.js'), 'export const real = 1\n');
+    w(join(tree, 'skills', 'core', 'SKILL.md'), '# the real skill body\n');
+    w(join(tree, 'scripts', 'validate.mjs'), 'export const v = 1\n');
+    w(join(tree, 'docs', 'notes.md'), 'documentation is deliberately outside the compared set\n');
+    cpSync(tree, cache, { recursive: true });
+    w(join(tmp, 'cfg', 'plugins', 'installed_plugins.json'),
+      JSON.stringify({ version: 2, plugins: { 'p@m': [{ scope: 'user', version: '1.0.0', installPath: cache }] } }));
+
+    const identical = runTmp();
+    check('T-29 coverage baseline: a byte-identical cache and working tree are CURRENT (the probe below starts from a true negative)',
+      identical.status === 0 && /VERDICT: CURRENT/.test(identical.out));
+
+    w(join(tree, 'docs', 'notes.md'), 'docs drift alone is not a behavioral claim\n');
+    const docsOnly = runTmp();
+    check('T-29 coverage scope: a divergence confined to docs/ stays CURRENT (the set is behavior-bearing files, not every file)',
+      docsOnly.status === 0 && /VERDICT: CURRENT/.test(docsOnly.out));
+
+    // The exact F3 probe: manifests byte-identical, behavior gutted three ways.
+    w(join(tree, 'workflows', 'life.js'), 'process.exit(1)\n');
+    w(join(tree, 'skills', 'core', 'SKILL.md'), 'stub\n');
+    rmSync(join(tree, 'scripts', 'validate.mjs'));
+    const gutted = runTmp();
+    const guttedR = pfReport(gutted.out);
+    check('T-29 a gutted cache with byte-identical manifests is STALE with exit 1 (version-equal source drift is the common case, and it must be seen)',
+      gutted.status === 1 && /VERDICT: STALE/.test(gutted.out));
+    check('T-29 the STALE report names each diverging tree, so the finding is actionable rather than a bare verdict',
+      !!guttedR && ['workflows/', 'skills/', 'scripts/'].every((t) => guttedR.diffs.some((d) => String(d).startsWith(t))));
+    check('T-29 the report declares the comparison set it actually used (coverage is quotable, not folklore)',
+      !!guttedR && !!guttedR.installs[0].compared &&
+      guttedR.installs[0].compared.trees.join(',') === 'agents,commands,hooks,scripts,skills,workflows');
+
+    // ---- Round-1 F5: a registry of the wrong SHAPE is an unreadable environment.
+    // Iterating it unguarded threw out of main(), and an uncaught throw exits 1 — the
+    // STALE code, which commands/expert.md routes to "the plugin is behind and needs
+    // updating": a confident, specific, wrong diagnosis of a broken environment.
+    w(join(tmp, 'cfg', 'plugins', 'installed_plugins.json'),
+      JSON.stringify({ version: 2, plugins: { 'p@m': { scope: 'user', version: '1.0.0', installPath: cache } } }));
+    const shapeFault = runTmp();
+    check('T-29 a registry entry that is an object rather than an array is UNREADABLE with exit 2, never the STALE code',
+      shapeFault.status === 2 && /VERDICT: UNREADABLE/.test(shapeFault.out) && !/^\s*at /m.test(shapeFault.out));
+    w(join(tmp, 'cfg', 'plugins', 'installed_plugins.json'),
+      JSON.stringify({ version: 2, plugins: { 'p@m': [{ scope: 'user', version: '1.0.0' }] } }));
+    check('T-29 an install record with no installPath is UNREADABLE with exit 2 (every unreadable surface fails to the same code)',
+      runTmp().status === 2);
+
+    // ---- Round-3 F1: a matched registry key carrying an EMPTY install-record array
+    // reached the verdict as ZERO comparisons, and zero comparisons resolved to
+    // CURRENT — printed as `installed ? matches working tree 1.0.0`, a match asserted
+    // between a version the script does not know and one it does. Fail-safe defaults:
+    // "I compared nothing" must never resolve to the same answer as "I compared
+    // everything and found no difference." The working tree here differs from the
+    // cache, so the false verdict was not merely vacuous, it was wrong.
+    w(join(tree, 'workflows', 'life.js'), 'export const drifted = 2\n');
+    w(join(tmp, 'cfg', 'plugins', 'installed_plugins.json'),
+      JSON.stringify({ version: 2, plugins: { 'p@m': [] } }));
+    const emptyRecords = runTmp();
+    check('T-29 a registry entry with an EMPTY install-record array is UNREADABLE with exit 2, never CURRENT (zero comparisons is not agreement)',
+      emptyRecords.status === 2 && /VERDICT: UNREADABLE/.test(emptyRecords.out) && !/VERDICT: CURRENT/.test(emptyRecords.out));
+    check('T-29 the empty-install-record report names the entry and asserts no match over a comparison it never ran',
+      /is an empty array/.test(emptyRecords.out) && !/matches working tree/.test(emptyRecords.out));
+
+    // ---- Round-4 N1: reported provenance must BE the provenance the verdict consumed.
+    // `installed_version` carried the registry's `version` string while the staleness
+    // comparison ran against the cache manifest's version, and the two were never
+    // compared to each other — so a drifted registry printed
+    // `CURRENT (installed 1.0.0 matches working tree 9.9.9)`: a faithful quotation of a
+    // false sentence, through the channel commands/expert.md step 1 makes the sole
+    // admissible ground for behavioral claims. Both halves are pinned here: the
+    // divergence is now a first-class problem, and the quotable field is sourced from
+    // the manifest that was actually read.
+    // Resynchronize the cache to the (by now heavily mutated) tree, so the ONLY thing
+    // these probes vary is the field under test. Removed first: cpSync overlays, it
+    // does not delete, and the earlier probe deleted a file from the tree side.
+    rmSync(cache, { recursive: true, force: true });
+    cpSync(tree, cache, { recursive: true });
+    w(join(tmp, 'cfg', 'plugins', 'installed_plugins.json'),
+      JSON.stringify({ version: 2, plugins: { 'p@m': [{ scope: 'user', version: '2.0.0', installPath: cache }] } }));
+    const drifted = runTmp();
+    const driftedR = pfReport(drifted.out);
+    check('T-29 a registry version that disagrees with the cache manifest it points at is UNREADABLE with exit 2, never an affirmative verdict',
+      drifted.status === 2 && /VERDICT: UNREADABLE/.test(drifted.out) && !/VERDICT: CURRENT/.test(drifted.out));
+    check('T-29 the registry-drift problem names BOTH versions, so the owner can see which surface lied',
+      /says version 2\.0\.0/.test(drifted.out) && /manifest at .* says 1\.0\.0/.test(drifted.out));
+    check('T-29 installed_version is read from the cache manifest and the registry\'s claim keeps its own name (reported provenance is the provenance used)',
+      !!driftedR && driftedR.installed_version === '1.0.0' && driftedR.registry_recorded_version === '2.0.0');
+
+    // The same class at the staleness fields: `stale` and `diffs` were the PRIMARY
+    // entry's while the verdict quantifies over every entry that completed a
+    // comparison, so a clean user-scope install alongside a stale project-scope one
+    // printed `stale: false, diffs: []` directly above the line `VERDICT: STALE`.
+    const cacheB = join(tmp, 'cfg', 'plugins', 'cache', 'p2');
+    cpSync(tree, cacheB, { recursive: true });
+    w(join(cacheB, 'workflows', 'life.js'), 'export const stubbed = 0\n');
+    w(join(tmp, 'cfg', 'plugins', 'installed_plugins.json'), JSON.stringify({
+      version: 2,
+      plugins: { 'p@m': [
+        { scope: 'user', version: '1.0.0', installPath: cache },
+        { scope: 'project', version: '1.0.0', installPath: cacheB },
+      ] },
+    }));
+    const twoScope = runTmp();
+    const twoScopeR = pfReport(twoScope.out);
+    check('T-29 a stale NON-primary install still yields STALE with exit 1 (the verdict quantifies over every completed comparison)',
+      twoScope.status === 1 && /VERDICT: STALE/.test(twoScope.out));
+    check('T-29 the report\'s stale/diffs fields carry what the verdict rests on, not the primary record\'s (no report contradicting its own verdict line)',
+      !!twoScopeR && twoScopeR.stale === true && twoScopeR.diffs.some((d) => String(d).startsWith('workflows/')));
+    check('T-29 the STALE line names the diverging install rather than the clean primary one',
+      twoScope.out.includes(cacheB) && !new RegExp(`VERDICT: STALE \\([^)]*${cache.replace(/[\\^$*+?.()|[\]{}]/g, '\\$&')}[;)]`).test(twoScope.out));
+  }
+
+  // ---- Round-2 F2: a tree that could not be READ must never contribute CURRENT. The
+  // digest walk used to swallow the directory-read failure and return an empty map, so
+  // two trees that were never opened compared EQUAL — the one path by which this script
+  // could answer CURRENT over a comparison it did not perform, while commands/expert.md
+  // forbids any behavioral claim not resting on this report. Driven by making the tree
+  // path a regular FILE on both sides with different bytes: existsSync passes, the
+  // directory read raises ENOTDIR, and the two sides are demonstrably different.
+  {
+    const tmp2 = mkdtempSync(join(tmpdir(), 'edt-pf-unread-'));
+    const cache2 = join(tmp2, 'cfg', 'plugins', 'cache', 'q');
+    const tree2 = join(tmp2, 'worktree');
+    const w2 = (p, s) => { mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, s); };
+    for (const [root, body] of [[cache2, 'cache side'], [tree2, 'worktree side — different bytes']]) {
+      w2(join(root, '.claude-plugin', 'plugin.json'), JSON.stringify({ name: 'q', version: '1.0.0' }));
+      w2(join(root, 'scripts'), body); // `scripts` is a FILE, not a directory
+    }
+    w2(join(tmp2, 'cfg', 'plugins', 'installed_plugins.json'),
+      JSON.stringify({ version: 2, plugins: { 'q@m': [{ scope: 'user', version: '1.0.0', installPath: cache2 }] } }));
+    let unread;
+    try { unread = { status: 0, out: execFileSync(process.execPath, [pf, 'q', tree2], { env: { ...process.env, CLAUDE_CONFIG_DIR: join(tmp2, 'cfg') }, encoding: 'utf8', stdio: 'pipe' }) }; }
+    catch (e) { unread = { status: e.status ?? -1, out: String(e.stdout || '') }; }
+    check('T-29 an unreadable compared tree is UNREADABLE with exit 2, never CURRENT (a comparison that did not happen is not agreement)',
+      unread.status === 2 && /VERDICT: UNREADABLE/.test(unread.out) && !/VERDICT: CURRENT/.test(unread.out));
+    check('T-29 the UNREADABLE report names the tree it could not read (actionable, not a bare verdict)',
+      /tree 'scripts' could not be read/.test(unread.out));
+  }
+
+  // ---- Round-2 F3: the comparison set IS the verdict's coverage, and the only thing
+  // holding it complete was a comment addressed to a future maintainer. A behavior-
+  // bearing tree added without being listed narrows the verdict silently — CURRENT
+  // still prints, nothing reddens, and commands/expert.md keeps quoting a report whose
+  // scope shrank. The constants are IMPORTED and asserted to partition the real plugin
+  // root, so an unclassified new entry fails this tier instead of passing unseen.
+  {
+    const pfMod = await import(pathToFileURL(pf).href);
+    const { COMPARED_TREES, COMPARED_FILES, EXCLUDED_TREES, EXCLUDED_FILES } = pfMod;
+    // Pinned against LITERALS, not against the constants themselves: a case list derived
+    // from the constant under test shrinks with it and can never fail. The membership
+    // assertions below are stated separately and explicitly for the same reason.
+    check('T-29 COMPARED_TREES is exactly the six behavior-bearing trees (literal pin)',
+      Array.isArray(COMPARED_TREES) &&
+      COMPARED_TREES.slice().sort().join(',') === 'agents,commands,hooks,scripts,skills,workflows');
+    check('T-29 COMPARED_FILES is exactly the two root manifests (literal pin)',
+      Array.isArray(COMPARED_FILES) &&
+      COMPARED_FILES.slice().sort().join(',') === '.claude-plugin/plugin.json,.mcp.json');
+    check('T-29 the excluded sets are exactly docs, tests, and README.md (literal pin)',
+      Array.isArray(EXCLUDED_TREES) && EXCLUDED_TREES.slice().sort().join(',') === 'docs,tests' &&
+      Array.isArray(EXCLUDED_FILES) && EXCLUDED_FILES.slice().sort().join(',') === 'README.md');
+    check('T-29 hooks/ and workflows/ are COMPARED, and docs/ and tests/ are not (explicit membership, independent of the literals above)',
+      COMPARED_TREES.includes('hooks') && COMPARED_TREES.includes('workflows') &&
+      !COMPARED_TREES.includes('docs') && !COMPARED_TREES.includes('tests'));
+    check('T-29 the compared and excluded sets are disjoint (no entry can be claimed both ways)',
+      COMPARED_TREES.every((t) => !EXCLUDED_TREES.includes(t)));
+
+    // Round-3 F1, at the verdict rule itself rather than only through the CLI: an
+    // affirmative verdict requires POSITIVE evidence of a completed comparison. Driven
+    // through the exported function with a registry whose only matching key is empty.
+    const emptyCfg = mkdtempSync(join(tmpdir(), 'edt-empty-'));
+    mkdirSync(join(emptyCfg, 'plugins'), { recursive: true });
+    writeFileSync(join(emptyCfg, 'plugins', 'installed_plugins.json'),
+      JSON.stringify({ version: 2, plugins: { 'z@m': [] } }));
+    const emptyRep = pfMod.preflightDeployment('z', ROOT, emptyCfg);
+    check('T-29 preflightDeployment: an installs list that completed no comparison is UNREADABLE with a stated problem, never CURRENT',
+      emptyRep.verdict === 'UNREADABLE' && emptyRep.installs.length === 0 && emptyRep.problems.length > 0);
+    check('T-29 preflightDeployment: provenance-only over no readable install record is UNREADABLE too (the same rule, worktree omitted)',
+      pfMod.preflightDeployment('z', null, emptyCfg).verdict === 'UNREADABLE');
+
+    // The drift guard itself: every real entry of the plugin root must be classified.
+    // Directories holding a COMPARED_FILES path (`.claude-plugin`) are covered by that
+    // file entry, so they are derived from the constant rather than listed a second time.
+    const fileParents = COMPARED_FILES.filter((f) => f.includes('/')).map((f) => f.split('/')[0]);
+    const rootEntries = readdirSync(ROOT, { withFileTypes: true });
+    const unclassifiedDirs = rootEntries.filter((e) => e.isDirectory())
+      .map((e) => e.name)
+      .filter((n) => !COMPARED_TREES.includes(n) && !EXCLUDED_TREES.includes(n) && !fileParents.includes(n));
+    const unclassifiedFiles = rootEntries.filter((e) => e.isFile())
+      .map((e) => e.name)
+      .filter((n) => !COMPARED_FILES.includes(n) && !EXCLUDED_FILES.includes(n));
+    check(`T-29 every plugin-root directory is classified as compared or excluded (unclassified: ${unclassifiedDirs.join(', ') || 'none'})`,
+      unclassifiedDirs.length === 0);
+    check(`T-29 every plugin-root file is classified as compared or excluded (unclassified: ${unclassifiedFiles.join(', ') || 'none'})`,
+      unclassifiedFiles.length === 0);
+    // The guard must be able to FAIL, or it is decoration. Run the same predicate over a
+    // root carrying an unclassified tree and assert it reddens there.
+    check('T-29-neg the root-classification predicate REJECTS an unclassified new tree (the guard can fail)',
+      (() => {
+        const probe = mkdtempSync(join(tmpdir(), 'edt-cov-'));
+        for (const d of [...COMPARED_TREES, ...EXCLUDED_TREES, 'lib']) mkdirSync(join(probe, d));
+        mkdirSync(join(probe, '.claude-plugin'));
+        const missed = readdirSync(probe, { withFileTypes: true }).filter((e) => e.isDirectory())
+          .map((e) => e.name)
+          .filter((n) => !COMPARED_TREES.includes(n) && !EXCLUDED_TREES.includes(n) && !fileParents.includes(n));
+        return missed.length === 1 && missed[0] === 'lib';
+      })());
+  }
+
+  // Part A wiring: the command's preflight runs the script and carries the bright line.
+  const s1 = cmd.slice(cmd.indexOf('## 1.'), cmd.indexOf('## 2.'));
+  check('T-29 command step 1 runs preflight-deployment.mjs', /preflight-deployment\.mjs/.test(s1));
+  check('T-29 command step 1 carries the no-claim-without-report bright line',
+    /no claim about the\s+running plugin's behavior/.test(s1) && /without quoting this report/.test(s1));
+  check('T-29 command step 1 routes a STALE verdict to stale_deployment (D15), never a live-test verdict',
+    /`stale_deployment` \(D15\)/.test(s1) && /never as a live-test verdict/.test(s1));
+  // ---- Round-3 F3: the script emits four verdicts and the command routed one. An
+  // agent that asked "is it STALE?" and got "no" had satisfied the only test step 1
+  // named, and proceeded to make the behavioral claims the bright line exists to gate —
+  // over an environment the script had just reported it could not read. Complete
+  // mediation applied to an exit contract: every distinguished outcome of a control
+  // needs a stated disposition at its consumer, or the undefined ones collapse into the
+  // default, and here the default is the dangerous one.
+  check('T-29 command step 1 routes an UNREADABLE verdict to a control_fault halt with no behavioral claim',
+    /UNREADABLE \(exit 2\)/.test(s1) && /`control_fault`/.test(s1) &&
+    /make \*\*no\*\* behavioral claim/.test(s1) && /`problems` entries/.test(s1));
+  {
+    // The class assertion, and what makes this a closure rather than a third patch: the
+    // verdict names are LIFTED FROM THE SCRIPT, so a fifth verdict added there fails
+    // this tier until step 1 states what to do with it. A maintained list would not.
+    // Lifted from the lines the script actually PRINTS, which is the emission surface
+    // the consumer reads — not from the assignments, where a ternary hides one arm.
+    const emitted = [...new Set([...readFileSync(pf, 'utf8')
+      .matchAll(/VERDICT: ([A-Z-]+)/g)].map((m) => m[1]))].sort();
+    const unrouted = emitted.filter((v) => !s1.includes(v));
+    check(`T-29 every preflight verdict the script can emit has a disposition in command step 1 (emitted: ${emitted.join(', ')}; unrouted: ${unrouted.join(', ') || 'none'})`,
+      emitted.length === 4 && unrouted.length === 0);
+  }
+
+  // Part B anchors: the evidence ladder in the expert-standard body and frontmatter.
+  const std29 = rd('skills/expert-standard/SKILL.md');
+  check('T-29 expert-standard body carries the evidence ladder ordered docs -> config -> probes -> live',
+    /\(1\) authoritative documentation, \(2\) on-disk configuration and state files, \(3\) cheap read-only command probes, \(4\) live execution/.test(std29));
+  check('T-29 expert-standard body: a live-only declaration must name the checked lower tiers',
+    /can only be verified live/.test(std29) && /named lower tiers that were actually checked/.test(std29));
+  check('T-29 expert-standard failure signals include live-only-declaration and citation-presence',
+    /\*\*Live-only declarations without a lookup trail\.\*\*/.test(std29) &&
+    /\*\*Citation-presence standing in for consultation\.\*\*/.test(std29));
+  const stdFm29 = frontmatter(join(ROOT, 'skills/expert-standard/SKILL.md')) || {};
+  check('T-29 expert-standard frontmatter description carries the live-only activation trigger',
+    /can only be verified live or by running it/.test(stdFm29.description || ''));
+}
+
+// ---- T-31 / T-32: the drift-prone FORMS are eliminated, plugin-wide ---------------
+// Three consecutive rounds filed the same defect against the control that used to sit
+// here: a check guarding hand-maintained derived data, whose own reach was itself hand
+// -maintained. Round 2 (F4) pinned one instance. Round 3 (F2) widened the matcher and
+// reached 18 of the 24 lines it admitted, in skills/ only. Round 4 (N2, N3) found the
+// label claiming totality over the 24 while examining 18, and twelve more instances of
+// the identical construct in agents/, outside the sweep's directory scope entirely.
+// Each fix widened the reach and left a new hand-drawn boundary; the predecessor block
+// was ~190 lines of entry-form heuristics, per-instance DESIGNATIONS carrying prose
+// reasons, and three literal floors and ceilings — maintained surface added to guard
+// maintained surface.
+//
+// This repository has twice proved the alternative (the 0.3.0 gate-count pin; the
+// expert-plan generated regions): hand-maintained derived data does not converge under
+// stricter checking. It converges when the drift-prone FORM stops existing. So two
+// absolute properties replace the sweep, each asserted over the WHOLE plugin:
+//
+//  (1) NO COUNT RESTATEMENT, IN THE ENUMERATED FORMS. A number restating the size
+//      of a population recorded somewhere else carries nothing that population does
+//      not already carry — "Six signals:" and "Signals:" differ only in what can rot.
+//      The recognizer covers the forms below, and the checks claim exactly those
+//      and nothing wider:
+//        (a) a number quantifying a plural noun, no sentence break, terminal colon
+//            — "N signals:", "The N gate types:". "No sentence break" is enforced
+//            as "no period", so a period that is not a sentence break — one inside
+//            an inline path or a version — defeats this form; that is a known gap
+//            below, not a licence. A soft wrap does NOT defeat it in markdown: the
+//            form is tested against the joined block, not the physical line.
+//        (b) a bare count in emphasis — "**N**"
+//        (c) a determiner-quantified population — "all N traps", "one of N forms",
+//            "each of the N roles", "the first N", "these N"
+//        (d) a hyphenated structure count — "N-section", "N-tier"
+//      A number here is a digit standing alone as a word, or a number word two
+//      through twenty. Where a number is genuinely load-bearing the prose points at
+//      the pinned source of truth instead of restating it: each agent's return
+//      contract points at its `jobs:` frontmatter, which T-2b derives from the
+//      workflow's dispatch labels, and commands/expert.md points at spec §3.4, whose
+//      count T-24 derives by lifting and EVALUATING the GATE literal. Neither is a
+//      second copy of a number.
+//
+//      WHAT THESE CHECKS DO NOT COVER — read this before trusting a green line.
+//      The CLASS is "a number restating a population recorded elsewhere". The
+//      recognizer is a regex over prose, and no regex over prose can decide that
+//      class: its boundary is drawn by hand and is incomplete by construction. Round
+//      5 filed exactly that defect against the predecessor of this block — the label
+//      announced the class empty while the predicate saw only the cardinals two
+//      through ten before a terminal colon, and 70 lines carrying the same construct
+//      were live in the plugin at the time. The response is not a wider claim; it is
+//      a claim the recognizer can keep. Deliberate, known gaps: number words above
+//      twenty and their written compounds ("twenty-four"); a count quantifying a
+//      singular or an irregular plural under form (a); the shape-naming compounds
+//      N-way and N-fold, which name a shape rather than a population size (the
+//      contradiction fixture is one, and T-19 pins that word executably); a period
+//      that is not a sentence break standing between the number and the colon under
+//      form (a), which an inline path or a version puts there; a restatement soft-
+//      wrapped in a file that is NOT markdown, where the scanned unit is still the
+//      physical line because nothing outside markdown marks where a block ends; and
+//      any restatement phrased outside the enumerated forms entirely. A number that
+//      escapes the recognizer is not thereby licensed — it is undetected, and this
+//      paragraph is the honest statement of that.
+//  (2) NO BARE LINE CITATION. `path.ext:` followed by a line number has no relationship
+//      to the thing it names, so any insertion above the target silently invalidates it.
+//      Measured before the fix: of the eight cross-file citations in this plugin, six
+//      had already rotted — round 3's own fix commit broke one by editing the file it
+//      cited, and another named a skill that is not part of this plugin at all. A
+//      citation now carries an immutable anchor, `path @ `quoted text``, and this check
+//      READS the target and confirms the anchor is still present there.
+//
+// Reach is a measured property rather than a claim. By DIRECTORY it is total by
+// DEFAULT: the walk covers the whole plugin root except the one declared record tree,
+// so a new tree is in reach without anyone maintaining a list. By FILE TYPE it is NOT
+// total — the walk collects the extensions in SCANNED_EXT, and a prose-bearing file
+// outside that set is unscanned — so every label below names the extension set instead
+// of saying "anywhere". Nothing here has a per-instance allowlist, a designation, or a
+// floor on a population it measures; the single floor is on the WALK, and the comment
+// beside it says why that is a different thing.
+{
+  // docs/ holds dated records — review rounds, specs, architectures — each a statement
+  // of what was true at its commit. Rewriting their citations would falsify the record,
+  // so they are out of reach. This is the ONLY exclusion, and it is pinned to exactly
+  // one entry so it cannot quietly grow into the hand-drawn boundary this block exists
+  // to remove.
+  const RECORD_TREES = ['docs'];
+  check(`T-31 the record-tree exclusion is exactly docs/ (literal pin; everything else is in reach by default)`,
+    RECORD_TREES.length === 1 && RECORD_TREES[0] === 'docs');
+
+  // The scan is bounded by extension as well as by directory. Every prose-bearing
+  // extension this plugin uses is listed, and the narrowing is disclosed in the label
+  // of every check that consumes it: a check whose label claims more reach than it has
+  // is precisely the defect this block was rewritten to stop committing.
+  const SCANNED_EXT = /\.(md|mjs|js|json|ya?ml|txt)$/;
+  const EXT_LIST = 'md, mjs, js, json, yaml, yml, txt';
+  const walk = (dir, rel, skip, acc) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const childRel = rel ? `${rel}/${e.name}` : e.name;
+      if (e.isDirectory()) {
+        if (e.name === '.git' || e.name === 'node_modules' || skip.includes(childRel)) continue;
+        walk(join(dir, e.name), childRel, skip, acc);
+      } else if (SCANNED_EXT.test(e.name)) acc.push(childRel);
+    }
+    return acc;
+  };
+  const inReach = walk(ROOT, '', RECORD_TREES, []);
+  // The record tree is out of SCAN reach but is a legitimate citation TARGET — the
+  // architecture and the spec are exactly what live code should be citing. Resolution
+  // and anchor-reading therefore run over the whole plugin, scanning only over reach.
+  const everyFile = walk(ROOT, '', [], []);
+  const body = new Map(everyFile.map((r) => [r, readFileSync(join(ROOT, r), 'utf8')]));
+  const allFiles = new Set(everyFile);
+  const byBasename = new Map();
+  for (const r of everyFile) {
+    const b = r.slice(r.lastIndexOf('/') + 1);
+    byBasename.set(b, (byBasename.get(b) || []).concat(r));
+  }
+
+  // A floor on the WALK, not on any population it measures: it fails when the walker
+  // silently stops descending, which is the only way either property below could go
+  // green by covering nothing. Pinned against a literal, never against itself.
+  check(`T-31 the reach walk covers the live plugin (files in reach: ${inReach.length}, floor 30)`,
+    inReach.length >= 30);
+  check('T-31 the reach includes every live tree — agents, commands, hooks, scripts, skills, workflows, tests — and excludes the record tree',
+    ['agents', 'commands', 'hooks', 'scripts', 'skills', 'workflows', 'tests'].every((t) => inReach.some((r) => r.startsWith(t + '/')))
+    && !inReach.some((r) => r.startsWith('docs/')));
+
+  // ---- Property 1: no count restatement in the recognized forms -------------------
+  // The forms, and what they do not cover, are enumerated at the top of this block.
+  // Each is a separate NAMED predicate, so a failure reports which form fired and a
+  // future widening is an entry added here rather than an edit inside a regex nobody
+  // can read.
+  const CARDINALS = ['two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
+    'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen',
+    'seventeen', 'eighteen', 'nineteen', 'twenty'];
+  // A digit is a count only where it stands alone as a word. An adjacent word
+  // character, dot or hyphen makes it a date, a version, a section number, an
+  // ordered-list marker or an identifier — "Case 1", "§3.4", "2026-08-21" — and none
+  // of those restate a population.
+  const NUM = `(?:(?<![\\w.§-])\\d{1,3}(?![\\w.-])|${CARDINALS.join('|')})`;
+  const COUNT_FORMS = [
+    // (a) The number quantifies a plural noun and the clause ends in a colon, so the
+    // list that follows IS the population and the number is a second copy of its
+    // length. Requiring the plural noun is what keeps identifier numbers out; the
+    // no-sentence-break requirement is round 3's definition, unchanged.
+    // NOT_A_NOUN closes a hole the word "plural noun" always meant to close and
+    // the pattern `[a-z][\w-]*s` never did: it matches any lowercase word ending
+    // in s, so "index 1 is the plant" read as a count of "is". These are the
+    // English -s words that can stand where the quantified noun stands and are
+    // never a plural noun there — verb forms and function words. This is part of
+    // the predicate's grammar, like CARDINALS, not an allowlist of instances:
+    // nothing in the plugin is named here and adding a file cannot require an
+    // entry.
+    ['quantifier before a terminal colon',
+      new RegExp(`\\b${NUM}\\s+(?:[\\w'’-]+\\s+){0,2}(?!(?:is|was|has|does|goes|its|this|thus|his|us|as|plus|less|versus)\\b)[a-z][\\w-]*s\\b(?=[^.]*:$)`, 'i')],
+    // (c) A population named by a determiner and a size, the size kept in step by
+    // hand with a list that often lives in another file — the worst of them,
+    // because no reader ever sees the number and the population together.
+    ['determiner-quantified population',
+      new RegExp(`\\b(?:all|both|each of the|one of|any of|the first|the last|the other|these|those)\\s+(?:the\\s+)?${NUM}\\b`, 'i')],
+    // (d) The same restatement folded into a compound adjective.
+    ['hyphenated structure count',
+      new RegExp(`\\b${NUM}-(?:part|section|step|field|gate|tier|axis|axes|phase|stage|column|item|entry|categor|source|criteri|question|check|round|line|point|element|clause|word)s?\\b`, 'i')],
+  ];
+  // Prose wraps, and a restatement is a property of a SENTENCE. Round 6 filed
+  // exactly that gap against the predecessor of these lines: the identical text
+  // was caught on one physical line and invisible when a soft wrap fell between
+  // "The seven gate types and" and "what each asks:", while a live instance sat
+  // in commands/expert.md and the label printed `found: none`. The forms are
+  // therefore tested against a LOGICAL line — in markdown, the block a physical
+  // line belongs to, joined across its soft-wrapped continuations. The block
+  // boundaries are STRUCTURAL — a blank line, a fence, the frontmatter, or a
+  // line that opens a new markdown block — so nothing here is a maintained list.
+  // Outside markdown every physical line is its own logical line; that narrowing
+  // is stated in the label and in the known-gaps paragraph above.
+  const BLOCK_START = /^\s*(?:[-*+]\s|\d{1,3}[.)]\s|#{1,6}\s|>|\||---\s*$|===)/;
+  const logicalLines = (rel, src) => {
+    const lines = (src ?? body.get(rel)).split(/\r?\n/);
+    const solo = (l, i) => ({ text: l, parts: [[i + 1, 0]] });
+    if (!rel.endsWith('.md')) return lines.map(solo);
+    const out = [];
+    let cur = null, fence = false, front = lines[0] === '---';
+    lines.forEach((l, i) => {
+      if (front) { cur = null; out.push(solo(l, i)); if (i > 0 && l === '---') front = false; return; }
+      if (/^\s*(?:```|~~~)/.test(l)) { fence = !fence; cur = null; out.push(solo(l, i)); return; }
+      if (fence || !l.trim()) { cur = null; out.push(solo(l, i)); return; }
+      if (cur && !BLOCK_START.test(l)) { cur.parts.push([i + 1, cur.text.length + 1]); cur.text += ` ${l.trim()}`; return; }
+      cur = { text: l.trim(), parts: [[i + 1, 0]] };
+      out.push(cur);
+    });
+    return out;
+  };
+  // A joined block reports the physical line the match actually starts on, not
+  // the block's first line, so the report stays a location a reader can open.
+  const lineOf = (ll, idx) => {
+    let n = ll.parts[0][0];
+    for (const [ln, off] of ll.parts) if (off <= idx) n = ln;
+    return n;
+  };
+
+  const stated = [];
+  for (const rel of inReach)
+    for (const ll of logicalLines(rel))
+      for (const [name, re] of COUNT_FORMS) {
+        const m = re.exec(ll.text);
+        if (m) { stated.push(`${rel}:${lineOf(ll, m.index)} [${name}]`); break; }
+      }
+  check(`T-31 no count restatement in header form (a), (c) or (d) exists in any scanned file — the assertion is the absence of THOSE FORMS, never of the class (forms: ${COUNT_FORMS.map(([n]) => n).join('; ')}; numbers: a standalone digit or a number word two through twenty; extensions: ${EXT_LIST}; scanned unit: in md a markdown block joined across its soft-wrapped lines, elsewhere a physical line; record tree docs/ out of scan reach; uncovered forms named in this block's header) (found: ${stated.join('; ') || 'none'})`,
+    stated.length === 0);
+
+  // (b) A number a maintainer must keep in step with a list of its own, in emphasis.
+  // The ten agent return contracts each carried one restating the `jobs:` value
+  // derived two dozen lines above it; every one now points at `jobs:` instead.
+  const emphasizedCount = new RegExp(`\\*\\*(?:${NUM})\\*\\*`, 'i');
+  const emphasized = [];
+  for (const rel of inReach)
+    for (const ll of logicalLines(rel)) {
+      const m = emphasizedCount.exec(ll.text);
+      if (m) emphasized.push(`${rel}:${lineOf(ll, m.index)}`);
+    }
+  check(`T-31 no bare count in emphasis (header form (b)) exists in any scanned file — the assertion is the absence of THAT FORM, never of the class (numbers: a standalone digit or a number word two through twenty; extensions: ${EXT_LIST}; scanned unit: in md a markdown block joined across its soft-wrapped lines, elsewhere a physical line) (found: ${emphasized.join('; ') || 'none'})`,
+    emphasized.length === 0);
+
+  // ---- Property 2: every cross-file citation carries a live anchor ------------------
+  // Only comment lines are scanned for the BARE form: a location-shaped string on a code
+  // line is test data (the location-grammar fixtures in this very file), not a
+  // citation, and a check that cannot tell them apart would have to keep a list of the
+  // ones to ignore — the maintained surface this block exists to delete.
+  const commentLines = (rel) => {
+    const lines = body.get(rel).split(/\r?\n/);
+    if (rel.endsWith('.md') || rel.endsWith('.json')) return lines.map((l, i) => [l, i + 1]);
+    return lines.map((l, i) => [l, i + 1]).filter(([l]) => /^\s*(\/\/|\*|\/\*)/.test(l));
+  };
+  const BARE = /\b[\w./-]+\.(?:mjs|js|json|md):\d+/;
+  const ANCHORED = /([\w./-]+\.(?:mjs|js|json|md))\s*@\s*`([^`\n]+)`/g;
+
+  const bare = [];
+  const anchored = [];
+  for (const rel of inReach)
+    for (const [l, n] of commentLines(rel)) {
+      const withoutAnchors = l.replace(ANCHORED, '');
+      if (BARE.test(withoutAnchors)) bare.push(`${rel}:${n} -> ${withoutAnchors.trim().slice(0, 60)}`);
+      for (const m of l.matchAll(ANCHORED)) anchored.push({ from: `${rel}:${n}`, target: m[1], anchor: m[2] });
+    }
+  check(`T-32 no bare line citation exists in any scanned file — in code files only comment lines are scanned, for the reason above (extensions: ${EXT_LIST}) (found: ${bare.join(' | ') || 'none'})`,
+    bare.length === 0);
+
+  // Resolution is by full relative path, or by a basename that is unique in the plugin.
+  // An ambiguous or absent target is a failure, not a skip — the citation that named
+  // skills/workflow-creator/SKILL.md pointed at a file this plugin does not contain, and
+  // a resolver that skipped what it could not find would have reported that green.
+  const unresolved = [];
+  const dead = [];
+  for (const c of anchored) {
+    let target = allFiles.has(c.target) ? c.target : null;
+    if (!target) {
+      const b = c.target.slice(c.target.lastIndexOf('/') + 1);
+      const hits = (byBasename.get(b) || []).filter((r) => r.endsWith(c.target));
+      if (hits.length === 1) target = hits[0];
+    }
+    if (!target) { unresolved.push(`${c.from} -> ${c.target}`); continue; }
+    if (!body.get(target).includes(c.anchor)) dead.push(`${c.from} -> ${target} @ ${c.anchor}`);
+  }
+  check(`T-32 every anchored citation resolves to a file in the plugin (unresolved: ${unresolved.join(' | ') || 'none'})`,
+    unresolved.length === 0);
+  check(`T-32 every anchored citation's anchor is still present at its target (dead: ${dead.join(' | ') || 'none'})`,
+    dead.length === 0);
+
+  // ---- Both predicates must be able to FAIL, or every assertion above is decoration.
+  // The probe strings are ASSEMBLED rather than written whole: a literal instance of a
+  // recognized form on these lines would be found by the scan above, which reaches
+  // this file too.
+  const anyCountForm = (l) => COUNT_FORMS.some(([, re]) => re.test(l));
+  check('T-31-neg every recognized form fires, and ordinary prose and identifier numbers do not',
+    anyCountForm('Intro line. There are ' + 'eleven signals:')
+    && anyCountForm('The ' + '12 gate types:')
+    && anyCountForm('Read all ' + 'five parts before starting')
+    && anyCountForm('per the sixteen' + '-section specification')
+    && emphasizedCount.test('a count in ' + '**' + '7**' + ' emphasis')
+    && !anyCountForm('a sentence with three widgets in it.')
+    && !anyCountForm('There were three. Now consider the following:')
+    && !anyCountForm('Case 1 ' + '— the observed shape:')
+    && !anyCountForm('the surface defined by Phase 9' + '’s threat model:')
+    && !anyCountForm('read 2026-08-21 against the published text:')
+    // NOT_A_NOUN: the word after the number ends in s and is a verb, so nothing is
+    // being counted. Paired with the positive above so the guard cannot pass by
+    // rejecting everything.
+    && !anyCountForm('the entry at index 1 is the plant, for example:')
+    && anyCountForm('the entry at index ' + '4 plants the fault:'));
+
+  // The join must be able to FAIL in both directions, or it is decoration too: it
+  // has to see a restatement a physical-line scan misses, and it must not
+  // MANUFACTURE one by gluing two lines that markdown keeps apart. The second
+  // direction is the one that would quietly turn this block into a nuisance.
+  const joinHits = (src) => {
+    const hits = [];
+    for (const ll of logicalLines('probe.md', src))
+      for (const [, re] of COUNT_FORMS) if (re.test(ll.text)) { hits.push(ll.parts[0][0]); break; }
+    return hits;
+  };
+  check('T-31-neg the logical-line join sees a soft-wrapped restatement and manufactures none across a markdown block boundary',
+    // wrapped forms (a) and (c) — invisible to a physical-line scan, caught here
+    joinHits('The ' + 'seven gate types and\nwhat each asks:\n').length === 1
+    && joinHits('There are ' + 'eleven signals and\nwhat each does:\n').length === 1
+    && joinHits('Read each of the\n' + 'five traps before starting\n').length === 1
+    // and the same text unwrapped still fires, so the join widened rather than moved the reach
+    && joinHits('The ' + 'seven gate types and what each asks:\n').length === 1
+    // boundaries: frontmatter, blank line, list item, fence — none may be joined
+    && joinHits('---\n' + 'jobs: 1\nreturns:\n---\n').length === 0
+    && joinHits('with ' + 'four fields\n\nand these things:\n').length === 0
+    && joinHits('- an item with ' + 'four fields\n- another item:\n').length === 0
+    && joinHits('```\n' + 'four fields\nand these things:\n```\n').length === 0
+    // ordinary prose across a wrap: the sentence break survives the join
+    && joinHits('a sentence with ' + 'three widgets in it.\nNow consider the following:\n').length === 0);
+  check('T-32-neg the citation predicates fire on a bare line number and on a dead anchor',
+    BARE.test('// see workflows/expert-lifecycle.js' + ':988')
+    && !BARE.test('// see workflows/expert-lifecycle.js @ `delta.phase`')
+    && !readFileSync(join(ROOT, 'workflows/expert-lifecycle.js'), 'utf8').includes('a string that is deliberately not in the workflow'));
+}
+
+// ---- T-30: Stop-event continuation gate (corrections-0.4.0, agent-quits-midtask) ----
+// The hook's verdicts are EXECUTED, never read off the source. Each case spawns the real
+// script, pipes a real Stop-hook stdin payload, and observes the exit code the harness
+// would act on: 0 allows the stop, 2 blocks it and feeds stderr back to the agent.
+// A spawn failure yields status -1, which matches no expected code, so every case in
+// this block fails closed rather than silently passing.
+{
+  const gate = join(ROOT, 'hooks/continuation-gate.mjs');
+  check('T-30 hook script continuation-gate.mjs present', existsSync(gate));
+  let gateSyntaxOk = true;
+  try { execFileSync(process.execPath, ['--check', gate], { stdio: 'pipe' }); } catch { gateSyntaxOk = false; }
+  check('T-30 hook script passes node --check', gateSyntaxOk);
+
+  const fxc = join(ROOT, 'tests/fixture/continuation');
+  // The fixtures must be REAL ledgers, or the executed cases below prove nothing about
+  // the shape the /expert command actually writes. Validated against ledger.schema.json
+  // by the plugin's own validator, so a schema change breaks these fixtures loudly.
+  const validator = join(ROOT, 'scripts/validate-ledger.mjs');
+  for (const f of ['complete', 'open-gate', 'no-gate', 'closeout']) {
+    let ok = true;
+    try { execFileSync(process.execPath, [validator, join(fxc, f, '.claude/expert/ledger.json')], { stdio: 'pipe' }); }
+    catch { ok = false; }
+    check(`T-30 fixture ${f}: is a schema-valid ledger (fixtures cannot drift from the real shape)`, ok);
+  }
+  check('T-30 fixture no-ledger: genuinely has no ledger (the inert-session case is real)',
+    !existsSync(join(fxc, 'no-ledger/.claude/expert/ledger.json')));
+  // The counterpart of the four valid fixtures: a real pre-0.4.0 ledger, invalid ONLY
+  // because task_verbatim postdates it. Deliberately invalid, so it is asserted invalid
+  // here — otherwise a later schema change could quietly make it valid and the
+  // unresumable-ledger case below would stop testing anything.
+  check('T-30 fixture invalid: is genuinely schema-INVALID (the unresumable-ledger case is real)',
+    (() => {
+      try { execFileSync(process.execPath, [validator, join(fxc, 'invalid/.claude/expert/ledger.json')], { stdio: 'pipe' }); return false; }
+      catch { return true; }
+    })());
+
+  // Spawn the gate with a real Stop payload. `env` is controlled EXPLICITLY on every
+  // case: CLAUDE_PROJECT_DIR is the root the hook must prefer, so leaving the ambient
+  // value in place would silently point every case at this repo's own ledger. Passing
+  // it as null deletes it, which is how the `cwd` fallback is exercised.
+  // This helper is the env rule for the payload-driven spawns below — runGateHook and
+  // runGateRaw — so neither can quietly inherit the ambient CLAUDE_PROJECT_DIR and pass
+  // because nothing was in reach rather than because the hook behaved. It is NOT the only
+  // place the gate's environment is built: the closeout-age case and the staleness case
+  // further down construct `env` inline, each assigning CLAUDE_PROJECT_DIR unconditionally
+  // to the temp root it just created — safe for the same reason, but by their own
+  // construction rather than through this helper. Nothing enforces the split, so an audit
+  // of this block for ambient inheritance must check those sites as well as this one.
+  const gateEnv = (projectDir = null) => {
+    const env = { ...process.env };
+    delete env.CLAUDE_PROJECT_DIR;
+    if (projectDir) env.CLAUDE_PROJECT_DIR = projectDir;
+    return env;
+  };
+  const runGateHook = (fixtureDir, extra = {}, projectDir = null) => {
+    const payload = JSON.stringify({
+      session_id: 'fixture', hook_event_name: 'Stop', permission_mode: 'default',
+      transcript_path: join(fxc, 'transcript.jsonl'), cwd: join(fxc, fixtureDir), ...extra,
+    });
+    const env = gateEnv(projectDir);
+    // spawnSync, not execFileSync: stderr is load-bearing on BOTH paths here — the block
+    // reason on exit 2, and the fail-open note on exit 0 — and execFileSync surfaces
+    // stderr only when it throws. A spawn failure has no status; it maps to -1, which
+    // matches no expected code, so every case fails closed.
+    const r = spawnSync(process.execPath, [gate], { input: payload, encoding: 'utf8', env });
+    return {
+      status: r.error || r.status === null ? -1 : r.status,
+      stdout: String(r.stdout || ''),
+      stderr: String(r.stderr || ''),
+    };
+  };
+  // Same spawn, same env rule, but the stdin bytes are the input under test rather than a
+  // well-formed payload — so the degenerate-stdin cases below name the root they run
+  // against instead of inheriting one.
+  const runGateRaw = (input, projectDir = null) => {
+    const r = spawnSync(process.execPath, [gate], { input, encoding: 'utf8', env: gateEnv(projectDir) });
+    return {
+      status: r.error || r.status === null ? -1 : r.status,
+      stderr: String(r.stderr || ''),
+    };
+  };
+
+  check('T-30 exec (a) no ledger -> exit 0 (ordinary sessions are never governed)',
+    runGateHook('no-ledger').status === 0);
+  check('T-30 exec (b) phase complete -> exit 0 (a finished lifecycle may end its turn)',
+    runGateHook('complete').status === 0);
+  // The check that proves the correction cannot cause gate-blindness: every §3.4 gate
+  // type reaches the owner through an unresolved escalations entry, so this path allowing
+  // the stop IS "legitimate halts keep halting".
+  check('T-30 exec (c) mid-phase with an unresolved escalation -> exit 0 (legitimate §3.4 halts still halt)',
+    runGateHook('open-gate').status === 0);
+
+  const blocked = runGateHook('no-gate');
+  check('T-30 exec (d) mid-phase with every escalation resolved -> exit 2 (the untyped halt is blocked)',
+    blocked.status === 2);
+  check('T-30 exec (d) the block carries a non-empty stderr reason naming the phase',
+    blocked.stderr.trim().length > 0 && /implement/.test(blocked.stderr));
+  // The reprompt content is load-bearing: it must route back into the reviewed lifecycle
+  // rather than invite inline work, which is what keeps the step-4b gate rule intact.
+  check('T-30 exec (e) the block reason routes to /expert resume, not to inline work',
+    /\/expert resume/.test(blocked.stderr));
+  check('T-30 exec (f) the block reason names the list as the exhaustive test',
+    /§3\.4/.test(blocked.stderr) && /control_fault/.test(blocked.stderr) && /intent/.test(blocked.stderr));
+
+  check('T-30 exec (g) stop_hook_active on the blocking fixture -> exit 0 (loop guard observed)',
+    runGateHook('no-gate', { stop_hook_active: true }).status === 0);
+
+  // Fail OPEN, deliberately: a corrupt ledger must never trap the owner's session in an
+  // unbreakable stop loop. This hook is a continuation aid, not an integrity control —
+  // the asymmetry against the workflow's fail-closed gates is the documented decision.
+  const corrupt = runGateHook('corrupt');
+  check('T-30 exec (h) an unparseable ledger -> exit 0 with a stderr note (fails OPEN by design)',
+    corrupt.status === 0 && /unparseable/.test(corrupt.stderr));
+  // Degenerate stdin. The old single case here asserted "empty stdin -> exit 0 (a
+  // malformed hook payload never traps the session)" while inheriting the ambient
+  // CLAUDE_PROJECT_DIR, so it passed whenever no ledger happened to be in reach and went
+  // red inside any project running a lifecycle — a green that meant nothing either way.
+  // It also conflated inputs the hook treats DIFFERENTLY, which is the reason the
+  // universal in that label was never earned. hooks/continuation-gate.mjs @
+  // `raw.trim() === '' ? null : JSON.parse(raw)`: empty stdin is an ABSENT payload, so the
+  // decision proceeds on the ledger, and only unparseable stdin is the malformed one that
+  // fails open. Every case below names the root it runs against.
+  check('T-30 exec (i) empty stdin with no lifecycle in reach -> exit 0 (a payloadless invocation never crashes the hook)',
+    runGateRaw('', join(fxc, 'no-ledger')).status === 0);
+  // Pins the consequence of treating empty stdin as an absent payload rather than a
+  // malformed one: the ledger still decides, and because no stop_hook_active field can
+  // arrive on this path the loop guard is unavailable — the platform's stop-hook block cap
+  // is then the only bound. Asserted as the behavior that IS, so a change to the null-input
+  // branch cannot pass silently.
+  const emptyBlocking = runGateRaw('', join(fxc, 'no-gate'));
+  check('T-30 exec (i2) empty stdin with the blocking ledger in reach -> exit 2 (an absent payload takes the ledger path, so the loop guard cannot fire here)',
+    emptyBlocking.status === 2 && /§3\.4/.test(emptyBlocking.stderr));
+  // The property the old label's universal actually named, now pinned where it is not
+  // vacuous: a malformed payload fails OPEN even with a blocking ledger reachable.
+  const garbageBlocking = runGateRaw('not a payload', join(fxc, 'no-gate'));
+  check('T-30 exec (i3) unparseable stdin with the blocking ledger in reach -> exit 0 with a stderr note (a malformed payload really never traps the session)',
+    garbageBlocking.status === 0 && /hook input unreadable/.test(garbageBlocking.stderr));
+
+  // ---- Round-1 F1: the ledger root is CLAUDE_PROJECT_DIR, not the payload's cwd.
+  // The platform hooks contract states the two diverge — CLAUDE_PROJECT_DIR stays at
+  // the project root while cwd follows Claude into a worktree or a `cd`. Resolving
+  // from cwd made the gate go inert in exactly the long, deep sessions it exists for,
+  // and nothing surfaced the miss. Both directions are executed, because pinning only
+  // the preference would pass on a hook that ignored cwd entirely.
+  check('T-30 exec (j) CLAUDE_PROJECT_DIR names the blocking ledger while cwd has none -> exit 2 (the project root wins)',
+    runGateHook('no-ledger', {}, join(fxc, 'no-gate')).status === 2);
+  check('T-30 exec (k) CLAUDE_PROJECT_DIR names a ledgerless root while cwd has the blocking one -> exit 0 (cwd never overrides the project root)',
+    runGateHook('no-gate', {}, join(fxc, 'no-ledger')).status === 0);
+  check('T-30 exec (l) with CLAUDE_PROJECT_DIR unset, cwd is the fallback root -> exit 2',
+    runGateHook('no-gate').status === 2);
+
+  // ---- Round-1 F2: blocking requires POSITIVE evidence of an in-flight lifecycle.
+  // The unresumable case below is a ledger sitting at a phase that is not the literal
+  // string 'complete' — the state the plugin's own repository was found in, where the
+  // gate blocked every end-of-turn and demanded a `/expert resume` that the ledger's
+  // own invalidity made impossible.
+  //
+  // ---- Round-2 F1: 'closeout' is NOT an exempt phase. The closeout dispatch writes
+  // the report, commits, and opens the PR
+  // (workflows/expert-lifecycle.js @ `Closeout: write the final report against the spec`)
+  // and only then is workflows/expert-lifecycle.js @ `delta.phase = 'complete'`
+  // written, so a live closeout is maximally in
+  // flight. Both directions are executed on COPIES in temp dirs, because the mtime is
+  // an input under test here: the checked-in fixture's own mtime is whatever git left,
+  // so asserting either verdict against it in place would measure the clock, not the
+  // phase rule. Freshening it is what makes the block attributable to the phase axis.
+  {
+    const closeoutSrc = readFileSync(join(fxc, 'closeout/.claude/expert/ledger.json'));
+    const atAge = (ageDays) => {
+      const root = mkdtempSync(join(tmpdir(), 'edt-closeout-'));
+      const led = join(root, '.claude', 'expert', 'ledger.json');
+      mkdirSync(dirname(led), { recursive: true });
+      writeFileSync(led, closeoutSrc);
+      const t = (Date.now() - ageDays * 86400000) / 1000;
+      utimesSync(led, t, t);
+      const env = { ...process.env }; env.CLAUDE_PROJECT_DIR = root;
+      const r = spawnSync(process.execPath, [gate],
+        { input: JSON.stringify({ hook_event_name: 'Stop', cwd: root }), encoding: 'utf8', env });
+      return { status: r.error || r.status === null ? -1 : r.status, stderr: String(r.stderr || '') };
+    };
+    const liveCloseout = atAge(0);
+    check('T-30 exec (m) a FRESH closeout with every escalation resolved -> exit 2 (the report, commit and PR are still ahead of the agent)',
+      liveCloseout.status === 2);
+    check('T-30 exec (m) the closeout block carries the reason naming the phase and routing to /expert resume',
+      /closeout/.test(liveCloseout.stderr) && /\/expert resume/.test(liveCloseout.stderr));
+    check('T-30 exec (m2) an ABANDONED closeout -> exit 0 via the staleness axis (the real case the exemption was added for needs no exemption)',
+      atAge(10).status === 0);
+  }
+  const unresumable = runGateHook('invalid');
+  check('T-30 exec (n) a schema-INVALID ledger -> exit 0 with a note saying it is not resumable (never demand an impossible resume)',
+    unresumable.status === 0 && /not schema-valid/.test(unresumable.stderr) && /not resumable/.test(unresumable.stderr));
+
+  // ---- Round-1 F2, staleness: nothing else ever expires a ledger, so without a
+  // bounded activity window one abandoned run governs every future session in the
+  // project forever. Executed on a COPY in a temp dir — the mtime is the input under
+  // test, and the checked-in fixtures must not be touched to supply it.
+  {
+    const tmp = mkdtempSync(join(tmpdir(), 'edt-stale-'));
+    const led = join(tmp, '.claude', 'expert', 'ledger.json');
+    mkdirSync(dirname(led), { recursive: true });
+    writeFileSync(led, readFileSync(join(fxc, 'no-gate/.claude/expert/ledger.json')));
+    const runAt = (ageDays) => {
+      const t = (Date.now() - ageDays * 86400000) / 1000;
+      utimesSync(led, t, t);
+      const env = { ...process.env }; delete env.CLAUDE_PROJECT_DIR; env.CLAUDE_PROJECT_DIR = tmp;
+      const r = spawnSync(process.execPath, [gate],
+        { input: JSON.stringify({ hook_event_name: 'Stop', cwd: tmp }), encoding: 'utf8', env });
+      return { status: r.error || r.status === null ? -1 : r.status, stderr: String(r.stderr || '') };
+    };
+    check('T-30 exec (o) a ledger written minutes ago at a mid-phase -> exit 2 (fresh work is in flight)',
+      runAt(0).status === 2);
+    const old = runAt(8);
+    check('T-30 exec (p) the same ledger 8 days untouched -> exit 0 with a staleness note (an abandoned run governs nothing)',
+      old.status === 0 && /abandoned/.test(old.stderr));
+  }
+
+  // The fail-open policy is a decision a reader must be able to find, not folklore.
+  const gateSrc = rd('hooks/continuation-gate.mjs');
+  check('T-30 the fail-open choice and its asymmetry with the fail-closed gates are documented in the script',
+    /FAIL OPEN, DELIBERATELY/.test(gateSrc) && /fail-closed/.test(gateSrc) &&
+    /continuation AID, not an integrity control/i.test(gateSrc));
+}
 
 console.log(failures ? `\nSTRUCTURAL TESTS FAILED (${failures})` : '\nSTRUCTURAL TESTS PASSED');
 process.exit(failures ? 1 : 0);

@@ -12,7 +12,7 @@ You are writing a specification. A spec is a contract between intent and executi
 
 
 
-The measure of a spec is what it enables downstream. A good spec lets an architect choose between valid designs and know they're all acceptable. It lets a reviewer check a build against it and reach a defensible conclusion about whether it's done. It lets a stakeholder read it and know what they're getting before work starts. A spec that fails any of these three tests isn't finished — it's just a document.
+The measure of a spec is what it enables downstream. A good spec lets an architect choose between valid designs and know they're all acceptable. It lets a reviewer check a build against it and reach a defensible conclusion about whether it's done. It lets a stakeholder read it and know what they're getting before work starts. A spec that fails any of these tests isn't finished — it's just a document.
 
 
 
@@ -36,7 +36,7 @@ This is why every non-trivial requirement needs to trace to something outside th
 
 
 
-Three signals that this is happening:
+Signals that this is happening:
 
 
 
@@ -60,7 +60,7 @@ Delivering a spec is a claim that the information set is complete for what the s
 
 
 
-So missing information is a stop condition, not a note-and-continue one. The moment you find you lack something the spec needs, stop writing around it and place it in exactly one of three:
+So missing information is a stop condition, not a note-and-continue one. The moment you find you lack something the spec needs, stop writing around it and place it in exactly one of the following:
 
 
 
@@ -124,7 +124,7 @@ If anything is genuinely ambiguous — meaning you cannot determine the answer f
 
 
 
-Read the project's relevant context — CLAUDE.md, prior specs, architecture documents, any code the work will touch. You're doing two things at once, and the distinction between them matters:
+Read the project's relevant context — CLAUDE.md, prior specs, architecture documents, any code the work will touch. You're doing distinct things at once, and the distinction between them matters:
 
 
 
@@ -164,7 +164,7 @@ This is where the philosophy does its heaviest work. A requirement is only as go
 
 
 
-Specification work often reveals that the original request doesn't hold together. Two kinds of contradictions surface, and the distinction matters:
+Specification work often reveals that the original request doesn't hold together. Distinct kinds of contradiction surface, and the distinction matters:
 
 
 
@@ -270,7 +270,7 @@ The same fact — the primitive is left open — is grounding in the first and s
 
 
 
-Every requirement gets three tests before it stays in the document:
+Every requirement gets these tests before it stays in the document:
 
 
 
@@ -343,6 +343,10 @@ Then check:
 
 
 Write the spec as a markdown document named `spec-[kebab-case-name].md` under `docs/specs/`, creating that directory if it does not exist. This location is fixed, not conditional. Do not search the project for somewhere it already keeps specs, and do not ask the user where to put it or wait to be told. There is nothing to decide — the convention is the standard, and the workflow consumes the path you return.
+
+
+
+The spec must contain a `## Request traceability` section. It (a) quotes the owner's verbatim request in full — when the dispatch carries it between `<<<OWNER_REQUEST` and `OWNER_REQUEST>>>` markers, that text, unedited; (b) maps each clause of that request to the requirement ID(s) that cover it; and (c) explicitly lists any clause no requirement covers, with why. The verbatim request — not any restatement of it — is what the spec answers to: a clause that is dropped, renamed, or narrowed without an entry here is a reviewable defect, not a drafting choice.
 
 
 

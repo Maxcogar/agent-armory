@@ -8,6 +8,7 @@
   "required": [
     "revision",
     "task",
+    "task_verbatim",
     "phase",
     "artifact_index",
     "gate_history",
@@ -26,6 +27,11 @@
     "task": {
       "description": "The owner's task statement that opened this lifecycle.",
       "type": "string"
+    },
+    "task_verbatim": {
+      "description": "The owner's request turn, verbatim and unmodified; `task` may be a working title, `task_verbatim` may not be edited, summarized, or normalized. Required since 0.4.0. A ledger opened before 0.4.0 carries the documented migration sentinel '[pre-0.4.0 ledger: ...]' (commands/expert.md step 1) because the original turn is not recoverable from artifacts or git history; the spec phase treats that sentinel as absent and gates rather than running on it.",
+      "type": "string",
+      "minLength": 1
     },
     "phase": {
       "description": "Current lifecycle phase. F-1 routing may take the spec->plan short path.",
@@ -100,7 +106,7 @@
       }
     },
     "escalations": {
-      "description": "Owner escalations raised; gate_type is one of the seven in spec 3.4 (control_fault added by the 2026-08-19 amendment: a mechanical control could not run - the phase is unverified).",
+      "description": "Owner escalations raised; gate_type is one of the types enumerated in spec 3.4 (control_fault added by the 2026-08-19 amendment: a mechanical control could not run - the phase is unverified).",
       "type": "array",
       "items": {
         "type": "object",

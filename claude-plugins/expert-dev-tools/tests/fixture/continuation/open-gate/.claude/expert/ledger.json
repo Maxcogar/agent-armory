@@ -1,0 +1,16 @@
+{
+  "revision": 7,
+  "task": "continuation-gate fixture: mid-phase with an unresolved owner gate",
+  "task_verbatim": "continuation-gate fixture: mid-phase with an unresolved owner gate",
+  "phase": "implement",
+  "artifact_index": [],
+  "gate_history": [],
+  "amendments": [],
+  "escalations": [
+    { "gate_type": "spec_traceable", "segment": 3, "resolved": true },
+    { "gate_type": "risk_override", "segment": 4, "resolved": false }
+  ],
+  "budget": { "total_tokens": 0 },
+  "feedback_marker": { "session_file": null, "line": 0 },
+  "signature_history": []
+}

@@ -8,6 +8,7 @@ disallowedTools: mcp__claude_ai_CORE_Memory__memory_ingest
 jobs: 2
 returns:
   - status
+  - skill_activation
   - steps_completed
   - files_changed
   - evidence
@@ -25,6 +26,14 @@ every premise with the right tool per claim type (its
 `references/verification-taxonomy.md`), execute steps strictly in order making
 only the changes each step authorizes, and verify each step.
 
+Activation is demonstrated, never asserted: return `skill_activation` carrying
+the "Launching skill:" line of that Skill tool result VERBATIM — the
+orchestrator verifies it. If the `Skill` call errors, put its literal error
+text in `skill_activation` and return `status: halted` with a `stop_report` of
+category `ENVIRONMENT-BLOCKED` quoting the error. Never reconstruct the skill
+from memory or from file reads — an imitation of the process is not the
+process, and announcing activation you did not perform is a fabrication.
+
 Halt only on the four categories (hard-rule conflict, false premise, blast
 radius beyond plan, environment blocked); emit the STOP REPORT into your
 structured output rather than to a human. You do not grade your own work — the
@@ -37,16 +46,21 @@ the orchestrator.
 
 ## Return contract (generated from this file's `returns:` / `jobs:` frontmatter)
 
-You answer **2** distinct dispatches from the orchestrator, named by the label in your prompt.
+You answer the distinct dispatches declared by this file's `jobs:` frontmatter, each named by the label in your prompt.
 
 Your final message is consumed as structured data validated against the schema supplied at
 dispatch. The response shape your dispatches are validated against declares these fields:
 
 - `status`
+- `skill_activation`
 - `steps_completed`
 - `files_changed`
 - `evidence`
 - `stop_report`
 
-Declaring a field here is not a promise to populate it on every return — only `status`-class
-required fields are mandatory. What you must actually emit is stated in the prose above.
+A `completed` return is a completeness claim the orchestrator reconciles mechanically:
+`steps_completed` must list EVERY step ID declared by the plan's step-decl blocks, and
+`evidence` must be non-empty with each plan step referenced by at least one entry's
+`step` field. A completed status with any plan step unaccounted for — in the step list
+or in the evidence — is refused as a premature completion claim. A `halted` return is
+exempt: report the steps and evidence you actually have, with the stop_report.

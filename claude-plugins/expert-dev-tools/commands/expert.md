@@ -26,10 +26,44 @@ edits **no** artifact, dispatches **no** phase. Only a directive starts or resum
 lifecycle, and only for the work it names. If classification is ambiguous, ask one
 clarifying question before touching anything.
 
+On a DIRECTIVE that opens a lifecycle, one mechanical sub-step before initializing
+anything: copy the owner's turn text into the ledger's `task_verbatim` field —
+verbatim and unmodified, never edited, summarized, or normalized. `task` may be a
+working title; `task_verbatim` is the owner's words and is the authoritative
+statement of the request that every downstream phase receives.
+
 ## 1. Preflight (F-2)
 
 Before spending any tokens on a phase, confirm the environment:
 
+- **Deployment provenance.** Run the deterministic provenance script and keep its
+  report in the preflight record:
+  `node "${CLAUDE_PLUGIN_ROOT}/scripts/preflight-deployment.mjs" expert-dev-tools <working-tree-path>`
+  — pass the plugin's working-tree path when this project is the plugin's own
+  repo; omit it elsewhere (the report is then provenance-only: cache path,
+  installed version read from the cache manifest, and the marketplace commit as
+  the registry RECORDS it — `registry_recorded_commit`, which nothing opened the
+  cache to confirm). Bright line: **no claim about the
+  running plugin's behavior, and no request that the owner
+  reload/update/re-test, is made without quoting this report.** If the report's
+  verdict is STALE, the finding is `stale_deployment` (D15) — present it via
+  step 5's stale-deployment path ("the plugin is behind and needs updating"),
+  never as a live-test verdict against the fix in the working tree.
+  If the verdict is UNREADABLE (exit 2), the script could not establish
+  deployment provenance at all — an empty or malformed registry entry, an
+  unresolvable plugin, an unreadable compared tree. That is a `control_fault`
+  halt, not a pass: make **no** behavioral claim and **no** reload/update/
+  re-test request, report the report's `problems` entries verbatim to the owner,
+  and stop. The bright line above is satisfiable by quoting an UNREADABLE report,
+  so this disposition is what stops that from becoming a licence to proceed —
+  "is it STALE? no" is not the whole test. CURRENT and PROVENANCE-ONLY (exit 0)
+  are the only verdicts that let a phase start; PROVENANCE-ONLY carries no
+  staleness determination, so behavioral claims under it are bounded by the
+  provenance the report does carry: `cache_path` and `installed_version`, both
+  read from the installed directory, and `registry_recorded_commit`, which is the
+  registry's claim about that directory rather than a reading of it. A registry
+  whose recorded version disagrees with the cache manifest is UNREADABLE, so an
+  affirmative verdict never rests on the two being conflated.
 - **Required MCPs answer.** The plan and architecture phases hard-require
   CodeGraph, Clear-Thought, and Context7. Confirm each responds (a cheap probe
   call). If any is missing, STOP and report exactly which one, with how to
@@ -39,6 +73,18 @@ Before spending any tokens on a phase, confirm the environment:
   A non-zero exit is a structured halt — report the diagnostic and offer to
   reconstruct the ledger from the artifacts + git history; never proceed on an
   invalid ledger.
+  **Legacy-ledger migration (the one exception).** `task_verbatim` became required
+  in 0.4.0, so every ledger opened before it fails validation on that field alone —
+  and reconstruction cannot supply it: the owner's request turn lived in a
+  transcript, not in the artifacts or git history, so offering to rebuild from
+  those would fail on the one field that is missing. When the ONLY validation error
+  is `missing required property 'task_verbatim'`, backfill it with exactly
+  `[pre-0.4.0 ledger: the owner's original request turn predates task_verbatim and
+  is not recoverable]`, bump `revision`, re-validate, and say plainly that the
+  migration ran. Any other error, alone or alongside it, still halts. The sentinel
+  is not the owner's words and never stands in for them: the spec phase reads it as
+  absent and gates, so a migrated ledger can resume its later phases but can never
+  run a spec on a reconstruction.
 - **Repo workable.** Confirm the target project is a git repo on a working
   branch.
 
@@ -46,7 +92,8 @@ Before spending any tokens on a phase, confirm the environment:
 
 - If the ledger is missing, initialize a fresh one at `intake` (revision 0,
   empty arrays, `budget.total_tokens` 0, `feedback_marker` `{session_file:null,
-  line:0}`) and create the `.claude/expert/` directory.
+  line:0}`, `task_verbatim` = the owner's turn text captured in step 0) and
+  create the `.claude/expert/` directory.
 - Otherwise read it, and **re-hash every `artifact_index` entry except `role: "implementation"`** (implementation outputs are re-verified by tests and ground truth, not hash-pinning; hashing source files here would append a spurious `amendments` entry on every legitimate later edit): compute the
   SHA-256 of each artifact on disk and compare to the stored `sha256`. On any
   mismatch, mark that artifact **amended** (append to `amendments`) and, if the
@@ -69,7 +116,9 @@ existing directory, use the single entry under `~/.claude/projects/` for this
 project.
 
 where `<snapshot>` is a JSON object: `{ ledger: <the current ledger>, task:
-"$ARGUMENTS", spec_path, arch_path, plan_path, reader_script, transcript_dir }`
+"$ARGUMENTS", task_verbatim: <the ledger's task_verbatim, verbatim — never a
+paraphrase composed here>, spec_path, arch_path, plan_path, reader_script,
+transcript_dir }`
 (artifact paths from the ledger's `artifact_index` only — omit any path the
 `artifact_index` does not carry). **Do not supply a project default under `docs/`.**
 The artifact's location has one source of truth: the path the authoring agent
@@ -97,8 +146,9 @@ From the SEGMENT_REPORT's `ledger_delta` and its top-level fields:
   entry in the report's `review_records` (`{phase, round, verdict, findings[]}`),
   append a human-readable record to
   `${CLAUDE_PROJECT_DIR}/.claude/expert/reviews/<phase>.md` (create the
-  directory), one section per round giving the verdict and every finding's
-  `classification`, `standard`, `location`, and `premise_evidence`. Register each
+  directory), one section per round giving the verdict and, for each finding,
+  every property named by the workflow's `VERDICT_SCHEMA` findings items — the
+  schema is the field list; do not maintain a copy of it here. Register each
   review file in `artifact_index` with `role: "review"` (hashed like any
   artifact).
 - **Record escalations (S-4).** If `outcome` is `owner_gate`, append an
@@ -141,7 +191,7 @@ From the SEGMENT_REPORT's `ledger_delta` and its top-level fields:
   `correction.fixed_in_version` — that is a `stale_deployment` (D15), and it is
   surfaced as an open item reading "your plugin is behind; update it"**. The
   stale branch is a separate predicate because a stale record's occurrences sit
-  below `fixed_in_version` and so match neither of the other two branches, which
+  below `fixed_in_version` and so match neither of the other branches, which
   is why the verdict was computed and then went nowhere; the transient sweep verdicts
   (`systemic_defect` / `failed_correction`) are never stored on the record, so this
   predicate keys on `state`, `occurrences`, and `correction` — so a feedback
@@ -177,7 +227,7 @@ Read the SEGMENT_REPORT's `outcome`:
 - **`owner_gate`** — present the `gate` in plain terms: what happened, the
   options, and your recommendation. If the gate carries a `diagnosis` and
   `correction_draft`, show the root cause and the proposed fix so the owner
-  approves or rejects a solution, not a bare problem. The seven gate types and
+  approves or rejects a solution, not a bare problem. The §3.4 gate types and
   what each asks:
   - `intent` — "Is this spec what you meant?" (the one intent gate)
   - `spec_traceable` — a downstream issue that traces to the spec; needs the
@@ -186,9 +236,11 @@ Read the SEGMENT_REPORT's `outcome`:
   - `risk_override` — a STOP where amend-plan isn't viable; accepting risk is
     the owner's call (never auto-selected)
   - `non_convergence` — a review loop hit its round cap
-  - `control_fault` — a mechanical control (a verifier dispatch) could not run or
-    returned less than it was asked to check; the phase is **unverified**, not failed —
-    re-running the phase is the usual answer
+  - `control_fault` — a mechanical control could not run, or returned less than it
+    was asked to check: a verifier dispatch under its coverage floor, a ground-truth
+    run that reported no acceptance criteria, a closeout that returned no report
+    path, or the step-1 preflight returning UNREADABLE. The phase is **unverified**,
+    not failed — re-running the phase is the usual answer
   - `core_approval` — the drafted CORE ingestion message; **present it for
     approval and never ingest it yourself** (you have no CORE-ingest tool, and
     ingestion is the owner's decision alone, per the repo CORE protocol)
@@ -209,7 +261,7 @@ found that did not rise to one.
 
 **Feedback escalations (F-14).** When the report carries a `feedback_escalation`,
 present it to the owner as an owner-owned item alongside whatever gate or
-completion the segment produced (it is not one of the seven gate types):
+completion the segment produced (it is not one of the §3.4 gate types):
 - `systemic_defect` — present the attached `diagnosis` (root cause + correction
   draft) so the owner approves or rejects a proposed fix.
 - `stale_deployment` — the fix for this signature exists, but the running plugin

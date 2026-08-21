@@ -36,7 +36,7 @@ This review runs inside the session protocol the project's workflow document def
 
 
 
-Every finding has two axes, and both have to be right for the finding to be sound. In this tool the axes operationalize as two per-finding requirements:
+Every finding is judged on a frame axis and a premise axis, and both have to be right for the finding to be sound. In this tool the axes operationalize as per-finding requirements:
 
 
 
@@ -124,7 +124,7 @@ Read the rest of this document with that frame.
 
 
 
-The delivered review is structured around two-axis evidence. Specific output sections carry the load for each axis; a review missing any of them, or with any of them empty without its explicit attestation, has not satisfied the contract and is not delivered.
+The delivered review is structured around evidence on both axes. Specific output sections carry the load for each axis; a review missing any of them, or with any of them empty without its explicit attestation, has not satisfied the contract and is not delivered.
 
 
 
@@ -364,7 +364,7 @@ The inventory checklist from Step 2, with every file marked `[x]` (verified by R
 
 
 
-This section also carries: the Step 3 tool plan (instruments available, claim-type mapping, any instrument unavailability and its disposition); any rigor waivers per Handling Requests to Compress Rigor (what was skipped, at whose direction); and, for Post-fix reviews, the inventory showing all four sources — the prior review's full inventory, the fix-diff files, the fix-diff dependents, and the prior findings as closure items — plus the round number (the first review is round 1; each Post-fix review increments it).
+This section also carries: the Step 3 tool plan (instruments available, claim-type mapping, any instrument unavailability and its disposition); any rigor waivers per Handling Requests to Compress Rigor (what was skipped, at whose direction); and, for Post-fix reviews, the inventory showing every source — the prior review's full inventory, the fix-diff files, the fix-diff dependents, and the prior findings as closure items — plus the round number (the first review is round 1; each Post-fix review increments it).
 
 
 
@@ -400,7 +400,7 @@ If no Critical or Serious findings: explicitly state "No Critical or Serious fin
 
 
 
-Patterns that are wrong across the codebase. Highest priority because fixing them fixes many things at once. Each pattern states: **the proactive grep across the full inventory scope (query, result count, instances enumerated)**, the named standard violated, why this is a systemic failure rather than isolated, what correct looks like.
+Patterns that are wrong across the codebase. Highest priority because fixing them fixes many things at once. Each pattern states: **the proactive grep across the full inventory scope (query, result count, instances enumerated)**, the named standard violated, why this is a systemic failure rather than isolated, what correct looks like — stated as the standard's requirement, never as a patch instruction. When the review is consumed by a correction loop, the corrector re-derives each affected section from its sources; a prescribed fix contaminates that re-derivation into patching the prescribed sentence.
 
 
 
@@ -464,7 +464,7 @@ Post-fix rounds only. In a first-round review this section states: "First-round 
 
 
 
-The record carries four elements:
+The record carries these elements:
 
 
 
@@ -522,7 +522,7 @@ Every review pass concludes with exactly one verdict, derived mechanically from 
 
 
 
-The verdict appears as the FINAL line of the review document, on its own line, in exactly one of two forms:
+The verdict appears as the FINAL line of the review document, on its own line, in exactly one of the forms below:
 
 
 
@@ -550,7 +550,7 @@ The breakdown lets downstream automation parse the verdict mechanically. Example
 
 
 
-Before delivering the review, run all three gates. The review is not complete until all three pass. Each gate is binary — failure of any item in any gate is non-compliance, not a judgment call.
+Before delivering the review, run every gate. The review is not complete until all of them pass. Each gate is binary — failure of any item in any gate is non-compliance, not a judgment call.
 
 
 
@@ -560,7 +560,7 @@ Before delivering the review, run all three gates. The review is not complete un
 
 - Every finding names the standard it was evaluated against (Step 4 output), or carries the marked first-principles articulation Step 4 permits when no named standard applies.
 
-- Every finding carries a `location`, and the location is written in exactly one of two forms: `path:start-end` (a line range; `path:line` is the one-line case) or `path#section` (a path plus a section identifier). Nothing else parses. A location is not optional and is not free-form prose: downstream controls parse the range to detect a correction that regressed at the site it edited, and test it for set membership to detect a class a correction found and left open. A free-form or absent location silently disables both.
+- Every finding carries a `location`, and the location is written in exactly one of these forms: `path:start-end` (a line range; `path:line` is the one-line case) or `path#section` (a path plus a section identifier). Nothing else parses. A location is not optional and is not free-form prose: downstream controls parse the range to detect a correction that regressed at the site it edited, and test it for set membership to detect a class a correction found and left open. A free-form or absent location silently disables both.
 
 - For "looks good" positive assessments: the property that makes it good is named, and the named standard governing that property is cited. A positive assessment without a named standard is an unnamed approval and fails Gate A.
 

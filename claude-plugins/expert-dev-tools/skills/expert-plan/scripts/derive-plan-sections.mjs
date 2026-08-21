@@ -51,7 +51,7 @@
 // verifying this step. depends_on: step IDs this step depends on.
 //
 // Every key is required and may appear only once; empty lists are written [].
-// files: takes no inline value; all three sub-keys appear exactly once, [] when
+// files: takes no inline value; every sub-key appears exactly once, [] when
 // empty. List entries are single whitespace-free tokens and must not contain
 // commas, brackets, braces, or quotes — the parser rejects them rather than
 // guessing; duplicate entries within a list are rejected. A file path containing
@@ -181,7 +181,7 @@ function processDocument(text) {
     const where = `step-decl at line ${d.line}`;
     const step = { id: null, covers: [], files: { create: [], modify: [], delete: [] }, tests: [], depends_on: [], line: d.line };
     const lines = d.raw.split(/\r?\n/);
-    // N-1/N-2 class fix, ending the four-round adjacent-branch sequence
+    // N-1/N-2 class fix, ending the adjacent-branch sequence
     // (J-3, K-4, L-3, N-1): a line's INTERPRETATION is decided by its key name
     // alone — create/modify/delete are reserved sub-key names, everything else
     // is top-level — and indentation is an orthogonal check that contributes
