@@ -47,6 +47,17 @@ Before spending any tokens on a phase, confirm the environment:
   verdict is STALE, the finding is `stale_deployment` (D15) — present it via
   step 5's stale-deployment path ("the plugin is behind and needs updating"),
   never as a live-test verdict against the fix in the working tree.
+  If the verdict is UNREADABLE (exit 2), the script could not establish
+  deployment provenance at all — an empty or malformed registry entry, an
+  unresolvable plugin, an unreadable compared tree. That is a `control_fault`
+  halt, not a pass: make **no** behavioral claim and **no** reload/update/
+  re-test request, report the report's `problems` entries verbatim to the owner,
+  and stop. The bright line above is satisfiable by quoting an UNREADABLE report,
+  so this disposition is what stops that from becoming a licence to proceed —
+  "is it STALE? no" is not the whole test. CURRENT and PROVENANCE-ONLY (exit 0)
+  are the only verdicts that let a phase start; PROVENANCE-ONLY carries no
+  staleness determination, so behavioral claims under it are bounded by the
+  provenance the report does carry (cache path, installed version, commit).
 - **Required MCPs answer.** The plan and architecture phases hard-require
   CodeGraph, Clear-Thought, and Context7. Confirm each responds (a cheap probe
   call). If any is missing, STOP and report exactly which one, with how to
@@ -219,9 +230,11 @@ Read the SEGMENT_REPORT's `outcome`:
   - `risk_override` — a STOP where amend-plan isn't viable; accepting risk is
     the owner's call (never auto-selected)
   - `non_convergence` — a review loop hit its round cap
-  - `control_fault` — a mechanical control (a verifier dispatch) could not run or
-    returned less than it was asked to check; the phase is **unverified**, not failed —
-    re-running the phase is the usual answer
+  - `control_fault` — a mechanical control could not run, or returned less than it
+    was asked to check: a verifier dispatch under its coverage floor, a ground-truth
+    run that reported no acceptance criteria, a closeout that returned no report
+    path, or the step-1 preflight returning UNREADABLE. The phase is **unverified**,
+    not failed — re-running the phase is the usual answer
   - `core_approval` — the drafted CORE ingestion message; **present it for
     approval and never ingest it yourself** (you have no CORE-ingest tool, and
     ingestion is the owner's decision alone, per the repo CORE protocol)

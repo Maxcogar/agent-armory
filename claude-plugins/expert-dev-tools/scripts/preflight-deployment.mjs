@@ -156,6 +156,16 @@ export function preflightDeployment(pluginName, worktreePath, cfgDir = configDir
         problems.push(`registry entry '${key}' is ${plugins[key] === null ? 'null' : typeof plugins[key]}, not an array of install records`);
         continue;
       }
+      // A matched key carrying no install record is an environment out of which no
+      // deployment could be read — NOT an absence of staleness. The empty array used
+      // to reach the verdict as zero comparisons, and a verdict computed over zero
+      // comparisons printed CURRENT: the same fail-open shape the coverage contract in
+      // this file's header exists to close. "I compared nothing" must never resolve to
+      // the answer "I compared everything and found no difference."
+      if (plugins[key].length === 0) {
+        problems.push(`registry entry '${key}' is an empty array: the plugin is registered but carries no install record to compare`);
+        continue;
+      }
       for (const rec of plugins[key]) {
         if (!rec || typeof rec !== 'object') {
           problems.push(`registry entry '${key}' contains a non-object install record`);
@@ -230,9 +240,24 @@ export function preflightDeployment(pluginName, worktreePath, cfgDir = configDir
     report.stale = primary.stale;
   }
 
+  // Every affirmative verdict rests on POSITIVE evidence, never on the absence of a
+  // recorded difference. `installs.some((i) => i.stale)` is false over an empty list
+  // and over a list whose entries never ran a comparison, so on its own it resolved
+  // "nothing was compared" to CURRENT. `compared` is the set of install entries that
+  // actually completed a comparison — `stale` is a boolean only where one ran, and
+  // null everywhere else — so CURRENT requires at least one of them, and
+  // PROVENANCE-ONLY requires at least one readable install record. Each shortfall is
+  // recorded as a problem, which routes it through the single UNREADABLE rule below
+  // rather than adding a second, silent path to a verdict.
+  const compared = report.installs.filter((i) => typeof i.stale === 'boolean');
+  if (!worktreePath && report.installs.length === 0)
+    problems.push(`no install record for '${pluginName}' could be read, so there is no deployment provenance to report`);
+  if (worktreePath && compared.length === 0)
+    problems.push(`no install record for '${pluginName}' completed a comparison against ${worktreePath}, so no staleness determination was made`);
+
   if (problems.length > 0) report.verdict = 'UNREADABLE';
   else if (!worktreePath) report.verdict = 'PROVENANCE-ONLY';
-  else report.verdict = report.installs.some((i) => i.stale) ? 'STALE' : 'CURRENT';
+  else report.verdict = compared.some((i) => i.stale) ? 'STALE' : 'CURRENT';
   return report;
 }
 

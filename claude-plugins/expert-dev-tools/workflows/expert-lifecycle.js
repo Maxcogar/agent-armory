@@ -959,8 +959,21 @@ if (cursor === 'ground_truth') {
     return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.spec_traceable, what_happened: `Ground-truth dispatch refused: ${why}.`, options: ['resume after the missing precondition is repaired (re-run the phase that should have produced it)', 'investigate the ledger'], recommendation: 'repair the precondition and resume; this refusal exists so verification can never target a build the lifecycle did not produce' } })
   }
   const acc = await agent(`Execute each acceptance criterion of the spec at ${specPath} — that spec's requirements ONLY; no other project's or document's criteria apply — against the running system this lifecycle's executed plan produced in the ledger task's target project${implArts.length ? ` (registered implementation artifacts: ${implArts.map((a) => a.path).join(', ')})` : ''}. Report per-criterion pass/fail with observed evidence.`, { agentType: AGENT.acceptance, schema: ACCEPTANCE_SCHEMA, phase: 'Ground truth', label: 'ground-truth' })
-  const failed = acc && (acc.criteria || []).filter((c) => c.verdict === 'fail')
-  if (failed && failed.length) {
+  // Coverage floor, the same fail-closed rule verifierUnderCovered applies to every
+  // VERIFIER_SCHEMA return (F5-2): an acceptance run that reported no criterion
+  // executed no criterion. `criteria` is optional-by-cardinality in ACCEPTANCE_SCHEMA,
+  // so an empty array validates; filtering it for `verdict === 'fail'` then yields an
+  // empty list, and "nothing failed" read as ground truth PASSED — a maximal verdict
+  // over an empty set, the same shape as a preflight CURRENT with nothing compared.
+  // Ground truth is the one control that tests the running system, so a vacuous pass
+  // here is the most expensive one in the lifecycle.
+  const criteria = (acc && Array.isArray(acc.criteria) && acc.criteria) || []
+  if (criteria.length === 0) {
+    delta.phase = 'ground_truth'
+    return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.control_fault, what_happened: 'The ground-truth run returned no acceptance criteria, so no criterion of the spec was executed against the running system. Fail-closed: an empty acceptance return is a failed control, never a passed one.', options: ['re-run the ground-truth phase', 'investigate the acceptance dispatch', 'check that the spec states acceptance criteria at all'], recommendation: 're-run; if the spec genuinely states no acceptance criteria, the spec needs the owner\'s attention before anything can be called verified' } })
+  }
+  const failed = criteria.filter((c) => c.verdict === 'fail')
+  if (failed.length) {
     const dg = await diagnose(`Ground-truth failure: ${JSON.stringify(failed)}`, ledger, { failed_criteria: failed })
     delta.phase = 'ground_truth'
     const traceable = dg && dg.classification === 'owner_owned'
@@ -986,6 +999,22 @@ if (cursor === 'ground_truth') {
 if (cursor === 'closeout') {
   phase('Closeout')
   const co = await agent(`Closeout: write the final report against the spec, commit the verified work and open a PR per repo conventions, and DRAFT (do not send) a CORE ingestion message. Return report path, commit, PR URL, and the CORE draft.`, { agentType: AGENT.closeout, schema: CLOSEOUT_SCHEMA, phase: 'Closeout', label: 'closeout' })
+  // Closeout is inspected before completion is written, like every other dispatch in
+  // this file: architecture and plan through maybeEscalate, implement and the amendment
+  // path on `status === 'halted'`, ground truth on its criteria, the three verifier
+  // dispatches on their coverage floors. Closeout alone advanced to 'complete'
+  // unconditionally, and the `co || {}` below is this line's own acknowledgement that
+  // `co` may be falsy — so an absent or empty return declared the lifecycle complete
+  // and handed the owner a CORE draft for a report, a commit, and a PR that nothing
+  // here has evidence exist. `report_path` is CLOSEOUT_SCHEMA's single required field
+  // and so is the minimum positive evidence that the phase actually ran. Resuming at
+  // 'closeout' (not 'complete') is what keeps the work recoverable: the continuation
+  // gate treats that phase as in flight, by TERMINAL_PHASES in
+  // hooks/continuation-gate.mjs.
+  if (!co || typeof co !== 'object' || typeof co.report_path !== 'string' || co.report_path === '') {
+    delta.phase = 'closeout'
+    return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.control_fault, what_happened: 'The closeout dispatch returned no report path, so there is no evidence that the final report was written, the verified work committed, or the PR opened. Fail-closed: the lifecycle is not marked complete on an unverified closeout.', options: ['re-run the closeout phase', 'investigate the closeout dispatch'], recommendation: 're-run closeout; declaring completion from a return that carries no report path is precisely the premature-completion shape this lifecycle exists to prevent' } })
+  }
   delta.phase = 'complete'
   return report(finish(), { outcome: 'complete', completion: co || {}, core_gate: { type: GATE.core_approval, what_happened: 'Work verified and closed out. A CORE ingestion message is drafted for your approval.', draft: (co && co.core_draft) || '' }, feedback: dispositions })
 }

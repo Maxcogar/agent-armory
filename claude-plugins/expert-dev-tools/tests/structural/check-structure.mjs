@@ -478,6 +478,19 @@ check('T-18 the scope check is dispatched to the verifier under one label',
     // and the exact label that supersedes it, with the finding that forced the swap.
     const REPLACED_BY_STRENGTHENING = [
       {
+        was: 'T-31 the count-header sweep found the known population of stated counts (found ${countHeaders.length})',
+        now: 'T-31 the sweep admits the full construct population across the skills (admitted ${admitted.length}, floor 24)',
+        why: 'corrections-0.4.0 round-3 F2: the baseline check asserted a floor of 7 over a ' +
+             'discovery predicate anchored at column 0, while its own comment claimed to ' +
+             'discover every count header in the skills — the construct occurs 24 times, so a ' +
+             'drift planted in any of the other 17 passed the tier green. The replacement admits ' +
+             'the class by MEANING (a cardinal word, no sentence break, a terminal colon), pins ' +
+             'the floor at the full 24, and is joined by an accounting assertion that fails on ' +
+             'any admitted line the sweep neither counts nor designates. Strictly more behavior ' +
+             'is pinned: the reach of the sweep is now itself asserted, where the baseline could ' +
+             'only assert that the sweep found something.',
+      },
+      {
         was: 'T-30 exec (m) phase closeout with every escalation resolved -> exit 0 (post-verification is not in flight)',
         now: 'T-30 exec (m) a FRESH closeout with every escalation resolved -> exit 2 (the report, commit and PR are still ahead of the agent)',
         why: 'corrections-0.4.0 round-2 F1: the baseline check asserted the verdict the round-1 ' +
@@ -816,6 +829,35 @@ check('T-24 deployment: both control gates carry GATE.control_fault',
   (wfSrc.match(/GATE\.control_fault/g) || []).length >= 2);
 check('T-24 deployment: the ground-truth guard branches on the extracted predicate result',
   wfSrc.includes('if (!gt.ok) {'));
+// ---- Round-3 F1 class, swept into this file: a verdict computed over an EMPTY input
+// set must not resolve to the affirmative answer. The reported instance was the
+// preflight's CURRENT over zero compared files (pinned in the T-29 block). The sweep
+// over this workflow found two more, both at dispatch returns consumed with no floor:
+// an acceptance return with no criteria read as ground truth PASSED, and a closeout
+// return of nothing wrote `phase = 'complete'`. Pinned at their deployment in the same
+// text-assertion form as the guards above, because the workflow body is not importable.
+check('T-24 empty-set class: an acceptance return with no criteria is a control fault, not a ground-truth pass',
+  wfSrc.includes('const criteria = (acc && Array.isArray(acc.criteria) && acc.criteria) || []') &&
+  /if \(criteria\.length === 0\) \{[\s\S]{0,400}GATE\.control_fault/.test(wfSrc));
+check('T-24 empty-set class: the ground-truth failure scan reads the floored criteria list, not the raw return',
+  wfSrc.includes("const failed = criteria.filter((c) => c.verdict === 'fail')"));
+{
+  // Ordering matters as much as presence: the guard is worthless if completion is
+  // written before it. Sliced to the closeout block so the assertion is about THAT
+  // block's order and cannot be satisfied by a `phase = 'complete'` elsewhere.
+  const coBlock = wfSrc.slice(wfSrc.indexOf("if (cursor === 'closeout') {"));
+  const guardAt = coBlock.indexOf("typeof co.report_path !== 'string'");
+  const completeAt = coBlock.indexOf("delta.phase = 'complete'");
+  check('T-24 empty-set class: closeout inspects its return for a report path BEFORE writing completion',
+    guardAt > -1 && completeAt > -1 && guardAt < completeAt);
+  check('T-24 empty-set class: an unverified closeout resumes at closeout, the phase the continuation gate treats as in flight',
+    /delta\.phase = 'closeout'[\s\S]{0,700}GATE\.control_fault/.test(coBlock));
+}
+// Stated as a floor over the literal, with no cardinality word in the label: the
+// verifier floors, the acceptance floor and the closeout inspection each raise this
+// gate, and a prose count here would be one more hand-maintained number to drift.
+check('T-24 deployment: the control-fault gate is raised at every empty-set and under-coverage site',
+  (wfSrc.match(/GATE\.control_fault/g) || []).length >= 4);
 // F8-1 class closure: the comment's stated gate count must equal the GATE
 // literal's member count, so the next amendment's propagation miss is a red
 // test, not a review finding.
@@ -1402,6 +1444,22 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
       JSON.stringify({ version: 2, plugins: { 'p@m': [{ scope: 'user', version: '1.0.0' }] } }));
     check('T-29 an install record with no installPath is UNREADABLE with exit 2 (every unreadable surface fails to the same code)',
       runTmp().status === 2);
+
+    // ---- Round-3 F1: a matched registry key carrying an EMPTY install-record array
+    // reached the verdict as ZERO comparisons, and zero comparisons resolved to
+    // CURRENT — printed as `installed ? matches working tree 1.0.0`, a match asserted
+    // between a version the script does not know and one it does. Fail-safe defaults:
+    // "I compared nothing" must never resolve to the same answer as "I compared
+    // everything and found no difference." The working tree here differs from the
+    // cache, so the false verdict was not merely vacuous, it was wrong.
+    w(join(tree, 'workflows', 'life.js'), 'export const drifted = 2\n');
+    w(join(tmp, 'cfg', 'plugins', 'installed_plugins.json'),
+      JSON.stringify({ version: 2, plugins: { 'p@m': [] } }));
+    const emptyRecords = runTmp();
+    check('T-29 a registry entry with an EMPTY install-record array is UNREADABLE with exit 2, never CURRENT (zero comparisons is not agreement)',
+      emptyRecords.status === 2 && /VERDICT: UNREADABLE/.test(emptyRecords.out) && !/VERDICT: CURRENT/.test(emptyRecords.out));
+    check('T-29 the empty-install-record report names the entry and asserts no match over a comparison it never ran',
+      /is an empty array/.test(emptyRecords.out) && !/matches working tree/.test(emptyRecords.out));
   }
 
   // ---- Round-2 F2: a tree that could not be READ must never contribute CURRENT. The
@@ -1458,6 +1516,19 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
     check('T-29 the compared and excluded sets are disjoint (no entry can be claimed both ways)',
       COMPARED_TREES.every((t) => !EXCLUDED_TREES.includes(t)));
 
+    // Round-3 F1, at the verdict rule itself rather than only through the CLI: an
+    // affirmative verdict requires POSITIVE evidence of a completed comparison. Driven
+    // through the exported function with a registry whose only matching key is empty.
+    const emptyCfg = mkdtempSync(join(tmpdir(), 'edt-empty-'));
+    mkdirSync(join(emptyCfg, 'plugins'), { recursive: true });
+    writeFileSync(join(emptyCfg, 'plugins', 'installed_plugins.json'),
+      JSON.stringify({ version: 2, plugins: { 'z@m': [] } }));
+    const emptyRep = pfMod.preflightDeployment('z', ROOT, emptyCfg);
+    check('T-29 preflightDeployment: an installs list that completed no comparison is UNREADABLE with a stated problem, never CURRENT',
+      emptyRep.verdict === 'UNREADABLE' && emptyRep.installs.length === 0 && emptyRep.problems.length > 0);
+    check('T-29 preflightDeployment: provenance-only over no readable install record is UNREADABLE too (the same rule, worktree omitted)',
+      pfMod.preflightDeployment('z', null, emptyCfg).verdict === 'UNREADABLE');
+
     // The drift guard itself: every real entry of the plugin root must be classified.
     // Directories holding a COMPARED_FILES path (`.claude-plugin`) are covered by that
     // file entry, so they are derived from the constant rather than listed a second time.
@@ -1494,6 +1565,28 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
     /no claim about the\s+running plugin's behavior/.test(s1) && /without quoting this report/.test(s1));
   check('T-29 command step 1 routes a STALE verdict to stale_deployment (D15), never a live-test verdict',
     /`stale_deployment` \(D15\)/.test(s1) && /never as a live-test verdict/.test(s1));
+  // ---- Round-3 F3: the script emits four verdicts and the command routed one. An
+  // agent that asked "is it STALE?" and got "no" had satisfied the only test step 1
+  // named, and proceeded to make the behavioral claims the bright line exists to gate —
+  // over an environment the script had just reported it could not read. Complete
+  // mediation applied to an exit contract: every distinguished outcome of a control
+  // needs a stated disposition at its consumer, or the undefined ones collapse into the
+  // default, and here the default is the dangerous one.
+  check('T-29 command step 1 routes an UNREADABLE verdict to a control_fault halt with no behavioral claim',
+    /UNREADABLE \(exit 2\)/.test(s1) && /`control_fault`/.test(s1) &&
+    /make \*\*no\*\* behavioral claim/.test(s1) && /`problems` entries/.test(s1));
+  {
+    // The class assertion, and what makes this a closure rather than a third patch: the
+    // verdict names are LIFTED FROM THE SCRIPT, so a fifth verdict added there fails
+    // this tier until step 1 states what to do with it. A maintained list would not.
+    // Lifted from the lines the script actually PRINTS, which is the emission surface
+    // the consumer reads — not from the assignments, where a ternary hides one arm.
+    const emitted = [...new Set([...readFileSync(pf, 'utf8')
+      .matchAll(/VERDICT: ([A-Z-]+)/g)].map((m) => m[1]))].sort();
+    const unrouted = emitted.filter((v) => !s1.includes(v));
+    check(`T-29 every preflight verdict the script can emit has a disposition in command step 1 (emitted: ${emitted.join(', ')}; unrouted: ${unrouted.join(', ') || 'none'})`,
+      emitted.length === 4 && unrouted.length === 0);
+  }
 
   // Part B anchors: the evidence ladder in the expert-standard body and frontmatter.
   const std29 = rd('skills/expert-standard/SKILL.md');
@@ -1512,42 +1605,189 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
 // ---- T-31: every stated count of an enumerated list matches the list -------
 // Round-2 F4 named one instance ("Eight signals" in expert-standard). The CLASS is
 // hand-maintained derived data: a cardinality word in prose duplicating what the list
-// below it already carries, which drifts on the next edit to the list. Rather than pin
-// the one number, this DISCOVERS every such header across the skills and counts its
-// list, so a new count-headed list is covered the day it is written — the same shape
-// T-24 already applies to the owner-gate-type comment.
+// below it already carries, which drifts on the next edit to the list.
 //
-// The entry marker is taken from the FIRST entry after the header and only that form
-// is counted, so a trailing bolded paragraph after a bulleted list is not miscounted
-// as an entry. A header with no list at all fails: it is either a miscount or prose
-// that should not be phrased as a cardinality claim.
+// Round-3 F2. The first sweep of this class discovered headers with a column-0 anchor
+// (/^(Two|Three|...)\s+\S/) and reached 7 of the 24 lines the construct admits, while
+// its own comment announced that it "DISCOVERS every such header across the skills".
+// A drift planted in any of the other 17 passed this tier green. The defect was not the
+// missing sites; it was that the control's stated scope exceeded its actual reach, so
+// the class looked closed. Typography is not the class: the class is a cardinality word
+// that quantifies the enumerated list following it, wherever in the line it sits.
+//
+// So coverage here is a MEASURABLE PROPERTY, not a claim. Discovery admits every line
+// the construct's own definition can admit — a cardinal word, no sentence break after
+// it, a terminal colon — and every admitted line must then be ACCOUNTED FOR: either
+// resolved against its list and counted, or carried by a designation whose ground is
+// itself derived rather than asserted. An admitted line that is neither fails this
+// tier, naming itself. That is the same partition-totality shape T-29 applies to the
+// plugin root, applied to a class defined by meaning instead of by column 0.
 {
-  const CARDINALS = { Two: 2, Three: 3, Four: 4, Five: 5, Six: 6, Seven: 7, Eight: 8, Nine: 9, Ten: 10 };
-  const countHeaders = [];
-  for (const s of readdirSync(join(ROOT, 'skills'))) {
-    const rel = `skills/${s}/SKILL.md`;
-    const lines = readFileSync(join(ROOT, rel), 'utf8').split(/\r?\n/);
-    for (let i = 0; i < lines.length; i++) {
-      const m = /^(Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten)\s+\S/.exec(lines[i]);
-      if (!m) continue;
-      const body = [];
-      for (let j = i + 1; j < lines.length && !/^## /.test(lines[j]); j++) body.push(lines[j]);
-      const first = body.find((l) => /^(- )?\*\*/.test(l));
-      const bullet = first !== undefined && /^- \*\*/.test(first);
-      const counted = first === undefined ? -1
-        : body.filter((l) => (bullet ? /^- \*\*/.test(l) : /^\*\*/.test(l))).length;
-      countHeaders.push({ where: `${rel}:${i + 1}`, stated: CARDINALS[m[1]], counted });
+  const CARDINALS = { two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+  // The construct's definition. The lookahead is the "no sentence break" half: a
+  // cardinal only counts as heading THIS list when no `.` separates it from the
+  // terminal colon, which is what excludes cardinals belonging to an earlier sentence
+  // on the same line.
+  const CARDINAL_RE = new RegExp(`\\b(${Object.keys(CARDINALS).join('|')})\\b(?=[^.]*:$)`, 'gi');
+
+  // Entry forms, tried in order. The marker is taken from the FIRST entry after the
+  // header and only that form is then counted, so a trailing bolded paragraph after a
+  // bulleted list is not miscounted as an entry. Adding a form here widens what the
+  // sweep can resolve; it can never narrow what the sweep admits, because admission is
+  // CARDINAL_RE alone.
+  const ENTRY_FORMS = [
+    { name: 'bulleted-bold', re: /^\s*[-*] \*\*/ },
+    { name: 'numbered-bold', re: /^\s*\d+\. \*\*/ },
+    { name: 'bold-paragraph', re: /^\*\*/ },
+    { name: 'fenced-block', re: /^```/ },
+  ];
+
+  // Designations, for admitted lines that are real prose but not a count over a
+  // resolvable list. `anchor` is a verbatim excerpt of the admitted LINE, never a line
+  // number, so an edit that moves the line keeps the designation attached and an edit
+  // that rewrites it detaches loudly. Every designation must match exactly one admitted
+  // line — asserted below — so a designation cannot outlive the text it excuses.
+  const DESIGNATIONS = [
+    {
+      anchor: 'the record of step 3, with five required fields',
+      reason: 'qualified subset: "five REQUIRED fields" quantifies a named subset of the six fields listed beneath it (open_sites is documented "(when applicable)"), so the list length is not the stated count',
+    },
+    {
+      anchor: 'Every finding has two axes, and both have to be right',
+      reason: 'not a count header: the cardinal quantifies "two axes" named inline in the same sentence; the bold paragraphs beneath restate them rather than enumerate a separate list',
+    },
+    {
+      anchor: 'Three categories of problem can surface, each with a different response',
+      reason: 'trailing aside: the three categories are followed contiguously by a bolded "Watch the trap." caution in the same block run, which no entry-form rule can distinguish from a fourth category without a hand-maintained vocabulary of aside lead-ins — the maintained surface this control exists to avoid. The stated count is correct against the document; the resolver cannot show it',
+    },
+  ];
+
+  // Files carrying no markdown emphasis and no headings at all. Their lists are plain
+  // paragraphs with no marker any entry form can detect, so their admitted lines are
+  // accounted for by the file's shape rather than one by one. This is DERIVED, not
+  // maintained: the moment someone adds `**` or `## ` to such a file, it leaves this
+  // set and its admitted lines must resolve or fail. The literal pin below is what
+  // stops a NEW emphasis-free file from quietly inheriting the exemption.
+  const skillFiles = readdirSync(join(ROOT, 'skills')).map((s) => `skills/${s}/SKILL.md`);
+  const text = new Map(skillFiles.map((rel) => [rel, readFileSync(join(ROOT, rel), 'utf8')]));
+  const proseOnly = skillFiles.filter((rel) => {
+    const ls = text.get(rel).split(/\r?\n/);
+    return !ls.some((l) => l.includes('**')) && !ls.some((l) => /^## /.test(l));
+  });
+  check(`T-31 the emphasis-free skill files are exactly the known one (found: ${proseOnly.join(', ') || 'none'})`,
+    proseOnly.join(',') === 'skills/expert-architecture/SKILL.md');
+
+  // Resolve one admitted header against the list beneath it. The body ends at the next
+  // heading of ANY level, the next horizontal rule, or the next admitted line, so one
+  // header can never swallow a later section's list — the skills in this tree head
+  // their sections with `### ` as often as `## `.
+  const BOUNDARY = (l) => /^#{1,6} /.test(l) || /^---\s*$/.test(l);
+  const resolveEntries = (lines, i, admittedAt) => {
+    const body = [];
+    for (let j = i + 1; j < lines.length && !BOUNDARY(lines[j]) && !admittedAt.has(j); j++) body.push(lines[j]);
+    // Paragraph identity comes from blank-line-separated blocks with the empties
+    // dropped, because these files are variously single- and double-spaced and a fixed
+    // blank-line count would resolve one spacing convention and misread the other.
+    const blocks = [];
+    let cur = [];
+    for (const l of body) {
+      if (l.trim() === '') { if (cur.length) { blocks.push(cur); cur = []; } }
+      else cur.push(l);
+    }
+    if (cur.length) blocks.push(cur);
+    const startIdx = blocks.findIndex((b) => ENTRY_FORMS.some((f) => f.re.test(b[0])));
+    if (startIdx < 0) return { form: null, counted: -1 };
+    const form = ENTRY_FORMS.find((f) => f.re.test(blocks[startIdx][0]));
+    // Fenced entries carry blank lines inside the fence, so block identity does not
+    // survive them; the fences themselves are the entry boundary. An odd fence count is
+    // an unresolvable body, never a count.
+    if (form.name === 'fenced-block') {
+      const fences = body.filter((l) => /^```/.test(l)).length;
+      return { form: form.name, counted: fences % 2 === 0 ? fences / 2 : -1 };
+    }
+    // The list is the maximal RUN of consecutive blocks each LED by the same form. A
+    // paragraph that does not lead with the form ends the list, which is how a trailing
+    // note after a bolded or bulleted list stops being miscounted as an entry.
+    const run = [];
+    for (let k = startIdx; k < blocks.length && form.re.test(blocks[k][0]); k++) run.push(blocks[k]);
+    return { form: form.name, counted: run.flat().filter((l) => form.re.test(l)).length };
+  };
+
+  const admitted = [];
+  for (const rel of skillFiles) {
+    const lines = text.get(rel).split(/\r?\n/);
+    const admittedAt = new Set();
+    lines.forEach((l, j) => { CARDINAL_RE.lastIndex = 0; if (CARDINAL_RE.test(l)) admittedAt.add(j); });
+    for (const j of [...admittedAt].sort((a, b) => a - b)) {
+      const words = (lines[j].match(CARDINAL_RE) || []).map((w) => CARDINALS[w.toLowerCase()]);
+      const stated = words.every((v) => v === words[0]) ? words[0] : null;
+      const { form, counted } = resolveEntries(lines, j, admittedAt);
+      const designation = DESIGNATIONS.find((d) => lines[j].includes(d.anchor));
+      admitted.push({
+        where: `${rel}:${j + 1}`, file: rel, line: lines[j], stated, form, counted,
+        designated: designation ? designation.reason : (proseOnly.includes(rel) ? 'emphasis-free file: the list beneath carries no detectable entry marker' : null),
+      });
     }
   }
-  // The discovery itself must not silently find nothing — an empty sweep would make
-  // every assertion below vacuously true, which is the failure mode this class is about.
-  check(`T-31 the count-header sweep found the known population of stated counts (found ${countHeaders.length})`,
-    countHeaders.length >= 7);
-  check('T-31 expert-standard\'s failure-signal count is among the swept headers (the reported F4 instance is actually covered)',
-    countHeaders.some((h) => h.where.startsWith('skills/expert-standard/SKILL.md') && h.stated === 8 && h.counted === 8));
-  const drifted = countHeaders.filter((h) => h.stated !== h.counted);
+
+  // (1) Discovery is not vacuous. Pinned against a LITERAL floor, not against anything
+  // derived from the sweep, so a matcher that silently narrows reddens here.
+  check(`T-31 the sweep admits the full construct population across the skills (admitted ${admitted.length}, floor 24)`,
+    admitted.length >= 24);
+
+  // (2) Coverage is total: every admitted line is counted or designated. This is the
+  // assertion round-3 F2 says the sweep must be able to make about ITSELF — the reach
+  // is demonstrated, not announced.
+  const counted = admitted.filter((h) => !h.designated && h.stated !== null && h.counted >= 0);
+  const designated = admitted.filter((h) => h.designated);
+  const unclassified = admitted.filter((h) => !h.designated && (h.stated === null || h.counted < 0));
+  check(`T-31 every admitted count claim is accounted for — counted or designated (unclassified: ${unclassified.map((u) => u.where).join('; ') || 'none'})`,
+    unclassified.length === 0 && counted.length + designated.length === admitted.length);
+
+  // (3) The sweep must RESOLVE the population rather than excuse it. Both literals are
+  // load-bearing and asymmetric on purpose: the floor reddens when a site that used to
+  // be counted stops being counted, and the ceiling reddens when a new designation is
+  // added — so growing the excused set is a deliberate act that fails the tier first,
+  // while a healthy new count-headed list raises `counted` freely.
+  check(`T-31 the sweep RESOLVES rather than excuses the population (counted ${counted.length}, floor 18; designated ${designated.length}, ceiling 6)`,
+    counted.length >= 18 && designated.length <= 6);
+
+  // (4) Every designation is live: exactly one admitted line, or the designation has
+  // outlived its text and is silently excusing nothing while the class reopens.
+  const staleDesignations = DESIGNATIONS
+    .map((d) => ({ d, n: admitted.filter((h) => h.line.includes(d.anchor)).length }))
+    .filter((x) => x.n !== 1);
+  check(`T-31 every designation still matches exactly one admitted line (stale: ${staleDesignations.map((x) => `${x.d.anchor} -> ${x.n}`).join('; ') || 'none'})`,
+    staleDesignations.length === 0);
+
+  // (5) The originally-reported F4 instance is COUNTED, not merely admitted.
+  check('T-31 expert-standard\'s failure-signal count is counted against its list (the reported F4 instance is actually covered)',
+    counted.some((h) => h.file === 'skills/expert-standard/SKILL.md' && h.stated === 8 && h.counted === 8));
+
+  // (6) The instance round-3 F2 planted and the old sweep missed — a mid-line cardinal
+  // in a bulleted list — is counted. Named explicitly so the specific miss cannot recur.
+  check('T-31 the mid-line construct the column-0 matcher missed is counted (expert-implement\'s stop categories)',
+    counted.some((h) => h.file === 'skills/expert-implement/SKILL.md' && h.stated === 4 && h.counted === 4));
+
+  // (7) No drift anywhere in the counted set.
+  const drifted = counted.filter((h) => h.stated !== h.counted);
   check(`T-31 every stated count matches its list (drifted: ${drifted.map((d) => `${d.where} says ${d.stated}, has ${d.counted}`).join('; ') || 'none'})`,
     drifted.length === 0);
+
+  // (8) The predicate can FAIL, or every assertion above is decoration. Run the real
+  // admission and resolution over synthetic blocks: one drifted, one admitted with no
+  // detectable entry form (which must land unclassified, not silently pass).
+  check('T-31-neg the sweep detects a drifted count and an unresolvable admitted line (the guard can fail)',
+    (() => {
+      const probe = ['Intro line. There are three widgets:', '', '- **a**', '- **b**', '', '## next'];
+      const at = new Set([0]);
+      const r = resolveEntries(probe, 0, at);
+      CARDINAL_RE.lastIndex = 0;
+      const admits = CARDINAL_RE.test(probe[0]);
+      const bare = ['Only two options here:', '', 'plain text entry', 'another plain entry', '', '## next'];
+      const r2 = resolveEntries(bare, 0, new Set([0]));
+      return admits && r.counted === 2 && CARDINALS.three !== r.counted && r2.counted === -1;
+    })());
 }
 
 // ---- T-30: Stop-event continuation gate (corrections-0.4.0, agent-quits-midtask) ----
