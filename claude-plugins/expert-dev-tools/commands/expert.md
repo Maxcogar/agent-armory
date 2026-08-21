@@ -56,6 +56,18 @@ Before spending any tokens on a phase, confirm the environment:
   A non-zero exit is a structured halt — report the diagnostic and offer to
   reconstruct the ledger from the artifacts + git history; never proceed on an
   invalid ledger.
+  **Legacy-ledger migration (the one exception).** `task_verbatim` became required
+  in 0.4.0, so every ledger opened before it fails validation on that field alone —
+  and reconstruction cannot supply it: the owner's request turn lived in a
+  transcript, not in the artifacts or git history, so offering to rebuild from
+  those would fail on the one field that is missing. When the ONLY validation error
+  is `missing required property 'task_verbatim'`, backfill it with exactly
+  `[pre-0.4.0 ledger: the owner's original request turn predates task_verbatim and
+  is not recoverable]`, bump `revision`, re-validate, and say plainly that the
+  migration ran. Any other error, alone or alongside it, still halts. The sentinel
+  is not the owner's words and never stands in for them: the spec phase reads it as
+  absent and gates, so a migrated ledger can resume its later phases but can never
+  run a spec on a reconstruction.
 - **Repo workable.** Confirm the target project is a git repo on a working
   branch.
 

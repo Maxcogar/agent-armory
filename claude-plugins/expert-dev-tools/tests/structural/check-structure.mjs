@@ -2,8 +2,9 @@
 // and deterministic, manifest and MCP config are well-formed. No agents dispatched,
 // no tokens spent (plan T-A1 / T-A2, structural tier). Run: node tests/structural/check-structure.mjs
 
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, utimesSync, rmSync, cpSync } from 'node:fs';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -881,8 +882,19 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
     (() => { const i = wfSrc.indexOf('type: GATE.intent'); return i > 0 && anchorRe.test(wfSrc.slice(i, wfSrc.indexOf('} })', i))); })());
   // (3) Missing capture fails closed before the spec phase, as a control_fault.
   check('T-25 missing-verbatim intake halts via a control_fault gate (fail-closed, reachable from intake)',
-    /if \(cursor === 'spec' && !taskVerbatim\)/.test(wfSrc) &&
-    /GATE\.control_fault, what_happened: 'The owner\\'s request text was not captured into task_verbatim/.test(wfSrc));
+    /if \(cursor === 'spec' && !haveOwnerWords\)/.test(wfSrc) &&
+    /GATE\.control_fault, what_happened: `The owner's request text \$\{taskVerbatim \?/.test(wfSrc));
+  // Round-1 F6: a pre-0.4.0 ledger carries the documented migration sentinel, which is
+  // NOT the owner's words. Every other consumer only quotes task_verbatim and is honest
+  // quoting the sentinel; the spec phase is the one that would run ON it, so it must
+  // read the sentinel as absent and gate — otherwise the migration that makes legacy
+  // ledgers resumable would also let a spec be written from a placeholder.
+  check('T-25 the legacy-ledger sentinel counts as NO owner words at the spec phase (a migration must not become a reconstruction)',
+    /const LEGACY_VERBATIM_PREFIX = '\[pre-0\.4\.0 ledger:'/.test(wfSrc) &&
+    /const haveOwnerWords = !!taskVerbatim && !taskVerbatim\.startsWith\(LEGACY_VERBATIM_PREFIX\)/.test(wfSrc));
+  check('T-25 the command documents the legacy migration, its exact sentinel, and that any other error still halts',
+    /\[pre-0\.4\.0 ledger: the owner's original request turn predates task_verbatim and\s+is not recoverable\]/.test(cmd) &&
+    /ONLY validation error/.test(cmd) && /Any other error, alone or alongside it, still halts/.test(cmd));
   // (4) The spec output contract requires the Request traceability section.
   const specOut = rd('skills/expert-spec/SKILL.md');
   const outRegion = specOut.slice(specOut.indexOf('## Output'), specOut.indexOf('## What comes after'));
@@ -1211,10 +1223,38 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
 
   // Deployment pins (the T-23/F7-1 pattern): both dispatch sites are verified.
   check('T-28 deployment: both implement dispatch sites run the redispatch discriminator and the fault check',
-    (wfSrc.match(/needsActivationRedispatch\(impl\)/g) || []).length === 1 &&
-    (wfSrc.match(/needsActivationRedispatch\(impl2\)/g) || []).length === 1 &&
+    (wfSrc.match(/needsActivationRedispatch\(impl\)/g) || []).length === 2 &&
     wfSrc.includes('const actFault = skillActivationFault(impl)') &&
-    wfSrc.includes('const actFault2 = skillActivationFault(impl2)'));
+    wfSrc.includes('const actFault2 = skillActivationFault(impl)'));
+
+  // ---- Round-1 F4: the amend path must bind its re-implementation into the SAME
+  // variable every downstream control reads. Bound to a block-scoped `impl2`, the
+  // re-implementation was invisible to the completeness gate, the evidence
+  // cross-consistency check and the anti-fabrication sample — all of which then
+  // inspected the HALTED return that opened the branch, where the completeness gate
+  // returns ok unconditionally. The pin below is source-shape, not execution, because
+  // the defect is a binding: the predicate itself was always correct, and executing it
+  // (which M3 does) is exactly what could not see this.
+  // Line comments are stripped first: the fix's own comment NAMES the old variable to
+  // record what went wrong, and a pin that cannot tell code from prose would force
+  // that explanation out of the file to stay green.
+  const amendPathBindsImpl = (src) =>
+    !/\bimpl2\b/.test(src.replace(/\/\/[^\n]*/g, '')) &&
+    /impl = await agent\(`Execute the amended plan/.test(src) &&
+    /implementationCompleteness\(planFacts\.step_ids, impl\)/.test(src) &&
+    /const cited = \(impl && impl\.evidence\) \|\| \[\]/.test(src);
+  check('T-28 the amend path binds its re-implementation into `impl`, so no downstream gate inspects the halted return',
+    amendPathBindsImpl(wfSrc));
+  check('T-28-neg the binding pin REJECTS the block-scoped `impl2` shape (the gate can fail)',
+    !amendPathBindsImpl(wfSrc.replace('impl = await agent(`Execute the amended plan', 'let impl2 = await agent(`Execute the amended plan')));
+  // Same sweep, the other half: the plan-amendment dispatch's own return was discarded
+  // outright — the file's only wholly unconsumed `await agent`. A halted amendment
+  // leaves the plan unchanged, so re-implementing would run it into the same STOP.
+  check('T-28 the plan-amendment dispatch\'s return is consumed, and a halted amendment escalates instead of re-implementing',
+    /const amended = await agent\(`Amend the plan/.test(wfSrc) &&
+    /if \(!amended \|\| amended\.status === 'halted'\)/.test(wfSrc));
+  check('T-28 no `await agent(` return is discarded anywhere in the workflow (the F4 class, swept)',
+    (wfSrc.match(/^\s*await agent\(/gm) || []).length === 0);
   check('T-28 deployment: an activation fault routes to an owner gate through skillActivationGate at both sites',
     wfSrc.includes('gate: skillActivationGate(actFault)') && wfSrc.includes('gate: skillActivationGate(actFault2)'));
 
@@ -1283,6 +1323,69 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
   check('T-29 an unresolvable plugin is UNREADABLE with a non-zero exit (fail closed, never a silent pass)',
     missing.status === 2 && /VERDICT: UNREADABLE/.test(missing.out));
 
+  // ---- Round-1 F3: the verdict's coverage set is the whole contract. Comparing the
+  // two manifests alone rendered CURRENT over a cache whose workflow script and core
+  // skill had been replaced by stubs and one script deleted — while the bright line
+  // at commands/expert.md step 1 forbids any behavioral claim not resting on this
+  // report. Built in a temp dir: the cache and the working tree start byte-identical
+  // (proving the harness itself is not the source of the diff), then behavior files
+  // are mutated with BOTH manifests left untouched.
+  {
+    const tmp = mkdtempSync(join(tmpdir(), 'edt-pf-'));
+    const cache = join(tmp, 'cfg', 'plugins', 'cache', 'p');
+    const tree = join(tmp, 'worktree');
+    const runTmp = () => {
+      try { return { status: 0, out: execFileSync(process.execPath, [pf, 'p', tree], { env: { ...process.env, CLAUDE_CONFIG_DIR: join(tmp, 'cfg') }, encoding: 'utf8', stdio: 'pipe' }) }; }
+      catch (e) { return { status: e.status ?? -1, out: String(e.stdout || '') }; }
+    };
+    const w = (p, s) => { mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, s); };
+    w(join(tree, '.claude-plugin', 'plugin.json'), JSON.stringify({ name: 'p', version: '1.0.0' }));
+    w(join(tree, 'workflows', 'life.js'), 'export const real = 1\n');
+    w(join(tree, 'skills', 'core', 'SKILL.md'), '# the real skill body\n');
+    w(join(tree, 'scripts', 'validate.mjs'), 'export const v = 1\n');
+    w(join(tree, 'docs', 'notes.md'), 'documentation is deliberately outside the compared set\n');
+    cpSync(tree, cache, { recursive: true });
+    w(join(tmp, 'cfg', 'plugins', 'installed_plugins.json'),
+      JSON.stringify({ version: 2, plugins: { 'p@m': [{ scope: 'user', version: '1.0.0', installPath: cache }] } }));
+
+    const identical = runTmp();
+    check('T-29 coverage baseline: a byte-identical cache and working tree are CURRENT (the probe below starts from a true negative)',
+      identical.status === 0 && /VERDICT: CURRENT/.test(identical.out));
+
+    w(join(tree, 'docs', 'notes.md'), 'docs drift alone is not a behavioral claim\n');
+    const docsOnly = runTmp();
+    check('T-29 coverage scope: a divergence confined to docs/ stays CURRENT (the set is behavior-bearing files, not every file)',
+      docsOnly.status === 0 && /VERDICT: CURRENT/.test(docsOnly.out));
+
+    // The exact F3 probe: manifests byte-identical, behavior gutted three ways.
+    w(join(tree, 'workflows', 'life.js'), 'process.exit(1)\n');
+    w(join(tree, 'skills', 'core', 'SKILL.md'), 'stub\n');
+    rmSync(join(tree, 'scripts', 'validate.mjs'));
+    const gutted = runTmp();
+    const guttedR = pfReport(gutted.out);
+    check('T-29 a gutted cache with byte-identical manifests is STALE with exit 1 (version-equal source drift is the common case, and it must be seen)',
+      gutted.status === 1 && /VERDICT: STALE/.test(gutted.out));
+    check('T-29 the STALE report names each diverging tree, so the finding is actionable rather than a bare verdict',
+      !!guttedR && ['workflows/', 'skills/', 'scripts/'].every((t) => guttedR.diffs.some((d) => String(d).startsWith(t))));
+    check('T-29 the report declares the comparison set it actually used (coverage is quotable, not folklore)',
+      !!guttedR && !!guttedR.installs[0].compared &&
+      guttedR.installs[0].compared.trees.join(',') === 'agents,commands,hooks,scripts,skills,workflows');
+
+    // ---- Round-1 F5: a registry of the wrong SHAPE is an unreadable environment.
+    // Iterating it unguarded threw out of main(), and an uncaught throw exits 1 — the
+    // STALE code, which commands/expert.md routes to "the plugin is behind and needs
+    // updating": a confident, specific, wrong diagnosis of a broken environment.
+    w(join(tmp, 'cfg', 'plugins', 'installed_plugins.json'),
+      JSON.stringify({ version: 2, plugins: { 'p@m': { scope: 'user', version: '1.0.0', installPath: cache } } }));
+    const shapeFault = runTmp();
+    check('T-29 a registry entry that is an object rather than an array is UNREADABLE with exit 2, never the STALE code',
+      shapeFault.status === 2 && /VERDICT: UNREADABLE/.test(shapeFault.out) && !/^\s*at /m.test(shapeFault.out));
+    w(join(tmp, 'cfg', 'plugins', 'installed_plugins.json'),
+      JSON.stringify({ version: 2, plugins: { 'p@m': [{ scope: 'user', version: '1.0.0' }] } }));
+    check('T-29 an install record with no installPath is UNREADABLE with exit 2 (every unreadable surface fails to the same code)',
+      runTmp().status === 2);
+  }
+
   // Part A wiring: the command's preflight runs the script and carries the bright line.
   const s1 = cmd.slice(cmd.indexOf('## 1.'), cmd.indexOf('## 2.'));
   check('T-29 command step 1 runs preflight-deployment.mjs', /preflight-deployment\.mjs/.test(s1));
@@ -1323,7 +1426,7 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
   // the shape the /expert command actually writes. Validated against ledger.schema.json
   // by the plugin's own validator, so a schema change breaks these fixtures loudly.
   const validator = join(ROOT, 'scripts/validate-ledger.mjs');
-  for (const f of ['complete', 'open-gate', 'no-gate']) {
+  for (const f of ['complete', 'open-gate', 'no-gate', 'closeout']) {
     let ok = true;
     try { execFileSync(process.execPath, [validator, join(fxc, f, '.claude/expert/ledger.json')], { stdio: 'pipe' }); }
     catch { ok = false; }
@@ -1331,19 +1434,33 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
   }
   check('T-30 fixture no-ledger: genuinely has no ledger (the inert-session case is real)',
     !existsSync(join(fxc, 'no-ledger/.claude/expert/ledger.json')));
+  // The counterpart of the four valid fixtures: a real pre-0.4.0 ledger, invalid ONLY
+  // because task_verbatim postdates it. Deliberately invalid, so it is asserted invalid
+  // here — otherwise a later schema change could quietly make it valid and the
+  // unresumable-ledger case below would stop testing anything.
+  check('T-30 fixture invalid: is genuinely schema-INVALID (the unresumable-ledger case is real)',
+    (() => {
+      try { execFileSync(process.execPath, [validator, join(fxc, 'invalid/.claude/expert/ledger.json')], { stdio: 'pipe' }); return false; }
+      catch { return true; }
+    })());
 
-  // Spawn the gate with a Stop payload naming `cwd`; the script resolves the ledger from
-  // that cwd, never from a hardcoded path — the property that makes it portable.
-  const runGateHook = (fixtureDir, extra = {}) => {
+  // Spawn the gate with a real Stop payload. `env` is controlled EXPLICITLY on every
+  // case: CLAUDE_PROJECT_DIR is the root the hook must prefer, so leaving the ambient
+  // value in place would silently point every case at this repo's own ledger. Passing
+  // it as null deletes it, which is how the `cwd` fallback is exercised.
+  const runGateHook = (fixtureDir, extra = {}, projectDir = null) => {
     const payload = JSON.stringify({
       session_id: 'fixture', hook_event_name: 'Stop', permission_mode: 'default',
       transcript_path: join(fxc, 'transcript.jsonl'), cwd: join(fxc, fixtureDir), ...extra,
     });
+    const env = { ...process.env };
+    delete env.CLAUDE_PROJECT_DIR;
+    if (projectDir) env.CLAUDE_PROJECT_DIR = projectDir;
     // spawnSync, not execFileSync: stderr is load-bearing on BOTH paths here — the block
     // reason on exit 2, and the fail-open note on exit 0 — and execFileSync surfaces
     // stderr only when it throws. A spawn failure has no status; it maps to -1, which
     // matches no expected code, so every case fails closed.
-    const r = spawnSync(process.execPath, [gate], { input: payload, encoding: 'utf8' });
+    const r = spawnSync(process.execPath, [gate], { input: payload, encoding: 'utf8', env });
     return {
       status: r.error || r.status === null ? -1 : r.status,
       stdout: String(r.stdout || ''),
@@ -1384,6 +1501,55 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
     corrupt.status === 0 && /unparseable/.test(corrupt.stderr));
   check('T-30 exec (i) empty stdin -> exit 0 (a malformed hook payload never traps the session)',
     (() => { try { execFileSync(process.execPath, [gate], { input: '', stdio: 'pipe' }); return true; } catch { return false; } })());
+
+  // ---- Round-1 F1: the ledger root is CLAUDE_PROJECT_DIR, not the payload's cwd.
+  // The platform hooks contract states the two diverge — CLAUDE_PROJECT_DIR stays at
+  // the project root while cwd follows Claude into a worktree or a `cd`. Resolving
+  // from cwd made the gate go inert in exactly the long, deep sessions it exists for,
+  // and nothing surfaced the miss. Both directions are executed, because pinning only
+  // the preference would pass on a hook that ignored cwd entirely.
+  check('T-30 exec (j) CLAUDE_PROJECT_DIR names the blocking ledger while cwd has none -> exit 2 (the project root wins)',
+    runGateHook('no-ledger', {}, join(fxc, 'no-gate')).status === 2);
+  check('T-30 exec (k) CLAUDE_PROJECT_DIR names a ledgerless root while cwd has the blocking one -> exit 0 (cwd never overrides the project root)',
+    runGateHook('no-gate', {}, join(fxc, 'no-ledger')).status === 0);
+  check('T-30 exec (l) with CLAUDE_PROJECT_DIR unset, cwd is the fallback root -> exit 2',
+    runGateHook('no-gate').status === 2);
+
+  // ---- Round-1 F2: blocking requires POSITIVE evidence of an in-flight lifecycle.
+  // Both cases below are ledgers that are finished or unresumable while sitting at a
+  // phase that is not the literal string 'complete' — the state the plugin's own
+  // repository was found in, where the gate blocked every end-of-turn and demanded a
+  // `/expert resume` that the ledger's own invalidity made impossible.
+  const atCloseout = runGateHook('closeout');
+  check('T-30 exec (m) phase closeout with every escalation resolved -> exit 0 (post-verification is not in flight)',
+    atCloseout.status === 0);
+  const unresumable = runGateHook('invalid');
+  check('T-30 exec (n) a schema-INVALID ledger -> exit 0 with a note saying it is not resumable (never demand an impossible resume)',
+    unresumable.status === 0 && /not schema-valid/.test(unresumable.stderr) && /not resumable/.test(unresumable.stderr));
+
+  // ---- Round-1 F2, staleness: nothing else ever expires a ledger, so without a
+  // bounded activity window one abandoned run governs every future session in the
+  // project forever. Executed on a COPY in a temp dir — the mtime is the input under
+  // test, and the checked-in fixtures must not be touched to supply it.
+  {
+    const tmp = mkdtempSync(join(tmpdir(), 'edt-stale-'));
+    const led = join(tmp, '.claude', 'expert', 'ledger.json');
+    mkdirSync(dirname(led), { recursive: true });
+    writeFileSync(led, readFileSync(join(fxc, 'no-gate/.claude/expert/ledger.json')));
+    const runAt = (ageDays) => {
+      const t = (Date.now() - ageDays * 86400000) / 1000;
+      utimesSync(led, t, t);
+      const env = { ...process.env }; delete env.CLAUDE_PROJECT_DIR; env.CLAUDE_PROJECT_DIR = tmp;
+      const r = spawnSync(process.execPath, [gate],
+        { input: JSON.stringify({ hook_event_name: 'Stop', cwd: tmp }), encoding: 'utf8', env });
+      return { status: r.error || r.status === null ? -1 : r.status, stderr: String(r.stderr || '') };
+    };
+    check('T-30 exec (o) a ledger written minutes ago at a mid-phase -> exit 2 (fresh work is in flight)',
+      runAt(0).status === 2);
+    const old = runAt(8);
+    check('T-30 exec (p) the same ledger 8 days untouched -> exit 0 with a staleness note (an abandoned run governs nothing)',
+      old.status === 0 && /abandoned/.test(old.stderr));
+  }
 
   // The fail-open policy is a decision a reader must be able to find, not folklore.
   const gateSrc = rd('hooks/continuation-gate.mjs');

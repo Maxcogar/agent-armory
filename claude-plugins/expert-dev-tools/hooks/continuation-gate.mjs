@@ -13,12 +13,24 @@
 // no tool use; it intercepts only the end-of-turn decision and can do nothing but ask
 // the agent to keep working.
 //
-// Decision order (draft §4.1):
+// BLOCKING REQUIRES POSITIVE EVIDENCE OF AN IN-FLIGHT LIFECYCLE. The defect this
+// gate answers is an agent that abandons work the lifecycle would otherwise carry
+// on with. "A ledger file exists and its phase is not the string 'complete'" is not
+// that evidence: a lifecycle can be finished, unresumable, or simply dead, and every
+// one of those states leaves a ledger on disk forever — nothing expires one. Each
+// allow condition below therefore names a way the lifecycle can fail to be in
+// flight, and the block is what remains when none of them holds.
+//
+// Decision order:
 //   1. stop_hook_active            -> allow  (loop guard required by the hook API)
-//   2. no ledger under cwd         -> allow  (no lifecycle; ordinary sessions untouched)
-//   3. phase === 'complete'        -> allow
-//   4. an unresolved escalation    -> allow  (a legitimate §3.4 halt; gates keep halting)
-//   5. otherwise                   -> block  (exit 2; stderr is fed back to the agent)
+//   2. no ledger at the project root -> allow (no lifecycle; ordinary sessions untouched)
+//   3. ledger is not schema-valid  -> allow  (unresumable: `/expert resume` halts at
+//                                             its own step-1 ledger-validity check, so
+//                                             a block here would demand the impossible)
+//   4. phase is terminal           -> allow  (TERMINAL_PHASES; see there)
+//   5. ledger older than STALE_MS  -> allow  (abandoned run, not this turn's work)
+//   6. an unresolved escalation    -> allow  (a legitimate §3.4 halt; gates keep halting)
+//   7. otherwise                   -> block  (exit 2; stderr is fed back to the agent)
 //
 // FAIL OPEN, DELIBERATELY. Every unreadable, malformed, or unrecognized input above
 // resolves to allow, with a note on stderr. This asymmetry against the workflow's
@@ -29,17 +41,53 @@
 // loop over a corrupt JSON file, which is strictly worse than a missed reprompt.
 //
 // Input: the Stop hook's stdin JSON — `stop_hook_active`, `cwd`, and the common
-// fields. The ledger is resolved from that `cwd`, never from a hardcoded path.
+// fields. The ledger root comes from `${CLAUDE_PROJECT_DIR}` when the platform sets
+// it, and from the payload's `cwd` only as a fallback; see projectRoot().
 
-import { readFileSync, existsSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { readFileSync, existsSync, statSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { validate } from '../scripts/validate-ledger.mjs';
 
 const ALLOW = 0;
 const BLOCK = 2;
 
 // The ledger location the /expert command owns (commands/expert.md:13).
 export const LEDGER_REL = join('.claude', 'expert', 'ledger.json');
+
+// Phases after which nothing this gate should demand remains in flight. 'complete'
+// is the workflow's terminal write. 'closeout' is reached only once ground truth AND
+// the whole-chain reconciliation have PASSED (expert-lifecycle.js:951), and because
+// `delta.phase = 'complete'` is written only when the closeout agent RETURNS
+// (:958), an interrupted or abandoned closeout rests at 'closeout' permanently —
+// which is exactly the state the plugin's own repository was found in.
+export const TERMINAL_PHASES = ['closeout', 'complete'];
+
+// A lifecycle segment is advanced within a working session. A ledger untouched for
+// longer than this is not the work in flight in THIS turn. The bound exists because
+// nothing else ever expires a ledger: without it, one abandoned run governs every
+// future session in that project until someone deletes the file by hand.
+export const STALE_MS = 24 * 60 * 60 * 1000;
+
+// The ledger's own schema, loaded once. Unreadable leaves it null, which decide()
+// treats as "validity could not be established" — an allow, per the fail-open rule.
+const SCHEMA_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', 'scripts', 'ledger.schema.json');
+let SCHEMA = null;
+try { SCHEMA = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8')); } catch { SCHEMA = null; }
+
+// The project root the /expert command resolves the ledger against. The platform
+// hooks contract (code.claude.com/docs/en/hooks, read 2026-08-21) states these two
+// diverge: "${CLAUDE_PROJECT_DIR} stays put ... it still points at the project root
+// where the session started", while "cwd follows Claude ... the worktree root after
+// Claude enters a worktree, and the new directory after Claude runs `cd`". The
+// ledger lives at the project root, so CLAUDE_PROJECT_DIR is the correct source and
+// `cwd` is only the fallback for a payload delivered without the variable set.
+export function projectRoot(input, env = process.env) {
+  const fromEnv = env && env.CLAUDE_PROJECT_DIR;
+  if (typeof fromEnv === 'string' && fromEnv !== '') return fromEnv;
+  const cwd = input && input.cwd;
+  return typeof cwd === 'string' && cwd !== '' ? cwd : null;
+}
 
 export function reasonFor(phase) {
   return [
@@ -54,7 +102,11 @@ export function reasonFor(phase) {
 
 // Returns { code, note } — `note` goes to stderr in both directions. On BLOCK the note
 // IS the reprompt the agent reads, so its content is load-bearing.
-export function decide(input, ledgerText) {
+//
+// `mtimeMs` is the ledger file's last-modification time and `nowMs` the clock, both
+// injected so the staleness axis is testable without touching a clock; `ledgerText`
+// null means no ledger. The function stays pure: every I/O happens in the callers.
+export function decide(input, ledgerText, mtimeMs = null, nowMs = Date.now()) {
   if (input && input.stop_hook_active === true) {
     return { code: ALLOW, note: null }; // already continuing because of this hook
   }
@@ -72,12 +124,33 @@ export function decide(input, ledgerText) {
     return { code: ALLOW, note: 'continuation-gate: ledger is not an object; allowing the stop.' };
   }
 
-  const phase = ledger.phase;
-  if (typeof phase !== 'string' || phase === '') {
-    return { code: ALLOW, note: 'continuation-gate: ledger has no phase; allowing the stop.' };
+  // Schema validity, from the same schema and the same validator `/expert` step 1
+  // runs. A ledger this rejects cannot be resumed, so demanding its resumption is
+  // an instruction the agent cannot carry out — the shape that trapped this repo.
+  if (SCHEMA === null) {
+    return { code: ALLOW, note: 'continuation-gate: ledger.schema.json unreadable, so ledger validity is unknown; allowing the stop.' };
   }
-  if (phase === 'complete') {
+  let errors;
+  try {
+    errors = validate(ledger, SCHEMA, SCHEMA, '$', []);
+  } catch (e) {
+    return { code: ALLOW, note: `continuation-gate: ledger could not be validated (${e.message}); allowing the stop.` };
+  }
+  if (errors.length) {
+    return { code: ALLOW, note: `continuation-gate: ledger is not schema-valid (${errors[0]}) and so is not resumable; allowing the stop.` };
+  }
+
+  // Schema-valid implies `phase` is one of the schema's enumerated phases, so a
+  // phase outside TERMINAL_PHASES is a genuine mid-lifecycle phase — no separate
+  // unknown-phase branch is needed, and no second copy of the phase list exists.
+  const phase = ledger.phase;
+  if (TERMINAL_PHASES.includes(phase)) {
     return { code: ALLOW, note: null };
+  }
+
+  if (typeof mtimeMs === 'number' && Number.isFinite(mtimeMs) && nowMs - mtimeMs > STALE_MS) {
+    const days = ((nowMs - mtimeMs) / 86400000).toFixed(1);
+    return { code: ALLOW, note: `continuation-gate: ledger at phase ${phase} was last written ${days} days ago, past the ${STALE_MS / 86400000}-day activity window; treating the lifecycle as abandoned and allowing the stop.` };
   }
 
   // An entry counts as OPEN unless it says `resolved: true`. `resolved` is optional in
@@ -92,16 +165,19 @@ export function decide(input, ledgerText) {
   return { code: BLOCK, note: reasonFor(phase) };
 }
 
-function readLedgerText(cwd) {
-  if (typeof cwd !== 'string' || cwd === '') return null;
-  const path = join(cwd, LEDGER_REL);
+// Returns { text, mtimeMs } for the ledger under `root`, or null when there is none.
+export function readLedger(root) {
+  if (typeof root !== 'string' || root === '') return null;
+  const path = join(root, LEDGER_REL);
   if (!existsSync(path)) return null;
+  let mtimeMs = null;
+  try { mtimeMs = statSync(path).mtimeMs; } catch { mtimeMs = null; }
   try {
-    return readFileSync(path, 'utf8');
+    return { text: readFileSync(path, 'utf8'), mtimeMs };
   } catch (e) {
     // Present but unreadable. Surface it as text JSON.parse will reject, so the single
     // fail-open path in decide() reports it rather than duplicating the policy here.
-    return `unreadable: ${e.message}`;
+    return { text: `unreadable: ${e.message}`, mtimeMs };
   }
 }
 
@@ -117,7 +193,8 @@ function main() {
 
   let verdict;
   try {
-    verdict = decide(input, readLedgerText(input && input.cwd));
+    const led = readLedger(projectRoot(input));
+    verdict = decide(input, led && led.text, led && led.mtimeMs);
   } catch (e) {
     process.stderr.write(`continuation-gate: internal error (${e.message}); allowing the stop.\n`);
     process.exit(ALLOW);

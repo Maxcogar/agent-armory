@@ -582,6 +582,14 @@ const task = input.task || ledger.task || ''
 // (commands/expert.md §0) and never edited, summarized, or normalized. It is the
 // authoritative statement of the request; every spec-phase dispatch carries it.
 const taskVerbatim = input.task_verbatim || ledger.task_verbatim || ''
+// A ledger opened before 0.4.0 has no captured request turn, and no reconstruction can
+// recover it — it lived in a transcript, not in the artifacts or git history. The
+// documented migration (commands/expert.md step 1) backfills the sentinel below rather
+// than leaving such a ledger permanently unresumable. The sentinel is NOT the owner's
+// words, so the one consumer that requires the real text — the spec phase — must treat
+// it as absent; every other consumer only quotes it and is honest quoting the sentinel.
+const LEGACY_VERBATIM_PREFIX = '[pre-0.4.0 ledger:'
+const haveOwnerWords = !!taskVerbatim && !taskVerbatim.startsWith(LEGACY_VERBATIM_PREFIX)
 // Artifact locations have ONE source of truth: the path the authoring agent returns in
 // PHASE_SCHEMA.artifact_path. These are resume hints only — a prior segment's registered path,
 // never a default. There is deliberately no `|| 'docs/…'` fallback: the skills name artifacts
@@ -611,6 +619,19 @@ const delta = { phase: ledger.phase, artifacts: [], gate_history: [], amendments
 // same role) - one predicate, used by every consumer.
 const isHashPinnedRole = (a) => a.role !== 'implementation'
 const implementationArtifacts = () => (ledger.artifact_index || []).concat(delta.artifacts || []).filter((a) => a.role === 'implementation')
+// Register an implement return's outputs, idempotently. Both the amend path and the
+// post-gate registration call this on the SAME return (F4: one variable now carries
+// whichever implementation actually executed), so a path already registered must not
+// be appended twice — a duplicated artifact_index row is state the ledger's single
+// writer never produced and every later consumer would have to de-duplicate.
+const registerImplementationOutputs = (res) => {
+  const known = new Set(implementationArtifacts().map((a) => a.path))
+  for (const f of (res && res.files_changed) || []) {
+    if (known.has(f)) continue
+    known.add(f)
+    delta.artifacts.push({ role: 'implementation', path: f })
+  }
+}
 // F5-2: a verifier that returns nothing verified nothing. Every consumer of a
 // VERIFIER_SCHEMA return goes through this; an empty return is a failed control,
 // never a passed one (fail-closed).
@@ -658,9 +679,9 @@ if (cursor === 'intake') cursor = 'spec'
 // The spec phase runs only on the owner's captured words. Without them, the spec
 // writer's sole view of the request would be the orchestrator's restatement —
 // exactly the reinterpretation defect. A halt, not a fallback (fail-closed).
-if (cursor === 'spec' && !taskVerbatim) {
+if (cursor === 'spec' && !haveOwnerWords) {
   delta.phase = 'spec'
-  return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.control_fault, what_happened: 'The owner\'s request text was not captured into task_verbatim, so the spec phase would run on a restatement of the request rather than the request itself. The phase did not run.', options: ['capture the owner\'s turn verbatim into the ledger and re-invoke', 'supply task_verbatim in the snapshot'], recommendation: 'capture the request verbatim per commands/expert.md §0 and resume; the verbatim text is the spec phase\'s authoritative input' } })
+  return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.control_fault, what_happened: `The owner's request text ${taskVerbatim ? 'is the legacy-ledger sentinel rather than the owner\'s own words' : 'was not captured into task_verbatim'}, so the spec phase would run on a restatement of the request rather than the request itself. The phase did not run.`, options: ['capture the owner\'s turn verbatim into the ledger and re-invoke', 'supply task_verbatim in the snapshot'], recommendation: 'capture the request verbatim per commands/expert.md §0 and resume; the verbatim text is the spec phase\'s authoritative input' } })
 }
 
 // ---- SPEC ---------------------------------------------------------------
@@ -782,19 +803,31 @@ if (cursor === 'implement') {
     }
     // PREMISE-FALSE / BLAST-RADIUS -> auto amend-plan -> re-implement (remediation
     // goes through the planner then the implementer; reviewed like any change).
-    await agent(`Amend the plan at ${planPath} per this diagnosis, then re-verify: ${JSON.stringify(dg)}`, { agentType: AGENT.planner, schema: PHASE_SCHEMA, phase: 'Plan', label: 'amend:plan' })
-    let impl2 = await agent(`Execute the amended plan at ${planPath}. ${IMPLEMENT_ACTIVATION_REQ}`, { agentType: AGENT.implementer, schema: IMPLEMENT_SCHEMA, phase: 'Implement', label: 're-implement' })
+    const amended = await agent(`Amend the plan at ${planPath} per this diagnosis, then re-verify: ${JSON.stringify(dg)}`, { agentType: AGENT.planner, schema: PHASE_SCHEMA, phase: 'Plan', label: 'amend:plan' })
+    // This dispatch's return used to be discarded outright (found by the F4 class
+    // sweep: it was the file's only wholly unconsumed `await agent`). A halted
+    // amendment means the plan was NOT rewritten, so re-implementing would run the
+    // same unamended plan into the same STOP and burn a second implement budget.
+    if (!amended || amended.status === 'halted') {
+      delta.phase = 'implement'
+      const h = (amended && amended.halt) || { detail: 'the plan-amendment dispatch returned nothing' }
+      return report(finish(), { outcome: 'owner_gate', gate: { type: GATE.spec_traceable, what_happened: `The automatic plan amendment for a ${cat} STOP did not complete: ${h.detail}. The plan at ${planPath} is unchanged, so re-implementing would repeat the same halt.`, diagnosis: dg, correction_draft: dg && dg.correction_draft, options: ['amend the plan by hand and resume', 'investigate the diagnosis'], recommendation: 'the amend-and-re-implement route is automatic only when the amendment itself succeeds; this one did not' } })
+    }
+    // F4: the re-implementation is bound back into `impl`, the single variable every
+    // downstream control reads. Held in a block-scoped `impl2`, it was invisible to
+    // the completeness gate, the evidence cross-consistency check, and the
+    // anti-fabrication sample below — all of which then inspected the HALTED return
+    // that opened this branch, so on this path they could not fail.
+    impl = await agent(`Execute the amended plan at ${planPath}. ${IMPLEMENT_ACTIVATION_REQ}`, { agentType: AGENT.implementer, schema: IMPLEMENT_SCHEMA, phase: 'Implement', label: 're-implement' })
     // Same C1 activation verification as the primary dispatch above.
-    if (needsActivationRedispatch(impl2))
-      impl2 = await agent(`Execute the amended plan at ${planPath}. ${IMPLEMENT_ACTIVATION_REQ} Your previous return did not verify activation: skill_activation must quote the ACTUAL Skill tool result's launch line, not restate the requirement.`, { agentType: AGENT.implementer, schema: IMPLEMENT_SCHEMA, phase: 'Implement', label: 're-implement' })
-    const actFault2 = skillActivationFault(impl2)
+    if (needsActivationRedispatch(impl))
+      impl = await agent(`Execute the amended plan at ${planPath}. ${IMPLEMENT_ACTIVATION_REQ} Your previous return did not verify activation: skill_activation must quote the ACTUAL Skill tool result's launch line, not restate the requirement.`, { agentType: AGENT.implementer, schema: IMPLEMENT_SCHEMA, phase: 'Implement', label: 're-implement' })
+    const actFault2 = skillActivationFault(impl)
     if (actFault2) {
       delta.phase = 'implement'
       return report(finish(), { outcome: 'owner_gate', gate: skillActivationGate(actFault2) })
     }
-    for (const f of (impl2 && impl2.files_changed) || []) {
-      delta.artifacts.push({ role: 'implementation', path: f })
-    }
+    registerImplementationOutputs(impl)
   }
 
   // Implementation review — multi-lens panel on the PASS round.
@@ -810,9 +843,7 @@ if (cursor === 'implement') {
   // Register the build's outputs so ground truth has a traceable target (the
   // consumer at the ground-truth guard reads role 'implementation'; without
   // this producer that check could never hold).
-  for (const f of (impl && impl.files_changed) || []) {
-    delta.artifacts.push({ role: 'implementation', path: f })
-  }
+  registerImplementationOutputs(impl)
 
   // F3-1/F4-1: files_changed is optional in IMPLEMENT_SCHEMA, so an implementer
   // that omits it would otherwise sail to the ground-truth guard and strand

@@ -29,7 +29,7 @@
       "type": "string"
     },
     "task_verbatim": {
-      "description": "The owner's request turn, verbatim and unmodified; `task` may be a working title, `task_verbatim` may not be edited, summarized, or normalized.",
+      "description": "The owner's request turn, verbatim and unmodified; `task` may be a working title, `task_verbatim` may not be edited, summarized, or normalized. Required since 0.4.0. A ledger opened before 0.4.0 carries the documented migration sentinel '[pre-0.4.0 ledger: ...]' (commands/expert.md step 1) because the original turn is not recoverable from artifacts or git history; the spec phase treats that sentinel as absent and gates rather than running on it.",
       "type": "string",
       "minLength": 1
     },
