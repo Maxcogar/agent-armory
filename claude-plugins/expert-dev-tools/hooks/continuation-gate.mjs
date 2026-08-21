@@ -108,7 +108,7 @@ let SCHEMA = null;
 try { SCHEMA = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8')); } catch { SCHEMA = null; }
 
 // The project root the /expert command resolves the ledger against. The platform
-// hooks contract (code.claude.com/docs/en/hooks, read 2026-08-21) states these two
+// hooks contract (code.claude.com/docs/en/hooks, read 2026-08-21) states that they
 // diverge: "${CLAUDE_PROJECT_DIR} stays put ... it still points at the project root
 // where the session started", while "cwd follows Claude ... the worktree root after
 // Claude enters a worktree, and the new directory after Claude runs `cd`". The

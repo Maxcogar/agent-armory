@@ -1,5 +1,5 @@
 {
-  "description": "Stop-event continuation gate (corrections-0.4.0, agent-quits-midtask). Blocks an untyped end-of-turn while an expert lifecycle is mid-phase with no open owner gate, making spec §3.4's seven-gate exhaustiveness executable at the decision point. Blocks no tool use — authorized by the spec §2 amendment of 2026-08-20.",
+  "description": "Stop-event continuation gate (corrections-0.4.0, agent-quits-midtask). Blocks an untyped end-of-turn while an expert lifecycle is mid-phase with no open owner gate, making spec §3.4's gate-type exhaustiveness executable at the decision point. Blocks no tool use — authorized by the spec §2 amendment of 2026-08-20.",
   "hooks": {
     "Stop": [
       {

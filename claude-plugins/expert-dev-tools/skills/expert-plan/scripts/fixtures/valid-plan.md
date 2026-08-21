@@ -1,8 +1,8 @@
 # Fixture — a minimal valid plan exercising the full step-decl grammar
 
 This fixture is read by `derive-plan-sections.mjs --self-check`. It exercises:
-indented and column-0 fences, suffixed step IDs, multi-entry lists, all three
-files sub-key forms, a dependency chain, and both test-spec ID line forms.
+indented and column-0 fences, suffixed step IDs, multi-entry lists, every
+files sub-key form, a dependency chain, and both test-spec ID line forms.
 Regenerate it with the script itself after any grammar change; self-check
 requires it to check clean as committed.
 

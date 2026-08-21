@@ -191,7 +191,7 @@ From the SEGMENT_REPORT's `ledger_delta` and its top-level fields:
   `correction.fixed_in_version` — that is a `stale_deployment` (D15), and it is
   surfaced as an open item reading "your plugin is behind; update it"**. The
   stale branch is a separate predicate because a stale record's occurrences sit
-  below `fixed_in_version` and so match neither of the other two branches, which
+  below `fixed_in_version` and so match neither of the other branches, which
   is why the verdict was computed and then went nowhere; the transient sweep verdicts
   (`systemic_defect` / `failed_correction`) are never stored on the record, so this
   predicate keys on `state`, `occurrences`, and `correction` — so a feedback

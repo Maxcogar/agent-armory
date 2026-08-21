@@ -124,7 +124,7 @@ Read the rest of this document with that frame.
 
 
 
-The delivered review is structured around two-axis evidence. Specific output sections carry the load for each axis; a review missing any of them, or with any of them empty without its explicit attestation, has not satisfied the contract and is not delivered.
+The delivered review is structured around evidence on both axes. Specific output sections carry the load for each axis; a review missing any of them, or with any of them empty without its explicit attestation, has not satisfied the contract and is not delivered.
 
 
 
@@ -364,7 +364,7 @@ The inventory checklist from Step 2, with every file marked `[x]` (verified by R
 
 
 
-This section also carries: the Step 3 tool plan (instruments available, claim-type mapping, any instrument unavailability and its disposition); any rigor waivers per Handling Requests to Compress Rigor (what was skipped, at whose direction); and, for Post-fix reviews, the inventory showing all four sources — the prior review's full inventory, the fix-diff files, the fix-diff dependents, and the prior findings as closure items — plus the round number (the first review is round 1; each Post-fix review increments it).
+This section also carries: the Step 3 tool plan (instruments available, claim-type mapping, any instrument unavailability and its disposition); any rigor waivers per Handling Requests to Compress Rigor (what was skipped, at whose direction); and, for Post-fix reviews, the inventory showing every source — the prior review's full inventory, the fix-diff files, the fix-diff dependents, and the prior findings as closure items — plus the round number (the first review is round 1; each Post-fix review increments it).
 
 
 
@@ -550,7 +550,7 @@ The breakdown lets downstream automation parse the verdict mechanically. Example
 
 
 
-Before delivering the review, run all three gates. The review is not complete until all three pass. Each gate is binary — failure of any item in any gate is non-compliance, not a judgment call.
+Before delivering the review, run every gate. The review is not complete until all of them pass. Each gate is binary — failure of any item in any gate is non-compliance, not a judgment call.
 
 
 

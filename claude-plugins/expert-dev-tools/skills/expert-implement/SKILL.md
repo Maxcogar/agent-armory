@@ -50,7 +50,7 @@ Read the **entire** plan, not just the steps in scope. Specifically read:
 
 Then read the project's own context, *if it exists*:
 
-- A **rules / conventions doc** (e.g. `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`). Its non-negotiable rules are the source for a HARD-RULE-CONFLICT stop in Step 4. If the project has no such doc, that category simply has nothing to fire against — the plan's own stated constraints and the other three categories still operate.
+- A **rules / conventions doc** (e.g. `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`). Its non-negotiable rules are the source for a HARD-RULE-CONFLICT stop in Step 4. If the project has no such doc, that category simply has nothing to fire against — the plan's own stated constraints and the other categories still operate.
 - A **status / handoff doc** (e.g. `HANDOFF.md`). Read it for current phase posture. You will not mark it "Complete" — only an independent review PASS justifies that.
 
 A plan missing its "Standards that govern this plan" section or its per-decision Source annotations was not produced under a disciplined planning step. If you were pointed at such a plan without the user confirming it, treat that as a **PREMISE-FALSE** stop in Step 4 — the contract you were asked to execute does not exist in the form this skill expects.
@@ -95,7 +95,7 @@ Emit a **PREFLIGHT VERDICT** before continuing — exactly one of:
 
 ## Step 3 — Execute the steps in order
 
-Once preflight passes, the plan is authoritative until you finish or hit one of the four stop categories in Step 4. There is no third option. You do not silently adjust a step. You do not skip a step. You do not insert a step the plan did not authorize.
+Once preflight passes, the plan is authoritative until you finish or hit one of the stop categories in Step 4. There is no third option. You do not silently adjust a step. You do not skip a step. You do not insert a step the plan did not authorize.
 
 For each step in scope:
 
@@ -109,7 +109,7 @@ For each step in scope:
    - **Standard-compliance claim** (matches OWASP X, RFC Y, framework convention Z) → cite the standard's text and the specific property in the new code that satisfies it.
 
    Each verification entry in your report names the **claim type, the tool, and the evidence** — not just the command. A verification that does not name what kind of claim it is verifying is the same failure as an unnamed approval that the Expert Standard rejects.
-4. If verification fails: diagnose the root cause and fix it **within the step's authorized scope**, then re-verify. If the failure reveals one of the four stop categories, halt per Step 4. If it is just a bug in your own implementation of the step, fix and re-verify.
+4. If verification fails: diagnose the root cause and fix it **within the step's authorized scope**, then re-verify. If the failure reveals one of the stop categories, halt per Step 4. If it is just a bug in your own implementation of the step, fix and re-verify.
 5. Mark the entry `completed` only after every claim type the step makes has been verified with the appropriate tool and the evidence is recorded.
 
 ---

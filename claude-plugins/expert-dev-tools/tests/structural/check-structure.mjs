@@ -226,7 +226,7 @@ const wf = join(ROOT, 'workflows/expert-lifecycle.js');
 // The "use strict" directive is load-bearing: a bare `new Function` body is sloppy
 // mode, which silently accepts octal literals, `with`, duplicate parameter names,
 // `delete` of an unqualified identifier, assignment to `eval`, and octal escapes —
-// all SyntaxErrors under ECMA-262 §11.2.2 strict code, and all six executed.
+// all SyntaxErrors under ECMA-262 §11.2.2 strict code, and every one executed.
 function parsesAsWorkflowBody(src) {
   try { new Function('"use strict"; return (async function(){' + src.replace(/^export /gm, '') + '\n})'); return true }
   catch { return false }
@@ -418,7 +418,7 @@ check('T-15 the spec artifact is pushed exactly once',
   (wfSrc.match(/delta\.artifacts\.push\(\{ role: 'spec'/g) || []).length === 1);
 
 // ---- T-16: stale_deployment builds an escalation ---------------------------
-check('T-16 a stale_deployment branch exists alongside the other two verdicts',
+check('T-16 a stale_deployment branch exists alongside the other verdicts',
   /kind: 'stale_deployment'/.test(wfSrc) && /d\.verdict === 'stale_deployment'/.test(wfSrc));
 
 // ---- T-17: the command carries the dedupe key and the stale branch ---------
@@ -466,20 +466,97 @@ check('T-18 the scope check is dispatched to the verifier under one label',
   } else {
     check('T-20 baseline reachable from git', false);
   }
+  // One extractor for every label read in this block, so the baseline read, the live
+  // read and the guard below cannot drift apart. A label runs to its closing
+  // delimiter: the earlier form stopped at the first quote character INSIDE the
+  // label, which merged distinct labels — see the injectivity assertion below.
+  const capturedLabels = (s) => [...s.matchAll(/check\(\s*(['"`])((?:(?!\1)[^\r\n]){8,600}?)\1/g)].map((m) => m[2]);
   const oldChecks = baseline('tests/structural/check-structure.mjs');
   if (oldChecks) {
-    const labels = [...oldChecks.matchAll(/check\(\s*[`'"]([^`'"]{8,160})/g)].map((m) => m[1]);
+    const labels = capturedLabels(oldChecks);
     const src = readFileSync(join(ROOT, 'tests/structural/check-structure.mjs'), 'utf8');
-    // A RENAMED label is not a removed check. S7 changed two labels' cardinality
-    // word (nine -> ten) when the corrector skill and agent landed; the assertions
-    // behind them are untouched. Normalize the cardinality word before comparing,
-    // so the oracle measures "was a check deleted", not "was a label edited".
-    const norm = (s) => s.replace(/\b(nine|ten|eleven|\d+)\b/g, '#');
+    // A RENAMED label is not a removed check, and there are two ways a label gets
+    // edited while its assertion stays put. A digit becomes '#'. A cardinal WORD is
+    // deleted outright, together with the space or hyphen after it: this block
+    // deletes count restatements from prose for a living, check labels are prose
+    // too, and a label losing the word "four" is that fix landing rather than a
+    // check disappearing (S7 had already forced the narrow version of this, when a
+    // label's cardinality word moved nine -> ten). Deleting rather than substituting
+    // costs the oracle nothing it was relying on, and the injectivity guard below
+    // holds that claim to account: if the normalization ever maps two live labels
+    // together, a real deletion could hide behind the collision, and it fails.
+    const CARDINAL_WORDS = /\b(?:two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty)(?:-\w+)?\b\s?/gi;
+    const norm = (s) => s.replace(CARDINAL_WORDS, '').replace(/\b\d+\b/g, '#');
     // A check REPLACED by a strictly stronger one is not a deleted check. That
     // difference is NOT inferable from the labels, so it is declared here, never
     // guessed by widening the normalizer. Each entry names the exact baseline label
     // and the exact label that supersedes it, with the finding that forced the swap.
     const REPLACED_BY_STRENGTHENING = [
+      // ---- corrections-0.4.0 round-5 F1/F2/F3: the two properties keep their
+      // assertions and lose their overstated labels. The shared ground: a recognizer
+      // for a natural-language construct is a hand-drawn boundary, so a check that
+      // claims the absence of the CLASS overclaims by construction, on whichever axis
+      // the boundary happens to be drawn — directory in rounds 2 to 4, form and file
+      // type in round 5. What is repaired here is the CLAIM as much as the coverage:
+      // each label now states the forms, the numbers and the extensions it covers, and
+      // the block header states what it does not.
+      {
+        was: "T-" + "31 no unpinned cardinality claim exists anywhere in reach (found: ${stated.join('; ') || 'none'})",
+        now: "T-" + "31 no count restatement in header form (a), (c) or (d) exists in any scanned file — the assertion is the absence of THOSE FORMS, never of the class (forms: ${COUNT_FORMS.map(([n]) => n).join('; ')}; numbers: a standalone digit or a number word two through twenty; extensions: ${EXT_LIST}; record tree docs/ out of scan reach; uncovered forms named in this block's header) (found: ${stated.join('; ') || 'none'})",
+        why: 'corrections-0.4.0 round-5 F1. The label announced the absence of a CLASS — every ' +
+             'unpinned cardinality claim, anywhere in reach — over a predicate that recognized ' +
+             'the cardinals two through ten immediately before a terminal colon and nothing ' +
+             'else. Seventy lines carrying the same construct were live in the plugin while it ' +
+             'printed `found: none`, which is worse than no check at all: a maintainer had ' +
+             'been told the class was empty. The successor is strictly stronger on both ' +
+             'halves. Its recognizer covers the named forms over digits and the words two ' +
+             'through twenty (the predecessor\'s construct is one of them, unchanged), and ' +
+             'its label claims only the absence of THOSE FORMS, names them, names the scanned ' +
+             'extensions, and points at the header block where the forms it cannot see are ' +
+             'written down.',
+      },
+      {
+        was: "T-" + "31 no emphasized bare count exists anywhere in reach (found: ${emphasized.join('; ') || 'none'})",
+        now: "T-" + "31 no bare count in emphasis (header form (b)) exists in any scanned file — the assertion is the absence of THAT FORM, never of the class (numbers: a standalone digit or a number word two through twenty; extensions: ${EXT_LIST}) (found: ${emphasized.join('; ') || 'none'})",
+        why: 'round-5 F1, same defect on the same line of reasoning: `anywhere in reach` was ' +
+             'false of the extension axis as well as the form axis. The assertion is unchanged ' +
+             'and its number domain is widened from the cardinals two through ten to the words ' +
+             'two through twenty; the label now states the form it covers and the extensions ' +
+             'the walk collects.',
+      },
+      {
+        was: "T-" + "32 no bare line citation exists anywhere in reach (found: ${bare.join(' | ') || 'none'})",
+        now: "T-" + "32 no bare line citation exists in any scanned file — in code files only comment lines are scanned, for the reason above (extensions: ${EXT_LIST}) (found: ${bare.join(' | ') || 'none'})",
+        why: 'round-5 F3. The scan reads only .md, .mjs, .js, .json (now also .yaml, .yml and ' +
+             '.txt) and, in code files, only comment lines — the comment-line narrowing being ' +
+             'deliberate and reasoned in place, since a location-shaped string on a code line ' +
+             'is test data. Neither narrowing was disclosed by a label reading `anywhere in ' +
+             'reach`. The assertion is unchanged; the label now says what it scanned.',
+      },
+      {
+        was: "T-" + "32 the citations were converted rather than deleted (anchored citations found: ${anchored.length}, floor 10)",
+        now: "T-" + "32 every anchored citation resolves to a file in the plugin (unresolved: ${unresolved.join(' | ') || 'none'})",
+        why: 'round-5 F2: this was a floor on a population the check itself measures, in the ' +
+             'block whose own comment says nothing here has one — the hand-maintained derived ' +
+             'datum this block exists to delete, with two of slack, so removing three ' +
+             'citations would have turned the tier red for no defect and the repair would have ' +
+             'been to edit the floor. Deleted rather than replaced, because the obligation it ' +
+             'named (citations were converted, not deleted) is carried whole by the three ' +
+             'assertions that remain: a deleted citation cannot be an unresolved one, cannot ' +
+             'be a dead anchor, and cannot leave a bare citation behind. The named successor ' +
+             'is the resolution assertion, which is the one that fails if a citation is ' +
+             'replaced by something that does not point at a real file.',
+      },
+      {
+        was: "T-" + "31-neg the cardinality predicate fires on the construct and not on ordinary prose",
+        now: "T-" + "31-neg every recognized form fires, and ordinary prose and identifier numbers do not",
+        why: 'the demonstrable-failure obligation is unchanged and discharged over strictly ' +
+             'more ground: every one of the recognized forms is exercised positively, ' +
+             'alongside the emphasis predicate, and the negative cases now include the ' +
+             'identifier numbers the widened recognizer must not fire on (a section label, a ' +
+             'phase number, a date). An emptiness assertion over a predicate that matches ' +
+             'nothing still cannot pass unnoticed.',
+      },
       // ---- corrections-0.4.0 round-4 N2/N3: the T-31 sweep is REPLACED by two
       // absolute properties over the whole plugin. Every entry below names one of the
       // eight sweep checks it retired. They are listed individually rather than as a
@@ -537,7 +614,7 @@ check('T-18 the scope check is dispatched to the verifier under one label',
         was: 'T-31 every stated count matches its list (drifted: ${drifted.map((d) => ',
         now: 'T-31 no unpinned cardinality claim exists anywhere in reach (found: ${stated.join(',
         why: 'round-4 N3: this label claimed "every stated count" while examining 18 of ' +
-             'the 24 the sweep admitted, and a real drift in the other 6 passed with the ' +
+             'the 24 the sweep admitted, and a real drift in the remaining 6 passed with the ' +
              'line printing green. Its successor makes no totality claim it cannot keep — ' +
              'there are no stated counts left to match, and the assertion is that there ' +
              'are none, over a reach that is measured rather than announced.',
@@ -582,7 +659,7 @@ check('T-18 the scope check is dispatched to the verifier under one label',
         why: 'corrections-0.4.0 round-3 F2: the baseline check asserted a floor of 7 over a ' +
              'discovery predicate anchored at column 0, while its own comment claimed to ' +
              'discover every count header in the skills — the construct occurs 24 times, so a ' +
-             'drift planted in any of the other 17 passed the tier green. The replacement admits ' +
+             'drift planted in any of the remaining 17 passed the tier green. The replacement admits ' +
              'the class by MEANING (a cardinal word, no sentence break, a terminal colon), pins ' +
              'the floor at the full 24, and is joined by an accounting assertion that fails on ' +
              'any admitted line the sweep neither counts nor designates. Strictly more behavior ' +
@@ -675,7 +752,55 @@ check('T-18 the scope check is dispatched to the verifier under one label',
              'namespaced entry, a strict superset of the basename check.',
       },
     ];
-    const supersededBy = new Map(REPLACED_BY_STRENGTHENING.map((r) => [r.was, r.now]));
+    // A label CORRECTED while its assertion stays byte-identical is a third case,
+    // and it does not belong in the list above: nothing was strengthened, so filing
+    // it there would falsify the record of what was traded for what. It is declared
+    // here instead. Round-5 F3's standard — a check's label may not claim more than
+    // its assertion establishes — makes this a channel that will be used again, and
+    // an author who has to misfile a correction is an author who leaves the false
+    // label in place.
+    // The `was` strings are ASSEMBLED where the retired label contained a count: a
+    // quotation of a dead label is still a live line in a scanned file, and the
+    // property above would report it. Splitting the literal keeps the record verbatim
+    // at run time while leaving no instance of the form in the source — the same
+    // device the T-A2f cases and the T-31-neg probes use, for the same reason.
+    const RENAMED_LABELS = [
+      {
+        was: "T-24 deployment: verifierUnderCovered guards all " + "four consumption sites",
+        now: "T-" + "24 deployment: verifierUnderCovered is called at 4 or more sites (a deletion guard over the consumption sites, not a totality claim)",
+        why: 'the assertion is a floor over occurrences of the name in the workflow ' +
+             'source, which is a guard against a call site being deleted. It cannot ' +
+             'establish that every consumption site is guarded, which is what the old ' +
+             'label said.',
+      },
+      {
+        was: "T-24 deployment: underCoveredVerifierGate raised at all " + "four sites",
+        now: "T-" + "24 deployment: underCoveredVerifierGate is raised at 4 or more sites (a deletion guard, not a totality claim)",
+        why: 'same defect, same assertion shape, same correction.',
+      },
+      {
+        was: "T-" + "24 deployment: both control gates carry GATE.control_fault",
+        now: "T-" + "24 deployment: GATE.control_fault appears at 2 or more sites (a deletion guard over the control gates)",
+        why: 'the floor cannot see WHICH sites carry the constant, so it cannot ' +
+             'establish that both control gates do.',
+      },
+      {
+        was: "T-" + "24 deployment: the control-fault gate is raised at every empty-set and under-coverage site",
+        now: "T-" + "24 deployment: GATE.control_fault appears at 4 or more sites (a deletion guard over the empty-set and under-coverage sites)",
+        why: 'the strongest overclaim of the five — "every ... site" over an ' +
+             'occurrence floor that would pass with four occurrences at four wrong ' +
+             'sites.',
+      },
+      {
+        was: "T-27 deployment: all " + "three document gates supply the re-execution channel",
+        now: "T-" + "27 deployment: the re-execution channel is supplied at exactly 3 document-gate sites",
+        why: 'an exact occurrence count rather than a floor, so it fails on an added ' +
+             'site as well as a deleted one; it still cannot establish that the sites ' +
+             'it counted are the document gates. The label reports what is counted.',
+      },
+    ];
+    const supersededBy = new Map(
+      [...REPLACED_BY_STRENGTHENING, ...RENAMED_LABELS].map((r) => [r.was, r.now]));
     // The guard's predicate, named so the T-A2f cases below exercise THIS function
     // rather than a copy of it. A copy could drift into passing while the live
     // guard rots — the defect class this whole plan exists to close.
@@ -689,13 +814,33 @@ check('T-18 the scope check is dispatched to the verifier under one label',
     // allowlist below writes this very label into the file, which is exactly how
     // this guard was found reporting green over a deleted check.
     const goneFrom = (baselineLabels, currentSrc) => {
-      const here = new Set([...currentSrc.matchAll(/check\(\s*[`'"]([^`'"]{8,160})/g)].map((m) => norm(m[1])));
+      const here = new Set(capturedLabels(currentSrc).map(norm));
       return baselineLabels.filter((l) => {
         if (here.has(norm(l))) return false;              // structural: in check( position
         const now = supersededBy.get(l);
         return !(now && here.has(norm(now)));             // replacement must ALSO be in check( position
       });
     };
+    // The oracle compares NORMALIZED labels, so it can report a deleted check only
+    // while the normalization keeps the live labels apart. That is not free, and it
+    // was not always true: while a label was captured only as far as the first quote
+    // character inside it, T-14's and T-28's labels both captured as "T-# no ", and
+    // deleting the T-28 check was reported GREEN by this guard because T-14's label
+    // stood in for it. A mutation probe on a scratch copy demonstrated exactly that,
+    // which is why the capture above now runs to the label's closing delimiter. This
+    // assertion is what stops the property coming back — through a longer
+    // normalization, a shorter capture, or two labels differing only by a count.
+    const liveLabels = capturedLabels(src);
+    const collisions = [];
+    const byNorm = new Map();
+    for (const l of liveLabels) {
+      const k = norm(l);
+      if (byNorm.has(k) && byNorm.get(k) !== l) collisions.push(`${byNorm.get(k)} <-> ${l}`);
+      else byNorm.set(k, l);
+    }
+    check(`T-20 the normalization keeps every live label apart, so no deleted check can hide behind a collision (collisions: ${collisions.join(' | ') || 'none'})`,
+      collisions.length === 0);
+
     const gone = goneFrom(labels, src);
     check('T-20 no check present at baseline was removed', gone.length === 0);
     if (gone.length) console.log(`  (removed: ${gone.join(' | ')})`);
@@ -736,7 +881,7 @@ check('T-18 the scope check is dispatched to the verifier under one label',
 // each item, class_sweep and status: obliged of agents/expert-corrector.md by
 // its `returns:` frontmatter; of the corrector's METHOD by
 // skills/expert-correct/SKILL.md's structured return contract; and declared at
-// PHASE_SCHEMA.properties.sections_rederived. Drop any one of the three and
+// PHASE_SCHEMA.properties.sections_rederived. Drop any one of them and
 // lastRederived is [] every round — both detectors inert in production while
 // these cases stay green.
 // ===========================================================================
@@ -918,13 +1063,13 @@ check('T-24 scope-check: a missing artifact-sha256 entry escalates (fail-closed 
 // occurrence counts, the same pattern T-23 uses. Round 7's six surviving mutations
 // (deleting individual call sites, reverting sample.length, flipping one
 // control_fault, neutering the gt.ok branch) each turn one of these red.
-check('T-24 deployment: verifierUnderCovered guards all four consumption sites',
+check('T-24 deployment: verifierUnderCovered is called at 4 or more sites (a deletion guard over the consumption sites, not a totality claim)',
   (wfSrc.match(/verifierUnderCovered\(/g) || []).length >= 4);
-check('T-24 deployment: underCoveredVerifierGate raised at all four sites',
+check('T-24 deployment: underCoveredVerifierGate is raised at 4 or more sites (a deletion guard, not a totality claim)',
   (wfSrc.match(/underCoveredVerifierGate\(/g) || []).length >= 4);
 check('T-24 deployment: the spot re-run expects its full sample count',
   wfSrc.includes('verifierUnderCovered(vr, sample.length)'));
-check('T-24 deployment: both control gates carry GATE.control_fault',
+check('T-24 deployment: GATE.control_fault appears at 2 or more sites (a deletion guard over the control gates)',
   (wfSrc.match(/GATE\.control_fault/g) || []).length >= 2);
 check('T-24 deployment: the ground-truth guard branches on the extracted predicate result',
   wfSrc.includes('if (!gt.ok) {'));
@@ -952,10 +1097,11 @@ check('T-24 empty-set class: the ground-truth failure scan reads the floored cri
   check('T-24 empty-set class: an unverified closeout resumes at closeout, the phase the continuation gate treats as in flight',
     /delta\.phase = 'closeout'[\s\S]{0,700}GATE\.control_fault/.test(coBlock));
 }
-// Stated as a floor over the literal, with no cardinality word in the label: the
-// verifier floors, the acceptance floor and the closeout inspection each raise this
-// gate, and a prose count here would be one more hand-maintained number to drift.
-check('T-24 deployment: the control-fault gate is raised at every empty-set and under-coverage site',
+// Stated as a floor over the literal: the verifier floors, the acceptance floor and
+// the closeout inspection each raise this gate. The label reports the floor rather
+// than claiming every site is covered, because counting occurrences of a name cannot
+// establish that — round-5 F3's standard, swept across this file's labels.
+check('T-24 deployment: GATE.control_fault appears at 4 or more sites (a deletion guard over the empty-set and under-coverage sites)',
   (wfSrc.match(/GATE\.control_fault/g) || []).length >= 4);
 // F8-1 class closure: the comment's stated gate count must equal the GATE
 // literal's member count, so the next amendment's propagation miss is a red
@@ -1014,7 +1160,7 @@ check('T-24 control_fault gate type exists and the under-coverage gate uses it',
     gtp(L([spec, impl], [passGate, failGate]), { artifacts: [], gate_history: [] }, 'S.md').ok === false);
   check('T-24x refuses when no implementation artifacts are registered',
     gtp(L([spec], [passGate]), { artifacts: [], gate_history: [] }, 'S.md').ok === false);
-  check('T-24x proceeds when all three preconditions hold (same-segment artifacts count)',
+  check('T-24x proceeds when all preconditions hold (same-segment artifacts count)',
     gtp(L([spec], [passGate]), { artifacts: [impl], gate_history: [] }, 'S.md').ok === true);
   check('T-24x refusal reason names the failed precondition',
     /owner-approved/.test(gtp(L([{ ...spec, approved_by_owner: false }], []), {}, 'S.md').why));
@@ -1256,7 +1402,7 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
   check('T-27 exec C3: a finding at a re-executed-only hit fires unclosed_class (union membership)',
     !!c3 && c3.kind === 'unclosed_class' && !!c3.detail.prior);
 
-  // Contract-text pins: skill and agent name all five class_sweep fields.
+  // Contract-text pins: skill and agent name every class_sweep field.
   for (const f of ['searched', 'pattern', 'scope', 'found', 'sites_changed']) {
     check(`T-27 contract: expert-correct SKILL.md names class_sweep field ${f}`,
       new RegExp('`' + f + '`').test(rd('skills/expert-correct/SKILL.md')));
@@ -1264,7 +1410,7 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
       new RegExp('`' + f + '`').test(rd('agents/expert-corrector.md')));
   }
   // Deployment pins (the T-23/F7-1 pattern): the mechanism is wired, not just defined.
-  check('T-27 deployment: all three document gates supply the re-execution channel',
+  check('T-27 deployment: the re-execution channel is supplied at exactly 3 document-gate sites',
     (wfSrc.match(/sweepVerifyFn: \(secs\) => reExecuteSweeps\(secs\)/g) || []).length === 3);
   check('T-27 deployment: runGate compares via the extracted pure predicate',
     wfSrc.includes('const disc = sweepDiscrepancy(rederived[i], reHits[i])'));
@@ -1311,7 +1457,7 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
     (fsf([{ classification: 'Moderate', standard: 's', location: 'a.md:1', premise_evidence: 'x'.repeat(FB.premise_evidence + 1) }]) || {}).kind === 'field_over_bound');
   check('T-RB2 exec: a prescription marker inside premise_evidence faults',
     (fsf([{ classification: 'Moderate', standard: 's', location: 'a.md:1', premise_evidence: 'fix by replacing the guard with a stub' }]) || {}).kind === 'prescription_in_evidence');
-  check('T-RB2 exec: a clean four-field finding passes (no false positive)',
+  check('T-RB2 exec: a clean finding passes (no false positive)',
     fsf([{ classification: 'Moderate', standard: 'ISO/IEC/IEEE 29148:2018 5.2.6', location: 'a.md:1', premise_evidence: 'verified by Read at a.md:1' }]) === null);
   check('T-RB2 exec: an empty findings array passes (a clean PASS round is not faulted)', fsf([]) === null);
   const rbGate = await driveGate(
@@ -1754,7 +1900,7 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
 
   // Part B anchors: the evidence ladder in the expert-standard body and frontmatter.
   const std29 = rd('skills/expert-standard/SKILL.md');
-  check('T-29 expert-standard body carries the four-tier evidence ladder ordered docs -> config -> probes -> live',
+  check('T-29 expert-standard body carries the evidence ladder ordered docs -> config -> probes -> live',
     /\(1\) authoritative documentation, \(2\) on-disk configuration and state files, \(3\) cheap read-only command probes, \(4\) live execution/.test(std29));
   check('T-29 expert-standard body: a live-only declaration must name the checked lower tiers',
     /can only be verified live/.test(std29) && /named lower tiers that were actually checked/.test(std29));
@@ -1783,14 +1929,41 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
 // stricter checking. It converges when the drift-prone FORM stops existing. So two
 // absolute properties replace the sweep, each asserted over the WHOLE plugin:
 //
-//  (1) NO UNPINNED CARDINALITY CLAIM. A cardinal word heading an enumerated list
-//      carries nothing the list does not already carry — "Six signals:" and "Signals:"
-//      differ only in what can rot. The word is gone from every live file. Where a
-//      number was genuinely load-bearing the prose now points at the pinned source of
-//      truth instead of restating it: each agent's return contract points at its
-//      `jobs:` frontmatter, which T-2b derives from the workflow's dispatch labels, and
-//      commands/expert.md points at spec §3.4, whose count T-24 derives by lifting and
-//      EVALUATING the GATE literal. Neither is a second copy of a number.
+//  (1) NO COUNT RESTATEMENT, IN THE ENUMERATED FORMS. A number restating the size
+//      of a population recorded somewhere else carries nothing that population does
+//      not already carry — "Six signals:" and "Signals:" differ only in what can rot.
+//      The recognizer covers the forms below, and the checks claim exactly those
+//      and nothing wider:
+//        (a) a number quantifying a plural noun, no sentence break, terminal colon
+//            — "N signals:", "The N gate types:"
+//        (b) a bare count in emphasis — "**N**"
+//        (c) a determiner-quantified population — "all N traps", "one of N forms",
+//            "each of the N roles", "the first N", "these N"
+//        (d) a hyphenated structure count — "N-section", "N-tier"
+//      A number here is a digit standing alone as a word, or a number word two
+//      through twenty. Where a number is genuinely load-bearing the prose points at
+//      the pinned source of truth instead of restating it: each agent's return
+//      contract points at its `jobs:` frontmatter, which T-2b derives from the
+//      workflow's dispatch labels, and commands/expert.md points at spec §3.4, whose
+//      count T-24 derives by lifting and EVALUATING the GATE literal. Neither is a
+//      second copy of a number.
+//
+//      WHAT THESE CHECKS DO NOT COVER — read this before trusting a green line.
+//      The CLASS is "a number restating a population recorded elsewhere". The
+//      recognizer is a regex over prose, and no regex over prose can decide that
+//      class: its boundary is drawn by hand and is incomplete by construction. Round
+//      5 filed exactly that defect against the predecessor of this block — the label
+//      announced the class empty while the predicate saw only the cardinals two
+//      through ten before a terminal colon, and 70 lines carrying the same construct
+//      were live in the plugin at the time. The response is not a wider claim; it is
+//      a claim the recognizer can keep. Deliberate, known gaps: number words above
+//      twenty and their written compounds ("twenty-four"); a count quantifying a
+//      singular or an irregular plural under form (a); the shape-naming compounds
+//      N-way and N-fold, which name a shape rather than a population size (the
+//      contradiction fixture is one, and T-19 pins that word executably); and any
+//      restatement phrased outside the enumerated forms entirely. A number that escapes
+//      the recognizer is not thereby licensed — it is undetected, and this paragraph
+//      is the honest statement of that.
 //  (2) NO BARE LINE CITATION. `path.ext:` followed by a line number has no relationship
 //      to the thing it names, so any insertion above the target silently invalidates it.
 //      Measured before the fix: of the eight cross-file citations in this plugin, six
@@ -1799,10 +1972,14 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
 //      citation now carries an immutable anchor, `path @ `quoted text``, and this check
 //      READS the target and confirms the anchor is still present there.
 //
-// Reach is a measured property rather than a claim, and it is total by DEFAULT: the
-// walk covers the whole plugin root except the one declared record tree, so a new tree
-// is in reach without anyone maintaining a list. Nothing here has a per-instance
-// allowlist, a designation, or a population floor to keep in step with the population.
+// Reach is a measured property rather than a claim. By DIRECTORY it is total by
+// DEFAULT: the walk covers the whole plugin root except the one declared record tree,
+// so a new tree is in reach without anyone maintaining a list. By FILE TYPE it is NOT
+// total — the walk collects the extensions in SCANNED_EXT, and a prose-bearing file
+// outside that set is unscanned — so every label below names the extension set instead
+// of saying "anywhere". Nothing here has a per-instance allowlist, a designation, or a
+// floor on a population it measures; the single floor is on the WALK, and the comment
+// beside it says why that is a different thing.
 {
   // docs/ holds dated records — review rounds, specs, architectures — each a statement
   // of what was true at its commit. Rewriting their citations would falsify the record,
@@ -1813,7 +1990,12 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
   check(`T-31 the record-tree exclusion is exactly docs/ (literal pin; everything else is in reach by default)`,
     RECORD_TREES.length === 1 && RECORD_TREES[0] === 'docs');
 
-  const SCANNED_EXT = /\.(md|mjs|js|json)$/;
+  // The scan is bounded by extension as well as by directory. Every prose-bearing
+  // extension this plugin uses is listed, and the narrowing is disclosed in the label
+  // of every check that consumes it: a check whose label claims more reach than it has
+  // is precisely the defect this block was rewritten to stop committing.
+  const SCANNED_EXT = /\.(md|mjs|js|json|ya?ml|txt)$/;
+  const EXT_LIST = 'md, mjs, js, json, yaml, yml, txt';
   const walk = (dir, rel, skip, acc) => {
     for (const e of readdirSync(dir, { withFileTypes: true })) {
       const childRel = rel ? `${rel}/${e.name}` : e.name;
@@ -1846,28 +2028,52 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
     ['agents', 'commands', 'hooks', 'scripts', 'skills', 'workflows', 'tests'].every((t) => inReach.some((r) => r.startsWith(t + '/')))
     && !inReach.some((r) => r.startsWith('docs/')));
 
-  // ---- Property 1: no unpinned cardinality claim -----------------------------------
-  // The construct, unchanged from the definition round 3 arrived at: a cardinal word
-  // with no sentence break between it and a terminal colon. The predicate is retained
-  // and its population is asserted EMPTY — the same recognizer that used to admit 24
-  // lines for individual adjudication now admits none, because the form is gone.
-  const CARDINALS = ['two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
-  const cardinalityClaim = (line) => new RegExp(`\\b(${CARDINALS.join('|')})\\b(?=[^.]*:$)`, 'i').test(line);
+  // ---- Property 1: no count restatement in the recognized forms -------------------
+  // The forms, and what they do not cover, are enumerated at the top of this block.
+  // Each is a separate NAMED predicate, so a failure reports which form fired and a
+  // future widening is an entry added here rather than an edit inside a regex nobody
+  // can read.
+  const CARDINALS = ['two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
+    'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen',
+    'seventeen', 'eighteen', 'nineteen', 'twenty'];
+  // A digit is a count only where it stands alone as a word. An adjacent word
+  // character, dot or hyphen makes it a date, a version, a section number, an
+  // ordered-list marker or an identifier — "Case 1", "§3.4", "2026-08-21" — and none
+  // of those restate a population.
+  const NUM = `(?:(?<![\\w.§-])\\d{1,3}(?![\\w.-])|${CARDINALS.join('|')})`;
+  const COUNT_FORMS = [
+    // (a) The number quantifies a plural noun and the clause ends in a colon, so the
+    // list that follows IS the population and the number is a second copy of its
+    // length. Requiring the plural noun is what keeps identifier numbers out; the
+    // no-sentence-break requirement is round 3's definition, unchanged.
+    ['quantifier before a terminal colon',
+      new RegExp(`\\b${NUM}\\s+(?:[\\w'’-]+\\s+){0,2}[a-z][\\w-]*s\\b(?=[^.]*:$)`, 'i')],
+    // (c) A population named by a determiner and a size, the size kept in step by
+    // hand with a list that often lives in another file — the worst of them,
+    // because no reader ever sees the number and the population together.
+    ['determiner-quantified population',
+      new RegExp(`\\b(?:all|both|each of the|one of|any of|the first|the last|the other|these|those)\\s+(?:the\\s+)?${NUM}\\b`, 'i')],
+    // (d) The same restatement folded into a compound adjective.
+    ['hyphenated structure count',
+      new RegExp(`\\b${NUM}-(?:part|section|step|field|gate|tier|axis|axes|phase|stage|column|item|entry|categor|source|criteri|question|check|round|line|point|element|clause|word)s?\\b`, 'i')],
+  ];
   const stated = [];
   for (const rel of inReach)
-    body.get(rel).split(/\r?\n/).forEach((l, i) => { if (cardinalityClaim(l)) stated.push(`${rel}:${i + 1}`); });
-  check(`T-31 no unpinned cardinality claim exists anywhere in reach (found: ${stated.join('; ') || 'none'})`,
+    body.get(rel).split(/\r?\n/).forEach((l, i) => {
+      const form = COUNT_FORMS.find(([, re]) => re.test(l));
+      if (form) stated.push(`${rel}:${i + 1} [${form[0]}]`);
+    });
+  check(`T-31 no count restatement in header form (a), (c) or (d) exists in any scanned file — the assertion is the absence of THOSE FORMS, never of the class (forms: ${COUNT_FORMS.map(([n]) => n).join('; ')}; numbers: a standalone digit or a number word two through twenty; extensions: ${EXT_LIST}; record tree docs/ out of scan reach; uncovered forms named in this block's header) (found: ${stated.join('; ') || 'none'})`,
     stated.length === 0);
 
-  // A number a maintainer must keep in step with a list of its own, in emphasis. The
-  // ten agent return contracts each carried one restating the `jobs:` value derived two
-  // dozen lines above it; all ten now point at `jobs:` instead of copying it.
+  // (b) A number a maintainer must keep in step with a list of its own, in emphasis.
+  // The ten agent return contracts each carried one restating the `jobs:` value
+  // derived two dozen lines above it; every one now points at `jobs:` instead.
+  const emphasizedCount = new RegExp(`\\*\\*(?:${NUM})\\*\\*`, 'i');
   const emphasized = [];
   for (const rel of inReach)
-    body.get(rel).split(/\r?\n/).forEach((l, i) => {
-      if (new RegExp(`\\*\\*(\\d+|${CARDINALS.join('|')})\\*\\*`, 'i').test(l)) emphasized.push(`${rel}:${i + 1}`);
-    });
-  check(`T-31 no emphasized bare count exists anywhere in reach (found: ${emphasized.join('; ') || 'none'})`,
+    body.get(rel).split(/\r?\n/).forEach((l, i) => { if (emphasizedCount.test(l)) emphasized.push(`${rel}:${i + 1}`); });
+  check(`T-31 no bare count in emphasis (header form (b)) exists in any scanned file — the assertion is the absence of THAT FORM, never of the class (numbers: a standalone digit or a number word two through twenty; extensions: ${EXT_LIST}) (found: ${emphasized.join('; ') || 'none'})`,
     emphasized.length === 0);
 
   // ---- Property 2: every cross-file citation carries a live anchor ------------------
@@ -1891,7 +2097,7 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
       if (BARE.test(withoutAnchors)) bare.push(`${rel}:${n} -> ${withoutAnchors.trim().slice(0, 60)}`);
       for (const m of l.matchAll(ANCHORED)) anchored.push({ from: `${rel}:${n}`, target: m[1], anchor: m[2] });
     }
-  check(`T-32 no bare line citation exists anywhere in reach (found: ${bare.join(' | ') || 'none'})`,
+  check(`T-32 no bare line citation exists in any scanned file — in code files only comment lines are scanned, for the reason above (extensions: ${EXT_LIST}) (found: ${bare.join(' | ') || 'none'})`,
     bare.length === 0);
 
   // Resolution is by full relative path, or by a basename that is unique in the plugin.
@@ -1914,14 +2120,23 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
     unresolved.length === 0);
   check(`T-32 every anchored citation's anchor is still present at its target (dead: ${dead.join(' | ') || 'none'})`,
     dead.length === 0);
-  check(`T-32 the citations were converted rather than deleted (anchored citations found: ${anchored.length}, floor 10)`,
-    anchored.length >= 10);
 
   // ---- Both predicates must be able to FAIL, or every assertion above is decoration.
-  check('T-31-neg the cardinality predicate fires on the construct and not on ordinary prose',
-    cardinalityClaim('Intro line. There are three widgets:')
-    && !cardinalityClaim('a sentence with three widgets in it.')
-    && !cardinalityClaim('There were three. Now consider the following:'));
+  // The probe strings are ASSEMBLED rather than written whole: a literal instance of a
+  // recognized form on these lines would be found by the scan above, which reaches
+  // this file too.
+  const anyCountForm = (l) => COUNT_FORMS.some(([, re]) => re.test(l));
+  check('T-31-neg every recognized form fires, and ordinary prose and identifier numbers do not',
+    anyCountForm('Intro line. There are ' + 'eleven signals:')
+    && anyCountForm('The ' + '12 gate types:')
+    && anyCountForm('Read all ' + 'five parts before starting')
+    && anyCountForm('per the sixteen' + '-section specification')
+    && emphasizedCount.test('a count in ' + '**' + '7**' + ' emphasis')
+    && !anyCountForm('a sentence with three widgets in it.')
+    && !anyCountForm('There were three. Now consider the following:')
+    && !anyCountForm('Case 1 ' + '— the observed shape:')
+    && !anyCountForm('the surface defined by Phase 9' + '’s threat model:')
+    && !anyCountForm('read 2026-08-21 against the published text:'));
   check('T-32-neg the citation predicates fire on a bare line number and on a dead anchor',
     BARE.test('// see workflows/expert-lifecycle.js' + ':988')
     && !BARE.test('// see workflows/expert-lifecycle.js @ `delta.phase`')
@@ -2007,7 +2222,7 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
   // rather than invite inline work, which is what keeps the step-4b gate rule intact.
   check('T-30 exec (e) the block reason routes to /expert resume, not to inline work',
     /\/expert resume/.test(blocked.stderr));
-  check('T-30 exec (f) the block reason names the seven-gate list as the exhaustive test',
+  check('T-30 exec (f) the block reason names the list as the exhaustive test',
     /§3\.4/.test(blocked.stderr) && /control_fault/.test(blocked.stderr) && /intent/.test(blocked.stderr));
 
   check('T-30 exec (g) stop_hook_active on the blocking fixture -> exit 0 (loop guard observed)',

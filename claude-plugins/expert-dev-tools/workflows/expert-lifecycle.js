@@ -942,8 +942,8 @@ if (cursor === 'ground_truth') {
   phase('Ground truth')
   // Sequencing + payload-coherence guard: verification may only target the build this
   // lifecycle produced, sourced from THIS ledger's spec — never a pre-existing artifact
-  // or another project's criteria (acceptance run 2026-08-17: all 27 failures in one
-  // dispatch were predetermined by target selection, not implementation defects).
+  // or another project's criteria (acceptance run 2026-08-17: 27 failures in one
+  // dispatch, all predetermined by target selection, not implementation defects).
   // Every precondition is a computed orchestrator predicate over recorded state:
   //   (a) payload coherence - the criteria source is an OWNER-APPROVED spec in this
   //       ledger's index (approval happens at the intent gate, so a same-segment

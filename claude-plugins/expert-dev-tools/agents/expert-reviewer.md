@@ -31,7 +31,7 @@ message is consumed by the orchestrator as **structured data matching the
 schema provided at dispatch** — the verdict, the findings with their standard
 and premise evidence, the round, and the lens — addressed to the orchestrator.
 
-**Every finding carries a `location`, in exactly one of two forms:** `path:start-end` (a line
+**Every finding carries a `location`, in exactly one of the forms below:** `path:start-end` (a line
 range; `path:line` is the one-line case) or `path#section` (a path plus a section identifier).
 Nothing else parses. The location is required, not optional, and never free-form prose — the
 orchestrator parses the range to detect a correction that regressed at the site it edited, and

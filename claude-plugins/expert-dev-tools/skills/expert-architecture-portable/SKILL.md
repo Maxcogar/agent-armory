@@ -27,17 +27,17 @@ This command exists to foreclose specific reasoning patterns the architecture wo
 
 **"This decision is obvious; I don't need to evaluate alternatives."** Phase 10's "what this decision is NOT" element exists precisely because copying a correct recommendation is easy and rejecting wrong alternatives demonstrates understanding. A decision without rejected alternatives has not been evaluated — it has been pattern-matched to a default. If you cannot name and reject at least one wrong alternative for a non-trivial decision, the decision is either trivial (record it briefly and move on) or it has not been evaluated yet.
 
-**"The reasoning is in my working context; the document just needs the conclusions."** Decision-hiding is one of the five traps below. The reader of the architecture cannot evaluate reasoning that lives only in the agent's working context. Every non-trivial decision's reasoning — including the written reasoning-template traces — goes in the document. A conclusion in the document without the reasoning is brittle; it produces the wrong answer the first time the architecture meets an edge case it doesn't explicitly cover.
+**"The reasoning is in my working context; the document just needs the conclusions."** Decision-hiding is one of the traps below. The reader of the architecture cannot evaluate reasoning that lives only in the agent's working context. Every non-trivial decision's reasoning — including the written reasoning-template traces — goes in the document. A conclusion in the document without the reasoning is brittle; it produces the wrong answer the first time the architecture meets an edge case it doesn't explicitly cover.
 
 **"Clear Thought isn't available, so I'll skip the structured-reasoning steps."** Clear Thought imposed a shape on each kind of reasoning and recorded it; without the tool, the shape becomes a written template you fill in, and skipping it is non-compliance exactly as skipping a tool invocation was. The Reasoning discipline section gives the written form for each reasoning kind. The discipline is not "produce the structure when a tool is present" — it is "the structured reasoning appears in the document in its required shape," by whatever mechanism produces it.
 
 ## Where architecture work goes wrong
 
-Architecture work fails in five specific ways. The first three are general failure modes that surface across spec, plan, and architecture work; the last two are specific to architecture. Read all five before starting — these are the failure modes the rest of this process exists to prevent. They are not theoretical. Every one shows up reliably in agent-produced architecture work that doesn't actively guard against them.
+Architecture work fails in the specific ways set out below — general failure modes that surface across spec, plan, and architecture work, then the ones specific to architecture. Read every one before starting — these are the failure modes the rest of this process exists to prevent. They are not theoretical. Every one shows up reliably in agent-produced architecture work that doesn't actively guard against them.
 
 **The codebase-mirroring trap.** You read the existing codebase and design the new architecture to match what's already there. Existing components become the model for new components; existing layering becomes the model for new layering; existing integration patterns become the model for new integrations. The trap is not that you considered the codebase — that's appropriate context. The trap is that the codebase becomes the *standard* you evaluate the new architecture against, instead of the named engineering standards the spec was derived against. The new architecture inherits whatever the codebase got wrong, and it inherits it confidently because it "fits." Catch yourself when the justification for an architectural choice is "this is how the codebase already does it" without naming the engineering standard the existing pattern is correct against. The existing pattern may or may not be correct. Treating it as self-justifying is the failure.
 
-*Methodology mapping: silent pattern replication (codebase variant) — one of the four failure signals defined by the methodology spec, expert-standard skill, and workflow document.*
+*Methodology mapping: silent pattern replication (codebase variant) — one of the failure signals defined by the methodology spec, expert-standard skill, and workflow document.*
 
 **The pattern-cloning trap.** You see a prior architecture document — one in the project, or one you remember from elsewhere — and you copy its structure, its decision categories, its component breakdown to your new architecture. The prior architecture was successful, so its shape feels safe. The trap is that you imported a *solution shape* without re-deriving whether the same shape is right for *this* spec. Two architectures may share structure because they belong to the same family (e.g., a pair of related microservices in the same system) — copying that structure to an architecture for a different kind of system (e.g., a batch pipeline, a desktop app) would import the wrong frame. Every architecture inherits *what its precedents already decided when they belong to the same family* (this is what the Inheritance from precedent table is for) and *re-derives everything else from this spec's requirements*. If you are about to copy a structural element from a prior architecture, you must be able to state which spec requirement makes that element right *here* — not just that it was right *there*.
 
@@ -114,8 +114,8 @@ This is the structured-reasoning mechanism for this variant. Each kind of archit
 | Dialectical resolution (`structuredargumentation`) | Phase 7, for hard contradictions | Three labeled passages in the Design decisions section: **thesis** (recommended resolution), **antithesis** (strongest counter-argument), **synthesis** (the resolution that survives, or the acknowledgment that none does and the conflict is a genuine stop). | A weak (strawman) antithesis the thesis defeats easily. |
 | Sequential decomposition (`sequentialthinking`) | Phase 8, mandatory for every architecture for decisions meeting the trigger criteria | A **numbered reasoning chain** in the Design decisions section, each step building on the prior — and where the reasoning turned, show the revision in place ("step 4 revises step 2 because…"). If no decision meets the criteria, state that explicitly and explain why. | A clean post-hoc chain that hides the dead ends. |
 | Foundation-problem characterization (`debuggingapproach`) | When the codebase survey (Phase 3/4) or spec analysis (Phase 7) reveals a foundation problem in existing code the architecture must build on — coupling defects, structural distortions, a capability whose shape signals an underlying defect | Name the strategy (cause-elimination, divide-and-conquer, binary-search, or program-slicing) and characterize the existing-code foundation problem in writing before deciding whether the architecture fixes it or works around it explicitly — the design must not silently inherit it. Lands as a foundation-correction entry in Design decisions. | Designing on top of a known foundation defect without characterizing it, so the defect propagates into the new architecture. |
-| Hypothesis-driven security reasoning (`scientificmethod`) | Phase 9, when security is in scope | Each threat written as: observation → question → hypothesis (variables, assumptions) → experiment (the control, and the prediction if it works and if it fails) → analysis → conclusion. | Collapsing the six-part shape into "threat: X, mitigation: Y," removing the hypothesis-testing that justifies the control. |
-| Multi-perspective review (`collaborativereasoning`) | Before delivering (Gate A) | Adopt each of the three roles **in turn, in writing** — planner, reviewer, stakeholder — ask that role's question, answer honestly from that seat, then write the synthesis. If no perspective-specific gaps surface, attest all three were checked. | Rubber-stamping from your own author's seat instead of inhabiting each role's adversarial question. |
+| Hypothesis-driven security reasoning (`scientificmethod`) | Phase 9, when security is in scope | Each threat written as: observation → question → hypothesis (variables, assumptions) → experiment (the control, and the prediction if it works and if it fails) → analysis → conclusion. | Collapsing that structured shape into "threat: X, mitigation: Y," removing the hypothesis-testing that justifies the control. |
+| Multi-perspective review (`collaborativereasoning`) | Before delivering (Gate A) | Adopt each role **in turn, in writing** — planner, reviewer, stakeholder — ask that role's question, answer honestly from that seat, then write the synthesis. If no perspective-specific gaps surface, attest every role was checked. | Rubber-stamping from your own author's seat instead of inhabiting each role's adversarial question. |
 
 The three Gate A roles and their questions: the **planner** asks "where would I have to make an architectural call inline?"; the **reviewer** asks "if I had to verify a build against this, would I know what to look for?"; the **stakeholder** asks "do I understand the choices that were made and what they cost?" A non-empty answer from any role is a gap that produces a fix to the document, not a flag in the document.
 
@@ -125,7 +125,7 @@ When this command is used inside a session protocol that brackets work with outp
 
 ## Output contract
 
-The architecture document this command produces is structured around two-axis evidence. Specific output sections carry the load for each axis. A document missing any of these sections, or with any empty without an explicit attestation that it is genuinely empty for this architecture, has not satisfied the contract and is not delivered.
+The architecture document this command produces is structured around evidence on both axes. Specific output sections carry the load for each axis. A document missing any of these sections, or with any empty without an explicit attestation that it is genuinely empty for this architecture, has not satisfied the contract and is not delivered.
 
 **Frame-correctness proofs.** The Design decisions section is the per-decision frame proof — every non-trivial decision's authoritative-standard slot names the standard or first-principles anchor that governs it. The Standards governing this architecture table is the project-wide frame audit — every standard cited anywhere appears with what it governed. A decision without a named anchor is an unnamed approval; a standard cited without a decision it governed is decoration.
 
@@ -303,7 +303,7 @@ Write the file to `docs/architectures/architecture-[kebab-case-name].md`, with t
 
 ## Before delivering
 
-The architecture document passes through three gates before delivery, plus a parallel local-optimum trap audit. All three gates must pass independently and the trap audit must come up clean. Passing one gate does not pass the others by inference.
+The architecture document passes through the gates below before delivery, plus a parallel local-optimum trap audit. Every gate must pass independently and the trap audit must come up clean. Passing one gate does not pass the others by inference.
 
 ### Gate A — Does the architecture enable downstream work?
 
@@ -313,7 +313,7 @@ Evaluated via the **multi-perspective written review** per the Reasoning discipl
 - **Reviewer.** Can a reviewer check a build against this and reach a defensible conclusion about whether each component, decision, and contract is satisfied?
 - **Stakeholder.** Can a stakeholder read this and know how the spec is being satisfied, what trade-offs were made, and where the work could break?
 
-The synthesis lands in the Design decisions section as a pre-delivery review entry, or attests that all three perspectives were checked with no perspective-specific gaps. Pass condition: yes to all three. A "no" from any role produces a fix to the document, not a flag in the document.
+The synthesis lands in the Design decisions section as a pre-delivery review entry, or attests that every perspective was checked with no perspective-specific gaps. Pass condition: yes from every role. A "no" from any role produces a fix to the document, not a flag in the document.
 
 ### Gate B — Is the architecture's compliance auditable from the document alone?
 
@@ -334,10 +334,10 @@ Pass condition: every question answerable from the document alone. A question re
 
 The final mechanical verification.
 
-- Every non-trivial decision has all five parts of the decision format.
+- Every non-trivial decision has every part of the decision format.
 - Every verified library premise cites the library, version, the URL actually read, and the access date — not just "verified online." Every premise resting on training knowledge in a degraded environment is explicitly marked as such.
 - Every premise-verification slot citing a file cites the path and line range and what the content showed; every one citing a search cites the query and the matches; every one citing import-tracing cites what was searched, the dependents found, and the bound traced.
-- **Every reasoning structure the Reasoning discipline section flags as mandatory is present in the document in its required shape** — the Knowledge-state baseline; a weighted decision matrix for any 3+ multi-criteria decision; a first-principles articulation for every decision lacking a named standard; a dialectical resolution for any hard contradiction raised; a numbered reasoning chain for decisions meeting the Phase 8 criteria (or the explicit statement that none did); a foundation-problem characterization for each foundation problem the survey surfaced; the six-part threat structure for each threat when security is in scope; the three-role review at Gate A. A required structure that is thin or absent is non-compliance exactly as a skipped tool invocation would be.
+- **Every reasoning structure the Reasoning discipline section flags as mandatory is present in the document in its required shape** — the Knowledge-state baseline; a weighted decision matrix for any 3+ multi-criteria decision; a first-principles articulation for every decision lacking a named standard; a dialectical resolution for any hard contradiction raised; a numbered reasoning chain for decisions meeting the Phase 8 criteria (or the explicit statement that none did); a foundation-problem characterization for each foundation problem the survey surfaced; the structured threat shape for each threat when security is in scope; the three-role review at Gate A. A required structure that is thin or absent is non-compliance exactly as a skipped tool invocation would be.
 - File paths and external references are confirmed, not assumed.
 - No internal reasoning artifacts or scratchpad content remain in the document beyond the reasoning traces the format requires.
 - The Threat model and ASVS verification mapping sections are present when security is in scope and absent when it isn't.
@@ -350,7 +350,7 @@ Pass condition: every checklist item is satisfied, or its absence is explicitly 
 
 ### Local-optimum trap audit (parallel to A/B/C)
 
-For each of the five traps named at the top, ask the binary question. A "yes" produces a fix to the document, not a flag in the document.
+For each trap named at the top, ask the binary question. A "yes" produces a fix to the document, not a flag in the document.
 
 - **Codebase-mirroring trap.** Did any architectural choice get justified by "this is how the codebase already does it" without naming the engineering standard the existing pattern is correct against? If yes, re-derive the choice from the named standards.
 - **Pattern-cloning trap.** Did any structural element of the architecture come from a prior architecture's shape rather than from this spec's requirements? If yes, name the spec requirement that justifies it here, or remove it.
@@ -358,7 +358,7 @@ For each of the five traps named at the top, ask the binary question. A "yes" pr
 - **Standards-decoration trap.** Is any named standard in the Standards table not actually driving a specific decision? If yes, find the decision it should govern or remove the standard.
 - **Deferred-decision trap.** Is any non-trivial choice left ambiguous for "the implementer" or "the build phase" when it has cross-component consequences? If yes, resolve it now.
 
-Pass condition: no to all five traps.
+Pass condition: no to every trap.
 
 If any of Gate A, B, C, or the trap audit fails, fix the document. Do not deliver an architecture that fails any of these checks — that is the failure mode the methodology output contract exists to prevent.
 

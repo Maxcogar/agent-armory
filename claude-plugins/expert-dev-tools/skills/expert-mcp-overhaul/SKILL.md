@@ -158,7 +158,7 @@ Discoveries mid-execution produce plan amendments, never ad-hoc edits. Amendment
 
 ### Phase 8 — Verify (end-to-end)
 
-Execute `references/verification-procedures.md` in full. In summary: stand the server up in its real deployment shape and drive it with a real client — scripted via the official SDK for the server's language wherever possible, so every result is reproducible; the MCP Inspector is for exploration, not for the record. Two distinct questions get answered: verification (does the server match the plan and target spec — built right?) and validation (does it do what the user needs per intake — built the right thing?).
+Execute `references/verification-procedures.md` in full. In summary: stand the server up in its real deployment shape and drive it with a real client — scripted via the official SDK for the server's language wherever possible, so every result is reproducible; the MCP Inspector is for exploration, not for the record. Distinct questions get answered: verification (does the server match the plan and target spec — built right?) and validation (does it do what the user needs per intake — built the right thing?).
 
 Every tool is exercised with at least: a realistic valid input, a schema-violating input, an edge input, and — where feasible — a dependency-failure injection, with the expectation that failures surface as structured errors, not crashes. Protocol lifecycle checks run against the fetched spec. Every security finding's fix is demonstrated by replaying the original attack input and recording the rejection. Operability checks run: log destination (for stdio, prove stdout carries nothing but protocol messages), configuration-error behavior at startup, restart recovery, and a repeated-invocation pass watching for resource growth.
 
@@ -188,7 +188,7 @@ Each line requires pointing at the artifact that proves it — a section, a log 
 7. Every entry in the after-contract's Claims section corresponds to an action that actually occurred this session.
 8. The gaps section exists and is honest — an empty gaps section carries an explicit attestation that it is genuinely empty, which for any real server should make you re-check.
 
-All eight YES: `Verdict: DONE`. Any NO: `Verdict: NOT DONE`, with the failing lines named. Effort spent has no bearing on this test.
+All YES: `Verdict: DONE`. Any NO: `Verdict: NOT DONE`, with the failing lines named. Effort spent has no bearing on this test.
 
 ## Companion skills
 

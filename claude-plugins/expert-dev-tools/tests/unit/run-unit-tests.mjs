@@ -1,4 +1,4 @@
-// Unit tests for the standalone scripts (plan S12, two-tier test architecture D-P1).
+// Unit tests for the standalone scripts (plan S12, the structural/unit test split D-P1).
 // These modules are used as-is (no doubling), so they get genuine unit tests.
 // Run: node tests/unit/run-unit-tests.mjs   (from the plugin root)
 
@@ -122,7 +122,7 @@ check('T-U2 marker at end yields nothing',
     (fsf([{ ...clean, premise_evidence: 'the section should be changed to use the shared helper' }]) || {}).kind === 'prescription_in_evidence');
   check('T-U3 a non-string field faults (fail-closed on type, not just length)',
     (fsf([{ ...clean, standard: 42 }]) || {}).kind === 'field_over_bound');
-  check('T-U3 a clean four-field finding passes', fsf([clean]) === null);
+  check('T-U3 a clean finding passes', fsf([clean]) === null);
   check('T-U3 an empty findings array passes (a clean PASS round is not faulted)', fsf([]) === null);
 }
 

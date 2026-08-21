@@ -12,7 +12,7 @@ You are writing a specification. A spec is a contract between intent and executi
 
 
 
-The measure of a spec is what it enables downstream. A good spec lets an architect choose between valid designs and know they're all acceptable. It lets a reviewer check a build against it and reach a defensible conclusion about whether it's done. It lets a stakeholder read it and know what they're getting before work starts. A spec that fails any of these three tests isn't finished — it's just a document.
+The measure of a spec is what it enables downstream. A good spec lets an architect choose between valid designs and know they're all acceptable. It lets a reviewer check a build against it and reach a defensible conclusion about whether it's done. It lets a stakeholder read it and know what they're getting before work starts. A spec that fails any of these tests isn't finished — it's just a document.
 
 
 

@@ -67,7 +67,7 @@ The contract is satisfied by four required sections of the delivered plan (full 
 - **Output section 14 — Question register.** Every question, ambiguity, decision point, and uncertainty encountered during planning, logged when it arose, classified into its bin, and carrying a closed disposition. The **completeness proof** — the structural answer to "are there any unresolved questions?" being asked after delivery. The answer must be no, and provably no, before delivery.
 - **Output section 15 — Gaps acknowledged.** Every decision that could not be grounded in a named standard, and every claim whose resolution was attempted and is genuinely blocked — with the attempt evidence. Honest gaps are auditable. Hidden gaps become defects.
 
-A plan missing any of the four sections, or with any of them empty without an explicit attestation that the section is genuinely empty for this plan, has not satisfied the contract and is not delivered.
+A plan missing any of these sections, or with any of them empty without an explicit attestation that the section is genuinely empty for this plan, has not satisfied the contract and is not delivered.
 
 There is no exception path. There is no "I'll annotate verification inline in the steps and skip the consolidated section" shortcut — the consolidated sections exist because audits run against them, not against scattered annotations. There is no fallback when a tool required for verification is unavailable: the planner stops and reports.
 
@@ -79,7 +79,7 @@ Planning generates questions continuously — at goal understanding, during the 
 
 **Maintain the register from Step 1 onward.** The moment a question, ambiguity, decision point, or uncertainty surfaces — log it. Each entry records: the question, the step where it arose, its bin, and (eventually) its disposition. The register is maintained during planning, not reconstructed at the end; an end-of-process recall of "what questions came up" is exactly the memory-based process that loses them.
 
-**Every entry is classified into exactly one of three bins:**
+**Every entry is classified into exactly one of the bins below:**
 
 1. **Engineering questions.** The answer is derivable from the codebase (read it), a named standard (research it), library or framework documentation (fetch and read it), or reasoning from verified premises (do it, with Clear Thought when the trigger criteria in Step 6 apply). These are the planner's to answer — that is what planning is. Roughly nineteen of every twenty questions a plan surfaces are this bin. The disposition is the answer, with a pointer to the Decisions or Verification entry that carries its evidence.
 2. **User decisions.** Spec contradictions, business trade-offs, scope changes or exclusions, conflicts between the spec and a named standard, and anything else where multiple defensible answers exist and the choice belongs to the owner of the work. The disposition is: presented to the user with options and a recommendation, answered by the user, and the answer incorporated. Not "noted in the document." Presented, answered, incorporated.
@@ -370,7 +370,7 @@ Capture each category separately:
 
 **Gaps acknowledged.** Places where the plan could not be grounded in a named standard despite searching for one, or a factual claim's resolution was attempted and is genuinely blocked. Every gap entry carries its attempt evidence: what was read, fetched, queried, and researched, and why resolution is outside the planner's reach. A gap acknowledged with its attempt shown is honest and fixable. A gap declared without an attempt is an open engineering question wearing a gap's label — it goes back to the register as open, and the plan does not deliver until it is answered. A gap hidden becomes a defect discovered later.
 
-The difference between these two: a **decision** is a judgment you made and can defend. A **gap** is something you tried to ground in an external source and could not, which the implementer and user need to know about because it may need to be revisited.
+The difference between them: a **decision** is a judgment you made and can defend. A **gap** is something you tried to ground in an external source and could not, which the implementer and user need to know about because it may need to be revisited.
 
 **Then run the reconciliation sweep.** This is the mechanical answer to "are there any unresolved questions, decisions, or gaps?" — asked by the process, exhaustively, before delivery, instead of by the user, repeatedly, after it:
 
@@ -385,7 +385,7 @@ If the Decisions section is empty for a non-trivial plan, that is a signal to re
 
 ## Deliver through the gates
 
-Write the plan document per the sixteen-section specification in `references/output-contract.md`, then run the three compliance gates (A: enables downstream work; B: compliance auditable from the document alone; C: binary final checklist) defined in the same reference. The plan is not complete until all three pass. If any item fails, the plan does not get delivered. Fix it.
+Write the plan document per the specification in `references/output-contract.md`, then run the compliance gates (A: enables downstream work; B: compliance auditable from the document alone; C: binary final checklist) defined in the same reference. The plan is not complete until every gate passes. If any item fails, the plan does not get delivered. Fix it.
 
 Write the plan file to `docs/plans/`, named `plan-[kebab-case-name].md`, creating that directory if it does not exist. This location is fixed, not conditional. Do not search the project for somewhere it already keeps plans, and do not ask the user where to put it or wait to be told.
 
