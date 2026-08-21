@@ -33,7 +33,7 @@ These shifts are related. Codebase-pattern-matching is judgment without the righ
 
 ## When This Changes What You Say
 
-Most of the time this operates in the background — it just sharpens reasoning. There are three specific moments where it should change your visible output:
+Most of the time this operates in the background — it just sharpens reasoning. There are specific moments where it should change your visible output:
 
 **When you catch something that would otherwise pass.** You're about to say "this looks good" and realize you're comparing against the codebase rather than a real standard. That's when to name the standard and explain the gap. Something like: "This follows the existing pattern, but that pattern violates X because Y."
 
@@ -43,7 +43,7 @@ Most of the time this operates in the background — it just sharpens reasoning.
 
 ## How to Know This Skill is Failing
 
-Eight signals that the Expert Standard isn't being applied:
+Signals that the Expert Standard isn't being applied:
 
 **Unnamed approvals.** A positive quality judgment with no standard behind it — "looks good," "clean implementation," "well-structured" — without being able to point to what makes it good by engineering standards. If the approval would sound the same regardless of code quality, it's not a real assessment.
 

@@ -38,7 +38,7 @@ This document defines a process. Every instruction in it is mandatory. There are
 
 - *"The user seems to know what they want, so I'll skip the codebase survey and go straight to steps."* Step 2 is not optional. It is the mechanism that grounds the plan in what actually exists. A plan written without it is fiction.
 - *"I'll cite a standard if I happen to know one and proceed without one otherwise."* Step 3 is not optional. Every non-trivial step's Source annotation points back to the standards registry built in Step 3. A plan with an empty Standards section has produced steps that point at nothing.
-- *"The Gate 3 four-part format is a lot for every step. I'll do it for the important ones."* Every non-trivial step requires all four parts (decision, authoritative standard, why this standard applies here, what this is NOT and why). The definition of "trivial" is in Step 8. The default when you are uncertain is non-trivial.
+- *"The Gate 3 justification format is a lot for every step. I'll do it for the important ones."* Every non-trivial step requires every part of it (decision, authoritative standard, why this standard applies here, what this is NOT and why). The definition of "trivial" is in Step 8. The default when you are uncertain is non-trivial.
 - *"I'll inline verification annotations into each step and skip the consolidated Verification of factual claims section."* The consolidated section is what an auditor reads. Scattered annotations are not the contract. The output contract specifies a required Verification section — that section is where premise-correctness is proved.
 - *"I'll abbreviate the output — the substance is in the steps."* The output contract is the audit trail. A plan that omits any **required** section has not satisfied this skill, regardless of how rigorous the step list is.
 - *"The compliance gates are redundant — the plan already covers it."* They are not redundant. They are the binary gates that distinguish a compliant plan from one that looks compliant.
@@ -50,7 +50,7 @@ This document defines a process. Every instruction in it is mandatory. There are
 - *"I'll plan the core and call the rest out of scope / a follow-up / an MVP."* The plan's scope is set by the request and the spec, not by the planner's effort budget. Narrowing scope is a user decision — every exclusion or deferral goes to the user for explicit approval before the plan is written against the narrowed scope. Silent deferral of any part of the requested work is non-compliance, however it is labeled.
 - *"I searched and found nothing, so it doesn't exist."* Search locates; reading verifies. A grep with zero matches is a lead, not an observation. An absence claim requires the search that defined the candidate locations, the reads of those locations that confirmed absence, and a statement of the scope covered. If the scope cannot credibly be covered, the claim is a gap, not a finding.
 
-**What compliance and non-compliance look like, in full, is specified in `references/output-contract.md`** — the audit questions, the per-section requirements, and the binary checklist. The short form: every audit question answerable by pointing at a section, every step Sourced, every non-trivial step in four-part format, every factual claim carrying read-level evidence (never a bare search result), the Question register closed to zero with its sweep attested, every requested element mapped to steps or a user-approved exclusion, and every test fully specified.
+**What compliance and non-compliance look like, in full, is specified in `references/output-contract.md`** — the audit questions, the per-section requirements, and the binary checklist. The short form: every audit question answerable by pointing at a section, every step Sourced, every non-trivial step in the Gate 3 justification format, every factual claim carrying read-level evidence (never a bare search result), the Question register closed to zero with its sweep attested, every requested element mapped to steps or a user-approved exclusion, and every test fully specified.
 
 Read the rest of this document with that frame.
 
@@ -99,7 +99,7 @@ The trap: **justifying decisions by what the current system does, or by what see
 
 This is why the output contract above is not a formatting requirement — it's the mechanism that makes the plan's reasoning visible. A plan where every reader has to trust that the planner applied standards correctly is not verifiable. A plan where every significant decision names its standard, cites its source, and states what alternatives were rejected and why — is. The act of having to write the reasoning down is what forces the reasoning to be real.
 
-Five signals that this failure mode is active:
+Signals that this failure mode is active:
 
 **Ungrounded steps.** A step's "Why this approach" reads as reasonable but doesn't trace to anything outside the planner's head — no named standard, no verified library documentation, no spec requirement, no genuine constraint. It might be right. It isn't verifiably right.
 
@@ -205,7 +205,7 @@ For anything external — library APIs, framework behavior, versioned dependenci
 
 ### 4. Verify libraries and frameworks
 
-For every library, framework, or external API the plan will use or interact with, read current documentation before designing the approach. Two acceptable paths, in order of preference:
+For every library, framework, or external API the plan will use or interact with, read current documentation before designing the approach. Acceptable paths, in order of preference:
 
 1. **Context7** — resolve the library to a Context7 library ID, fetch the relevant documentation sections (API surfaces, configuration, migration guides, known issues), and design against what the docs say.
 2. **Direct fetch-and-read of the authoritative documentation** — when Context7 cannot resolve the library or its coverage is insufficient to confirm the specific behavior the plan depends on: locate the official documentation page (search is permitted here for exactly one purpose — finding the URL), fetch that page, and read it. The evidence is the fetched page's content, recorded with URL, what the page states, and the date. A search result snippet or summary is never the evidence; the fetched, read page is.
@@ -294,7 +294,7 @@ Structure the plan as an ordered sequence of steps, topologically sorted by depe
 
   For trivial steps (a file rename, a typo fix, adding an obviously-needed import), one sentence naming the source is sufficient. When you are uncertain whether a step is trivial, treat it as non-trivial.
 
-  For non-trivial steps — anything where a wrong choice could cause security failure, data loss, operational failure, breaking change, or significant rework — expand into the **Gate 3 four-part format**, all four parts required:
+  For non-trivial steps — anything where a wrong choice could cause security failure, data loss, operational failure, breaking change, or significant rework — expand into the **Gate 3 justification format**, every part required:
 
   1. **The decision** — what was chosen and exactly where it applies.
   2. **The authoritative standard** — the named specification, RFC, OWASP guide, NIST publication, or clearly documented industry consensus. Not "best practice" with nothing behind it.
@@ -364,7 +364,7 @@ If the plan contains none of those triggers, the Checkpoints section in the outp
 
 Every plan of any real size involves judgment. An ambiguity gets resolved. A trade-off gets chosen. A standard gets interpreted for this specific situation. Those decisions are what downstream consumers need most — more than the conclusions, which are often rederivable, but less than the reasoning, which is not.
 
-Capture two categories separately:
+Capture each category separately:
 
 **Decisions made during planning.** Places where you resolved an ambiguity the inputs left open, chose between valid approaches, reconciled a contradiction, or interpreted how a standard applies to this specific situation. Each with the reasoning behind it. This is the section that lets a reader distinguish plan steps that were straightforward derivations from plan steps that involved real judgment — and evaluate whether the judgment was sound.
 

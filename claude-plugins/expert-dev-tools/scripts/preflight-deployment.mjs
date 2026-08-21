@@ -126,8 +126,17 @@ export function preflightDeployment(pluginName, worktreePath, cfgDir = configDir
     config_dir: cfgDir,
     registry: registryPath,
     cache_path: null,
+    // Naming is the contract here: a field named for what was READ carries a value read
+    // from disk, and a field named for what the REGISTRY CLAIMS carries the registry's
+    // claim. `installed_version` used to carry the registry's `version` string while the
+    // staleness comparison ran against the cache manifest's version two lines away, so a
+    // registry that had drifted from the directory it points at printed
+    // `CURRENT (installed 1.0.0 matches working tree 9.9.9)` — the report quoted
+    // faithfully and stated something false. Reported provenance is now the provenance
+    // the verdict consumed, and the registry's unverified claims keep their own names.
     installed_version: null,
-    installed_commit: null,
+    registry_recorded_version: null,
+    registry_recorded_commit: null,
     worktree_path: worktreePath || null,
     worktree_version: null,
     stale: null,
@@ -195,12 +204,22 @@ export function preflightDeployment(pluginName, worktreePath, cfgDir = configDir
       key,
       scope: rec.scope ?? null,
       cache_path: cachePath,
-      installed_version: rec.version ?? null,
+      registry_recorded_version: rec.version ?? null,
       cache_manifest_version: cacheManifest ? cacheManifest.version ?? null : null,
-      installed_commit: rec.gitCommitSha ?? null,
+      registry_recorded_commit: rec.gitCommitSha ?? null,
       stale: null,
       diffs: [],
     };
+    // A registry whose recorded version disagrees with the manifest inside the directory
+    // it points at is a deployment-provenance fault — precisely the fault this script
+    // exists to report — and it is unresolvable from here: neither number can be shown
+    // to describe what is installed. Routed through the single UNREADABLE rule below
+    // rather than a second verdict path, and it names both values so the owner can see
+    // which surface lied.
+    if (entry.registry_recorded_version !== null && entry.cache_manifest_version !== null
+      && entry.registry_recorded_version !== entry.cache_manifest_version) {
+      problems.push(`registry record for '${key}' says version ${entry.registry_recorded_version} but the cache manifest at ${cachePath} says ${entry.cache_manifest_version}: the registry has drifted from the directory it points at`);
+    }
     if (worktreePath && worktreeManifest && cacheManifest) {
       if (entry.cache_manifest_version !== report.worktree_version)
         entry.diffs.push(`version: installed cache ${entry.cache_manifest_version} != working tree ${report.worktree_version}`);
@@ -234,10 +253,9 @@ export function preflightDeployment(pluginName, worktreePath, cfgDir = configDir
   const primary = report.installs.find((i) => i.scope === 'user') || report.installs[0] || null;
   if (primary) {
     report.cache_path = primary.cache_path;
-    report.installed_version = primary.installed_version;
-    report.installed_commit = primary.installed_commit;
-    report.diffs = primary.diffs;
-    report.stale = primary.stale;
+    report.installed_version = primary.cache_manifest_version;
+    report.registry_recorded_version = primary.registry_recorded_version;
+    report.registry_recorded_commit = primary.registry_recorded_commit;
   }
 
   // Every affirmative verdict rests on POSITIVE evidence, never on the absence of a
@@ -254,6 +272,14 @@ export function preflightDeployment(pluginName, worktreePath, cfgDir = configDir
     problems.push(`no install record for '${pluginName}' could be read, so there is no deployment provenance to report`);
   if (worktreePath && compared.length === 0)
     problems.push(`no install record for '${pluginName}' completed a comparison against ${worktreePath}, so no staleness determination was made`);
+
+  // Same rule as the version fields, applied to the staleness fields: `stale` and
+  // `diffs` used to be the PRIMARY entry's, while the verdict quantifies over every
+  // entry that completed a comparison. With two install scopes that is a report saying
+  // `stale: false, diffs: []` above the line `VERDICT: STALE`. Both now carry exactly
+  // what the verdict rests on, and each diff names the record it came from.
+  report.stale = compared.length > 0 ? compared.some((i) => i.stale) : null;
+  report.diffs = compared.flatMap((i) => i.diffs);
 
   if (problems.length > 0) report.verdict = 'UNREADABLE';
   else if (!worktreePath) report.verdict = 'PROVENANCE-ONLY';
@@ -278,7 +304,12 @@ function run() {
   const report = preflightDeployment(pluginName, worktreePath);
   console.log(JSON.stringify(report, null, 2));
   if (report.verdict === 'STALE') {
-    console.log(`VERDICT: STALE (installed ${report.installed_version ?? '?'} at ${report.cache_path}; working tree ${report.worktree_version ?? '?'})`);
+    // Name the records the verdict actually rests on, not the primary one: with two
+    // install scopes the primary can be the clean one, and a STALE line quoting its
+    // path and version points the owner at the deployment that is fine.
+    const staleEntries = report.installs.filter((i) => i.stale === true);
+    const named = staleEntries.map((e) => `${e.key} installed ${e.cache_manifest_version ?? '?'} at ${e.cache_path}`).join('; ');
+    console.log(`VERDICT: STALE (${named}; working tree ${report.worktree_version ?? '?'})`);
     process.exit(1);
   }
   if (report.verdict === 'UNREADABLE') {
@@ -286,7 +317,10 @@ function run() {
     process.exit(2);
   }
   if (report.verdict === 'PROVENANCE-ONLY') {
-    console.log(`VERDICT: PROVENANCE-ONLY (installed ${report.installed_version ?? '?'} commit ${report.installed_commit ?? '?'} at ${report.cache_path}; no working tree supplied, no staleness determination)`);
+    // `installed` is the cache manifest read from `cache_path`; the commit is the
+    // registry's claim about that directory and is labelled as such, because nothing
+    // here opened the directory to confirm it.
+    console.log(`VERDICT: PROVENANCE-ONLY (installed ${report.installed_version ?? '?'} at ${report.cache_path}; registry-recorded commit ${report.registry_recorded_commit ?? '?'}; no working tree supplied, no staleness determination)`);
     process.exit(0);
   }
   console.log(`VERDICT: CURRENT (installed ${report.installed_version ?? '?'} matches working tree ${report.worktree_version ?? '?'})`);

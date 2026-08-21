@@ -43,7 +43,7 @@ Architecture work fails in five specific ways. The first three are general failu
 
 *Methodology mapping: silent pattern replication (prior-artifact variant) — the same failure signal as codebase-mirroring, with the source being a prior document instead of the surrounding code.*
 
-**The decision-hiding trap.** You make an architectural decision in your reasoning — choosing between two valid approaches, resolving an ambiguity in the spec, interpreting how a standard applies to this situation — and you do not surface the decision in the document. The conclusion appears in the architecture; the reasoning that produced it lives only in your working context, where the reader cannot review it. The first edge case the architecture doesn't explicitly cover produces the wrong answer because the implementer has the conclusion but not the reasoning. Every non-trivial decision goes in the Design decisions section in the five-part decision format. Every judgment call goes in the Design decisions section with the reasoning. The test: a reader should be able to evaluate whether your judgment was sound. They cannot do that on conclusions alone.
+**The decision-hiding trap.** You make an architectural decision in your reasoning — choosing between two valid approaches, resolving an ambiguity in the spec, interpreting how a standard applies to this situation — and you do not surface the decision in the document. The conclusion appears in the architecture; the reasoning that produced it lives only in your working context, where the reader cannot review it. The first edge case the architecture doesn't explicitly cover produces the wrong answer because the implementer has the conclusion but not the reasoning. Every non-trivial decision goes in the Design decisions section in the decision format. Every judgment call goes in the Design decisions section with the reasoning. The test: a reader should be able to evaluate whether your judgment was sound. They cannot do that on conclusions alone.
 
 *Methodology mapping: assessment gap — approving or delivering work that a rigorous evaluation would flag, with the reasoning hidden so the evaluation cannot occur.*
 
@@ -203,7 +203,7 @@ Skip this phase only when the architecture has no external library dependencies 
 
 ### 7. Detect and surface spec problems
 
-Compare the spec against the codebase reality (Phases 3, 4) and the named standards (Phase 5). Three categories of problem can surface, each with a different response:
+Compare the spec against the codebase reality (Phases 3, 4) and the named standards (Phase 5). The problems that surface fall into categories, each with a different response:
 
 **Hard logical contradiction.** Two spec requirements or constraints that cannot both be true in any valid architecture (e.g., R3 mandates synchronous handling on the same path R7 mandates streaming async; constraints forbid local file writes but R5 mandates SQLite persistence). **Stop.** Construct the resolution via the **dialectical (thesis-antithesis-synthesis) written form** per the Reasoning discipline section. Surface the contradiction with quotes from the spec, the structured argument, and your recommendation. Wait for user input. Do not silently pick a resolution.
 
@@ -227,9 +227,9 @@ Security is in scope when the system handles credentials, tokens, session state,
 
 Build it via the **hypothesis-driven written form** per the Reasoning discipline section: each threat as observation → question → hypothesis (variables, assumptions) → experiment (control, prediction) → analysis → conclusion. It identifies attackers (external without credentials, authenticated users escalating privilege, insiders, compromised dependencies), targets (credentials, tokens, personal data, financial data, trust relationships, availability), and blast radius (data leak, lateral movement, financial loss, regulatory exposure). Each security-related decision in Phase 10 ties to a specific threat — a control without a threat is flagged. When security is not in scope, skip this phase; performative threat modeling is standards-decoration applied to security.
 
-### 10. Make design decisions in the five-part decision format
+### 10. Make design decisions in the decision format
 
-For every non-trivial architectural choice — components, technology choices within constraints, integration approaches, trade-off resolutions, API surfaces, data models, security controls — write the five-part justification:
+For every non-trivial architectural choice — components, technology choices within constraints, integration approaches, trade-off resolutions, API surfaces, data models, security controls — write the decision format, every part of it:
 
 1. **The decision.** What was chosen and exactly where it applies — component name, layer, file or directory location if known, interface or contract.
 2. **The authoritative standard.** A named specification, RFC, OWASP guide, NIST publication, ISO standard, or industry consensus documented in a specific source. *When no formal standard applies*, the first-principles articulation per the Reasoning discipline section. No anchor at all is not acceptable.
@@ -237,7 +237,7 @@ For every non-trivial architectural choice — components, technology choices wi
 4. **What this decision is NOT — and why.** The alternatives that would be wrong, named explicitly with the reason each is wrong. If you cannot name and reject at least one wrong alternative for a non-trivial decision, you have pattern-matched to a default. For decisions with three or more multi-criteria alternatives, the weighted decision matrix per the Reasoning discipline section lands here.
 5. **Premise verification.** What was checked, against what source, with what result. Use one of: file:line read (path, line range, what it showed), search query and result (the query and the matches), import-tracing result (what was searched and the dependents found, with the traced bound), library-documentation URL (with version and access date and the behavior confirmed), test reproduction (test, input, observed output), "no factual premises — pure design choice," or "training knowledge — not verified against current source" in a fully-degraded environment.
 
-**What counts as non-trivial.** Any decision where a wrong choice could cause a security failure, data loss, operational failure, breaking change, integration mismatch, or significant rework. When unsure, treat it as non-trivial. **Trivial decisions** (file naming within a component, internal helper names) are recorded briefly without the five-part format.
+**What counts as non-trivial.** Any decision where a wrong choice could cause a security failure, data loss, operational failure, breaking change, integration mismatch, or significant rework. When unsure, treat it as non-trivial. **Trivial decisions** (file naming within a component, internal helper names) are recorded briefly without the decision format.
 
 For each design decision, record the spec requirements (R# and/or Q#) it addresses — this produces the data the traceability matrix consumes in Phase 11.
 
@@ -276,7 +276,7 @@ With Phases 1–10 (plus 10a and 10b where applicable) complete, write the archi
    *(required)* — a table mapping each quality characteristic the architecture advances to how it is advanced (with the design decision numbers). Reflects Phase 10a. Characteristics deliberately not addressed are named with reasoning.
 
 ## Design decisions
-   *(required)* — D1, D2, D3, … each in the five-part decision format. For each, record the spec R#/Q# it addresses. The Knowledge-state baseline (Phase 2), the written reasoning-template traces (weighted decision matrices, first-principles articulations, dialectical resolutions, numbered reasoning chains, foundation-problem characterizations), and the pre-delivery multi-perspective review (Gate A) all land here.
+   *(required)* — D1, D2, D3, … each in the decision format. For each, record the spec R#/Q# it addresses. The Knowledge-state baseline (Phase 2), the written reasoning-template traces (weighted decision matrices, first-principles articulations, dialectical resolutions, numbered reasoning chains, foundation-problem characterizations), and the pre-delivery multi-perspective review (Gate A) all land here.
 
 ## Threat model
    *(if applicable — security in scope per Phase 9)* — attackers, targets, blast radius, each threat in the observation → question → hypothesis → experiment → analysis → conclusion shape. Threats first; controls in Design decisions reference these threats.
@@ -307,7 +307,7 @@ The architecture document passes through three gates before delivery, plus a par
 
 ### Gate A — Does the architecture enable downstream work?
 
-Evaluated via the **multi-perspective written review** per the Reasoning discipline section — adopt each of the three roles in turn, in writing, and answer its question honestly:
+Evaluated via the **multi-perspective written review** per the Reasoning discipline section — adopt each of the roles in turn, in writing, and answer its question honestly:
 
 - **Implementer (planner).** Can a planner read this and produce concrete file-level steps without making architectural decisions inline? An architecture that requires the planner to architect is not finished.
 - **Reviewer.** Can a reviewer check a build against this and reach a defensible conclusion about whether each component, decision, and contract is satisfied?

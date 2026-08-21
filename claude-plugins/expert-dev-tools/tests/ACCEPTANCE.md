@@ -1,6 +1,6 @@
 # Acceptance procedure — expert-dev-tools (spec A-1..A-9)
 
-Two tiers, per the plan's test architecture (D-P1):
+The tiers, per the plan's test architecture (D-P1):
 
 - **Automated tiers (no tokens, run now):** `node tests/unit/run-unit-tests.mjs`
   and `node tests/structural/check-structure.mjs`. These cover the unit tests

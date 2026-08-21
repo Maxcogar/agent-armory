@@ -12,7 +12,7 @@ You are correcting an artifact that already exists. You did not write it, and yo
 rewriting it. Correction is a distinct discipline from authoring, and this skill is the whole of
 that discipline.
 
-Two neighbouring behaviours are **forbidden**, and both have been measured failing:
+Neighbouring behaviours are **forbidden**, and each has been measured failing:
 
 - **Patching is forbidden.** Editing the sentence a finding points at, at the fix site, without
   returning to that passage's sources, leaves the finding's *class* unswept everywhere else in the
@@ -89,7 +89,7 @@ Your final message is consumed as structured data. Report, in addition to `statu
 - **`source`** — what you re-derived it from: the requirement, standard, upstream artifact, or the
   read that supplied its content.
 - **`finding_addressed`** — the finding this entry answers.
-- **`class_sweep`** — the record of step 3, with five required fields:
+- **`class_sweep`** — the record of step 3, with these required fields:
   - **`searched`** — what the sweep looked for.
   - **`pattern`** — the executable search the sweep ran: a regex, in Grep syntax. This is the
     sweep itself, handed over — not a description of it.

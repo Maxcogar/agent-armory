@@ -23,7 +23,7 @@ Add a `farewell(name)` function to `tests/fixture/project/greeter.js` that mirro
 ## The seeded contradiction
 
 The contradiction is **three-way**, not a two-way R-1/R-2 conflict. Three
-statements are in play, and no two of them can hold together:
+statements are in play, and they cannot all hold together:
 
 1. **R-1** requires an all-uppercase return.
 2. **R-2** requires an all-lowercase return. R-1 and R-2 cannot both hold: for

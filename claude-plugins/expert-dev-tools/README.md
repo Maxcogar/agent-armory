@@ -49,7 +49,7 @@ Since the dedupe key is the command string, making that string distinct is the
 only property that restores registration. The `cmd /c` wrapper is the form
 `claude-plugins/agentboard/.mcp.json` already uses for its own servers.
 
-Three things this is **not**, and why:
+What this is **not**, and why:
 
 - **Not a rename of the server key.** The key is not the dedupe key, so renaming
   changes nothing — and `tests/structural/check-structure.mjs` asserts the

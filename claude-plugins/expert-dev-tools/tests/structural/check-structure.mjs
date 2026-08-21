@@ -72,8 +72,9 @@ for (const f of agents) {
     if (readonlyAllow.has(name)) check(`T-A2b ${name}: allowlist excludes write tools`, !tools.includes('Write') && !tools.includes('Edit'));
     // T-3 (S2/S3): every allowlisted agent holds BOTH documentation paths the
     // skills require — the bundled Context7 grant and the fetch/search fallback.
-    // expert-spec/SKILL.md:155 names two acceptable verification routes; an agent
-    // holding one has an unsatisfiable instruction the moment that route fails.
+    // skills/expert-spec/SKILL.md @ `via Context7 or the authoritative source` names
+    // both acceptable verification routes; an agent holding only one has an
+    // unsatisfiable instruction the moment that route fails.
     check(`T-3 ${name}: holds both documentation paths (context7 + WebFetch + WebSearch)`,
       tools.includes('mcp__plugin_expert-dev-tools_context7') && tools.includes('WebFetch') && tools.includes('WebSearch'));
     // T-5 (S5/S7): the corrector's load-bearing property. `Write` would let a
@@ -213,9 +214,11 @@ function topLevelCommas(s) {
 
 // ---- T-A2a: workflow passes the canonical linter (M-1a) --------------------
 const wf = join(ROOT, 'workflows/expert-lifecycle.js');
-// The workflow is ESM-flagged (`export const meta` at :1) but also uses top-level
-// `return` (:688) and top-level `await` (:459). That is legal because the harness
-// runs the body inside an async function (skills/workflow-creator/SKILL.md:142-145).
+// The workflow is ESM-flagged (workflows/expert-lifecycle.js @ `export const meta`) but
+// also uses top-level `return` (workflows/expert-lifecycle.js @ `Unknown lifecycle phase`)
+// and top-level `await`. That is legal because the harness runs the body inside an async
+// function — a property of the workflow host, asserted here by the oracle below rather
+// than cited, because no file in this plugin states it.
 // No standard goal accepts the shape: `node --check` on the .js path exits 0 for ANY
 // syntax error once `export` is present, and `--input-type=module --check` rejects
 // the legitimate top-level return. Compiling the body as an async function is the
@@ -477,6 +480,102 @@ check('T-18 the scope check is dispatched to the verifier under one label',
     // guessed by widening the normalizer. Each entry names the exact baseline label
     // and the exact label that supersedes it, with the finding that forced the swap.
     const REPLACED_BY_STRENGTHENING = [
+      // ---- corrections-0.4.0 round-4 N2/N3: the T-31 sweep is REPLACED by two
+      // absolute properties over the whole plugin. Every entry below names one of the
+      // eight sweep checks it retired. They are listed individually rather than as a
+      // block because this allowlist is the record of what was traded for what, and a
+      // block entry would hide which assertions actually have successors. The shared
+      // ground: rounds 2, 3 and 4 each filed the same defect against this sweep — a
+      // control guarding hand-maintained derived data, whose own reach was itself
+      // hand-maintained — and each fix widened the reach and drew a new boundary. The
+      // successors do not guard the data; the drift-prone FORM is gone from every live
+      // file, and what remains is an emptiness assertion whose reach is the plugin
+      // root minus one declared record tree, so a new tree is covered by default.
+      {
+        was: 'T-31 the sweep admits the full construct population across the skills (admitted ${admitted.length}, floor 24)',
+        now: 'T-31 the reach walk covers the live plugin (files in reach: ${inReach.length}, floor 30)',
+        why: 'the floor moved from a population of admitted PROSE LINES (which must be ' +
+             'kept in step with the prose by hand, and which round-4 N2 showed stopped at ' +
+             'skills/) to a floor on the WALK ITSELF over the whole plugin root. The new ' +
+             'floor cannot drift with content: it fails only if the walker stops descending.',
+      },
+      {
+        was: 'T-31 every admitted count claim is accounted for — counted or designated (unclassified: ${unclassified.map((u) => u.where).join(',
+        now: 'T-31 the reach includes every live tree — agents, commands, hooks, scripts, skills, workflows, tests — and excludes the record tree',
+        why: 'the accounting assertion existed because admitted lines needed individual ' +
+             'adjudication. With the construct removed from every live file there is ' +
+             'nothing to adjudicate, and the property that matters is the one round-4 N2 ' +
+             'found missing: that the scan reaches agents/ and every other live tree, not ' +
+             'skills/ alone. Asserted by membership, not by a maintained list.',
+      },
+      {
+        was: 'T-31 the sweep RESOLVES rather than excuses the population (counted ${counted.length}, floor 18; designated ${designated.length}, ceiling 6)',
+        now: 'T-31 no unpinned cardinality claim exists anywhere in reach (found: ${stated.join(',
+        why: 'the counted-floor/designated-ceiling pair was the machinery that kept the ' +
+             'excused set from growing. Nothing is excused now — the population is zero and ' +
+             'asserted zero across the whole plugin, so there is no excused set to bound.',
+      },
+      {
+        was: 'T-31 every designation still matches exactly one admitted line (stale: ${staleDesignations.map((x) => ',
+        now: 'T-32 every anchored citation',
+        why: 'the designation-liveness check was the good idea inside the old block — a ' +
+             'verbatim excerpt as an anchor, asserted still present at its target. That ' +
+             'idea survives, generalized from three designation anchors to every ' +
+             'cross-file citation in the plugin, which is what round-4 N4 said was ' +
+             'missing. The DESIGNATIONS array it policed no longer exists.',
+      },
+      {
+        was: 'T-31 the emphasis-free skill files are exactly the known one (found: ${proseOnly.join(',
+        now: 'T-31 no emphasized bare count exists anywhere in reach (found: ${emphasized.join(',
+        why: 'the emphasis-free pin existed to stop a NEW file inheriting the ' +
+             'entry-form exemption. There is no exemption to inherit. The successor covers ' +
+             'the emphasis case that mattered and that the old sweep never saw at all: the ' +
+             'ten `You answer **N**` restatements in agents/, each a hand-kept copy of the ' +
+             '`jobs:` value T-2b derives from the workflow dispatch labels.',
+      },
+      {
+        was: 'T-31 every stated count matches its list (drifted: ${drifted.map((d) => ',
+        now: 'T-31 no unpinned cardinality claim exists anywhere in reach (found: ${stated.join(',
+        why: 'round-4 N3: this label claimed "every stated count" while examining 18 of ' +
+             'the 24 the sweep admitted, and a real drift in the other 6 passed with the ' +
+             'line printing green. Its successor makes no totality claim it cannot keep — ' +
+             'there are no stated counts left to match, and the assertion is that there ' +
+             'are none, over a reach that is measured rather than announced.',
+      },
+      {
+        was: 'T-31 expert-standard\\',
+        now: 'T-31 no unpinned cardinality claim exists anywhere in reach (found: ${stated.join(',
+        why: 'round-2 F4\'s originally-reported instance ("Eight signals" in ' +
+             'expert-standard) was pinned by name to prove the sweep actually covered it. ' +
+             'The word is deleted from that line, so there is nothing left to cover; the ' +
+             'successor asserts its absence along with the rest of the class.',
+      },
+      {
+        was: 'T-31 the mid-line construct the column-0 matcher missed is counted (expert-implement\\',
+        now: 'T-31 no unpinned cardinality claim exists anywhere in reach (found: ${stated.join(',
+        why: 'round-3 F2\'s planted instance, pinned by name for the same reason. Deleted ' +
+             'from the source line rather than counted, and covered by the emptiness ' +
+             'assertion like every other instance.',
+      },
+      {
+        was: 'T-31-neg the sweep detects a drifted count and an unresolvable admitted line (the guard can fail)',
+        now: 'T-31-neg the cardinality predicate fires on the construct and not on ordinary prose',
+        why: 'the demonstrable-failure obligation is unchanged and still discharged: the ' +
+             'recognizer is exercised on a positive case and on two negatives (a cardinal ' +
+             'with no terminal colon, and one separated from the colon by a sentence ' +
+             'break), so an emptiness assertion over a predicate that matches nothing ' +
+             'cannot pass unnoticed.',
+      },
+      {
+        was: 'T-29 stale fixture: report carries the marketplace commit from the registry record',
+        now: 'T-29 stale fixture: report carries the marketplace commit from the registry record, under a name that says it is the registry\\',
+        why: 'corrections-0.4.0 round-4 N1: `installed_commit` named the registry\'s ' +
+             'unverified claim as though it were a fact read from the installed directory, ' +
+             'the same conflation that let `installed_version` print ' +
+             '"installed 1.0.0 matches working tree 9.9.9". The field is now ' +
+             '`registry_recorded_commit` and the assertion pins the renamed field, so the ' +
+             'report cannot present a registry claim as a disk reading.',
+      },
       {
         was: 'T-31 the count-header sweep found the known population of stated counts (found ${countHeaders.length})',
         now: 'T-31 the sweep admits the full construct population across the skills (admitted ${admitted.length}, floor 24)',
@@ -832,7 +931,7 @@ check('T-24 deployment: the ground-truth guard branches on the extracted predica
 // ---- Round-3 F1 class, swept into this file: a verdict computed over an EMPTY input
 // set must not resolve to the affirmative answer. The reported instance was the
 // preflight's CURRENT over zero compared files (pinned in the T-29 block). The sweep
-// over this workflow found two more, both at dispatch returns consumed with no floor:
+// over this workflow found further instances, each at a dispatch return consumed with no floor:
 // an acceptance return with no criteria read as ground truth PASSED, and a closeout
 // return of nothing wrote `phase = 'complete'`. Pinned at their deployment in the same
 // text-assertion form as the guards above, because the workflow body is not importable.
@@ -878,6 +977,23 @@ check('T-24 deployment: the control-fault gate is raised at every empty-set and 
   const stated = /The (six|seven|eight|nine) owner-gate types/.exec(wfSrc);
   check('T-24 gate-count comment matches the evaluated GATE literal (fail-closed on unevaluable)',
     memberCount > 0 && !!stated && words[stated[1]] === memberCount);
+
+  // Round-4 N2/N3 class sweep. The continuation gate's reprompt carries a SECOND copy
+  // of the same derived data — the gate-type count and every gate-type name — in the
+  // one string an agent actually reads when it is blocked. It is a standalone script
+  // and cannot import the workflow body, so the copy cannot be removed; it is pinned
+  // instead, against the same evaluated literal, which is the only form of stated
+  // cardinality this plugin permits. A gate type added, removed, or renamed in the
+  // workflow now reddens here until the reprompt says the same thing.
+  const hookSrc = readFileSync(join(ROOT, 'hooks/continuation-gate.mjs'), 'utf8');
+  let gateNames = [];
+  try { gateNames = Object.values(new Function('"use strict"; return {' + gateBody + '};')()); } catch { gateNames = []; }
+  const hookStated = /none of the (six|seven|eight|nine) spec §3\.4 gate types/.exec(hookSrc);
+  const unnamed = gateNames.filter((n) => !hookSrc.includes(String(n)));
+  check(`T-24 the continuation gate's reprompt names every evaluated GATE member (missing: ${unnamed.join(', ') || 'none'})`,
+    gateNames.length > 0 && unnamed.length === 0);
+  check('T-24 the continuation gate\'s reprompt states the evaluated GATE member count (fail-closed on unevaluable)',
+    memberCount > 0 && !!hookStated && words[hookStated[1]] === memberCount);
 }
 check('T-24 control_fault gate type exists and the under-coverage gate uses it',
   wfSrc.includes("control_fault: 'control_fault'") && wfSrc.includes('type: GATE.control_fault'));
@@ -1369,8 +1485,8 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
   check('T-29 stale fixture: report carries stale:true, the fixture cache_path, and both versions',
     !!staleR && staleR.stale === true && staleR.installed_version === '0.1.0' &&
     staleR.worktree_version === '0.2.0' && String(staleR.cache_path).includes('fixture-plugin'));
-  check('T-29 stale fixture: report carries the marketplace commit from the registry record',
-    !!staleR && staleR.installed_commit === 'a'.repeat(40));
+  check('T-29 stale fixture: report carries the marketplace commit from the registry record, under a name that says it is the registry\'s claim',
+    !!staleR && staleR.registry_recorded_commit === 'a'.repeat(40));
 
   const cur = runPf('current-config', 'fixture-plugin', join(fx, 'worktree'));
   const curR = pfReport(cur.out);
@@ -1460,6 +1576,54 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
       emptyRecords.status === 2 && /VERDICT: UNREADABLE/.test(emptyRecords.out) && !/VERDICT: CURRENT/.test(emptyRecords.out));
     check('T-29 the empty-install-record report names the entry and asserts no match over a comparison it never ran',
       /is an empty array/.test(emptyRecords.out) && !/matches working tree/.test(emptyRecords.out));
+
+    // ---- Round-4 N1: reported provenance must BE the provenance the verdict consumed.
+    // `installed_version` carried the registry's `version` string while the staleness
+    // comparison ran against the cache manifest's version, and the two were never
+    // compared to each other — so a drifted registry printed
+    // `CURRENT (installed 1.0.0 matches working tree 9.9.9)`: a faithful quotation of a
+    // false sentence, through the channel commands/expert.md step 1 makes the sole
+    // admissible ground for behavioral claims. Both halves are pinned here: the
+    // divergence is now a first-class problem, and the quotable field is sourced from
+    // the manifest that was actually read.
+    // Resynchronize the cache to the (by now heavily mutated) tree, so the ONLY thing
+    // these probes vary is the field under test. Removed first: cpSync overlays, it
+    // does not delete, and the earlier probe deleted a file from the tree side.
+    rmSync(cache, { recursive: true, force: true });
+    cpSync(tree, cache, { recursive: true });
+    w(join(tmp, 'cfg', 'plugins', 'installed_plugins.json'),
+      JSON.stringify({ version: 2, plugins: { 'p@m': [{ scope: 'user', version: '2.0.0', installPath: cache }] } }));
+    const drifted = runTmp();
+    const driftedR = pfReport(drifted.out);
+    check('T-29 a registry version that disagrees with the cache manifest it points at is UNREADABLE with exit 2, never an affirmative verdict',
+      drifted.status === 2 && /VERDICT: UNREADABLE/.test(drifted.out) && !/VERDICT: CURRENT/.test(drifted.out));
+    check('T-29 the registry-drift problem names BOTH versions, so the owner can see which surface lied',
+      /says version 2\.0\.0/.test(drifted.out) && /manifest at .* says 1\.0\.0/.test(drifted.out));
+    check('T-29 installed_version is read from the cache manifest and the registry\'s claim keeps its own name (reported provenance is the provenance used)',
+      !!driftedR && driftedR.installed_version === '1.0.0' && driftedR.registry_recorded_version === '2.0.0');
+
+    // The same class at the staleness fields: `stale` and `diffs` were the PRIMARY
+    // entry's while the verdict quantifies over every entry that completed a
+    // comparison, so a clean user-scope install alongside a stale project-scope one
+    // printed `stale: false, diffs: []` directly above the line `VERDICT: STALE`.
+    const cacheB = join(tmp, 'cfg', 'plugins', 'cache', 'p2');
+    cpSync(tree, cacheB, { recursive: true });
+    w(join(cacheB, 'workflows', 'life.js'), 'export const stubbed = 0\n');
+    w(join(tmp, 'cfg', 'plugins', 'installed_plugins.json'), JSON.stringify({
+      version: 2,
+      plugins: { 'p@m': [
+        { scope: 'user', version: '1.0.0', installPath: cache },
+        { scope: 'project', version: '1.0.0', installPath: cacheB },
+      ] },
+    }));
+    const twoScope = runTmp();
+    const twoScopeR = pfReport(twoScope.out);
+    check('T-29 a stale NON-primary install still yields STALE with exit 1 (the verdict quantifies over every completed comparison)',
+      twoScope.status === 1 && /VERDICT: STALE/.test(twoScope.out));
+    check('T-29 the report\'s stale/diffs fields carry what the verdict rests on, not the primary record\'s (no report contradicting its own verdict line)',
+      !!twoScopeR && twoScopeR.stale === true && twoScopeR.diffs.some((d) => String(d).startsWith('workflows/')));
+    check('T-29 the STALE line names the diverging install rather than the clean primary one',
+      twoScope.out.includes(cacheB) && !new RegExp(`VERDICT: STALE \\([^)]*${cache.replace(/[\\^$*+?.()|[\]{}]/g, '\\$&')}[;)]`).test(twoScope.out));
   }
 
   // ---- Round-2 F2: a tree that could not be READ must never contribute CURRENT. The
@@ -1602,192 +1766,166 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
     /can only be verified live or by running it/.test(stdFm29.description || ''));
 }
 
-// ---- T-31: every stated count of an enumerated list matches the list -------
-// Round-2 F4 named one instance ("Eight signals" in expert-standard). The CLASS is
-// hand-maintained derived data: a cardinality word in prose duplicating what the list
-// below it already carries, which drifts on the next edit to the list.
+// ---- T-31 / T-32: the drift-prone FORMS are eliminated, plugin-wide ---------------
+// Three consecutive rounds filed the same defect against the control that used to sit
+// here: a check guarding hand-maintained derived data, whose own reach was itself hand
+// -maintained. Round 2 (F4) pinned one instance. Round 3 (F2) widened the matcher and
+// reached 18 of the 24 lines it admitted, in skills/ only. Round 4 (N2, N3) found the
+// label claiming totality over the 24 while examining 18, and twelve more instances of
+// the identical construct in agents/, outside the sweep's directory scope entirely.
+// Each fix widened the reach and left a new hand-drawn boundary; the predecessor block
+// was ~190 lines of entry-form heuristics, per-instance DESIGNATIONS carrying prose
+// reasons, and three literal floors and ceilings — maintained surface added to guard
+// maintained surface.
 //
-// Round-3 F2. The first sweep of this class discovered headers with a column-0 anchor
-// (/^(Two|Three|...)\s+\S/) and reached 7 of the 24 lines the construct admits, while
-// its own comment announced that it "DISCOVERS every such header across the skills".
-// A drift planted in any of the other 17 passed this tier green. The defect was not the
-// missing sites; it was that the control's stated scope exceeded its actual reach, so
-// the class looked closed. Typography is not the class: the class is a cardinality word
-// that quantifies the enumerated list following it, wherever in the line it sits.
+// This repository has twice proved the alternative (the 0.3.0 gate-count pin; the
+// expert-plan generated regions): hand-maintained derived data does not converge under
+// stricter checking. It converges when the drift-prone FORM stops existing. So two
+// absolute properties replace the sweep, each asserted over the WHOLE plugin:
 //
-// So coverage here is a MEASURABLE PROPERTY, not a claim. Discovery admits every line
-// the construct's own definition can admit — a cardinal word, no sentence break after
-// it, a terminal colon — and every admitted line must then be ACCOUNTED FOR: either
-// resolved against its list and counted, or carried by a designation whose ground is
-// itself derived rather than asserted. An admitted line that is neither fails this
-// tier, naming itself. That is the same partition-totality shape T-29 applies to the
-// plugin root, applied to a class defined by meaning instead of by column 0.
+//  (1) NO UNPINNED CARDINALITY CLAIM. A cardinal word heading an enumerated list
+//      carries nothing the list does not already carry — "Six signals:" and "Signals:"
+//      differ only in what can rot. The word is gone from every live file. Where a
+//      number was genuinely load-bearing the prose now points at the pinned source of
+//      truth instead of restating it: each agent's return contract points at its
+//      `jobs:` frontmatter, which T-2b derives from the workflow's dispatch labels, and
+//      commands/expert.md points at spec §3.4, whose count T-24 derives by lifting and
+//      EVALUATING the GATE literal. Neither is a second copy of a number.
+//  (2) NO BARE LINE CITATION. `path.ext:` followed by a line number has no relationship
+//      to the thing it names, so any insertion above the target silently invalidates it.
+//      Measured before the fix: of the eight cross-file citations in this plugin, six
+//      had already rotted — round 3's own fix commit broke one by editing the file it
+//      cited, and another named a skill that is not part of this plugin at all. A
+//      citation now carries an immutable anchor, `path @ `quoted text``, and this check
+//      READS the target and confirms the anchor is still present there.
+//
+// Reach is a measured property rather than a claim, and it is total by DEFAULT: the
+// walk covers the whole plugin root except the one declared record tree, so a new tree
+// is in reach without anyone maintaining a list. Nothing here has a per-instance
+// allowlist, a designation, or a population floor to keep in step with the population.
 {
-  const CARDINALS = { two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
-  // The construct's definition. The lookahead is the "no sentence break" half: a
-  // cardinal only counts as heading THIS list when no `.` separates it from the
-  // terminal colon, which is what excludes cardinals belonging to an earlier sentence
-  // on the same line.
-  const CARDINAL_RE = new RegExp(`\\b(${Object.keys(CARDINALS).join('|')})\\b(?=[^.]*:$)`, 'gi');
+  // docs/ holds dated records — review rounds, specs, architectures — each a statement
+  // of what was true at its commit. Rewriting their citations would falsify the record,
+  // so they are out of reach. This is the ONLY exclusion, and it is pinned to exactly
+  // one entry so it cannot quietly grow into the hand-drawn boundary this block exists
+  // to remove.
+  const RECORD_TREES = ['docs'];
+  check(`T-31 the record-tree exclusion is exactly docs/ (literal pin; everything else is in reach by default)`,
+    RECORD_TREES.length === 1 && RECORD_TREES[0] === 'docs');
 
-  // Entry forms, tried in order. The marker is taken from the FIRST entry after the
-  // header and only that form is then counted, so a trailing bolded paragraph after a
-  // bulleted list is not miscounted as an entry. Adding a form here widens what the
-  // sweep can resolve; it can never narrow what the sweep admits, because admission is
-  // CARDINAL_RE alone.
-  const ENTRY_FORMS = [
-    { name: 'bulleted-bold', re: /^\s*[-*] \*\*/ },
-    { name: 'numbered-bold', re: /^\s*\d+\. \*\*/ },
-    { name: 'bold-paragraph', re: /^\*\*/ },
-    { name: 'fenced-block', re: /^```/ },
-  ];
-
-  // Designations, for admitted lines that are real prose but not a count over a
-  // resolvable list. `anchor` is a verbatim excerpt of the admitted LINE, never a line
-  // number, so an edit that moves the line keeps the designation attached and an edit
-  // that rewrites it detaches loudly. Every designation must match exactly one admitted
-  // line — asserted below — so a designation cannot outlive the text it excuses.
-  const DESIGNATIONS = [
-    {
-      anchor: 'the record of step 3, with five required fields',
-      reason: 'qualified subset: "five REQUIRED fields" quantifies a named subset of the six fields listed beneath it (open_sites is documented "(when applicable)"), so the list length is not the stated count',
-    },
-    {
-      anchor: 'Every finding has two axes, and both have to be right',
-      reason: 'not a count header: the cardinal quantifies "two axes" named inline in the same sentence; the bold paragraphs beneath restate them rather than enumerate a separate list',
-    },
-    {
-      anchor: 'Three categories of problem can surface, each with a different response',
-      reason: 'trailing aside: the three categories are followed contiguously by a bolded "Watch the trap." caution in the same block run, which no entry-form rule can distinguish from a fourth category without a hand-maintained vocabulary of aside lead-ins — the maintained surface this control exists to avoid. The stated count is correct against the document; the resolver cannot show it',
-    },
-  ];
-
-  // Files carrying no markdown emphasis and no headings at all. Their lists are plain
-  // paragraphs with no marker any entry form can detect, so their admitted lines are
-  // accounted for by the file's shape rather than one by one. This is DERIVED, not
-  // maintained: the moment someone adds `**` or `## ` to such a file, it leaves this
-  // set and its admitted lines must resolve or fail. The literal pin below is what
-  // stops a NEW emphasis-free file from quietly inheriting the exemption.
-  const skillFiles = readdirSync(join(ROOT, 'skills')).map((s) => `skills/${s}/SKILL.md`);
-  const text = new Map(skillFiles.map((rel) => [rel, readFileSync(join(ROOT, rel), 'utf8')]));
-  const proseOnly = skillFiles.filter((rel) => {
-    const ls = text.get(rel).split(/\r?\n/);
-    return !ls.some((l) => l.includes('**')) && !ls.some((l) => /^## /.test(l));
-  });
-  check(`T-31 the emphasis-free skill files are exactly the known one (found: ${proseOnly.join(', ') || 'none'})`,
-    proseOnly.join(',') === 'skills/expert-architecture/SKILL.md');
-
-  // Resolve one admitted header against the list beneath it. The body ends at the next
-  // heading of ANY level, the next horizontal rule, or the next admitted line, so one
-  // header can never swallow a later section's list — the skills in this tree head
-  // their sections with `### ` as often as `## `.
-  const BOUNDARY = (l) => /^#{1,6} /.test(l) || /^---\s*$/.test(l);
-  const resolveEntries = (lines, i, admittedAt) => {
-    const body = [];
-    for (let j = i + 1; j < lines.length && !BOUNDARY(lines[j]) && !admittedAt.has(j); j++) body.push(lines[j]);
-    // Paragraph identity comes from blank-line-separated blocks with the empties
-    // dropped, because these files are variously single- and double-spaced and a fixed
-    // blank-line count would resolve one spacing convention and misread the other.
-    const blocks = [];
-    let cur = [];
-    for (const l of body) {
-      if (l.trim() === '') { if (cur.length) { blocks.push(cur); cur = []; } }
-      else cur.push(l);
+  const SCANNED_EXT = /\.(md|mjs|js|json)$/;
+  const walk = (dir, rel, skip, acc) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const childRel = rel ? `${rel}/${e.name}` : e.name;
+      if (e.isDirectory()) {
+        if (e.name === '.git' || e.name === 'node_modules' || skip.includes(childRel)) continue;
+        walk(join(dir, e.name), childRel, skip, acc);
+      } else if (SCANNED_EXT.test(e.name)) acc.push(childRel);
     }
-    if (cur.length) blocks.push(cur);
-    const startIdx = blocks.findIndex((b) => ENTRY_FORMS.some((f) => f.re.test(b[0])));
-    if (startIdx < 0) return { form: null, counted: -1 };
-    const form = ENTRY_FORMS.find((f) => f.re.test(blocks[startIdx][0]));
-    // Fenced entries carry blank lines inside the fence, so block identity does not
-    // survive them; the fences themselves are the entry boundary. An odd fence count is
-    // an unresolvable body, never a count.
-    if (form.name === 'fenced-block') {
-      const fences = body.filter((l) => /^```/.test(l)).length;
-      return { form: form.name, counted: fences % 2 === 0 ? fences / 2 : -1 };
-    }
-    // The list is the maximal RUN of consecutive blocks each LED by the same form. A
-    // paragraph that does not lead with the form ends the list, which is how a trailing
-    // note after a bolded or bulleted list stops being miscounted as an entry.
-    const run = [];
-    for (let k = startIdx; k < blocks.length && form.re.test(blocks[k][0]); k++) run.push(blocks[k]);
-    return { form: form.name, counted: run.flat().filter((l) => form.re.test(l)).length };
+    return acc;
   };
-
-  const admitted = [];
-  for (const rel of skillFiles) {
-    const lines = text.get(rel).split(/\r?\n/);
-    const admittedAt = new Set();
-    lines.forEach((l, j) => { CARDINAL_RE.lastIndex = 0; if (CARDINAL_RE.test(l)) admittedAt.add(j); });
-    for (const j of [...admittedAt].sort((a, b) => a - b)) {
-      const words = (lines[j].match(CARDINAL_RE) || []).map((w) => CARDINALS[w.toLowerCase()]);
-      const stated = words.every((v) => v === words[0]) ? words[0] : null;
-      const { form, counted } = resolveEntries(lines, j, admittedAt);
-      const designation = DESIGNATIONS.find((d) => lines[j].includes(d.anchor));
-      admitted.push({
-        where: `${rel}:${j + 1}`, file: rel, line: lines[j], stated, form, counted,
-        designated: designation ? designation.reason : (proseOnly.includes(rel) ? 'emphasis-free file: the list beneath carries no detectable entry marker' : null),
-      });
-    }
+  const inReach = walk(ROOT, '', RECORD_TREES, []);
+  // The record tree is out of SCAN reach but is a legitimate citation TARGET — the
+  // architecture and the spec are exactly what live code should be citing. Resolution
+  // and anchor-reading therefore run over the whole plugin, scanning only over reach.
+  const everyFile = walk(ROOT, '', [], []);
+  const body = new Map(everyFile.map((r) => [r, readFileSync(join(ROOT, r), 'utf8')]));
+  const allFiles = new Set(everyFile);
+  const byBasename = new Map();
+  for (const r of everyFile) {
+    const b = r.slice(r.lastIndexOf('/') + 1);
+    byBasename.set(b, (byBasename.get(b) || []).concat(r));
   }
 
-  // (1) Discovery is not vacuous. Pinned against a LITERAL floor, not against anything
-  // derived from the sweep, so a matcher that silently narrows reddens here.
-  check(`T-31 the sweep admits the full construct population across the skills (admitted ${admitted.length}, floor 24)`,
-    admitted.length >= 24);
+  // A floor on the WALK, not on any population it measures: it fails when the walker
+  // silently stops descending, which is the only way either property below could go
+  // green by covering nothing. Pinned against a literal, never against itself.
+  check(`T-31 the reach walk covers the live plugin (files in reach: ${inReach.length}, floor 30)`,
+    inReach.length >= 30);
+  check('T-31 the reach includes every live tree — agents, commands, hooks, scripts, skills, workflows, tests — and excludes the record tree',
+    ['agents', 'commands', 'hooks', 'scripts', 'skills', 'workflows', 'tests'].every((t) => inReach.some((r) => r.startsWith(t + '/')))
+    && !inReach.some((r) => r.startsWith('docs/')));
 
-  // (2) Coverage is total: every admitted line is counted or designated. This is the
-  // assertion round-3 F2 says the sweep must be able to make about ITSELF — the reach
-  // is demonstrated, not announced.
-  const counted = admitted.filter((h) => !h.designated && h.stated !== null && h.counted >= 0);
-  const designated = admitted.filter((h) => h.designated);
-  const unclassified = admitted.filter((h) => !h.designated && (h.stated === null || h.counted < 0));
-  check(`T-31 every admitted count claim is accounted for — counted or designated (unclassified: ${unclassified.map((u) => u.where).join('; ') || 'none'})`,
-    unclassified.length === 0 && counted.length + designated.length === admitted.length);
+  // ---- Property 1: no unpinned cardinality claim -----------------------------------
+  // The construct, unchanged from the definition round 3 arrived at: a cardinal word
+  // with no sentence break between it and a terminal colon. The predicate is retained
+  // and its population is asserted EMPTY — the same recognizer that used to admit 24
+  // lines for individual adjudication now admits none, because the form is gone.
+  const CARDINALS = ['two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+  const cardinalityClaim = (line) => new RegExp(`\\b(${CARDINALS.join('|')})\\b(?=[^.]*:$)`, 'i').test(line);
+  const stated = [];
+  for (const rel of inReach)
+    body.get(rel).split(/\r?\n/).forEach((l, i) => { if (cardinalityClaim(l)) stated.push(`${rel}:${i + 1}`); });
+  check(`T-31 no unpinned cardinality claim exists anywhere in reach (found: ${stated.join('; ') || 'none'})`,
+    stated.length === 0);
 
-  // (3) The sweep must RESOLVE the population rather than excuse it. Both literals are
-  // load-bearing and asymmetric on purpose: the floor reddens when a site that used to
-  // be counted stops being counted, and the ceiling reddens when a new designation is
-  // added — so growing the excused set is a deliberate act that fails the tier first,
-  // while a healthy new count-headed list raises `counted` freely.
-  check(`T-31 the sweep RESOLVES rather than excuses the population (counted ${counted.length}, floor 18; designated ${designated.length}, ceiling 6)`,
-    counted.length >= 18 && designated.length <= 6);
+  // A number a maintainer must keep in step with a list of its own, in emphasis. The
+  // ten agent return contracts each carried one restating the `jobs:` value derived two
+  // dozen lines above it; all ten now point at `jobs:` instead of copying it.
+  const emphasized = [];
+  for (const rel of inReach)
+    body.get(rel).split(/\r?\n/).forEach((l, i) => {
+      if (new RegExp(`\\*\\*(\\d+|${CARDINALS.join('|')})\\*\\*`, 'i').test(l)) emphasized.push(`${rel}:${i + 1}`);
+    });
+  check(`T-31 no emphasized bare count exists anywhere in reach (found: ${emphasized.join('; ') || 'none'})`,
+    emphasized.length === 0);
 
-  // (4) Every designation is live: exactly one admitted line, or the designation has
-  // outlived its text and is silently excusing nothing while the class reopens.
-  const staleDesignations = DESIGNATIONS
-    .map((d) => ({ d, n: admitted.filter((h) => h.line.includes(d.anchor)).length }))
-    .filter((x) => x.n !== 1);
-  check(`T-31 every designation still matches exactly one admitted line (stale: ${staleDesignations.map((x) => `${x.d.anchor} -> ${x.n}`).join('; ') || 'none'})`,
-    staleDesignations.length === 0);
+  // ---- Property 2: every cross-file citation carries a live anchor ------------------
+  // Only comment lines are scanned for the BARE form: a location-shaped string on a code
+  // line is test data (the location-grammar fixtures in this very file), not a
+  // citation, and a check that cannot tell them apart would have to keep a list of the
+  // ones to ignore — the maintained surface this block exists to delete.
+  const commentLines = (rel) => {
+    const lines = body.get(rel).split(/\r?\n/);
+    if (rel.endsWith('.md') || rel.endsWith('.json')) return lines.map((l, i) => [l, i + 1]);
+    return lines.map((l, i) => [l, i + 1]).filter(([l]) => /^\s*(\/\/|\*|\/\*)/.test(l));
+  };
+  const BARE = /\b[\w./-]+\.(?:mjs|js|json|md):\d+/;
+  const ANCHORED = /([\w./-]+\.(?:mjs|js|json|md))\s*@\s*`([^`\n]+)`/g;
 
-  // (5) The originally-reported F4 instance is COUNTED, not merely admitted.
-  check('T-31 expert-standard\'s failure-signal count is counted against its list (the reported F4 instance is actually covered)',
-    counted.some((h) => h.file === 'skills/expert-standard/SKILL.md' && h.stated === 8 && h.counted === 8));
+  const bare = [];
+  const anchored = [];
+  for (const rel of inReach)
+    for (const [l, n] of commentLines(rel)) {
+      const withoutAnchors = l.replace(ANCHORED, '');
+      if (BARE.test(withoutAnchors)) bare.push(`${rel}:${n} -> ${withoutAnchors.trim().slice(0, 60)}`);
+      for (const m of l.matchAll(ANCHORED)) anchored.push({ from: `${rel}:${n}`, target: m[1], anchor: m[2] });
+    }
+  check(`T-32 no bare line citation exists anywhere in reach (found: ${bare.join(' | ') || 'none'})`,
+    bare.length === 0);
 
-  // (6) The instance round-3 F2 planted and the old sweep missed — a mid-line cardinal
-  // in a bulleted list — is counted. Named explicitly so the specific miss cannot recur.
-  check('T-31 the mid-line construct the column-0 matcher missed is counted (expert-implement\'s stop categories)',
-    counted.some((h) => h.file === 'skills/expert-implement/SKILL.md' && h.stated === 4 && h.counted === 4));
+  // Resolution is by full relative path, or by a basename that is unique in the plugin.
+  // An ambiguous or absent target is a failure, not a skip — the citation that named
+  // skills/workflow-creator/SKILL.md pointed at a file this plugin does not contain, and
+  // a resolver that skipped what it could not find would have reported that green.
+  const unresolved = [];
+  const dead = [];
+  for (const c of anchored) {
+    let target = allFiles.has(c.target) ? c.target : null;
+    if (!target) {
+      const b = c.target.slice(c.target.lastIndexOf('/') + 1);
+      const hits = (byBasename.get(b) || []).filter((r) => r.endsWith(c.target));
+      if (hits.length === 1) target = hits[0];
+    }
+    if (!target) { unresolved.push(`${c.from} -> ${c.target}`); continue; }
+    if (!body.get(target).includes(c.anchor)) dead.push(`${c.from} -> ${target} @ ${c.anchor}`);
+  }
+  check(`T-32 every anchored citation resolves to a file in the plugin (unresolved: ${unresolved.join(' | ') || 'none'})`,
+    unresolved.length === 0);
+  check(`T-32 every anchored citation's anchor is still present at its target (dead: ${dead.join(' | ') || 'none'})`,
+    dead.length === 0);
+  check(`T-32 the citations were converted rather than deleted (anchored citations found: ${anchored.length}, floor 10)`,
+    anchored.length >= 10);
 
-  // (7) No drift anywhere in the counted set.
-  const drifted = counted.filter((h) => h.stated !== h.counted);
-  check(`T-31 every stated count matches its list (drifted: ${drifted.map((d) => `${d.where} says ${d.stated}, has ${d.counted}`).join('; ') || 'none'})`,
-    drifted.length === 0);
-
-  // (8) The predicate can FAIL, or every assertion above is decoration. Run the real
-  // admission and resolution over synthetic blocks: one drifted, one admitted with no
-  // detectable entry form (which must land unclassified, not silently pass).
-  check('T-31-neg the sweep detects a drifted count and an unresolvable admitted line (the guard can fail)',
-    (() => {
-      const probe = ['Intro line. There are three widgets:', '', '- **a**', '- **b**', '', '## next'];
-      const at = new Set([0]);
-      const r = resolveEntries(probe, 0, at);
-      CARDINAL_RE.lastIndex = 0;
-      const admits = CARDINAL_RE.test(probe[0]);
-      const bare = ['Only two options here:', '', 'plain text entry', 'another plain entry', '', '## next'];
-      const r2 = resolveEntries(bare, 0, new Set([0]));
-      return admits && r.counted === 2 && CARDINALS.three !== r.counted && r2.counted === -1;
-    })());
+  // ---- Both predicates must be able to FAIL, or every assertion above is decoration.
+  check('T-31-neg the cardinality predicate fires on the construct and not on ordinary prose',
+    cardinalityClaim('Intro line. There are three widgets:')
+    && !cardinalityClaim('a sentence with three widgets in it.')
+    && !cardinalityClaim('There were three. Now consider the following:'));
+  check('T-32-neg the citation predicates fire on a bare line number and on a dead anchor',
+    BARE.test('// see workflows/expert-lifecycle.js' + ':988')
+    && !BARE.test('// see workflows/expert-lifecycle.js @ `delta.phase`')
+    && !readFileSync(join(ROOT, 'workflows/expert-lifecycle.js'), 'utf8').includes('a string that is deliberately not in the workflow'));
 }
 
 // ---- T-30: Stop-event continuation gate (corrections-0.4.0, agent-quits-midtask) ----
@@ -1854,8 +1992,8 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
     runGateHook('no-ledger').status === 0);
   check('T-30 exec (b) phase complete -> exit 0 (a finished lifecycle may end its turn)',
     runGateHook('complete').status === 0);
-  // The check that proves the correction cannot cause gate-blindness: all seven §3.4 gate
-  // types reach the owner through an unresolved escalations entry, so this path allowing
+  // The check that proves the correction cannot cause gate-blindness: every §3.4 gate
+  // type reaches the owner through an unresolved escalations entry, so this path allowing
   // the stop IS "legitimate halts keep halting".
   check('T-30 exec (c) mid-phase with an unresolved escalation -> exit 0 (legitimate §3.4 halts still halt)',
     runGateHook('open-gate').status === 0);
@@ -1904,8 +2042,10 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
   // own invalidity made impossible.
   //
   // ---- Round-2 F1: 'closeout' is NOT an exempt phase. The closeout dispatch writes
-  // the report, commits, and opens the PR (expert-lifecycle.js:988) and only then is
-  // `delta.phase = 'complete'` written (:989), so a live closeout is maximally in
+  // the report, commits, and opens the PR
+  // (workflows/expert-lifecycle.js @ `Closeout: write the final report against the spec`)
+  // and only then is workflows/expert-lifecycle.js @ `delta.phase = 'complete'`
+  // written, so a live closeout is maximally in
   // flight. Both directions are executed on COPIES in temp dirs, because the mtime is
   // an input under test here: the checked-in fixture's own mtime is whatever git left,
   // so asserting either verdict against it in place would measure the clock, not the

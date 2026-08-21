@@ -33,7 +33,8 @@ const AGENT = {
 }
 const ROUND_CAP = 5
 // The standards each artifact type is judged against. The reviewer names a standard per
-// finding (skills/expert-review/SKILL.md:565); leaving the choice open let three of five spec
+// finding (skills/expert-review/SKILL.md @ `names the standard it was evaluated against`);
+// leaving the choice open let three of five spec
 // reviewers grade against expert-spec/SKILL.md's process clauses instead — an unbounded
 // ruler that varies per round. See docs/investigate.md 5a, 5b.
 const RULER = {
@@ -77,7 +78,7 @@ const GATE = {
 // Schemas (kept to the load-bearing fields per architecture C4)
 // ---------------------------------------------------------------------------
 const S_STR = { type: 'string' }
-// A finding's (or a re-derived section's) location. Exactly two forms parse:
+// A finding's (or a re-derived section's) location. Exactly these forms parse:
 // `path:start-end` (a line range; `path:line` is the one-line case) or
 // `path#section`. runGate's fix-site-regression detector parses the range and its
 // unclosed-class detector tests set membership, so a free-form location silently
@@ -943,7 +944,7 @@ if (cursor === 'ground_truth') {
   // lifecycle produced, sourced from THIS ledger's spec — never a pre-existing artifact
   // or another project's criteria (acceptance run 2026-08-17: all 27 failures in one
   // dispatch were predetermined by target selection, not implementation defects).
-  // All three preconditions are computed orchestrator predicates over recorded state:
+  // Every precondition is a computed orchestrator predicate over recorded state:
   //   (a) payload coherence - the criteria source is an OWNER-APPROVED spec in this
   //       ledger's index (approval happens at the intent gate, so a same-segment
   //       spec can never satisfy this by construction);
@@ -1037,7 +1038,8 @@ function maybeEscalate(out, phaseName) {
 }
 // How each non-PASS runGate outcome reaches the owner. Fail-safe defaults (OWASP
 // secure design; the architecture names this standard for D6 STOP routing at
-// docs/arch/architecture-expert-dev-tools.md:750): a new state must fail CLOSED.
+// docs/arch/architecture-expert-dev-tools.md @ `OWASP secure-design fail-safe defaults`):
+// a new state must fail CLOSED.
 // The callers below therefore test `!== 'PASS'` rather than enumerating verdicts —
 // an unhandled state that fell through reached the spec gate's GATE.intent return
 // and told the owner the specification passed independent review.

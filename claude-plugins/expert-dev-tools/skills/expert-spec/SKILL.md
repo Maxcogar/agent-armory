@@ -36,7 +36,7 @@ This is why every non-trivial requirement needs to trace to something outside th
 
 
 
-Three signals that this is happening:
+Signals that this is happening:
 
 
 
@@ -60,7 +60,7 @@ Delivering a spec is a claim that the information set is complete for what the s
 
 
 
-So missing information is a stop condition, not a note-and-continue one. The moment you find you lack something the spec needs, stop writing around it and place it in exactly one of three:
+So missing information is a stop condition, not a note-and-continue one. The moment you find you lack something the spec needs, stop writing around it and place it in exactly one of the following:
 
 
 
@@ -124,7 +124,7 @@ If anything is genuinely ambiguous — meaning you cannot determine the answer f
 
 
 
-Read the project's relevant context — CLAUDE.md, prior specs, architecture documents, any code the work will touch. You're doing two things at once, and the distinction between them matters:
+Read the project's relevant context — CLAUDE.md, prior specs, architecture documents, any code the work will touch. You're doing distinct things at once, and the distinction between them matters:
 
 
 
@@ -164,7 +164,7 @@ This is where the philosophy does its heaviest work. A requirement is only as go
 
 
 
-Specification work often reveals that the original request doesn't hold together. Two kinds of contradictions surface, and the distinction matters:
+Specification work often reveals that the original request doesn't hold together. Distinct kinds of contradiction surface, and the distinction matters:
 
 
 
@@ -270,7 +270,7 @@ The same fact — the primitive is left open — is grounding in the first and s
 
 
 
-Every requirement gets three tests before it stays in the document:
+Every requirement gets these tests before it stays in the document:
 
 
 

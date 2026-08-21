@@ -41,7 +41,9 @@ Before spending any tokens on a phase, confirm the environment:
   `node "${CLAUDE_PLUGIN_ROOT}/scripts/preflight-deployment.mjs" expert-dev-tools <working-tree-path>`
   — pass the plugin's working-tree path when this project is the plugin's own
   repo; omit it elsewhere (the report is then provenance-only: cache path,
-  installed version, marketplace commit). Bright line: **no claim about the
+  installed version read from the cache manifest, and the marketplace commit as
+  the registry RECORDS it — `registry_recorded_commit`, which nothing opened the
+  cache to confirm). Bright line: **no claim about the
   running plugin's behavior, and no request that the owner
   reload/update/re-test, is made without quoting this report.** If the report's
   verdict is STALE, the finding is `stale_deployment` (D15) — present it via
@@ -57,7 +59,11 @@ Before spending any tokens on a phase, confirm the environment:
   "is it STALE? no" is not the whole test. CURRENT and PROVENANCE-ONLY (exit 0)
   are the only verdicts that let a phase start; PROVENANCE-ONLY carries no
   staleness determination, so behavioral claims under it are bounded by the
-  provenance the report does carry (cache path, installed version, commit).
+  provenance the report does carry: `cache_path` and `installed_version`, both
+  read from the installed directory, and `registry_recorded_commit`, which is the
+  registry's claim about that directory rather than a reading of it. A registry
+  whose recorded version disagrees with the cache manifest is UNREADABLE, so an
+  affirmative verdict never rests on the two being conflated.
 - **Required MCPs answer.** The plan and architecture phases hard-require
   CodeGraph, Clear-Thought, and Context7. Confirm each responds (a cheap probe
   call). If any is missing, STOP and report exactly which one, with how to
@@ -255,7 +261,7 @@ found that did not rise to one.
 
 **Feedback escalations (F-14).** When the report carries a `feedback_escalation`,
 present it to the owner as an owner-owned item alongside whatever gate or
-completion the segment produced (it is not one of the seven gate types):
+completion the segment produced (it is not one of the §3.4 gate types):
 - `systemic_defect` — present the attached `diagnosis` (root cause + correction
   draft) so the owner approves or rejects a proposed fix.
 - `stale_deployment` — the fix for this signature exists, but the running plugin

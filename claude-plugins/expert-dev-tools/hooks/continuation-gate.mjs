@@ -69,7 +69,7 @@ import { validate } from '../scripts/validate-ledger.mjs';
 const ALLOW = 0;
 const BLOCK = 2;
 
-// The ledger location the /expert command owns (commands/expert.md:13).
+// The ledger location the /expert command owns (commands/expert.md @ `Ledger path:`).
 export const LEDGER_REL = join('.claude', 'expert', 'ledger.json');
 
 // Phases after which nothing this gate should demand remains in flight. Membership is
@@ -79,10 +79,10 @@ export const LEDGER_REL = join('.claude', 'expert', 'ledger.json');
 //
 // 'closeout' is deliberately NOT a member, though the phase order puts it last but
 // one. A ledger resting at 'closeout' has had ground truth and the whole-chain
-// reconciliation PASS, but expert-lifecycle.js:988 shows the phase's own dispatch is
-// still ahead of it — "write the final report against the spec, commit the verified
-// work and open a PR" — and `delta.phase = 'complete'` is written only after that
-// agent returns (:989). So 'closeout' names precisely the state where the report,
+// reconciliation PASS, but the phase's own dispatch is still ahead of it — see
+// workflows/expert-lifecycle.js @ `Closeout: write the final report against the spec`
+// — and workflows/expert-lifecycle.js @ `delta.phase = 'complete'` is written only
+// after that agent returns. So 'closeout' names precisely the state where the report,
 // the commit, and the PR have NOT happened: maximally in flight, and the abandonment
 // that costs the most recoverable work. Exempting it would make one whole phase
 // permanently unguarded against the very defect (agent-quits-midtask) this gate

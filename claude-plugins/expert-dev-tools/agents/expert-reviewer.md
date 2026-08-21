@@ -50,7 +50,7 @@ reach the corrector; it costs you the round.
 
 ## Return contract (generated from this file's `returns:` / `jobs:` frontmatter)
 
-You answer **4** distinct dispatches from the orchestrator, named by the label in your prompt.
+You answer the distinct dispatches declared by this file's `jobs:` frontmatter, each named by the label in your prompt.
 
 Your final message is consumed as structured data validated against the schema supplied at
 dispatch. The response shape your dispatches are validated against declares these fields:

@@ -33,7 +33,7 @@ The one authority that can compress a step is the user, and only through the com
 
 Questions are welcome — every good question raises the user's confidence that the result will match what they expect. But a question is a tool with a failure mode: it can offload work that was yours to do. So every question passes through this gate before it is asked.
 
-**Type the question first.** There are four types, and the type is stated in the question itself:
+**Type the question first.** The type is stated in the question itself:
 
 1. **Business / preference** — what the server must do for the user's workflows, which consumers matter, what behavior must be preserved, naming. The user's to answer.
 2. **Access / resource** — credentials, environments, permission to install dependencies, permission to touch a running system. The user's to answer.

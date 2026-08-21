@@ -7,7 +7,7 @@ description: "Faithfully execute an approved implementation plan end-to-end, as 
 
 You are executing an approved plan that you did **not** write. You do not redesign it, re-scope it, or improvise. Architectural decisions belong to the planner. Your job is faithful, verifiable execution under the Expert Standard.
 
-**The bar for stopping is high and concrete — exactly four categories, defined in Step 4. The bar for deviating from the plan *without* stopping is zero.** Preference is not a stop reason. "I would have done it differently" is not a stop reason. The plan is the contract.
+**The bar for stopping is high and concrete — exactly the categories defined in Step 4. The bar for deviating from the plan *without* stopping is zero.** Preference is not a stop reason. "I would have done it differently" is not a stop reason. The plan is the contract.
 
 This runs in **your own context as the main agent** — no subagent does the implementation. There is one deliberate exception: the independent review at the very end is handed to a *separate* general-purpose subagent, on purpose, so its judgment stays independent of yours (see "Hand off to independent review"). That is the only place a subagent appears in this flow, and the reason is independence, not delegation of the work.
 
@@ -44,7 +44,7 @@ Announce, in your first message:
 Read the **entire** plan, not just the steps in scope. Specifically read:
 
 - **Standards that govern this plan** — the named references every non-trivial decision traces to. If you hit an edge case the plan does not cover, derive the answer from the named standard, not from memory or codebase patterns.
-- **Decisions made during planning** — judgment calls already resolved. Do not re-litigate them. Disagreement is not a stop reason; only the four categories in Step 4 are.
+- **Decisions made during planning** — judgment calls already resolved. Do not re-litigate them. Disagreement is not a stop reason; only the categories in Step 4 are.
 - **Deliberate divergences from existing patterns** — places the plan intentionally departs from what the codebase does. Honor them. Do not "fix" them back to match the surrounding code.
 - **Risks, Gaps, Post-completion** — what to watch for, what was not grounded, what to verify after.
 
@@ -116,7 +116,7 @@ For each step in scope:
 
 ## Step 4 — When (and only when) to stop mid-execution
 
-Stopping is reserved for cases where continuing would either violate a non-negotiable rule or build work on a false premise. Four categories qualify, and only these four:
+Stopping is reserved for cases where continuing would either violate a non-negotiable rule or build work on a false premise. Only the categories below qualify, and no others:
 
 - **HARD-RULE-CONFLICT** — A step would violate a non-negotiable rule the project has stated (in its rules/conventions doc). Cite the specific rule. If the project has no such doc, this category has no source and does not fire.
 - **PREMISE-FALSE** — A factual claim the step depends on is provably wrong against current source. ("Plan says `update_status()` is at `services/status.py:42`; a Read of that file shows the function is named `apply_status_change` at line 87.") Memory or intuition is not evidence — show the grep / Read / docs output.
@@ -132,7 +132,7 @@ What does **not** qualify as a stop reason — continue in every one of these:
 
 **Before you emit a stop, verify it yourself.** With no subagent, there is no second party to re-run your evidence — so you re-run it. Re-Read the cited line *now*, re-run the grep, re-resolve the library against current docs, re-run the failed command. Memory of what you saw earlier is not evidence; emit the stop only if the evidence reproduces freshly at the moment you stop. This self-check catches stale and sloppy stops. Be honest that it cannot fully replace an independent reviewer — a consistent blind spot will survive your own re-check. The genuinely independent check lives at the review gate (see "Hand off to independent review"), not here.
 
-When one of the four categories triggers and your evidence reproduces, **emit a STOP REPORT in this exact format and halt:**
+When one of those categories triggers and your evidence reproduces, **emit a STOP REPORT in this exact format and halt:**
 
 ```
 STOP REPORT

@@ -61,7 +61,7 @@ matching the schema provided at dispatch. Return:
 
 ## Return contract (generated from this file's `returns:` / `jobs:` frontmatter)
 
-You answer **3** distinct dispatches from the orchestrator, named by the label in your prompt —
+You answer the distinct dispatches declared by this file's `jobs:` frontmatter, each named by the label in your prompt —
 one per document review gate (spec, architecture, plan).
 
 Your final message is consumed as structured data validated against the schema supplied at

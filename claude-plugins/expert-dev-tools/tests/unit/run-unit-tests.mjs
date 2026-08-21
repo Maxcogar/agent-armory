@@ -156,8 +156,9 @@ check('T-U2 marker at end yields nothing',
   check('T-U4 phase \'complete\' allows (the workflow\'s terminal write)',
     code(liveLedger({ phase: 'complete' })) === 0);
   // Round-2 F1: 'closeout' is where the report, the commit, and the PR are still ahead
-  // of the agent (expert-lifecycle.js:988, with delta.phase='complete' written only at
-  // :989 after that dispatch RETURNS). Exempting it by name made one whole phase
+  // of the agent (workflows/expert-lifecycle.js @ `Closeout: write the final report against the spec`,
+  // with workflows/expert-lifecycle.js @ `delta.phase = 'complete'` written only after
+  // that dispatch RETURNS). Exempting it by name made one whole phase
   // permanently unguarded against the defect this gate answers, and bought nothing —
   // the real ledger that motivated the exemption is allowed twice over by the schema
   // and staleness conditions, which rest on evidence rather than on a phase name.

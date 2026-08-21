@@ -36,7 +36,7 @@ This review runs inside the session protocol the project's workflow document def
 
 
 
-Every finding has two axes, and both have to be right for the finding to be sound. In this tool the axes operationalize as two per-finding requirements:
+Every finding is judged on a frame axis and a premise axis, and both have to be right for the finding to be sound. In this tool the axes operationalize as per-finding requirements:
 
 
 
@@ -464,7 +464,7 @@ Post-fix rounds only. In a first-round review this section states: "First-round 
 
 
 
-The record carries four elements:
+The record carries these elements:
 
 
 
@@ -522,7 +522,7 @@ Every review pass concludes with exactly one verdict, derived mechanically from 
 
 
 
-The verdict appears as the FINAL line of the review document, on its own line, in exactly one of two forms:
+The verdict appears as the FINAL line of the review document, on its own line, in exactly one of the forms below:
 
 
 
@@ -560,7 +560,7 @@ Before delivering the review, run all three gates. The review is not complete un
 
 - Every finding names the standard it was evaluated against (Step 4 output), or carries the marked first-principles articulation Step 4 permits when no named standard applies.
 
-- Every finding carries a `location`, and the location is written in exactly one of two forms: `path:start-end` (a line range; `path:line` is the one-line case) or `path#section` (a path plus a section identifier). Nothing else parses. A location is not optional and is not free-form prose: downstream controls parse the range to detect a correction that regressed at the site it edited, and test it for set membership to detect a class a correction found and left open. A free-form or absent location silently disables both.
+- Every finding carries a `location`, and the location is written in exactly one of these forms: `path:start-end` (a line range; `path:line` is the one-line case) or `path#section` (a path plus a section identifier). Nothing else parses. A location is not optional and is not free-form prose: downstream controls parse the range to detect a correction that regressed at the site it edited, and test it for set membership to detect a class a correction found and left open. A free-form or absent location silently disables both.
 
 - For "looks good" positive assessments: the property that makes it good is named, and the named standard governing that property is cited. A positive assessment without a named standard is an unnamed approval and fails Gate A.
 
