@@ -227,7 +227,7 @@ Read the SEGMENT_REPORT's `outcome`:
 - **`owner_gate`** — present the `gate` in plain terms: what happened, the
   options, and your recommendation. If the gate carries a `diagnosis` and
   `correction_draft`, show the root cause and the proposed fix so the owner
-  approves or rejects a solution, not a bare problem. The seven gate types and
+  approves or rejects a solution, not a bare problem. The §3.4 gate types and
   what each asks:
   - `intent` — "Is this spec what you meant?" (the one intent gate)
   - `spec_traceable` — a downstream issue that traces to the spec; needs the

@@ -2,7 +2,7 @@
 
 This reference specifies the plan document's structure and the gates it must pass before delivery. Read it in full before writing the plan document (Step 8) and again at the gates. The section specifications are the contract; the gates are how the contract is checked.
 
-## The sixteen output sections
+## The output sections
 
 Write the plan as a structured document with the sections below. Sections marked **(required)** appear in every plan, even when brief. Sections marked **(if applicable)** are omitted only when the content genuinely does not exist — not because they take effort to write.
 

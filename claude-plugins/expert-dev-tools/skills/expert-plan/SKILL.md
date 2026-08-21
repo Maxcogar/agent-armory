@@ -17,7 +17,7 @@ Before running this process:
 
 - Activate the `expert-standard` skill if it is not already active — it is the ambient reasoning frame this process assumes.
 - If the plan will create tests, modify tests, or specify verification through tests (nearly every plan does at least the last of these), read `references/testing-standards.md` for the test types the plan involves. Its standards enter this plan's standards registry in Step 3, and Step 9's test specifications are written against it. Specifying tests without having read it is skipping a prerequisite, not exercising a choice.
-- Before Step 8 (writing the plan document), read `references/output-contract.md` in full. It specifies the sixteen output sections, the evidence formats Output section 11 accepts, and the three compliance gates the plan must pass before delivery. Writing the plan document without that read is a halt-condition violation — the document's structure IS the contract, and you cannot satisfy a contract you have not read in this session. Memory of the reference from a prior session is not a current read.
+- Before Step 8 (writing the plan document), read `references/output-contract.md` in full. It specifies the output sections, the evidence formats Output section 11 accepts, and the compliance gates the plan must pass before delivery. Writing the plan document without that read is a halt-condition violation — the document's structure IS the contract, and you cannot satisfy a contract you have not read in this session. Memory of the reference from a prior session is not a current read.
 
 ---
 
@@ -60,7 +60,7 @@ Read the rest of this document with that frame.
 
 This skill operates under an output contract. The contract is the structure of the delivered plan — it converts the Expert Standard's two axes (frame-correctness, premise-correctness) from instructions the planner might follow into structural requirements on the deliverable that a reader can verify from the document alone.
 
-The contract is satisfied by four required sections of the delivered plan (full specifications in `references/output-contract.md`):
+The contract is satisfied by the required sections of the delivered plan listed below (full specifications in `references/output-contract.md`):
 
 - **Output section 10 — Decisions made during planning.** Every non-trivial decision, with the named standard that governs it, why that standard applies here, and what alternatives were rejected and why. The **frame-correctness proof**.
 - **Output section 11 — Verification of factual claims.** Every factual claim the plan depends on, with the evidence that claim type requires: a file read with path and line range, a structural trace, a documentation read with source and version, or a test reproduction. The **premise-correctness proof**.

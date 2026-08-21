@@ -765,6 +765,30 @@ check('T-18 the scope check is dispatched to the verifier under one label',
     // at run time while leaving no instance of the form in the source — the same
     // device the T-A2f cases and the T-31-neg probes use, for the same reason.
     const RENAMED_LABELS = [
+      // ---- corrections-0.4.0 round-6 N1: the two count properties keep their
+      // assertions again and gain the scanned UNIT in their labels. Round 5 stated
+      // the forms, the numbers and the extensions a label covered but said nothing
+      // about what a "line" was, and the recognizer's line was the physical one —
+      // so `The seven gate types and` / `what each asks:` was caught unwrapped and
+      // invisible wrapped, with a live instance sitting in commands/expert.md while
+      // the label printed `found: none`. The unit is now the joined markdown block,
+      // and the label says so rather than leaving the reader to assume it.
+      {
+        was: "T-" + "31 no count restatement in header form (a), (c) or (d) exists in any scanned file — the assertion is the absence of THOSE FORMS, never of the class (forms: ${COUNT_FORMS.map(([n]) => n).join('; ')}; numbers: a standalone digit or a number word two through twenty; extensions: ${EXT_LIST}; record tree docs/ out of scan reach; uncovered forms named in this block's header) (found: ${stated.join('; ') || 'none'})",
+        now: "T-" + "31 no count restatement in header form (a), (c) or (d) exists in any scanned file — the assertion is the absence of THOSE FORMS, never of the class (forms: ${COUNT_FORMS.map(([n]) => n).join('; ')}; numbers: a standalone digit or a number word two through twenty; extensions: ${EXT_LIST}; scanned unit: in md a markdown block joined across its soft-wrapped lines, elsewhere a physical line; record tree docs/ out of scan reach; uncovered forms named in this block's header) (found: ${stated.join('; ') || 'none'})",
+        why: 'corrections-0.4.0 round-6 N1. The label enumerated everything about the ' +
+             'claim except the unit it was tested against, and that unit was the ' +
+             'physical line, so an ordinary soft wrap defeated a form the label named ' +
+             'as covered. The scan now runs over the joined markdown block; the label ' +
+             'reports the unit so the next reader does not have to infer it, and the ' +
+             'residual for non-markdown files is written into the block header.',
+      },
+      {
+        was: "T-" + "31 no bare count in emphasis (header form (b)) exists in any scanned file — the assertion is the absence of THAT FORM, never of the class (numbers: a standalone digit or a number word two through twenty; extensions: ${EXT_LIST}) (found: ${emphasized.join('; ') || 'none'})",
+        now: "T-" + "31 no bare count in emphasis (header form (b)) exists in any scanned file — the assertion is the absence of THAT FORM, never of the class (numbers: a standalone digit or a number word two through twenty; extensions: ${EXT_LIST}; scanned unit: in md a markdown block joined across its soft-wrapped lines, elsewhere a physical line) (found: ${emphasized.join('; ') || 'none'})",
+        why: 'round-6 N1, same correction on the same line of reasoning: the form (b) ' +
+             'scan moved to the same unit as the others, and its label states it.',
+      },
       {
         was: "T-24 deployment: verifierUnderCovered guards all " + "four consumption sites",
         now: "T-" + "24 deployment: verifierUnderCovered is called at 4 or more sites (a deletion guard over the consumption sites, not a totality claim)",
@@ -1935,7 +1959,11 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
 //      The recognizer covers the forms below, and the checks claim exactly those
 //      and nothing wider:
 //        (a) a number quantifying a plural noun, no sentence break, terminal colon
-//            — "N signals:", "The N gate types:"
+//            — "N signals:", "The N gate types:". "No sentence break" is enforced
+//            as "no period", so a period that is not a sentence break — one inside
+//            an inline path or a version — defeats this form; that is a known gap
+//            below, not a licence. A soft wrap does NOT defeat it in markdown: the
+//            form is tested against the joined block, not the physical line.
 //        (b) a bare count in emphasis — "**N**"
 //        (c) a determiner-quantified population — "all N traps", "one of N forms",
 //            "each of the N roles", "the first N", "these N"
@@ -1960,10 +1988,14 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
 //      twenty and their written compounds ("twenty-four"); a count quantifying a
 //      singular or an irregular plural under form (a); the shape-naming compounds
 //      N-way and N-fold, which name a shape rather than a population size (the
-//      contradiction fixture is one, and T-19 pins that word executably); and any
-//      restatement phrased outside the enumerated forms entirely. A number that escapes
-//      the recognizer is not thereby licensed — it is undetected, and this paragraph
-//      is the honest statement of that.
+//      contradiction fixture is one, and T-19 pins that word executably); a period
+//      that is not a sentence break standing between the number and the colon under
+//      form (a), which an inline path or a version puts there; a restatement soft-
+//      wrapped in a file that is NOT markdown, where the scanned unit is still the
+//      physical line because nothing outside markdown marks where a block ends; and
+//      any restatement phrased outside the enumerated forms entirely. A number that
+//      escapes the recognizer is not thereby licensed — it is undetected, and this
+//      paragraph is the honest statement of that.
 //  (2) NO BARE LINE CITATION. `path.ext:` followed by a line number has no relationship
 //      to the thing it names, so any insertion above the target silently invalidates it.
 //      Measured before the fix: of the eight cross-file citations in this plugin, six
@@ -2046,8 +2078,16 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
     // list that follows IS the population and the number is a second copy of its
     // length. Requiring the plural noun is what keeps identifier numbers out; the
     // no-sentence-break requirement is round 3's definition, unchanged.
+    // NOT_A_NOUN closes a hole the word "plural noun" always meant to close and
+    // the pattern `[a-z][\w-]*s` never did: it matches any lowercase word ending
+    // in s, so "index 1 is the plant" read as a count of "is". These are the
+    // English -s words that can stand where the quantified noun stands and are
+    // never a plural noun there — verb forms and function words. This is part of
+    // the predicate's grammar, like CARDINALS, not an allowlist of instances:
+    // nothing in the plugin is named here and adding a file cannot require an
+    // entry.
     ['quantifier before a terminal colon',
-      new RegExp(`\\b${NUM}\\s+(?:[\\w'’-]+\\s+){0,2}[a-z][\\w-]*s\\b(?=[^.]*:$)`, 'i')],
+      new RegExp(`\\b${NUM}\\s+(?:[\\w'’-]+\\s+){0,2}(?!(?:is|was|has|does|goes|its|this|thus|his|us|as|plus|less|versus)\\b)[a-z][\\w-]*s\\b(?=[^.]*:$)`, 'i')],
     // (c) A population named by a determiner and a size, the size kept in step by
     // hand with a list that often lives in another file — the worst of them,
     // because no reader ever sees the number and the population together.
@@ -2057,13 +2097,50 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
     ['hyphenated structure count',
       new RegExp(`\\b${NUM}-(?:part|section|step|field|gate|tier|axis|axes|phase|stage|column|item|entry|categor|source|criteri|question|check|round|line|point|element|clause|word)s?\\b`, 'i')],
   ];
+  // Prose wraps, and a restatement is a property of a SENTENCE. Round 6 filed
+  // exactly that gap against the predecessor of these lines: the identical text
+  // was caught on one physical line and invisible when a soft wrap fell between
+  // "The seven gate types and" and "what each asks:", while a live instance sat
+  // in commands/expert.md and the label printed `found: none`. The forms are
+  // therefore tested against a LOGICAL line — in markdown, the block a physical
+  // line belongs to, joined across its soft-wrapped continuations. The block
+  // boundaries are STRUCTURAL — a blank line, a fence, the frontmatter, or a
+  // line that opens a new markdown block — so nothing here is a maintained list.
+  // Outside markdown every physical line is its own logical line; that narrowing
+  // is stated in the label and in the known-gaps paragraph above.
+  const BLOCK_START = /^\s*(?:[-*+]\s|\d{1,3}[.)]\s|#{1,6}\s|>|\||---\s*$|===)/;
+  const logicalLines = (rel, src) => {
+    const lines = (src ?? body.get(rel)).split(/\r?\n/);
+    const solo = (l, i) => ({ text: l, parts: [[i + 1, 0]] });
+    if (!rel.endsWith('.md')) return lines.map(solo);
+    const out = [];
+    let cur = null, fence = false, front = lines[0] === '---';
+    lines.forEach((l, i) => {
+      if (front) { cur = null; out.push(solo(l, i)); if (i > 0 && l === '---') front = false; return; }
+      if (/^\s*(?:```|~~~)/.test(l)) { fence = !fence; cur = null; out.push(solo(l, i)); return; }
+      if (fence || !l.trim()) { cur = null; out.push(solo(l, i)); return; }
+      if (cur && !BLOCK_START.test(l)) { cur.parts.push([i + 1, cur.text.length + 1]); cur.text += ` ${l.trim()}`; return; }
+      cur = { text: l.trim(), parts: [[i + 1, 0]] };
+      out.push(cur);
+    });
+    return out;
+  };
+  // A joined block reports the physical line the match actually starts on, not
+  // the block's first line, so the report stays a location a reader can open.
+  const lineOf = (ll, idx) => {
+    let n = ll.parts[0][0];
+    for (const [ln, off] of ll.parts) if (off <= idx) n = ln;
+    return n;
+  };
+
   const stated = [];
   for (const rel of inReach)
-    body.get(rel).split(/\r?\n/).forEach((l, i) => {
-      const form = COUNT_FORMS.find(([, re]) => re.test(l));
-      if (form) stated.push(`${rel}:${i + 1} [${form[0]}]`);
-    });
-  check(`T-31 no count restatement in header form (a), (c) or (d) exists in any scanned file — the assertion is the absence of THOSE FORMS, never of the class (forms: ${COUNT_FORMS.map(([n]) => n).join('; ')}; numbers: a standalone digit or a number word two through twenty; extensions: ${EXT_LIST}; record tree docs/ out of scan reach; uncovered forms named in this block's header) (found: ${stated.join('; ') || 'none'})`,
+    for (const ll of logicalLines(rel))
+      for (const [name, re] of COUNT_FORMS) {
+        const m = re.exec(ll.text);
+        if (m) { stated.push(`${rel}:${lineOf(ll, m.index)} [${name}]`); break; }
+      }
+  check(`T-31 no count restatement in header form (a), (c) or (d) exists in any scanned file — the assertion is the absence of THOSE FORMS, never of the class (forms: ${COUNT_FORMS.map(([n]) => n).join('; ')}; numbers: a standalone digit or a number word two through twenty; extensions: ${EXT_LIST}; scanned unit: in md a markdown block joined across its soft-wrapped lines, elsewhere a physical line; record tree docs/ out of scan reach; uncovered forms named in this block's header) (found: ${stated.join('; ') || 'none'})`,
     stated.length === 0);
 
   // (b) A number a maintainer must keep in step with a list of its own, in emphasis.
@@ -2072,8 +2149,11 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
   const emphasizedCount = new RegExp(`\\*\\*(?:${NUM})\\*\\*`, 'i');
   const emphasized = [];
   for (const rel of inReach)
-    body.get(rel).split(/\r?\n/).forEach((l, i) => { if (emphasizedCount.test(l)) emphasized.push(`${rel}:${i + 1}`); });
-  check(`T-31 no bare count in emphasis (header form (b)) exists in any scanned file — the assertion is the absence of THAT FORM, never of the class (numbers: a standalone digit or a number word two through twenty; extensions: ${EXT_LIST}) (found: ${emphasized.join('; ') || 'none'})`,
+    for (const ll of logicalLines(rel)) {
+      const m = emphasizedCount.exec(ll.text);
+      if (m) emphasized.push(`${rel}:${lineOf(ll, m.index)}`);
+    }
+  check(`T-31 no bare count in emphasis (header form (b)) exists in any scanned file — the assertion is the absence of THAT FORM, never of the class (numbers: a standalone digit or a number word two through twenty; extensions: ${EXT_LIST}; scanned unit: in md a markdown block joined across its soft-wrapped lines, elsewhere a physical line) (found: ${emphasized.join('; ') || 'none'})`,
     emphasized.length === 0);
 
   // ---- Property 2: every cross-file citation carries a live anchor ------------------
@@ -2136,7 +2216,37 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
     && !anyCountForm('There were three. Now consider the following:')
     && !anyCountForm('Case 1 ' + '— the observed shape:')
     && !anyCountForm('the surface defined by Phase 9' + '’s threat model:')
-    && !anyCountForm('read 2026-08-21 against the published text:'));
+    && !anyCountForm('read 2026-08-21 against the published text:')
+    // NOT_A_NOUN: the word after the number ends in s and is a verb, so nothing is
+    // being counted. Paired with the positive above so the guard cannot pass by
+    // rejecting everything.
+    && !anyCountForm('the entry at index 1 is the plant, for example:')
+    && anyCountForm('the entry at index ' + '4 plants the fault:'));
+
+  // The join must be able to FAIL in both directions, or it is decoration too: it
+  // has to see a restatement a physical-line scan misses, and it must not
+  // MANUFACTURE one by gluing two lines that markdown keeps apart. The second
+  // direction is the one that would quietly turn this block into a nuisance.
+  const joinHits = (src) => {
+    const hits = [];
+    for (const ll of logicalLines('probe.md', src))
+      for (const [, re] of COUNT_FORMS) if (re.test(ll.text)) { hits.push(ll.parts[0][0]); break; }
+    return hits;
+  };
+  check('T-31-neg the logical-line join sees a soft-wrapped restatement and manufactures none across a markdown block boundary',
+    // wrapped forms (a) and (c) — invisible to a physical-line scan, caught here
+    joinHits('The ' + 'seven gate types and\nwhat each asks:\n').length === 1
+    && joinHits('There are ' + 'eleven signals and\nwhat each does:\n').length === 1
+    && joinHits('Read each of the\n' + 'five traps before starting\n').length === 1
+    // and the same text unwrapped still fires, so the join widened rather than moved the reach
+    && joinHits('The ' + 'seven gate types and what each asks:\n').length === 1
+    // boundaries: frontmatter, blank line, list item, fence — none may be joined
+    && joinHits('---\n' + 'jobs: 1\nreturns:\n---\n').length === 0
+    && joinHits('with ' + 'four fields\n\nand these things:\n').length === 0
+    && joinHits('- an item with ' + 'four fields\n- another item:\n').length === 0
+    && joinHits('```\n' + 'four fields\nand these things:\n```\n').length === 0
+    // ordinary prose across a wrap: the sentence break survives the join
+    && joinHits('a sentence with ' + 'three widgets in it.\nNow consider the following:\n').length === 0);
   check('T-32-neg the citation predicates fire on a bare line number and on a dead anchor',
     BARE.test('// see workflows/expert-lifecycle.js' + ':988')
     && !BARE.test('// see workflows/expert-lifecycle.js @ `delta.phase`')
