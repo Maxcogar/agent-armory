@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { validate } from '../../scripts/validate-ledger.mjs';
 import { readOwnerTurns } from '../../scripts/extract-owner-turns.mjs';
 import { decide, projectRoot, TERMINAL_PHASES, STALE_MS } from '../../hooks/continuation-gate.mjs';
+import { comparableBytes, CONTENT_RULE } from '../../scripts/preflight-deployment.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SCHEMA = JSON.parse(readFileSync(join(HERE, '../../scripts/ledger.schema.json'), 'utf8'));
@@ -197,6 +198,34 @@ check('T-U2 marker at end yields nothing',
     projectRoot({ cwd: '/worktree' }, { CLAUDE_PROJECT_DIR: '' }) === '/worktree');
   check('T-U4 projectRoot yields null when neither source names a root (no ledger is then read)',
     projectRoot({}, {}) === null && projectRoot(null, {}) === null);
+}
+
+// ---- T-U5: the preflight's content rule (post-0.4.0 field defect) -----------
+// `comparableBytes` is the single definition of "the same content" that both of the
+// preflight's comparison sites run through, and it is pure and exported, so it gets
+// direct coverage here rather than only through the spawned verdicts in T-29. The
+// axes are the two halves of the rule: what a checkout may change (CRLF/LF) and what
+// it may not (everything else, and binary content at all).
+{
+  const eq = (a, b) => comparableBytes(Buffer.from(a, 'latin1')).equals(comparableBytes(Buffer.from(b, 'latin1')));
+  check('T-U5 the CRLF and LF forms of one text compare EQUAL (the checkout artifact this rule exists to forgive)',
+    eq('a\r\nb\r\nc\r\n', 'a\nb\nc\n'));
+  check('T-U5 a lone CR is NOT folded (autocrlf does not produce one, so a lone-CR difference stays a difference)',
+    !eq('a\rb', 'a\nb') && !eq('a\rb', 'ab'));
+  check('T-U5 differing text is still differing after folding (the rule narrows the bytes, not the comparison)',
+    !eq('a\r\nb\r\n', 'a\r\nB\r\n') && !eq('a\nb\n', 'a\nb\nc\n'));
+  check('T-U5 a NUL-bearing buffer is returned unchanged, so a CR byte inside binary content survives as a difference',
+    (() => {
+      const bin = Buffer.from([0x00, 0x01, 0x0d, 0x0a, 0x02]);
+      return comparableBytes(bin).equals(bin) &&
+        !comparableBytes(bin).equals(comparableBytes(Buffer.from([0x00, 0x01, 0x0a, 0x02])));
+    })());
+  check('T-U5 text with no CRLF is returned byte-for-byte, including non-ASCII UTF-8 (the latin1 round-trip is lossless)',
+    (() => { const b = Buffer.from('sé — ok\n', 'utf8'); return comparableBytes(b).equals(b); })());
+  check('T-U5 an empty buffer is empty (degenerate input is not a special case)',
+    comparableBytes(Buffer.alloc(0)).length === 0);
+  check('T-U5 CONTENT_RULE names both halves of the rule it describes (the report quotes this string)',
+    typeof CONTENT_RULE === 'string' && /CRLF/.test(CONTENT_RULE) && /NUL/.test(CONTENT_RULE));
 }
 
 console.log(failures ? `\nUNIT TESTS FAILED (${failures})` : '\nUNIT TESTS PASSED');
