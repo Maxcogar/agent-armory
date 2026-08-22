@@ -60,8 +60,42 @@ function readJson(path, what, problems) {
   }
 }
 
-// Byte-compare one relative file between the cache and the working tree.
-// Both absent is not a diff; one-sided presence and differing bytes are.
+// ONE RULE FOR WHAT "THE SAME CONTENT" MEANS, shared by both comparison sites below
+// (fileDiff and treeDigest) so the two can never drift apart, and named in the report
+// so the verdict states what it forgave.
+//
+// The question this script answers is whether the DEPLOYED plugin behaves differently
+// from the source, and line endings do not decide that. On Windows the two sides cannot
+// even agree on them: git normalizes on checkout under `core.autocrlf` with
+// `* text=auto`, so the marketplace checkout behind the cache and the working tree
+// materialize ONE commit with different EOL bytes. Hashing raw bytes therefore reported
+// STALE against a byte-for-byte correct deployment, permanently, on the owner's platform
+// — 25 of 41 compared files diverging, every one identical after folding CRLF to LF. That
+// is a guard reddening because of WHERE it is run, which trains its operator to discount
+// the red line, and the bright line at commands/expert.md step 1 rests on this report.
+//
+// Folding is confined to TEXT, deliberately. In genuinely binary content a 0D 0A pair is
+// DATA, not a line ending, and folding it would make two files whose bytes differ compare
+// EQUAL — a fail-open, the same shape the coverage contract in this file's header exists
+// to close. The opposite error costs only a false STALE on a binary asset, which is noise,
+// never a missed divergence; between a guard that over-reports on binary and one that
+// under-reports, only the second can license a false behavioral claim. The split uses the
+// NUL-byte heuristic git itself uses. No compared tree holds binary content today, so this
+// is a guard for the first such file added, not a live branch.
+//
+// Only CRLF -> LF is folded. A lone CR is not something autocrlf produces, so a difference
+// in lone CRs remains a difference. latin1 round-trips every byte exactly, and CR and LF
+// never occur inside a UTF-8 multi-byte sequence, so the rewrite is lossless at any encoding.
+export const CONTENT_RULE =
+  'text files compared with CRLF folded to LF; a file containing NUL bytes is compared byte-exact';
+
+export function comparableBytes(buf) {
+  if (buf.includes(0)) return buf;
+  return Buffer.from(buf.toString('latin1').replace(/\r\n/g, '\n'), 'latin1');
+}
+
+// Compare one relative file between the cache and the working tree under CONTENT_RULE.
+// Both absent is not a diff; one-sided presence and differing content are.
 function fileDiff(rel, cachePath, worktreePath) {
   const a = join(cachePath, rel);
   const b = join(worktreePath, rel);
@@ -70,10 +104,13 @@ function fileDiff(rel, cachePath, worktreePath) {
   if (!aExists && !bExists) return null;
   if (!aExists) return `${rel}: missing in installed cache`;
   if (!bExists) return `${rel}: missing in working tree`;
-  return readFileSync(a).equals(readFileSync(b)) ? null : `${rel}: bytes differ`;
+  return comparableBytes(readFileSync(a)).equals(comparableBytes(readFileSync(b)))
+    ? null
+    : `${rel}: content differs`;
 }
 
-// Content digest of one tree: relative path -> sha256 of the file's bytes. An absent
+// Content digest of one tree: relative path -> sha256 of the file's content under
+// CONTENT_RULE (so the digest carries what the comparison means). An absent
 // tree yields an empty map, so "present on one side only" surfaces as added/removed
 // entries rather than being silently skipped. Throws on an unreadable directory or
 // file — the caller records that as a `problems` entry (UNREADABLE), never as CURRENT.
@@ -91,7 +128,7 @@ export function treeDigest(root, rel) {
       const p = join(dir, e.name);
       const key = prefix ? `${prefix}/${e.name}` : e.name;
       if (e.isDirectory()) walk(p, key);
-      else if (e.isFile()) out.set(key, createHash('sha256').update(readFileSync(p)).digest('hex'));
+      else if (e.isFile()) out.set(key, createHash('sha256').update(comparableBytes(readFileSync(p))).digest('hex'));
     }
   };
   if (existsSync(join(root, rel))) walk(join(root, rel), rel);
@@ -105,7 +142,7 @@ function digestDiff(rel, cacheMap, treeMap, cap = 5) {
   const names = [];
   for (const [k, v] of treeMap) {
     if (!cacheMap.has(k)) names.push(`${k} (missing in installed cache)`);
-    else if (cacheMap.get(k) !== v) names.push(`${k} (bytes differ)`);
+    else if (cacheMap.get(k) !== v) names.push(`${k} (content differs)`);
   }
   for (const k of cacheMap.keys()) if (!treeMap.has(k)) names.push(`${k} (missing in working tree)`);
   if (names.length === 0) return null;
@@ -242,7 +279,7 @@ export function preflightDeployment(pluginName, worktreePath, cfgDir = configDir
         const d = digestDiff(rel, cacheTree, treeTree);
         if (d) entry.diffs.push(d);
       }
-      entry.compared = { files: COMPARED_FILES.slice(), trees: COMPARED_TREES.slice() };
+      entry.compared = { files: COMPARED_FILES.slice(), trees: COMPARED_TREES.slice(), content_rule: CONTENT_RULE };
       entry.stale = entry.diffs.length > 0;
     }
     report.installs.push(entry);

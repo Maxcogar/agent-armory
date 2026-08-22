@@ -1905,6 +1905,78 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
           .filter((n) => !COMPARED_TREES.includes(n) && !EXCLUDED_TREES.includes(n) && !fileParents.includes(n));
         return missed.length === 1 && missed[0] === 'lib';
       })());
+
+    // ---- Post-0.4.0 field defect: the staleness comparison hashed RAW BYTES, and the two
+    // sides cannot agree on line endings on this owner's platform — git normalizes on
+    // checkout under `core.autocrlf` with `* text=auto`, so the marketplace checkout behind
+    // the cache and the working tree materialize ONE commit with different EOL bytes. The
+    // shipped 0.4.0 therefore printed STALE against a provably CURRENT 0.4.0 deployment (25
+    // of 41 compared files diverging, every one identical after folding CRLF to LF), routing
+    // every session to the stale_deployment path and training its operator to discount the
+    // signal. Driven end to end below: identical content, opposite EOL conventions, nothing
+    // else varied — then the three ways the fold must NOT blind the comparison.
+    {
+      const tmp3 = mkdtempSync(join(tmpdir(), 'edt-pf-eol-'));
+      const cache3 = join(tmp3, 'cfg', 'plugins', 'cache', 'r');
+      const tree3 = join(tmp3, 'worktree');
+      const w3 = (p, body) => { mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, body); };
+      const runEol = () => {
+        try { return { status: 0, out: execFileSync(process.execPath, [pf, 'r', tree3], { env: { ...process.env, CLAUDE_CONFIG_DIR: join(tmp3, 'cfg') }, encoding: 'utf8', stdio: 'pipe' }) }; }
+        catch (e) { return { status: e.status ?? -1, out: String(e.stdout || '') }; }
+      };
+      // Every pair below is ONE list of lines joined two ways, so the only thing that can
+      // differ between the cache side and the tree side is the line terminator.
+      const manifest = ['{', '  "name": "r",', '  "version": "1.0.0"', '}'];
+      const skill = ['# core skill', '', 'do the real thing'];
+      const flow = ['export const real = 1', 'export const other = 2'];
+      const split = (rel, lines) => {
+        w3(join(cache3, rel), lines.join('\r\n'));  // cache: checked out with CRLF
+        w3(join(tree3, rel), lines.join('\n'));      // working tree: LF
+      };
+      split(join('.claude-plugin', 'plugin.json'), manifest);
+      split(join('skills', 'core', 'SKILL.md'), skill);
+      split(join('workflows', 'life.js'), flow);
+      w3(join(tmp3, 'cfg', 'plugins', 'installed_plugins.json'),
+        JSON.stringify({ version: 2, plugins: { 'r@m': [{ scope: 'user', version: '1.0.0', installPath: cache3 }] } }));
+
+      const eolOnly = runEol();
+      check('T-29 a deployment differing from the working tree ONLY in line endings is CURRENT (EOL is a checkout artifact of core.autocrlf, not a behavioral difference)',
+        eolOnly.status === 0 && /VERDICT: CURRENT/.test(eolOnly.out));
+
+      // The fold narrowed what counts as a difference, and that narrowing is exactly where a
+      // fix of this shape can fail open. Each probe below keeps the EOL split in place and
+      // varies one other thing, so a verdict of CURRENT here would mean the fold ate it.
+      w3(join(tree3, 'skills', 'core', 'SKILL.md'), ['# core skill', '', 'do something else entirely'].join('\n'));
+      const realDrift = runEol();
+      check('T-29 genuine content divergence UNDER the same line-ending split is still STALE (the fold narrowed the bytes compared, never the coverage)',
+        realDrift.status === 1 && /VERDICT: STALE/.test(realDrift.out) &&
+        (pfReport(realDrift.out) || { diffs: [] }).diffs.some((d) => String(d).startsWith('skills/')));
+      w3(join(tree3, 'skills', 'core', 'SKILL.md'), skill.join('\n'));
+
+      w3(join(tree3, 'workflows', 'life.js'), `${flow.join('\n')}\n`);
+      const addedLine = runEol();
+      check('T-29 a trailing newline on one side only is STALE (CRLF/LF folding is forgiven, not whitespace divergence generally)',
+        addedLine.status === 1 && /VERDICT: STALE/.test(addedLine.out));
+      w3(join(tree3, 'workflows', 'life.js'), flow.join('\n'));
+
+      // BINARY content is compared byte-exact. In a binary file a 0D 0A pair is DATA, so
+      // folding it would equate two files whose bytes genuinely differ — the fail-open shape
+      // the coverage contract in the script's header exists to close. This is the check that
+      // reddens on a "normalize everything" fix rather than on the shipped one.
+      w3(join(cache3, 'skills', 'core', 'asset.bin'), Buffer.from([0x00, 0x01, 0x0d, 0x0a, 0x02]));
+      w3(join(tree3, 'skills', 'core', 'asset.bin'), Buffer.from([0x00, 0x01, 0x0a, 0x02]));
+      const binDrift = runEol();
+      check('T-29 a NUL-bearing (binary) file differing only by a CR byte is STALE (folding is confined to text, where EOL is not data)',
+        binDrift.status === 1 && /VERDICT: STALE/.test(binDrift.out));
+
+      // What the comparison forgives is quotable from the report, exactly as `compared` is:
+      // commands/expert.md step 1 makes this report the sole admissible ground for behavioral
+      // claims, so a rule the verdict applied silently would be folklore.
+      const ruleR = pfReport(eolOnly.out);
+      check('T-29 the report declares the content rule the verdict used, and the rule names both halves (text folded, NUL-bearing files byte-exact)',
+        !!ruleR && ruleR.installs[0].compared.content_rule === pfMod.CONTENT_RULE &&
+        /CRLF/.test(pfMod.CONTENT_RULE) && /NUL/.test(pfMod.CONTENT_RULE));
+    }
   }
 
   // Part A wiring: the command's preflight runs the script and carries the bright line.
@@ -2304,6 +2376,28 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
       catch { return true; }
     })());
 
+  // The payload-driven spawns below run against a freshened COPY of the fixture tree,
+  // never the checked-in files. FRESHNESS IS AN AXIS OF THE RULE UNDER TEST — past
+  // STALE_MS the gate allows every stop by design — and a checked-in file carries whatever
+  // mtime git left, which is the age of this checkout. Run in place, the blocking cases
+  // below therefore stopped testing the phase rule and started testing how recently the
+  // repo was cloned: six of them passed on a fresh checkout and failed a day later, a guard
+  // reddening because of WHEN it is run, which is the same thing that teaches an operator to
+  // discount a red line. The closeout cases further down already reason this way and
+  // materialize their own copies; this does it once for the shared fixtures. The checked-in
+  // tree stays untouched and is still what the schema validation above ran against, and the
+  // cases that need a specific AGE keep setting it themselves.
+  const fxLive = mkdtempSync(join(tmpdir(), 'edt-fxc-'));
+  cpSync(fxc, fxLive, { recursive: true });
+  {
+    const now = Date.now() / 1000;
+    for (const f of ['complete', 'open-gate', 'no-gate', 'closeout', 'invalid']) {
+      const led = join(fxLive, f, '.claude/expert/ledger.json');
+      if (!existsSync(led)) throw new Error(`continuation fixture ${f} has no ledger to freshen`);
+      utimesSync(led, now, now);
+    }
+  }
+
   // Spawn the gate with a real Stop payload. `env` is controlled EXPLICITLY on every
   // case: CLAUDE_PROJECT_DIR is the root the hook must prefer, so leaving the ambient
   // value in place would silently point every case at this repo's own ledger. Passing
@@ -2325,7 +2419,7 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
   const runGateHook = (fixtureDir, extra = {}, projectDir = null) => {
     const payload = JSON.stringify({
       session_id: 'fixture', hook_event_name: 'Stop', permission_mode: 'default',
-      transcript_path: join(fxc, 'transcript.jsonl'), cwd: join(fxc, fixtureDir), ...extra,
+      transcript_path: join(fxLive, 'transcript.jsonl'), cwd: join(fxLive, fixtureDir), ...extra,
     });
     const env = gateEnv(projectDir);
     // spawnSync, not execFileSync: stderr is load-bearing on BOTH paths here — the block
@@ -2391,18 +2485,18 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
   // decision proceeds on the ledger, and only unparseable stdin is the malformed one that
   // fails open. Every case below names the root it runs against.
   check('T-30 exec (i) empty stdin with no lifecycle in reach -> exit 0 (a payloadless invocation never crashes the hook)',
-    runGateRaw('', join(fxc, 'no-ledger')).status === 0);
+    runGateRaw('', join(fxLive, 'no-ledger')).status === 0);
   // Pins the consequence of treating empty stdin as an absent payload rather than a
   // malformed one: the ledger still decides, and because no stop_hook_active field can
   // arrive on this path the loop guard is unavailable — the platform's stop-hook block cap
   // is then the only bound. Asserted as the behavior that IS, so a change to the null-input
   // branch cannot pass silently.
-  const emptyBlocking = runGateRaw('', join(fxc, 'no-gate'));
+  const emptyBlocking = runGateRaw('', join(fxLive, 'no-gate'));
   check('T-30 exec (i2) empty stdin with the blocking ledger in reach -> exit 2 (an absent payload takes the ledger path, so the loop guard cannot fire here)',
     emptyBlocking.status === 2 && /§3\.4/.test(emptyBlocking.stderr));
   // The property the old label's universal actually named, now pinned where it is not
   // vacuous: a malformed payload fails OPEN even with a blocking ledger reachable.
-  const garbageBlocking = runGateRaw('not a payload', join(fxc, 'no-gate'));
+  const garbageBlocking = runGateRaw('not a payload', join(fxLive, 'no-gate'));
   check('T-30 exec (i3) unparseable stdin with the blocking ledger in reach -> exit 0 with a stderr note (a malformed payload really never traps the session)',
     garbageBlocking.status === 0 && /hook input unreadable/.test(garbageBlocking.stderr));
 
@@ -2413,9 +2507,9 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
   // and nothing surfaced the miss. Both directions are executed, because pinning only
   // the preference would pass on a hook that ignored cwd entirely.
   check('T-30 exec (j) CLAUDE_PROJECT_DIR names the blocking ledger while cwd has none -> exit 2 (the project root wins)',
-    runGateHook('no-ledger', {}, join(fxc, 'no-gate')).status === 2);
+    runGateHook('no-ledger', {}, join(fxLive, 'no-gate')).status === 2);
   check('T-30 exec (k) CLAUDE_PROJECT_DIR names a ledgerless root while cwd has the blocking one -> exit 0 (cwd never overrides the project root)',
-    runGateHook('no-gate', {}, join(fxc, 'no-ledger')).status === 0);
+    runGateHook('no-gate', {}, join(fxLive, 'no-ledger')).status === 0);
   check('T-30 exec (l) with CLAUDE_PROJECT_DIR unset, cwd is the fallback root -> exit 2',
     runGateHook('no-gate').status === 2);
 
