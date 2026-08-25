@@ -40,7 +40,7 @@ Claude Code session through lifecycle hooks and, at decision moments, injects a
 small **whisper** — one fact, with a verifiable pointer — when it knows something
 the agent almost certainly does not and that would change what it does next. It is
 **advisory by default** (a whisper the agent may ignore) and **never mutates the
-repository** `[OL-3]`.
+repository** `[D-9]` (the no-in-tree-write property; OL-3 is about blocking, not writes).
 
 Alongside that mission — **not derived from it** — the oracle carries a **second,
 owner-set objective**: it **blocks in exactly the two cases Max Cogar confirmed** (§2.1,
@@ -111,7 +111,7 @@ that is ignored (`RETHINK.md` §2.3).
   it was struck from `RETHINK.md` `[OL-R4]`.
 - **Separate credentials of any kind** `[OL-7]`. Permanent.
 - **Writes inside the repository tree**, except the hook-wiring `ctxoracle init`
-  installs `[OL-3, D-9]`.
+  installs `[D-9]`.
 - **Team features** — sharing, multi-user access control, server sync `[OL-6]`.
 
 ### 2.3 Explicit N/A
@@ -142,7 +142,7 @@ that is ignored (`RETHINK.md` §2.3).
 - **P7 — The tool learns in both directions.** Measured false-firers are demoted *and*
   demoted channels are re-explored and re-promoted on measured value; the loop must not
   converge to silence (§11, `[D-25]`).
-- **P8 — The repository tree stays pristine** except explicit `init` wiring `[OL-3]`.
+- **P8 — The repository tree stays pristine** except explicit `init` wiring `[D-9]`.
 - **P9 — No feature is primary.** Elevating any genre — the completion-claim moment or
   the corrective feature included — is the recurring failure this project exists to
   prevent (`RETHINK.md` §12.12 correction; `[OL-C2]`).
@@ -297,7 +297,7 @@ attack surface. The model precedes the requirements.
 - **FR-X4 — Trust origin preserved (T2)** — a trust label rides every fact; low trust
   lowers confidence and cannot be laundered `[ASI06]`.
 - **FR-X5 — Least privilege (T4)** — **no credentials of its own** `[OL-7]`; the only
-  network use is the host CLI piggyback (§10); no repo-tree write except `init` `[OL-3]`.
+  network use is the host CLI piggyback (§10); no repo-tree write except `init` `[D-9]`.
 - **FR-X6 — Whisper/block audit trail (T2, T3)** — every whisper and every block
   recorded with evidence and pointer, readable via `ctxoracle log`.
 - **FR-X7 — Locality (T3, T4)** — stores outside the repo tree; no outbound telemetry
@@ -326,11 +326,15 @@ explicitly distinct from the advisory whisper genres so the tool's identity as a
 not quietly redefined. If the scope of that enforcement is ever in question, it is an
 owner-scope call for Max, not a mission derivation the spec can make on its own.
 
-The oracle's blocks use the harness **Stop-continuation** `[HOOKS]`: a `Stop`/
-`SubagentStop` hook can keep the turn from ending. This is how a block is realised
-without any deny path on a tool call and without touching the repo.
+The oracle uses the harness **Stop-continuation** primitive `[HOOKS]` — a `Stop`/
+`SubagentStop` hook can keep the turn from ending — in **two distinct ways the spec keeps
+separate**: (1) **enforcement blocks** that hold the turn *until a condition clears* (the
+two confirmed cases, FR-B1), and (2) a **single self-releasing continuation** used only to
+*deliver* a Stop-time whisper (FR-B4). Both avoid any deny path on a tool call and never
+touch the repo.
 
-- **FR-B1 — Blocking exists in exactly the confirmed cases** `[OL-C2, OL-C3]`:
+- **FR-B1 — Enforcement blocking exists in exactly the two confirmed cases** `[OL-C2,
+  OL-C3]`. An enforcement block holds the turn *until its condition clears*:
   - **Answer-drift (FR-A2l):** on a `Stop` where a question the user asked is still
     unaddressed, hold the turn (continue) until the agent answers.
   - **Skill non-conformance (FR-A2k):** while an expert skill is active and the agent
@@ -338,17 +342,29 @@ without any deny path on a tool call and without touching the repo.
     when the agent skipped a step without a stated reason, or steering has not worked.
   - Both are **reactive** — they trigger on a real deviation, never as a pre-emptive
     checkpoint.
-- **FR-B2 — Every block is escapable and self-limiting.** A block holds only until its
-  condition clears (question answered; step followed or a reason given) and is bounded
-  by `stop_hook_active` so it cannot chain into a wall `[HOOKS]`; the agent is never
-  permanently stranded, and FR-M2 surfaces any block that fails to lift. Keep the
-  mechanism simple `[OL-C3]`.
-- **FR-B3 — What stays structurally impossible.** No code path performs a **pre-emptive
-  gate** (blocking a tool call / requiring the agent to pass a test or prove a plan
-  before proceeding), a **generated-file block** `[OL-R4]`, a **repository mutation**
-  (`updatedInput`, `updatedToolOutput`), or a **tool-call deny/ask/defer**
-  (`permissionDecision`). The oracle never edits the repo and never gates *forward*
-  progress on anything but the two reactive conditions above `[OL-3, OL-C2, OL-R4]`.
+- **FR-B2 — Every enforcement block is escapable and self-limiting (`FR-O4a`, the
+  one-continuation bound).** A block holds only until its condition clears (question
+  answered; step followed or a reason given) and is bounded by `stop_hook_active` so it
+  cannot chain into a wall `[HOOKS]`; the agent is never permanently stranded, and FR-M2
+  surfaces any block that fails to lift. Keep the mechanism simple `[OL-C3]`.
+- **FR-B4 — Stop-time whisper delivery is a single self-releasing continuation, NOT a
+  block.** The completion-check (FR-A2g) and Completeness (FR-A2f) genres fire *at a
+  `Stop`*, and the only Stop-time channel that reaches the agent is a continuation — so
+  delivering their whisper means continuing **once** to inject the fact, after which the
+  agent proceeds or re-stops. It gates on **no condition** and never holds beyond that one
+  cycle (bounded by `stop_hook_active`, `FR-O4a`). This realises OL-12 (the oracle *speaks*
+  at a done-claim) and is deliberately distinct from the FR-B1 enforcement blocks — it is
+  *delivery, not enforcement*; AC-8 verifies it releases after a single cycle `[OL-12,
+  HOOKS]`.
+- **FR-B3 — What stays structurally impossible (`FR-O4`, the no-deny-path guarantee).** No
+  code path performs a **pre-emptive gate** (blocking a tool call / requiring the agent to
+  pass a test or prove a plan before proceeding) `[OL-C2]`, a **generated-file block**
+  `[OL-R4]`, a **repository mutation** (`updatedInput`, `updatedToolOutput`) `[D-9]`, or a
+  **tool-call deny/ask/defer** (`permissionDecision`). Forward progress is never *held*
+  beyond the single self-releasing whisper-continuation of FR-B4 except on the two reactive
+  enforcement conditions of FR-B1. *(The `FR-O4`/`FR-O4a` labels are retained here for the
+  no-deny-path and one-continuation-bound properties that `CLAUDE.md`, `RETHINK.md`, and the
+  Phase 0 spec cite by those IDs; the properties are realised by FR-B2/FR-B3/FR-O3.)*
 
 - **FR-O2 — Delivery-capable events and mechanism (C-4, `[HOOKS]`, re-verified
   2026-08-25).** Model-visible context returns via structured
@@ -359,7 +375,8 @@ without any deny path on a tool call and without touching the repo.
   affordance (confirmed against the current hooks reference and the Claude Code
   `additionalContext`-on-`PreToolUse` behavior). `PostToolUse` carries `additionalContext`
   the same way. `Stop`/`SubagentStop` expose `last_assistant_message` and can continue
-  (hold) the turn — the block affordance (FR-B1). Hooks fire inside subagents carrying
+  (hold) the turn — used both for enforcement blocks (FR-B1) and for single-cycle
+  Stop-time whisper delivery (FR-B4). Hooks fire inside subagents carrying
   `agent_id`/`agent_type`; whether a subagent hook's `additionalContext` propagates to the
   parent is **not documented and assumed not** (§13). `PostToolUseFailure` and
   `PermissionRequest` are confirmed events in the current contract (the oracle emits no
@@ -373,8 +390,15 @@ without any deny path on a tool call and without touching the repo.
 
 **Constraints fixed by circumstance:**
 
-- **C-1 — Runtime: Node.js, current LTS.** `node:sqlite` unflagged from **v22.13.0 /
-  v23.4.0** `[NODE-SQLITE, verified 2026-08-16]`.
+- **C-1 — Runtime: Node.js, current LTS (recorded judgment `[D-33]`, not a circumstance).**
+  Claude Code hooks are language-agnostic shell commands, so the harness does not force the
+  implementation language; Node is an **engineering choice**, chosen so the store can use an
+  in-runtime SQLite (`node:sqlite`, unflagged from **v22.13.0 / v23.4.0** `[NODE-SQLITE,
+  verified 2026-08-16]`) with **no native toolchain and no prebuilt-binary download**, which
+  directly serves the cold-container readiness C-3 requires. Alternatives (Python, Rust) are
+  not precluded by the harness; they are rejected here for weaker cold-start/no-toolchain
+  store options, not by circumstance. If the architect finds a runtime that serves C-2/C-3
+  better, that is an architecture decision, not a spec violation.
 - **C-2 — Full-text search is NOT in stock `node:sqlite`** (compiled without
   `SQLITE_ENABLE_FTS5`; nodejs/node #56951 open, 2026-08-16) `[NODE-SQLITE, verified
   2026-08-16]`. **Requirement (property):** fast name/structure lookup and text search
@@ -580,8 +604,15 @@ numbers are set from Phase A's exit data.
   mission sentence; it stands beside it. What is rejected — the pre-emptive "pass a test to
   proceed" gate `[OL-C2]` and the generated-file block `[OL-R4]` — stays structurally
   impossible (FR-B3).
-
----
+- **D-33 — Runtime is Node.js by engineering choice, not circumstance (C-1).** *Job:* give
+  the store a cold-start-friendly, no-native-toolchain path (`node:sqlite`) that satisfies
+  C-3, using the language the Claude Code tooling ecosystem already assumes. The harness is
+  language-agnostic, so this is a judgment the architect could revisit, not a fixed boundary.
+- **D-34 — Stop-time whisper delivery (FR-B4) is a single self-releasing continuation,
+  distinct from the FR-B1 enforcement blocks.** *Job:* let the oracle *speak* at a done-claim
+  (OL-12) using the only Stop-time channel — a one-cycle continuation — without that counting
+  as one of the two confirmed enforcement blocks. Separating delivery from enforcement keeps
+  FR-B1's "exactly two blocks" true and honest.
 
 ## 13. What is genuinely open
 
@@ -619,7 +650,19 @@ clean session.**
 - **AC-1 (coupling → FR-A2b, FR-D3, NF-1).** A known co-change pair: a completed read of
   one file yields a coupling whisper naming the other, with evidence ratio and pointer,
   within latency.
-- **AC-2 (no pre-emptive gate / no mutation, structurally → FR-B3, OL-3, OL-C2, OL-R4).**
+- **AC-1a (orientation → FR-A2a, D-26).** On a prompt for a task with known structure, the
+  Orientation whisper headlines the **2–4 entry-point files and the one binding invariant**;
+  it does **not** deliver task-shape landmines (those belong at the edit, FR-A2e).
+- **AC-1b (reuse → FR-A2c, P5).** On a search/read for functionality with a known canonical
+  helper, the Reuse whisper headlines the **convention** ("the canonical helper is `X`; most
+  call sites use it"), not bare existence; a whisper that only states a symbol exists fails.
+- **AC-1c (consequence → FR-A2d, P5, HERZIG).** On an edit about to run in a file with known
+  historically-coupled tests, the Consequence whisper headlines those **coupled tests and
+  the zone flag**; a whisper whose headline is a raw grep-able call-site count fails.
+- **AC-1d (completeness → FR-A2f, FR-B4).** On an edit that completes one half of a
+  historically-paired change, the Completeness whisper names the **unchanged partner** with
+  its co-change ratio, delivered at the stop via a single self-releasing continuation (FR-B4).
+- **AC-2 (no pre-emptive gate / no mutation, structurally → FR-B3, D-9, OL-C2, OL-R4).**
   No code path blocks a tool call pre-emptively, gates on a plan/test, blocks a
   generated-file edit, or mutates the repo (`updatedInput`/`updatedToolOutput`/
   `permissionDecision` never emitted). A control-flow assertion, not a field-scan.
@@ -650,10 +693,13 @@ clean session.**
   occurred.
 - **AC-7 (pristine tree → P8, FR-X5, D-9).** After `init`/`index`/session/`deinit` the tree
   differs only by the removed hook wiring.
-- **AC-8 (completion check → FR-A2g, OL-12).** At a recognized completion-claim stop with
-  the region's test not run, the "claimed-done, test-not-run" whisper fires (one
-  continuation, then the stop proceeds — this is a whisper, not a block); it does not fire
-  merely to name a test that ran.
+- **AC-8 (completion check → FR-A2g, FR-B4, OL-12).** At a recognized completion-claim stop
+  with the region's test not run, the whisper fires via **one self-releasing continuation,
+  then the stop proceeds** (FR-B4 — a whisper, not a block); it does not fire merely to name
+  a test that ran. **Content assertion (verifies the S3 marginal-value fix):** the emitted
+  whisper must **headline the covering-test → changed-region mapping** (the fact the agent
+  lacks); a whisper whose headline is only the run-state ("your test was not run"), with no
+  covering-test mapping, **fails** AC-8 (P5, FR-D1).
 - **AC-9 (self-observability → FR-M1–M5).** Induced hook-not-firing, latency breach,
   produced-but-undelivered whisper, and **a block that fails to lift** each appear in the
   log and `status`; per-genre volume, false-fire rate, and blocks raised/lifted are

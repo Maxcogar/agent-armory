@@ -56,6 +56,27 @@ opening the source it points at: a citation key never resolved to a row, an
 owner-fact never traced to a decision, a premise never fetched. **The owner-ledger
 discipline is not "cite `[OL-…]`"; it is "the row exists and says this."**
 
+**Second-review addendum (same day).** A second independent pass on the *fixes*
+found two more of the same shape and one new class:
+
+4. **Citing a real CONFIRMED key for a claim the key does not contain.** Class:
+   **unverified.** `[OL-3]` (confirmed content: *blocking*) was cited as authority
+   for "the oracle never writes to the repo tree" — a real, good property, but one
+   OL-3 says nothing about (it is `[D-9]`). **Lesson: a resolvable key is not a
+   correct key. Re-read the row's actual content against the sentence it is
+   attached to — "cited a confirmed decision" and "cited it for what it decided"
+   are different checks, and only the second one holds.**
+
+5. **An absolute quietly falsified by a second use of the same primitive.** Class:
+   **mechanism-not-mission / posture.** FR-B1 said blocking exists in "exactly two
+   cases," but the completion-check whisper reaches the agent only by *continuing
+   the turn* at a `Stop` — a third use of the very hold-the-turn primitive the
+   absolute governs. **Lesson: when a requirement states an absolute over a
+   mechanism ("exactly N uses of X"), enumerate every place X is used and check
+   each against the absolute. A delivery mechanism reusing an enforcement
+   primitive will silently break the count unless the spec separates *delivery*
+   from *enforcement* by name (now FR-B4 vs FR-B1).**
+
 ---
 
 ## 2026-08-16 — the rebuilt spec re-sprang two known traps and silenced the mission's own priority

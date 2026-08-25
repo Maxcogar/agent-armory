@@ -5,6 +5,19 @@ state and what to do next; the evidence lives in `docs/reviews/`, the durable
 lessons in `docs/collapse-log.md`, and everything attributed to Max Cogar in
 `OWNER-LEDGER.md`.*
 
+## 2026-08-25 (second review round) — A second independent pass audited the fixes; 6 more findings, all applied.
+
+Because the author reviewing their own fixes is the failure this project guards against, a second independent subagent audited closure of the 14 and hunted fresh. It **confirmed 11/14 fully closed** (spec is clean of fabricated quotes and invented keys — the central risk) and found 6 more (`docs/reviews/2026-08-25-second-independent-review-spec-revision.md`), all now applied and pushed:
+- **F1 (Serious) — real internal contradiction:** the completion-check/Completeness whispers fire at a `Stop` and can only reach the agent by continuing the turn, which FR-B1's "exactly two blocks" contradicted. Fixed by splitting the mechanism: **FR-B1** is enforcement blocking (two cases); new **FR-B4** is a single self-releasing continuation that only *delivers* a Stop-time whisper (grounded on OL-12), gating on nothing. Keeps "exactly two blocks" true.
+- **F2 (Serious) — another `[OL-3]` over-citation:** OL-3 (about blocking) was cited for "never writes to the repo tree" (that's `[D-9]`). Re-grounded at §1/P8/FR-X5/§2.2/FR-B3/AC-2; OL-3 kept only where genuinely about blocking/fail-open.
+- **F3–F6 (Moderate/Minor):** AC-8 given a content assertion so the S3 marginal-value fix is actually verifiable; `FR-O4`/`FR-O4a` IDs (cited by CLAUDE.md/RETHINK/phase0 but dropped in the rebuild) restored on FR-B2/FR-B3; acceptance criteria added for the four untested Phase-A genres (AC-1a–d); C-1 restated as engineering judgment `[D-33]` rather than "fixed by circumstance."
+
+**Owner action still waiting:** confirm/reject **OL-P1** (language coverage) in `OWNER-LEDGER.md`.
+
+Next: the spec has now survived two independent adversarial passes with all findings applied; it is a reasonable approval baseline. Natural next step is the Phase A architecture document.
+
+---
+
 ## 2026-08-25 (review round) — Independent adversarial review run on the revised spec; all 14 findings applied.
 
 A fresh independent subagent attacked the spec on four axes (owner-attribution, hollow decisions, expert-spec gates, downstream usability). It **confirmed the Gate-B verification below is genuine** (spot-checked node:sqlite, MCP SEP-2577, and the hooks contract against primary sources — all matched) and returned 14 findings, **all now applied and pushed**. The two that matter most were the exact failure this project exists to stop — invented owner attributions in the spec:
