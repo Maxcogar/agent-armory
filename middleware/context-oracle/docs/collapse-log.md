@@ -816,3 +816,79 @@ without opening them. **Stopping too early against a source that is right there.
 then hunted. The last four were hunted and then written. Cost of the first order:
 a commit, a revert and a correction each. Cost of the second: one subagent, and
 nothing to undo. **Dispatch the pass before writing into a document, not after.**
+
+---
+
+## 2026-08-25 — Blocking-model rebuild (6 rounds to convergence): the recurring shape and how it terminates
+
+The blocking model was rebuilt onto the verified reactive `PreToolUse`-deny
+mechanism and taken through six dual-review rounds (expert-review + collapse-hunt
+each round) to a zero-findings / TERMINAL verdict. Durable lessons, for the next
+designer who touches a fallible-recognizer feature:
+
+1. **"The guard shares the recognizer's blind spot" is the signature failure of
+   this whole class.** Every round, a fix to one fallible recognizer re-created
+   the same shape one layer down: the under-fire *guard* for a block re-ran the
+   very classifier whose miss it was meant to catch (round-2 skill detector,
+   fixed by switching FR-C4 to an **observable post-condition** checked directly
+   against state, independent of the action classifier); the done-claim *backstop*
+   shared the answer-recognizer's blind spot (named, not hidden). **Lesson: an
+   under-fire/backstop signal is only a guard if it is derived independently of
+   the thing it guards. If it routes through the same judgment, it inherits the
+   same blindness and guards nothing.**
+
+2. **Honest-limits has *layers*, and naming one layer hides the next.** Round 3
+   honestly named the *deny-target* limits (which writes get caught). Round 4
+   found that left the *recognizer* limits unnamed (whether the block can even
+   tell it should fire, model-free) — two overclaims ("full Bash coverage a
+   committed follow-on"; the model-free block "works") were sitting *inside* the
+   honest-limits sentences. **Lesson: "we disclosed the limit" is not done until
+   you've asked what the disclosure itself assumes. Disclosing the coverage gap
+   while overclaiming the recognizer is the same hollowness wearing an honest hat.**
+
+3. **A self-administered collapse test grades its own homework.** §8 had the
+   author write AND answer each block's "hardest question" — and (predictably) it
+   picked the beatable question and answered the *honesty* variant ("is the limit
+   disclosed?") instead of the *achievement* variant ("does it meet the objective
+   in the case that matters?"). The independent hunt caught exactly this. **Lesson:
+   an in-document self-test never discharges the mandatory independent hunt; when
+   you find yourself writing both the question and a passing answer, you are the
+   substance-reviewer again. State the self-test as *not* a gate.**
+
+4. **The cardinal sin relapsed inside the fix for another finding.** In scoping
+   the answer-drift block (fixing a round-1 finding) I put Max's real chat words
+   into the spec *as authority* — the exact owner-attribution failure the ledger
+   exists to stop, committed while fixing something else. **Lesson: the correction
+   round is where owner-attribution discipline lapses, because attention is on the
+   mechanism. Real owner words go to `OWNER-LEDGER.md` PENDING and the durable doc
+   grounds on a design judgment `[D-n]` until he signs off — even when the words
+   are genuinely his.** (This is why the self-review-before-independent-review step
+   is mandatory: my own fixes were the likeliest source of new defects, and were.)
+
+5. **Two error-directions of a fallible predicate are two regimes, and one lean
+   applied twice is a bug.** The final finding: the answer-drift clear-axis leans
+   *toward clearing* in steady state (don't strand a compliant answerer) but must
+   lean *toward holding* in the lag window (don't pre-clear on text the classifier
+   hasn't seen — that misses the narrate-then-write drifter). Carrying the
+   steady-state lean into the lag window silently picked the wrong horn. **Lesson:
+   when a recognizer runs against eventually-consistent state, specify the lean for
+   the not-yet-consistent window *separately* — the error that self-recovers in-band
+   is the one to prefer, and it is usually the opposite of the steady-state lean.**
+
+6. **Not every reviewer-flagged "scope softening" is the owner's call.** The
+   collapse-hunt framed three coverage limits as "route to Max." Two were
+   *mechanism-forced* (a verified-correct clear bar would be the rejected
+   pass-a-test gate; pure-judgment skill steps are undetectable by any mechanism)
+   and one was *sequencing* (mine). Handing a non-programmer a mechanism-forced
+   "choice" is the over-asking failure. **Lesson: apply CLAUDE.md's test — can you
+   name what decides it? — before escalating. Mechanism-forced and sequencing are
+   the agent's; surface them for *awareness*, not as questions. Only a genuine
+   yes/no on the owner's own directive goes to him.**
+
+**The terminal state.** Convergence is not "no limits left" — it is "every
+remaining limit is an irreducible truth about the problem, named, measured, and
+(where testable) acceptance-tested, with nothing claimed the mechanism can't
+deliver." Six rounds got there because each round's independent hunt attacked the
+*previous round's fix*, and the author self-reviewed the fix first. The trajectory
+(6 → 1 → 5 → 4 → 1 → 0 findings) is what convergence looks like; a round that finds
+nothing is the signal, not an assumption you may make early.
