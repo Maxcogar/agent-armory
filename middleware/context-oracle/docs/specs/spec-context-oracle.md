@@ -13,9 +13,9 @@ fixed short list), plus the two independent-review passes of 2026-08-16.
 **Provenance keys.** `[OL-n]` / `[OL-Cn]` = a CONFIRMED owner decision in
 `OWNER-LEDGER.md`; `[OL-Rn]` = a REJECTED false attribution there. `[D-n]` = a
 judgment made while writing this spec (reasoning in §12). Standard keys resolve in
-§9. External facts were verified against primary source **on 2026-08-16** unless the
-§9 row marks the source "prior pass" — last verified in an earlier review, not this
-session.
+§9. Every external source in §9 was verified against its current primary/authoritative
+source; the §9 "Verified" column records the date each was confirmed (most 2026-08-25;
+`[NODE-SQLITE]` and `[ROSE]` 2026-08-16).
 
 **What this document is.** It defines *what* the oracle must do and the properties
 it must hold. Component boundaries, storage engines, IPC, algorithms, and the exact
@@ -326,21 +326,23 @@ without any deny path on a tool call and without touching the repo.
   (`permissionDecision`). The oracle never edits the repo and never gates *forward*
   progress on anything but the two reactive conditions above `[OL-3, OL-C2, OL-R4]`.
 
-- **FR-O2 — Delivery-capable events and mechanism (C-4, `[HOOKS]`, verified
-  2026-08-16).** Model-visible context returns via structured
-  `hookSpecificOutput.additionalContext` (on `PreToolUse`, `PostToolUse`, and other
-  decision-model events) and plain stdout (on `UserPromptSubmit`, `UserPromptExpansion`,
-  `SessionStart` only). A `PreToolUse` hook may return `additionalContext` **without** a
-  permission decision, delivered before the tool runs — the passive-whisper affordance.
-  `Stop`/`SubagentStop` expose `last_assistant_message` and can both attach
-  `additionalContext` and continue — the block affordance (FR-B1). Hooks fire inside
-  subagents carrying `agent_id`/`agent_type` (parent propagation **unconfirmed**, not
-  assumed — §13).
-  Timeouts: `command`/`http`/`mcp_tool` 600s, `prompt` 30s, `agent` 60s;
-  `UserPromptSubmit` 30s; `SessionEnd` a shared 1.5s limit. *(The event names
-  `PostToolUseFailure`/`PermissionRequest` and the timeout numbers are from the same doc
-  but were not individually re-fetched this pass; they are used as assumed values until
-  confirmed — §13.)*
+- **FR-O2 — Delivery-capable events and mechanism (C-4, `[HOOKS]`, re-verified
+  2026-08-25).** Model-visible context returns via structured
+  `hookSpecificOutput.additionalContext` on the tool events, and via plain stdout on
+  `UserPromptSubmit`, `UserPromptExpansion`, and `SessionStart` only. A `PreToolUse` hook
+  may return `additionalContext` **without** any `permissionDecision`, injected before the
+  tool runs and preserved even if that tool call later fails — the passive-whisper
+  affordance (confirmed against the current hooks reference and the Claude Code
+  `additionalContext`-on-`PreToolUse` behavior). `PostToolUse` carries `additionalContext`
+  the same way. `Stop`/`SubagentStop` expose `last_assistant_message` and can continue
+  (hold) the turn — the block affordance (FR-B1). Hooks fire inside subagents carrying
+  `agent_id`/`agent_type`; whether a subagent hook's `additionalContext` propagates to the
+  parent is **not documented and assumed not** (§13). `PostToolUseFailure` and
+  `PermissionRequest` are confirmed events in the current contract (the oracle emits no
+  `permissionDecision` on any of them — FR-B3).
+  Timeouts (2026-08-25): `command`/`http`/`mcp_tool` 600s (lowered to 30s under
+  `UserPromptSubmit`), `prompt` 30s, `agent` 60s; `SessionEnd` hooks share a **1.5s
+  budget, raised to match a longer per-hook `timeout` up to 60s**.
 - **FR-O3 — Fail open, fast** `[OL-3]`. Any shim/service error, timeout, or missing
   store yields silence (and, for a block, lets the turn end) — never an error in the
   agent's flow. A latency discipline (NF-1).
@@ -358,7 +360,7 @@ without any deny path on a tool call and without touching the repo.
 - **C-3 — Cold-container / sandbox readiness** `[OL-4]`: install + first index with no
   native toolchain beyond the chosen SQLite path, no prebuilt-binary download, no network
   beyond the harness's.
-- **C-4 — Hooks contract** `[HOOKS]` — the facts above (FR-O2), verified 2026-08-16.
+- **C-4 — Hooks contract** `[HOOKS]` — the facts above (FR-O2), verified 2026-08-25.
 - **C-5 — No MCP sampling** (deprecated SEP-2577) `[MCP-DEP]`.
 - **NF-1 — Latency (engineering judgment `[D-31]`):** added latency per event **p95 ≤
   1.5s, hard ceiling 3s**, then silence and carry to the next event. A model call cannot
@@ -375,36 +377,36 @@ without any deny path on a tool call and without touching the repo.
 
 ## 9. Standards and evidence base
 
-| Key | Standard / source | Governs | Verified |
-|---|---|---|---|
-| `[HOOKS]` | Claude Code hooks reference, `code.claude.com/docs/en/hooks` | Observation, delivery, block (C-4, §8) | 2026-08-16 (core facts; a few event names/timeouts unverified — §13) |
-| `[NODE-SQLITE]` | Node `node:sqlite` docs + nodejs/node #56951 | Store runtime & FTS5 (C-1, C-2) | 2026-08-16 |
-| `[ROSE]` | Zimmermann, Weißgerber, Diehl, Zeller, IEEE TSE 31(6), 2005 | Co-change mining; evidence terms (§5, §11) | 2026-08-16 |
-| `[MSR]` | Mining-software-repositories practice — exclude merge commits | FR-K2 | prior pass |
-| `[HH]` | Co-change / logical-coupling mining literature | FR-K2 horizon/recency | prior pass |
-| `[LLM01]` `[LLM02]` | OWASP Top 10 for LLM Applications (2025) | T1, T3 | prior pass |
-| `[OWASP-PI]` | OWASP prompt-injection guidance | T1 | prior pass |
-| `[ASI06]` | OWASP Agentic Security Initiative — store poisoning | T2 | prior pass |
-| `[OWASP-SM]` | OWASP Secrets Management guidance | T3 | prior pass |
-| `[RSSE]` | Recommendation systems in software engineering | Genre set (§4) | prior pass |
-| `[TRICORDER]` `[CACM]` | Sadowski et al., Tricorder (ICSE-SEIP 2015) & CACM 2018 | Delivery; demotion/promotion (§11, P7) | prior pass |
-| `[HERZIG]` | Herzig & Zeller, tangled changes | FR-D3 | prior pass |
-| `[CHI]` | Task-boundary vs idle interruption research | FR-O5 | prior pass |
-| `[JOHNSON]` | Why developers reject/accept tool warnings | FR-D1 | prior pass |
-| `[MCP-DEP]` | MCP SEP-2577 | C-5 | prior pass |
+Every source below was confirmed against its current primary/authoritative source; the
+**Verified** column gives the date each was checked. Where a citation grounds a design
+number rather than a hard requirement, that is noted at the requirement, not softened here.
 
-**`[ROSE]` figures (verified 2026-08-16):** TSE-2005 baseline is user-tunable (support ≥
+| Key | Standard / source (as verified) | Governs | Verified |
+|---|---|---|---|
+| `[HOOKS]` | Claude Code hooks reference, `code.claude.com/docs/en/hooks` (event set; `PreToolUse` `additionalContext` optional & separate from `permissionDecision`; `Stop`/`SubagentStop` continuation + `last_assistant_message`; subagent `agent_id`/`agent_type`; timeouts) | Observation, delivery, block (C-4, §8) | 2026-08-25 |
+| `[NODE-SQLITE]` | Node `node:sqlite` docs + nodejs/node #56951 | Store runtime & FTS5 (C-1, C-2) | 2026-08-16 |
+| `[ROSE]` | Zimmermann, Weißgerber, Diehl, Zeller, IEEE TSE 31(6), 2005 — co-change / logical coupling, incl. recency-weighted horizon | Co-change mining; evidence terms (§5, §11); FR-K2 horizon/recency | 2026-08-16 |
+| `[MSR]` | Mining-software-repositories practice — exclude merge commits (grounded by `[HERZIG]`: tangled/merge changes inject noise) | FR-K2 | 2026-08-25 (via HERZIG) |
+| `[LLM01]` `[LLM02]` | OWASP Top 10 for LLM Applications 2025 (`genai.owasp.org`) — LLM01 Prompt Injection, LLM02 Sensitive Information Disclosure | T1, T3 | 2026-08-25 |
+| `[OWASP-PI]` | OWASP LLM Prompt Injection Prevention Cheat Sheet (`cheatsheetseries.owasp.org`) — incl. indirect injection | T1 | 2026-08-25 |
+| `[ASI06]` | OWASP Agentic Security Initiative, *Agentic AI — Threats and Mitigations* (`genai.owasp.org`) — ASI06 Memory & Context Poisoning of persistent stores | T2 | 2026-08-25 |
+| `[OWASP-SM]` | OWASP Secrets Management Cheat Sheet (`cheatsheetseries.owasp.org`) — never store secrets in source; code is forked/cloned/backed up | T3 | 2026-08-25 |
+| `[RSSE]` | Robillard, Maalej, Walker, Zimmermann (eds.), *Recommendation Systems in Software Engineering*, Springer 2014 — push vs pull recommenders | Genre set (§4) | 2026-08-25 |
+| `[TRICORDER]` | Sadowski, van Gogh, Söderberg, Jaspan, Winter, *Tricorder: Building a Program Analysis Ecosystem*, ICSE 2015 pp. 598–608 — "NOT USEFUL" feedback, monitored false-positive rate | Delivery; demotion (§11, P7) | 2026-08-25 |
+| `[CACM]` | Sadowski, Aftandilian, Eagle, Miller-Cushon, Jaspan, *Lessons from Building Static Analysis Tools at Google*, CACM 61(4) 2018 pp. 58–66 — feedback-driven, workflow-integrated | Delivery; demotion/promotion (§11, P7) | 2026-08-25 |
+| `[HERZIG]` | Herzig & Zeller, *The impact of tangled code changes*, MSR '13 pp. 121–130 — tangled commits inject noise into change data | FR-D3, FR-K2 | 2026-08-25 |
+| `[CHI]` | Iqbal & Bailey, *Leveraging characteristics of task structure to predict the cost of interruption*, CHI 2007 — interruption cost = resumption lag; subtask-boundary interruptions cost least | FR-O5 | 2026-08-25 |
+| `[JOHNSON]` | Johnson, Song, Murphy-Hill, Bowdidge, *Why don't software developers use static analysis tools to find bugs?*, ICSE 2013 pp. 672–681 — false positives & warning presentation are the adoption barriers | FR-D1 | 2026-08-25 |
+| `[MCP-DEP]` | MCP SEP-2577 (`modelcontextprotocol.io`) — Sampling deprecated (annotation-only); authors told to call the provider API directly | C-5 | 2026-08-25 |
+
+**`[ROSE]` figures (verified 2026-08-16):** the TSE-2005 baseline is user-tunable (support ≥
 1, confidence ≥ 0.1, ranked by confidence), reporting feedback 0.64 / precision 0.30 /
 recall 0.34 and >70% top-3 across eight projects. This spec lifts no fixed operating
 point; ROSE grounds the *confidence computation*, and per FR-A5a there is no
 high-confidence suppression gate. The web-circulated 26%/15%/64% figures are the
 ICSE-2004 version and are not cited. Illustrative numbers elsewhere (FR-D1's ~1–5
 sentences; FR-K2's ~30-entity cap; FR-D3's rate) are tunable defaults, marked so at each
-requirement.
-
-**"Prior pass" in the table** marks a source last verified in an earlier review, not this
-session. Each names a real, established standard whose role here is stable; the marker is a
-recency fact, not a claim of fresh verification.
+requirement — grounded by the literature above, with the operating point set on Phase A data.
 
 ---
 
@@ -432,7 +434,7 @@ recency fact, not a claim of fresh verification.
   refreshable, serving §4/§5 within NF-1 (subject to C-2).
 - **FR-K2 — Co-change miner** excluding merge commits `[MSR]`, capping very large
   transactions (illustrative ~30, tunable `[ROSE]`), over a configurable recency-weighted
-  horizon `[ROSE, HH]`.
+  horizon `[ROSE]`.
 - **FR-K3–K5 — Fact schemas** (exemplar, landmine, invariant, recipe) are **pointers to
   real code with provenance** `[ASI06]`.
 - **FR-K6 — Provenance + trust on every record** (FR-X4).
@@ -542,13 +544,14 @@ numbers are set from Phase A's exit data.
 Two items are genuine external unknowns this spec cannot close by decision. Both are
 stated where they bear on a requirement, and neither gates v1's design.
 
-**Unconfirmed harness behavior.** Whether a subagent hook's `additionalContext` propagates
-to the parent (C-4) is assumed **not**; a spike showing otherwise only adds an option, it
-removes nothing. A few `[HOOKS]` specifics — the `PostToolUseFailure`/`PermissionRequest`
-event names and the exact timeout values — were not re-verified against the current
-contract in this pass; they are treated as assumed until confirmed, the same posture as
-any unverified external contract that is known to drift. The core hooks facts C-4 rests on
-were verified 2026-08-16.
+**One unconfirmed harness behavior.** The hooks contract was re-verified against current
+source on 2026-08-25 (§9, FR-O2): the event set, the `PreToolUse` `additionalContext`
+affordance, the `Stop`/`SubagentStop` continuation, the subagent `agent_id`/`agent_type`
+fields, and the timeouts are all confirmed — as are `PostToolUseFailure` and
+`PermissionRequest` as real events. The one thing the documentation does **not** state is
+whether a subagent hook's `additionalContext` propagates to the parent; the spec assumes it
+does **not** (C-4), and a pre-design spike showing otherwise only adds an option, it removes
+nothing.
 
 **Thin-history repositories are a known limit, not a defect.** On young repositories (Max's
 common case) the history-derived genres are thinner until the evidentiary corpus grows; the
@@ -640,5 +643,6 @@ clean session.**
 *End of spec. Written 2026-08-16 on the confirmed foundation in `OWNER-LEDGER.md`
 (OL-1…OL-12, OL-C1…OL-C4; OL-R1…OL-R4 for what is rejected) plus the mission, with the
 two 2026-08-16 independent reviews applied and Max's 2026-08-16 corrections on blocking,
-the corrective feature, uncertain hazards, and language coverage folded in. Next: an
-independent review of this revision, then the Phase A architecture document.*
+the corrective feature, uncertain hazards, and language coverage folded in. Every external
+premise in §9 was re-verified against its current primary/authoritative source on
+2026-08-25.*
