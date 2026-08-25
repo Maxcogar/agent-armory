@@ -5,7 +5,7 @@ state and what to do next; the evidence lives in `docs/reviews/`, the durable
 lessons in `docs/collapse-log.md`, and everything attributed to Max Cogar in
 `OWNER-LEDGER.md`.*
 
-## 2026-08-16 (later) — Blocking finally recorded in Max's words: the oracle whispers by default and BLOCKS in exactly one case (answer-drift). The generated-file block is rejected as agent fixation. Spec blocking rebuild is queued on his one-word confirm.
+## 2026-08-16 (later) — Blocking recorded in Max's words: the oracle whispers by default and BLOCKS in specific cases — answer-drift, AND skill non-conformance (the corrective feature escalates from steering to a block when the agent won't follow his skills and can't justify skipping). The generated-file block is rejected as agent fixation and was struck from RETHINK. Spec blocking rebuild queued.
 
 **The restart + rebuilt spec + review are done** (`docs/reviews/2026-08-16-*`). Then,
 answering the owner questions, Max caught **three** things agents (this session
@@ -28,10 +28,12 @@ for, and BOTH must be represented (an earlier draft buried the second):**
   ignores it, hold the agent until it answers. *"the oracle should block that
   motherfucker until it stops ignoring me and actually answers. just dont make a
   convoluted fucked up way that its done."*
-- **(2) The corrective / steering feature (OL-C2):** structured steering/correcting
+- **(2) The corrective / steering feature (OL-C2) — which escalates to a BLOCK:**
   driven by the oracle knowing Max's **expert dev-tool skills' structure** — when a
-  skill is active, its steps, and what the agent should be doing if it followed the
-  skill. **Advisory steering, NOT a gate/test** (he rejected that emphatically), and
+  skill is active, its steps, and what the agent should be doing. It **steers first,
+  then blocks** when the agent won't follow the skill and *"CANT PROVIDE A REASON FOR
+  SKIPPING A STEP… OR STEERING ISNT WORKING."* What Max rejected is the *pre-emptive*
+  gate (*"take a goddamn test… to proceed"*), NOT this reactive escalation. Still
   **small / personal / explicitly non-primary.** His FULL verbatim words are OL-C2 —
   do not summarize them.
 
