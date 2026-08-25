@@ -29,15 +29,15 @@ Legend: ✅ CONFIRMED (Max signed) · ⏳ PENDING (awaiting Max) · ❌ REJECTED
 
 Max confirmed these are accurately his (*"the rest look good"*), with OL-12
 reworded and separately approved. Load-bearing phrases quoted verbatim; full
-rationale in `RETHINK.md` §12. One item was reopened 2026-08-16 — **OL-P1**, your
-blocking position — because "No hard blocks, none anywhere" turned out to conflict
-with your own `RETHINK.md` §6 (see OL-3 and PENDING).
+rationale in `RETHINK.md` §12. (OL-3's blocking question was resolved 2026-08-16:
+the generated-file block is **rejected** as agent fixation (OL-R4); the one block
+Max wants is **answer-drift** (OL-C3).)
 
 | ID | Claim (confirmed his) | Source |
 |---|---|---|
 | OL-1 | Name is **Context Oracle**, CLI `ctxoracle`. | RETHINK §12.1 (2026-07-13) |
 | OL-2 | Model in the loop, via the host CLI's own model access (no separate key); a deterministic degraded mode is mandatory for air-gap. | RETHINK §12.2 |
-| OL-3 | **Under resolution (2026-08-16) — your own doc contradicts itself here, and your position is recorded in your words, not paraphrased.** `RETHINK.md` §12.3 says *"No hard blocks. None, anywhere."*; `RETHINK.md` §6 says *"A block is allowed only where wrongness is objective and machine-checkable — e.g. hand-editing a file that is provably build output,"* and *"Whether generated file edits block or loudly whisper is an owner decision."* On 2026-08-16 you said *"IM PRETTY SURE I DID ALLOW BLOCKING IN AT LEAST ONE CASE."* Your actual, complete blocking position is being captured verbatim in **OL-P1 (awaiting your statement)** — not asserted here. | RETHINK §12.3 + §6; Max 2026-08-16 |
+| OL-3 | **"No hard blocks. None, anywhere."** (`RETHINK.md` §12.3). Max clarified 2026-08-16 that he said this specifically to **kill the generated-file-blocking idea agents kept fixating on** — *"THIS SHIT IS THE ONLY REASON I SAID NO BLOCKS. I KNEW YOU ALL WOULD GET ABSOLUTELY OBSESSED WITH THAT IDEA AND BUILD A BUNCH OF BULLSHIT I DONT WANT"* — not as a literal ban on everything. That generated-file block is **REJECTED as not his (OL-R4)**. The **one** block/correction Max actually wants is **answer-drift (OL-C3)**, which he says he told us plainly and which got buried. | RETHINK §12.3; Max 2026-08-16 |
 | OL-4 | Sandbox compatibility is required. | RETHINK §12.4 |
 | OL-5 | *(superseded by OL-8)* Main agent only in v1. | RETHINK §12.5 |
 | OL-6 | Two stores — per-project and per-user global — both outside the repo tree; solo scope, no team sharing. | RETHINK §12.6 |
@@ -55,22 +55,18 @@ with your own `RETHINK.md` §6 (see OL-3 and PENDING).
 | OL-R1 | "At most one whisper per event." | Not yours. An agent hardened an **invented budget** into a count of one, manufacturing a false dilemma about which whisper "wins." The budget it was hardened from is **also not yours** (OL-R3); your actual rule is OL-C1 — importance alone decides, no arbitrary limit. | Max, 2026-08-12 (count); 2026-08-13 (budget) |
 | OL-R2 | "The core problem the tool exists to solve." | Not your words — an agent's superlative wrapped around your quote; it propagated to four documents and a review pass. | Max, 2026-08-01 (see collapse-log.md) |
 | OL-R3 | Any per-session or per-trigger token/whisper budget that limits the oracle's operation. | Not yours. An agent introduced it in `RETHINK.md` §5 rationale — never one of your `RETHINK.md` §12 decisions — and it was treated as settled through every review round until you ruled it out (OL-C1). | Max, 2026-08-13 |
-
-## ⏳ PENDING — awaiting Max's own statement (reopened 2026-08-16)
-
-| ID | Awaiting your words | Source |
-|---|---|---|
-| OL-P1 | **Where the oracle may BLOCK (vs. only whisper) — to be stated in your words, not my summary.** On record so far, verbatim: from your `RETHINK.md` §6 — *"A block is allowed only where wrongness is objective and machine-checkable — e.g. hand-editing a file that is provably build output,"* and *"Whether generated file edits block or loudly whisper is an owner decision"*; from you on 2026-08-16 — *"IM PRETTY SURE I DID ALLOW BLOCKING IN AT LEAST ONE CASE,"* and *"if i ask a question, then it needs to be answered. the oracle should block that motherfucker until it stops ignoring me and actually answers. just dont make a convoluted fucked up way that its done."* **Nothing is treated as your settled position until you state it.** This supersedes OL-9's *"advisory only"* as applied to answer-drift. | RETHINK §6; Max 2026-08-16 |
+| OL-R4 | Blocking a hand-edit of a "provably auto-generated / build-output" file (the *"single permitted hard intervention,"* `RETHINK.md` §6). | **Not his — agent fixation.** Max 2026-08-16: *"thats not my example. thats the example you guys have been fixating on and i honestly dont even know what it means."* `RETHINK.md` §6 is agent-written and must NOT be treated as his; his *"No hard blocks"* (OL-3) was the rejection of exactly this. | Max, 2026-08-16 |
 
 ## ✅ CONFIRMED — signed off by Max
 
 | ID | Decision (your words) | Confirmed |
 |---|---|---|
 | OL-C1 | **No arbitrary limit gates the oracle's operation.** Whether to speak is decided solely by whether the information is important: *"either the information its giving the agent is important, or its not. at no point should an arbitrary limit influence how that operates."* Every per-session / per-trigger token or count budget is removed as an operational gate; the bar (importance / marginal value) is the sole arbiter, and a malfunction is surfaced by diagnostics, never by suppressing whispers. | Max, in chat, 2026-08-13 |
-| OL-C2 | **A corrective / steering feature — small, personal, and NOT a primary feature or the oracle's primary role** (his emphasis: *"THIS IS JUST A SMALL FEATURE FOR MY OWN PERSONAL BENEFIT… NOT THE PRIMARY ROLE OF THE ORACLE, NOR… A PRIMARY FEATURE."*). In his words: not fully against corrective actions; the prior hard-no was because agents *"got absolutely fucking obsessed with 'gates'"* and *"making the working agent take a goddamn test to see if it had a good enough plan to proceed,"* which *"was terrible and didn't work."* What he wanted: *"structured steering/correcting with a more deterministic trigger,"* and *"NOT trying to code in piles of rules and shit for when it should trigger."* The trigger is deterministic because the oracle is *"aware of my expert dev tools that I use,"* with *"their structures programmed into the oracle so the oracle would know when they're activated, what steps are within the expert skill being used, what actions the agent should be taking if they actually follow the skills, and so on."* This is the precise version of what the vague OL-9 (process conformance) was reaching for; OL-9's separate "answer drift" element still awaits his ruling. | Max, in chat, 2026-08-13 |
+| OL-C2 | **The corrective / steering feature — Max's exact words, recorded verbatim (NOT summarized), a small / personal / explicitly non-primary feature.** His statement, in full: *"ill probably regret saying this, but im not fully against corrective actions. the ONLY reason I put a hard no on it before was because the other 3 or 4 times I tries building this the agents kept putting way too much focus on that parts and got absolutely fucking obsessed with "gates" and like making the working agent take a goddamn tests to see if it had a good enough plan to proceed. literally every bit if it was terrible and didnt work. what i actually wanted was structured steering/correcting with a more deterministic trigger. and NOT trying to code in piles of rules and shit for when it should trigger. I wanted it to be aware of my expert dev tools that I use, and I wanted their structures to be programmed into the oracle so the oracle would know when they're activated, what steps are within the expert skill being used, what actions the agent should be taking if they actually follow the skills, and so on. BUT I CANNOT STRESS ENOUGG THAT THIS IS JUST A SMALL FEATURE FOR MY OWN PERSONAL BENEFIT!!!!! THIS IS NOT THE PRINARY ROLE OF THE ORACLE, NOR WOULD I EVEN CONSIDER IT A PRIMARY FEATURE!!!!"* — This is **steering / correcting (advisory)**, and explicitly **NOT a gate or a "take a test to proceed"** mechanism (he rejected that). Re-affirmed emphatically 2026-08-16 that it was being ignored. | Max, in chat, 2026-08-13; re-affirmed 2026-08-16 |
+| OL-C3 | **The one case where the oracle should block/correct: answer-drift.** In his words (2026-08-16): *"if i ask a question, then it needs to be answered. the oracle should block that motherfucker until it stops ignoring me and actually answers. just dont make a convoluted fucked up way that its done."* Max says this is the exact, genuinely useful blocking case he gave — and it must not be buried under the rejected generated-file idea (OL-R4). | Max, 2026-08-16 |
+| OL-C4 | **Uncertain hazards: option B.** Asked to choose between (A) warn only when quite sure and (B) also voice uncertain warnings clearly flagged, letting the learning loop demote ones that keep being wrong, Max answered *"B"* (2026-08-16). The wording of B is Claude's; Max's input is the selection. | Max, 2026-08-16 |
 
-*(Confirmed: the RETHINK §12 decisions (OL-1…OL-12, OL-5 superseded) plus OL-C1 and
-OL-C2. **One item is PENDING again as of 2026-08-16: OL-P1** (your blocking
-position), reopened because "No hard blocks, none anywhere" conflicts with your own
-`RETHINK.md` §6. If any entry misstates your words, say so and I'll correct it —
-they are recorded from your messages, not my interpretation.)*
+*(Confirmed: the RETHINK §12 decisions (OL-1…OL-12, OL-5 superseded) plus OL-C1,
+OL-C2, OL-C3, OL-C4. Nothing owner-attributed is pending. If any entry misstates
+your words, say so and I'll correct it — recorded from your messages, not my
+interpretation.)*
