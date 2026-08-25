@@ -55,33 +55,31 @@ I decided these; they're here so you can see how OL-C2/OL-C3 were built and flag
 want different. None is a question you have to answer, and each is either mechanism-forced or a
 build-order call that's mine to make:
 
-- **Answer-drift catches editing-tool writes now, terminal writes partly, and some terminal
-  writes never.** It stops code-writing through the normal editing tools first; writing through
-  the terminal splits — the *obvious* terminal writes (a command whose target source file is right
-  there) are a committed fast-follow, but writes hidden inside a script or interpreter
-  (`python gen.py`, `python -c "…"`) **can't be caught at deny-time by any rule that isn't the
-  model, and the model can't sit on that path** — so those are a permanent gap, backstopped only by
-  the "you claimed done with a question open" flag below. (If you'd rather widen coverage before
-  anything ships, say so; otherwise it proceeds editing-tools-first.)
-- **The block clears on a *substantive* answer, not a *verified-correct* one — because it must.**
-  The tool can't judge whether an answer is *right* without becoming the "pass a test to proceed"
-  gate you rejected. So an agent could clear it with an on-topic answer that isn't quite right;
-  your recourse is to re-ask, and the tool flags on your status screen when an agent claimed "done"
-  with your question still open — **best-effort**, since that flag depends on the same imperfect
-  "did it answer?" read, so it can miss the hardest cases (this is why the flag exists, not a claim
-  it catches every dropped question).
-- **The skill block enforces steps that leave a trace, not pure-thinking steps.** It catches a
-  skipped step that should have produced a file / run / state — including high-value ones like
-  *did you dispatch the mandatory independent review* and *did you read the sources before
-  planning*. It can't catch "did you actually verify this against the source" in the agent's head —
-  nothing observable separates done-right from skipped, so no mechanism (and no person) can. An
-  all-judgment skill gets little from it.
+- **Answer-drift stops the main case: an agent that ignores your question and edits code gets
+  blocked until it answers.** That is the dominant path — a drifting agent writes code through the
+  normal editing tools, and the block catches it. Three narrower slips it can't fully catch, each
+  backstopped by a "you claimed done with a question still open" flag on your status screen: writes
+  hidden inside a script/interpreter (`python gen.py`) — a permanent gap, because catching those at
+  the moment of the write would need the model and the model can't run fast enough there; an agent
+  that silently ends its turn (you just re-ask); and clearing on a *substantive* answer rather than
+  a *verified-correct* one (judging correctness would be the "pass a test to proceed" gate you
+  rejected). (If you'd rather widen coverage before anything ships, say so.)
+- **The skill block stops an agent that skips a step of your expert skills — including the ones
+  that matter most:** did it dispatch the mandatory independent review, did it read the sources
+  before planning. It can't catch a pure-thinking step like "did you *actually* verify this against
+  the source" — nothing observable separates done-right from skipped there, so no mechanism (and no
+  person) can — so an all-judgment skill gets little from it.
 
 ## What to do next (agent-owned)
 
-- **Continue the review discipline to convergence** — apply round-N findings, author
-  self-review, re-run both independent passes, until a round returns only wording/
-  propagation nits (not new conceptual collapses). Nearly there.
+- **The spec has converged** — five rounds of independent expert-review + collapse-hunt, each with
+  author self-review first and all findings applied; the final round's verdict was that the design
+  is sound and its remaining limits are irreducible truths about the problem, not defects. It is a
+  reasonable approval baseline.
+- **Roadmap note — answer-drift is not "done" until Phase B.** Its Phase-A increment is a safe
+  skeleton that rarely fires; the owner value (real OL-C3 precision) is entirely Phase B (the
+  model-maintained question state). Don't let the project stall at Phase A and call the block
+  finished — it would look broken to Max.
 - **Doc re-sync (tracked task).** `RETHINK.md` §12.12 and `docs/specs/spec-context-oracle-phase0.md`
   still describe the superseded Stop-based no-deny blocking model. They need re-syncing to the
   reactive-`PreToolUse`-deny mechanism the v1 spec now defines (the spec's retired-ID note maps the
@@ -89,7 +87,11 @@ build-order call that's mine to make:
   reactive-deny mechanism and points to spec §8.) Out of scope for the spec itself; do it before
   those documents mislead a builder.
 - **Then the Phase A architecture document** (`docs/architecture-context-oracle-phase0.md`),
-  derived from the spec, adversarially reviewed, all findings applied — before any build.
+  derived from the spec, adversarially reviewed, all findings applied — before any build. **At
+  architecture time, re-confirm one load-bearing hooks fact against current source:** that
+  `transcript_path` is written asynchronously / may lag (the whole D-41 lag design rests on it, and
+  the hooks contract has drifted before) — the spec verified it 2026-08-25, but re-verify before
+  building on it.
 
 ## Open external unknown (does not gate v1 design)
 

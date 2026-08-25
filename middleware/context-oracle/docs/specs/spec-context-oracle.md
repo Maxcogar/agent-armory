@@ -446,18 +446,29 @@ its next action is simply allowed; the deny needs no counter, no held turn, no c
       outstanding-question state** asynchronously (classifying each user turn as blocking-or-not and
       each assistant turn as answering-or-not, §11.5), and the `PreToolUse` deny reads that cached
       state synchronously. Phase A is not "the block working"; it is the block's safe skeleton.
-    - **Detecting "answered," and a documented lag `[D-41]`.** The recognizer runs at `PreToolUse`,
-      which does **not** expose `last_assistant_message` (that field is `Stop`/`SubagentStop`-only,
-      used by FR-A2g), so it reads `transcript_path`. The hooks contract **warns** that the
-      transcript "is written asynchronously and may lag behind the in-memory conversation" (verified
-      2026-08-25), so a *just-given* answer may not yet be visible when the next action's
-      `PreToolUse` fires — a real window in which a compliant, just-answered agent could be wrongly
-      denied. This is an **expected** (not merely rare) source of the FR-M2 "deny outlives its
-      condition" fault; the architect must use a lag-tolerant read (e.g. treat an
-      apparently-unanswered question as answered when an assistant text turn is in flight, or
-      re-check before the deny stands). A text answer is never itself a tool action, so it is never
-      *directly* denied — the way out exists, but reading that it happened is lag-bounded, not
-      instant.
+    - **Detecting "answered," the lag window, and its lean `[D-41]`.** The recognizer runs at
+      `PreToolUse`, which does **not** expose `last_assistant_message` (Stop/SubagentStop-only,
+      FR-A2g), so it reads the cached state (§11.5). Two lags open a window where the cache is stale:
+      the hooks contract warns `transcript_path` "is written asynchronously and may lag behind the
+      in-memory conversation" (verified 2026-08-25), **and** — the deeper source — the async
+      **classifier may not yet have run** for the newest turn, so cache staleness is about
+      *classifier scheduling*, not only transcript I/O. In that window the state can be wrong either
+      way: a just-answered question still marked open, or a fresh question not yet marked.
+      **The lag-window lean is set here, and it is the *opposite* of the steady-state clear-axis
+      lean (FR-B5), on purpose.** In steady state the clear-axis errs toward *clearing* (don't strand
+      a compliant answerer). **In the lag window the block must err toward *denying / holding*, not
+      clearing** — because the case it exists to catch is the agent that narrates ("let me sort that
+      out") and then writes code, and agents narrate before nearly every tool call, so *"assume
+      in-flight assistant text is an answer"* would systematically **miss the drifter** (the silent
+      OL-C3 harm, with no recovery). The asymmetry that justifies the lean: a **wrongful** lag-window
+      deny **self-recovers in one round-trip** — the reason "answer Max first" returns to the model,
+      the classifier catches up, the next write is allowed, and the event is a self-detected FR-M2
+      fault surfaced to Max; a **missed** block does not recover at all. So the deterministic
+      deny-time re-check is *"is there assistant text newer than the last classified turn? → **hold**
+      the deny pending re-classification (do **not** assume answered)"* — never *"newer text ⇒ treat
+      as answered."* A text answer is never itself a tool action, so it is never *directly* denied;
+      the way out exists, but the block does not *pre-clear* on the mere presence of unclassified
+      text.
     - **Multiple questions** are tracked as a **set of outstanding questions**, each cleared
       independently; a partial answer (one of two) does **not** release the block for the rest
       (FR-B5).
@@ -573,6 +584,12 @@ its next action is simply allowed; the deny needs no counter, no held turn, no c
       answer"* — an over-strict clear-axis would relabel a compliant agent as an FR-M2 "deny
       outlives its condition" fault, which is a fault, not a design goal. If a substantive answer is
       inadequate, Max's recourse is to re-ask (his stated posture), not the oracle's to perfect.
+      **This is the *steady-state* lean, when the answer has been classified. It must NOT be carried
+      into the lag window** (where the newest turn is not yet classified): there the lean **reverses**
+      to *hold/deny, don't pre-clear on unclassified text* (FR-B1's lag clause `[D-41]`), because
+      "assume in-flight text is an answer" would miss the narrate-then-write drifter — the OL-C3 harm.
+      Steady-state protects the compliant answerer; the lag window protects against the drifter; the
+      two are different regimes, not one lean applied twice.
       **This bar is mechanism-forced, and the boundary is surfaced for the owner's awareness.**
       OL-C3 says block until the agent *"actually answers"*; the realized bar is *"substantively
       addresses,"* not *"verified-correct."* The gap is **unavoidable**, not a chosen looseness: a
@@ -1078,12 +1095,18 @@ numbers are set from Phase A's exit data.
   low-coverage and *not* "the block working"; **Phase B lifts precision to OL-C3 level by
   model-maintaining the outstanding-question state asynchronously** (never on the synchronous deny
   path — the deny reads cached state, NF-1). AC-12 is corrected to claim only the deterministic
-  parts model-free; AC-2a-ii's substantive-vs-deferral discrimination is a Phase-B criterion. This
-  also owns the documented `transcript_path` async-lag as an expected FR-M2 fault source, and splits
-  FR-B2's contract-verified fact (reason returned to the model) from the model-behavior *hope* (it
-  answers rather than retries), which is measured (deny-loop signal, FR-M4), not contract-guaranteed.
-  *Job in one line:* the honest-limits discipline (D-40) had named which *writes* get caught but not
-  whether the block can *tell it should fire at all* model-free — D-41 names that layer too.
+  parts model-free; AC-2a-ii's substantive-vs-deferral discrimination is a Phase-B criterion.
+  **The cache is eventually-consistent, and its lag has *two* sources — `transcript_path`'s
+  documented async-write lag *and* the deeper one, *classifier scheduling* (the async model may not
+  have run for the newest turn)** — both owned as an expected FR-M2 fault source. **The lag-window
+  lean is set opposite to the steady-state clear-axis: hold/deny, don't pre-clear on unclassified
+  text (FR-B1)** — because the wrongful deny of a just-answered agent self-recovers in one
+  round-trip while a missed drifter does not, and "assume in-flight text answers" would miss the
+  narrate-then-write agent the block exists to catch. D-41 also splits FR-B2's contract-verified fact
+  (reason returned to the model) from the model-behavior *hope* (it answers rather than retries),
+  measured by the deny-loop signal (FR-M4), not contract-guaranteed. *Job in one line:* the
+  honest-limits discipline (D-40) had named which *writes* get caught but not whether the block can
+  *tell it should fire at all* model-free — D-41 names that layer, its phasing, and its lag lean.
 
 ## 13. What is genuinely open
 
