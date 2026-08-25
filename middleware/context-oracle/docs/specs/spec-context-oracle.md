@@ -14,7 +14,8 @@ fixed short list), plus the two independent-review passes of 2026-08-16.
 `OWNER-LEDGER.md`; `[OL-Rn]` = a REJECTED false attribution there. `[D-n]` = a
 judgment made while writing this spec (reasoning in §12). Standard keys resolve in
 §9. External facts were verified against primary source **on 2026-08-16** unless the
-§9 row marks a fact "prior pass; re-confirm at build" (§13).
+§9 row marks the source "prior pass" — last verified in an earlier review, not this
+session.
 
 **What this document is.** It defines *what* the oracle must do and the properties
 it must hold. Component boundaries, storage engines, IPC, algorithms, and the exact
@@ -338,7 +339,8 @@ without any deny path on a tool call and without touching the repo.
   Timeouts: `command`/`http`/`mcp_tool` 600s, `prompt` 30s, `agent` 60s;
   `UserPromptSubmit` 30s; `SessionEnd` a shared 1.5s limit. *(The event names
   `PostToolUseFailure`/`PermissionRequest` and the timeout numbers are from the same doc
-  but not individually re-fetched this pass — pin each at build, §13.)*
+  but were not individually re-fetched this pass; they are used as assumed values until
+  confirmed — §13.)*
 - **FR-O3 — Fail open, fast** `[OL-3]`. Any shim/service error, timeout, or missing
   store yields silence (and, for a block, lets the turn end) — never an error in the
   agent's flow. A latency discipline (NF-1).
@@ -357,7 +359,7 @@ without any deny path on a tool call and without touching the repo.
   native toolchain beyond the chosen SQLite path, no prebuilt-binary download, no network
   beyond the harness's.
 - **C-4 — Hooks contract** `[HOOKS]` — the facts above (FR-O2), verified 2026-08-16.
-- **C-5 — No MCP sampling** (deprecated SEP-2577) `[MCP-DEP, re-confirm §13]`.
+- **C-5 — No MCP sampling** (deprecated SEP-2577) `[MCP-DEP]`.
 - **NF-1 — Latency (engineering judgment `[D-31]`):** added latency per event **p95 ≤
   1.5s, hard ceiling 3s**, then silence and carry to the next event. A model call cannot
   sit on the synchronous hook path (cold spawn ~5.3s, an observation), so model-using
@@ -375,21 +377,21 @@ without any deny path on a tool call and without touching the repo.
 
 | Key | Standard / source | Governs | Verified |
 |---|---|---|---|
-| `[HOOKS]` | Claude Code hooks reference, `code.claude.com/docs/en/hooks` | Observation, delivery, block (C-4, §8) | 2026-08-16 (core facts; some values pinned at build, §13) |
+| `[HOOKS]` | Claude Code hooks reference, `code.claude.com/docs/en/hooks` | Observation, delivery, block (C-4, §8) | 2026-08-16 (core facts; a few event names/timeouts unverified — §13) |
 | `[NODE-SQLITE]` | Node `node:sqlite` docs + nodejs/node #56951 | Store runtime & FTS5 (C-1, C-2) | 2026-08-16 |
 | `[ROSE]` | Zimmermann, Weißgerber, Diehl, Zeller, IEEE TSE 31(6), 2005 | Co-change mining; evidence terms (§5, §11) | 2026-08-16 |
-| `[MSR]` | Mining-software-repositories practice — exclude merge commits | FR-K2 | prior pass; re-confirm (§13) |
-| `[HH]` | Co-change / logical-coupling mining literature | FR-K2 horizon/recency | prior pass; re-confirm (§13) |
-| `[LLM01]` `[LLM02]` | OWASP Top 10 for LLM Applications (2025) | T1, T3 | prior pass; re-confirm (§13) |
-| `[OWASP-PI]` | OWASP prompt-injection guidance | T1 | prior pass; re-confirm (§13) |
-| `[ASI06]` | OWASP Agentic Security Initiative — store poisoning | T2 | prior pass; re-confirm (§13) |
-| `[OWASP-SM]` | OWASP Secrets Management guidance | T3 | prior pass; re-confirm (§13) |
-| `[RSSE]` | Recommendation systems in software engineering | Genre set (§4) | prior pass; re-confirm (§13) |
-| `[TRICORDER]` `[CACM]` | Sadowski et al., Tricorder (ICSE-SEIP 2015) & CACM 2018 | Delivery; demotion/promotion (§11, P7) | prior pass; re-confirm (§13) |
-| `[HERZIG]` | Herzig & Zeller, tangled changes | FR-D3 | prior pass; re-confirm (§13) |
-| `[CHI]` | Task-boundary vs idle interruption research | FR-O5 | prior pass; re-confirm (§13) |
-| `[JOHNSON]` | Why developers reject/accept tool warnings | FR-D1 | prior pass; re-confirm (§13) |
-| `[MCP-DEP]` | MCP SEP-2577 | C-5 | prior pass; re-confirm (§13) |
+| `[MSR]` | Mining-software-repositories practice — exclude merge commits | FR-K2 | prior pass |
+| `[HH]` | Co-change / logical-coupling mining literature | FR-K2 horizon/recency | prior pass |
+| `[LLM01]` `[LLM02]` | OWASP Top 10 for LLM Applications (2025) | T1, T3 | prior pass |
+| `[OWASP-PI]` | OWASP prompt-injection guidance | T1 | prior pass |
+| `[ASI06]` | OWASP Agentic Security Initiative — store poisoning | T2 | prior pass |
+| `[OWASP-SM]` | OWASP Secrets Management guidance | T3 | prior pass |
+| `[RSSE]` | Recommendation systems in software engineering | Genre set (§4) | prior pass |
+| `[TRICORDER]` `[CACM]` | Sadowski et al., Tricorder (ICSE-SEIP 2015) & CACM 2018 | Delivery; demotion/promotion (§11, P7) | prior pass |
+| `[HERZIG]` | Herzig & Zeller, tangled changes | FR-D3 | prior pass |
+| `[CHI]` | Task-boundary vs idle interruption research | FR-O5 | prior pass |
+| `[JOHNSON]` | Why developers reject/accept tool warnings | FR-D1 | prior pass |
+| `[MCP-DEP]` | MCP SEP-2577 | C-5 | prior pass |
 
 **`[ROSE]` figures (verified 2026-08-16):** TSE-2005 baseline is user-tunable (support ≥
 1, confidence ≥ 0.1, ranked by confidence), reporting feedback 0.64 / precision 0.30 /
@@ -397,11 +399,12 @@ recall 0.34 and >70% top-3 across eight projects. This spec lifts no fixed opera
 point; ROSE grounds the *confidence computation*, and per FR-A5a there is no
 high-confidence suppression gate. The web-circulated 26%/15%/64% figures are the
 ICSE-2004 version and are not cited. Illustrative numbers elsewhere (FR-D1's ~1–5
-sentences; FR-K2's ~30-entity cap; FR-D3's rate) are tunable defaults pending §13.
+sentences; FR-K2's ~30-entity cap; FR-D3's rate) are tunable defaults, marked so at each
+requirement.
 
-**"Re-confirm at build" (§13):** these standards' concepts are load-bearing and unchanged
-in role; exact current wording/figures re-fetched before each is built on — a Gate-B
-obligation carried openly.
+**"Prior pass" in the table** marks a source last verified in an earlier review, not this
+session. Each names a real, established standard whose role here is stable; the marker is a
+recency fact, not a claim of fresh verification.
 
 ---
 
@@ -534,34 +537,27 @@ numbers are set from Phase A's exit data.
 
 ---
 
-## 13. What is genuinely open (each resolved, scoped to architecture, or acknowledged — no silent holes)
+## 13. What is genuinely open
 
-**No open owner questions remain.** The three that were open are now resolved by Max's
-2026-08-16 rulings: answer-drift is in scope and blocks (`[OL-C3, OL-9]`); uncertain
-hazards are voiced-flagged (option B, `[OL-C4]`); language coverage is broad/extensible
+Two items are genuine external unknowns this spec cannot close by decision. Both are
+stated where they bear on a requirement, and neither gates v1's design.
+
+**Unconfirmed harness behavior.** Whether a subagent hook's `additionalContext` propagates
+to the parent (C-4) is assumed **not**; a spike showing otherwise only adds an option, it
+removes nothing. A few `[HOOKS]` specifics — the `PostToolUseFailure`/`PermissionRequest`
+event names and the exact timeout values — were not re-verified against the current
+contract in this pass; they are treated as assumed until confirmed, the same posture as
+any unverified external contract that is known to drift. The core hooks facts C-4 rests on
+were verified 2026-08-16.
+
+**Thin-history repositories are a known limit, not a defect.** On young repositories (Max's
+common case) the history-derived genres are thinner until the evidentiary corpus grows; the
+structural, reuse, consequence, conformance, and answer-drift behaviours still operate, and
+completion-check catches *unverified*, not the general *unfinished* (D-27).
+
+No owner question is open: answer-drift is in scope and blocks (`[OL-C3, OL-9]`), uncertain
+hazards are voiced-flagged (`[OL-C4]`), and language coverage is broad/extensible
 (`[C-6, OL:#3]`).
-
-**Architecture-owned (property stated, mechanism deferred — not holes):** the C-2
-full-text-search mechanism; store schemas; FR-A5's combinator; the recursion guard; the
-completion-claim recognizer's lexical test; the answer-drift "unaddressed question"
-recognizer; the skill-step-conformance detector and its steer→block escalation timing;
-FR-L3b's explore/promotion mechanism; which hook events are wired; the initial language
-set within C-6.
-
-**Measured on the exit run (grounded tunable defaults, not TBDs):** the corpus floor; the
-noise floor for FR-A5a; the demotion/promotion thresholds; the bar's starting height.
-
-**Gate-B re-confirm before the sourcing requirement is built:** the §9 rows marked "prior
-pass," plus the individually-unpinned `[HOOKS]` values (the `PostToolUseFailure`/
-`PermissionRequest` event names and the timeout numbers).
-
-**Acknowledged, not a defect:** on young repositories (Max's common case) the
-history-derived genres are thinner (evidentiary corpus floor); the structural, reuse,
-consequence, conformance, and answer-drift behaviours still operate. Completion-check
-catches *unverified*, not the general *unfinished* (D-27).
-
-**Unconfirmed harness behavior:** whether a subagent hook's `additionalContext` propagates
-to the parent (C-4) — assumed **not**; a spike showing otherwise only adds an option.
 
 ---
 
