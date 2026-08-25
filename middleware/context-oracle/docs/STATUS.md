@@ -52,15 +52,20 @@ content there attributed to Max that is not in the ledger CONFIRMED, it is suspe
 
 **What to do next:**
 
-1. **On Max's one-word confirm** ("whisper by default; block only to stop the agent
-   ignoring your question"), **rebuild the spec's blocking model** on OL-C3: pull the
-   false "no blocks anywhere / no deny path exists structurally" wording (spec §2.2,
-   P2, FR-O4) and the generated-file block; add the single answer-drift block as a
-   simple Stop-continuation hold, non-convoluted; keep everything else advisory.
-2. **Fold in OL-C4 (option B)** and **#3 (broad/extensible language coverage).**
-3. **DONE 2026-08-16:** the generated-file block was struck from `RETHINK.md`
-   (§6 + §12.3) — it should never have been left in "pending his word."
-4. **Then a confirmation review, then the Phase A architecture document.**
+1. **DONE 2026-08-16 — the spec (`docs/specs/spec-context-oracle.md`) was rebuilt on
+   Max's actual words:** advisory by default; **blocks** for answer-drift (OL-C3) and
+   skill non-conformance via steer→block (OL-C2); NO pre-emptive gate, NO generated-file
+   block; uncertain hazards voiced-flagged (OL-C4); broad/extensible language coverage
+   (C-6). See spec §2, §4, §8, §11.4.
+2. **DONE 2026-08-16:** the generated-file block was struck from `RETHINK.md` (§6 + §12.3).
+3. **Next: an independent review of this spec revision** (both axes), all findings
+   applied — the blocking model is a large change and has not been attacked yet.
+4. **Then the Phase A architecture document.**
+
+**Offered to Max, unanswered — agent's to do when he says:** (a) sweep the rest of
+`RETHINK.md` for other fabrications attributed to him; (b) change the rule so only the
+ledger is authoritative for owner claims; delete the superseded
+`spec-context-oracle-phase0.md`.
 
 **Standing rule reinforced this session:** three owner-attribution falsifications
 were caught by Max in one session, two of them baked into his own RETHINK doc by
