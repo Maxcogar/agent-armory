@@ -66,14 +66,10 @@ Max wants is **answer-drift** (OL-C3).)
 | OL-C3 | **A case where the oracle should block: answer-drift** (the other is skill non-conformance, OL-C2). In his words (2026-08-16): *"if i ask a question, then it needs to be answered. the oracle should block that motherfucker until it stops ignoring me and actually answers. just dont make a convoluted fucked up way that its done."* A genuinely useful blocking case Max gave — must not be buried under the rejected generated-file idea (OL-R4). | Max, 2026-08-16 |
 | OL-C4 | **Uncertain hazards: option B.** Asked to choose between (A) warn only when quite sure and (B) also voice uncertain warnings clearly flagged, letting the learning loop demote ones that keep being wrong, Max answered *"B"* (2026-08-16). The wording of B is Claude's; Max's input is the selection. | Max, 2026-08-16 |
 
-## ⏳ PENDING — awaiting Max's explicit sign-off; NOT yet usable as owner authority
-
-| ID | Proposed claim (your exact words) | Source | Status |
-|---|---|---|---|
-| OL-P1 | **Language coverage.** Your verbatim answer when asked what languages the oracle should cover: *"you dont know all my projects so you cant claim what most of them are. and i dont know what it should cover. but probably more than just lik 3 of them."* This was given in your 2026-08-16 message (answer #3, same message as the OL-C4 "B" selection). A prior agent treated it as confirmed and cited it in the spec as `[OL:#3]` — **a key that never existed in this ledger.** That citation has been removed; the spec's language-coverage constraint (C-6/D-15) now stands on architect judgment + `[OL-C1]`, and does **not** attribute the choice to you. This entry preserves your actual words so you can decide whether to CONFIRM them as an owner decision. | Max, in chat, 2026-08-16 | ⏳ Awaiting your "confirmed" / correction |
-
 *(CONFIRMED: the RETHINK §12 decisions (OL-1…OL-12, OL-5 superseded) plus OL-C1,
-OL-C2, OL-C3, OL-C4. PENDING: OL-P1 (language coverage) — recorded here after an
-independent review on 2026-08-25 caught it cited in the spec under a fabricated
-`[OL:#3]` key with no ledger entry. If any entry misstates your words, say so and I'll
-correct it — recorded from your messages, not my interpretation.)*
+OL-C2, OL-C3, OL-C4. Nothing is pending — when Max was asked which languages the oracle
+should cover he answered that he does not know and it is not his to decide ("i dont know
+what it should cover. but probably more than just lik 3 of them"), i.e. he handed the
+choice to the agent; which languages is therefore a design decision, and the spec states
+it as a property (C-6), not as an owner question. If any entry misstates your words, say so
+and I'll correct it — recorded from your messages, not my interpretation.)*

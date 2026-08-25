@@ -411,20 +411,15 @@ touch the repo.
 - **C-4 — Hooks contract** `[HOOKS]` — the facts above (FR-O2), verified 2026-08-25.
 - **C-5 — No MCP sampling** (deprecated SEP-2577) `[MCP-DEP]`.
 - **NF-1 — Latency (engineering judgment `[D-31]`):** added latency per event **p95 ≤
-  1.5s, hard ceiling 3s**, then silence and carry to the next event. A model call cannot
-  sit on the synchronous hook path — cold model-spawn cost is **assumed to be several
-  seconds and is validated by the Phase-0 model-piggyback spike CLAUDE.md already mandates**
-  (not yet a recorded measurement) — so model-using genres run off it (§11). The numbers are
-  `[D-31]`, not the owner's; the fail-open behaviour is `[OL-3]`.
-- **C-6 — Language coverage is broad and extensible, not a fixed short list `[D-15]`.**
-  A hardcoded N-language list is an anti-feature: the mission is language-general (a
-  decision-changing fact is not English-only, nor tied to three languages), and a fixed
-  cap is an **arbitrary limit of exactly the kind `[OL-C1]` disfavours**. So the oracle
-  reads a broad set of languages behind a **language-agnostic interface**, and adding a
-  language is a configuration/extension act, not a redesign. The concrete initial set is
-  the architect's to maximise within the interface. *(This is an architect judgment
-  `[D-15]`, not an owner decision — see the PENDING language-coverage item in
-  `OWNER-LEDGER.md` for Max's own words on the subject, which are not yet CONFIRMED.)*
+  1.5s, hard ceiling 3s**, then silence and carry to the next event. A model call's latency
+  is on the order of seconds — far over this budget — so it cannot sit on the synchronous
+  hook path; model-using genres run off it (§11). The numbers are `[D-31]`, not the owner's;
+  the fail-open behaviour is `[OL-3]`.
+- **C-6 — Language coverage is broad and extensible, not a fixed short list `[OL-C1, D-15]`.**
+  The oracle reads a broad set of languages behind a **language-agnostic interface**, and
+  adding a language is a configuration/extension act, not a redesign. A hardcoded short list
+  is out: the mission is language-general (a decision-changing fact is not English-only), and
+  a fixed cap is an arbitrary limit of the kind `[OL-C1]` bars.
 
 ---
 
@@ -580,9 +575,7 @@ numbers are set from Phase A's exit data.
 - **D-15 / C-6 — Language coverage is broad and extensible, not a hardcoded short list.**
   *Job:* keep the tool's reach general enough to serve the mission across languages instead
   of being scoped to an arbitrary few. Grounded on the mission (language-general) and the
-  anti-arbitrary-limit principle `[OL-C1]`; a fixed short list is an architect-rejected
-  anti-feature, not an owner decision. Max's own words on the subject are recorded PENDING
-  in `OWNER-LEDGER.md` (not CONFIRMED); the spec does not attribute this choice to him.
+  anti-arbitrary-limit principle `[OL-C1]`.
 - **D-16 — Per-consumer subagent delivery** `[OL-8, HOOKS]`.
 - **D-18 — Equal genre base weight; decision-impact carries no intent term because intent
   enters via the trigger (§5.1).**
@@ -633,11 +626,8 @@ the history-derived genres are thinner until the evidentiary corpus grows; the s
 reuse, consequence, conformance, and answer-drift behaviours still operate, and
 completion-check catches *unverified*, not the general *unfinished* (D-27).
 
-No CONFIRMED owner question is open: answer-drift is in scope and blocks (`[OL-C3]`),
-uncertain hazards are voiced-flagged (`[OL-C4]`). **One owner item is PENDING, not open in
-the spec:** Max's own words on language coverage are recorded PENDING in `OWNER-LEDGER.md`
-awaiting his sign-off; the spec does not depend on them — C-6 stands on architect judgment
-`[D-15]` and `[OL-C1]` regardless of how that ballot resolves.
+No owner question is open: answer-drift is in scope and blocks (`[OL-C3]`), uncertain
+hazards are voiced-flagged (`[OL-C4]`), and language coverage is broad and extensible (C-6).
 
 ---
 
