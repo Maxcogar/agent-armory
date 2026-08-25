@@ -104,10 +104,6 @@ that is ignored (`RETHINK.md` §2.3).
 - **The generated-file block** — blocking a hand-edit of a provably-generated /
   build-output file. Permanently out; it was an agent fixation Max never asked for and
   it was struck from `RETHINK.md` `[OL-R4]`.
-- **Any global limit that gates operation** — no per-session or per-trigger token or
-  whisper budget, no per-event count cap, no whisper-rate throttle. Whether to *speak*
-  is decided solely by relevance (§5); a malfunctioning oracle is caught by
-  self-observability (§6), never by silencing genuine whispers `[OL-C1]`. Permanent.
 - **Separate credentials of any kind** `[OL-7]`. Permanent.
 - **Writes inside the repository tree**, except the hook-wiring `ctxoracle init`
   installs `[OL-3, D-9]`.
@@ -126,7 +122,7 @@ that is ignored (`RETHINK.md` §2.3).
 
 - **P1 — Silence is the default**, yielding the moment the oracle knows a
   decision-changing fact the agent lacks (`RETHINK.md` §5). A starting posture, never
-  a quota.
+  a target it has to hit.
 - **P2 — Advisory by default; blocking only reactively, in the confirmed cases.** Most
   interventions are whispers the agent may ignore; ignored advice is de-noised
   empirically (P7), not gated. Blocking exists only for answer-drift and skill
@@ -195,9 +191,8 @@ FR-A2l); the rest are advisory whispers.
 
 ## 5. When the oracle speaks — relevance, and the quality bar
 
-One decision procedure for whether to speak, in two parts; neither is a budget, cap,
-count, or throttle `[OL-C1]`. (The two *block* cases are separate — §8 — and are
-triggered by their own conditions, not by this bar.)
+One decision procedure for whether to speak, in two parts. (The two *block* cases are
+separate — §8 — and are triggered by their own conditions, not by this bar.)
 
 ### 5.1 Relevance comes from the moment (the trigger)
 
@@ -222,8 +217,7 @@ file the agent is not touching does not fire.
 ### 5.2 The quality bar — which real candidates are worth the sentence
 
 Among candidates the trigger has made relevant, the bar decides which are *worth
-saying* — a **quality/marginal-value filter, not a relevance oracle and not a rationing
-device** `[D-6bar]`.
+saying* — a **quality/marginal-value filter, not a relevance oracle** `[D-6bar]`.
 
 - **FR-A5 — The bar (a conjunction, not a fixed formula).** A candidate is spoken when
   it is **jointly** (a) backed by real evidence (**confidence**), (b) materially
@@ -231,8 +225,9 @@ device** `[D-6bar]`.
   per-candidate properties — edit-vs-read, blast radius, zone — carrying **no genre
   term** `[D-18, P9]`), and (c) **not cheaply self-serve** (**marginal value** `[P5]`).
   None laundered by another being high. **Every candidate meeting the conjunction is
-  spoken; nothing suppresses or drops one, and there is no per-event count or budget
-  `[OL-C1]`.** The numeric combinator is the architect's `[D-6bar]`.
+  spoken; nothing suppresses or drops one — the bar is the only thing that decides
+  whether the oracle speaks `[OL-C1]`.** The numeric combinator is the architect's
+  `[D-6bar]`.
 - **FR-A5a — Uncertain hazards are spoken, flagged — not floored out `[OL-C4]`.** The
   warning/hazard genres do **not** require high confidence to fire. Asked to choose
   between warning only when quite sure (A) and also voicing uncertain warnings clearly
@@ -247,11 +242,9 @@ device** `[D-6bar]`.
   arbitrary limit `[OL-C1]` bans) `[D-7, D-8]`. On a young repo (Max's common case) the
   history genres are thinner; the structural, reuse, consequence, conformance, and
   answer-drift behaviours still operate (§13).
-- **The bar ships high and is calibrated, never rationed.** Adjusted in both directions
-  against measured false-fire and value — the calibration input from Phase A is the human
-  CLI correction (FR-D4/FR-L6); automated demotion/promotion is Phase C. Raising it to
-  track measured quality is calibration; raising it to hit a quota is forbidden `[OL-C1,
-  D-6bar]`.
+- **The bar ships high and is calibrated.** Adjusted against measured false-fire and
+  value — the calibration input from Phase A is the human CLI correction (FR-D4/FR-L6);
+  automated demotion/promotion is Phase C `[D-6bar]`.
 
 ---
 
@@ -265,10 +258,6 @@ device** `[D-6bar]`.
   corruption, index staleness, model path down, whispers produced-but-undelivered, and
   **a block that failed to lift** (a block that outlives its condition is itself a
   failure to surface — it must never strand the agent).
-- **FR-M2a — Volume is *reported*, not capped** `[OL-C1, D-29]`. Per-genre delivery
-  volume and measured false-fire rate are reported so a mis-calibration is visible and
-  fixable (by calibrating the bar); a diagnostic signal, never a control, making no
-  claim of a "correct rate."
 - **FR-M3 — Correct silence is announced** `[D-22]`.
 - **FR-M4 — `ctxoracle status`** — plain-language health, whisper count, per-genre
   volume, false-fire rate, blocks raised/lifted, active suppressing condition `[OL-10]`.
@@ -345,18 +334,14 @@ without any deny path on a tool call and without touching the repo.
   `Stop`/`SubagentStop` expose `last_assistant_message` and can both attach
   `additionalContext` and continue — the block affordance (FR-B1). Hooks fire inside
   subagents carrying `agent_id`/`agent_type` (parent propagation **unconfirmed**, not
-  assumed — §13). Output strings cap at 10,000 chars (overflow → file + preview).
+  assumed — §13).
   Timeouts: `command`/`http`/`mcp_tool` 600s, `prompt` 30s, `agent` 60s;
-  `UserPromptSubmit` 30s; `SessionEnd` a shared 1.5s budget. *(The event names
-  `PostToolUseFailure`/`PermissionRequest`, the timeout numbers, and the 10k cap are
-  from the same doc but not individually re-fetched this pass — pin each at build, §13.)*
-- **FR-O2a — Overflow preserves the no-suppression guarantee** `[OL-C1, D-30]`. If
-  bar-meeting whispers for one event exceed the 10k cap, deliver what fits and **defer
-  the remainder to the next delivery-capable event, logged** — never a silent
-  truncation.
+  `UserPromptSubmit` 30s; `SessionEnd` a shared 1.5s limit. *(The event names
+  `PostToolUseFailure`/`PermissionRequest` and the timeout numbers are from the same doc
+  but not individually re-fetched this pass — pin each at build, §13.)*
 - **FR-O3 — Fail open, fast** `[OL-3]`. Any shim/service error, timeout, or missing
   store yields silence (and, for a block, lets the turn end) — never an error in the
-  agent's flow. A *latency* discipline, not an output limit (NF-1).
+  agent's flow. A latency discipline (NF-1).
 
 **Constraints fixed by circumstance:**
 
@@ -495,9 +480,8 @@ obligation carried openly.
 - **Phase A — Deterministic core.** Model-free genres (Orientation entry-points,
   Coupling, Reuse, Consequence, Warning ⚠ with FR-A5a flags, Completeness,
   Verification/completion-check), the **answer-drift block** (deterministic — detect an
-  unaddressed user question, hold via continuation), the stores/index/miner, delivery
-  (incl. FR-O2a), self-observability, security, and the human-correction calibration
-  channel. Exits by producing measured whisper/block + false-fire data on a real repo.
+  unaddressed user question, hold via continuation), the stores/index/miner, delivery,
+  self-observability, security, and the human-correction calibration channel. Exits by producing measured whisper/block + false-fire data on a real repo.
 - **Phase B — Model-in-the-loop genres.** Assumption-check, Steering, Answer, and the
   broader completion "unfinished" judgment — off the synchronous path (NF-1).
 - **Phase C — Automated learning loop + the corrective/skill feature (FR-C1–C3, the
@@ -541,17 +525,12 @@ numbers are set from Phase A's exit data.
 - **D-26 — Orientation delivers entry-points, not task-shape landmines.**
 - **D-27 — Verification catches "claimed-done-but-test-not-run"; the general "unfinished"
   case routes to Phase B**, an honest limit on OL-12.
-- **D-29 — Volume is reported, not capped** (FR-M2a).
-- **D-30 — Substrate overflow defers, never silently truncates** (FR-O2a).
 - **D-31 — Latency numbers (1.5s/3s) are an engineering judgment**, not the owner's.
 - **D-32 — The blocking model is exactly Max's two cases, realised via the harness
   Stop-continuation, always reactive and self-lifting (§8, FR-B1–B3).** *Job:* give the
   oracle teeth in the two situations Max asked for without becoming the pre-emptive gate
   he rejected. What is rejected — the pre-emptive "pass a test to proceed" gate `[OL-C2]`
   and the generated-file block `[OL-R4]` — stays structurally impossible (FR-B3).
-- **The budget is gone** `[OL-C1]` — no token/whisper budget, per-event count, or rate
-  throttle. The two correct deletions tangled in the old budget language are preserved: no
-  "at most one whisper per event" (OL-R1) and no "warnings get priority" ranking.
 
 ---
 
@@ -566,15 +545,15 @@ hazards are voiced-flagged (option B, `[OL-C4]`); language coverage is broad/ext
 full-text-search mechanism; store schemas; FR-A5's combinator; the recursion guard; the
 completion-claim recognizer's lexical test; the answer-drift "unaddressed question"
 recognizer; the skill-step-conformance detector and its steer→block escalation timing;
-the FR-O2a overflow carry; FR-L3b's explore/promotion mechanism; which hook events are
-wired; the initial language set within C-6.
+FR-L3b's explore/promotion mechanism; which hook events are wired; the initial language
+set within C-6.
 
 **Measured on the exit run (grounded tunable defaults, not TBDs):** the corpus floor; the
 noise floor for FR-A5a; the demotion/promotion thresholds; the bar's starting height.
 
 **Gate-B re-confirm before the sourcing requirement is built:** the §9 rows marked "prior
 pass," plus the individually-unpinned `[HOOKS]` values (the `PostToolUseFailure`/
-`PermissionRequest` event names, the timeout numbers, the 10k cap).
+`PermissionRequest` event names and the timeout numbers).
 
 **Acknowledged, not a defect:** on young repositories (Max's common case) the
 history-derived genres are thinner (evidentiary corpus floor); the structural, reuse,
@@ -609,9 +588,9 @@ clean session.**
   worked), it blocks; when the agent gives a reason or resumes the step, the block lifts.
   It never blocks pre-emptively (before a deviation) and never as a "pass a test to
   proceed" gate.
-- **AC-3 (relevance+bar, no budget → FR-A5, OL-C1).** Two candidates meeting the bar at
-  one event are both delivered; no configuration suppresses a bar-meeting whisper by
-  count/token/rate; a long session never hits a mid-session cutoff.
+- **AC-3 (relevance+bar → FR-A5, OL-C1).** Two candidates meeting the bar at one event
+  are both delivered; nothing caps how much the oracle says over a session — the bar is
+  the only thing that decides whether it speaks.
 - **AC-3a (uncertain hazard spoken → FR-A5a, FR-D1, OL-C4).** A real but low-confidence
   hazard fires **with its confidence flagged**, not silence; a below-noise-floor
   coincidence does not fire.
@@ -656,8 +635,6 @@ clean session.**
   a redesign; nothing is hardcoded to a fixed three.
 - **AC-18 (exit run produced evidence → §1, FR-M4).** The exit run's `status` reports its
   whisper/block count; a zero-result run does not pass.
-- **AC-19 (overflow defers, never truncates → FR-O2a, OL-C1).** Bar-meeting whispers
-  exceeding the 10k cap defer the remainder (logged); none silently dropped.
 - **AC-20 (cold container + FTS mechanism → C-1, C-2, C-3).** Install + first index in a
   sandbox with no native toolchain beyond the chosen SQLite path; the C-2 full-text-search
   mechanism functions under those constraints.
