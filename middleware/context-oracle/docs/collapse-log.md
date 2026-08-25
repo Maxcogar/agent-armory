@@ -56,6 +56,27 @@ opening the source it points at: a citation key never resolved to a row, an
 owner-fact never traced to a decision, a premise never fetched. **The owner-ledger
 discipline is not "cite `[OL-…]`"; it is "the row exists and says this."**
 
+**Process failure that made all of the above reach a reviewer (same day).** Class:
+**posture.** The author (this session) went edit → push → dispatch independent
+review, treating the independent adversarial pass as *the* review. But
+`/expert-spec` requires the **author** to run the three gates (Frame, Premise,
+Completeness) as a self-review *before* delivery; the independent pass is an
+*additional* layer, not a substitute. Every finding both independent reviews
+returned — the fabricated `[OL:#3]` key, the `[OL-3]` over-citations, the
+untested genres — is something a genuine Gate-A/C self-audit catches by
+construction (Gate A = open each cited source and confirm it supports the claim;
+the coverage check = every requirement has a test). **Lesson: the independent
+review does not replace the author's self-review; skipping the self-review and
+leaning on the reviewer to find defects is the same "make someone else the
+substance-checker" failure the project's prime rules forbid — here aimed at the
+reviewer instead of the owner. Run the mechanical gates yourself first: enumerate
+every citation against its row, every requirement against its acceptance
+criterion. When Max asked "how was that missed — expert-spec requires a self
+review," the honest answer was that the self-review never ran.** (The self-review,
+once actually run, found coverage gaps — FR-J4 recursion guard, FR-O5
+task-boundary, FR-L6/L7 — that both adversarial passes had missed, because
+mechanical enumeration catches what sampling does not.)
+
 **Second-review addendum (same day).** A second independent pass on the *fixes*
 found two more of the same shape and one new class:
 

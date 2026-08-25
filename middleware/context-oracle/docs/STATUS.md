@@ -5,6 +5,19 @@ state and what to do next; the evidence lives in `docs/reviews/`, the durable
 lessons in `docs/collapse-log.md`, and everything attributed to Max Cogar in
 `OWNER-LEDGER.md`.*
 
+## 2026-08-25 (author self-review — the step that was skipped) — Ran the `/expert-spec` gates the author is required to run *before* delivery; found and fixed acceptance-coverage gaps both independent passes missed.
+
+Max's point: `/expert-spec` requires the **author** to self-review against the three gates before delivery — the independent reviews are an additional layer, not a substitute — and skipping it is why defects reached a reviewer at all (logged in `docs/collapse-log.md` as a posture failure). Ran the mechanical self-review:
+- **Gate A (every citation → its source):** enumerated all `[OL-*]`, `[D-*]`, and standard citations. All resolve; each `[OL-*]` use checked against the ledger row's actual content (not sampled). The surviving `[OL-3]` uses are legitimately about the pre-emptive gate / fail-open (the ledger's OL-3 row itself says he rejected the pre-emptive gate). No new miscitations beyond those already fixed.
+- **Coverage matrix (every requirement → an acceptance criterion):** found requirements with **no test** that adversarial sampling missed — `FR-J4` (recursion guard, a *safety* property), `FR-O5` (task-boundary-only / no idle timers), `FR-L6`/`FR-L7` (human-correction precedence, fact routing). Added **AC-21/AC-22/AC-23**. Made the Phase-B genres' (`FR-A2h/i/j`) acceptance an **explicit** scope boundary (authored at Phase B from Phase A data; inherit AC-14/P5 now) rather than a silent omission.
+- **Gate C hygiene:** threat model precedes security (§7.1→§7.2), N/A explicit (§2.3), no fake deferrals, no self-narration defects.
+
+That the self-review found real gaps two adversarial passes had missed is the point: mechanical enumeration catches what sampling does not.
+
+Next unchanged: OL-P1 awaits Max; then Phase A architecture.
+
+---
+
 ## 2026-08-25 (second review round) — A second independent pass audited the fixes; 6 more findings, all applied.
 
 Because the author reviewing their own fixes is the failure this project guards against, a second independent subagent audited closure of the 14 and hunted fresh. It **confirmed 11/14 fully closed** (spec is clean of fabricated quotes and invented keys — the central risk) and found 6 more (`docs/reviews/2026-08-25-second-independent-review-spec-revision.md`), all now applied and pushed:

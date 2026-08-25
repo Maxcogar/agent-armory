@@ -734,6 +734,26 @@ clean session.**
 - **AC-20 (cold container + FTS mechanism → C-1, C-2, C-3).** Install + first index in a
   sandbox with no native toolchain beyond the chosen SQLite path; the C-2 full-text-search
   mechanism functions under those constraints.
+- **AC-21 (recursion guard → FR-J4, D-6).** A model-using genre whose own model call emits
+  hook events does **not** trigger a further oracle invocation on those events; an induced
+  self-trigger terminates at the guard with **no unbounded hook→model→hook chain** and the
+  event is logged (FR-M1). A safety criterion, not a latency one.
+- **AC-22 (task-boundary only, no idle timers → FR-O5, CHI).** The oracle fires only on a
+  mapped lifecycle event; with **no qualifying event it produces no whisper no matter how
+  much wall-clock time passes** (there is no idle/timer path). Verified by holding a session
+  idle and asserting silence, then confirming a boundary event fires normally.
+- **AC-23 (human correction outranks + fact routing → FR-L6, FR-L7).** A CLI
+  correction/fact **outranks a conflicting mined inference** for the same target (FR-L6);
+  and a repo fact lands in the **project** store while an efficacy signal lands in the
+  **global** store (FR-L7), verified by inspecting the two stores after a session.
+
+**Phase-B and Phase-C acceptance (explicit, not omitted).** The model-dependent genres
+FR-A2h/FR-A2i/FR-A2j are Phase B; their behaviour-specific thresholds are set from Phase A
+exit data (§11.5), so their genre-specific acceptance criteria are authored with the Phase B
+architecture, **not** left undefined here. They still inherit, from day one, the
+whisper-well-formedness bar (AC-14) and the marginal-value/pointer discipline (P5, FR-D1).
+The Phase-C corrective feature's acceptance is AC-2b. This is a stated scope boundary, so a
+reviewer does not read the absence of A2h/i/j firing criteria as an oversight.
 
 ---
 
