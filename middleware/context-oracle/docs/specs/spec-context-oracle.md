@@ -49,7 +49,7 @@ that will not follow his expert dev-tool skills `[OL-C2]`. A block delivers no f
 not the mission sentence at work, and it does not pretend to be; it is a confirmed owner
 requirement that stands beside the mission and is justified in owner-objective terms, not
 mission terms (§8). It never uses a *pre-emptive* gate (a "prove your plan / pass a test
-before you may proceed" checkpoint), which Max rejected `[OL-C2, OL-R4]`.
+before you may proceed" checkpoint), which Max rejected `[OL-C2]`.
 
 **For whom.** A single developer (Max Cogar) working solo across his own
 repositories, driving agents through Claude Code `[OL-6, OL-11]`. Not a team tool; no
@@ -103,8 +103,8 @@ that is ignored (`RETHINK.md` §2.3).
 - **The pre-emptive gate** — making the agent pass a test, or prove its plan is good
   enough, *before* it is allowed to proceed. Permanently out; Max rejected it
   explicitly (*"making the working agent take a goddamn tests to see if it had a good
-  enough plan to proceed. […] literally every bit if it was terrible and didnt work"* —
-  OL-C2 verbatim, elision marked) `[OL-C2]`. Blocking *is* in
+  enough plan to proceed. literally every bit if it was terrible and didnt work"* —
+  OL-C2 verbatim) `[OL-C2]`. Blocking *is* in
   scope, but only reactively in the §2.1 cases — never as a checkpoint up front.
 - **The generated-file block** — blocking a hand-edit of a provably-generated /
   build-output file. Permanently out; it was an agent fixation Max never asked for and
@@ -164,10 +164,11 @@ FR-A2l); the rest are advisory whispers.
 | **FR-A2d Consequence** | An edit / write about to run | The non-obvious blast radius: **historically-coupled tests** this edit tends to break, and a vendored/build-**zone** flag. (A raw call-site count is grep-able and never stands alone as the whisper.) |
 | **FR-A2e Warning ⚠** | An edit in a landmine zone | A history- or invariant-derived hazard (e.g. a file whose edits have broken a specific test), **flagged with its confidence** (§5). Advisory. |
 | **FR-A2f Completeness** | Edit completed / stop | "You changed the reducer but not the selector it pairs with in 9 of its last 10 changes." |
-| **FR-A2g Verification / completion check** | A recognized completion-claim stop | The fact the agent lacks at "done": **which test covers the changed region** — headlined by that covering-test *mapping*, with the observation that it has not been run against this change. The mapping is the non-trivial part; run-state alone is self-evident to the agent and, per P5, never stands alone as the whisper. (Completion claim recognized via `last_assistant_message`, `[HOOKS]`.) **Honest limit:** catches *unverified* (a covering test exists and was not run); *unfinished* only where it coincides with that or a broken co-change pair (FR-A2f). The general "did not finish" case (OL-12) is not deterministically catchable and routes to Phase B `[OL-12, D-27]`. |
+| **FR-A2g Verification / completion check** | A recognized completion-claim stop | The fact the agent lacks at "done": **which test covers the changed region** — headlined by that covering-test *mapping*, with the observation that it has not been run against this change. The mapping is the non-trivial part; run-state alone is self-evident to the agent and, per P5, never stands alone as the whisper. (The completion-claim **recognizer** reads `last_assistant_message` `[HOOKS]` and classifies done-claim vs ordinary stop — a classification with false-fire/miss modes that **errs toward not firing** (P5, no ceremony); whether it is a deterministic heuristic (Phase A) or model-assisted (Phase B) is the architect's `[D-38]`.) **Honest limit:** catches *unverified* (a covering test exists and was not run); the general "did not finish" case (OL-12) is model-dependent and is a tracked Phase-B requirement (FR-A2m), not this one `[OL-12, D-27]`. |
 | **FR-A2h Assumption check** | Agent narration | "Your narration assumes X; the repo says Y at `file:line`." (Model-dependent — Phase B.) |
 | **FR-A2i Steering (whisper)** | Agent narration | "What you're describing lives in `src/…`, not where you're looking." (Model-dependent — Phase B.) |
 | **FR-A2j Answer** | A repo-answerable question in narration | The repo-grounded answer with a pointer. (Model-dependent — Phase B.) |
+| **FR-A2m Unfinished-work check** | A completion-claim stop | OL-12's concrete case — the agent claimed done but **did not finish the work**, beyond the unrun-test case FR-A2g catches. The judgment that work is incomplete is model-dependent — **Phase B**, acceptance authored there. A tracked requirement so OL-12's core need is not left as build-order prose `[OL-12, D-27]`. |
 | **FR-A2k Process conformance → BLOCK** | An owner expert-tool skill is active | Whether the agent's actions match the skill's steps. **Steers first; escalates to a BLOCK** when the agent skips a step without a stated reason, or steering isn't working `[OL-C2]` (§8, §11.4). **Non-primary in *purpose*** (per OL-C2 the design invests little here and it fires sparingly); the block itself is a **high-severity mechanism** — "non-primary" bounds its ambition and firing eagerness, not its stakes (M1, §11.4). |
 | **FR-A2l Answer-drift → BLOCK** | A question the user asked goes unaddressed | Holds the agent (blocks the turn from ending) until it answers the user's question `[OL-C3]` (§8). Answer-drift entered scope *advisory* under OL-9; **OL-C3 (2026-08-16) superseded that for this case and made it a block** — so the block is authorised by OL-C3 alone, not OL-9. Simple mechanism, no ceremony. |
 
@@ -262,12 +263,20 @@ saying* — a **quality/marginal-value filter, not a relevance oracle** `[D-6bar
 - **FR-M1 — Diagnostic log** per event: candidates, bar outcome, what was delivered,
   any block raised, latency.
 - **FR-M2 — Self-detected failure classes**: hooks not firing, latency breaches, store
-  corruption, index staleness, model path down, whispers produced-but-undelivered, and
-  **a block that failed to lift** (a block that outlives its condition is itself a
-  failure to surface — it must never strand the agent).
-- **FR-M3 — Correct silence is announced** `[D-22]`.
+  corruption, index staleness, model path down, whispers produced-but-undelivered,
+  **a block that failed to lift** (a block that outlives its condition — it must never
+  strand the agent), and **a wrongful block** (one fired on a compliant agent, surfaced so
+  FR-B5's calibration can dampen a mis-firing block-recognizer).
+- **FR-M3 — Correct silence is announced — owner-facing only** `[D-22]`. The announcement
+  goes to the diagnostics/log/`status` surface the owner reads (so working-silence is not
+  mistaken for a broken tool, `[OL-10]`); it is **never injected into the agent's context**,
+  which would re-noise the channel P1/P3 keep clean.
 - **FR-M4 — `ctxoracle status`** — plain-language health, whisper count, per-genre
-  volume, false-fire rate, blocks raised/lifted, active suppressing condition `[OL-10]`.
+  volume, false-fire rate, **the regret rate** (measured false-silence proxy, FR-L4 — the
+  mission's costliest error, so it is a first-class health number, not just false-fire),
+  blocks raised/lifted, **wrongful-block rate** (FR-B5), **whisper uptake around block
+  events** (so contamination of the advisory channel by blocking, FR-B5, becomes visible
+  rather than assumed away), and any active suppressing condition `[OL-10]`.
 - **FR-M5 — `ctxoracle log`** — the whisper/block audit trail read back per session
   `[OL-10, FR-X6, D-21b]`.
 
@@ -356,6 +365,18 @@ touch the repo.
   at a done-claim) and is deliberately distinct from the FR-B1 enforcement blocks — it is
   *delivery, not enforcement*; AC-8 verifies it releases after a single cycle `[OL-12,
   HOOKS]`.
+- **FR-B5 — Block false-positive discipline (both enforcement blocks) `[D-35]`.** Each block
+  condition — "the user's question is still unaddressed" (FR-A2l), "a skill step was skipped
+  without a stated reason" (FR-A2k) — is decided by a **judgment that can be wrong**, so:
+  (a) the recognizer **errs toward not blocking** — where it is uncertain whether a compliant
+  agent is actually deviating (e.g. the question was answered in reworded form, or a step was
+  done in a valid but unusual way), it does **not** block; (b) the escape imposes **no ceremony
+  beyond the minimum** on an agent that was not actually deviating (answering, or naming a
+  reason, lifts it — nothing more); and (c) a **wrongful block** (fired on a compliant agent)
+  is a surfaced failure (FR-M2) and is demoted/calibrated by the learning loop the same way a
+  false-firing whisper is (FR-L3), so a block-recognizer that keeps mis-firing is dampened.
+  Its confidence in "the agent is deviating" is subject to the same no-launder trust rules as
+  any fact.
 - **FR-B3 — What stays structurally impossible (`FR-O4`, the no-deny-path guarantee).** No
   code path performs a **pre-emptive gate** (blocking a tool call / requiring the agent to
   pass a test or prove a plan before proceeding) `[OL-C2]`, a **generated-file block**
@@ -501,6 +522,15 @@ requirement — grounded by the literature above, with the operating point set o
   `[OL-2]`.
 - **FR-J3 — Degraded mode is a runtime fallback, not a build stage** `[D-21]`.
 - **FR-J4 — Recursion guard (property)** `[D-6]`.
+- **FR-J5 — Bounded lateness for the off-path (model) genres `[D-37]`.** A model-dependent
+  whisper is computed off the synchronous hook path (NF-1), so its delivery cannot be
+  simultaneous with the triggering narration — but it must still land **at a decision
+  moment**: it is delivered at the **next relevant decision event** for that consumer (the
+  next trigger the fact bears on), not arbitrarily later. If no relevant decision event
+  remains before the fact is moot, the whisper is **dropped, not delivered stale** — a
+  whisper that arrives after the decision it would have changed is the post-hoc linter
+  posture RETHINK §3 rejects, not the mission. This makes §5.1's relevance-from-the-moment
+  property hold for the async genres too.
 
 ### 11.3 Learning loop — de-noise in both directions
 
@@ -511,6 +541,16 @@ requirement — grounded by the literature above, with the operating point set o
 - **FR-L3b — Promotion / re-exploration (the anti-ratchet)** `[D-25]`: a suppressed
   channel is periodically re-admitted to re-measure value and re-promoted when earned;
   the loop cannot converge to silence. Mechanism the architect's; existence required.
+- **FR-L4 — Regret signal: measure false *silence*, not only false speech `[D-36]`.** The
+  loop must estimate **regret** — a fact the store **held** that would have changed a
+  decision and the oracle did **not** speak (below-bar, or never triggered) — because per
+  OL-3 false silence is the costliest error, and FR-L3/FR-L6 measure only the cheap one
+  (wrong whispers the owner can see). A concrete proxy exists (e.g. the store held a fact
+  whose region was later re-edited or reverted across sessions, or whose covering test later
+  failed, while the oracle stayed silent); the exact proxy is the architect's, its
+  **existence is required**, and it feeds the regret rate in FR-M4. Distinct from FR-L3b
+  (which re-admits *demoted* channels; regret also catches a fact that was never demoted and
+  never fired).
 - **FR-L6 — Human statements are first-class facts** — a CLI correction/fact outranks
   mined inference and is Phase A's calibration signal (§5.2).
 - **FR-L7 — Fact routing**: repo facts → project store; efficacy → global store `[OL-6]`.
@@ -528,9 +568,14 @@ skill's structure) and is deferred to Phase C accordingly.
 - **FR-C1 — Expert-tool awareness `[OL-C2]`.** The oracle is given the *structure* of
   Max's expert dev-tool skills — per skill: how activation is detectable, the steps it
   defines, the expected agent action per step.
-- **FR-C2 — Deterministic trigger, no hand-coded rule piles `[OL-C2]`.** The trigger is
-  the structured skill definition (active? which step? expected action?), not a growing
-  set of hand-written heuristics.
+- **FR-C2 — Trigger structured by the skill definition, not hand-coded rule piles `[OL-C2]`.**
+  The trigger is driven by the structured skill definition (active? which step? expected
+  action?), not a growing set of hand-written heuristics. **"Deterministic" here means
+  *structured by the encoded skill*, not "regex-decidable":** mapping the agent's free-form
+  actions onto a skill's steps is a judgment (model-assisted, consistent with Phase C), not a
+  keyword match. It is neither a brittle regex nor an unconstrained judge — it is bounded by
+  the skill's declared steps, and because it gates a block it is held to the block-precision
+  discipline (FR-B5).
 - **FR-C3 — Steer, then block — but never a pre-emptive gate `[OL-C2, OL-3]`.** On a
   deviation it **whispers to steer** first; it **escalates to a block** (FR-B1) when the
   agent skips a step without a stated reason or steering isn't working. It is **not** the
@@ -542,11 +587,17 @@ skill's structure) and is deferred to Phase C accordingly.
 
 - **Phase A — Deterministic core.** Model-free genres (Orientation entry-points,
   Coupling, Reuse, Consequence, Warning ⚠ with FR-A5a flags, Completeness,
-  Verification/completion-check), the **answer-drift block** (deterministic — detect an
-  unaddressed user question, hold via continuation), the stores/index/miner, delivery,
-  self-observability, security, and the human-correction calibration channel. Exits by producing measured whisper/block + false-fire data on a real repo.
-- **Phase B — Model-in-the-loop genres.** Assumption-check, Steering, Answer, and the
-  broader completion "unfinished" judgment — off the synchronous path (NF-1).
+  Verification/completion-check via the deterministic covering-test check), the
+  **answer-drift block** — detect that a user question is still unaddressed and hold via
+  continuation. **Honest phase note:** the "was it addressed?" recognizer is a comprehension
+  judgment held to FR-B5 (errs toward not blocking); if it needs the model it is Phase B
+  while the block *mechanism* stays Phase A. Also: the stores/index/miner, delivery,
+  self-observability, security, and the human-correction calibration channel. Exits by
+  producing measured whisper/block + false-fire **and regret** data on a real repo.
+- **Phase B — Model-in-the-loop genres.** Assumption-check, Steering, Answer, the
+  **unfinished-work check (FR-A2m)**, and any model-assisted recognizer that Phase A's honest
+  notes routed here (a model-assisted completion-claim or answer-addressed recognizer) — all
+  off the synchronous path, delivered under the bounded-lateness rule (NF-1, FR-J5).
 - **Phase C — Automated learning loop + the corrective/skill feature (FR-C1–C3, the
   skill non-conformance steer-then-block).** Needs the skill structures encoded and A/B
   delivery in place, plus the demotion+promotion ladder.
@@ -606,6 +657,25 @@ numbers are set from Phase A's exit data.
   (OL-12) using the only Stop-time channel — a one-cycle continuation — without that counting
   as one of the two confirmed enforcement blocks. Separating delivery from enforcement keeps
   FR-B1's "exactly two blocks" true and honest.
+- **D-35 — Both block conditions are recognized by a judgment that can be wrong, so the
+  block carries a false-positive discipline (FR-B5).** *Job:* keep the enforcement blocks
+  from halting a *compliant* agent, because — per RETHINK §2.2 — a wrongful halt costs far
+  more than a missed one and poisons trust in every advisory whisper too. Whether a question
+  was "addressed" or a skill step was "skipped" is a comprehension judgment, not a
+  regex-decidable fact; the spec states the recognizer as a property with an error posture,
+  and its exact mechanism (and whether it is model-assisted, which would move it off Phase A
+  — see §11.5) is the architect's.
+- **D-36 — The learning loop measures false silence (regret), not only false speech
+  (FR-L4).** *Job:* give the loop the mission's up-signal — a held fact that would have
+  changed a decision and went unspoken — so the tool cannot converge to silence and still
+  read as healthy (OL-3's asymmetry). Existence required; the proxy is the architect's.
+- **D-37 — Off-path (model) genres carry a bounded-lateness property (FR-J5).** *Job:* keep
+  "at the moment of that decision" true for the async genres — deliver at the next relevant
+  decision event or drop, never a post-hoc whisper (RETHINK §3).
+- **D-38 — Completion-claim recognition is a classification with error modes, not a field
+  read (FR-A2g).** *Job:* stop naming the input (`last_assistant_message`) as if it were the
+  recognizer; state the recognizer as a property that errs toward silence, with its
+  determinism/phase (heuristic Phase A vs model-assisted Phase B) the architect's.
 
 ## 13. What is genuinely open
 
@@ -637,9 +707,11 @@ Each names the requirements it verifies; all use fixture repositories and replay
 complete when every criterion passes on a real repository and `ctxoracle status` reports a
 clean session.**
 
-- **AC-1 (coupling → FR-A2b, FR-D3, NF-1).** A known co-change pair: a completed read of
-  one file yields a coupling whisper naming the other, with evidence ratio and pointer,
-  within latency.
+- **AC-1 (coupling → FR-A2b, FR-D3, P5, NF-1).** A known **non-obvious** co-change pair: a
+  completed read of one file yields a coupling whisper naming the other, with evidence ratio
+  and pointer, within latency. **Marginal-value assertion (P5):** the pair must be one the
+  agent could not cheaply self-serve — a coupling whisper about an obvious same-directory,
+  same-name pair does **not** count as a pass.
 - **AC-1a (orientation → FR-A2a, D-26).** On a prompt for a task with known structure, the
   Orientation whisper headlines the **2–4 entry-point files and the one binding invariant**;
   it does **not** deliver task-shape landmines (those belong at the edit, FR-A2e).
@@ -666,6 +738,13 @@ clean session.**
   worked), it blocks; when the agent gives a reason or resumes the step, the block lifts.
   It never blocks pre-emptively (before a deviation) and never as a "pass a test to
   proceed" gate.
+- **AC-2c (blocks do not halt a compliant agent → FR-B5, FR-M2).** In a fixture where the
+  agent **did** address the user's question (in reworded form) and, separately, **did**
+  follow the skill step (in a valid but unusual way), **no block fires** — the recognizer
+  errs toward not blocking. And when a wrongful block is induced, it is surfaced as a failure
+  in the log/`status` (FR-M2) and counts toward the wrongful-block rate the calibration
+  dampens (FR-B5). A compliant agent is never made to perform ceremony to escape a block it
+  should not have received.
 - **AC-3 (relevance+bar → FR-A5, OL-C1).** Two candidates meeting the bar at one event
   are both delivered; **no volume/count/budget cap** limits how much the oracle says over a
   session. (Dedup — FR-A4/FR-D5 — may still withhold an already-delivered fact; that is the
@@ -719,8 +798,16 @@ clean session.**
 - **AC-17 (language breadth → C-6, D-15).** The oracle indexes and mines a broad set of
   languages behind the language-agnostic interface; adding a language is configuration, not
   a redesign; nothing is hardcoded to a fixed three.
-- **AC-18 (exit run produced evidence → §1, FR-M4).** The exit run's `status` reports its
-  whisper/block count; a zero-result run does not pass.
+- **AC-18 (exit run delivered the seeded facts → §1, FR-M4, P5).** On a rich fixture seeded
+  with **known decision-changing facts** (a planted coupling, a planted landmine), the exit
+  run **delivers those specific facts** (verified by matching the seeded pointers), and
+  `status` reports the run. The bar is *delivering the seeded facts*, **not** hitting a
+  whisper count — a high-silence run that surfaces every seeded fact passes; padding the
+  count by lowering the bar (P1) does not.
+- **AC-19 (export/import round-trip → FR-K9, FR-X7).** Export both stores, re-import into an
+  empty location, and assert the imported stores are **record-identical** to the originals;
+  **no network egress** occurs during export or import (FR-X7). (Closes the acceptance-coverage
+  gap on FR-K9 and the AC-19 numbering gap.)
 - **AC-20 (cold container + FTS mechanism → C-1, C-2, C-3).** Install + first index in a
   sandbox with no native toolchain beyond the chosen SQLite path; the C-2 full-text-search
   mechanism functions under those constraints.
@@ -736,9 +823,20 @@ clean session.**
   correction/fact **outranks a conflicting mined inference** for the same target (FR-L6);
   and a repo fact lands in the **project** store while an efficacy signal lands in the
   **global** store (FR-L7), verified by inspecting the two stores after a session.
+- **AC-24 (regret / false-silence is measured → FR-L4, FR-M4).** On a fixture where the store
+  **held** a decision-changing fact the oracle did **not** speak, and that fact's region is
+  then re-edited/reverted (or its covering test fails), the regret proxy records the miss and
+  `status` reports a **non-zero regret rate** — the mission's costliest error is measured, not
+  invisible. A run that stays silent on a held, decision-relevant fact does not read as healthy.
+- **AC-25 (off-path whispers stay on-time → FR-J5, §5.1).** A model-dependent whisper is
+  delivered at the **next relevant decision event** for the consumer, not arbitrarily later;
+  in a fixture where no relevant decision event remains before the fact is moot, the whisper
+  is **dropped, not delivered stale**.
 
 **Phase-B and Phase-C acceptance (explicit, not omitted).** The model-dependent genres
-FR-A2h/FR-A2i/FR-A2j are Phase B; their behaviour-specific thresholds are set from Phase A
+FR-A2h/FR-A2i/FR-A2j/FR-A2m (and any recognizer Phase A's honest notes routed to Phase B —
+the model-assisted completion-claim/answer-addressed recognizers) are Phase B; their
+behaviour-specific thresholds are set from Phase A
 exit data (§11.5), so their genre-specific acceptance criteria are authored with the Phase B
 architecture, **not** left undefined here. They still inherit, from day one, the
 whisper-well-formedness bar (AC-14) and the marginal-value/pointer discipline (P5, FR-D1).
