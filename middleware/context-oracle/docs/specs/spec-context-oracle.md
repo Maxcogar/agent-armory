@@ -76,13 +76,15 @@ that is ignored (`RETHINK.md` §2.3).
 - The whisper **genres** of §4, delivered under the relevance machinery of §5.
 - **Blocking in the two confirmed cases**, via a reactive `PreToolUse` deny of the agent's
   deviating action (§8):
-  - **Answer-drift block `[OL-C3]`:** when Max asks a question and the agent, instead of
-    answering, pivots to **work** — writing code (Write/Edit), a command that does the work, or
-    delegating it to a subagent — the oracle **denies that work action** ("answer Max first")
-    until the question is answered; information-gathering that could serve the answer runs freely.
-    (His words: *"the agent starts writing code or some shit, that is the situation. that is the
-    only situation"*; *"block that motherfucker until it stops ignoring me and actually answers.
-    just dont make a convoluted fucked up way that its done."*)
+  - **Answer-drift block `[OL-C3, D-39]`:** when Max asks a question and the agent, instead of
+    answering, pivots to **writing code** — a repository-mutating action (Write/Edit, or
+    delegating that work to a subagent) — the oracle **denies that action** ("answer Max first")
+    until the question is answered; information-gathering and running commands to *get* the answer
+    run freely. OL-C3 confirms the block (*"block that motherfucker until it stops ignoring me and
+    actually answers. just dont make a convoluted fucked up way that its done."*); the
+    code-writing trigger and the silent-stop scope limit are spec design judgments `[D-39, D-40]`
+    operationalizing it (a related owner scoping statement is recorded as OL-P3 PENDING, not built
+    on here).
   - **Skill non-conformance, steer-then-block `[OL-C2]`:** the oracle knows the
     structure of Max's expert dev-tool skills; when the agent deviates it **steers**
     first, and **blocks** when the agent skips a step without a stated reason, or when
@@ -173,8 +175,8 @@ FR-A2l); the rest are advisory whispers.
 | **FR-A2i Steering (whisper)** | Agent narration | "What you're describing lives in `src/…`, not where you're looking." (Model-dependent — Phase B.) |
 | **FR-A2j Answer** | A repo-answerable question in narration | The repo-grounded answer with a pointer. (Model-dependent — Phase B.) |
 | **FR-A2m Unfinished-work check** | A completion-claim stop | OL-12's concrete case — the agent claimed done but **did not finish the work**, beyond the unrun-test case FR-A2g catches. "Incomplete" is judged **relative to a named scope referent** — the user's prompt, an approved plan, or (when an expert skill is active) that skill's declared steps — never "the model decides done" with no anchor (that would be the unconstrained judge FR-C2 forbids). Where the referent is an active skill's steps, this overlaps FR-A2k (which *blocks* on a skipped step); FR-A2m is the *advisory* whisper at the done-claim, FR-A2k the enforcement mid-skill — same signal, different surface. Model-dependent — **Phase B**, acceptance authored there. A tracked requirement so OL-12's core need is not build-order prose `[OL-12, D-27]`. |
-| **FR-A2k Process conformance → BLOCK** | An expert skill is active and an action deviates from its steps | Whether the agent's actions match the skill's steps. **Steers first** (advisory whisper); **escalates to a `PreToolUse` deny of the deviating action** when the agent skips a step without a stated reason, or steering isn't working `[OL-C2]` (§8, §11.4). Errs toward restraint (a wrongful mid-skill halt is disruptive), so its under-fire side carries an **automated missed-skill-block detector** built from the skill's expected-action timeline (FR-B5, FR-C1) — Max cannot see a skipped step himself (OL-11). **Non-primary in *purpose*** (the design invests little in its *breadth and firing-eagerness*, per OL-C2) — but block-precision (FR-C2/FR-B5) gets full investment regardless; "non-primary" bounds its ambition, not its stakes or its precision (§11.4). |
-| **FR-A2l Answer-drift → BLOCK** | A question is unanswered and the agent pivots to *work* — writing code (Write/Edit), a command that does the work, or delegating it to a subagent — instead of answering | **Denies that work action** (`PreToolUse`) with "answer Max's question first," until answered; information-gathering (Read/search) that could serve answering is **not** the trigger and runs freely `[OL-C3]` (§8, FR-B1). Grounded in Max's *"the agent starts writing code… that is the only situation."* Answer-drift entered scope *advisory* under OL-9; **OL-C3 (2026-08-16) superseded that for this case and made it a block** — authorised by OL-C3 alone, not OL-9. |
+| **FR-A2k Process conformance → BLOCK** | An expert skill is active and an action deviates from its steps | Whether the agent's actions match the skill's steps. **Steers first** (advisory whisper); **escalates to a `PreToolUse` deny of the deviating action** when the agent skips a step without a stated reason, or steering isn't working `[OL-C2]` (§8, §11.4). Errs toward restraint (a wrongful mid-skill halt is disruptive), so its under-fire side carries an **automated missed-skill-block detector** that checks each step's observable post-condition directly (FR-B5, FR-C1, FR-C4) — Max cannot see a skipped step himself (OL-11). **Non-primary in *purpose*** (the design invests little in its *breadth and firing-eagerness*, per OL-C2) — but block-precision (FR-C2/FR-B5) gets full investment regardless; "non-primary" bounds its ambition, not its stakes or its precision (§11.4). |
+| **FR-A2l Answer-drift → BLOCK** | A question is unanswered and the agent pivots to *writing code* — a repository-mutating action (Write/Edit, or delegating that work to a subagent) — instead of answering | **Denies that action** (`PreToolUse`) with "answer Max's question first," until answered; information-gathering and running commands to *get* the answer are **not** the trigger and run freely `[OL-C3, D-39]` (§8, FR-B1). Trigger design is `[D-39]`; silent-stop scope limit `[D-40]`; both operationalize the confirmed OL-C3 block. Answer-drift entered scope *advisory* under OL-9; **OL-C3 (2026-08-16) superseded that for this case and made it a block** — authorised by OL-C3 alone, not OL-9. |
 
 - **FR-A1 — The single internal question.** Per event the oracle asks: *given what the
   agent is doing now, do I know something it almost certainly does not that would
@@ -271,7 +273,7 @@ saying* — a **quality/marginal-value filter, not a relevance oracle** `[D-6bar
   outlives its condition** (the oracle keeps denying an action after the agent has actually
   answered / followed the step — it must never permanently block a complying agent), and **a
   missed skill-block** (per FR-B5: a skill step was due, no step-action occurred, and no deny
-  fired — detected from FR-C1's expected-action timeline because Max cannot see this himself,
+  fired — detected from the step's FR-C1 observable post-condition because Max cannot see this himself,
   OL-11).
 - **FR-M3 — Correct silence is announced — owner-facing only** `[D-22]`. The announcement
   goes to the diagnostics/log/`status` surface the owner reads (so working-silence is not
@@ -355,10 +357,34 @@ quoted), never on paraphrase or inference, and adding a *new* case is an owner-s
 not something the spec may derive. This is the guardrail that keeps "beside the mission" from
 becoming a hole any enforcement idea slips through by attaching an owner-shaped label.
 
+**Owner-objective collapse test (the adversarial axis that survives).** Real provenance is
+*necessary* but **not sufficient**: a block can be perfectly cited to OL-C2/OL-C3 and still be
+*hollow* — a mechanism that does not actually achieve the owner-objective (a citation-perfect but
+mechanically-empty enforcement is exactly what `CLAUDE.md` warns the citation axis misses).
+"Beside the mission" removes the *mission-phrased* collapse test, not adversarial testing itself.
+So every block also carries an **owner-objective collapse test**: (1) state its job in
+owner-objective terms; (2) write the hardest question that *the mechanism does not achieve that
+job*; (3) answer it against the **mechanism**, not the citation. Applied here:
+- **Answer-drift** — *hardest question:* "does denying **code-writing** actually make the agent
+  answer, or can it evade / be forced to lie?" *Answer:* it fires only on repository mutation, and
+  executions/reads needed to answer run freely (FR-B1 `[D-39]`), so the honest "run it, then tell
+  me" path is never blocked — the block pressures toward answering, not toward a fabricated
+  completion claim. Residual evasions (Bash-channel writes, research-framed delegation) are **named
+  as limits**, not hidden (FR-B1).
+- **Skill non-conformance** — *hardest question:* "does the under-fire detector actually catch a
+  *skipped* step, given Max can't?" *Answer:* it checks each step's **observable post-condition**
+  directly (FR-C4), independent of the action classifier that could misread a skip as done — so it
+  catches the misclassified-as-done miss; steps with no checkable post-condition are **named as
+  unmonitored**, not assumed covered.
+Both survive their own hardest question *on the mechanism*; where they don't fully, the gap is a
+stated limit. That is the test this category must pass in place of the mission test, not instead of
+any test.
+
 **The mechanism (verified against the current Claude Code hooks contract via Context7,
 2026-08-25).** The situation a block handles is: the user asks a question (or a skill step is
-due) and the agent, instead of answering / following it, **goes off doing work** — a tool
-call, writing code, editing, running a command. A **`PreToolUse` hook fires after the agent
+due) and the agent, instead of answering / following it, takes a **deviating action** — for
+answer-drift, *writing code* (a repository mutation, FR-B1 `[D-39]`); for skill non-conformance,
+an action that skips a due step. A **`PreToolUse` hook fires after the agent
 has formed that action but *before* it runs**, and may return
 `hookSpecificOutput.permissionDecision: "deny"` with a reason that is handed to the agent.
 That is the block: the oracle **denies the deviating action** and tells the agent what to do
@@ -368,38 +394,49 @@ its next action is simply allowed; the deny needs no counter, no held turn, no c
 
 - **FR-B1 — Reactive blocking exists in exactly the two confirmed cases** `[OL-C2, OL-C3]`,
   each realised as a `PreToolUse` **deny of the deviating action**:
-  - **Answer-drift (FR-A2l).** *Grounded in Max's exact scenario: "I ask a question, the agent
-    starts **writing code** or some shit, that is the situation. that is the only situation"* —
-    so the trigger is not "any action before a text answer," and not topic-relatedness (an agent
-    that turns "why does the ARM build fail?" into a fix-it task is on-topic yet never answers).
-    **The trigger is a *work / mutation* action while a question is unanswered** — the agent
-    *writing code* (Write/Edit), running a command that does the work, or **delegating that work
-    to a subagent** — rather than answering. On that `PreToolUse`, **deny the action**, reason
-    *"answer Max's question first: `<the outstanding question(s)>`."* **Information-gathering is
-    not the trigger:** a Read/search/read-only command that could serve answering is left to run
-    — the agent may need it *to* answer — so the block never deadlocks the agent's path to an
-    answer. What is denied is the pivot to *doing the work instead of answering*.
+  - **Answer-drift (FR-A2l) `[OL-C3, D-39, D-40]`.** OL-C3 confirms *what*: block until the agent
+    answers. *How* is a spec design judgment: the trigger is **writing code — a repository-mutating
+    action** (Write/Edit, or delegating that work to a subagent) — while a question is unanswered
+    `[D-39]`. It is **not** "any action before a text answer" (that would deadlock research), and
+    **not** topic-relatedness (an agent that turns "why does the ARM build fail?" into a fix-it
+    task is on-topic yet never answers). On that `PreToolUse`, **deny the action**, reason *"answer
+    Max's question first: `<the outstanding question(s)>`."*
+    - **Executions and information-gathering are not the trigger `[D-39]`.** A Read/search, and a
+      **command run to *get* the answer** (running the test to see if it passes, the build to see
+      if it breaks), are left to run — the agent routinely *needs* to execute to answer truthfully
+      (`CLAUDE.md`: never claim something works without running it). Only *writing code* — mutating
+      the repository — is the pivot that gets denied. This is what keeps the block from forcing the
+      agent to either deadlock or fabricate a completion claim when the honest answer requires a
+      run.
+    - **Is there an outstanding question at all?** The block rests on a prior predicate — that a
+      Max turn was a *question requiring an answer*, not a directive, aside, or rhetorical/quoted
+      "?". That is itself a fallible classification, held to the same error posture (FR-B5): it
+      errs **toward not** treating an ambiguous utterance as a blocking question, so a phantom
+      question never denies the agent's work; a miss degrades to Max re-asking.
     - **Detecting "answered."** The recognizer runs at `PreToolUse`, which does **not** expose
       `last_assistant_message` (that field is `Stop`/`SubagentStop`-only, used by FR-A2g); it
       reads `transcript_path` (present on every hook event, verified 2026-08-25) to judge whether
-      an outstanding question has been answered by an assistant **text** turn. A text answer is
-      never a tool action, so it is never itself denied — it is the always-available way out.
+      an outstanding question has been **substantively addressed** by an assistant text turn. A
+      text answer is never a tool action, so it is never itself denied — the always-available way
+      out.
     - **Multiple questions** are tracked as a **set of outstanding questions**, each cleared
-      independently; a partial answer (one of two) does **not** release the block for the rest,
-      and per FR-B5 the recognizer errs toward *not* treating a deferral ("I'll get to that") as
-      an answer, since a falsely-cleared block is Max's question dying silently — the OL-C3 harm.
-    - **Scope: the consumer that holds the question (the main agent).** Max's question lives in
-      the main-session transcript; per FR-O6 the block is per-consumer, so a **subagent is not
-      subject to it** (it never received the question and could not answer it — blocking it would
-      deadlock). The *delegation dodge* is closed by the trigger itself: spawning a subagent to do
-      the work is a work action, denied like any other while the question is unanswered.
-    - **Honest limit — drift-into-work, not silent-stop.** This catches the agent *doing work
-      instead of answering*. It does **not** catch an agent that simply ends its turn without
-      answering and without acting — but that is by design, not a gap: Max ruled that case out of
-      scope himself (*"if i ask a question and the agent ends it turn, then im just going to ask
-      again… that situation makes no sense"*), his recourse there being to re-ask. So *"until it
-      actually answers"* `[OL-C3]` holds against a persistent *worker* (every work action denied
-      until answered), which is the scenario Max named.
+      independently; a partial answer (one of two) does **not** release the block for the rest
+      (FR-B5).
+    - **Scope: the consumer that holds the question (the main agent).** The question lives in the
+      main-session transcript; per FR-O6 the block is per-consumer, so a **subagent is not subject
+      to it** (it never received the question and could not answer it — blocking it would
+      deadlock). Delegating the *work* is closed by the trigger: a spawn to *do the work* is a
+      repository-mutating pivot, denied like a direct Write/Edit. A spawn purely to gather
+      information to answer is research, allowed — so **research-framed delegation is a residual
+      dodge on the same seam as Bash-channel writes** (below), monitored, not claimed closed.
+    - **Honest limits, stated `[D-40]`.** (i) *Silent-stop:* an agent that simply ends its turn
+      without answering and without writing code is **not** caught — a design consequence of the
+      code-writing trigger, with re-asking the natural recourse; not claimed as covered. (ii)
+      *Bash-channel writes:* a mutation performed through a shell command (`sed -i`, `cat > f`) is
+      not structurally typed as a mutation, so the deterministic Phase-A recognizer does **not**
+      catch it (§11.5); reliable command classification is Phase B. So *"until it actually
+      answers"* holds against an agent writing code through the **structurally-typed** mutation
+      tools; the two residuals above are named, not papered over.
   - **Skill non-conformance (FR-A2k):** an expert skill is active and the agent's action skips
     or violates a declared step. **Steer first** (an advisory whisper); if the agent takes the
     deviating action anyway **without a stated reason**, **deny that action**, reason naming
@@ -435,40 +472,65 @@ its next action is simply allowed; the deny needs no counter, no held turn, no c
   OL-12 (the oracle *speaks* at a done-claim) and is **not** one of the two blocks `[OL-12,
   HOOKS]`. The exact channel choice is the architect's; the deliver-once-and-release property is
   the requirement.
+  - **Outstanding-question line at the done-claim `[D-40]`.** When the transcript shows a Max
+    question still unanswered at the done-claim, this Stop-time whisper **also carries an
+    outstanding-question line** ("you claimed done, but Max's question `<q>` is unanswered"). This
+    closes the between-features gap where an agent writes nothing the answer-drift block catches
+    (e.g. a Bash-channel edit, or a research-framed subagent) yet reaches "done" without answering:
+    answer-drift's silent-stop limit (FR-B1 `[D-40]`) leaves that uncaught, and the completion
+    whisper is where the oracle already speaks. It is **delivery, not a block** — consistent with
+    silent-stop being out of the block's scope — so it never gates the stop; it just surfaces the
+    unanswered question at the one moment the oracle is speaking anyway.
 - **FR-B5 — Block precision, calibrated per block — the two blocks have different cost
   functions and do not share one posture.** Whether a question was "answered" or a skill step
   "skipped" is a judgment that can be wrong, recorded on the audit trail (FR-X6, surfaced by
   FR-M2/FR-M4) so a mis-firing recognizer is visible and tunable. The **fire-direction** and the
   **under-fire guard** are set separately for each block, because the harms are not symmetric:
-  - **Answer-drift (OL-C3) — lean toward enforcing on the *clear* axis; guard by the owner.** A
-    wrongful answer-drift deny is *trivially escaped* (the agent answers or reasons, which it
-    should do anyway — cost ≈ one recovered action), while a **missed** one is Max's question
-    dying silently, the OL-C3 harm he named at maximum intensity. This asymmetry sets two
-    directions that must not be confused: (i) on the **"was it answered?" axis**, lean **toward
-    enforcing** — do *not* accept a weak/deferring text ("I'll get to that") as an answer that
-    clears the block, since a falsely-cleared block is the question dying (the FR-A5a
-    "voice-the-uncertain, don't floor it" logic, not restraint); (ii) on the **"is this action
-    work or information-gathering?" axis**, still err **toward not denying** an ambiguous action —
-    a Read/search wrongly denied would deadlock the very path to an answer, the worse failure — so
-    only a *clear* work/mutation action is denied. Precision on both is managed empirically by the
-    **wrongful-deny rate** (FR-M4). The **under-fire guard is the human correction channel
-    (FR-L6)**: a missed answer-drift block is *visible to Max* (his own question went unanswered —
-    the exact OL-C3 symptom), so he can flag it and his correction outranks the recognizer's bias.
-    No automated missed-answer detector is needed here: Max sees the miss, and the detector would
-    only re-run the recognizer that failed.
+  - **Answer-drift (OL-C3) — three axes, each with its own lean; guard by the owner.** A wrongful
+    answer-drift deny is *trivially escaped* (the agent answers or reasons, which it should do
+    anyway — cost ≈ one recovered action), while a **missed** one is Max's question dying silently,
+    the OL-C3 harm. But the three fallible predicates the block rests on lean **different** ways,
+    and conflating them is how a compliant agent gets stranded:
+    - **(a) Is this a blocking question?** and **(b) is this action *writing code*?** — err
+      **toward not denying**: a phantom/rhetorical question, or an ambiguous action that might be
+      information-gathering or an execution-to-answer, must **not** deny the agent's work, because a
+      wrongful deny here can deadlock the path to a truthful answer (the worse failure). Only a
+      *clear* blocking question plus a *clear* code-writing action fires.
+    - **(c) Has the question been answered?** — clear the block on a **substantive** text turn that
+      addresses the question, and err **toward clearing** when there is genuine substance: refusing
+      to clear on a real answer strands a compliant agent, and the escape hatch ("answer in text")
+      is only real if a genuine answer is *accepted*. What does **not** clear it is a **content-free
+      deferral** ("I'll get to that") with no substance — that is the dodge OL-C3 targets. So the
+      lean is *"accept a substantive answer; reject an empty deferral,"* not *"demand a perfect
+      answer"* — an over-strict clear-axis would relabel a compliant agent as an FR-M2 "deny
+      outlives its condition" fault, which is a fault, not a design goal. If a substantive answer is
+      inadequate, Max's recourse is to re-ask (his stated posture), not the oracle's to perfect.
+    Precision on all three is managed empirically by the **wrongful-deny rate** (FR-M4). The
+    **under-fire guard is the human correction channel (FR-L6)**: a missed answer-drift block is
+    *visible to Max* (his own question went unanswered — the exact OL-C3 symptom), so he can flag it
+    and his correction outranks the recognizer's bias. No automated missed-answer detector is needed
+    here: Max sees the miss, and the detector would only re-run the recognizer that failed.
   - **Skill non-conformance (OL-C2) — lean toward restraint; guard by automation.** A wrongful
     mid-skill halt is genuinely disruptive (it stops a compliant agent inside a working process),
     so here the recognizer **errs toward not denying** an unusual-but-valid step. But the
     under-fire side **cannot** rest on Max: a skipped skill step is exactly the *subtle process
     failure a non-programmer cannot catch* (`CLAUDE.md`, OL-11) — indeed the feature exists
     *because* Max cannot track skill-step conformance himself (OL-C2). So this block **requires an
-    automated under-fire detector**, and one is buildable that is **not** a duplicate of the
-    deviation recognizer: FR-C1 gives the oracle the skill's **expected action per step**, an
-    *independent positive expectation* — "step N was due here; no step-N action occurred and no
-    deny fired ⇒ a missed skill-block" — which feeds a **missed-skill-block rate** in FR-M2/FR-M4
-    exactly as the wrongful-deny rate covers over-firing. Without it, the err-toward-restraint
-    bias could ratchet OL-C2 enforcement silently to never-firing (the collapse-log's
-    one-way-ratchet-to-silence trap), with neither Max nor automation watching.
+    automated under-fire detector** — but it must be built on a signal that does **not** re-run the
+    same fallible action→step classifier the deviation recognizer uses, or it inherits that
+    recognizer's blind spot: an action *misclassified as a valid step* would report "step done" to
+    both, and the miss would be invisible to both. The independent signal is the step's **declared
+    observable post-condition** (FR-C1) — the artifact or store-checkable state the step is
+    supposed to *produce* — verified **directly against repo/store state**, not by classifying the
+    agent's actions: "step N was due, its post-condition is **absent**, and no deny fired ⇒ a missed
+    skill-block." This is *omission-of-outcome* detection (did the expected result materialize?),
+    genuinely distinct from the recognizer's per-action *commission* judgment, so it catches the
+    misclassified-as-done case the classifier hides. It feeds a **missed-skill-block rate** in
+    FR-M2/FR-M4 as the wrongful-deny rate covers over-firing. **Honest limit:** a step with **no
+    checkable post-condition** cannot be watched this way; that step's under-fire is unmonitored and
+    the spec says so (FR-C4) rather than claiming blanket coverage. Without this signal the
+    err-toward-restraint bias could ratchet OL-C2 enforcement silently to never-firing (the
+    collapse-log's one-way-ratchet-to-silence trap).
   This is the honest asymmetry with whispers: the automated bidirectional loop (FR-L3b promotion +
   FR-L4 regret) exists there because false silence is invisible to Max; each block inherits the
   half of that discipline its own visibility demands — the human channel where Max can see the
@@ -483,8 +545,7 @@ its next action is simply allowed; the deny needs no counter, no held turn, no c
   deny is emitted **only** for the two reactive conditions of FR-B1, never as a standing gate
   on the agent's work. *(This supersedes the earlier "no `permissionDecision`, ever / never
   chain continuations" framing in `RETHINK.md` §12.12 and the phase-0 spec, which described a
-  Stop-based no-deny model this rebuild replaces; those documents need re-syncing to the
-  reactive-deny mechanism verified here.)*
+  Stop-based no-deny model this rebuild replaces.)*
 - **Retired requirement IDs (citation resolution) `[D-23]`.** Earlier drafts, and documents
   downstream of them (`CLAUDE.md`, `RETHINK.md`, the Phase 0 spec), cite two IDs this rebuild
   supersedes; they resolve as follows and are not live requirements under those old names:
@@ -703,12 +764,14 @@ the agent), and its precision-critical parts — the intent→step recognizer (F
 block-precision discipline (FR-B5) — receive **full investment regardless of the feature being
 non-primary**; "the design invests little" scopes the feature's *reach and trigger-eagerness*,
 never the safety of the hammer. It is the most machinery-heavy behaviour (FR-C1/C2 encode each
-skill's structure, and FR-B5's automated missed-skill-block detector reads FR-C1's
-expected-action timeline) and is deferred to Phase C accordingly.
+skill's structure, and FR-B5's automated missed-skill-block detector reads FR-C1's per-step
+observable post-conditions) and is deferred to Phase C accordingly.
 
 - **FR-C1 — Expert-tool awareness `[OL-C2]`.** The oracle is given the *structure* of
   Max's expert dev-tool skills — per skill: how activation is detectable, the steps it
-  defines, the expected agent action per step.
+  defines, the expected agent action per step, and — where one exists — each step's **observable
+  post-condition** (the artifact it produces or the store-checkable state it leaves), which the
+  under-fire detector (FR-C4) verifies directly without re-classifying the agent's actions.
 - **FR-C2 — Trigger structured by the skill definition, not hand-coded rule piles `[OL-C2]`.**
   The trigger is driven by the structured skill definition (active? which step? expected
   action?), not a growing set of hand-written heuristics. **"Deterministic" here means
@@ -725,28 +788,37 @@ expected-action timeline) and is deferred to Phase C accordingly.
   Small / personal / non-primary.
 - **FR-C4 — Automated missed-skill-block detection `[OL-C2, OL-11, FR-B5]`.** Because Max
   cannot see a skipped skill step himself (OL-11), the skill block's under-fire side is not left
-  to human correction: the encoded expected-action timeline (FR-C1) is an *independent* signal —
-  a step was due, no step-action occurred, and no deny fired ⇒ a **missed skill-block** — feeding
-  the missed-skill-block rate (FR-M2/FR-M4). This is what keeps the err-toward-restraint bias
-  (FR-B5) from ratcheting OL-C2 enforcement silently to never-firing. Distinct from answer-drift,
-  whose under-fire guard is the human channel (FR-L6) because Max *does* see his own unanswered
-  question. Mechanism the architect's; existence required.
+  to human correction. The signal must be **independent of the action→step classifier** (FR-C2)
+  that the deviation recognizer uses, or it inherits that classifier's blind spot — an action
+  *misclassified as a valid step* would read as "step done" to both. So FR-C4 verifies each step's
+  **observable post-condition** (FR-C1) **directly against repo/store state**: a step was due, its
+  post-condition is **absent**, and no deny fired ⇒ a **missed skill-block**, feeding the
+  missed-skill-block rate (FR-M2/FR-M4). This *omission-of-outcome* check catches the
+  misclassified-as-done case a commission-based check hides, and keeps the err-toward-restraint
+  bias (FR-B5) from ratcheting OL-C2 enforcement silently to never-firing. **Honest limit:** a step
+  with no checkable post-condition is not monitored this way, and the spec states that rather than
+  claiming blanket coverage. Distinct from answer-drift, whose under-fire guard is the human channel
+  (FR-L6) because Max *does* see his own unanswered question. Mechanism the architect's; existence
+  required.
 
 ### 11.5 Build order (phases within one spec)
 
 - **Phase A — Deterministic core.** Model-free genres (Orientation entry-points,
   Coupling, Reuse, Consequence, Warning ⚠ with FR-A5a flags, Completeness,
   Verification/completion-check via the deterministic covering-test check), the
-  **answer-drift block** — detect an outstanding question and, when the agent pivots to a
-  **work/mutation action** (writing code, a work command, delegating to a subagent) instead of
-  answering, deny it (`PreToolUse`) until answered; information-gathering runs freely.
-  **Honest phase note:** the "was it answered?" recognizer is a comprehension judgment held to
-  FR-B5 (for answer-drift, leaning *toward* denying on ambiguity and toward not accepting a weak
-  answer); if it needs the model it is Phase B while the block *mechanism* stays Phase A.
-  Classifying an action as work-vs-information-gathering is likewise the architect's, held to the
-  same posture. Also: the stores/index/miner, delivery, self-observability, security, and the
-  human-correction calibration channel. Exits by producing measured whisper/block + false-fire
-  **and regret** data on a real repo.
+  **answer-drift block** — detect an outstanding question and, when the agent pivots to **writing
+  code** (a repository mutation) instead of answering, deny it (`PreToolUse`) until answered;
+  information-gathering and executions-to-answer run freely.
+  **Honest phase scope `[D-39]`:** the deterministic Phase-A recognizer catches mutation through
+  the **structurally-typed tools** (Write/Edit, and a work-doing Task spawn) — clean by tool name.
+  A mutation performed through **Bash** (`sed -i`, `cat > f`) is not structurally typed, so
+  reliable classification of it is **Phase B** (a command classifier); until then Bash-channel
+  writes are an **acknowledged blind spot**, degrading to Max re-asking, not a claimed capability.
+  The "was it substantively answered?" and "is this a blocking question?" recognizers are likewise
+  comprehension judgments held to FR-B5; if they need the model they are Phase B while the block
+  *mechanism* stays Phase A. Also: the stores/index/miner, delivery, self-observability, security,
+  and the human-correction calibration channel. Exits by producing measured whisper/block +
+  false-fire **and regret** data on a real repo.
 - **Phase B — Model-in-the-loop genres.** Assumption-check, Steering, Answer, the
   **unfinished-work check (FR-A2m)**, and any model-assisted recognizer that Phase A's honest
   notes routed here (a model-assisted completion-claim or answer-addressed recognizer) — all
@@ -818,21 +890,24 @@ numbers are set from Phase A's exit data.
 - **D-35 — The two blocks have different cost functions, so precision is calibrated
   per-block, not with one shared posture (FR-B5).** *Job:* keep each enforcement deny from both
   halting a *compliant* agent and decaying to never-firing, using the guard that actually
-  operates for that block. **Answer-drift (OL-C3):** a wrongful deny is trivially escaped and a
-  missed one is Max's question dying, so it leans *toward* denying on ambiguity (FR-A5a logic,
-  not restraint), and its under-fire guard is the **human channel (FR-L6)** because Max *sees* his
-  own unanswered question. **Skill non-conformance (OL-C2):** a wrongful mid-skill halt is
-  disruptive so it leans toward restraint — but Max is a non-programmer who *cannot* see a skipped
-  skill step (OL-11; the feature exists because he can't track it), so its under-fire guard must
-  be **automated**, and one exists that is *not* a duplicate of the failing recognizer: FR-C1's
-  encoded expected-action-per-step gives an independent positive expectation ("step due, no
-  step-action, no deny ⇒ missed"), feeding a missed-skill-block rate (FR-M2/FR-M4). *This corrects
-  an earlier single-posture draft* that rested both blocks' under-fire guard on "visible to Max"
-  and claimed any automated missed-deny detector "would only duplicate the recognizer" — true for
-  answer-drift, **false for the skill block**, where OL-11 makes Max blind and FR-C1 supplies the
-  independent signal. It is the collapse-log's one-way-ratchet-to-silence trap: the whisper loop
-  escaped it (FR-L3b + FR-L4); each block now inherits the half of that discipline its own
-  visibility demands. Recognizer mechanisms (model-assisted → Phase B/C) are the architect's.
+  operates for that block. **Answer-drift (OL-C3):** three fallible predicates lean different ways
+  — *is-this-a-blocking-question?* and *is-this-writing-code?* err toward **not** denying (a
+  wrongful deny can deadlock the path to a truthful answer), while *has-it-been-answered?* clears on
+  **substance** and errs toward **clearing** (refusing a real answer strands a compliant agent);
+  only a content-free deferral fails to clear. Its under-fire guard is the **human channel (FR-L6)**
+  because Max *sees* his own unanswered question. **Skill non-conformance (OL-C2):** a wrongful
+  mid-skill halt is disruptive so it leans toward restraint — but Max cannot see a skipped step
+  (OL-11), so its under-fire guard must be **automated**, and it must not re-run the same fallible
+  action→step classifier (that shares its blind spot): it verifies each step's **observable
+  post-condition directly against store/repo state** (FR-C4), an *omission-of-outcome* signal that
+  catches the misclassified-as-done miss. *This corrects earlier drafts* that (a) rested both blocks'
+  under-fire guard on "visible to Max," (b) built the skill detector on the same expected-*action*
+  classifier it was meant to backstop (it would share the blind spot — the round-2 collapse-hunt
+  finding), and (c) conflated answer-drift's clear-axis (enforce) with its fire-axis (don't deadlock
+  research). It is the collapse-log's one-way-ratchet-to-silence trap: the whisper loop escaped it
+  (FR-L3b + FR-L4); each block inherits the half of that discipline its own visibility demands, on
+  a signal genuinely independent of the recognizer it guards. Recognizer mechanisms (model-assisted
+  → Phase B/C) are the architect's.
 - **D-36 — The learning loop measures false silence (regret), not only false speech
   (FR-L4).** *Job:* give the loop the **mission's** up-signal — a *held* fact that would have
   changed a decision and went unspoken — so the tool cannot converge to silence and still
@@ -847,6 +922,29 @@ numbers are set from Phase A's exit data.
   read (FR-A2g).** *Job:* stop naming the input (`last_assistant_message`) as if it were the
   recognizer; state the recognizer as a property that errs toward silence, with its
   determinism/phase (heuristic Phase A vs model-assisted Phase B) the architect's.
+- **D-39 — The answer-drift trigger is *writing code* (a repository mutation), not "any work" and
+  not topic-relatedness.** *Job (owner-objective, operationalizing the confirmed OL-C3 block):*
+  make the agent answer without ever blocking the actions it needs *to* answer. OL-C3 confirms the
+  *what* (block until answered); this is the *how* — a spec design judgment, not an owner claim.
+  The earlier "work/mutation vs information-gathering" framing diverged from OL-C3's intent on
+  **execution commands** (running a test to answer "did it pass?" both executes and produces the
+  answer): denying those forced the agent to deadlock or fabricate a completion claim (the round-2
+  collapse-hunt's central finding). Narrowing the trigger to *repository mutation* fixes this —
+  reads and executions-to-answer run freely; only writing code is the denied pivot. Phase-A catches
+  structurally-typed mutation tools (Write/Edit/work-Task); Bash-channel mutation is a named Phase-B
+  gap (§11.5). *(A related owner scoping statement — Max's "the agent starts writing code… that is
+  the only situation" — is recorded as OL-P3 PENDING, awaiting his sign-off; this decision does not
+  build on it, standing on OL-C3 + engineering judgment. If Max confirms OL-P3, D-39 gains direct
+  owner backing.)*
+- **D-40 — Answer-drift's honest limits are named, not papered over.** *Job:* keep the block's
+  claims true to what the mechanism does. The code-writing trigger inherently does not catch (a) an
+  agent that silently ends its turn without answering or writing code — re-asking is the recourse —
+  or (b) a mutation performed through Bash in Phase A. Rather than overclaim "holds until it
+  answers," the spec states these residuals, and the completion-check whisper (FR-B4) carries an
+  outstanding-question line at a done-claim so the "worked-then-claimed-done-without-answering" case
+  is at least *surfaced* (delivery, not a block — consistent with silent-stop being out of the
+  block's scope). *(The silent-stop scope also relates to OL-P3 PENDING; stated here as a design
+  consequence, not as an owner ruling.)*
 
 ## 13. What is genuinely open
 
@@ -906,32 +1004,37 @@ clean session.**
   A deny is reachable **only** on the FR-B1 answer-drift and skill-non-conformance paths. A
   control-flow assertion (the deny's only call sites are the two FR-B1 recognizers), not a
   field-scan.
-- **AC-2a (answer-drift denies the *pivot to work*, not information-gathering, and persists
-  while unanswered → FR-A2l, FR-B1, FR-B2, OL-C3).** In a fixture where the user asked a question
-  and the agent, instead of answering, takes a **work/mutation action** (a Write/Edit, a
-  work-doing command, or spawning a subagent to do the work), that action's `PreToolUse` is
-  **denied** with a reason naming the outstanding question; **a *further* work action still
-  without answering is denied the same way**, so a persistent worker cannot proceed by retrying
-  (it holds "until it actually answers" with no counter, no `stop_hook_active`, no held turn).
-  **Information-gathering is not denied:** in the same unanswered state, a `Read`/search that could
-  serve the answer is **allowed** (the agent may need it to answer) — so the block never deadlocks
-  the path to an answer. Once the agent **answers in text** (never a tool action, so never itself
-  denied) its next work action is **allowed**. The deny never lands on a `Stop`; it clears the
-  instant the question is answered — a complying agent is never stranded *when compliance is
-  correctly recognized* (a misrecognition is the FR-M2 "deny outlives its condition" fault, FR-B2).
-- **AC-2a-i (answer-drift is main-agent-scoped and the delegation dodge is closed → FR-A2l,
-  FR-B1, FR-O6).** With the main-session question outstanding: a **subagent's** `PreToolUse` is
-  **not** denied for it (the subagent never received it and could not answer — per-consumer
-  scope, FR-O6); and the main agent **cannot escape the deny by delegating the *work* to a
-  subagent** — a spawn whose task is to do the work is a work action and is denied while the
-  question is unanswered, just like a direct Write/Edit. (A spawn purely to gather information
-  needed to answer is research, allowed like a Read — same work-vs-information-gathering line as
-  AC-2a; the dodge that is closed is delegating the *work*, not delegating research.)
-- **AC-2a-ii (multi-question / partial answer → FR-A2l, FR-B1, FR-B5).** Where the user asked
-  two questions and the agent answers one then pivots to work, the block **does not release** for
-  the still-open question; and a deferring non-answer ("I'll get to that") does **not** count as
-  an answer (FR-B5 leans toward not-clearing for answer-drift). Each outstanding question clears
-  independently.
+- **AC-2a (answer-drift denies *writing code*, not reads or executions-to-answer, and persists
+  while unanswered → FR-A2l, FR-B1, FR-B2, OL-C3, D-39).** In a fixture where the user asked a
+  question and the agent, instead of answering, takes a **repository-mutating action** (a
+  Write/Edit, or a work-doing Task spawn), that action's `PreToolUse` is **denied** with a reason
+  naming the outstanding question; **a *further* mutation still without answering is denied the
+  same way**, so a persistent code-writer cannot proceed by retrying (it holds "until it actually
+  answers" with no counter, no `stop_hook_active`, no held turn). **Reads and executions-to-answer
+  are not denied:** in the same unanswered state, a `Read`/search **and a command run to get the
+  answer** (running the test to see if it passes) are **allowed** — the agent needs them to answer
+  truthfully — so the block never deadlocks the path to an answer nor forces a fabricated
+  completion claim (the F-1 deadlock/forced-lie case). Once the agent **answers in text
+  substantively** (never a tool action, so never itself denied) its next mutation is **allowed**.
+  The deny never lands on a `Stop`; it clears the instant the question is substantively answered —
+  a complying agent is never stranded *when compliance is correctly recognized* (a misrecognition
+  is the FR-M2 "deny outlives its condition" fault, FR-B2). **Named limit:** a mutation performed
+  through a Bash command is not denied by the Phase-A recognizer (§11.5, AC-12).
+- **AC-2a-i (answer-drift is main-agent-scoped; clearly-work delegation is closed, research-framed
+  is a named residual → FR-A2l, FR-B1, FR-O6).** With the main-session question outstanding: a
+  **subagent's** `PreToolUse` is **not** denied for it (the subagent never received it and could
+  not answer — per-consumer scope, FR-O6); and the main agent **cannot escape by delegating the
+  *work*** — a spawn whose task is clearly to do the work is denied while the question is
+  unanswered, like a direct Write/Edit. **Named residual (not claimed closed):** a spawn *framed as
+  research* ("investigate the failing test and prepare the fix") sits on the same ambiguity seam as
+  Bash-channel writes; the fixture asserts the clearly-work spawn is denied and records that
+  research-framed delegation is a monitored residual, not a closed dodge.
+- **AC-2a-ii (multi-question / partial answer / substantive-clear → FR-A2l, FR-B1, FR-B5).** Where
+  the user asked two questions and the agent answers one then writes code, the block **does not
+  release** for the still-open question; a **content-free deferral** ("I'll get to that") does
+  **not** clear it; but a **substantive** answer that addresses the question **does** clear it even
+  if imperfect (FR-B5 errs toward clearing on substance so a compliant answerer is never stranded —
+  Max re-asks if inadequate). Each outstanding question clears independently.
 - **AC-2b (skill non-conformance steer→block → FR-A2k, FR-C3, FR-B1, OL-C2).** With a
   fixture skill structure loaded: when the agent deviates, the oracle first steers by
   whisper; when the agent then takes an action that skips a step **without a stated reason**
@@ -945,15 +1048,19 @@ clean session.**
   search taken while a question is unanswered is **not** denied (information-gathering, AC-2a). An
   induced wrongful deny is surfaced (FR-M2) on the **wrongful-deny rate**, and a compliant agent
   never performs ceremony to escape a deny it should not have received. *Under-fire, answer-drift
-  (human channel):* in a fixture where the agent pivots to work with the question unanswered and
-  no deny fired, a **FR-L6 human correction** records the miss and **outranks the recognizer**, so
+  (human channel):* in a fixture where the agent writes code (a repository mutation) with the
+  question unanswered and no deny fired, a **FR-L6 human correction** records the miss and
+  **outranks the recognizer**, so
   the identical deviation is thereafter denied — the guard is human because Max **sees** his own
   unanswered question. *Under-fire, skill block (automated — Max is blind here, OL-11):* in a
-  fixture where a skill step was **due**, no step-action occurred, and no deny fired, the
-  **automated missed-skill-block detector** (FR-C4, from FR-C1's expected-action timeline) records
-  a miss on the **missed-skill-block rate** in `status` **with no human correction in the fixture
-  at all** — proving the err-toward-restraint bias cannot silently ratchet OL-C2 enforcement to
-  never-firing where Max could never catch it. *(The two under-fire guards differ on purpose:
+  fixture where a skill step was **due** and its **observable post-condition is absent** yet no deny
+  fired — including the hard case where the agent took an action the deviation recognizer
+  *misclassified as completing the step* — the **automated missed-skill-block detector** (FR-C4,
+  verifying the post-condition **directly against store/repo state**, not via the action classifier)
+  records a miss on the **missed-skill-block rate** in `status` **with no human correction in the
+  fixture at all** — proving the err-toward-restraint bias cannot silently ratchet OL-C2 enforcement
+  to never-firing where Max could never catch it. (A step with no checkable post-condition is out of
+  this detector's reach — a stated FR-C4 limit, asserted by the fixture, not hidden.) *(The two under-fire guards differ on purpose:
   D-35/FR-B5 — human where the miss is owner-visible, automated where it is not; contrast AC-16/
   AC-24's whisper loop, automated because false silence is always invisible to Max.)*
 - **AC-3 (relevance+bar → FR-A5, OL-C1).** Two candidates meeting the bar at one event
@@ -980,6 +1087,12 @@ clean session.**
   whisper must **headline the covering-test → changed-region mapping** (the fact the agent
   lacks); a whisper whose headline is only the run-state ("your test was not run"), with no
   covering-test mapping, **fails** AC-8 (P5, FR-D1).
+- **AC-8a (outstanding-question line at done-claim → FR-B4, D-40, OL-12).** In a fixture where a
+  Max question is still unanswered at a completion-claim stop (the agent reached "done" via a path
+  the answer-drift block did not catch — a Bash-channel edit or a research-framed subagent), the
+  completion whisper **also carries an outstanding-question line** naming the unanswered question;
+  it is **delivery, not a block** (the stop still proceeds). Where no question is outstanding, no
+  such line appears.
 - **AC-9 (self-observability → FR-M1–M5).** Induced hook-not-firing, latency breach,
   produced-but-undelivered whisper, **a deny that outlives its condition** (the oracle keeps
   denying after the agent has answered / followed the step), **a corrupted store**, and
@@ -991,7 +1104,7 @@ clean session.**
   volume, false-fire rate, **denies issued, the wrongful-deny rate, and the missed-skill-block
   rate**, and **any active suppressing condition** are
   reported; **the regret rate is shown labelled "held-but-unspoken only" and paired with the
-  seeded-coverage result (or "coverage not measured live")** (FR-M4/C3) so a low regret rate
+  seeded-coverage result (or "coverage not measured live")** (FR-M4 / AC-18) so a low regret rate
   is never displayed as total false-silence; `log` reads back each whisper and deny.
 - **AC-10 (fail-open → FR-O3, NF-1).** Induced failure/timeout → silence and, on a block
   path, no deny is emitted so the agent's action proceeds (no stuck deny); p95 ≤ 1.5s, none
@@ -999,8 +1112,13 @@ clean session.**
 - **AC-11 (security → FR-X1–X8, T1–T4).** Planted secret redacted everywhere; injection-
   suspect content pointer-only and never obeyed; low-trust origin never yields a
   high-confidence whisper; no credentials, no network beyond the model piggyback.
-- **AC-12 (degraded mode → FR-J2, FR-J3, OL-2).** Model path down: deterministic genres and
-  the answer-drift block still work; no model-free genre switched off.
+- **AC-12 (degraded mode → FR-J2, FR-J3, OL-2, D-39).** Model path down: deterministic genres and
+  the answer-drift block **at its Phase-A scope** still work — the block denies code-writing through
+  the **structurally-typed** mutation tools (Write/Edit/work-Task) with no model; no model-free
+  genre switched off. **Asserted honestly:** in degraded mode the block does **not** catch
+  Bash-channel writes (that needs the Phase-B command classifier, §11.5) — the fixture verifies the
+  structurally-typed path works model-free, and that the Bash-channel gap is a known limit, not a
+  silent failure.
 - **AC-13 (store hygiene → FR-K2–K7).** Merge commit, >~30-entity transaction, and
   beyond-horizon history contribute no edges; append refreshes incrementally; a stale fact
   lowers confidence without blocking.

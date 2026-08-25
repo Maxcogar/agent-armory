@@ -66,10 +66,17 @@ Max wants is **answer-drift** (OL-C3).)
 | OL-C3 | **A case where the oracle should block: answer-drift** (the other is skill non-conformance, OL-C2). In his words (2026-08-16): *"if i ask a question, then it needs to be answered. the oracle should block that motherfucker until it stops ignoring me and actually answers. just dont make a convoluted fucked up way that its done."* A genuinely useful blocking case Max gave — must not be buried under the rejected generated-file idea (OL-R4). | Max, 2026-08-16 |
 | OL-C4 | **Uncertain hazards: option B.** Asked to choose between (A) warn only when quite sure and (B) also voice uncertain warnings clearly flagged, letting the learning loop demote ones that keep being wrong, Max answered *"B"* (2026-08-16). The wording of B is Claude's; Max's input is the selection. | Max, 2026-08-16 |
 
+## ⏳ PENDING — Max's words, awaiting his explicit sign-off (do NOT build on these)
+
+| ID | Proposed claim (his exact words) | Source | Why pending |
+|---|---|---|---|
+| OL-P3 | **Answer-drift scope — the block targets the agent going off to *write code* instead of answering, and the "agent silently ends its turn without answering" case is out of scope (Max re-asks).** His exact words (2026-08-25 chat, correcting the answer-drift mechanism): *"if I ask a question and the agent ends it turn, then im just going to ask again???? and that situation makes no sense… I ask a question, the agent starts writing code or some shit, that is the situation. that is the only situation. that i what the oracle needs to handle."* | Max, in chat, 2026-08-25 | These are **real** owner statements that scope OL-C3, but they are not yet signed off. Per the ledger rules they go to PENDING; the spec must **not** cite them as authority until Max confirms. The spec instead grounds the trigger design on OL-C3 (confirmed) + `[D-39]`/`[D-40]` (spec design judgments). If Max confirms OL-P3, `[D-39]`/`[D-40]` gain direct owner backing; if he corrects it, the design judgments are revisited. **Awaiting: "confirmed" / a correction.** |
+
 *(CONFIRMED: the RETHINK §12 decisions (OL-1…OL-12, OL-5 superseded) plus OL-C1,
-OL-C2, OL-C3, OL-C4. Nothing is pending — when Max was asked which languages the oracle
-should cover he answered that he does not know and it is not his to decide ("i dont know
-what it should cover. but probably more than just lik 3 of them"), i.e. he handed the
-choice to the agent; which languages is therefore a design decision, and the spec states
-it as a property (C-6), not as an owner question. If any entry misstates your words, say so
-and I'll correct it — recorded from your messages, not my interpretation.)*
+OL-C2, OL-C3, OL-C4. **One item is now PENDING — OL-P3**, Max's 2026-08-25 answer-drift scoping
+words, recorded verbatim and awaiting his sign-off; the spec does not build on it. Separately,
+when Max was asked which languages the oracle should cover he answered that he does not know and
+it is not his to decide ("i dont know what it should cover. but probably more than just lik 3 of
+them"), i.e. he handed the choice to the agent; which languages is therefore a design decision,
+and the spec states it as a property (C-6), not as an owner question. If any entry misstates your
+words, say so and I'll correct it — recorded from your messages, not my interpretation.)*
