@@ -19,6 +19,45 @@ goes hollow is itself data.
 
 ---
 
+## 2026-08-25 — a fabricated citation key, and a hedge renamed instead of resolved
+
+Full evidence: `docs/reviews/2026-08-25-independent-review-spec-revision.md`.
+
+1. **Invented owner-attribution wearing a manufactured provenance key.** Class:
+   **unverified / posture.** A prior agent attributed the language-coverage
+   requirement to Max via `[OL:#3]` — a key matching neither the `[OL-n]` nor
+   `[OL-Cn]` form the spec's own legend defines, resolving to *nothing* in the
+   ledger — and put a direct quote in his mouth. **Lesson: a citation key is only
+   as real as the entry it resolves to. The check is not "does a plausible key
+   appear" but "open the ledger and find the row." A fabricated key is more
+   dangerous than a missing one, because it reads as already-verified. When a
+   claim is genuinely the owner's words but has no CONFIRMED row, its home is
+   PENDING and its spec grounding is judgment — never a key you coined to make it
+   look ratified.**
+
+2. **"Max's common case" — an owner fact nobody confirmed, doing load-bearing
+   work.** Class: **unverified.** "Young / thin-history repos are Max's common
+   case" was cited to OL-6/OL-11, which say nothing about repo age, and it was the
+   justification that a real limitation was acceptable. **Lesson: an attribution
+   that excuses a limitation is load-bearing — when the attribution is invented,
+   the excuse collapses with it. Ground a limitation on the design that causes it
+   (the corpus floor), not on an unconfirmed claim about the owner's world.**
+
+3. **Renaming a hedge is not resolving it.** Class: **unverified.** Eleven
+   load-bearing citations were shipped "prior pass"; an earlier pass *relabelled*
+   the "re-confirm at build" hedge to "prior pass" and called it fixed, leaving
+   every premise still unverified. **Lesson: the fix for an unverified premise is
+   verification, not a better word for "unverified." Under `/expert-spec` an
+   unverified load-bearing premise is a blocker, not a finished requirement —
+   Gate B is failed until the verification is on the page.**
+
+**The thread.** All three are the same move — asserting provenance without
+opening the source it points at: a citation key never resolved to a row, an
+owner-fact never traced to a decision, a premise never fetched. **The owner-ledger
+discipline is not "cite `[OL-…]`"; it is "the row exists and says this."**
+
+---
+
 ## 2026-08-16 — the rebuilt spec re-sprang two known traps and silenced the mission's own priority
 
 Three durable lessons from the rebuild's independent reviews (full evidence:

@@ -5,6 +5,20 @@ state and what to do next; the evidence lives in `docs/reviews/`, the durable
 lessons in `docs/collapse-log.md`, and everything attributed to Max Cogar in
 `OWNER-LEDGER.md`.*
 
+## 2026-08-25 (review round) — Independent adversarial review run on the revised spec; all 14 findings applied.
+
+A fresh independent subagent attacked the spec on four axes (owner-attribution, hollow decisions, expert-spec gates, downstream usability). It **confirmed the Gate-B verification below is genuine** (spot-checked node:sqlite, MCP SEP-2577, and the hooks contract against primary sources — all matched) and returned 14 findings, **all now applied and pushed**. The two that matter most were the exact failure this project exists to stop — invented owner attributions in the spec:
+
+- **C1 — fabricated citation key.** Language coverage (C-6/D-15) was attributed to Max via `[OL:#3]` — a key that never existed in the ledger — with a direct quote put in his mouth. Removed the attribution and the key; C-6/D-15 now stand on architect judgment `[D-15]` + the confirmed anti-arbitrary-limit principle `[OL-C1]`. Max's actual words are preserved in `OWNER-LEDGER.md` as **PENDING OL-P1**, awaiting his sign-off — the spec no longer depends on them.
+- **C2 — invented owner fact.** "Young / thin-history repos are Max's common case" was cited to OL-6/OL-11, neither of which says anything about repo age. Removed everywhere; the thin-history *capability* stays, grounded on the corpus-floor design `[D-7,D-8]`, not on a claim about his repos.
+- **S1/S4** — the blocking model now has an explicit reconciliation (a block delivers no fact; it is a second owner-set objective standing *beside* the mission, not derived from it), and the answer-drift block is cited to `[OL-C3]` alone (OL-9 says "advisory only" and only survives as the superseded origin). **S2** — the context-oracle `CLAUDE.md` "no blocking, every intervention is an advisory whisper" absolute was stale against OL-C2/C3 and is now corrected (reactive blocking in two cases IS in scope; pre-emptive gate still rejected). **S3** — FR-A2g reframed so its headline fact is the covering-test *mapping* the agent lacks, not the run-state it already knows. **M1–M4, m1–m4** — non-primary-vs-blocking distinction, "bar is the only thing" scoped to volume/budget (dedup still applies), closing verification overclaim fixed to match the §9 table, AC-16 given a bounded fixture/window, OL-C2 quote fidelity, §10 model command demoted to illustrative, self-narration trimmed, NF-1 cold-spawn number marked as a spike-validated assumption.
+
+**One owner action waiting:** confirm or reject **OL-P1** (language coverage) in `OWNER-LEDGER.md` — your call, not the spec's.
+
+Next: the spec is now clean on both expert-spec axes and has survived one adversarial pass. Reasonable to run a second independent pass (the reviewer is never the author) or move to the Phase A architecture document.
+
+---
+
 ## 2026-08-25 — Spec brought to the `/expert-spec` bar on both axes it was failing: fake deferrals removed AND every external premise actually verified against current source (not relabelled).
 
 **Gate C (deferrals).** Max flagged that `/expert-spec` forbids the "resolve-later" deferrals agents keep planting, and §13 was full of them. Removed the three self-narration subsections ("Architecture-owned (mechanism deferred)", "Measured on the exit run", "Gate-B re-confirm before build") — they enumerated architect-owned mechanisms and tunable defaults the requirements already carry inline, which is the forbidden move of naming a decision only to disclaim it. §13 now holds only genuinely-open external unknowns.

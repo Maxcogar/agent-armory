@@ -1,14 +1,9 @@
 # Spec: Context Oracle (`ctxoracle`) — v1 (rebuilt 2026-08-16)
 
-**Status:** draft for owner review. Ground-up rebuild requested by Max Cogar on
-2026-08-16. Every requirement traces to a CONFIRMED owner decision
-(`OWNER-LEDGER.md`), a named and current-verified standard, or a recorded judgment
-(§12). Nothing attributed to Max Cogar appears here unless it is CONFIRMED in
-`OWNER-LEDGER.md`. This revision folds in his 2026-08-16 corrections on **blocking**
-(the oracle is advisory by default but DOES block in specific cases — §2, §4, §8),
-the **corrective/steering feature** (it escalates to a block), **uncertain hazards**
-(option B — voiced flagged), and **language coverage** (broad/extensible, not a
-fixed short list), plus the two independent-review passes of 2026-08-16.
+**Status:** draft for owner review. Every requirement traces to a CONFIRMED owner decision
+(`OWNER-LEDGER.md`), a named and current-verified standard, or a recorded judgment (§12).
+**Nothing attributed to Max Cogar appears here unless it is CONFIRMED in `OWNER-LEDGER.md`**
+— an owner-attributed claim with no CONFIRMED ledger entry is a defect, not a citation.
 
 **Provenance keys.** `[OL-n]` / `[OL-Cn]` = a CONFIRMED owner decision in
 `OWNER-LEDGER.md`; `[OL-Rn]` = a REJECTED false attribution there. `[D-n]` = a
@@ -45,15 +40,23 @@ Claude Code session through lifecycle hooks and, at decision moments, injects a
 small **whisper** — one fact, with a verifiable pointer — when it knows something
 the agent almost certainly does not and that would change what it does next. It is
 **advisory by default** (a whisper the agent may ignore) and **never mutates the
-repository** `[OL-3]`. It **blocks only in the specific cases Max Cogar confirmed**
-(§2.1, §4): to make an agent answer a question it is ignoring, and to stop an agent
-that will not follow his expert dev-tool skills. It never uses a *pre-emptive* gate
-(a "prove your plan / pass a test before you may proceed" checkpoint), which he
-rejected `[OL-C2, OL-C3, OL-R4]`.
+repository** `[OL-3]`.
+
+Alongside that mission — **not derived from it** — the oracle carries a **second,
+owner-set objective**: it **blocks in exactly the two cases Max Cogar confirmed** (§2.1,
+§4, §8): to make an agent answer a question it is ignoring `[OL-C3]`, and to stop an agent
+that will not follow his expert dev-tool skills `[OL-C2]`. A block delivers no fact — it is
+not the mission sentence at work, and it does not pretend to be; it is a confirmed owner
+requirement that stands beside the mission and is justified in owner-objective terms, not
+mission terms (§8). It never uses a *pre-emptive* gate (a "prove your plan / pass a test
+before you may proceed" checkpoint), which Max rejected `[OL-C2, OL-R4]`.
 
 **For whom.** A single developer (Max Cogar) working solo across his own
-repositories — many of them young, with thin history — driving agents through Claude
-Code `[OL-6, OL-11]`. Not a team tool; no sharing surface in v1.
+repositories, driving agents through Claude Code `[OL-6, OL-11]`. Not a team tool; no
+sharing surface in v1. The tool must operate on repositories with **thin commit history**
+(new repos, shallow clones) as a design condition — its behaviour there is bounded by the
+evidentiary corpus floor `[D-7, D-8]`, not by any claim about which repositories are
+typical.
 
 **Why it is worth building.** The scarce, valuable knowledge is exactly what an agent
 cannot surface from a cold checkout with its own tools; delivering it at the decision
@@ -99,8 +102,9 @@ that is ignored (`RETHINK.md` §2.3).
 
 - **The pre-emptive gate** — making the agent pass a test, or prove its plan is good
   enough, *before* it is allowed to proceed. Permanently out; Max rejected it
-  explicitly (*"making the working agent take a goddamn test to see if it had a good
-  enough plan to proceed… was terrible and didnt work"*) `[OL-C2]`. Blocking *is* in
+  explicitly (*"making the working agent take a goddamn tests to see if it had a good
+  enough plan to proceed. […] literally every bit if it was terrible and didnt work"* —
+  OL-C2 verbatim, elision marked) `[OL-C2]`. Blocking *is* in
   scope, but only reactively in the §2.1 cases — never as a checkpoint up front.
 - **The generated-file block** — blocking a hand-edit of a provably-generated /
   build-output file. Permanently out; it was an agent fixation Max never asked for and
@@ -160,12 +164,12 @@ FR-A2l); the rest are advisory whispers.
 | **FR-A2d Consequence** | An edit / write about to run | The non-obvious blast radius: **historically-coupled tests** this edit tends to break, and a vendored/build-**zone** flag. (A raw call-site count is grep-able and never stands alone as the whisper.) |
 | **FR-A2e Warning ⚠** | An edit in a landmine zone | A history- or invariant-derived hazard (e.g. a file whose edits have broken a specific test), **flagged with its confidence** (§5). Advisory. |
 | **FR-A2f Completeness** | Edit completed / stop | "You changed the reducer but not the selector it pairs with in 9 of its last 10 changes." |
-| **FR-A2g Verification / completion check** | A recognized completion-claim stop | The fact the agent lacks at "done": **that it claimed completion while the covering test for the changed region was not run** (recognized via `last_assistant_message`, `[HOOKS]`). **Honest limit:** catches *unverified*; *unfinished* only where it coincides with an unrun test or a broken co-change pair (FR-A2f). The general "did not finish" case (OL-12) is not deterministically catchable and routes to Phase B `[OL-12, D-27]`. |
+| **FR-A2g Verification / completion check** | A recognized completion-claim stop | The fact the agent lacks at "done": **which test covers the changed region** — headlined by that covering-test *mapping*, with the observation that it has not been run against this change. The mapping is the non-trivial part; run-state alone is self-evident to the agent and, per P5, never stands alone as the whisper. (Completion claim recognized via `last_assistant_message`, `[HOOKS]`.) **Honest limit:** catches *unverified* (a covering test exists and was not run); *unfinished* only where it coincides with that or a broken co-change pair (FR-A2f). The general "did not finish" case (OL-12) is not deterministically catchable and routes to Phase B `[OL-12, D-27]`. |
 | **FR-A2h Assumption check** | Agent narration | "Your narration assumes X; the repo says Y at `file:line`." (Model-dependent — Phase B.) |
 | **FR-A2i Steering (whisper)** | Agent narration | "What you're describing lives in `src/…`, not where you're looking." (Model-dependent — Phase B.) |
 | **FR-A2j Answer** | A repo-answerable question in narration | The repo-grounded answer with a pointer. (Model-dependent — Phase B.) |
-| **FR-A2k Process conformance → BLOCK** | An owner expert-tool skill is active | Whether the agent's actions match the skill's steps. **Steers first; escalates to a BLOCK** when the agent skips a step without a stated reason, or steering isn't working `[OL-C2]` (§8, §11.4). Small / personal / non-primary. |
-| **FR-A2l Answer-drift → BLOCK** | A question the user asked goes unaddressed | Holds the agent (blocks the turn from ending) until it answers the user's question `[OL-C3, OL-9]` (§8). Simple mechanism, no ceremony. |
+| **FR-A2k Process conformance → BLOCK** | An owner expert-tool skill is active | Whether the agent's actions match the skill's steps. **Steers first; escalates to a BLOCK** when the agent skips a step without a stated reason, or steering isn't working `[OL-C2]` (§8, §11.4). **Non-primary in *purpose*** (per OL-C2 the design invests little here and it fires sparingly); the block itself is a **high-severity mechanism** — "non-primary" bounds its ambition and firing eagerness, not its stakes (M1, §11.4). |
+| **FR-A2l Answer-drift → BLOCK** | A question the user asked goes unaddressed | Holds the agent (blocks the turn from ending) until it answers the user's question `[OL-C3]` (§8). Answer-drift entered scope *advisory* under OL-9; **OL-C3 (2026-08-16) superseded that for this case and made it a block** — so the block is authorised by OL-C3 alone, not OL-9. Simple mechanism, no ceremony. |
 
 - **FR-A1 — The single internal question.** Per event the oracle asks: *given what the
   agent is doing now, do I know something it almost certainly does not that would
@@ -225,10 +229,12 @@ saying* — a **quality/marginal-value filter, not a relevance oracle** `[D-6bar
   consequential to the code being touched (**decision-impact**, deterministic from
   per-candidate properties — edit-vs-read, blast radius, zone — carrying **no genre
   term** `[D-18, P9]`), and (c) **not cheaply self-serve** (**marginal value** `[P5]`).
-  None laundered by another being high. **Every candidate meeting the conjunction is
-  spoken; nothing suppresses or drops one — the bar is the only thing that decides
-  whether the oracle speaks `[OL-C1]`.** The numeric combinator is the architect's
-  `[D-6bar]`.
+  None laundered by another being high. **No *volume, count, or budget* limit suppresses a
+  candidate that clears the bar — the bar, not an arbitrary cap, is what decides worth
+  `[OL-C1]`.** (Per-consumer dedup — FR-A4, FR-D5 — still applies: a candidate already
+  delivered to, or visibly incorporated by, that consumer is not repeated. Dedup is not an
+  arbitrary limit; it is the never-repeat property.) The numeric combinator is the
+  architect's `[D-6bar]`.
 - **FR-A5a — Uncertain hazards are spoken, flagged — not floored out `[OL-C4]`.** The
   warning/hazard genres do **not** require high confidence to fire. Asked to choose
   between warning only when quite sure (A) and also voicing uncertain warnings clearly
@@ -240,9 +246,9 @@ saying* — a **quality/marginal-value filter, not a relevance oracle** `[D-6bar
 - **FR-A6 — Corpus (evidentiary) floor only.** Below a minimum history corpus,
   history-derived genres stay silent (too little signal to mine) — evidentiary, feeding
   the confidence term. **No first-N-sessions / adoption window** (that would be the
-  arbitrary limit `[OL-C1]` bans) `[D-7, D-8]`. On a young repo (Max's common case) the
-  history genres are thinner; the structural, reuse, consequence, conformance, and
-  answer-drift behaviours still operate (§13).
+  arbitrary limit `[OL-C1]` bans) `[D-7, D-8]`. On a thin-history repo the history genres
+  are thinner; the structural, reuse, consequence, conformance, and answer-drift
+  behaviours still operate (§13).
 - **The bar ships high and is calibrated.** Adjusted against measured false-fire and
   value — the calibration input from Phase A is the human CLI correction (FR-D4/FR-L6);
   automated demotion/promotion is Phase C `[D-6bar]`.
@@ -301,6 +307,24 @@ attack surface. The model precedes the requirements.
 ---
 
 ## 8. How the oracle blocks — and what stays structurally impossible
+
+**Why blocking is here at all (the reconciliation).** The mission — *deliver the fact that
+would change the agent's next decision* — does **not** cover blocking: a block delivers no
+fact, it withholds the agent's ability to stop. Blocking is therefore **not** derived from
+the mission and does **not** claim to pass a mission-phrased collapse test. It is a
+**separate objective Max Cogar confirmed** (`[OL-C2, OL-C3]`), standing alongside the
+mission, and each block is justified in **owner-objective** terms:
+- **Answer-drift block** — *job:* enforce that a question Max asks is actually answered
+  before the agent stops ignoring it `[OL-C3]`. (Not "deliver a fact"; "make the agent
+  respond to the owner.")
+- **Skill-non-conformance block** — *job:* enforce that an agent using Max's expert skills
+  either follows their steps or states why it skipped one, rather than silently drifting
+  `[OL-C2]`.
+
+Both are owner-authority enforcement, not information delivery; the spec keeps them
+explicitly distinct from the advisory whisper genres so the tool's identity as a guide is
+not quietly redefined. If the scope of that enforcement is ever in question, it is an
+owner-scope call for Max, not a mission derivation the spec can make on its own.
 
 The oracle's blocks use the harness **Stop-continuation** `[HOOKS]`: a `Stop`/
 `SubagentStop` hook can keep the turn from ending. This is how a block is realised
@@ -364,14 +388,19 @@ without any deny path on a tool call and without touching the repo.
 - **C-5 — No MCP sampling** (deprecated SEP-2577) `[MCP-DEP]`.
 - **NF-1 — Latency (engineering judgment `[D-31]`):** added latency per event **p95 ≤
   1.5s, hard ceiling 3s**, then silence and carry to the next event. A model call cannot
-  sit on the synchronous hook path (cold spawn ~5.3s, an observation), so model-using
-  genres run off it (§11). The numbers are `[D-31]`, not the owner's; the fail-open
-  behaviour is `[OL-3]`.
-- **C-6 — Language coverage is broad and extensible, not a fixed short list** `[OL:#3]`.
-  Max cannot enumerate a fixed set and it should not be one; the oracle reads a broad set
-  of languages behind a **language-agnostic interface**, and adding a language is a
-  configuration/extension act, not a redesign. The concrete initial set is the
-  architect's to maximise within the interface, not a hardcoded three `[D-15]`.
+  sit on the synchronous hook path — cold model-spawn cost is **assumed to be several
+  seconds and is validated by the Phase-0 model-piggyback spike CLAUDE.md already mandates**
+  (not yet a recorded measurement) — so model-using genres run off it (§11). The numbers are
+  `[D-31]`, not the owner's; the fail-open behaviour is `[OL-3]`.
+- **C-6 — Language coverage is broad and extensible, not a fixed short list `[D-15]`.**
+  A hardcoded N-language list is an anti-feature: the mission is language-general (a
+  decision-changing fact is not English-only, nor tied to three languages), and a fixed
+  cap is an **arbitrary limit of exactly the kind `[OL-C1]` disfavours**. So the oracle
+  reads a broad set of languages behind a **language-agnostic interface**, and adding a
+  language is a configuration/extension act, not a redesign. The concrete initial set is
+  the architect's to maximise within the interface. *(This is an architect judgment
+  `[D-15]`, not an owner decision — see the PENDING language-coverage item in
+  `OWNER-LEDGER.md` for Max's own words on the subject, which are not yet CONFIRMED.)*
 
 ---
 
@@ -419,10 +448,12 @@ requirement — grounded by the literature above, with the operating point set o
   FR-L6). Full surface is the architect's.
 - **Stores (produced)** — two SQLite stores outside the repo tree; schema the architect's
   within FR-K* (§11), subject to C-2.
-- **Model access (consumed)** — the host CLI's own access via
-  `claude -p --model … --output-format json --max-turns 1`, tools disallowed, reusing the
-  session's authentication; **no separate credentials** `[OL-2, OL-7]`. The Agent SDK is
-  not a substitute; the CLI piggyback is the path.
+- **Model access (consumed)** — the **requirement** is a one-shot, tool-disallowed model
+  call over the **host CLI's own access**, reusing the session's authentication, with **no
+  separate credentials** `[OL-2, OL-7]`. The exact invocation is the architect's;
+  illustratively a non-interactive single-turn CLI call (e.g. `claude -p --model … --max-turns
+  1` with tools off) rather than the Agent SDK — but the flags are not part of the contract,
+  the piggyback-with-no-credentials property is.
 
 ---
 
@@ -465,7 +496,15 @@ requirement — grounded by the literature above, with the operating point set o
   mined inference and is Phase A's calibration signal (§5.2).
 - **FR-L7 — Fact routing**: repo facts → project store; efficacy → global store `[OL-6]`.
 
-### 11.4 Corrective / steering feature (small, personal, non-primary — and it blocks)
+### 11.4 Corrective / steering feature (non-primary in purpose — and it blocks)
+
+**On "non-primary" vs a blocking capability (M1).** OL-C2 makes this feature *non-primary in
+purpose*: the design invests little in it, it fires sparingly, and it holds no precedence
+over any genre (P9). That constrains its **ambition and firing eagerness — not its stakes**.
+The block it can raise is inherently a **high-severity mechanism** (it halts the agent); the
+feature being non-primary does not make its block low-stakes, and the spec does not treat the
+two as the same axis. It is also the most machinery-heavy behaviour (FR-C1/C2 encode each
+skill's structure) and is deferred to Phase C accordingly.
 
 - **FR-C1 — Expert-tool awareness `[OL-C2]`.** The oracle is given the *structure* of
   Max's expert dev-tool skills — per skill: how activation is detectable, the steps it
@@ -514,10 +553,12 @@ numbers are set from Phase A's exit data.
 - **D-9 — The one in-tree write is `init` wiring** (P8).
 - **D-12 — Phase A logs uptake but makes no automated uptake judgment**; calibration input
   is the human CLI correction.
-- **D-15 / C-6 — Language coverage is broad and extensible, not a hardcoded short list**
-  `[OL:#3]`. Max stated he can't confirm a fixed set and it should cover "probably more
-  than just like 3"; the interface is language-agnostic and the initial set is the
-  architect's to maximise, not a fixed three.
+- **D-15 / C-6 — Language coverage is broad and extensible, not a hardcoded short list.**
+  *Job:* keep the tool's reach general enough to serve the mission across languages instead
+  of being scoped to an arbitrary few. Grounded on the mission (language-general) and the
+  anti-arbitrary-limit principle `[OL-C1]`; a fixed short list is an architect-rejected
+  anti-feature, not an owner decision. Max's own words on the subject are recorded PENDING
+  in `OWNER-LEDGER.md` (not CONFIRMED); the spec does not attribute this choice to him.
 - **D-16 — Per-consumer subagent delivery** `[OL-8, HOOKS]`.
 - **D-18 — Equal genre base weight; decision-impact carries no intent term because intent
   enters via the trigger (§5.1).**
@@ -532,10 +573,13 @@ numbers are set from Phase A's exit data.
   case routes to Phase B**, an honest limit on OL-12.
 - **D-31 — Latency numbers (1.5s/3s) are an engineering judgment**, not the owner's.
 - **D-32 — The blocking model is exactly Max's two cases, realised via the harness
-  Stop-continuation, always reactive and self-lifting (§8, FR-B1–B3).** *Job:* give the
-  oracle teeth in the two situations Max asked for without becoming the pre-emptive gate
-  he rejected. What is rejected — the pre-emptive "pass a test to proceed" gate `[OL-C2]`
-  and the generated-file block `[OL-R4]` — stays structurally impossible (FR-B3).
+  Stop-continuation, always reactive and self-lifting (§8, FR-B1–B3).** *Job (an
+  owner-objective, not a mission derivation — see §8's reconciliation):* enforce owner
+  authority in the two situations Max confirmed `[OL-C2, OL-C3]` without becoming the
+  pre-emptive gate he rejected. Blocking is deliberately **not** claimed to serve the
+  mission sentence; it stands beside it. What is rejected — the pre-emptive "pass a test to
+  proceed" gate `[OL-C2]` and the generated-file block `[OL-R4]` — stays structurally
+  impossible (FR-B3).
 
 ---
 
@@ -553,14 +597,16 @@ whether a subagent hook's `additionalContext` propagates to the parent; the spec
 does **not** (C-4), and a pre-design spike showing otherwise only adds an option, it removes
 nothing.
 
-**Thin-history repositories are a known limit, not a defect.** On young repositories (Max's
-common case) the history-derived genres are thinner until the evidentiary corpus grows; the
-structural, reuse, consequence, conformance, and answer-drift behaviours still operate, and
+**Thin-history repositories are a known limit, not a defect.** On a thin-history repository
+the history-derived genres are thinner until the evidentiary corpus grows; the structural,
+reuse, consequence, conformance, and answer-drift behaviours still operate, and
 completion-check catches *unverified*, not the general *unfinished* (D-27).
 
-No owner question is open: answer-drift is in scope and blocks (`[OL-C3, OL-9]`), uncertain
-hazards are voiced-flagged (`[OL-C4]`), and language coverage is broad/extensible
-(`[C-6, OL:#3]`).
+No CONFIRMED owner question is open: answer-drift is in scope and blocks (`[OL-C3]`),
+uncertain hazards are voiced-flagged (`[OL-C4]`). **One owner item is PENDING, not open in
+the spec:** Max's own words on language coverage are recorded PENDING in `OWNER-LEDGER.md`
+awaiting his sign-off; the spec does not depend on them — C-6 stands on architect judgment
+`[D-15]` and `[OL-C1]` regardless of how that ballot resolves.
 
 ---
 
@@ -588,8 +634,9 @@ clean session.**
   It never blocks pre-emptively (before a deviation) and never as a "pass a test to
   proceed" gate.
 - **AC-3 (relevance+bar → FR-A5, OL-C1).** Two candidates meeting the bar at one event
-  are both delivered; nothing caps how much the oracle says over a session — the bar is
-  the only thing that decides whether it speaks.
+  are both delivered; **no volume/count/budget cap** limits how much the oracle says over a
+  session. (Dedup — FR-A4/FR-D5 — may still withhold an already-delivered fact; that is the
+  never-repeat property, not a cap, and is covered by AC-4/AC-5.)
 - **AC-3a (uncertain hazard spoken → FR-A5a, FR-D1, OL-C4).** A real but low-confidence
   hazard fires **with its confidence flagged**, not silence; a below-noise-floor
   coincidence does not fire.
@@ -626,9 +673,13 @@ clean session.**
   high, and contains no imperative.
 - **AC-15 (subagent delivery → FR-O6, OL-8).** A subagent tool event draws a whisper into
   that subagent's context, keyed by `agent_id`.
-- **AC-16 (loop does not ratchet to silence → FR-L3, FR-L3b, P7).** A genre demoted for
-  measured false-fires is later re-explored and re-promoted; per-genre delivery does not
-  converge to zero while value remains.
+- **AC-16 (loop does not ratchet to silence → FR-L3, FR-L3b, P7).** On a fixture where a
+  genre is demoted by **injected false-fires**, that genre is re-admitted for
+  re-measurement within a bounded window (**N events or M sessions**, the values set from
+  Phase A data); and on a companion fixture where the genre's value is **restored**, its
+  delivered rate recovers **above zero** after re-admission. Pass/fail is the observed
+  recovery on the restored-value fixture within the window — not an open-ended "while value
+  remains."
 - **AC-17 (language breadth → C-6, D-15).** The oracle indexes and mines a broad set of
   languages behind the language-agnostic interface; adding a language is configuration, not
   a redesign; nothing is hardcoded to a fixed three.
@@ -640,9 +691,7 @@ clean session.**
 
 ---
 
-*End of spec. Written 2026-08-16 on the confirmed foundation in `OWNER-LEDGER.md`
-(OL-1…OL-12, OL-C1…OL-C4; OL-R1…OL-R4 for what is rejected) plus the mission, with the
-two 2026-08-16 independent reviews applied and Max's 2026-08-16 corrections on blocking,
-the corrective feature, uncertain hazards, and language coverage folded in. Every external
-premise in §9 was re-verified against its current primary/authoritative source on
-2026-08-25.*
+*End of spec. Its foundation is `OWNER-LEDGER.md` CONFIRMED (OL-1…OL-12, OL-C1…OL-C4;
+OL-R1…OL-R4 for what is rejected) plus the mission. Verification recency is per the §9
+table: most external premises confirmed 2026-08-25, `[NODE-SQLITE]` and `[ROSE]` on
+2026-08-16, `[MSR]` grounded via `[HERZIG]`.*

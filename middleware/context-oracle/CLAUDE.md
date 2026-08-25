@@ -216,12 +216,19 @@ run?" is not that.
 
 ## Decisions are locked in writing, nowhere else
 
-The authorities are RETHINK §12 (+ addendum) and spec §11. Do not
-re-litigate or silently drift from them. Ideas the owner has explicitly
-rejected — do not reintroduce in any form:
+The authorities are the `OWNER-LEDGER.md` CONFIRMED entries, RETHINK §12
+(+ addendum), and spec §11. Do not re-litigate or silently drift from them.
+Ideas the owner has explicitly rejected — do not reintroduce in any form:
 
-- **No gates.** No deny paths, no blocking, no plan firewalls. Every
-  intervention is an advisory whisper.
+- **No *pre-emptive* gate.** No deny paths on tool calls, no plan firewalls,
+  no "pass a test / prove your plan to proceed" checkpoint, no generated-file
+  block `[OL-R4]`. **Reactive blocking IS in scope** in exactly the two cases
+  Max confirmed on 2026-08-16 — **answer-drift `[OL-C3]`** and **skill
+  non-conformance (steer-then-block) `[OL-C2]`** — realised via the harness
+  Stop-continuation, always reactive and self-lifting (spec §8). Everything
+  else is an advisory whisper. *(This corrects the earlier absolute "no
+  blocking, every intervention is an advisory whisper," which predates and is
+  superseded by OL-C2/OL-C3; the ledger is authoritative.)*
 - **No separate credentials.** Model access is host-CLI piggyback or
   deterministic degraded mode. The oracle never requires, requests, or
   stores API keys of its own.
