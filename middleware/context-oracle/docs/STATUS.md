@@ -40,10 +40,13 @@ demotes false-firers) and #3 (language coverage should be **broad/extensible, NO
 hardcoded short list** — Max can't confirm a fixed set and it shouldn't be one). The
 generated-file block is REJECTED (OL-R4); everything else is an advisory whisper.
 
-**Root cause worth carrying:** `RETHINK.md` §6 — Max's *own founding doc* — contains
-the generated-file-block fixation, written by an agent, so every rebuild resurrects
-it as if it were his. It is flagged REJECTED in the ledger (OL-R4). Max was offered
-the option to strike it from RETHINK itself; awaiting his word.
+**Root cause — now removed at the source:** `RETHINK.md` — Max's *own founding doc* —
+had the generated-file-block fixation written into it by an agent (§6 subsection +
+a §12.3 phrase), so every rebuild resurrected it as if it were his. **It was struck
+from `RETHINK.md` on 2026-08-16** (§6 subsection removed with a do-not-reintroduce
+note; §12.3 phrase removed) and flagged REJECTED in the ledger (OL-R4). Treat
+`RETHINK.md` as agent-contaminated: if a future session finds any blocking/gate
+content there attributed to Max that is not in the ledger CONFIRMED, it is suspect.
 
 **What to do next:**
 
@@ -53,7 +56,8 @@ the option to strike it from RETHINK itself; awaiting his word.
    P2, FR-O4) and the generated-file block; add the single answer-drift block as a
    simple Stop-continuation hold, non-convoluted; keep everything else advisory.
 2. **Fold in OL-C4 (option B)** and **#3 (broad/extensible language coverage).**
-3. **If Max says so, strike the generated-file block from `RETHINK.md` §6.**
+3. **DONE 2026-08-16:** the generated-file block was struck from `RETHINK.md`
+   (§6 + §12.3) — it should never have been left in "pending his word."
 4. **Then a confirmation review, then the Phase A architecture document.**
 
 **Standing rule reinforced this session:** three owner-attribution falsifications
