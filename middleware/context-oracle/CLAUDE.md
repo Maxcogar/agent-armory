@@ -220,15 +220,16 @@ The authorities are the `OWNER-LEDGER.md` CONFIRMED entries, RETHINK §12
 (+ addendum), and spec §11. Do not re-litigate or silently drift from them.
 Ideas the owner has explicitly rejected — do not reintroduce in any form:
 
-- **No *pre-emptive* gate.** No deny paths on tool calls, no plan firewalls,
-  no "pass a test / prove your plan to proceed" checkpoint, no generated-file
-  block `[OL-R4]`. **Reactive blocking IS in scope** in exactly the two cases
-  Max confirmed on 2026-08-16 — **answer-drift `[OL-C3]`** and **skill
-  non-conformance (steer-then-block) `[OL-C2]`** — realised via the harness
-  Stop-continuation, always reactive and self-lifting (spec §8). Everything
-  else is an advisory whisper. *(This corrects the earlier absolute "no
-  blocking, every intervention is an advisory whisper," which predates and is
-  superseded by OL-C2/OL-C3; the ledger is authoritative.)*
+- **No *pre-emptive* gate.** No *pre-emptive* deny on a tool call, no plan
+  firewalls, no "pass a test / prove your plan to proceed" checkpoint, no
+  generated-file block `[OL-R4]`. **Reactive blocking IS in scope** in exactly
+  the two cases Max confirmed on 2026-08-16 — **answer-drift `[OL-C3]`** and
+  **skill non-conformance (steer-then-block) `[OL-C2]`** — always reactive and
+  self-clearing; the mechanism (a `PreToolUse` deny of the agent's *deviating
+  action*, never a Stop-based hold) is defined in spec §8, the authority — do
+  not restate it here. Everything else is an advisory whisper. *(This corrects
+  the earlier absolute "no blocking, every intervention is an advisory whisper,"
+  which predates and is superseded by OL-C2/OL-C3; the ledger is authoritative.)*
 - **No separate credentials.** Model access is host-CLI piggyback or
   deterministic degraded mode. The oracle never requires, requests, or
   stores API keys of its own.
@@ -325,7 +326,8 @@ runs on `Stop`. If the session changed anything under `middleware/context-oracle
 and `docs/STATUS.md` was not updated, or a handoff was written, or a new file
 appeared outside the sanctioned set, it says so and the turn continues once so you
 can fix it. It never blocks, and it is gated on `stop_hook_active` so it can never
-chain — the same one-continuation bound spec FR-O4a puts on the oracle itself.
+chain — the same single-cycle bound spec FR-B4 puts on the oracle's own Stop-time
+completion-check whisper.
 
 The reason it exists: on 2026-07-31 an agent wrote these rules and then broke
 them repeatedly within minutes — patching after being told not to, using grep as

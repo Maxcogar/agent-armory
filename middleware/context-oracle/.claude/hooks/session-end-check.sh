@@ -7,7 +7,8 @@
 #
 # It NEVER blocks. It emits `additionalContext` on Stop, which continues the turn
 # once so the agent can fix what it missed — and it is gated on `stop_hook_active`
-# so it can never chain (the same bound spec FR-O4a puts on the oracle itself).
+# so it can never chain (the same single-cycle bound spec FR-B4 puts on the
+# oracle's own Stop-time completion-check whisper).
 # Exits 0 on every path.
 
 set -uo pipefail
