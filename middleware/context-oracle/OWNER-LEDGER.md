@@ -29,13 +29,15 @@ Legend: ✅ CONFIRMED (Max signed) · ⏳ PENDING (awaiting Max) · ❌ REJECTED
 
 Max confirmed these are accurately his (*"the rest look good"*), with OL-12
 reworded and separately approved. Load-bearing phrases quoted verbatim; full
-rationale in `RETHINK.md` §12. Nothing owner-attributed remains pending.
+rationale in `RETHINK.md` §12. One item was reopened 2026-08-16 — **OL-P1**, your
+blocking position — because "No hard blocks, none anywhere" turned out to conflict
+with your own `RETHINK.md` §6 (see OL-3 and PENDING).
 
 | ID | Claim (confirmed his) | Source |
 |---|---|---|
 | OL-1 | Name is **Context Oracle**, CLI `ctxoracle`. | RETHINK §12.1 (2026-07-13) |
 | OL-2 | Model in the loop, via the host CLI's own model access (no separate key); a deterministic degraded mode is mandatory for air-gap. | RETHINK §12.2 |
-| OL-3 | **"No hard blocks. None, anywhere."** Every intervention is a loud warning whisper; the oracle "never mutates the repo and never prevents an action; its worst case is a wasted sentence." | RETHINK §12.3 |
+| OL-3 | **Under resolution (2026-08-16) — your own doc contradicts itself here, and your position is recorded in your words, not paraphrased.** `RETHINK.md` §12.3 says *"No hard blocks. None, anywhere."*; `RETHINK.md` §6 says *"A block is allowed only where wrongness is objective and machine-checkable — e.g. hand-editing a file that is provably build output,"* and *"Whether generated file edits block or loudly whisper is an owner decision."* On 2026-08-16 you said *"IM PRETTY SURE I DID ALLOW BLOCKING IN AT LEAST ONE CASE."* Your actual, complete blocking position is being captured verbatim in **OL-P1 (awaiting your statement)** — not asserted here. | RETHINK §12.3 + §6; Max 2026-08-16 |
 | OL-4 | Sandbox compatibility is required. | RETHINK §12.4 |
 | OL-5 | *(superseded by OL-8)* Main agent only in v1. | RETHINK §12.5 |
 | OL-6 | Two stores — per-project and per-user global — both outside the repo tree; solo scope, no team sharing. | RETHINK §12.6 |
@@ -54,6 +56,12 @@ rationale in `RETHINK.md` §12. Nothing owner-attributed remains pending.
 | OL-R2 | "The core problem the tool exists to solve." | Not your words — an agent's superlative wrapped around your quote; it propagated to four documents and a review pass. | Max, 2026-08-01 (see collapse-log.md) |
 | OL-R3 | Any per-session or per-trigger token/whisper budget that limits the oracle's operation. | Not yours. An agent introduced it in `RETHINK.md` §5 rationale — never one of your `RETHINK.md` §12 decisions — and it was treated as settled through every review round until you ruled it out (OL-C1). | Max, 2026-08-13 |
 
+## ⏳ PENDING — awaiting Max's own statement (reopened 2026-08-16)
+
+| ID | Awaiting your words | Source |
+|---|---|---|
+| OL-P1 | **Where the oracle may BLOCK (vs. only whisper) — to be stated in your words, not my summary.** On record so far, verbatim: from your `RETHINK.md` §6 — *"A block is allowed only where wrongness is objective and machine-checkable — e.g. hand-editing a file that is provably build output,"* and *"Whether generated file edits block or loudly whisper is an owner decision"*; from you on 2026-08-16 — *"IM PRETTY SURE I DID ALLOW BLOCKING IN AT LEAST ONE CASE,"* and *"if i ask a question, then it needs to be answered. the oracle should block that motherfucker until it stops ignoring me and actually answers. just dont make a convoluted fucked up way that its done."* **Nothing is treated as your settled position until you state it.** This supersedes OL-9's *"advisory only"* as applied to answer-drift. | RETHINK §6; Max 2026-08-16 |
+
 ## ✅ CONFIRMED — signed off by Max
 
 | ID | Decision (your words) | Confirmed |
@@ -61,7 +69,8 @@ rationale in `RETHINK.md` §12. Nothing owner-attributed remains pending.
 | OL-C1 | **No arbitrary limit gates the oracle's operation.** Whether to speak is decided solely by whether the information is important: *"either the information its giving the agent is important, or its not. at no point should an arbitrary limit influence how that operates."* Every per-session / per-trigger token or count budget is removed as an operational gate; the bar (importance / marginal value) is the sole arbiter, and a malfunction is surfaced by diagnostics, never by suppressing whispers. | Max, in chat, 2026-08-13 |
 | OL-C2 | **A corrective / steering feature — small, personal, and NOT a primary feature or the oracle's primary role** (his emphasis: *"THIS IS JUST A SMALL FEATURE FOR MY OWN PERSONAL BENEFIT… NOT THE PRIMARY ROLE OF THE ORACLE, NOR… A PRIMARY FEATURE."*). In his words: not fully against corrective actions; the prior hard-no was because agents *"got absolutely fucking obsessed with 'gates'"* and *"making the working agent take a goddamn test to see if it had a good enough plan to proceed,"* which *"was terrible and didn't work."* What he wanted: *"structured steering/correcting with a more deterministic trigger,"* and *"NOT trying to code in piles of rules and shit for when it should trigger."* The trigger is deterministic because the oracle is *"aware of my expert dev tools that I use,"* with *"their structures programmed into the oracle so the oracle would know when they're activated, what steps are within the expert skill being used, what actions the agent should be taking if they actually follow the skills, and so on."* This is the precise version of what the vague OL-9 (process conformance) was reaching for; OL-9's separate "answer drift" element still awaits his ruling. | Max, in chat, 2026-08-13 |
 
-*(All owner claims are now confirmed: the RETHINK §12 decisions (OL-1…OL-12,
-OL-5 superseded) plus OL-C1 and OL-C2. Nothing owner-attributed remains pending.
-If any entry misstates your words, say so and I'll correct it — they are recorded
-from your messages, not my interpretation.)*
+*(Confirmed: the RETHINK §12 decisions (OL-1…OL-12, OL-5 superseded) plus OL-C1 and
+OL-C2. **One item is PENDING again as of 2026-08-16: OL-P1** (your blocking
+position), reopened because "No hard blocks, none anywhere" conflicts with your own
+`RETHINK.md` §6. If any entry misstates your words, say so and I'll correct it —
+they are recorded from your messages, not my interpretation.)*

@@ -5,74 +5,59 @@ state and what to do next; the evidence lives in `docs/reviews/`, the durable
 lessons in `docs/collapse-log.md`, and everything attributed to Max Cogar in
 `OWNER-LEDGER.md`.*
 
-## 2026-08-16 — Full restart: owner claims ratified, the spec rebuilt from scratch and independently reviewed; three owner questions are the only thing between here and the Phase A architecture
+## 2026-08-16 (later) — Restart + rebuilt spec + review done; then TWO owner-attribution falsifications were caught by Max. Both corrected in the ledger; the spec's blocking model is being rebuilt on his actual words. One thing is needed: his blocking position, in his words.
 
-**What happened.** Max Cogar called a restart after the project kept getting
-rebuilt on assumptions attributed to him that he never confirmed. Two things were
-established this session and everything else was rebuilt on them:
+**The restart is done and the spec was rebuilt and independently reviewed** (see
+the earlier 2026-08-16 entry's substance in `docs/reviews/2026-08-16-*` and the
+committed spec). Then, answering the owner questions, **Max caught two things
+attributed to him that were false** — the exact failure this project exists to
+stop:
 
-1. **The owner ledger is now fully ratified.** `OWNER-LEDGER.md` — every owner claim
-   (OL-1…OL-12, plus OL-C1 "no arbitrary limit gates operation" and OL-C2 "the
-   corrective feature is small/personal/non-primary") is CONFIRMED in his own words;
-   OL-12 was reworded and approved; the budget concept is REJECTED (OL-R3). Nothing
-   owner-attributed is pending. **New standing rule:** nothing may be attributed to
-   Max unless it is CONFIRMED in the ledger with his sign-off in chat.
+1. **The spec claimed he'd decided "false silence is worse than false speech"** to
+   justify voicing uncertain hazards. He never said that. **Removed** from the spec
+   (§1). (The *behavior* — voice uncertain hazards flagged — he did choose, as
+   option "B"; that stands, recorded transparently as his selection, not as his
+   wording.)
 
-2. **The v1 spec was rebuilt from scratch** (`docs/specs/spec-context-oracle.md`),
-   written only on the confirmed foundation + the mission + named,
-   current-verified standards + recorded judgments. The old `spec-context-oracle.md`
-   and `spec-context-oracle-phase0.md` are superseded (the rebuild replaced the
-   former; the phase0 file is dead — see "cleanup owed" below).
+2. **The whole tool was built on "No hard blocks. None, anywhere." (old OL-3) as an
+   absolute — which contradicts his OWN `RETHINK.md` §6**, *"a block is allowed only
+   where wrongness is objective and machine-checkable."* His doc contradicts itself;
+   prior agents (this session included) took the absolute and ran "advisory only, no
+   blocks ever" through the entire spec. **Corrected:** OL-3 now records the
+   contradiction in his words; **OL-P1 (PENDING)** holds his verbatim statements and
+   awaits his full blocking position; the false absolute is no longer asserted.
 
-**The spec was independently reviewed (both axes) and all findings applied.** Two
-fresh reviewers (`docs/reviews/2026-08-16-*`): an expert/structure pass (1 Critical,
-1 Serious, 5 Moderate, 5 Minor) and an adversarial collapse-hunt (mission-fidelity).
-Every finding was applied in one revision. The three that matter most:
-- The bar as first written **silenced the uncertain hazard** — the exact
-  possible-disaster fact OL-3 says to speak. Fixed: FR-A5a speaks it *flagged*.
-- The learning loop **only demoted** (a one-way ratchet to silence, a re-sprung
-  2026-07-22 trap). Fixed: FR-L3b requires promotion/re-exploration.
-- A latency figure was **attributed to Max through RETHINK §5 rationale** — the same
-  poisoned channel as the rejected budget. Fixed: it is a recorded judgment (D-31),
-  not his. (All three logged in `docs/collapse-log.md`, 2026-08-16.)
-
-**What is verified vs assumed in the spec:** the hooks contract and `node:sqlite`/
-FTS5 facts were re-verified 2026-08-16 (FTS5 is NOT in stock `node:sqlite` — a false
-premise in the old spec, now a stated constraint C-2). A set of standards are marked
-"prior pass; re-confirm at build" in §9 — load-bearing concepts, exact wording to be
-re-fetched before each is built on (spec §13). This is carried openly, not hidden.
+**The ledger is the corrected source of truth** (`OWNER-LEDGER.md`): OL-3 reopened;
+OL-P1 pending (his blocking words); OL-C1/OL-C2 confirmed; OL-1…OL-12 confirmed
+except OL-3's blocking question. Recorded lesson: `RETHINK.md` itself is internally
+contradictory on blocking — do not treat either §12.3's absolute or §6's exception
+as the whole truth without his resolution.
 
 **What to do next:**
 
-1. **Max answers the three questions in spec §13 (Q1–Q3).** They are the only open
-   owner items and two could change the spec:
-   - **Q1 — Answer-drift genre.** His ledger contradicts itself (OL-9 in-scope vs
-     OL-C2 "awaits ruling"); it is also the weakest mission fit. *Recommendation:
-     drop it.* Not built until he rules.
-   - **Q2 — Uncertain-hazard voice.** The tool now *speaks* low-confidence hazards
-     flagged (derived from OL-3 + OL-C1). *Confirm, or name a confidence below which
-     it should stay quiet.*
-   - **Q3 — v1 language set.** Which languages ship first (prior proposal: TS/JS/TSX
-     + Python). A scope preference only he sets.
-2. **Apply his answers, then a short confirmation review of just those changes**
-   (no point reviewing a spec with open owner questions that could move it).
-3. **Then the Phase A architecture document** — deterministic core — per the
-   lifecycle.
+1. **Max states, in his own words, when the oracle may block** (vs. only whisper) —
+   OL-P1. On record so far, verbatim: answer-drift (*"block that motherfucker until
+   it… actually answers"*) and his doc's generated-file example (which §6 says is
+   his call to block or loudly warn). Is that the whole list, or more?
+2. **Then rebuild the spec's blocking model on his actual words** — the current spec
+   still carries the false "no blocks / no deny path exists structurally" posture
+   (P2, §2.2, FR-O4) and must be corrected once his position is known. Do NOT guess
+   it.
+3. **Apply #2 (option B) and #3 (broad/extensible language coverage, not a hardcoded
+   short list — Max can't confirm a fixed set and it shouldn't be one).**
+4. **Then a confirmation review, then the Phase A architecture document.**
 
-**Cleanup owed (agent's, not blocking):** the superseded `spec-context-oracle-phase0.md`
-and the stale references to it in `CLAUDE.md`'s read-list should be removed once the
-rebuilt spec is settled; and `CLAUDE.md`'s description of the spec as "v1 across
-three phases + a separate phase0 spec" should be updated to the one-spec, phases-as-
-build-order structure. Left for the settle point so it isn't half-done now.
-
-**PR:** `https://github.com/Maxcogar/agent-armory/pull/59` (draft) now carries the
-restart + rebuilt spec; its early commits (the dead token-budget "correction") are
-superseded history.
+**Do not, under any circumstances, write a blocking scope or a language set as
+Max's without his words.** Two falsifications were caught in one session; the
+mechanism is the ledger + his verbatim sign-off.
 
 ## What is still open, and where it lives
 
-- **Spec owner questions Q1–Q3** — in `docs/specs/spec-context-oracle.md` §13. The
-  only thing gating the architecture phase.
-- **`OWNER-LEDGER.md`** — fully ratified; nothing pending.
-- **The Phase A architecture document does not exist yet** — it is written after
-  Q1–Q3 are answered and the confirmation review passes.
+- **OL-P1 (`OWNER-LEDGER.md`, PENDING)** — Max's blocking position, in his words.
+  The one thing gating the spec's blocking rebuild.
+- **The spec's blocking posture** (`docs/specs/spec-context-oracle.md` §2.2, P2,
+  FR-O4, and the FR-A2l answer-drift genre) — still carries the false no-blocks
+  absolute; rebuilt after OL-P1.
+- **#2 (option B) and #3 (broad language coverage)** — to fold into the spec with
+  the blocking rebuild.
+- **The Phase A architecture document does not exist yet.**

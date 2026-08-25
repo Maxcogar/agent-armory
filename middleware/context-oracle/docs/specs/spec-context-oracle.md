@@ -47,12 +47,6 @@ something the agent almost certainly does not and that would change what the age
 does next. It never blocks, never mutates the repository; its worst case is a
 wasted sentence `[OL-3]`.
 
-**The mission's asymmetry (load-bearing for §5).** Because a wasted whisper costs
-"a wasted sentence" `[OL-3]` while a *missed* decision-changing fact costs the
-mistake the tool exists to prevent, **false silence is the more expensive error
-than false speech.** The relevance machinery (§5) is built around that asymmetry,
-not against it.
-
 **For whom.** A single developer (Max Cogar) working solo across his own
 repositories — many of them young, with thin history — driving agents through
 Claude Code `[OL-6, OL-11]`. Not a team tool; no sharing surface in v1.
