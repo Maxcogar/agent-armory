@@ -1050,9 +1050,11 @@ numbers are set from Phase A's exit data.
   answer): denying those forced the agent to deadlock or fabricate a completion claim (the round-2
   collapse-hunt's central finding). Narrowing the trigger to *repository mutation* fixes this —
   reads and executions-to-answer run freely; only writing code is the denied pivot. Phase-A catches
-  structurally-typed write tools (Write/Edit); Bash-channel mutation is a **required follow-on
-  deterministic write-command heuristic** (not a model — it gates a synchronous deny), not a
-  permanent exclusion (§11.5). *(A related owner scoping statement
+  structurally-typed write tools (Write/Edit); **syntactically-explicit** Bash-channel writes are a
+  **required follow-on deterministic write-command heuristic** (not a model — it gates a synchronous
+  deny), *not* a permanent exclusion, while **interpreter-mediated** Bash writes (`python gen.py`,
+  `python -c`) **are** a permanent deterministic-detector limit (§11.5, FR-B1(b)). *(A related owner
+  scoping statement
   is recorded verbatim at **OL-P3 PENDING** in `OWNER-LEDGER.md`, awaiting Max's sign-off; this
   decision does not build on it — it stands on OL-C3 + engineering judgment — and the spec keeps no
   verbatim unconfirmed owner words in its body. If Max confirms OL-P3, D-39 gains direct owner
