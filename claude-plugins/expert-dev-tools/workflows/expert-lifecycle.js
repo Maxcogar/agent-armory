@@ -73,6 +73,22 @@ const GATE = {
   // UNVERIFIED (not failed, not non-convergent); re-run is the usual answer.
   control_fault: 'control_fault',
 }
+// How each non-PASS runGate outcome reaches the owner. Fail-safe defaults (OWASP
+// secure design; the architecture names this standard for D6 STOP routing at
+// docs/arch/architecture-expert-dev-tools.md @ `OWASP secure-design fail-safe defaults`):
+// a new state must fail CLOSED.
+// The callers below therefore test `!== 'PASS'` rather than enumerating verdicts —
+// an unhandled state that fell through reached the spec gate's GATE.intent return
+// and told the owner the specification passed independent review.
+// Declared here, above the main flow, because gateEscalation() is hoisted and is
+// reached by early returns long before this point in source order.
+// See docs/open-defects.md.
+const CORRECTION_FAILED_TEXT = {
+  fix_site_regression: 'a correction broke the section it edited',
+  unclosed_class: 'a correction closed the named instance and the same standard was violated elsewhere',
+  sweep_underreported: "a correction's class sweep, re-executed independently, returned sites the correction did not report",
+  found_left_silently_open: 'a correction found class sites it neither changed, escalated, nor declared open',
+}
 
 // ---------------------------------------------------------------------------
 // Schemas (kept to the load-bearing fields per architecture C4)
@@ -1036,19 +1052,11 @@ function maybeEscalate(out, phaseName) {
   }
   return null
 }
-// How each non-PASS runGate outcome reaches the owner. Fail-safe defaults (OWASP
-// secure design; the architecture names this standard for D6 STOP routing at
-// docs/arch/architecture-expert-dev-tools.md @ `OWASP secure-design fail-safe defaults`):
-// a new state must fail CLOSED.
-// The callers below therefore test `!== 'PASS'` rather than enumerating verdicts —
-// an unhandled state that fell through reached the spec gate's GATE.intent return
-// and told the owner the specification passed independent review.
-const CORRECTION_FAILED_TEXT = {
-  fix_site_regression: 'a correction broke the section it edited',
-  unclosed_class: 'a correction closed the named instance and the same standard was violated elsewhere',
-  sweep_underreported: "a correction's class sweep, re-executed independently, returned sites the correction did not report",
-  found_left_silently_open: 'a correction found class sites it neither changed, escalated, nor declared open',
-}
+// CORRECTION_FAILED_TEXT is declared with the other constants at the top of this
+// file. Declaring it here, below the main flow's early returns, put it in the
+// temporal dead zone of the hoisted gateEscalation() that reads it, so every
+// escalation threw before the diagnostician could be dispatched.
+// See docs/open-defects.md.
 function lastRoundFindings(gate) {
   return (gate.history[gate.history.length - 1] || {}).findings || []
 }
