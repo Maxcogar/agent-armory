@@ -39,3 +39,15 @@ passes review cleanly; any correction failure crashes the run instead of escalat
 Diagnosed by the plugin's own diagnostician during a live NOVA run, and rediscovered from a
 different angle by a baseline eval agent a day later. The diagnostic machinery found this
 correctly in the field.
+
+## Fix status
+
+Fix: `CORRECTION_FAILED_TEXT` moved above the main flow, so it is initialized before the first `gateEscalation()` call rather than read in its temporal dead zone.
+
+It is implemented on branch `claude/edt-usage-skill-0.5.0` and pinned by `T-34`, whose
+checks were verified to FAIL against the pre-fix source (5 red, no crash) and pass against
+the fixed one. The entry stays **open** deliberately: `skills/expert-defect-correction/`
+requires verification against the deployed copy before a defect is closed, because two
+defects in this plugin previously looked fixed under a full review loop and were not.
+Close it, with `fixed_in:`, once the version is installed and the behavior is exercised
+from the cache.

@@ -53,3 +53,15 @@ would re-author a spec that has already been through review rounds.
 
 An agent working in another session reported that the workflow could not be resumed without
 rewriting the spec. That report was correct and was initially doubted here.
+
+## Fix status
+
+Fix: each document phase consults `registeredArtifact()` before its authoring dispatch, so a resume continues at the review gate instead of re-authoring over a reviewed artifact.
+
+It is implemented on branch `claude/edt-usage-skill-0.5.0` and pinned by `T-34`, whose
+checks were verified to FAIL against the pre-fix source (5 red, no crash) and pass against
+the fixed one. The entry stays **open** deliberately: `skills/expert-defect-correction/`
+requires verification against the deployed copy before a defect is closed, because two
+defects in this plugin previously looked fixed under a full review loop and were not.
+Close it, with `fixed_in:`, once the version is installed and the behavior is exercised
+from the cache.
