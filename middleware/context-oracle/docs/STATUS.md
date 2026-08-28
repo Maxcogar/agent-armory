@@ -36,34 +36,42 @@ mechanism, not the earlier (wrong) Stop-continuation/counter model. Key properti
   the mission, justified in owner-objective terms, and it carries its own adversarial
   test **plus** the mandatory independent collapse-hunt (a self-test never suffices).
 
-**Owner-attribution is clean.** Nothing is attributed to Max in the spec unless it is
-CONFIRMED in `OWNER-LEDGER.md`. Max's real 2026-08-25 answer-drift scoping words are
-recorded verbatim as **OL-P3 (PENDING)**; the spec grounds the trigger on OL-C3 +
-design judgments `[D-39, D-40]` and does **not** build on OL-P3.
+**Owner-attribution is clean.** Nothing is attributed to Max unless CONFIRMED in
+`OWNER-LEDGER.md`. The answer-drift block's definition is now **OL-C5** (Max's confirmed words,
+2026-08-25): *after Max asks a question, the agent's next move must be a direct answer or an action
+taken to provide that answer; if it is neither, the agent is corrected.* This **supersedes** the
+earlier "writing code" framing (former `[D-39]`, and the pending OL-P3) — Max rejected that
+(**OL-R5**) because a definition that must describe what it *isn't* is not defined well enough. The
+spec's answer-drift section was rebuilt to OL-C5 (2026-08-25) and, because the core definition
+changed after the six review rounds, **the answer-drift section needs a focused re-review** against
+OL-C5 (the change simplified it — it removed the "writing code" proxy and the Bash-coverage padding).
 
-## What needs Max — one thing (nothing blocks the spec; it stands honestly either way)
+## ⚠ Read the RIGHT spec — and kill the obsolete one
 
-- **Confirm or correct OL-P3** (`OWNER-LEDGER.md` PENDING) — your 2026-08-25 answer-drift
-  scoping words are recorded there **verbatim** (see the ledger for the exact text — the gist
-  is that an agent going off to *write code* instead of answering is the situation to catch,
-  and an agent that silently ends its turn you'll just re-ask). Confirming gives the design
-  direct owner backing; the spec doesn't depend on it either way. This is the only open owner item.
+**The current v1 spec is `docs/specs/spec-context-oracle.md`.** It matches Max's decisions (it
+blocks; no arbitrary limits / no "one whisper"). **`docs/specs/spec-context-oracle-phase0.md` is
+OBSOLETE and contradicts confirmed decisions** — it predates OL-C1 (so it is built on a token
+"budget"/whisper cap = the rejected OL-R3) and predates OL-C2/OL-C3 (so it says whispers "block
+nothing"), and it rests on the agent-contaminated `RETHINK.md`. Max read it and — correctly — found
+it doesn't line up with what he wants. **Recommended: delete `spec-context-oracle-phase0.md`.** The
+"first buildable, model-free slice" concept it was for survives as **Phase A** in the current v1
+spec (§11.5); Phase 0/A build detail belongs in an *architecture* doc derived from the current spec,
+not a rival spec. (Awaiting Max's go-ahead to delete.)
 
-### How your two block directives got realized (boundaries — for your awareness, not decisions to make)
+### How the two blocks got realized (boundaries — for awareness, not decisions to make)
 
-I decided these; they're here so you can see how OL-C2/OL-C3 were built and flag anything you'd
-want different. None is a question you have to answer, and each is either mechanism-forced or a
-build-order call that's mine to make:
+For the reader's awareness, so how OL-C2/OL-C5 were built is visible; each is either
+mechanism-forced or a build-order call that's the agent's:
 
-- **Answer-drift stops the main case: an agent that ignores your question and edits code gets
-  blocked until it answers.** That is the dominant path — a drifting agent writes code through the
-  normal editing tools, and the block catches it. Three narrower slips it can't fully catch, each
-  backstopped by a "you claimed done with a question still open" flag on your status screen: writes
-  hidden inside a script/interpreter (`python gen.py`) — a permanent gap, because catching those at
-  the moment of the write would need the model and the model can't run fast enough there; an agent
-  that silently ends its turn (you just re-ask); and clearing on a *substantive* answer rather than
-  a *verified-correct* one (judging correctness would be the "pass a test to proceed" gate you
-  rejected). (If you'd rather widen coverage before anything ships, say so.)
+- **Answer-drift (OL-C5):** after you ask a question, if the agent's next move isn't a direct
+  answer or an action to get the answer, it's blocked until it answers. Actions to *get* the answer
+  (reading, running a test) run freely — they're the agent working toward answering, so the block
+  never traps it or forces a fake "it works." Judging "is this move answer-directed?" needs the
+  model, so the first (model-free) build is a conservative skeleton that catches only clear cases;
+  the working version is the model-assisted phase. It clears on a *substantive* answer, not a
+  *verified-correct* one — judging correctness would be the "pass a test to proceed" gate you
+  rejected, so an on-topic non-answer can clear it and your recourse is to re-ask (the status screen
+  flags "done claimed with a question still open" so you'll know to).
 - **The skill block stops an agent that skips a step of your expert skills — including the ones
   that matter most:** did it dispatch the mandatory independent review, did it read the sources
   before planning. It can't catch a pure-thinking step like "did you *actually* verify this against
@@ -72,26 +80,26 @@ build-order call that's mine to make:
 
 ## What to do next (agent-owned)
 
-- **The spec has converged** — five rounds of independent expert-review + collapse-hunt, each with
-  author self-review first and all findings applied; the final round's verdict was that the design
-  is sound and its remaining limits are irreducible truths about the problem, not defects. It is a
-  reasonable approval baseline.
-- **Roadmap note — answer-drift is not "done" until Phase B.** Its Phase-A increment is a safe
-  skeleton that rarely fires; the owner value (real OL-C3 precision) is entirely Phase B (the
-  model-maintained question state). Don't let the project stall at Phase A and call the block
-  finished — it would look broken to Max.
-- **Doc re-sync (tracked task).** `RETHINK.md` §12.12 and `docs/specs/spec-context-oracle-phase0.md`
-  still describe the superseded Stop-based no-deny blocking model. They need re-syncing to the
-  reactive-`PreToolUse`-deny mechanism the v1 spec now defines (the spec's retired-ID note maps the
-  old `FR-O4`/`FR-O4a` labels). (The context-oracle `CLAUDE.md` is already synced — it describes the
-  reactive-deny mechanism and points to spec §8.) Out of scope for the spec itself; do it before
-  those documents mislead a builder.
-- **Then the Phase A architecture document** (`docs/architecture-context-oracle-phase0.md`),
-  derived from the spec, adversarially reviewed, all findings applied — before any build. **At
-  architecture time, re-confirm one load-bearing hooks fact against current source:** that
-  `transcript_path` is written asynchronously / may lag (the whole D-41 lag design rests on it, and
-  the hooks contract has drifted before) — the spec verified it 2026-08-25, but re-verify before
-  building on it.
+1. **Delete `docs/specs/spec-context-oracle-phase0.md`** (awaiting Max's go-ahead — it's a spec
+   delete). It's obsolete and contradicts confirmed decisions (token budget = OL-R3; "blocks
+   nothing" = pre-OL-C2/C3); it built on `RETHINK.md`. Keeping it is why Max read the wrong spec.
+2. **Focused re-review of the answer-drift section against OL-C5.** The spec had converged over six
+   rounds against the older "writing code" framing; Max then gave the real definition (OL-C5,
+   2026-08-25) and the section was rebuilt on it. The change *simplified* (removed the proxy + the
+   Bash padding), but the core definition changed, so re-run the author self-review + one
+   independent expert-review + collapse-hunt on the answer-drift block. The skill block (OL-C2) is
+   unchanged and stays converged.
+3. **Roadmap note — answer-drift is not "done" until the model-assisted phase.** The model-free
+   first build is a conservative skeleton that fires rarely; the owner value (OL-C5 precision) is
+   the model-assisted phase (the async question/answer-state classification). Don't stall at the
+   skeleton and call the block finished — it would look broken.
+4. **Sync `RETHINK.md` §12.12** to the reactive-`PreToolUse`-deny mechanism (it still describes the
+   superseded Stop-based no-deny model). Treat RETHINK as agent-contaminated; only `OWNER-LEDGER.md`
+   CONFIRMED is authoritative. (The context-oracle `CLAUDE.md` is already synced.)
+5. **Then the Phase A architecture document**, derived from the current spec, adversarially reviewed,
+   all findings applied — before any build. At architecture time, re-confirm one load-bearing hooks
+   fact against current source: that `transcript_path` is written asynchronously / may lag (the D-41
+   lag design rests on it; the hooks contract has drifted before).
 
 ## Open external unknown (does not gate v1 design)
 
