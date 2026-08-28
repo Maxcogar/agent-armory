@@ -170,7 +170,7 @@ table is an advisory whisper.
 | **FR-A2d Consequence** | An edit / write about to run | The non-obvious blast radius: **historically-coupled tests** this edit tends to break, and a vendored/build-**zone** flag. (A raw call-site count is grep-able and never stands alone as the whisper.) |
 | **FR-A2e Warning ⚠** | An edit in a landmine zone | A history- or invariant-derived hazard (e.g. a file whose edits have broken a specific test), **flagged with its confidence** (§5). Advisory. |
 | **FR-A2f Completeness** | Edit completed / stop | "You changed the reducer but not the selector it pairs with in 9 of its last 10 changes." |
-| **FR-A2g Verification / completion check** | A recognized completion-claim stop | The fact the agent lacks at "done": **which test covers the changed region** — headlined by that covering-test *mapping*, with the observation that it has not been run against this change. The mapping is the non-trivial part; run-state alone is self-evident to the agent and, per P5, never stands alone as the whisper. (The completion-claim **recognizer** reads `last_assistant_message` `[HOOKS]` and classifies done-claim vs ordinary stop — a classification with false-fire/miss modes that **errs toward not firing** (P5, no ceremony); whether it is a deterministic heuristic (Phase A) or model-assisted (Phase B) is the architect's `[D-38]`.) **Honest limit:** catches *unverified* (a covering test exists and was not run); the general "did not finish" case (OL-12) is model-dependent and is a tracked Phase-B requirement (FR-A2m), not this one `[OL-12, D-27]`. |
+| **FR-A2g Verification / completion check** | A recognized completion-claim stop | The fact the agent lacks at "done": **which test covers the changed region** — headlined by that covering-test *mapping*, with the observation that it has not been run against this change. The mapping is the non-trivial part; run-state alone is self-evident to the agent and, per P5, never stands alone as the whisper. (The completion-claim **recognizer** reads `last_assistant_message` `[HOOKS]` and classifies done-claim vs ordinary stop — a classification with false-fire/miss modes that **errs toward not firing** (P5, no ceremony); whether it is a deterministic heuristic (Phase A) or model-assisted (Phase B) is the architect's `[D-38]`.) **Limit:** catches *unverified* (a covering test exists and was not run); the general "did not finish" case (OL-12) is model-dependent and is a tracked Phase-B requirement (FR-A2m), not this one `[OL-12, D-27]`. |
 | **FR-A2h Assumption check** | Agent narration | "Your narration assumes X; the repo says Y at `file:line`." (Model-dependent — Phase B.) |
 | **FR-A2i Steering (whisper)** | Agent narration | "What you're describing lives in `src/…`, not where you're looking." (Model-dependent — Phase B.) |
 | **FR-A2j Answer** | A repo-answerable question in narration | The repo-grounded answer with a pointer. (Model-dependent — Phase B.) |
@@ -416,15 +416,14 @@ its next action is simply allowed; the deny needs no counter, no held turn, no c
     question still unanswered at the done-claim, this Stop-time whisper **also carries an
     outstanding-question line** ("you claimed done, but Max's question `<q>` is unanswered"). It
     **surfaces (best-effort)** the case where the agent reached "done" without answering via moves
-    the conservative recognizer did not catch — it does **not** *close* it: two honest limits. (a) It fires only if the
-    completion-claim recognizer (FR-A2g) fires, which errs toward not-firing. (b) It uses the same
-    "was it answered?" recognizer as the block's clear-axis, so it catches only **recognizably-open**
-    questions, not a **false-clear** (a substantive-but-non-answer the clear-axis already accepted) —
-    the guard shares the recognizer's blind spot, stated, not hidden. It is **delivery, not a
-    block**. Because "Max re-asks" is the recourse for every uncaught case, and Max cannot re-ask
-    what he does not know was dropped, `status`/`log` **also record done-claims reached with an
-    outstanding question** (FR-M4) — an **owner-facing** signal, so the recourse is actually
-    reachable, not only an agent-facing whisper the already-drifted agent may ignore.
+    the conservative recognizer did not catch — it does **not** *close* it, with two limits: (a) it
+    fires only if the completion-claim recognizer (FR-A2g) fires, which errs toward not-firing; (b)
+    it uses the same "was it answered?" recognizer as the block's clear-axis, so it catches only
+    **recognizably-open** questions, not a **false-clear**. It is **delivery, not a block**. Because
+    "Max re-asks" is the recourse for every uncaught case, and he cannot re-ask what he does not know
+    was dropped, `status`/`log` **also record done-claims reached with an outstanding question**
+    (FR-M4) — an **owner-facing** signal, so the recourse is reachable, not only an agent-facing
+    whisper the already-drifted agent may ignore.
 - **FR-B5 — Each block's precision is calibrated to its own cost function.** A block's judgment
   (was the question answered? was the step skipped?) can be wrong; every deny is recorded on the
   audit trail (FR-X6) and its error rates surfaced (FR-M2/FR-M4) so a misfiring recognizer is
@@ -457,12 +456,10 @@ its next action is simply allowed; the deny needs no counter, no held turn, no c
   **repository mutation** — the oracle never rewrites an action's input to change what it does
   (`updatedInput`/`updatedToolOutput` are never used to mutate) `[D-9]`. A `permissionDecision`
   deny is emitted **only** for the two reactive conditions of FR-B1, never as a standing gate
-  on the agent's work. *(This supersedes the earlier "no `permissionDecision`, ever / never
-  chain continuations" framing in `RETHINK.md` §12.12 and the phase-0 spec, which described a
-  Stop-based no-deny model this rebuild replaces.)*
-- **Retired requirement IDs (citation resolution) `[D-23]`.** Earlier drafts, and documents
-  downstream of them (`CLAUDE.md`, `RETHINK.md`, the Phase 0 spec), cite two IDs this rebuild
-  supersedes; they resolve as follows and are not live requirements under those old names:
+  on the agent's work.
+- **Retired requirement IDs (citation resolution) `[D-23]`.** `CLAUDE.md` and `RETHINK.md` cite two
+  IDs this rebuild supersedes; they resolve as follows and are not live requirements under those old
+  names:
   - **`FR-O4` — formerly "no deny path exists, structurally."** *Superseded.* Its core claim is
     now false: v1 **does** deny reactively in the two confirmed cases (FR-B1). Its surviving,
     still-true content — **no *pre-emptive* deny, no plan/test gate, no generated-file block, no
@@ -654,7 +651,7 @@ requirement — grounded by the literature above, with the operating point set o
   costliest **value** failure, while FR-L3/FR-L6 measure only wrong whispers the owner can
   see. *(This is a mission-derived judgment `[D-36]`, not an owner statement — no CONFIRMED
   ledger row ranks silence against speech; D-28 records that "false silence is worse" was
-  once falsely attributed to Max and must not be.)* **Scope, stated honestly:** regret
+  once falsely attributed to Max and must not be.)* **Scope:** regret
   covers **held-but-unspoken** facts only; it does **not** see a fact the store never had (a
   coupling the miner missed) — that is a *coverage* blind spot, read against AC-18's
   seeded-fact delivery, not something regret can measure. A concrete proxy exists (e.g. the
@@ -706,9 +703,7 @@ observable post-conditions) and is deferred to Phase C accordingly.
   head* — because it produces **no artifact and no distinguishing action** (the claim appears
   whether or not verification happened), so *no* mechanism (not FR-C2, not FR-C4, not Max — OL-11)
   can detect the skip. A skill that is *entirely* such steps gets little from this block. That is an
-  **inherent limit**, not a choice the spec could have made differently; both the enforceable core
-  and the boundary are **stated for Max's awareness** (STATUS.md), so how OL-C2 is realized is
-  visible, not settled silently.
+  **inherent limit**, not a choice the spec could have made differently (FR-C1/FR-C4).
 - **FR-C2 — Trigger structured by the skill definition, not hand-coded rule piles `[OL-C2]`.**
   The trigger is driven by the structured skill definition (active? which step? expected
   action?), not a growing set of hand-written heuristics. **"Deterministic" here means
@@ -732,7 +727,7 @@ observable post-conditions) and is deferred to Phase C accordingly.
   post-condition is **absent**, and no deny fired ⇒ a **missed skill-block**, feeding the
   missed-skill-block rate (FR-M2/FR-M4). This *omission-of-outcome* check catches the
   misclassified-as-done case a commission-based check hides, and keeps the err-toward-restraint
-  bias (FR-B5) from ratcheting OL-C2 enforcement silently to never-firing. **Two honest limits.**
+  bias (FR-B5) from ratcheting OL-C2 enforcement silently to never-firing. **Two limits.**
   (1) A step with no checkable post-condition is not monitored this way (FR-C1a). (2) The check is
   classifier-independent, but the **"was step N due?" trigger** is only independent if "due" is
   derived by **post-condition chaining** (step N is due once step N-1's post-condition is present) —
@@ -751,14 +746,14 @@ observable post-conditions) and is deferred to Phase C accordingly.
   Verification/completion-check via the deterministic covering-test check), and the
   **answer-drift block's *safe skeleton*** — the deny **plumbing** (a `PreToolUse` deny) plus a
   **conservative deterministic recognizer** (the architect's) that fires only on a move *clearly*
-  not directed at answering `[D-41]`. **Honest phase scope `[OL-C5, D-41]`:** judging whether a
+  not directed at answering `[D-41]`. **Phase scope `[OL-C5, D-41]`:** judging whether a
   move is a direct answer or an action to provide the answer (OL-C5) is a **comprehension judgment**,
   so Phase A's recognizer errs hard toward not-firing — **safe** (it rarely denies a compliant
   agent) but **low-coverage: a skeleton, not "the block working"** — and the **OL-C5-serving
   precision is Phase B**. Also in Phase A: the stores/index/miner, delivery, self-observability,
   security, and the human-correction calibration channel. Exits by producing measured whisper/block
-  + false-fire **and regret** data on a real repo — including the honest finding of how little the
-  conservative recognizer catches before Phase B.
+  + false-fire **and regret** data on a real repo — including how little the conservative recognizer
+  catches before Phase B.
 - **Phase B — Model-in-the-loop genres.** Assumption-check, Steering, Answer, the
   **unfinished-work check (FR-A2m)**, and — crucially for the answer-drift block — the
   **model-assisted maintenance of the question/answer state**: classifying, on each *user* turn,
@@ -784,8 +779,8 @@ numbers are set from Phase A's exit data.
   guide that can still stop a genuinely off-track agent in the two cases Max named.
 - **D-4 — ⚠ subtype declarative, corrected via CLI** (feeds FR-L3/FR-L3b).
 - **D-28 — Uncertain hazards are spoken flagged (FR-A5a) — Max chose option B** on
-  2026-08-16 `[OL-C4]`. (Corrects a prior draft that justified this by a "false silence
-  is worse" claim falsely attributed to Max; the real basis is his B selection.)
+  2026-08-16 `[OL-C4]`. The basis is his B selection, not a "false silence is worse" claim
+  (that was never his — see FR-L4).
 - **D-6 / D-6bar — Recursion guard, and the bar-as-quality-filter, are properties**;
   combinator, "ships high", and calibration policy stated as properties.
 - **D-7, D-8 — Only an evidentiary corpus floor, no adoption window** (FR-A6).
@@ -807,7 +802,7 @@ numbers are set from Phase A's exit data.
 - **D-25 — Promotion/re-exploration required, not just demotion** (FR-L3b).
 - **D-26 — Orientation delivers entry-points, not task-shape landmines.**
 - **D-27 — Verification catches "claimed-done-but-test-not-run"; the general "unfinished"
-  case routes to Phase B**, an honest limit on OL-12.
+  case routes to Phase B**, a stated limit on OL-12.
 - **D-31 — Latency numbers (1.5s/3s) are an engineering judgment**, not the owner's.
 - **D-32 — The blocking model is exactly Max's two cases, realised as a `PreToolUse`
   `permissionDecision: "deny"` on the agent's deviating action, always reactive and
@@ -828,30 +823,16 @@ numbers are set from Phase A's exit data.
   the current contract added for `Stop`/`SubagentStop` (Week 23, 2026-06; verified 2026-08-25) —
   "feedback, continuing the interaction, not an error" — without that counting as one of the two
   confirmed enforcement blocks. Separating delivery (gates on nothing, always releases) from
-  enforcement (denies until compliance) keeps FR-B1's "exactly two blocks" true and honest.
-  *(Corrects an earlier claim that a `Stop` continuation was the only channel; the additionalContext
-  channel is the cleaner form and both are bounded by `stop_hook_active`.)*
+  enforcement (denies until compliance) keeps FR-B1's "exactly two blocks" true.
 - **D-35 — The two blocks have different cost functions, so precision is calibrated
   per-block, not with one shared posture (FR-B5).** *Job:* keep each enforcement deny from both
-  halting a *compliant* agent and decaying to never-firing, using the guard that actually
-  operates for that block. **Answer-drift (OL-C3):** three fallible predicates lean different ways
-  — *is-this-a-blocking-question?* and *is-this-writing-code?* err toward **not** denying (a
-  wrongful deny can deadlock the path to a truthful answer), while *has-it-been-answered?* clears on
-  **substance** and errs toward **clearing** (refusing a real answer strands a compliant agent);
-  only a content-free deferral fails to clear. Its under-fire guard is the **human channel (FR-L6)**
-  because Max *sees* his own unanswered question. **Skill non-conformance (OL-C2):** a wrongful
-  mid-skill halt is disruptive so it leans toward restraint — but Max cannot see a skipped step
-  (OL-11), so its under-fire guard must be **automated**, and it must not re-run the same fallible
-  action→step classifier (that shares its blind spot): it verifies each step's **observable
-  post-condition directly against store/repo state** (FR-C4), an *omission-of-outcome* signal that
-  catches the misclassified-as-done miss. *This corrects earlier drafts* that (a) rested both blocks'
-  under-fire guard on "visible to Max," (b) built the skill detector on the same expected-*action*
-  classifier it was meant to backstop (it would share the blind spot — the round-2 collapse-hunt
-  finding), and (c) conflated answer-drift's clear-axis (enforce) with its fire-axis (don't deadlock
-  research). It is the collapse-log's one-way-ratchet-to-silence trap: the whisper loop escaped it
-  (FR-L3b + FR-L4); each block inherits the half of that discipline its own visibility demands, on
-  a signal genuinely independent of the recognizer it guards. Recognizer mechanisms (model-assisted
-  → Phase B/C) are the architect's.
+  halting a *compliant* agent and decaying to never-firing, using the guard that actually operates
+  for that block — the **human channel** for answer-drift (Max sees his own unanswered question) and
+  an **automated post-condition check** for skill non-conformance (Max cannot see a skipped step,
+  OL-11), on a signal independent of the recognizer it guards. This is the collapse-log's
+  one-way-ratchet-to-silence trap the whisper loop escaped (FR-L3b + FR-L4); each block inherits the
+  half of that discipline its own visibility demands. Recognizer mechanisms (model-assisted → Phase
+  B/C) are the architect's.
 - **D-36 — The learning loop measures false silence (regret), not only false speech
   (FR-L4).** *Job:* give the loop the **mission's** up-signal — a *held* fact that would have
   changed a decision and went unspoken — so the tool cannot converge to silence and still
@@ -876,24 +857,16 @@ numbers are set from Phase A's exit data.
   mechanism must preserve: **an action taken to provide the answer (a read, a search, a test/build
   run to get the answer) is answer-directed and is never denied** — this is OL-C5's own text, and it
   is what keeps the block from deadlocking the path to a truthful answer or forcing a fabricated
-  completion claim. *(D-40 retired with the "writing code" framing; its content is absorbed here and
-  in D-41.)*
-- **D-41 — Recognizing "is this next move answer-directed?" is a comprehension judgment, so the
-  block is honestly phased.** *Job:* stop the spec from claiming the model-free increment "works"
-  when the block's precision needs the model. Judging whether a move is a direct answer / an action
-  to provide the answer (OL-C5) is not deterministically decidable. So: **Phase A ships the deny
-  plumbing plus a conservative recognizer** (the architect's) that fires only on moves *clearly* not
-  directed at answering — safe from deadlock, but low-coverage, a skeleton, *not* "the block
-  working"; **Phase B lifts it to OL-C5 precision by model-maintaining the question/answer state
-  asynchronously** (never on the synchronous deny path — the deny reads cached state, NF-1). AC-12
-  claims only the deterministic plumbing model-free; AC-2a-ii's substantive-answer discrimination is
-  a Phase-B criterion. **The cache is eventually-consistent; its lag has two sources —
-  `transcript_path`'s documented async-write lag and the deeper one, *classifier scheduling*** — both
-  an expected FR-M2 fault source. **The lag-window lean is set opposite to the steady-state
-  clear-axis: hold/deny, don't pre-clear on unclassified text (FR-B1)** — a wrongful hold
-  self-recovers in one round-trip while a missed drifter does not. D-41 also splits FR-B2's
-  contract-verified fact (reason returned to the model) from the model-behavior *hope* (it answers
-  rather than retries), measured by the deny-loop signal (FR-M4), not contract-guaranteed.
+  completion claim.
+- **D-41 — Recognizing "is this move answer-directed?" is a comprehension judgment, so the block is
+  phased.** *Job:* keep the spec from treating the model-free increment as the working block when its
+  precision needs the model. Judging whether a move is a direct answer or an action to provide the
+  answer (OL-C5) is not deterministically decidable, so **Phase A** ships the deny plumbing plus a
+  conservative recognizer (clearly-non-answer-directed moves only — safe, low-coverage) and **Phase
+  B** lifts it to OL-C5 precision by model-maintaining the question/answer state off the synchronous
+  deny path (§11.5). AC-12 claims only the deterministic plumbing model-free; the substantive-answer
+  discrimination (AC-2a-ii) is a Phase-B criterion. Whether the model answers rather than retrying
+  after a deny is model behavior, measured (FR-M4), not contract-guaranteed.
 
 ## 13. What is genuinely open
 
@@ -1013,7 +986,7 @@ clean session.**
   records a miss on the **missed-skill-block rate** in `status` **with no human correction in the
   fixture at all** — proving the err-toward-restraint bias cannot silently ratchet OL-C2 enforcement
   to never-firing where Max could never catch it. (A step with no checkable post-condition is out of
-  this detector's reach — a stated FR-C4 limit, asserted by the fixture, not hidden.) *(The two under-fire guards differ on purpose:
+  this detector's reach — a stated FR-C4 limit, asserted by the fixture.) *(The two under-fire guards differ on purpose:
   D-35/FR-B5 — human where the miss is owner-visible, automated where it is not; contrast AC-16/
   AC-24's whisper loop, automated because false silence is always invisible to Max.)*
 - **AC-3 (relevance+bar → FR-A5, OL-C1).** Two candidates meeting the bar at one event
@@ -1045,7 +1018,7 @@ clean session.**
   non-answer-directed moves the conservative recognizer did not catch), the completion whisper
   **also carries an outstanding-question line** naming the
   unanswered question; it is **delivery, not a block** (the stop still proceeds). Where no question
-  is outstanding, no such line appears. **Asserted honestly:** this backstop chains **two**
+  is outstanding, no such line appears. This backstop chains **two**
   conservative recognizers — the done-claim recognizer (errs toward not-firing) and the
   answered-recognizer (Phase-A conservative until the Phase-B model-maintained state, D-41) — so for
   the common Phase-A case (interpreter-write, never-answered) it may **not** fire; the fixture
@@ -1075,12 +1048,10 @@ clean session.**
 - **AC-12 (degraded mode → FR-J2, FR-J3, OL-2, D-41).** Model path down: the deterministic
   genres and the answer-drift block's **deterministic parts** still work — the deny **plumbing** and
   the **conservative recognizer** run with no model, and the block **fails safe** (it denies rarely,
-  so degraded mode never turns it into a deadlock). **Asserted honestly, NOT overclaimed:** the
-  fixture verifies only that (a) the deterministic plumbing operates model-free and (b) no model-free
-  genre is switched off — it does **not** assert "the block works," because the block's OL-C5-serving
-  *precision* (judging answer-directedness) is Phase-B model-maintained state (§11.5) and is
-  degraded-mode-unavailable. The point of the fixture is that the degraded path is safe and honest,
-  not that it enforces OL-C5 fully.
+  so degraded mode never turns it into a deadlock). The fixture verifies only that (a) the
+  deterministic plumbing operates model-free and (b) no model-free genre is switched off — it does
+  **not** assert "the block works," because the block's OL-C5-serving *precision* (judging
+  answer-directedness) is Phase-B model-maintained state (§11.5) and is degraded-mode-unavailable.
 - **AC-13 (store hygiene → FR-K2–K7).** Merge commit, >~30-entity transaction, and
   beyond-horizon history contribute no edges; append refreshes incrementally; a stale fact
   lowers confidence without blocking.
