@@ -150,7 +150,10 @@ deferred to Phase 1 where P0-4's data will set it) — machinery removed, not in
 
 **And the over-attribution the correction was fixing had propagated into the
 correction's own record.** The "token" denomination — a reconstruction, since the
-owner's words (`RETHINK.md:175–176`) say only *"whisper budgets, hard caps"* — had
+owner's words (`RETHINK.md:175–176`) say only *"whisper budgets, hard caps"* *(Correction
+2026-08-28: per OL-R3 those `RETHINK.md` §5 words are themselves agent-introduced
+rationale, NOT Max Cogar's — the ledger rejects any budget as his. Even this entry's
+"the owner's words" framing was the defect it describes.)* — had
 been written as the owner's rule into `FR-A3`, `P0-D-27`, `OWNER-LEDGER.md` OL-R1, and
 even the 2026-08-12 entry below (*"a token budget, not a count"*). OL-R1 mattered most:
 `CLAUDE.md` has agents read the ledger **first** as the authority for what is Max
@@ -170,7 +173,11 @@ the substance-reviewer.
 **An agent-invented constraint was hardened into a rule and then handed back to
 the owner as his own.** v1 FR-A3 records *"at most one whisper per event."* The
 owner's actual words (`RETHINK.md:175–176`) are *"Per-trigger and per-session
-whisper **budgets**. Hard caps."* — a token budget, not a count. An agent
+whisper **budgets**. Hard caps."* *(Correction 2026-08-28: per OL-R3 those
+`RETHINK.md` §5 words are agent-introduced rationale, NOT Max Cogar's — no budget
+of any denomination is his; OL-C1 rules out arbitrary limits entirely. The
+lesson below stands, one level deeper than this entry knew.)* — a token budget,
+not a count. An agent
 tightened "budget" into "one," it propagated into the Phase 0 spec, and this
 session it reached Max Cogar as the binding premise of an owner question — *which
 of two whispers wins at an edit?* He rejected the premise outright. The invented
@@ -184,7 +191,8 @@ interface section (here v1 §6.1) with no `[OWNER-n]`/`[D-n]` is an agent judgme
 wearing a reference — verify it against `RETHINK.md` before a decision rests on it.
 This one reached the owner, which is the failure the collapse mechanism exists to
 prevent.
-→ `docs/specs/spec-context-oracle-phase0.md` P0-D-27.
+→ P0-D-27 — recorded in `docs/reviews/2026-08-13-verification-p0-d-27-token-budget-phase0-spec.md`
+(the Phase 0 spec itself was deleted 2026-08-28; one spec for the whole tool).
 
 ## 2026-08-01 — the Phase 0 spec, round 4
 
@@ -906,7 +914,12 @@ asserted "no loss of requirements or properties" — written by the same agent t
 did the stripping, and wrong. Max Cogar's suspicion, not the process, triggered
 the re-check; the diff audit found it (restored 2026-08-28, with the FR-O4/FR-O4a
 citation-resolution note the strip also deleted while downstream documents still
-cite those IDs).
+cite those IDs). An independent full-document sweep the same day found a **third**
+strip-lost item the author's own diff audit missed — the FR-A2l clause recording
+that the answer-drift block is authorised by OL-C3/OL-C5, not OL-9 (the ledger's
+OL-9 still said "advisory only" with no supersession marker) — plus two live
+contradictions inside `OWNER-LEDGER.md` itself and owner-attribution defects in
+this very log (corrected in place above). All restored/annotated 2026-08-28.
 
 **Lesson 1: a deletion pass has the same blast radius as a writing pass and needs
 the same independent check.** "I only removed narration" is a claim about intent,

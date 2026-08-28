@@ -1,6 +1,9 @@
 # Spec: Context Oracle (`ctxoracle`) — v1
 
-**Status:** draft for owner review. Every requirement traces to a CONFIRMED owner decision
+**Status:** spec of record for the whole tool (phases A/B/C are build order, §11.5); the
+blocking model was independently reviewed to convergence 2026-08-25. Sign-off of the document
+as a whole by Max Cogar is not recorded in `OWNER-LEDGER.md` — tracked as the open owner
+item in `docs/STATUS.md`. Every requirement traces to a CONFIRMED owner decision
 (`OWNER-LEDGER.md`), a named and current-verified standard, or a recorded judgment (§12).
 
 **Provenance keys.** `[OL-n]` / `[OL-Cn]` = a CONFIRMED owner decision in
@@ -172,7 +175,7 @@ table is an advisory whisper.
 | **FR-A2j Answer** | A repo-answerable question in narration | The repo-grounded answer with a pointer. (Model-dependent — Phase B.) |
 | **FR-A2m Unfinished-work check** | A completion-claim stop | OL-12's concrete case — the agent claimed done but **did not finish the work**, beyond the unrun-test case FR-A2g catches. "Incomplete" is judged **relative to a named scope referent** — the user's prompt, an approved plan, or (when an expert skill is active) that skill's declared steps — never "the model decides done" with no anchor (that would be the unconstrained judge FR-C2 forbids). Where the referent is an active skill's steps, this overlaps FR-A2k (which *blocks* on a skipped step); FR-A2m is the *advisory* whisper at the done-claim, FR-A2k the enforcement mid-skill — same signal, different surface. Model-dependent — **Phase B**, acceptance authored there. It realises OL-12's core need as a tracked Phase-B requirement `[OL-12, D-27]`. |
 | **FR-A2k Process conformance → BLOCK** | An expert skill is active and an action deviates from its steps | Whether the agent's actions match the skill's steps. **Steers first** (advisory whisper); **escalates to a `PreToolUse` deny of the deviating action** when the agent skips a step without a stated reason, or steering isn't working `[OL-C2]` (§8, §11.4). Errs toward restraint (a wrongful mid-skill halt is disruptive), so its under-fire side carries an **automated missed-skill-block detector** that checks each step's observable post-condition directly (FR-B5, FR-C1, FR-C4) — Max cannot see a skipped step himself (OL-11). **Non-primary** — fires sparingly and holds no precedence over any genre (OL-C2, P9); block-precision still gets full investment (FR-B5, §11.4). |
-| **FR-A2l Answer-drift → BLOCK** | Max asked a question and the agent's next move is **not** a direct answer or an action taken to provide the answer `[OL-C5]` | **Denies that non-answer-directed action** (`PreToolUse`) with "answer Max's question first," until the agent answers; actions taken to provide the answer (reading, searching, running a test/build to get the answer) run freely `[OL-C3, OL-C5]` (§8, FR-B1). |
+| **FR-A2l Answer-drift → BLOCK** | Max asked a question and the agent's next move is **not** a direct answer or an action taken to provide the answer `[OL-C5]` | **Denies that non-answer-directed action** (`PreToolUse`) with "answer Max's question first," until the agent answers; actions taken to provide the answer (reading, searching, running a test/build to get the answer) run freely `[OL-C3, OL-C5]` (§8, FR-B1). Entered scope *advisory* under OL-9; OL-C3 (2026-08-16) superseded that and made it a block, OL-C5 (2026-08-25) defines it — authorised by OL-C3/OL-C5, not OL-9. |
 
 - **FR-A1 — The single internal question.** Per event the oracle asks: *given what the
   agent is doing now, do I know something it almost certainly does not that would
@@ -662,7 +665,7 @@ requirement — grounded by the literature above, with the operating point set o
 
 ### 11.4 Corrective / steering feature (non-primary in purpose — and it blocks)
 
-**On "non-primary" (M1).** OL-C2 makes this feature non-primary: it fires sparingly and holds
+**On "non-primary" (finding M1, `docs/reviews/2026-08-25-independent-review-spec-revision.md`).** OL-C2 makes this feature non-primary: it fires sparingly and holds
 no precedence over any genre (P9). Its precision-critical parts — the intent→step recognizer
 (FR-C2) and the block-precision discipline (FR-B5) — still receive full investment, because the
 block it raises halts the agent and is a high-severity mechanism. It is the most machinery-heavy
@@ -795,7 +798,7 @@ numbers are set from Phase A's exit data.
 - **D-32 — The blocking model is exactly Max's two cases, realised as a `PreToolUse`
   `permissionDecision: "deny"` on the agent's deviating action, always reactive and
   self-clearing (§8, FR-B1–B3).** *Job (an
-  owner-objective, not a mission derivation — see §8's reconciliation):* enforce owner
+  owner-objective, not a mission derivation — see §8's opening paragraphs):* enforce owner
   authority in the two situations Max confirmed `[OL-C2, OL-C3]` without becoming the
   pre-emptive gate he rejected. Blocking is a second owner-set objective beside the
   mission. What is rejected — the pre-emptive "pass a test to
@@ -1107,7 +1110,7 @@ discrimination it and AC-2a-ii rest on is **Phase B** (D-41).
 
 ---
 
-*End of spec. Its foundation is `OWNER-LEDGER.md` CONFIRMED (OL-1…OL-12, OL-C1…OL-C4;
-OL-R1…OL-R4 for what is rejected) plus the mission. Verification recency is per the §9
+*End of spec. Its foundation is `OWNER-LEDGER.md` CONFIRMED (OL-1…OL-12, OL-C1…OL-C5;
+OL-R1…OL-R5 for what is rejected) plus the mission. Verification recency is per the §9
 table: most external premises confirmed 2026-08-25, `[NODE-SQLITE]` and `[ROSE]` on
 2026-08-16, `[MSR]` grounded via `[HERZIG]`.*

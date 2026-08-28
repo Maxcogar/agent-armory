@@ -9,7 +9,7 @@ build, verification, diagnosis, documentation, roadmap — is yours.
 
 `OWNER-LEDGER.md` (project root) is the **single source of truth for every claim
 attributed to Max Cogar**. A claim — *"the owner wants/decided/said/requires"*,
-`[OWNER-n]`, *"per your instruction"* — may be treated as authoritative **only**
+`[OL-n]`, *"per your instruction"* — may be treated as authoritative **only**
 when it appears under CONFIRMED there with his sign-off. Before writing any
 owner-attributed claim into any durable document, find it under CONFIRMED. If it
 is not there, you may not write it as authority: add it to PENDING with the exact
@@ -211,15 +211,17 @@ Before asking the owner anything, check which of these it is:
   locked decision. Those go to him *with the evidence*, and only those.
 
 The test: if you can name the file and line that decides it, you have your
-answer. OWNER-12 (2026-07-30) is what a real owner question looks like — the
+answer. OL-12 (2026-07-30) is what a real owner question looks like — the
 hooks contract contradicted the spec's own choice of trigger, two of three
 remedies required a spec change, and the call was his. "When should round 3
 run?" is not that.
 
 ## Decisions are locked in writing, nowhere else
 
-The authorities are the `OWNER-LEDGER.md` CONFIRMED entries, RETHINK §12
-(+ addendum), and spec §11. Do not re-litigate or silently drift from them.
+The authorities are the `OWNER-LEDGER.md` CONFIRMED entries (which control —
+RETHINK §12 (+ addendum) is their recorded rationale) and the spec's settled
+judgments (§12) and build order (§11.5). Do not re-litigate or silently drift
+from them.
 Ideas the owner has explicitly rejected — do not reintroduce in any form:
 
 - **No *pre-emptive* gate.** No *pre-emptive* deny on a tool call, no plan
@@ -254,30 +256,33 @@ produced the archived `ctxpack` mess. Therefore:
   phase being built**, derived from the spec, resolving the design questions
   the spec assigns to the architect for that phase, and adversarially reviewed
   with all findings applied, same discipline as the spec.
-  **Amended 2026-07-31.** This rule previously named one document
+  **Amended 2026-07-31; restated 2026-08-28 in the current spec's phase terms
+  (A/B/C, spec §11.5 — the phase names below are the 2026-07 vocabulary,
+  kept as dated history).** This rule previously named one document
   (`docs/architecture-context-oracle.md`) and required it to resolve
   *judgment-prompt construction* and the *recursion-guard mechanism* — both
-  Phase 1 — before any implementation. That contradicted spec §12, which forbids
-  treating a Phase 1 requirement as architecturally resolvable before Phase 0 has
-  run. The old rule therefore mandated architecting Phase 1 twice — once
-  now against nothing, once later against data — and four adversarial review
-  rounds (2026-07-30/31) confirmed the consequence empirically: the Phase 0
-  material survived every pass while the Phase 1 and 2 material collapsed in
-  every pass, in the same places, until the non-convergence tripwire fired. The
-  architecture is now **per phase**: `docs/architecture-context-oracle-phase0.md`
-  first; Phase 1's is written after Phase 0 has run and produced its numbers.
-  The existing whole-scope document is retained as the record of what was tried
-  and as input to Phase 1's architecture — not as a base to edit.
+  model-in-the-loop (today: Phase B) concerns — before any implementation.
+  That mandated architecting the model phase twice — once against nothing,
+  once later against data — and four adversarial review rounds (2026-07-30/31)
+  confirmed the consequence empirically: the deterministic-phase material
+  survived every pass while the model-phase material collapsed in every pass,
+  in the same places, until the non-convergence tripwire fired. The
+  architecture is therefore **per phase**: the **Phase A** architecture
+  document first; Phase B's is written after Phase A has run and produced its
+  numbers. The whole-scope `docs/architecture-context-oracle.md` is retained
+  as a historical record (it carries a banner saying so) and as input to later
+  phase architectures — not as a base to edit.
   *(Caught by Max Cogar, not by the review mechanism — logged in
   `docs/collapse-log.md`, 2026-07-31.)*
-- **Spikes before design-freeze**: the spec-§14 assumptions that gate the
-  design (piggyback credential inheritance, subagent injection) are
-  validated with cheap throwaway experiments before the architecture is
-  finalized. A design resting on an unverified assumption is a guess with
-  diagrams.
+- **Spikes before design-freeze**: any spec-§13 open assumption that gates
+  the phase being architected is validated with a cheap throwaway experiment
+  before that architecture is finalized (today §13 holds one: whether a
+  subagent hook's `additionalContext` propagates to the parent — the spec
+  assumes not, C-4, so a spike only adds an option). A design resting on an
+  unverified assumption is a guess with diagrams.
 - **Then a plan** (executable steps consuming spec + architecture), **then
-  build**, phase by phase against the spec's §12 exits and §13 acceptance
-  criteria.
+  build**, phase by phase against the spec's §11.5 phase exits and §14
+  acceptance criteria.
 - Skipping a stage requires the owner saying so explicitly, in this
   project, in writing.
 
@@ -287,8 +292,8 @@ produced the archived `ctxpack` mess. Therefore:
   practice, not against existing patterns in this repo. Matching a bad
   pattern is a finding, not an excuse.
 - Every non-trivial new requirement carries a source annotation (named
-  standard, owner decision `[OWNER-n]`, or recorded judgment `[D-n]` with
-  reasoning in spec §11). Numbers without sources don't go in.
+  standard, owner decision `[OL-n]`, or recorded judgment `[D-n]` with
+  reasoning in spec §12). Numbers without sources don't go in.
 - External facts (harness contracts, protocol status, library behavior) are
   verified against current primary sources before you build on them —
   the hooks contract has already drifted once; assume it will again.

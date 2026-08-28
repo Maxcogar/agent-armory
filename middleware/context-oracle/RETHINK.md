@@ -163,7 +163,7 @@ The session is a stream of intent signals:
 | Prompt submitted | The task, in the user's words | **Orientation**: 2–4 entry-point files, the one invariant that will matter, landmines matching the task's shape. ~150–400 tokens. Not a binder. |
 | Agent narration between tool calls | The richest signal: the agent's current hypothesis and assumptions, in prose | **Assumption check**: "your narration assumes X; the repo says Y at `file:line`." **Steering**: "what you're describing lives in `src/…`, not where you're looking." |
 | Read / Grep / Glob observed | What the agent is looking at and for | **Coupling**: co-change partners of the file just opened. **Reuse**: "the thing you grepped for has a canonical helper at Z; most call sites use it." |
-| Edit / Write about to run | What is about to change — the golden moment, the last cheap point to alter course | **Consequence**: "14 call sites in 3 packages; 2 in generated code." "Edits here historically break `tests/settings.test.ts`." "An existing implementation of what this adds is at `src/utils/x.ts` — consider reuse." Advisory, injected as context — never a denial. |
+| Edit / Write about to run | What is about to change — the golden moment, the last cheap point to alter course | **Consequence**: "14 call sites in 3 packages; 2 in generated code." "Edits here historically break `tests/settings.test.ts`." "An existing implementation of what this adds is at `src/utils/x.ts` — consider reuse." Advisory, injected as context — never a denial. *(Superseded in part 2026-08-16: an Edit/Write that is a deviating action under the two confirmed blocks — answer-drift `[OL-C3]`, skill non-conformance `[OL-C2]` — IS denied; spec §8. All else stays advisory.)* |
 | Edit completed / session stopping | The change so far | **Completeness**: "you changed the reducer but not the selector it pairs with in 9 of its last 10 changes." **Verification**: "the suite for this region is `npm test -- settings`." |
 
 At every signal the oracle answers one internal question: *given what the agent
@@ -315,7 +315,8 @@ tool grading its own paperwork. An oracle is measured on:
    that same path (Agent SDK / headless CLI with a small fast model). MCP
    sampling is the protocol-level version of the same idea, to adopt if/when
    host support is solid. A deterministic-only degraded mode remains mandatory
-   for true air-gap.
+   for true air-gap. *(Overtaken 2026-08-25: MCP sampling was deprecated —
+   SEP-2577; spec C-5 rules it out. The piggyback path stands.)*
 3. **No hard blocks. None, anywhere.** The owner's explicit position: the
    gatekeeper design was never wanted — prior agent sessions fixated on
    armoring against specific past failure cases, and the result blocked
@@ -405,7 +406,9 @@ tool grading its own paperwork. An oracle is measured on:
     one purpose, and that doing so guarantees what gets built is not the tool he
     asked for — this is the second full remake caused by it. The mission is §1
     of this document and the mission sentence: deliver the fact that would
-    change the agent's next decision, across all twelve FR-A2 genres, none of
+    change the agent's next decision, across all twelve FR-A2 genres *(2026-08-28:
+    the current spec §4 table has thirteen — eleven whisper genres plus the two
+    OL-C2/OL-C3 blocks)*, none of
     them primary. Logged in `docs/collapse-log.md`.)*
 
     **What this does not license.** The no-gates rule is unchanged: the oracle

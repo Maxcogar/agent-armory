@@ -30,8 +30,9 @@ Legend: ✅ CONFIRMED (Max signed) · ⏳ PENDING (awaiting Max) · ❌ REJECTED
 Max confirmed these are accurately his (*"the rest look good"*), with OL-12
 reworded and separately approved. Load-bearing phrases quoted verbatim; full
 rationale in `RETHINK.md` §12. (OL-3's blocking question was resolved 2026-08-16:
-the generated-file block is **rejected** as agent fixation (OL-R4); the one block
-Max wants is **answer-drift** (OL-C3).)
+the generated-file block is **rejected** as agent fixation (OL-R4); the blocks
+Max wants are **answer-drift** (OL-C3) and the **skill non-conformance
+escalation** (OL-C2) — the OL-3 row and spec §8 state both.)
 
 | ID | Claim (confirmed his) | Source |
 |---|---|---|
@@ -43,7 +44,7 @@ Max wants is **answer-drift** (OL-C3).)
 | OL-6 | Two stores — per-project and per-user global — both outside the repo tree; solo scope, no team sharing. | RETHINK §12.6 |
 | OL-7 | **"No separate credentials, ever."** | RETHINK §12.7 (2026-07-15) |
 | OL-8 | Subagent whisper delivery is in v1 scope (revises OL-5). | RETHINK §12.8 |
-| OL-9 | Session-conduct genres (process conformance, answer drift) are in scope, advisory only. | RETHINK §12.9 |
+| OL-9 | Session-conduct genres (process conformance, answer drift) are in scope, advisory only. *(Superseded in part 2026-08-16: these two genres escalate to reactive blocks — OL-C2/OL-C3; OL-C5 defines the answer-drift trigger. Spec §8 is the mechanism authority.)* | RETHINK §12.9; superseded in part by OL-C2/OL-C3 (2026-08-16) |
 | OL-10 | Self-observability is required — **"it could fail a hundred ways in front of me and I wouldn't know."** | RETHINK §12.10 |
 | OL-11 | The project is agent-led; you start/end sessions, suggest features, speed up testing; design/build/verification/docs/roadmap are the agents'. You are a non-programmer by design. | RETHINK §12.11 |
 | OL-12 | The oracle speaking when an agent claims it's done is a must-have — **to catch a completion claim the work doesn't back**: an agent reporting "done" without having actually finished or verified. (*"having the oracle speak when an agent claims it's done is a must-have feature in my mind"*; concrete need = agents that *"did not finish their work but still stopped anyway."*) *What the oracle does to catch it is design, not owner wording.* Reworded & approved by Max 2026-08-13; the earlier "not ranked above the others" clause dropped — the no-primary-feature principle is held by the mission and OL-C2. | RETHINK §12.12; Max 2026-08-13 |
