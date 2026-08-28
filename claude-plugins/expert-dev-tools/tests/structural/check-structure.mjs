@@ -44,7 +44,8 @@ const skills = readdirSync(skillsDir);
 const EXPECTED_SKILLS = [
   'expert-architecture', 'expert-architecture-portable', 'expert-correct',
   'expert-implement', 'expert-mcp-overhaul', 'expert-plan', 'expert-review',
-  'expert-spec', 'expert-standard', 'expert-usage', 'frontend-standards',
+  'expert-defect-correction', 'expert-spec', 'expert-standard', 'expert-usage',
+  'frontend-standards',
 ];
 const missingSkills = EXPECTED_SKILLS.filter((s) => !skills.includes(s));
 const unexpectedSkills = skills.filter((s) => !EXPECTED_SKILLS.includes(s));
