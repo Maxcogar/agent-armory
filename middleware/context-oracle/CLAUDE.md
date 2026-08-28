@@ -24,21 +24,18 @@ ledger's REJECTED section and `docs/collapse-log.md`, 2026-08-12).
 0. `OWNER-LEDGER.md` — what is and isn't authoritatively Max Cogar's.
 1. `docs/STATUS.md` — where the project actually is, in plain language.
 2. `docs/specs/spec-context-oracle.md` — **the single spec for the whole tool**,
-   built in phases (A/B/C are build order, not separate products). §11 (build
-   order) and §14 (acceptance) tell you what was decided and what's still open.
-   *(There is no separate Phase 0 spec. The old `spec-context-oracle-phase0.md`
-   was deleted 2026-08-28 — it had drifted onto pre-OL-C1/OL-C2/OL-C3 assumptions
-   (a token budget, "blocks nothing") that contradict confirmed decisions. Per-phase
-   build detail belongs in an architecture doc derived from this spec, not a rival
-   spec.)*
+   built in phases (A/B/C are build order, not separate products): §11.5 build
+   order, §12 recorded judgments, §13 what is genuinely open, §14 acceptance.
+   There is never a separate per-phase spec; per-phase build detail belongs in
+   that phase's architecture document.
 3. `RETHINK.md` — why the tool is shaped this way (agent-contaminated in places;
    only `OWNER-LEDGER.md` CONFIRMED is authoritative for owner claims). §12 + its
    addendum are background, not a second spec.
-5. `docs/reviews/` — review output of record, every round, with its findings
+4. `docs/reviews/` — review output of record, every round, with its findings
    and closure ledgers.
-6. `docs/collapse-log.md` — cumulative record of decisions that collapsed and
+5. `docs/collapse-log.md` — cumulative record of decisions that collapsed and
    why. Read before designing; the traps are meant to be inherited.
-7. The oracle's own diagnostics self-report (FR-M3), once it exists.
+6. The oracle's own diagnostics self-report (FR-M3), once it exists.
 
 **Then read "Where information goes — the policy" below, before you write
 anything.** It decides which file each thing you learn belongs in. Getting that
@@ -231,9 +228,7 @@ Ideas the owner has explicitly rejected — do not reintroduce in any form:
   **skill non-conformance (steer-then-block) `[OL-C2]`** — always reactive and
   self-clearing; the mechanism (a `PreToolUse` deny of the agent's *deviating
   action*, never a Stop-based hold) is defined in spec §8, the authority — do
-  not restate it here. Everything else is an advisory whisper. *(This corrects
-  the earlier absolute "no blocking, every intervention is an advisory whisper,"
-  which predates and is superseded by OL-C2/OL-C3; the ledger is authoritative.)*
+  not restate it here. Everything else is an advisory whisper.
 - **No separate credentials.** Model access is host-CLI piggyback or
   deterministic degraded mode. The oracle never requires, requests, or
   stores API keys of its own.
@@ -256,30 +251,17 @@ produced the archived `ctxpack` mess. Therefore:
   phase being built**, derived from the spec, resolving the design questions
   the spec assigns to the architect for that phase, and adversarially reviewed
   with all findings applied, same discipline as the spec.
-  **Amended 2026-07-31; restated 2026-08-28 in the current spec's phase terms
-  (A/B/C, spec §11.5 — the phase names below are the 2026-07 vocabulary,
-  kept as dated history).** This rule previously named one document
-  (`docs/architecture-context-oracle.md`) and required it to resolve
-  *judgment-prompt construction* and the *recursion-guard mechanism* — both
-  model-in-the-loop (today: Phase B) concerns — before any implementation.
-  That mandated architecting the model phase twice — once against nothing,
-  once later against data — and four adversarial review rounds (2026-07-30/31)
-  confirmed the consequence empirically: the deterministic-phase material
-  survived every pass while the model-phase material collapsed in every pass,
-  in the same places, until the non-convergence tripwire fired. The
-  architecture is therefore **per phase**: the **Phase A** architecture
-  document first; Phase B's is written after Phase A has run and produced its
-  numbers. The whole-scope `docs/architecture-context-oracle.md` is retained
-  as a historical record (it carries a banner saying so) and as input to later
-  phase architectures — not as a base to edit.
-  *(Caught by Max Cogar, not by the review mechanism — logged in
-  `docs/collapse-log.md`, 2026-07-31.)*
-- **Spikes before design-freeze**: any spec-§13 open assumption that gates
-  the phase being architected is validated with a cheap throwaway experiment
-  before that architecture is finalized (today §13 holds one: whether a
-  subagent hook's `additionalContext` propagates to the parent — the spec
-  assumes not, C-4, so a spike only adds an option). A design resting on an
-  unverified assumption is a guess with diagrams.
+- **The architecture is per phase.** A phase's architecture is written only
+  when the phase before it has run and produced the data it needs (spec §11.5
+  sets the phase boundaries and what each exit measures). Architecting a later
+  phase against no data means architecting it twice; the empirical case is
+  logged in `docs/collapse-log.md` (2026-07-31). The whole-scope
+  `docs/architecture-context-oracle.md` is a banner-marked historical record
+  and input to later phase architectures — never a base to edit.
+- **Spikes before design-freeze**: a spec-§13 open assumption that gates the
+  phase being architected is validated with a cheap throwaway experiment
+  before that architecture is finalized. A design resting on an unverified
+  assumption is a guess with diagrams.
 - **Then a plan** (executable steps consuming spec + architecture), **then
   build**, phase by phase against the spec's §11.5 phase exits and §14
   acceptance criteria.
@@ -299,15 +281,15 @@ produced the archived `ctxpack` mess. Therefore:
   the hooks contract has already drifted once; assume it will again.
 - When a review surfaces findings, apply **all** of them.
 - Keep documents in sync: a change to behavior updates the spec; a change to
-  scope updates §2 and §14; a judgment call updates §11.
+  scope updates §2 and §14 (acceptance); a judgment call updates §12.
 
 ## Session protocol
 
 **At start**: read `docs/STATUS.md` first — it is the state of record and it
 states what to do next. Then the rest of the read-before-working list. Do not
 reconstruct state from `git log` or from commit messages: they describe what
-was *attempted*, `STATUS.md` describes what is *true*, and this session has
-already produced one commit message that described work which did not happen.
+was *attempted*, `STATUS.md` describes what is *true* — a session here has
+already produced a commit message describing work that did not happen.
 
 **During**: prefer diagnostics over guessing — the oracle's own logs
 (FR-M1/M2) are the first place to look when something misbehaves. Verify as
@@ -347,7 +329,7 @@ it. Assume you will do the same, and let the check catch you.
 The owner wants this tool pushed creatively, and expects the ideas to come
 from agents. `docs/IDEAS.md` is the ledger: add entries whenever the work
 suggests one — idea, why it would matter, evidence status (unvalidated /
-researched / prototyped). Promotion path: IDEAS.md → spec §14 (with the
+researched / prototyped). Promotion path: IDEAS.md → spec §13 (with the
 research to ground it) → requirement with owner sign-off. Ideas are cheap
 and welcome; ungrounded requirements are not — the ledger is exactly the
 place where those two facts coexist.
