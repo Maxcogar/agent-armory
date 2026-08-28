@@ -36,13 +36,15 @@ narration, and an independent full-document contradiction sweep then found 13 fu
   "the owner" — an attribution OL-R3 explicitly rejects; a pointer to the deleted Phase 0 spec
   re-aimed at the surviving review record. New 2026-08-28 entry: a deletion pass has the same
   blast radius as a writing pass and needs the same independent check.
-- **CLAUDE.md re-pointed** to the current spec's numbering (§11.5 exits, §12 judgments, §13 open
-  assumptions, §14 acceptance), the per-phase amendment restated in A/B/C terms, and legacy keys
-  (OWNER-12, `[OWNER-n]`) corrected to ledger keys.
+- **CLAUDE.md rewritten as a lean standing-rules file** (346 → 207 lines): every rule preserved,
+  every dated history narrative reduced to a collapse-log pointer, section references corrected to
+  the current spec's numbering, legacy keys corrected to ledger keys. The file now states its own
+  membership test at the top.
 - **The retained whole-scope architecture doc** (`docs/architecture-context-oracle.md`) now
   carries a historical-record banner; it predates the blocking rebuild and had none.
 
-The spec is 1,116 lines; the strip's cuts of genuine narration were kept. Work is on
+The spec is 1,121 lines (after a CodeRabbit review round clarified the lag-window hold as
+clear-axis-only in FR-B1/FR-B5/D-41); the strip's cuts of genuine narration were kept. Work is on
 branch `claude/project-oracle-handoff-gtdki3`, PR
 https://github.com/Maxcogar/agent-armory/pull/69.
 
