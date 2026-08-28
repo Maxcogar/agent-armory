@@ -923,9 +923,11 @@ this very log (corrected in place above). All restored/annotated 2026-08-28.
 
 **Lesson 1: a deletion pass has the same blast radius as a writing pass and needs
 the same independent check.** "I only removed narration" is a claim about intent,
-not effect; the only verification is diffing each prior review round's *applied
-findings* against the post-strip text. A strip that follows the review is exactly
-positioned to undo it.
+not effect. Two checks are required, and neither substitutes for the other:
+diff each prior review round's *applied findings* against the post-strip text,
+AND run an independent full-document sweep — the author's own diff audit here
+found two of the three losses and the independent sweep found the third. A strip
+that follows the review is exactly positioned to undo it.
 
 **Lesson 2: "property vs mechanism" is itself a fallible classification — when a
 strip/refactor uses it as the knife, every cut it classifies as "mechanism" that

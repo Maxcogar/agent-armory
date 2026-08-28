@@ -406,9 +406,9 @@ tool grading its own paperwork. An oracle is measured on:
     one purpose, and that doing so guarantees what gets built is not the tool he
     asked for — this is the second full remake caused by it. The mission is §1
     of this document and the mission sentence: deliver the fact that would
-    change the agent's next decision, across all twelve FR-A2 genres *(2026-08-28:
-    the current spec §4 table has thirteen — eleven whisper genres plus the two
-    OL-C2/OL-C3 blocks)*, none of
+    change the agent's next decision, across all twelve FR-A2 genres *(the count
+    when this was written, 2026-08-01; the current spec §4 table has thirteen —
+    eleven whisper genres plus the two OL-C2/OL-C3 blocks)*, none of
     them primary. Logged in `docs/collapse-log.md`.)*
 
     **What this does not license.** The no-gates rule is unchanged: the oracle

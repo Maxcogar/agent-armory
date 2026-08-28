@@ -376,7 +376,10 @@ its next action is simply allowed; the deny needs no counter, no held turn, no c
       than pre-clearing** — the *opposite* of the steady-state clear lean (FR-B5) — because a
       wrongful hold self-recovers in one round-trip (the classifier catches up, the next move is
       allowed, the event is a self-detected FR-M2 fault) while a missed drifter does not. The
-      way out still exists throughout: a text answer is never a tool action, so it is never denied.
+      hold governs the **clear-axis only**: it never widens what is denied — an answer-directed
+      move (a read, search, or test/build run to get the answer) runs freely in the lag window
+      exactly as in steady state, and a text answer is never a tool action, so it is never denied.
+      The way out exists throughout.
     - **Multiple questions** are tracked as a set, each cleared independently.
     - **Scope:** the block belongs to the consumer that holds the question — the main agent (FR-O6);
       a subagent is not subject to a question it never received.
@@ -436,7 +439,8 @@ its next action is simply allowed; the deny needs no counter, no held turn, no c
     denying** (a rhetorical question, or a move that plausibly *is* answer-directed, is not denied)
     and **toward clearing** on a substantive answer (only an empty deferral fails to clear). That
     clear lean is the **steady-state** posture, for turns already classified; in the **lag window**
-    (newest turn unclassified) the lean reverses to hold, per FR-B1's lag clause `[D-41]`. It
+    (newest turn unclassified) the lean reverses to hold — on the clear-axis only, never widening
+    what is denied — per FR-B1's lag clause `[D-41]`. It
     clears on an answer that *substantively addresses* the question, not one *verified correct* —
     deciding correctness would make the oracle the unconstrained judge FR-C2 forbids; if an answer
     is inadequate, Max re-asks. Its under-fire guard is the **human channel** (FR-L6): a missed
@@ -851,8 +855,9 @@ numbers are set from Phase A's exit data.
   conservative recognizer (clearly-non-answer-directed moves only — safe, low-coverage) and **Phase
   B** lifts it to OL-C5 precision by model-maintaining the question/answer state off the synchronous
   deny path (§11.5). The cached state is eventually-consistent; in its lag window the block holds
-  rather than pre-clears (FR-B1's lag clause — a wrongful hold self-recovers in one round-trip, a
-  missed drifter does not). AC-12 claims only the deterministic plumbing model-free; the
+  rather than pre-clears (FR-B1's lag clause — clear-axis only, answer-directed moves still run
+  freely; a wrongful hold self-recovers in one round-trip, a missed drifter does not). AC-12
+  claims only the deterministic plumbing model-free; the
   substantive-answer discrimination (AC-2a-ii) is a Phase-B criterion. Whether the model answers
   rather than retrying after a deny is model behavior, measured (FR-M4), not contract-guaranteed.
 

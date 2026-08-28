@@ -11,8 +11,10 @@
 > deny path exists structurally" (FR-O4) describe the superseded model;
 > `FR-O4`/`FR-O4a` citations resolve per the spec §8 retired-ID note (FR-O4 →
 > FR-B3's no-pre-emptive-gate guarantee; FR-O4a → FR-B4). The spec
-> (`docs/specs/spec-context-oracle.md`) is the sole current authority.
-
+> (`docs/specs/spec-context-oracle.md`) is the sole current authority for the
+> tool's requirements and blocking model; `OWNER-LEDGER.md` remains the
+> authority for owner-attributed claims.
+>
 > **Revision note (2026-07-22).** This document is a verification-first rebuild
 > of the 2026-07-17 draft, which an `/expert-review` pass found untrustworthy:
 > 11 findings sharing one root cause — correctness and completeness were

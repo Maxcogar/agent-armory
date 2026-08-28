@@ -67,11 +67,12 @@ a pre-emptive gate, never a Stop-based hold. §8 is the authority.
 
 1. **The Phase A architecture document**, derived from the current spec — no build before it. It
    is where the mechanisms the spec states as properties get designed and adversarially reviewed:
-   the answer-drift async question/answer-state maintenance (off the synchronous deny path, honoring
-   the FR-B1 lag-window hold), the skill block's post-condition chaining, the stores/index/miner,
-   and the relevance bar's numeric combinator. At architecture time, re-confirm against current
-   source that `transcript_path` is written asynchronously / may lag (the answer-drift clear-axis
-   rests on it; the hooks contract has drifted before).
+   the answer-drift async question/answer-state maintenance (off the synchronous deny path per
+   NF-1/§11.5, honoring the FR-B1 lag-window hold), the skill block's post-condition chaining
+   (FR-C4), the stores/index/miner (spec §11.1, FR-K1–K7), and the relevance bar's numeric
+   combinator (FR-A5, the architect's per `[D-6bar]`). At architecture time, re-confirm against
+   current source that `transcript_path` is written asynchronously / may lag (`[HOOKS]`, spec §13;
+   the FR-B1 clear-axis rests on it and the hooks contract has drifted before).
 
 ## Question for Max (yes/no)
 
