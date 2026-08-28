@@ -155,10 +155,12 @@ that is ignored (`RETHINK.md` §2.3).
 
 ## 4. What the oracle says (and, in two cases, blocks)
 
-Each genre is keyed to an observed intent signal and, per P5, is **headlined by the
+Each **whisper** genre is keyed to an observed intent signal and, per P5, is **headlined by the
 fact the agent could not cheaply get itself**. No genre is primary (P9). Grounded as a
-push-mode recommendation surface `[RSSE]`. Two of these escalate to a block (FR-A2k,
-FR-A2l); the rest are advisory whispers.
+push-mode recommendation surface `[RSSE]`. **Two rows in this table — FR-A2k and FR-A2l — are not
+whispers: they are the two enforcement *blocks* (defined in §8). They deliver an instruction, not a
+fact.** They are listed here because they fire on the same observed signals; everything else in the
+table is an advisory whisper.
 
 | Genre | Fires on | The decision-changing fact / action |
 |---|---|---|
