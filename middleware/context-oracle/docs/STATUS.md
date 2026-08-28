@@ -46,17 +46,19 @@ spec's answer-drift section was rebuilt to OL-C5 (2026-08-25) and, because the c
 changed after the six review rounds, **the answer-drift section needs a focused re-review** against
 OL-C5 (the change simplified it — it removed the "writing code" proxy and the Bash-coverage padding).
 
-## ⚠ Read the RIGHT spec — and kill the obsolete one
+## There is ONE spec now
 
-**The current v1 spec is `docs/specs/spec-context-oracle.md`.** It matches Max's decisions (it
-blocks; no arbitrary limits / no "one whisper"). **`docs/specs/spec-context-oracle-phase0.md` is
-OBSOLETE and contradicts confirmed decisions** — it predates OL-C1 (so it is built on a token
-"budget"/whisper cap = the rejected OL-R3) and predates OL-C2/OL-C3 (so it says whispers "block
-nothing"), and it rests on the agent-contaminated `RETHINK.md`. Max read it and — correctly — found
-it doesn't line up with what he wants. **Recommended: delete `spec-context-oracle-phase0.md`.** The
-"first buildable, model-free slice" concept it was for survives as **Phase A** in the current v1
-spec (§11.5); Phase 0/A build detail belongs in an *architecture* doc derived from the current spec,
-not a rival spec. (Awaiting Max's go-ahead to delete.)
+**`docs/specs/spec-context-oracle.md` is the single spec for the whole tool** (built in phases
+A/B/C — build order, not separate products). It matches Max's decisions (it blocks; no arbitrary
+limits / no "one whisper").
+
+**The obsolete Phase 0 spec was DELETED (2026-08-28)** — `spec-context-oracle-phase0.md` and its
+`check-phase0-spec.py` checker. It contradicted confirmed decisions (it predated OL-C1, so it was
+built on a token "budget"/whisper cap = the rejected OL-R3; and predated OL-C2/OL-C3, so it said
+whispers "block nothing"), and it rested on the agent-contaminated `RETHINK.md`. Having two specs
+that could drift is what put the wrong document in front of Max. Recoverable from git if ever
+needed. When a phase actually gets built, its detail goes in an *architecture* doc derived from the
+one spec — never a rival spec.
 
 ### How the two blocks got realized (boundaries — for awareness, not decisions to make)
 
@@ -80,9 +82,8 @@ mechanism-forced or a build-order call that's the agent's:
 
 ## What to do next (agent-owned)
 
-1. **Delete `docs/specs/spec-context-oracle-phase0.md`** (awaiting Max's go-ahead — it's a spec
-   delete). It's obsolete and contradicts confirmed decisions (token budget = OL-R3; "blocks
-   nothing" = pre-OL-C2/C3); it built on `RETHINK.md`. Keeping it is why Max read the wrong spec.
+1. **DONE (2026-08-28): deleted the obsolete Phase 0 spec** and its checker; there is now one
+   spec (`spec-context-oracle.md`). CLAUDE.md read-list and info-policy table updated to match.
 2. **Focused re-review of the answer-drift section against OL-C5.** The spec had converged over six
    rounds against the older "writing code" framing; Max then gave the real definition (OL-C5,
    2026-08-25) and the section was rebuilt on it. The change *simplified* (removed the proxy + the
