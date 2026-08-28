@@ -2611,5 +2611,36 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
     /continuation AID, not an integrity control/i.test(gateSrc));
 }
 
+// ---- T-33: the defect queue and its generated index -------------------------
+// The index is derived data. Hand-maintained derived data drifts here — that is the
+// measured history of this codebase — so the generator owns the file and this check
+// fails when it is stale, rather than trusting whoever last edited a defect.
+{
+  const gen = join(ROOT, 'scripts', 'derive-defect-index.mjs');
+  check('T-33 the defect-index generator exists and parses', existsSync(gen) && (() => {
+    try { execFileSync(process.execPath, ['--check', gen], { stdio: 'pipe' }); return true; }
+    catch { return false; }
+  })());
+
+  let stale = true;
+  try { execFileSync(process.execPath, [gen, '--check'], { stdio: 'pipe', cwd: ROOT }); stale = false; } catch { stale = true; }
+  check('T-33 docs/defects/README.md is current with the defect files (regenerate: node scripts/derive-defect-index.mjs)', !stale);
+
+  const dDir = join(ROOT, 'docs', 'defects');
+  const dFiles = existsSync(dDir) ? readdirSync(dDir).filter((f) => f.endsWith('.md') && f !== 'README.md') : [];
+  check(`T-33 every defect file carries the frontmatter the index derives from (files: ${dFiles.length})`,
+    dFiles.length > 0 && dFiles.every((f) => {
+      const t = readFileSync(join(dDir, f), 'utf8').replace(/\r\n/g, '\n');
+      return /^id:\s*EDT-\d{4}$/m.test(t) && /^state:\s*(open|investigating|corrected)$/m.test(t)
+        && /^severity:\s*(critical|serious|moderate|minor)$/m.test(t) && /^component:\s*\S/m.test(t);
+    }));
+
+  // The queue is only useful if it is reachable. Both pointers are load-bearing.
+  check('T-33 the README points at the defect queue',
+    /docs\/defects\//.test(rd('README.md')));
+  check('T-33 the preflight reports the open defect count (the one surface every run must read)',
+    /open_defects/.test(rd('scripts/preflight-deployment.mjs')));
+}
+
 console.log(failures ? `\nSTRUCTURAL TESTS FAILED (${failures})` : '\nSTRUCTURAL TESTS PASSED');
 process.exit(failures ? 1 : 0);

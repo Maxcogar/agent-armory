@@ -92,10 +92,15 @@ Symptoms: the workflow crashes or contradicts itself; a gate asks for something
 impossible; a phase demands an artifact that cannot exist; the same failure recurs after
 a clean re-run.
 
-Do not patch. Do not invent a location for notes. File it in the machine-wide defect
-store, which is reachable from every project, survives plugin updates, and is already
-read by the recurrence machinery that decides whether a problem is a one-off or
-systemic:
+Read before filing. The plugin carries its own defect queue at `docs/defects/`, with a
+generated index at `docs/defects/README.md`; the deployment preflight reports the open
+count on every run. A problem already recorded there is usually already diagnosed, and
+what looks like a new failure is often a known one — check first.
+
+If it is not there, do not patch and do not invent a location for notes. File it in the
+machine-wide defect store, which is reachable from every project, survives plugin
+updates, and is already read by the recurrence machinery that decides whether a problem
+is a one-off or systemic:
 
 ```
 ~/.claude/plugins/data/expert-dev-tools/defect-history.json
