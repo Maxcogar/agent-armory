@@ -1,5 +1,18 @@
 # Architecture — Context Oracle (`ctxoracle`) v1
 
+> **⚠ HISTORICAL RECORD — NOT THE CURRENT ARCHITECTURE (banner added
+> 2026-08-28).** This whole-scope document predates two things that changed the
+> project under it: the per-phase architecture rule (`CLAUDE.md`, amended
+> 2026-07-31 — the architecture of record is written per phase, and this
+> document is retained only as the record of what was tried and as *input* to
+> later phase architectures, **not as a base to edit**), and the blocking-model
+> rebuild (2026-08-25 — the oracle now blocks reactively in exactly the two
+> owner-confirmed cases, `[OL-C2]`/`[OL-C3]`; spec §8). Statements here that "no
+> deny path exists structurally" (FR-O4) describe the superseded model;
+> `FR-O4`/`FR-O4a` citations resolve per the spec §8 retired-ID note (FR-O4 →
+> FR-B3's no-pre-emptive-gate guarantee; FR-O4a → FR-B4). The spec
+> (`docs/specs/spec-context-oracle.md`) is the sole current authority.
+
 > **Revision note (2026-07-22).** This document is a verification-first rebuild
 > of the 2026-07-17 draft, which an `/expert-review` pass found untrustworthy:
 > 11 findings sharing one root cause — correctness and completeness were

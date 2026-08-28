@@ -892,3 +892,34 @@ deliver." Six rounds got there because each round's independent hunt attacked th
 *previous round's fix*, and the author self-reviewed the fix first. The trajectory
 (6 → 1 → 5 → 4 → 1 → 0 findings) is what convergence looks like; a round that finds
 nothing is the signal, not an assumption you may make early.
+
+## 2026-08-28 — the narration strip silently un-applied a review finding
+
+The 2026-08-28 hygiene strip (removing self-narration and smuggled mechanism from
+the spec) deleted, along with the narration, the **lag-window lean** — the round-5
+collapse-hunt's one real finding (entry above, item 5; commit `d83ae5f`): in the
+answer-drift block's classifier lag window, hold/deny rather than pre-clear on
+unclassified text, the opposite of the steady-state clear lean. The strip removed
+it from FR-B1, FR-B5, and D-41 as if it were mechanism; it is an error-direction
+**property**, the same class as the FR-B5 leans the strip kept. STATUS.md then
+asserted "no loss of requirements or properties" — written by the same agent that
+did the stripping, and wrong. Max Cogar's suspicion, not the process, triggered
+the re-check; the diff audit found it (restored 2026-08-28, with the FR-O4/FR-O4a
+citation-resolution note the strip also deleted while downstream documents still
+cite those IDs).
+
+**Lesson 1: a deletion pass has the same blast radius as a writing pass and needs
+the same independent check.** "I only removed narration" is a claim about intent,
+not effect; the only verification is diffing each prior review round's *applied
+findings* against the post-strip text. A strip that follows the review is exactly
+positioned to undo it.
+
+**Lesson 2: "property vs mechanism" is itself a fallible classification — when a
+strip/refactor uses it as the knife, every cut it classifies as "mechanism" that
+originated in a review finding gets a second look.** An error-direction (which way
+a recognizer errs, in which regime) is a property, even when it reads like
+machinery.
+
+**Lesson 3: the agent that performed a cleanup may not be the one who certifies
+its losslessness.** "No loss" claims about one's own deletion are the same
+self-graded homework as the self-administered collapse test (entry above, item 3).

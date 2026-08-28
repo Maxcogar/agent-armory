@@ -366,6 +366,14 @@ its next action is simply allowed; the deny needs no counter, no held turn, no c
       question. A content-free deferral ("I'll get to that") does not clear it; that is the dodge
       OL-C3 targets. A text turn is never a tool action, so it is never denied: the way out always
       exists.
+    - **The lag window holds, it does not pre-clear `[D-41]`.** The clear-state is read from
+      cached classification that can lag the newest turn (`transcript_path` is written
+      asynchronously and may lag — verified 2026-08-25 — and the async classifier may not have
+      run yet). While the newest text turn is **unclassified**, the block **holds/denies rather
+      than pre-clearing** — the *opposite* of the steady-state clear lean (FR-B5) — because a
+      wrongful hold self-recovers in one round-trip (the classifier catches up, the next move is
+      allowed, the event is a self-detected FR-M2 fault) while a missed drifter does not. The
+      way out still exists throughout: a text answer is never a tool action, so it is never denied.
     - **Multiple questions** are tracked as a set, each cleared independently.
     - **Scope:** the block belongs to the consumer that holds the question — the main agent (FR-O6);
       a subagent is not subject to a question it never received.
@@ -423,7 +431,9 @@ its next action is simply allowed; the deny needs no counter, no held turn, no c
   - **Answer-drift.** A wrongful deny is trivially escaped (the agent answers, which it should do
     anyway); a *missed* one is Max's question dying silently. So the recognizer errs **toward not
     denying** (a rhetorical question, or a move that plausibly *is* answer-directed, is not denied)
-    and **toward clearing** on a substantive answer (only an empty deferral fails to clear). It
+    and **toward clearing** on a substantive answer (only an empty deferral fails to clear). That
+    clear lean is the **steady-state** posture, for turns already classified; in the **lag window**
+    (newest turn unclassified) the lean reverses to hold, per FR-B1's lag clause `[D-41]`. It
     clears on an answer that *substantively addresses* the question, not one *verified correct* —
     deciding correctness would make the oracle the unconstrained judge FR-C2 forbids; if an answer
     is inadequate, Max re-asks. Its under-fire guard is the **human channel** (FR-L6): a missed
@@ -448,6 +458,13 @@ its next action is simply allowed; the deny needs no counter, no held turn, no c
   (`updatedInput`/`updatedToolOutput` are never used to mutate) `[D-9]`. A `permissionDecision`
   deny is emitted **only** for the two reactive conditions of FR-B1, never as a standing gate
   on the agent's work.
+- **Retired requirement IDs (citation resolution) `[D-23]`.** Older documents (`RETHINK.md`, the
+  retained 2026-07 architecture record, past reviews) cite two IDs this spec supersedes:
+  **`FR-O4`** ("no deny path exists, structurally") — *superseded*; v1 **does** deny reactively in
+  FR-B1's two cases, and its surviving content (no pre-emptive deny, no plan/test gate, no
+  generated-file block, no mutation path) is carried by **FR-B3** — a citation to FR-O4 as a live
+  no-deny property is a defect. **`FR-O4a`** ("one continuation per stop") — *survives, renamed*:
+  the single-cycle Stop-time delivery bound is now **FR-B4**.
 - **FR-O2 — Delivery-capable events and mechanism (C-4, `[HOOKS]`, re-verified
   2026-08-25).** Model-visible context returns via structured
   `hookSpecificOutput.additionalContext` on the tool events, and via plain stdout on
@@ -830,9 +847,11 @@ numbers are set from Phase A's exit data.
   answer (OL-C5) is not deterministically decidable, so **Phase A** ships the deny plumbing plus a
   conservative recognizer (clearly-non-answer-directed moves only — safe, low-coverage) and **Phase
   B** lifts it to OL-C5 precision by model-maintaining the question/answer state off the synchronous
-  deny path (§11.5). AC-12 claims only the deterministic plumbing model-free; the substantive-answer
-  discrimination (AC-2a-ii) is a Phase-B criterion. Whether the model answers rather than retrying
-  after a deny is model behavior, measured (FR-M4), not contract-guaranteed.
+  deny path (§11.5). The cached state is eventually-consistent; in its lag window the block holds
+  rather than pre-clears (FR-B1's lag clause — a wrongful hold self-recovers in one round-trip, a
+  missed drifter does not). AC-12 claims only the deterministic plumbing model-free; the
+  substantive-answer discrimination (AC-2a-ii) is a Phase-B criterion. Whether the model answers
+  rather than retrying after a deny is model behavior, measured (FR-M4), not contract-guaranteed.
 
 ## 13. What is genuinely open
 

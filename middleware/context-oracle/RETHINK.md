@@ -174,6 +174,9 @@ Discipline rules:
 
 - **Per-trigger and per-session whisper budgets.** Hard caps; the orientation
   whisper decays out of consideration once the agent is deep in the work.
+  *(Superseded by the owner: OL-C1 — no volume, count, or budget limit
+  suppresses a candidate that clears the bar; the bar, not a cap, decides worth.
+  Spec FR-A5 is the authority. Dedup and the orientation decay survive.)*
 - **Dedup.** Never repeat a whisper whose content the agent has visibly
   incorporated (opened the pointed file, used the named helper).
 - **Latency budget.** A hook that slows the agent is a gate by another name.
@@ -197,6 +200,10 @@ Discipline rules:
   its confidence when confidence is not high.
 - **Confidence-gated**: speak only when confidence × decision-impact clears the
   bar. Ship with the bar set high and lower it against measured hit rate.
+  *(Qualified by the owner: OL-C4 — the warning/hazard genres do not require
+  high confidence; a real but uncertain hazard is delivered with its confidence
+  flagged, floored only by a noise floor. Spec FR-A5a is the authority; the
+  general marginal-value bar survives for the other genres.)*
 
 <!-- Removed 2026-08-16: a "single permitted hard intervention" subsection that
 described blocking a hand-edit of a provably-generated file. Max Cogar confirmed
@@ -318,6 +325,14 @@ tool grading its own paperwork. An oracle is measured on:
    Corollary: the oracle must be safe to run on real projects *by
    construction* — it never mutates the repo and never prevents an action; its
    worst case is a wasted sentence.
+
+   *(Superseded in part by the owner, 2026-08-16: Max confirmed **exactly two
+   reactive blocks** — answer-drift `[OL-C3]`/`[OL-C5]` and the skill
+   non-conformance escalation `[OL-C2]` — each a reactive `PreToolUse` deny of
+   the agent's deviating action, always self-clearing. What this decision
+   rejected — the **pre-emptive** gate ("prove your plan / pass a test to
+   proceed") — stays rejected. Authority: `OWNER-LEDGER.md` CONFIRMED;
+   mechanism: spec §8. Everything else remains an advisory whisper.)*
 4. **Sandbox compatibility is required.** The old sandbox build is archived as
    read-only reference; the new spec and data model are written with it closed,
    and specific functions may be cherry-picked during implementation only where
@@ -344,6 +359,12 @@ tool grading its own paperwork. An oracle is measured on:
    unverified completion claims) and answer drift (the user's direct question
    going unaddressed across successive turns). Advisory whispers like every
    other genre — no blocks.
+
+   *(Superseded in part by the owner, 2026-08-16: these two conduct genres are
+   exactly the two that now **escalate to a reactive block** — answer-drift per
+   `[OL-C3]`/`[OL-C5]`, skill non-conformance steer-then-block per `[OL-C2]`.
+   Their being in scope is unchanged; "no blocks" is not. Authority:
+   `OWNER-LEDGER.md` CONFIRMED; mechanism: spec §8.)*
 10. **Self-observability is required.** The oracle must detect, log, and
     surface its own failures — hooks not firing, latency breaches, model-path
     failures, store corruption, silent whisper loss — without depending on the
@@ -387,10 +408,19 @@ tool grading its own paperwork. An oracle is measured on:
     change the agent's next decision, across all twelve FR-A2 genres, none of
     them primary. Logged in `docs/collapse-log.md`.)*
 
-    **What this does not license.** The no-gates rule is unchanged: `decision:
-    "block"` stays structurally absent everywhere, and the oracle never prevents
-    a turn from ending. The accepted cost is bounded to *one* extra turn — the
-    oracle stays silent whenever `stop_hook_active` is true, so it can never
-    chain continuations or approach the harness's 8-continuation cap (spec
-    FR-O4a, AC-3). This is a decision to accept a named, bounded, audited cost —
-    not a decision that continuation is free.
+    **What this does not license.** The no-gates rule is unchanged: the oracle
+    never prevents a turn from ending. The accepted cost is bounded to *one*
+    extra turn — the oracle stays silent whenever `stop_hook_active` is true, so
+    it can never chain continuations or approach the harness's 8-continuation
+    cap. This is a decision to accept a named, bounded, audited cost — not a
+    decision that continuation is free.
+
+    *(Synced 2026-08-28 to the current blocking model. The original text here
+    read "`decision: \"block\"` stays structurally absent everywhere" and cited
+    spec FR-O4a — a Stop-based no-deny framing the 2026-08-25 rebuild replaced.
+    What is true now: the completion-claim whisper is **delivery, not
+    enforcement** — a single self-releasing Stop-time injection, bounded by
+    `stop_hook_active` (spec **FR-B4**, the renamed FR-O4a bound) — and blocking
+    exists **only** as the two reactive `PreToolUse` denies Max confirmed
+    2026-08-16 (`[OL-C2]`, `[OL-C3]`; spec §8, FR-B1–B3). No block ever lands at
+    a `Stop`, so "never prevents a turn from ending" still holds.)*
