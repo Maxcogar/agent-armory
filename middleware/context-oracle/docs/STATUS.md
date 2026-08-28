@@ -1,78 +1,78 @@
 # Context Oracle — status
 
-*Plain-language project status, rewritten each session. It states the current
-state and what to do next; the evidence lives in `docs/reviews/`, the durable
+*Plain-language project status, rewritten each session (not appended). It states
+the current state and what to do next; evidence lives in `docs/reviews/`, durable
 lessons in `docs/collapse-log.md`, and everything attributed to Max Cogar in
 `OWNER-LEDGER.md`.*
 
-## 2026-08-12 — Phase 0 spec through round 5 plus one owner correction; a dedicated owner-claims ledger started; its enforcement still to be designed
+## Where the project stands (2026-08-28)
 
-**Where the project is.** Still design phase, **no code**. The Phase 0 requirement
-document (`docs/specs/spec-context-oracle-phase0.md`) was rebuilt against round 4's
-findings and taken through round 5 — two independent passes, one checking facts and
-citations, one attacking whether each decision serves the mission. Round 5 was the
-**first clean result in this document's history**: every prior finding genuinely
-closed, none recurring, none regressed, the non-convergence tripwire did not fire.
-The fact-checking pass went 9 → 2 findings; the adversarial pass 16 → 5. All were
-applied.
+The **v1 spec** (`docs/specs/spec-context-oracle.md`) is the single spec for the whole tool,
+built in phases (A/B/C are build order, not separate products). It rests on the verified Claude
+Code hooks contract (re-verified 2026-08-25) and clean owner-attribution: nothing is attributed to
+Max Cogar that is not CONFIRMED in `OWNER-LEDGER.md`.
 
-**The security fix worth knowing.** The harness gives a hook fields that can
-silently rewrite the agent's edit before it runs (`updatedInput`) or replace a
-tool's result (`updatedToolOutput`). The spec had blocked only the deny paths; the
-requirement (FR-O4) now structurally forbids every such mutation field, so "the
-oracle never changes the repo" rests on a mechanism, not a promise.
+**This session: the spec was checked against the `expert-spec` skill and stripped.** Max asked for
+an honest evaluation against that skill's bar. It **passed** Gate A (Frame — every requirement
+traces to a source) and Gate B (Premise — every external fact carries a dated verification), which
+are genuine strengths. It **failed** Gate C (hygiene) three ways, and the strip fixed them:
 
-**The owner correction.** The spec (inheriting v1) assumed the oracle says at most
-**one** whisper per event. That count was never Max Cogar's rule — his rule is a
-per-trigger and per-session **token budget** (`RETHINK.md:175–176`), not a count. An
-agent had hardened "budget" into "one," and it manufactured a false dilemma about
-which of two useful notes must "win" at an edit. Corrected: the per-event limit is
-the token budget, so when two notes each clear the bar and fit the budget, **both are
-delivered**. Recorded as decision P0-D-27; logged in `docs/collapse-log.md` as a
-process failure, because Max caught it, not the review mechanism.
+- **Self-narration.** §8 carried ~50 lines narrating its own *review methodology* (the
+  "author picks the beatable question" argument, a round-3-hunt anecdote, a heightened-provenance
+  essay), and an "asserted honestly / surfaced to Max / not overclaimed / not hidden" refrain ran
+  document-wide. All removed; every real caveat kept, the narration about disclosing it dropped.
+- **Smuggled design (HOW).** The answer-drift block had been specified down to its mechanism —
+  a lag window, cached async classifier state, a steady-state-vs-lag-window lean reversal,
+  post-condition chaining. That is architecture, and it was also the **OL-C3 violation**: OL-C3
+  says *"dont make a convoluted fucked up way,"* and the machinery was exactly that. It is now
+  stated as a **property** (what must hold), with the mechanism deferred to the Phase A
+  architecture doc, per the project's own spec→architecture lifecycle.
+- **A live defect.** `[D-35]` still named the **rejected OL-R5** predicate *"is-this-writing-code"*
+  as an active axis — a direct contradiction with the confirmed OL-C5 answer-directed rule. Fixed.
 
-**Not yet verified.** The token-budget correction was made *after* the round-5
-review passes ran, so it has not been independently reviewed. That verification is
-outstanding.
+After the §8 strip, the same self-narration was found scattered document-wide — D-39 still
+re-told the rejected "writing code" story, and a "stated limit / surfaced to Max / not a defect"
+refrain ran through §1, §4, §9, §11, §12, and §14. A full-document cleanup removed all of it
+(positive statements kept; the narration about disclosing them dropped), then an **independent
+read of the whole current file** verified it: it found one remaining clause (FR-B2's "not a
+property the spec claims can never occur"), which was removed. The spec is now **1,094 lines**
+(from 1,291) with no loss of requirements or properties; CI green (PR #59). The `OWNER-LEDGER.md`
+OL-C5 entry was likewise reduced to a plain statement of the answer-drift block. Review record for
+the blocking-model rounds is unchanged: `docs/reviews/2026-08-25-blocking-model-rebuild-6-rounds.md`.
 
-**New, owner-directed — a dedicated ledger for everything attributed to Max Cogar.**
-Across the owner's projects, agents have repeatedly invented claims attributed to
-him and propagated them as true, corrupting the work. His directive: every such
-claim must live in one dedicated file, be referenced whenever it is involved, and
-require his **explicit sign-off before work proceeds** on it. A pilot file,
-`OWNER-LEDGER.md`, now exists — the 12 owner decisions on record in `RETHINK.md` §12
-are listed PENDING his confirmation (nothing is treated as authoritative until he
-signs), and two known fabrications (one-whisper-per-event; "the core problem") are
-listed REJECTED so they cannot return. `CLAUDE.md` now points to it. **The
-enforcement mechanism is unsolved:** an automated phrase/pattern-matching check was
-proposed and rejected as inadequate. A real design is still owed, and it must not be
-phrase matching.
+## The two blocks, as the spec now states them
 
-**What to do next:**
+Both are owner-confirmed; both are a reactive `PreToolUse` **deny of the deviating action**, never
+a pre-emptive gate, never a Stop-based hold. §8 is the authority.
 
-1. **Independently verify the token-budget correction** to the Phase 0 spec (it
-   landed after the round-5 passes, so it is the one unreviewed change).
-2. **Then the Phase 0 architecture document**, then plan, build, and run it — every
-   number the design is tuned from is still unmeasured, which is why Phase 0 exists.
+- **Answer-drift (OL-C3 / OL-C5).** After Max asks a question, a next move that is neither a direct
+  answer nor an action taken to provide the answer is denied ("answer Max first") until the agent
+  answers. Actions that get the answer — reading, searching, running a test — run freely, so the
+  block never deadlocks the path to a truthful answer or forces a fabricated "it works." A text
+  answer is never a tool action, so it is never denied: the way out always exists. Judging
+  "is this move answer-directed?" needs the model, so Phase A ships a conservative skeleton (denies
+  only clearly non-answer-directed moves) and Phase B gives it OL-C5 precision.
+- **Skill non-conformance (OL-C2).** An expert skill is active and the agent skips a declared step:
+  steer first (whisper), then deny the step-skipping action if it proceeds without a stated reason.
+  Its under-fire guard is automated (a step's observable post-condition checked against repo/store
+  state), because Max cannot see a skipped step himself (OL-11). A step with no checkable
+  post-condition is out of that guard's reach.
 
-The owner-claims ledger (`OWNER-LEDGER.md`) is a separate thread Max is directing;
-its 12 entries are his existing RETHINK §12 decisions, and a real enforcement
-mechanism for it is unbuilt (not phrase matching). It is not a blocker on the spec.
+## What to do next (agent-owned)
 
-**A question for the owner (plain yes/no).** The parent v1 spec still carries the
-same unsourced "at most one whisper per event" wording that Phase 0 corrected.
-Phase 0 governs Phase 0, so nothing is blocked — should v1 be corrected too so the
-two documents agree? If unanswered, v1 stays as-is.
+1. **The Phase A architecture document**, derived from the current spec, is the next lifecycle
+   stage — no build before it. It is where the mechanism the strip removed from the spec gets
+   worked out and adversarially reviewed: the answer-drift async question/answer-state maintenance
+   (kept off the synchronous deny path), the skill block's post-condition chaining, the stores/
+   index/miner, and the relevance bar's numeric combinator. At architecture time, re-confirm one
+   load-bearing hooks fact against current source — that `transcript_path` is written
+   asynchronously / may lag (the answer-drift clear-axis rests on it; the hooks contract has
+   drifted before).
+2. **Sync `RETHINK.md` §12.12** to the reactive-`PreToolUse`-deny mechanism (it still describes the
+   superseded Stop-based no-deny model). Treat RETHINK as agent-contaminated; only `OWNER-LEDGER.md`
+   CONFIRMED is authoritative. (The context-oracle `CLAUDE.md` is already synced.)
 
-## What is still open, and where it lives
+## Open external unknown (does not gate v1 design)
 
-- **Round 5 of the Phase 0 spec — all findings applied.** Two passes:
-  `docs/reviews/2026-08-12-round-5-expert-review-phase0-spec.md` (2 minor) and
-  `docs/reviews/2026-08-12-round-5-collapse-hunt-phase0-spec.md` (5 findings + 4
-  minors). The token-budget correction landed after them and is not yet reviewed.
-- **The owner-claims ledger** — `OWNER-LEDGER.md` (project root). Holds Max's
-  existing RETHINK §12 decisions and two rejected fabrications; a real
-  (non-phrase-matching) enforcement mechanism is unbuilt. A thread Max is directing.
-- **The Phase 0 architecture document does not exist yet.** It is written after the
-  correction is verified; the old whole-scope architecture stays as input to Phase 1,
-  not a base to edit (`docs/collapse-log.md`, 2026-07-31).
+Whether a subagent hook's `additionalContext` propagates to the parent is undocumented; the spec
+assumes **not** (C-4) and a cheap pre-design spike showing otherwise only adds an option. (Spec §13.)

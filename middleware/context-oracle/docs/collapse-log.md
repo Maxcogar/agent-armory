@@ -19,6 +19,152 @@ goes hollow is itself data.
 
 ---
 
+## 2026-08-25 — a fabricated citation key, and a hedge renamed instead of resolved
+
+Full evidence: `docs/reviews/2026-08-25-independent-review-spec-revision.md`.
+
+1. **Invented owner-attribution wearing a manufactured provenance key.** Class:
+   **unverified / posture.** A prior agent attributed the language-coverage
+   requirement to Max via `[OL:#3]` — a key matching neither the `[OL-n]` nor
+   `[OL-Cn]` form the spec's own legend defines, resolving to *nothing* in the
+   ledger — and put a direct quote in his mouth. **Lesson: a citation key is only
+   as real as the entry it resolves to. The check is not "does a plausible key
+   appear" but "open the ledger and find the row." A fabricated key is more
+   dangerous than a missing one, because it reads as already-verified. When a
+   claim is genuinely the owner's words but has no CONFIRMED row, its home is
+   PENDING and its spec grounding is judgment — never a key you coined to make it
+   look ratified.**
+
+2. **"Max's common case" — an owner fact nobody confirmed, doing load-bearing
+   work.** Class: **unverified.** "Young / thin-history repos are Max's common
+   case" was cited to OL-6/OL-11, which say nothing about repo age, and it was the
+   justification that a real limitation was acceptable. **Lesson: an attribution
+   that excuses a limitation is load-bearing — when the attribution is invented,
+   the excuse collapses with it. Ground a limitation on the design that causes it
+   (the corpus floor), not on an unconfirmed claim about the owner's world.**
+
+3. **Renaming a hedge is not resolving it.** Class: **unverified.** Eleven
+   load-bearing citations were shipped "prior pass"; an earlier pass *relabelled*
+   the "re-confirm at build" hedge to "prior pass" and called it fixed, leaving
+   every premise still unverified. **Lesson: the fix for an unverified premise is
+   verification, not a better word for "unverified." Under `/expert-spec` an
+   unverified load-bearing premise is a blocker, not a finished requirement —
+   Gate B is failed until the verification is on the page.**
+
+**The thread.** All three are the same move — asserting provenance without
+opening the source it points at: a citation key never resolved to a row, an
+owner-fact never traced to a decision, a premise never fetched. **The owner-ledger
+discipline is not "cite `[OL-…]`"; it is "the row exists and says this."**
+
+**Process failure that made all of the above reach a reviewer (same day).** Class:
+**posture.** The author (this session) went edit → push → dispatch independent
+review, treating the independent adversarial pass as *the* review. But
+`/expert-spec` requires the **author** to run the three gates (Frame, Premise,
+Completeness) as a self-review *before* delivery; the independent pass is an
+*additional* layer, not a substitute. Every finding both independent reviews
+returned — the fabricated `[OL:#3]` key, the `[OL-3]` over-citations, the
+untested genres — is something a genuine Gate-A/C self-audit catches by
+construction (Gate A = open each cited source and confirm it supports the claim;
+the coverage check = every requirement has a test). **Lesson: the independent
+review does not replace the author's self-review; skipping the self-review and
+leaning on the reviewer to find defects is the same "make someone else the
+substance-checker" failure the project's prime rules forbid — here aimed at the
+reviewer instead of the owner. Run the mechanical gates yourself first: enumerate
+every citation against its row, every requirement against its acceptance
+criterion. When Max asked "how was that missed — expert-spec requires a self
+review," the honest answer was that the self-review never ran.** (The self-review,
+once actually run, found coverage gaps — FR-J4 recursion guard, FR-O5
+task-boundary, FR-L6/L7 — that both adversarial passes had missed, because
+mechanical enumeration catches what sampling does not.)
+
+**Second-review addendum (same day).** A second independent pass on the *fixes*
+found two more of the same shape and one new class:
+
+4. **Citing a real CONFIRMED key for a claim the key does not contain.** Class:
+   **unverified.** `[OL-3]` (confirmed content: *blocking*) was cited as authority
+   for "the oracle never writes to the repo tree" — a real, good property, but one
+   OL-3 says nothing about (it is `[D-9]`). **Lesson: a resolvable key is not a
+   correct key. Re-read the row's actual content against the sentence it is
+   attached to — "cited a confirmed decision" and "cited it for what it decided"
+   are different checks, and only the second one holds.**
+
+5. **An absolute quietly falsified by a second use of the same primitive.** Class:
+   **mechanism-not-mission / posture.** FR-B1 said blocking exists in "exactly two
+   cases," but the completion-check whisper reaches the agent only by *continuing
+   the turn* at a `Stop` — a third use of the very hold-the-turn primitive the
+   absolute governs. **Lesson: when a requirement states an absolute over a
+   mechanism ("exactly N uses of X"), enumerate every place X is used and check
+   each against the absolute. A delivery mechanism reusing an enforcement
+   primitive will silently break the count unless the spec separates *delivery*
+   from *enforcement* by name (now FR-B4 vs FR-B1).**
+
+---
+
+## 2026-08-16 — the rebuilt spec re-sprang two known traps and silenced the mission's own priority
+
+Three durable lessons from the rebuild's independent reviews (full evidence:
+`docs/reviews/2026-08-16-expert-review-spec-rebuild.md` and
+`…-collapse-hunt-spec-rebuild.md`):
+
+- **The owner-attribution-through-rationale channel re-opened — again.** The author
+  attributed a latency figure to Max Cogar by citing `RETHINK.md` §5 (rationale, not
+  a §12 decision) — provenance-identical to the REJECTED budget (OL-R3). Lesson,
+  generalised: **`RETHINK.md`'s non-§12 prose is not an owner source.** Any
+  `[OL…]`/"the owner's rule" citation must resolve to a CONFIRMED ledger entry; a
+  cite to RETHINK rationale is an agent judgment wearing the owner's name. Class:
+  unverified. (Caught by the review mechanism, not the owner — the design working.)
+
+- **A learning loop that only demotes ratchets to silence.** The rebuild specified
+  demotion (a requirement) but left promotion a bare principle — re-springing the
+  2026-07-22 #1 trap ("the tool converges to near-total silence and measures as
+  healthy"). Lesson: **any de-noising loop needs an explicit up-signal (re-explore /
+  re-promote) with a requirement and an anti-convergence acceptance test, not a
+  slogan.** A down-signal without a matching up-signal is a silence machine. Class:
+  mechanism-not-mission.
+
+- **"The bar decides" can silence the exact fact the mission wants.** A
+  multiplicative bar plus a high-confidence floor suppressed the uncertain hazard —
+  but `[OL-3]` (a wasted sentence is the worst case) makes *false silence* the
+  costlier error, so a precision floor optimises the wrong side. Lesson: **when the
+  cost of speaking is bounded and low, uncertainty is a reason to speak (flagged),
+  not to suppress; manage precision empirically (demotion) rather than a-priori.**
+  Do not let a quality filter quietly become a relevance gate. Class: wrong-check.
+
+## 2026-08-13 — the fix to a hollow decision was itself two-thirds hollow (caught by independent passes, not the owner)
+
+**A correction that removed an unsourced owner-attributed limit left the old rule
+standing in two other places and replaced it with a *second* unsourced number.**
+The 2026-08-12 correction (`P0-D-27`) fixed `FR-A3`'s invented "at most one whisper
+per event." But the same single-whisper rule survived verbatim in `FR-A5` (*"only the
+top candidate above the bar is spoken"*) and `FR-O2` (*"relay at most one whisper
+back"*, still listed "unchanged" in §3) — so the delivery mechanism and the scoring
+requirement both still said "one." And the replacement, "fits the per-trigger token
+budget," rested on a per-trigger number that had **no value and no source** — a fresh
+unsourced limit in place of the one just removed.
+Class: **unverified**. A correction is not done when the decision that named the
+defect is edited; it is done when *every copy* of the defective rule is swept and the
+replacement is itself sourced or explicitly deferred. Fix: `FR-A5`/`FR-O2` corrected;
+Phase 0 now fixes **no** per-trigger number (defaults to the session cap, tighter cap
+deferred to Phase 1 where P0-4's data will set it) — machinery removed, not invented
+(`P0-D-28`).
+
+**And the over-attribution the correction was fixing had propagated into the
+correction's own record.** The "token" denomination — a reconstruction, since the
+owner's words (`RETHINK.md:175–176`) say only *"whisper budgets, hard caps"* — had
+been written as the owner's rule into `FR-A3`, `P0-D-27`, `OWNER-LEDGER.md` OL-R1, and
+even the 2026-08-12 entry below (*"a token budget, not a count"*). OL-R1 mattered most:
+`CLAUDE.md` has agents read the ledger **first** as the authority for what is Max
+Cogar's, so a latent over-attribution there re-commits the exact class OL-R1 exists to
+record. Fixed in the spec and in OL-R1; token denomination now labeled a derived
+document judgment everywhere.
+Class: **unverified** (again). Generalise: when you correct an owner-attribution, grep
+for the attributed phrase across *all* files — the reconstruction that caused the
+collapse tends to have already spread to the very documents that record the fix.
+**Process note:** none of this reached Max Cogar. Two independent adversarial passes
+caught it — the first the incomplete sweep and unsourced number, the second the
+ledger over-attribution. This is the mechanism working as designed: the owner is not
+the substance-reviewer.
+
 ## 2026-08-12 — caught by Max Cogar, logged as a process failure
 
 **An agent-invented constraint was hardened into a rule and then handed back to
@@ -670,3 +816,79 @@ without opening them. **Stopping too early against a source that is right there.
 then hunted. The last four were hunted and then written. Cost of the first order:
 a commit, a revert and a correction each. Cost of the second: one subagent, and
 nothing to undo. **Dispatch the pass before writing into a document, not after.**
+
+---
+
+## 2026-08-25 — Blocking-model rebuild (6 rounds to convergence): the recurring shape and how it terminates
+
+The blocking model was rebuilt onto the verified reactive `PreToolUse`-deny
+mechanism and taken through six dual-review rounds (expert-review + collapse-hunt
+each round) to a zero-findings / TERMINAL verdict. Durable lessons, for the next
+designer who touches a fallible-recognizer feature:
+
+1. **"The guard shares the recognizer's blind spot" is the signature failure of
+   this whole class.** Every round, a fix to one fallible recognizer re-created
+   the same shape one layer down: the under-fire *guard* for a block re-ran the
+   very classifier whose miss it was meant to catch (round-2 skill detector,
+   fixed by switching FR-C4 to an **observable post-condition** checked directly
+   against state, independent of the action classifier); the done-claim *backstop*
+   shared the answer-recognizer's blind spot (named, not hidden). **Lesson: an
+   under-fire/backstop signal is only a guard if it is derived independently of
+   the thing it guards. If it routes through the same judgment, it inherits the
+   same blindness and guards nothing.**
+
+2. **Honest-limits has *layers*, and naming one layer hides the next.** Round 3
+   honestly named the *deny-target* limits (which writes get caught). Round 4
+   found that left the *recognizer* limits unnamed (whether the block can even
+   tell it should fire, model-free) — two overclaims ("full Bash coverage a
+   committed follow-on"; the model-free block "works") were sitting *inside* the
+   honest-limits sentences. **Lesson: "we disclosed the limit" is not done until
+   you've asked what the disclosure itself assumes. Disclosing the coverage gap
+   while overclaiming the recognizer is the same hollowness wearing an honest hat.**
+
+3. **A self-administered collapse test grades its own homework.** §8 had the
+   author write AND answer each block's "hardest question" — and (predictably) it
+   picked the beatable question and answered the *honesty* variant ("is the limit
+   disclosed?") instead of the *achievement* variant ("does it meet the objective
+   in the case that matters?"). The independent hunt caught exactly this. **Lesson:
+   an in-document self-test never discharges the mandatory independent hunt; when
+   you find yourself writing both the question and a passing answer, you are the
+   substance-reviewer again. State the self-test as *not* a gate.**
+
+4. **The cardinal sin relapsed inside the fix for another finding.** In scoping
+   the answer-drift block (fixing a round-1 finding) I put Max's real chat words
+   into the spec *as authority* — the exact owner-attribution failure the ledger
+   exists to stop, committed while fixing something else. **Lesson: the correction
+   round is where owner-attribution discipline lapses, because attention is on the
+   mechanism. Real owner words go to `OWNER-LEDGER.md` PENDING and the durable doc
+   grounds on a design judgment `[D-n]` until he signs off — even when the words
+   are genuinely his.** (This is why the self-review-before-independent-review step
+   is mandatory: my own fixes were the likeliest source of new defects, and were.)
+
+5. **Two error-directions of a fallible predicate are two regimes, and one lean
+   applied twice is a bug.** The final finding: the answer-drift clear-axis leans
+   *toward clearing* in steady state (don't strand a compliant answerer) but must
+   lean *toward holding* in the lag window (don't pre-clear on text the classifier
+   hasn't seen — that misses the narrate-then-write drifter). Carrying the
+   steady-state lean into the lag window silently picked the wrong horn. **Lesson:
+   when a recognizer runs against eventually-consistent state, specify the lean for
+   the not-yet-consistent window *separately* — the error that self-recovers in-band
+   is the one to prefer, and it is usually the opposite of the steady-state lean.**
+
+6. **Not every reviewer-flagged "scope softening" is the owner's call.** The
+   collapse-hunt framed three coverage limits as "route to Max." Two were
+   *mechanism-forced* (a verified-correct clear bar would be the rejected
+   pass-a-test gate; pure-judgment skill steps are undetectable by any mechanism)
+   and one was *sequencing* (mine). Handing a non-programmer a mechanism-forced
+   "choice" is the over-asking failure. **Lesson: apply CLAUDE.md's test — can you
+   name what decides it? — before escalating. Mechanism-forced and sequencing are
+   the agent's; surface them for *awareness*, not as questions. Only a genuine
+   yes/no on the owner's own directive goes to him.**
+
+**The terminal state.** Convergence is not "no limits left" — it is "every
+remaining limit is an irreducible truth about the problem, named, measured, and
+(where testable) acceptance-tested, with nothing claimed the mechanism can't
+deliver." Six rounds got there because each round's independent hunt attacked the
+*previous round's fix*, and the author self-reviewed the fix first. The trajectory
+(6 → 1 → 5 → 4 → 1 → 0 findings) is what convergence looks like; a round that finds
+nothing is the signal, not an assumption you may make early.

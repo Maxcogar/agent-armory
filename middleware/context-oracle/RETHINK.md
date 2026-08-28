@@ -198,13 +198,11 @@ Discipline rules:
 - **Confidence-gated**: speak only when confidence × decision-impact clears the
   bar. Ship with the bar set high and lower it against measured hit rate.
 
-### The single permitted hard intervention
-
-A block is allowed only where wrongness is **objective and machine-checkable**
-— e.g. hand-editing a file that is provably build output. Anything
-judgment-shaped is a whisper, always. Even the objective cases should prefer a
-loud whisper with a one-keystroke override path over a wall. (Whether generated
-file edits block or loudly whisper is an owner decision — see §11.)
+<!-- Removed 2026-08-16: a "single permitted hard intervention" subsection that
+described blocking a hand-edit of a provably-generated file. Max Cogar confirmed
+this was NEVER his — it was an agent fixation falsely written into his doc
+("thats not my example... i honestly dont even know what it means"). See
+OWNER-LEDGER.md OL-R4. Do not reintroduce it. -->
 
 ## 7. The one deliberate bit of activeness — the companion skill
 
@@ -315,8 +313,7 @@ tool grading its own paperwork. An oracle is measured on:
    gatekeeper design was never wanted — prior agent sessions fixated on
    armoring against specific past failure cases, and the result blocked
    legitimate work half the time while solving nothing worthwhile. Every
-   intervention, including generated-file protection, is a **loud warning
-   whisper**. False fires are tracked (warning emitted → agent proceeded →
+   intervention is a **loud warning whisper**. False fires are tracked (warning emitted → agent proceeded →
    outcome, plus narration corrections) and warnings are tuned from that data.
    Corollary: the oracle must be safe to run on real projects *by
    construction* — it never mutates the repo and never prevents an action; its

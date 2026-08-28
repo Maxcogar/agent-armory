@@ -23,14 +23,17 @@ ledger's REJECTED section and `docs/collapse-log.md`, 2026-08-12).
 
 0. `OWNER-LEDGER.md` — what is and isn't authoritatively Max Cogar's.
 1. `docs/STATUS.md` — where the project actually is, in plain language.
-2. `docs/specs/spec-context-oracle.md` — the v1 spec, across all three phases.
-   §11 and §14 tell you what was decided and what's still open.
-3. `docs/specs/spec-context-oracle-phase0.md` — the Phase 0 spec. It governs
-   Phase 0 wherever both documents address the same subject, and its §14
-   supersedes v1 §12's Phase 0 exit. If you are building or reviewing Phase 0,
-   this is the requirement document, not the one above.
-4. `RETHINK.md` — why the tool is shaped this way. §12 + its addendum are the
-   owner's locked decisions.
+2. `docs/specs/spec-context-oracle.md` — **the single spec for the whole tool**,
+   built in phases (A/B/C are build order, not separate products). §11 (build
+   order) and §14 (acceptance) tell you what was decided and what's still open.
+   *(There is no separate Phase 0 spec. The old `spec-context-oracle-phase0.md`
+   was deleted 2026-08-28 — it had drifted onto pre-OL-C1/OL-C2/OL-C3 assumptions
+   (a token budget, "blocks nothing") that contradict confirmed decisions. Per-phase
+   build detail belongs in an architecture doc derived from this spec, not a rival
+   spec.)*
+3. `RETHINK.md` — why the tool is shaped this way (agent-contaminated in places;
+   only `OWNER-LEDGER.md` CONFIRMED is authoritative for owner claims). §12 + its
+   addendum are background, not a second spec.
 5. `docs/reviews/` — review output of record, every round, with its findings
    and closure ledgers.
 6. `docs/collapse-log.md` — cumulative record of decisions that collapsed and
@@ -55,8 +58,7 @@ cannot, you are about to duplicate something that already has a home.
 | File | Its one job | Membership test | What breaks if you put the wrong thing here |
 |---|---|---|---|
 | `RETHINK.md` | Why this tool exists; what the owner has decided | Is it the founding rationale, or a decision only the owner can make or reverse? | A decision recorded anywhere else gets silently re-litigated by the next agent |
-| `docs/specs/spec-context-oracle.md` | What the tool must do across v1 | Is it a requirement, constraint, or acceptance criterion spanning more than one phase? | A requirement invented inside the architecture is one nobody approved and no reviewer can check |
-| `docs/specs/spec-context-oracle-phase0.md` | What Phase 0 must do | Is it a Phase 0 requirement, or a Phase 0 narrowing of a v1 one? | A Phase 0 requirement written into the v1 spec is one the other phases inherit by accident |
+| `docs/specs/spec-context-oracle.md` | What the whole tool must do (all phases) | Is it a requirement, constraint, or acceptance criterion for the tool? | A requirement invented inside the architecture is one nobody approved and no reviewer can check |
 | `CLAUDE.md` *(this file)* | How agents work on this project | Is it true regardless of where the project currently stands? | State here goes stale while the real state moves on, and the stale copy is what a new session reads first |
 | `docs/STATUS.md` | Where the project stands and what to do next | Would this have been different a week ago? | A durable rule here is destroyed at the next session end, when this file is rewritten |
 | `docs/architecture-*.md` | How it is designed, and on what verified premises | Is it a design decision, its rationale, or the evidence a premise rests on? | A design fact stated elsewhere drifts from the design and is trusted anyway |
@@ -216,12 +218,20 @@ run?" is not that.
 
 ## Decisions are locked in writing, nowhere else
 
-The authorities are RETHINK §12 (+ addendum) and spec §11. Do not
-re-litigate or silently drift from them. Ideas the owner has explicitly
-rejected — do not reintroduce in any form:
+The authorities are the `OWNER-LEDGER.md` CONFIRMED entries, RETHINK §12
+(+ addendum), and spec §11. Do not re-litigate or silently drift from them.
+Ideas the owner has explicitly rejected — do not reintroduce in any form:
 
-- **No gates.** No deny paths, no blocking, no plan firewalls. Every
-  intervention is an advisory whisper.
+- **No *pre-emptive* gate.** No *pre-emptive* deny on a tool call, no plan
+  firewalls, no "pass a test / prove your plan to proceed" checkpoint, no
+  generated-file block `[OL-R4]`. **Reactive blocking IS in scope** in exactly
+  the two cases Max confirmed on 2026-08-16 — **answer-drift `[OL-C3]`** and
+  **skill non-conformance (steer-then-block) `[OL-C2]`** — always reactive and
+  self-clearing; the mechanism (a `PreToolUse` deny of the agent's *deviating
+  action*, never a Stop-based hold) is defined in spec §8, the authority — do
+  not restate it here. Everything else is an advisory whisper. *(This corrects
+  the earlier absolute "no blocking, every intervention is an advisory whisper,"
+  which predates and is superseded by OL-C2/OL-C3; the ledger is authoritative.)*
 - **No separate credentials.** Model access is host-CLI piggyback or
   deterministic degraded mode. The oracle never requires, requests, or
   stores API keys of its own.
@@ -318,7 +328,8 @@ runs on `Stop`. If the session changed anything under `middleware/context-oracle
 and `docs/STATUS.md` was not updated, or a handoff was written, or a new file
 appeared outside the sanctioned set, it says so and the turn continues once so you
 can fix it. It never blocks, and it is gated on `stop_hook_active` so it can never
-chain — the same one-continuation bound spec FR-O4a puts on the oracle itself.
+chain — the same single-cycle bound spec FR-B4 puts on the oracle's own Stop-time
+completion-check whisper.
 
 The reason it exists: on 2026-07-31 an agent wrote these rules and then broke
 them repeatedly within minutes — patching after being told not to, using grep as
