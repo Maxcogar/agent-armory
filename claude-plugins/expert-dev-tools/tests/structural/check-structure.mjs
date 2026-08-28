@@ -34,10 +34,22 @@ function frontmatter(path) {
   return fm;
 }
 
-// ---- T-A1: nine skills load-clean -----------------------------------------
+// ---- T-A1: the packaged skill set -----------------------------------------
+// Pinned as a SET, not a count: a bare length passes when one skill is deleted and
+// an unrelated one added, and a stated number is a hand-maintained datum that drifts
+// (this check's own comment read 'nine' above an assertion of ten). Adding or removing
+// a skill must be a deliberate edit here, naming what changed.
 const skillsDir = join(ROOT, 'skills');
 const skills = readdirSync(skillsDir);
-check('T-A1 ten skills packaged', skills.length === 10);
+const EXPECTED_SKILLS = [
+  'expert-architecture', 'expert-architecture-portable', 'expert-correct',
+  'expert-implement', 'expert-mcp-overhaul', 'expert-plan', 'expert-review',
+  'expert-spec', 'expert-standard', 'expert-usage', 'frontend-standards',
+];
+const missingSkills = EXPECTED_SKILLS.filter((s) => !skills.includes(s));
+const unexpectedSkills = skills.filter((s) => !EXPECTED_SKILLS.includes(s));
+check(`T-A1 the packaged skill set is exactly the declared one (missing: ${missingSkills.join(', ') || 'none'}; undeclared: ${unexpectedSkills.join(', ') || 'none'})`,
+  missingSkills.length === 0 && unexpectedSkills.length === 0);
 for (const s of skills) {
   const fm = frontmatter(join(skillsDir, s, 'SKILL.md'));
   check(`T-A1 skill ${s} has parseable frontmatter + name`, !!fm && !!fm.name);
@@ -492,6 +504,20 @@ check('T-18 the scope check is dispatched to the verifier under one label',
     // guessed by widening the normalizer. Each entry names the exact baseline label
     // and the exact label that supersedes it, with the finding that forced the swap.
     const REPLACED_BY_STRENGTHENING = [
+      // ---- expert-usage skill added: T-A1 traded a bare population count for the
+      // population itself. `skills.length === 10` passes when one skill is deleted and
+      // an unrelated one added, which is the loss it existed to catch; and the stated
+      // number is a hand-maintained datum that had already drifted from this block's
+      // own comment ('nine skills load-clean' above an assertion of ten). Naming the set
+      // makes both a deletion and an undeclared addition fail, and removes the number.
+      {
+        was: 'T-' + 'A1 ten skills packaged',
+        now: "T-" + "A1 the packaged skill set is exactly the declared one (missing: ${missingSkills.join(', ') || 'none'}; undeclared: ${unexpectedSkills.join(', ') || 'none'})",
+        why: 'A length comparison is satisfied by any ten directories. The replacement pins '
+             + 'the membership, so removing a packaged skill fails even if another is added '
+             + 'in the same edit, and adding one must be declared here deliberately. It also '
+             + 'retires the cardinality word, which had already drifted once in this block.',
+      },
       // ---- corrections-0.4.0 round-5 F1/F2/F3: the two properties keep their
       // assertions and lose their overstated labels. The shared ground: a recognizer
       // for a natural-language construct is a hand-drawn boundary, so a check that
