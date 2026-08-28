@@ -936,3 +936,19 @@ machinery.
 **Lesson 3: the agent that performed a cleanup may not be the one who certifies
 its losslessness.** "No loss" claims about one's own deletion are the same
 self-graded homework as the self-administered collapse test (entry above, item 3).
+
+## 2026-08-28 — correcting a reference inside misplaced content ratifies the misplacement
+
+Applying the same day's sweep findings, an agent "fixed" `CLAUDE.md`'s stale
+section numbers and phase vocabulary *inside* a dated history narrative (the
+"Amended 2026-07-31" paragraph) and a deleted-file tombstone — content that fails
+`CLAUDE.md`'s own membership test ("true regardless of where the project stands")
+and already had a home (the collapse-log's 2026-07-31 entry). The correction made
+the misplaced content *more* current, which is the opposite of the fix; Max Cogar
+caught it, not the process. **Lesson: before correcting any defect inside a
+document, apply that document's membership test to the content the defect sits
+in. If the content doesn't belong there, the fix is relocation to its home (or a
+pointer), never a better-maintained copy. A reviewer's "fix the reference" finding
+does not settle the placement question — that is the target file's policy to
+settle.** Dated *supersession pointers* on decisions belong in authority files;
+dated *narratives about how the file got this way* never do.
