@@ -30,9 +30,15 @@ are genuine strengths. It **failed** Gate C (hygiene) three ways, and the strip 
 - **A live defect.** `[D-35]` still named the **rejected OL-R5** predicate *"is-this-writing-code"*
   as an active axis — a direct contradiction with the confirmed OL-C5 answer-directed rule. Fixed.
 
-The strip took the spec from **1,291 → 1,135 lines** with no loss of requirements or properties;
-CI is green (PR #59). Two review records are unchanged and still accurate for what they covered:
-`docs/reviews/2026-08-25-blocking-model-rebuild-6-rounds.md`.
+After the §8 strip, the same self-narration was found scattered document-wide — D-39 still
+re-told the rejected "writing code" story, and a "stated limit / surfaced to Max / not a defect"
+refrain ran through §1, §4, §9, §11, §12, and §14. A full-document cleanup removed all of it
+(positive statements kept; the narration about disclosing them dropped), then an **independent
+read of the whole current file** verified it: it found one remaining clause (FR-B2's "not a
+property the spec claims can never occur"), which was removed. The spec is now **1,094 lines**
+(from 1,291) with no loss of requirements or properties; CI green (PR #59). The `OWNER-LEDGER.md`
+OL-C5 entry was likewise reduced to a plain statement of the answer-drift block. Review record for
+the blocking-model rounds is unchanged: `docs/reviews/2026-08-25-blocking-model-rebuild-6-rounds.md`.
 
 ## The two blocks, as the spec now states them
 
@@ -50,7 +56,7 @@ a pre-emptive gate, never a Stop-based hold. §8 is the authority.
   steer first (whisper), then deny the step-skipping action if it proceeds without a stated reason.
   Its under-fire guard is automated (a step's observable post-condition checked against repo/store
   state), because Max cannot see a skipped step himself (OL-11). A step with no checkable
-  post-condition is out of that guard's reach — a stated limit.
+  post-condition is out of that guard's reach.
 
 ## What to do next (agent-owned)
 
@@ -62,11 +68,7 @@ a pre-emptive gate, never a Stop-based hold. §8 is the authority.
    load-bearing hooks fact against current source — that `transcript_path` is written
    asynchronously / may lag (the answer-drift clear-axis rests on it; the hooks contract has
    drifted before).
-2. **Optional low-severity spec polish** (not blocking): the top-of-file "What this document is"
-   matter and the retired-ID resolution block read as clutter to a non-programmer reader, though
-   they serve the architect/reviewer. Leave unless Max wants the spec read-through tightened
-   further.
-3. **Sync `RETHINK.md` §12.12** to the reactive-`PreToolUse`-deny mechanism (it still describes the
+2. **Sync `RETHINK.md` §12.12** to the reactive-`PreToolUse`-deny mechanism (it still describes the
    superseded Stop-based no-deny model). Treat RETHINK as agent-contaminated; only `OWNER-LEDGER.md`
    CONFIRMED is authoritative. (The context-oracle `CLAUDE.md` is already synced.)
 
