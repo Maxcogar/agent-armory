@@ -330,9 +330,12 @@ attack surface. The model precedes the requirements.
 ## 8. How the oracle blocks — and what stays structurally impossible
 
 **Why blocking is here at all (the reconciliation).** The mission — *deliver the fact that
-would change the agent's next decision* — does **not** cover blocking: a block delivers no
-fact, it withholds the agent's ability to stop. Blocking is therefore **not** derived from
-the mission and does **not** claim to pass a mission-phrased collapse test. It is a
+would change the agent's next decision* — does **not** cover blocking: a block does not deliver a
+decision-changing *fact about the codebase* (the mission's currency). What a block **does** deliver
+is an **instruction** — "answer Max first," or "do step X, or say why you're skipping it" — telling
+the agent exactly how to get unblocked. (Without that instruction the block would be useless: a
+denied agent has to be told how to proceed.) So blocking is **not** derived from the mission and does
+**not** claim to pass a mission-phrased collapse test. It is a
 **separate objective Max Cogar confirmed** (`[OL-C2, OL-C3]`), standing alongside the
 mission, and each block is justified in **owner-objective** terms:
 - **Answer-drift block** — *job:* enforce that a question Max asks is actually answered
@@ -342,9 +345,9 @@ mission, and each block is justified in **owner-objective** terms:
   either follows their steps or states why it skipped one, rather than silently drifting
   `[OL-C2]`.
 
-Both are owner-authority enforcement, not information delivery; the spec keeps them
-explicitly distinct from the advisory whisper genres so the tool's identity as a guide is
-not quietly redefined. If the scope of that enforcement is ever in question, it is an
+Both are owner-authority enforcement: they deliver an *instruction* (how to proceed), not a
+decision-changing codebase fact. The spec keeps them explicitly distinct from the advisory whisper
+genres — which deliver mission-facts — so the tool's identity as a guide is not quietly redefined. If the scope of that enforcement is ever in question, it is an
 owner-scope call for Max, not a mission derivation the spec can make on its own.
 
 **Heightened provenance bar for this category.** Declaring blocking a *beside-the-mission*
