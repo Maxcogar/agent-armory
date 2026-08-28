@@ -892,29 +892,3 @@ deliver." Six rounds got there because each round's independent hunt attacked th
 *previous round's fix*, and the author self-reviewed the fix first. The trajectory
 (6 → 1 → 5 → 4 → 1 → 0 findings) is what convergence looks like; a round that finds
 nothing is the signal, not an assumption you may make early.
-
-## 2026-08-28 — a settled owner decision got reopened, and the owner had to re-explain it
-
-**What happened.** The answer-drift definition is confirmed and recorded: OL-C5
-(2026-08-25) — *after Max asks a question, the agent's next move must be a direct
-answer or an action taken to provide the answer; if it is neither, it is corrected.*
-The ledger already states, in as many words, that the trigger is **not** "writing
-code" (an agent's narrow proxy, rejected as OL-R5) but **any next move that is not
-answer-directed**. Despite that, an agent (me) treated the definition as still-open
-and asked Max to re-confirm what it meant — twice — making him re-explain a settled
-decision. His reply: *"why would writing code be the only condition for when it is
-ignoring me? like you are making this needlessly complicated."*
-
-**The trap.** The owner had earlier said, of the *old superseded* framing, "it
-wasn't clear what I meant." An agent can read that uncertainty about the **rejected**
-version as license to reopen the **confirmed** version. It is not. OL-P3 (unclear,
-rejected) and OL-C5 (confirmed) are different entries; doubt about the first does not
-unsettle the second.
-
-**Lesson.** *A CONFIRMED ledger entry is closed. Do not reopen it by asking the owner
-to re-confirm — that is the "ask and don't record" failure from his side of the table
-even when the record exists and is correct.* The answer-drift condition is **ignoring
-the question**, of which "writing code" is one instance, never the definition. If a
-future pass feels unsure, the recourse is to read OL-C5 and OL-R5 and trust them —
-not to re-litigate with Max. Narrowing the trigger back toward "writing code," or
-re-asking what OL-C5 means, is a re-sprung trap; stop.
