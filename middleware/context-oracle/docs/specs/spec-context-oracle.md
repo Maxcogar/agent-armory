@@ -1,9 +1,7 @@
-# Spec: Context Oracle (`ctxoracle`) — v1 (rebuilt 2026-08-16)
+# Spec: Context Oracle (`ctxoracle`) — v1
 
 **Status:** draft for owner review. Every requirement traces to a CONFIRMED owner decision
 (`OWNER-LEDGER.md`), a named and current-verified standard, or a recorded judgment (§12).
-**Nothing attributed to Max Cogar appears here unless it is CONFIRMED in `OWNER-LEDGER.md`**
-— an owner-attributed claim with no CONFIRMED ledger entry is a defect, not a citation.
 
 **Provenance keys.** `[OL-n]` / `[OL-Cn]` = a CONFIRMED owner decision in
 `OWNER-LEDGER.md`; `[OL-Rn]` = a REJECTED false attribution there. `[D-n]` = a
@@ -15,8 +13,7 @@ source; the §9 "Verified" column records the date each was confirmed (most 2026
 **What this document is.** It defines *what* the oracle must do and the properties
 it must hold. Component boundaries, storage engines, IPC, algorithms, and the exact
 numeric form of any threshold are the architect's, except where a constraint is
-itself a requirement (§8). Requirement IDs are stable mnemonics, not a contiguous
-sequence; gaps carry no hidden requirement `[D-23]`.
+itself a requirement (§8). Requirement IDs are stable mnemonics `[D-23]`.
 
 ---
 
@@ -40,7 +37,7 @@ Claude Code session through lifecycle hooks and, at decision moments, injects a
 small **whisper** — one fact, with a verifiable pointer — when it knows something
 the agent almost certainly does not and that would change what it does next. It is
 **advisory by default** (a whisper the agent may ignore) and **never mutates the
-repository** `[D-9]` (the no-in-tree-write property; OL-3 is about blocking, not writes).
+repository** `[D-9]` (the no-in-tree-write property).
 
 Alongside that mission, the oracle carries a **second, owner-set objective**: it **blocks
 in exactly the two cases Max Cogar confirmed** (§2.1, §4, §8) — to make an agent answer a
@@ -148,7 +145,7 @@ that is ignored (`RETHINK.md` §2.3).
 - **P8 — The repository tree stays pristine** except explicit `init` wiring `[D-9]`.
 - **P9 — No feature is primary.** Elevating any genre — the completion-claim moment or
   the corrective feature included — is the recurring failure this project exists to
-  prevent (`RETHINK.md` §12.12 correction; `[OL-C2]`).
+  prevent `[OL-C2]`.
 
 ---
 
@@ -173,7 +170,7 @@ table is an advisory whisper.
 | **FR-A2h Assumption check** | Agent narration | "Your narration assumes X; the repo says Y at `file:line`." (Model-dependent — Phase B.) |
 | **FR-A2i Steering (whisper)** | Agent narration | "What you're describing lives in `src/…`, not where you're looking." (Model-dependent — Phase B.) |
 | **FR-A2j Answer** | A repo-answerable question in narration | The repo-grounded answer with a pointer. (Model-dependent — Phase B.) |
-| **FR-A2m Unfinished-work check** | A completion-claim stop | OL-12's concrete case — the agent claimed done but **did not finish the work**, beyond the unrun-test case FR-A2g catches. "Incomplete" is judged **relative to a named scope referent** — the user's prompt, an approved plan, or (when an expert skill is active) that skill's declared steps — never "the model decides done" with no anchor (that would be the unconstrained judge FR-C2 forbids). Where the referent is an active skill's steps, this overlaps FR-A2k (which *blocks* on a skipped step); FR-A2m is the *advisory* whisper at the done-claim, FR-A2k the enforcement mid-skill — same signal, different surface. Model-dependent — **Phase B**, acceptance authored there. A tracked requirement so OL-12's core need is not build-order prose `[OL-12, D-27]`. |
+| **FR-A2m Unfinished-work check** | A completion-claim stop | OL-12's concrete case — the agent claimed done but **did not finish the work**, beyond the unrun-test case FR-A2g catches. "Incomplete" is judged **relative to a named scope referent** — the user's prompt, an approved plan, or (when an expert skill is active) that skill's declared steps — never "the model decides done" with no anchor (that would be the unconstrained judge FR-C2 forbids). Where the referent is an active skill's steps, this overlaps FR-A2k (which *blocks* on a skipped step); FR-A2m is the *advisory* whisper at the done-claim, FR-A2k the enforcement mid-skill — same signal, different surface. Model-dependent — **Phase B**, acceptance authored there. It realises OL-12's core need as a tracked Phase-B requirement `[OL-12, D-27]`. |
 | **FR-A2k Process conformance → BLOCK** | An expert skill is active and an action deviates from its steps | Whether the agent's actions match the skill's steps. **Steers first** (advisory whisper); **escalates to a `PreToolUse` deny of the deviating action** when the agent skips a step without a stated reason, or steering isn't working `[OL-C2]` (§8, §11.4). Errs toward restraint (a wrongful mid-skill halt is disruptive), so its under-fire side carries an **automated missed-skill-block detector** that checks each step's observable post-condition directly (FR-B5, FR-C1, FR-C4) — Max cannot see a skipped step himself (OL-11). **Non-primary** — fires sparingly and holds no precedence over any genre (OL-C2, P9); block-precision still gets full investment (FR-B5, §11.4). |
 | **FR-A2l Answer-drift → BLOCK** | Max asked a question and the agent's next move is **not** a direct answer or an action taken to provide the answer `[OL-C5]` | **Denies that non-answer-directed action** (`PreToolUse`) with "answer Max's question first," until the agent answers; actions taken to provide the answer (reading, searching, running a test/build to get the answer) run freely `[OL-C3, OL-C5]` (§8, FR-B1). |
 
@@ -210,10 +207,9 @@ separate — §8 — and are triggered by their own conditions, not by this bar.
 Relevance to the agent's next decision is established by *when* a candidate fires, not
 by a score. Each genre is bound to the intent signal that reveals what the agent is
 deciding now — the file it opened, the symbol it searched, the edit it is about to run,
-the completion it claimed (§4). This is where the agent's intent enters the machinery;
-`[D-18]` answers the inherited 2026-07-22 collapse-question: `decision-impact` (§5.2)
-carries no intent term *because intent is carried here, by the trigger*. A fact about a
-file the agent is not touching does not fire.
+the completion it claimed (§4). This is where the agent's intent enters the machinery:
+`decision-impact` (§5.2) carries no intent term *because intent is carried here, by the
+trigger* `[D-18]`. A fact about a file the agent is not touching does not fire.
 
 - **FR-O1 — Observed events** via the Claude Code hooks contract `[HOOKS]`; the
   event-to-genre mapping and which of the ~31 hook events are wired is architecture;
@@ -238,17 +234,14 @@ saying* — a **quality/marginal-value filter, not a relevance oracle** `[D-6bar
   None laundered by another being high. **No *volume, count, or budget* limit suppresses a
   candidate that clears the bar — the bar, not an arbitrary cap, is what decides worth
   `[OL-C1]`.** (Per-consumer dedup — FR-A4, FR-D5 — still applies: a candidate already
-  delivered to, or visibly incorporated by, that consumer is not repeated. Dedup is not an
-  arbitrary limit; it is the never-repeat property.) The numeric combinator is the
+  delivered to, or visibly incorporated by, that consumer is not repeated. Dedup enforces the
+  never-repeat property.) The numeric combinator is the
   architect's `[D-6bar]`.
-- **FR-A5a — Uncertain hazards are spoken, flagged — not floored out `[OL-C4]`.** The
-  warning/hazard genres do **not** require high confidence to fire. Asked to choose
-  between warning only when quite sure (A) and also voicing uncertain warnings clearly
-  flagged with the learning loop demoting persistent false-firers (B), **Max chose B**
-  (2026-08-16). So a real but uncertain hazard is **delivered with its confidence
-  flagged** (FR-D1); the only floor is a **noise floor** (real vs coincidental
-  evidence, not strong-vs-weak). Precision is managed empirically by the learning loop
-  (§11, P7), not by an a-priori high-confidence gate `[OL-C4, D-28]`.
+- **FR-A5a — Uncertain hazards are spoken, with their confidence flagged `[OL-C4]`.** The
+  warning/hazard genres fire without requiring high confidence; a real but uncertain hazard
+  is **delivered with its confidence flagged** (FR-D1). The only floor is a **noise floor**
+  (real vs coincidental evidence). Precision is managed empirically by the learning loop
+  (§11, P7) `[OL-C4, D-28]`.
 - **FR-A6 — Corpus (evidentiary) floor only.** Below a minimum history corpus,
   history-derived genres stay silent (too little signal to mine) — evidentiary, feeding
   the confidence term. **No first-N-sessions / adoption window** (that would be the
@@ -274,7 +267,7 @@ saying* — a **quality/marginal-value filter, not a relevance oracle** `[D-6bar
   missed skill-block** (per FR-C4: a skill step was due, its **observable post-condition is
   absent**, and no deny fired — checked against store/repo state, not by re-classifying the agent's
   actions, so it catches the misclassified-as-done miss Max cannot see himself, OL-11; a step with
-  no checkable post-condition is out of this detector's reach, a stated FR-C4 limit).
+  no checkable post-condition is out of this detector's reach (FR-C4)).
 - **FR-M3 — Correct silence is announced — owner-facing only** `[D-22]`. The announcement
   goes to the diagnostics/log/`status` surface the owner reads (so working-silence is not
   mistaken for a broken tool, `[OL-10]`); it is **never injected into the agent's context**,
@@ -444,7 +437,7 @@ its next action is simply allowed; the deny needs no counter, no held turn, no c
     to both). It checks each step's declared **observable post-condition** directly against
     repo/store state — step due, post-condition absent, no deny fired ⇒ a missed skill-block (the
     missed-skill-block rate, FR-M2/FR-M4). A step with no checkable post-condition is out of its
-    reach — a stated limit (FR-C4), not blanket coverage.
+    reach (FR-C4).
   Each block thus takes the half of the whisper loop's bidirectional discipline its own visibility
   demands: the human channel where Max can see the miss, the automated channel where he cannot. The
   recognizers' mechanisms (and whether model-assisted → Phase B/C) are the architect's.
@@ -492,15 +485,14 @@ its next action is simply allowed; the deny needs no counter, no held turn, no c
 
 **Constraints fixed by circumstance:**
 
-- **C-1 — Runtime: Node.js, current LTS (recorded judgment `[D-33]`, not a circumstance).**
+- **C-1 — Runtime: Node.js, current LTS (engineering choice `[D-33]`).**
   Claude Code hooks are language-agnostic shell commands, so the harness does not force the
   implementation language; Node is an **engineering choice**, chosen so the store can use an
   in-runtime SQLite (`node:sqlite`, unflagged from **v22.13.0 / v23.4.0** `[NODE-SQLITE,
   verified 2026-08-16]`) with **no native toolchain and no prebuilt-binary download**, which
-  directly serves the cold-container readiness C-3 requires. Alternatives (Python, Rust) are
-  not precluded by the harness; they are rejected here for weaker cold-start/no-toolchain
-  store options, not by circumstance. If the architect finds a runtime that serves C-2/C-3
-  better, that is an architecture decision, not a spec violation.
+  directly serves the cold-container readiness C-3 requires. Python and Rust are not precluded
+  by the harness; they are rejected for weaker cold-start/no-toolchain store options, and the
+  architect may choose another runtime that meets C-2/C-3.
 - **C-2 — Full-text search is NOT in stock `node:sqlite`** (compiled without
   `SQLITE_ENABLE_FTS5`; nodejs/node #56951 open, 2026-08-16) `[NODE-SQLITE, verified
   2026-08-16]`. **Requirement (property):** fast name/structure lookup and text search
@@ -553,8 +545,7 @@ number rather than a hard requirement, that is noted at the requirement, not sof
 1, confidence ≥ 0.1, ranked by confidence), reporting feedback 0.64 / precision 0.30 /
 recall 0.34 and >70% top-3 across eight projects. This spec lifts no fixed operating
 point; ROSE grounds the *confidence computation*, and per FR-A5a there is no
-high-confidence suppression gate. The web-circulated 26%/15%/64% figures are the
-ICSE-2004 version and are not cited. Illustrative numbers elsewhere (FR-D1's ~1–5
+high-confidence suppression gate. Illustrative numbers elsewhere (FR-D1's ~1–5
 sentences; FR-K2's ~30-entity cap; FR-D3's rate) are tunable defaults, marked so at each
 requirement — grounded by the literature above, with the operating point set on Phase A data.
 
@@ -606,7 +597,7 @@ requirement — grounded by the literature above, with the operating point set o
 - **FR-J4 — Recursion guard (property)** `[D-6]`.
 - **FR-J5 — Off-path (model) genres: on-time AND still-true at delivery `[D-37]`.** A
   model-dependent whisper is computed off the synchronous hook path (NF-1), so its delivery
-  cannot be simultaneous with the triggering narration. Two properties keep it honest:
+  cannot be simultaneous with the triggering narration. Two properties keep it on-time and true:
   - **Bound (relevance).** It is held **only until the next event where the candidate
     re-passes §5.1/§5.2 relevance for that consumer**, and **dropped at that consumer's
     termination (session/subagent end)** — that is the stated forward bound, not an open
@@ -637,8 +628,7 @@ requirement — grounded by the literature above, with the operating point set o
   **mission** (deliver the decision-changing fact) makes an unspoken *held* fact the
   costliest **value** failure, while FR-L3/FR-L6 measure only wrong whispers the owner can
   see. *(This is a mission-derived judgment `[D-36]`, not an owner statement — no CONFIRMED
-  ledger row ranks silence against speech; D-28 records that "false silence is worse" was
-  once falsely attributed to Max and must not be.)* **Scope:** regret
+  ledger row ranks silence against speech.)* **Scope:** regret
   covers **held-but-unspoken** facts only; it does **not** see a fact the store never had (a
   coupling the miner missed) — that is a *coverage* blind spot, read against AC-18's
   seeded-fact delivery, not something regret can measure. A concrete proxy exists (e.g. the
@@ -646,9 +636,9 @@ requirement — grounded by the literature above, with the operating point set o
   failed, **and that churn was plausibly relevant to that fact** — not any region churn —
   while the oracle stayed silent); the exact proxy is the architect's, its **existence is
   required**, and it feeds the regret rate in FR-M4. The "plausibly relevant" test is itself a
-  judgment with an error posture (like the block recognizers, FR-B5) — an imperfect proxy is
-  acknowledged, and because regret is a *diagnostic* signal (not a gate), a noisy proxy degrades
-  the metric, it does not misfire on the agent. Distinct from FR-L3b (which re-admits *demoted*
+  judgment with an error posture (like the block recognizers, FR-B5); because regret is a
+  *diagnostic* signal (not a gate), a noisy proxy degrades the metric without misfiring on the
+  agent. Distinct from FR-L3b (which re-admits *demoted*
   channels; regret also catches a fact never demoted and never fired).
 - **FR-L6 — Human statements are first-class facts** — a CLI correction/fact outranks
   mined inference and is Phase A's calibration signal (§5.2).
@@ -656,27 +646,23 @@ requirement — grounded by the literature above, with the operating point set o
 
 ### 11.4 Corrective / steering feature (non-primary in purpose — and it blocks)
 
-**On "non-primary" vs a blocking capability (M1).** OL-C2 makes this feature *non-primary in
-purpose*: it fires sparingly and holds no precedence over any genre (P9). "Non-primary"
-constrains its **breadth and firing-eagerness — not its stakes, and not the precision of the
-halt it raises.** The block it can raise is inherently a **high-severity mechanism** (it halts
-the agent), and its precision-critical parts — the intent→step recognizer (FR-C2) and the
-block-precision discipline (FR-B5) — receive **full investment regardless of the feature being
-non-primary**; "the design invests little" scopes the feature's *reach and trigger-eagerness*,
-never the safety of the hammer. It is the most machinery-heavy behaviour (FR-C1/C2 encode each
-skill's structure, and FR-B5's automated missed-skill-block detector reads FR-C1's per-step
-observable post-conditions) and is deferred to Phase C accordingly.
+**On "non-primary" (M1).** OL-C2 makes this feature non-primary: it fires sparingly and holds
+no precedence over any genre (P9). Its precision-critical parts — the intent→step recognizer
+(FR-C2) and the block-precision discipline (FR-B5) — still receive full investment, because the
+block it raises halts the agent and is a high-severity mechanism. It is the most machinery-heavy
+behaviour (FR-C1/C2 encode each skill's structure, and FR-B5's automated missed-skill-block
+detector reads FR-C1's per-step observable post-conditions) and is deferred to Phase C
+accordingly.
 
 - **FR-C1 — Expert-tool awareness `[OL-C2]`.** The oracle is given the *structure* of
   Max's expert dev-tool skills — per skill: how activation is detectable, the steps it
   defines, the expected agent action per step, and — where one exists — each step's **observable
   post-condition** (the artifact it produces or the store-checkable state it leaves), which the
   under-fire detector (FR-C4) verifies directly without re-classifying the agent's actions.
-- **FR-C1a — What this block can and cannot enforce, stated — with its positive core named
-  `[OL-C2, OL-11]`.** OL-C2 asks for conformance to a skill's *structure* — "what actions the agent
-  should be taking if they actually follow the skills" — which is **action-centric**, so the block
-  has a **real, high-value enforceable core**, named here so the feature is concrete and its
-  acceptance (AC-2b) is anchored to steps Max actually cares about, not a toy fixture:
+- **FR-C1a — What this block enforces, and its inherent limit `[OL-C2, OL-11]`.** OL-C2 asks for
+  conformance to a skill's *structure* — "what actions the agent should be taking if they actually
+  follow the skills" — which is **action-centric**, so the block has a **real, high-value
+  enforceable core**:
   - **The mandatory independent review/collapse-hunt dispatch** — a `Task` subagent, whose absence
     is the single most-cited process failure on this very project (`CLAUDE.md`; collapse-log
     2026-08-01). Fully observable: did a review/hunt subagent get dispatched at the step that
@@ -689,8 +675,8 @@ observable post-conditions) and is deferred to Phase C accordingly.
   cognitive-discipline step** — e.g. *"verify this claim against current source"* *in the agent's
   head* — because it produces **no artifact and no distinguishing action** (the claim appears
   whether or not verification happened), so *no* mechanism (not FR-C2, not FR-C4, not Max — OL-11)
-  can detect the skip. A skill that is *entirely* such steps gets little from this block. That is an
-  **inherent limit**, not a choice the spec could have made differently (FR-C1/FR-C4).
+  can detect the skip. A skill composed *entirely* of such steps is not enforceable by this
+  block (FR-C1/FR-C4).
 - **FR-C2 — Trigger structured by the skill definition, not hand-coded rule piles `[OL-C2]`.**
   The trigger is driven by the structured skill definition (active? which step? expected
   action?), not a growing set of hand-written heuristics. **"Deterministic" here means
@@ -788,15 +774,15 @@ numbers are set from Phase A's exit data.
 - **D-25 — Promotion/re-exploration required, not just demotion** (FR-L3b).
 - **D-26 — Orientation delivers entry-points, not task-shape landmines.**
 - **D-27 — Verification catches "claimed-done-but-test-not-run"; the general "unfinished"
-  case routes to Phase B**, a stated limit on OL-12.
+  case routes to Phase B** (a coverage limit on OL-12).
 - **D-31 — Latency numbers (1.5s/3s) are an engineering judgment**, not the owner's.
 - **D-32 — The blocking model is exactly Max's two cases, realised as a `PreToolUse`
   `permissionDecision: "deny"` on the agent's deviating action, always reactive and
   self-clearing (§8, FR-B1–B3).** *Job (an
   owner-objective, not a mission derivation — see §8's reconciliation):* enforce owner
   authority in the two situations Max confirmed `[OL-C2, OL-C3]` without becoming the
-  pre-emptive gate he rejected. Blocking is deliberately **not** claimed to serve the
-  mission sentence; it stands beside it. What is rejected — the pre-emptive "pass a test to
+  pre-emptive gate he rejected. Blocking is a second owner-set objective beside the
+  mission. What is rejected — the pre-emptive "pass a test to
   proceed" gate `[OL-C2]` and the generated-file block `[OL-R4]` — stays structurally
   impossible (FR-B3).
 - **D-33 — Runtime is Node.js by engineering choice, not circumstance (C-1).** *Job:* give
@@ -822,8 +808,8 @@ numbers are set from Phase A's exit data.
 - **D-36 — The learning loop measures false silence (regret), not only false speech
   (FR-L4).** *Job:* give the loop the **mission's** up-signal — a *held* fact that would have
   changed a decision and went unspoken — so the tool cannot converge to silence and still
-  read as healthy. The silence-is-costlier asymmetry is a **mission-derived judgment**, not
-  an owner claim. Scoped to held-but-unspoken facts (never-known facts are a
+  read as healthy. The silence-is-costlier asymmetry is a **mission-derived judgment**. Scoped
+  to held-but-unspoken facts (never-known facts are a
   coverage gap, not regret). Existence required; the proxy is the architect's.
 - **D-37 — Off-path (model) genres carry a bounded-lateness property (FR-J5).** *Job:* keep
   "at the moment of that decision" true for the async genres — deliver at the next relevant
@@ -867,7 +853,7 @@ as are `PostToolUseFailure` and `PermissionRequest` as real events. The one thin
 `additionalContext` propagates to the parent; the spec assumes it does **not** (C-4), and a
 pre-design spike showing otherwise only adds an option, it removes nothing.
 
-**Thin-history repositories are a known limit, not a defect.** On a thin-history repository
+**Thin-history repositories.** On a thin-history repository
 the history-derived genres are thinner until the evidentiary corpus grows; the structural,
 reuse, consequence, conformance, and answer-drift behaviours still operate, and
 completion-check catches *unverified*, not the general *unfinished* (D-27).
@@ -937,8 +923,7 @@ clean session.**
   that addresses the question **does** clear it even if imperfect (FR-B5 errs toward clearing on
   substance so a compliant answerer is never stranded — Max re-asks if inadequate); each outstanding
   question clears independently. **This discrimination is a comprehension judgment, so it is a
-  Phase-B criterion** (the model-maintained state, §11.5); asserting it against the model-free
-  skeleton would be the overclaim D-41 exists to prevent.
+  Phase-B criterion** (the model-maintained state, §11.5).
 - **AC-2b (skill non-conformance steer→block → FR-A2k, FR-C3, FR-B1, FR-C1a, OL-C2).** With a
   fixture skill structure loaded **whose deviated step is one of the block's real enforceable core
   (FR-C1a) — e.g. the mandatory review/collapse-hunt dispatch, or read-before-plan — not a toy step
@@ -967,7 +952,7 @@ clean session.**
   records a miss on the **missed-skill-block rate** in `status` **with no human correction in the
   fixture at all** — proving the err-toward-restraint bias cannot silently ratchet OL-C2 enforcement
   to never-firing where Max could never catch it. (A step with no checkable post-condition is out of
-  this detector's reach — a stated FR-C4 limit, asserted by the fixture.) *(The two under-fire guards differ on purpose:
+  this detector's reach (FR-C4).) *(The two under-fire guards differ on purpose:
   D-35/FR-B5 — human where the miss is owner-visible, automated where it is not; contrast AC-16/
   AC-24's whisper loop, automated because false silence is always invisible to Max.)*
 - **AC-3 (relevance+bar → FR-A5, OL-C1).** Two candidates meeting the bar at one event
