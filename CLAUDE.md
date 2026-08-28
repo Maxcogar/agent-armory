@@ -32,6 +32,19 @@ hooks, system prompts, and workflows.
   `setup_project` takes `generate_files=False` for this reason.
 - Don't touch other plugins or marketplace configs unless explicitly
   scoped in.
+- **Verify before you assert — this workspace's most damaging recurring
+  failure.** Never state that something is done, clean, complete, verified,
+  applied, or absent ("no findings left", "no label fits", "nothing
+  remains", "it's clean") until you have just run the check that actually
+  establishes it, and then report only what you observed. A grep is NOT
+  verification — it finds only the strings you thought to search, so a clean
+  grep proves nothing about phrasings you didn't anticipate; reading the
+  artifact with judgment is the check. Your own earlier message is not
+  verification. Announcing an action is not performing it. "Applied all
+  findings" requires re-checking that none were dropped. "No label fits"
+  requires having actually called `get_labels` and searched it. Asserting a
+  result you have not established forces Max Cogar to be the one who catches
+  it — the exact failure every mechanism here exists to prevent.
 
 ## Plan / handoff files
 
@@ -75,9 +88,13 @@ and keep the sessionId; (2) identify the repo and work context;
 3. Wait for explicit approval ("approved", "yes", "go", "ok",
    "looks good"). Meta-instructions like "follow the protocol" or "do it
    right" are NOT approval — keep waiting.
-4. After approval: `memory_ingest` with the approved text verbatim, the
-   sessionId, and the approved label IDs. If no existing label fits,
-   ingest without labels — never guess or invent labels.
+4. After approval: call `get_labels` and actually search the full list for
+   a label that clearly matches this project or topic — if the result is
+   too large to read inline, save it and grep/parse it; never claim "no
+   label fits" without having searched it. Then `memory_ingest` with the
+   approved text verbatim, the sessionId, and any clearly-matching label ID
+   — or none if the search genuinely returns no match. Never guess or
+   invent labels.
 
 **Payload format** — exactly one `<user>` block and one `<assistant>`
 block, literal tags:
@@ -111,10 +128,19 @@ paths; packages with versions; services, MCP servers, and infrastructure
 fully named; pull requests as full URLs; commits by hash. Never "the
 repo", "it", "that", "the fix".
 
-**Content**: include architecture decisions with WHY, bug root causes and
-exact fixes, structural changes, what works vs what's broken (testable),
-specific next steps, and every deferred item with its reason. Exclude
-dead-end attempts, routine noise, conversational back-and-forth, and
+**Content — write it as a resume-from-zero package, because that is what
+CORE is for.** The ingestion exists so a future session with no prior
+context can resume the work by searching CORE. It must let that session
+find the repo and files, understand the decisions and their rationale,
+learn what is now true — explicitly correcting any stale fact already in
+CORE, since the graph is temporal and a contradicting statement updates the
+old one — and know what remains. It is NOT a summary of the spec or the
+design (that already lives in the repo, and copying it in is the "just a
+summary" failure), and NOT a log of the agent's own editing process (the
+"bullshit filler" failure). Include architecture decisions with WHY, bug
+root causes and exact fixes, structural changes, what works vs what's broken
+(testable), specific next steps, and every deferred item with its reason.
+Exclude dead-end attempts, routine noise, conversational back-and-forth, and
 redundancy.
 
 Protocol sources: https://docs.getcore.me/memory/how-core-ingests,
