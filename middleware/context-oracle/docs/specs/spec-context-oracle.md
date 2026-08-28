@@ -389,8 +389,7 @@ its next action is simply allowed; the deny needs no counter, no held turn, no c
   avoids retrying"; whether the model then answers rather than retrying a variant is model behavior
   the contract cannot guarantee, so it is **measured**, not assumed (the deny-loop signal, FR-M4). A
   recognizer that keeps denying after the agent has complied is the FR-M2 fault *"a deny that
-  outlives its condition"* — surfaced and correctable (FR-M2/FR-M4, FR-L6), not a property the spec
-  claims can never occur.
+  outlives its condition"* — surfaced and correctable (FR-M2/FR-M4, FR-L6).
 - **FR-B4 — Completion-check speaks at a `Stop`, as a whisper, not a block.** The
   completion-check (FR-A2g) and Completeness (FR-A2f) fire when the agent claims done (a
   `Stop`). `Stop`/`SubagentStop` deliver context to the agent via **`hookSpecificOutput.additionalContext`**
