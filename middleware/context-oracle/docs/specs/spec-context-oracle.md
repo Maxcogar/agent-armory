@@ -10,7 +10,7 @@ Max Cogar 2026-08-28 (`OL-C6` — "good to go")**. Every requirement traces to a
 judgment made while writing this spec (reasoning in §12). Standard keys resolve in
 §9. Every external source in §9 was verified against its current primary/authoritative
 source; the §9 "Verified" column records the date each was confirmed (most 2026-08-25;
-`[NODE-SQLITE]` and `[ROSE]` 2026-08-16).
+`[ROSE]` 2026-08-16; `[NODE-SQLITE]` 2026-08-16, its FTS5 state re-verified 2026-08-29).
 
 **What this document is.** It defines *what* the oracle must do and the properties
 it must hold. Component boundaries, storage engines, IPC, algorithms, and the exact
@@ -515,12 +515,14 @@ its next action is simply allowed; the deny needs no counter, no held turn, no c
   directly serves the cold-container readiness C-3 requires. Python and Rust are not precluded
   by the harness; they are rejected for weaker cold-start/no-toolchain store options, and the
   architect may choose another runtime that meets C-2/C-3.
-- **C-2 — Full-text search is NOT in stock `node:sqlite`** (compiled without
-  `SQLITE_ENABLE_FTS5`; nodejs/node #56951 open, 2026-08-16) `[NODE-SQLITE, verified
-  2026-08-16]`. **Requirement (property):** fast name/structure lookup and text search
-  over indexed symbols within NF-1; **mechanism is the architect's** (FTS5-enabled build,
-  a loaded FTS5 extension, or a library shipping FTS5 e.g. `better-sqlite3`), and it must
-  satisfy C-3.
+- **C-2 — Full-text search: stock `node:sqlite` now ships FTS5.** (Supersedes the
+  2026-08-16 state — then compiled without `SQLITE_ENABLE_FTS5`, nodejs/node #56951
+  open. Re-verified 2026-08-29: `deps/sqlite/sqlite.gyp` on the Node `v22.x` branch
+  defines `SQLITE_ENABLE_FTS5`, and an FTS5 virtual table creates successfully on
+  Node v22.22.2, confirmed at source and by execution.) `[NODE-SQLITE, re-verified
+  2026-08-29]`. **Requirement (property, unchanged):** fast name/structure lookup and
+  text search over indexed symbols within NF-1; **mechanism is the architect's**, and
+  it must satisfy C-3 — which the built-in engine now does with zero dependencies.
 - **C-3 — Cold-container / sandbox readiness** `[OL-4]`: install + first index with no
   native toolchain beyond the chosen SQLite path, no prebuilt-binary download, no network
   beyond the harness's.
@@ -548,7 +550,7 @@ number rather than a hard requirement, that is noted at the requirement, not sof
 | Key | Standard / source (as verified) | Governs | Verified |
 |---|---|---|---|
 | `[HOOKS]` | Claude Code hooks reference, `code.claude.com/docs/en/hooks` (event set; `PreToolUse` `permissionDecision` deny→`permissionDecisionReason` returned to the model *as the tool result*, provided "so it avoids retrying" — a design intent, **not** a behavior guarantee (FR-B2), precedence deny>defer>ask>allow, `additionalContext` optional & separate; `Stop`/`SubagentStop` **both** `decision:block`+`reason` **and** `hookSpecificOutput.additionalContext` (Week 23, 2026-06), `stop_hook_active` + 8-consecutive-continuation cap, `last_assistant_message` Stop-only; `transcript_path` on every event **but written asynchronously / may lag** (FR-B1/D-41); subagent `agent_id`/`agent_type`; timeouts) | Observation, delivery, block (C-4, §8) | 2026-08-25 |
-| `[NODE-SQLITE]` | Node `node:sqlite` docs + nodejs/node #56951 | Store runtime & FTS5 (C-1, C-2) | 2026-08-16 |
+| `[NODE-SQLITE]` | Node `node:sqlite` docs + nodejs/node #56951; FTS5 state per `deps/sqlite/sqlite.gyp` (v22.x) + local execution | Store runtime & FTS5 (C-1, C-2) | 2026-08-16; FTS5 re-verified 2026-08-29 |
 | `[ROSE]` | Zimmermann, Weißgerber, Diehl, Zeller, IEEE TSE 31(6), 2005 — co-change / logical coupling, incl. recency-weighted horizon | Co-change mining; evidence terms (§5, §11); FR-K2 horizon/recency | 2026-08-16 |
 | `[MSR]` | Mining-software-repositories practice — exclude merge commits (grounded by `[HERZIG]`: tangled/merge changes inject noise) | FR-K2 | 2026-08-25 (via HERZIG) |
 | `[LLM01]` `[LLM02]` | OWASP Top 10 for LLM Applications 2025 (`genai.owasp.org`) — LLM01 Prompt Injection, LLM02 Sensitive Information Disclosure | T1, T3 | 2026-08-25 |
@@ -862,10 +864,12 @@ numbers are set from Phase A's exit data.
 
 ## 13. What is genuinely open
 
-Two items are genuine external unknowns this spec cannot close by decision. Both are
-stated where they bear on a requirement, and neither gates v1's design.
+Two items were genuine external unknowns this spec could not close by decision;
+the first has since resolved against current documentation (2026-08-29, noted in
+place below). Both are stated where they bear on a requirement, and neither
+gates v1's design.
 
-**One unconfirmed harness behavior.** The hooks contract was re-verified against current
+**One harness behavior, unconfirmed when first written.** The hooks contract was re-verified against current
 source on 2026-08-25 (§9, FR-O2): the event set, the `PreToolUse` `additionalContext`
 affordance, the `PreToolUse` deny returning `permissionDecisionReason` to the model *as the tool
 result* (so a text answer is always reachable; the docs' "avoids retrying" is a design intent, not
@@ -874,9 +878,13 @@ continuation with the `stop_hook_active` + 8-continuation bound, `transcript_pat
 (with the documented caveat that it is **written asynchronously and may lag** the in-memory
 conversation — bearing directly on the answer-drift clear-axis, FR-B1/D-41), `last_assistant_message`
 being Stop-only, the subagent `agent_id`/`agent_type` fields, and the timeouts are all confirmed —
-as are `PostToolUseFailure` and `PermissionRequest` as real events. The one thing the documentation does **not** state is whether a subagent hook's
-`additionalContext` propagates to the parent; the spec assumes it does **not** (C-4), and a
-pre-design spike showing otherwise only adds an option, it removes nothing.
+as are `PostToolUseFailure` and `PermissionRequest` as real events. *(Resolved
+2026-08-29: the current hooks reference now states it — a subagent hook's
+context reaches the subagent, **not** the parent, and "to inject context back
+into the parent session … a PostToolUse hook on the Agent tool should be used
+instead." C-4's assumption is confirmed as documented fact, and the
+parent-injection option this paragraph anticipated exists; nothing in the v1
+design depends on it.)*
 
 **Thin-history repositories.** On a thin-history repository
 the history-derived genres are thinner until the evidentiary corpus grows; the structural,
@@ -1116,5 +1124,6 @@ discrimination it and AC-2a-ii rest on is **Phase B** (D-41).
 
 *End of spec. Its foundation is `OWNER-LEDGER.md` CONFIRMED (OL-1…OL-12, OL-C1…OL-C5;
 OL-R1…OL-R5 for what is rejected) plus the mission. Verification recency is per the §9
-table: most external premises confirmed 2026-08-25, `[NODE-SQLITE]` and `[ROSE]` on
-2026-08-16, `[MSR]` grounded via `[HERZIG]`.*
+table: most external premises confirmed 2026-08-25, `[ROSE]` on 2026-08-16,
+`[NODE-SQLITE]` on 2026-08-16 with its FTS5 state re-verified 2026-08-29, `[MSR]`
+grounded via `[HERZIG]`.*

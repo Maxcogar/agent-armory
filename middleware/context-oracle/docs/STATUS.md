@@ -5,97 +5,136 @@ the current state and what to do next; evidence lives in `docs/reviews/`, durabl
 lessons in `docs/collapse-log.md`, and everything attributed to Max Cogar in
 `OWNER-LEDGER.md`.*
 
-## Where the project stands (2026-08-28, second session)
+## Where the project stands (2026-08-29)
 
-The **spec** (`docs/specs/spec-context-oracle.md`) is the single spec for the whole tool,
-built in phases (A/B/C are build order, not separate products). The blocking model was
-independently reviewed to convergence 2026-08-25. Nothing has been built; the next lifecycle
-stage is the Phase A architecture document.
+The spec (`docs/specs/spec-context-oracle.md`) is signed off (`OL-C6`,
+2026-08-28). **This session wrote the Phase A architecture document**
+(`docs/architecture-phase-a.md`) and took it through **three full rounds of the
+mandatory independent adversarial review** — each round a fresh expert review
+(premise/standards axis) plus a fresh collapse-hunt (mission-fidelity axis),
+dispatched blind to each other, never the author. Every finding from every
+round was applied in full and every review is recorded under `docs/reviews/`
+(six files dated 2026-08-29). The trajectory converged sharply:
 
-**This session: the 2026-08-28 narration strip was audited and found NOT lossless, and the
-cross-document state was reconciled.** The previous session's claim of "no loss of requirements
-or properties" was wrong — Max Cogar's suspicion triggered a diff audit of the full strip
-(`ddbe5ae^..f9f9530`), which found the strip had deleted three substantive items along with the
-narration, and an independent full-document contradiction sweep then found 13 further findings
-(4 Serious). All were verified and applied:
+- **Round 1** (against the first draft): 5 collapses + 4 Serious among 24
+  findings — the Reuse headline was uncomputable from its schema, the clear
+  lean blinded an owner-recourse counter, an `init` fetch contradicted the
+  no-network security claims, the watchdog claim was physically impossible as
+  stated, and the export API didn't exist on the declared runtime floor.
+- **Round 2** (against round 1's fixes): 6 collapses + 4 Serious — the defects
+  moved *into* the repairs, exactly as the collapse-log predicts: the
+  request-form exclusion blinded the recourse tracking for the dominant ask
+  form; `PostToolUse` turns out to fire only on *successful* tool runs (so
+  failure outcomes needed the `PostToolUseFailure` event, verified against
+  current docs); the human-turn marker (`origin.kind`) is provably absent in
+  some transcript modes; a dedup constraint rejected the spec's own "Max
+  re-asks" recourse.
+- **Round 3** (against round 2's fixes): 1 collapse + 0 Serious — polite
+  communicative-verb questions ("could you *tell me* why X fails?") were
+  misclassified as requests and lost enforcement; fixed with the
+  communicative-verb split, plus consumer filters for failure outcomes, a
+  ternary command classifier so Verification stays alive in real sessions,
+  and a readable recourse counter (`ctxoracle log` renders the counted
+  questions).
+- **Round 4** (against round 3's fixes): 1 collapse + 1 Serious (the same
+  defect, found independently by both passes) + 1 Moderate — and a durable
+  discovery, now a collapse-log entry (2026-08-29): **both top findings had
+  entered the document as verbatim sentences from round 3's own prescribed
+  repairs** — a reviewer's repair text carries no verification of its own and
+  must be attacked like author text. The fixes: the failure-outcome consumer
+  filter split by what a failed action *is* per consumer (a failed test run
+  IS a run — "not run" is never asserted over it); the request-frame default
+  flipped to the safe tracked-only direction with an artifact-object noun
+  lexicon; per-segment compound-command classification; and the sync/receptacle
+  batch (watermark home, counter storage, three unswept sentences).
+- **Round 5** (against round 4's fixes): **0 collapses** — the series' first
+  zero-collapse round — with 1 Serious + 2 Moderate + 4 partials remaining,
+  all sentence-to-mechanism scale, concentrated in the one unspecified piece
+  of round-4 machinery (the artifact-object test). Fixed: the object
+  mechanism made precise (direct-object head noun with wh-complement
+  precedence); every lexicon's incompleteness now fails toward
+  under-enforcement, never wrongful deny; the regret proxy's missing outcome
+  semantics (a tenth `observed_actions` reader the round-4 enumeration had
+  itself missed — the collapse-log entry now carries that corollary);
+  per-project fold watermarks; comparability-gated Reuse dominance (silence
+  over a mixed-language set instead of a false crown); quote-aware compound
+  classification.
 
-- **Restored to the spec:** the answer-drift **lag-window lean** (hold/deny, don't pre-clear on
-  unclassified text — the round-5 collapse-hunt's one real finding, FR-B1/FR-B5/D-41); the
-  **FR-O4/FR-O4a retired-ID resolution note** (§8: FR-O4 → FR-B3, FR-O4a → FR-B4); the FR-A2l
-  clause that the answer-drift block is **authorised by OL-C3/OL-C5, not OL-9**.
-- **OWNER-LEDGER.md fixed:** the preamble's "the one block Max wants" now names both confirmed
-  blocks (it contradicted its own OL-3/OL-C2 rows); OL-9 ("advisory only") now carries its
-  supersession marker (OL-C2/OL-C3, 2026-08-16).
-- **RETHINK.md synced** with dated supersession annotations everywhere the superseded
-  no-blocking model still spoke as current: §12 decisions 3, 9, and 12, the §5 signal-table
-  "never a denial" row, the §5 "hard caps" budget line (agent-planted per OL-R3, ruled out by
-  OL-C1), the §6 "ship the bar high" line (qualified by OL-C4), and the §12.2 MCP-sampling
-  recommendation (deprecated — spec C-5). Max's historical words are untouched; each note points
-  at the ledger and spec §8.
-- **collapse-log corrected in place:** two entries attributed the RETHINK §5 budget words to
-  "the owner" — an attribution OL-R3 explicitly rejects; a pointer to the deleted Phase 0 spec
-  re-aimed at the surviving review record. New 2026-08-28 entry: a deletion pass has the same
-  blast radius as a writing pass and needs the same independent check.
-- **CLAUDE.md rewritten as a lean standing-rules file** (346 → 207 lines): every rule preserved,
-  every dated history narrative reduced to a collapse-log pointer, section references corrected to
-  the current spec's numbering, legacy keys corrected to ledger keys. The file now states its own
-  membership test at the top.
-- **The retained whole-scope architecture doc** (`docs/architecture-context-oracle.md`) now
-  carries a historical-record banner; it predates the blocking rebuild and had none.
+**Convergence has NOT been formally reached, and Max Cogar ended the review
+loop here for this session.** The trajectory (5 → 6 → 1 → 1 → 0 collapses;
+Serious 4 → 4 → 0 → 1 → 1) is clearly converging, but the terminal
+definition (collapse-log 2026-08-25: a round that finds nothing real) is
+unmet — the round-5 fixes are themselves unattacked. The architecture is a
+**five-times-reviewed draft, not an approved artifact. No plan, no build,
+until a round finds nothing real.**
 
-The spec is 1,121 lines (after a CodeRabbit review round clarified the lag-window hold as
-clear-axis-only in FR-B1/FR-B5/D-41); the strip's cuts of genuine narration were kept. Work is on
-branch `claude/project-oracle-handoff-gtdki3`, PR
-https://github.com/Maxcogar/agent-armory/pull/69.
+## What this session verified before designing (all against current primary sources or by execution; the architecture's V-table, V1–V19, holds the evidence)
 
-## The two blocks, as the spec states them
+- **The hooks contract holds where the spec recorded it** — `transcript_path`
+  still documented as asynchronously written / may lag (the FR-B1 lag clause
+  has a live premise); deny channel, Stop `additionalContext`, timeouts,
+  subagent fields all confirmed. Newly established and load-bearing: a
+  timed-out `PreToolUse` hook *blocks the tool call* (so the handler always
+  answers with silence before any timeout); `PostToolUse` fires **only on
+  success**, and failures fire `PostToolUseFailure` (now wired,
+  observation-only).
+- **The spec's C-2 factual note was stale and was synced** (disclosed edit,
+  requirement unchanged): stock Node ships `node:sqlite` with FTS5 **from
+  v22.16.0** — the store needs zero dependencies; the architecture's runtime
+  floor is 22.16.0. The spec's §13 subagent-context open item also resolved
+  against current docs (it does not reach the parent; a documented
+  parent-injection channel exists) and the spec carries the resolution note.
+- **The piggyback works as shipped** (`claude -p … --tools "" --max-turns 1`,
+  host auth, no credentials, ~4.4 s — model calls stay off the synchronous
+  path; `--bare` still severs auth and stays banned).
+- **A cold spawn-per-event handler costs 45–54 ms measured** — the
+  architecture drops the historical warm-daemon design (its governing
+  constraint no longer exists in the current spec).
 
-Both are owner-confirmed; both are a reactive `PreToolUse` **deny of the deviating action**, never
-a pre-emptive gate, never a Stop-based hold. §8 is the authority.
+Also this session: `tools/check_docs.py` now **gates the per-phase
+architecture documents too** (requirement keys, ledger keys, §-references); it
+caught a real citation defect on its first run and passes on the current tree.
 
-- **Answer-drift (OL-C3 / OL-C5).** After Max asks a question, a next move that is neither a direct
-  answer nor an action taken to provide the answer is denied ("answer Max first") until the agent
-  answers. Actions that get the answer — reading, searching, running a test — run freely; a text
-  answer is never a tool action, so it is never denied: the way out always exists. The clear-axis
-  errs toward clearing on substance in steady state and reverses to hold in the classifier lag
-  window (FR-B1). Phase A ships a conservative skeleton; Phase B gives it OL-C5 precision.
-- **Skill non-conformance (OL-C2).** An expert skill is active and the agent skips a declared step:
-  steer first (whisper), then deny the step-skipping action if it proceeds without a stated reason.
-  Its under-fire guard is automated (a step's observable post-condition checked against repo/store
-  state), because Max cannot see a skipped step himself (OL-11). A step with no checkable
-  post-condition is out of that guard's reach.
+## What the architecture covers (headline)
+
+Phase A per spec §11.5: the seven deterministic whisper genres; the
+answer-drift block's safe skeleton — prompt-field question intake with an
+info/request classifier at every opener, marker-based transcript
+discrimination, the cached question/answer state with the lag-window hold, the
+deny confined structurally to one producer, and the named seam Phase B's
+model-maintained state plugs into; stores/index/miner with provenance
+mandatory in the schema; per-consumer delivery and dedup; self-observability
+(deny-health signals, the labelled recourse counter, the labelled regret
+proxy); security controls mapped to T1–T4 with the injection surface into the
+deny path closed at every opener; the CLI (including `tune` and the
+export/import migration offer); and a test/fixture architecture pinning each
+Phase A acceptance criterion, plus two named build-time verifications for the
+transcript-marker and `UserPromptSubmit`-provenance premises. The skill-block
+machinery (FR-C1–FR-C4) is deferred to the Phase C architecture per the
+per-phase lifecycle rule (the reconciliation with the previous STATUS's
+listing is recorded in the architecture's Scope section).
 
 ## What to do next (agent-owned)
 
-1. **The Phase A architecture document**, derived from the current spec — no build before it. It
-   is where the mechanisms the spec states as properties get designed and adversarially reviewed:
-   the answer-drift async question/answer-state maintenance (off the synchronous deny path per
-   NF-1/§11.5, honoring the FR-B1 lag-window hold), the skill block's post-condition chaining
-   (FR-C4), the stores/index/miner (spec §11.1, FR-K1–K7), and the relevance bar's numeric
-   combinator (FR-A5, the architect's per `[D-6bar]`). At architecture time, re-confirm against
-   current source that `transcript_path` is written asynchronously / may lag (`[HOOKS]`, spec §13;
-   the FR-B1 clear-axis rests on it and the hooks contract has drifted before).
+1. **Dispatch review round 6** — a fresh independent expert review + collapse
+   hunt, blind to each other, attacking the round-5 fixes (the round-5 review
+   files list them; the architecture's "Status of this architecture" section
+   summarizes), with both collapse-log 2026-08-29 lessons in the charter:
+   reviewer-prescribed repair text is attacked exactly as author text, and an
+   enumeration offered as a terminating repair is verified for completeness
+   first. Apply all findings. Repeat until a round finds nothing real — that
+   is convergence, per the collapse-log's 2026-08-25 terminal-state
+   definition.
+2. **On convergence:** rewrite this file, mark the architecture approved in
+   its Status section, and only then write the **Phase A implementation plan**
+   (consuming spec + architecture), then build against §11.5's Phase A exit
+   and the §14 Phase A criteria.
 
-## New this session: a blocking CI gate on document consistency
+## Open items
 
-Max Cogar asked how future sessions are prevented from rotting the documents again. The honest
-answer was that nothing blocking existed — the CLAUDE.md rules are advisory and the Stop hook
-never blocks. Now `middleware/context-oracle/tools/check_docs.py` runs in CI on every pull
-request touching this project (`.github/workflows/context-oracle-docs.yml`) and **fails the PR**
-on: citations to nonexistent requirement/ledger keys, references to nonexistent spec sections,
-retired IDs cited as live, handoff files, edited reviews, or a project change without a STATUS
-rewrite. Verified by running it: passes the current tree, catches all seeded error classes.
-Honest scope: it catches *referential* rot mechanically; semantic contradictions (two documents
-asserting incompatible things in prose) still require the independent sweep discipline — the
-gate narrows the hole, it does not close it.
-
-## Resolved this session: spec sign-off
-
-Max Cogar signed off the spec on 2026-08-28 — *"yeah thats good with me. Mark it as good to
-go"* — recorded as **OL-C6** in `OWNER-LEDGER.md`; the spec header carries it. No owner
-questions are open.
-
-## Open external unknown (does not gate v1 design)
-
-Whether a subagent hook's `additionalContext` propagates to the parent is undocumented; the spec
-assumes **not** (C-4) and a cheap pre-design spike showing otherwise only adds an option. (Spec §13.)
+- The two **build-time verifications** the architecture names (L11): marker
+  presence on the owner's real interactive transcripts, and whether
+  platform-injected turns fire `UserPromptSubmit`. Neither gates the design
+  (the exposure is bounded either way); both are resolved with real captured
+  sessions during the build.
+- No owner question is open.
