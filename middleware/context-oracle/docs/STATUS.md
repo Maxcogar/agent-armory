@@ -47,14 +47,26 @@ round was applied in full and every review is recorded under `docs/reviews/`
   flipped to the safe tracked-only direction with an artifact-object noun
   lexicon; per-segment compound-command classification; and the sync/receptacle
   batch (watermark home, counter storage, three unswept sentences).
+- **Round 5** (against round 4's fixes): **0 collapses** — the series' first
+  zero-collapse round — with 1 Serious + 2 Moderate + 4 partials remaining,
+  all sentence-to-mechanism scale, concentrated in the one unspecified piece
+  of round-4 machinery (the artifact-object test). Fixed: the object
+  mechanism made precise (direct-object head noun with wh-complement
+  precedence); every lexicon's incompleteness now fails toward
+  under-enforcement, never wrongful deny; the regret proxy's missing outcome
+  semantics (a tenth `observed_actions` reader the round-4 enumeration had
+  itself missed — the collapse-log entry now carries that corollary);
+  per-project fold watermarks; comparability-gated Reuse dominance (silence
+  over a mixed-language set instead of a false crown); quote-aware compound
+  classification.
 
-**Convergence is not yet claimed.** The trajectory (5 → 6 → 1 → 1 collapses,
-with Serious findings 4 → 4 → 0 → 1) is converging but has not produced the
-terminal round (collapse-log 2026-08-25: a round that finds nothing real).
-A **round 5** attacks the round-4 fixes, carrying the new prescription-text
-lesson in its charter. The architecture is a **four-times-reviewed draft —
-not yet an approved artifact. No plan, no build, until a round finds nothing
-real.**
+**Convergence has NOT been formally reached, and Max Cogar ended the review
+loop here for this session.** The trajectory (5 → 6 → 1 → 1 → 0 collapses;
+Serious 4 → 4 → 0 → 1 → 1) is clearly converging, but the terminal
+definition (collapse-log 2026-08-25: a round that finds nothing real) is
+unmet — the round-5 fixes are themselves unattacked. The architecture is a
+**five-times-reviewed draft, not an approved artifact. No plan, no build,
+until a round finds nothing real.**
 
 ## What this session verified before designing (all against current primary sources or by execution; the architecture's V-table, V1–V19, holds the evidence)
 
@@ -104,13 +116,15 @@ listing is recorded in the architecture's Scope section).
 
 ## What to do next (agent-owned)
 
-1. **Dispatch review round 5** — a fresh independent expert review + collapse
-   hunt, blind to each other, attacking the round-4 fixes (the round-4 review
+1. **Dispatch review round 6** — a fresh independent expert review + collapse
+   hunt, blind to each other, attacking the round-5 fixes (the round-5 review
    files list them; the architecture's "Status of this architecture" section
-   summarizes), with the collapse-log's 2026-08-29 lesson in the charter:
-   reviewer-prescribed repair text is attacked exactly as author text. Apply
-   all findings. Repeat until a round finds nothing real — that is
-   convergence, per the collapse-log's 2026-08-25 terminal-state definition.
+   summarizes), with both collapse-log 2026-08-29 lessons in the charter:
+   reviewer-prescribed repair text is attacked exactly as author text, and an
+   enumeration offered as a terminating repair is verified for completeness
+   first. Apply all findings. Repeat until a round finds nothing real — that
+   is convergence, per the collapse-log's 2026-08-25 terminal-state
+   definition.
 2. **On convergence:** rewrite this file, mark the architecture approved in
    its Status section, and only then write the **Phase A implementation plan**
    (consuming spec + architecture), then build against §11.5's Phase A exit

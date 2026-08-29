@@ -983,5 +983,9 @@ Four dual-review rounds (expert review + collapse-hunt, blind pairs) on
    rows filtered back out of the one consumer the wiring was justified by) —
    each resurrection introduced by the repair for the previous death, each
    passing a fixture pinned to the adjacent axis. The terminating repair was
-   the one that listed every reader of `observed_actions` and stated, per
-   reader, what a failed row *is* to it. Class: **wrong-check**, thrice.
+   the one that enumerated the readers of `observed_actions` and stated, per
+   reader, what a failed row *is* to it — and round 5's charter audit of that
+   very enumeration found a tenth reader it had missed (the regret proxy's
+   re-edit clause), so the corollary is: **an enumeration offered as a
+   terminating repair is itself the first thing the next round verifies for
+   completeness.** Class: **wrong-check**, thrice.
