@@ -35,6 +35,11 @@ Seeded 2026-07-15, all entries **unvalidated** unless noted.
    tuning change gets scored against history before it ships. This is the
    agent-led project's substitute for a human QA team; likely the highest
    leverage item here.
+   *(Refined and partly corrected by #14, 2026-08-29: this entry conflates two
+   different tools — the reproducible **synthetic planted-history fixtures**
+   AD-24 already specifies, and **real-transcript replay** (#14), whose ground
+   truth is not planted. And "sanitized" is too broad; #14 narrows it to
+   shape-preserving secret substitution only. Read #14 with this.)*
 7. **Unknowns ledger.** When the oracle names an unknown ("nothing in the
    repo determines which screen this belongs on"), persist it; surface the
    accumulating list to the owner asynchronously. The repo's ambiguity
@@ -81,3 +86,92 @@ Added 2026-07-17 (architecture session):
     Limitations section already cited this as an IDEAS candidate while the
     ledger had no such entry (finding F9b) — the cross-reference now
     resolves.*
+
+Added 2026-08-29 (testing-methodology discussion with Max Cogar):
+
+14. **Discovery-mode real-transcript replay.** **Unvalidated.** Replay Max
+    Cogar's *real, unmodified* Claude Code session transcripts through the
+    oracle's real handler binary to observe how it behaves — reconstructing the
+    hook-event stream (`UserPromptSubmit`, `PreToolUse`/`PostToolUse`/
+    `PostToolUseFailure`, `Stop`, subagent events) and the `transcript_path`
+    state from the stored transcript, then watching what the oracle fires,
+    stays silent on, and how fast. This is a **distinct tool** from AD-24's
+    synthetic fixtures and from #6's framing, and the distinction is the whole
+    point of the entry:
+
+    - **Vs. AD-24 synthetic fixtures:** those are generated repos with *planted*
+      history (a known coupling pair, a revert chain, a planted secret) where
+      ground truth is known because it was planted — a reproducible correctness
+      test of *known* properties. Real-transcript replay has *no planted ground
+      truth*; its job is the opposite — **discovery**, surfacing behaviour and
+      failure classes nobody thought to plant. The two are complementary and
+      feed each other: discovery finds what the fixtures should later pin.
+
+    **What it can measure (and where volume genuinely pays off):**
+    - **Classifier/recognizer boundary behaviour against real phrasings.** The
+      question/request, info/request, and done-claim recognizers are where this
+      design has repeatedly collapsed under review (STATUS / collapse-log
+      2026-08-29: communicative-verb, lexicon, artifact-object-mechanism). A
+      large real corpus is how you exercise those boundaries against phrasings
+      no one would think to author. Highest-value use.
+    - **Silence/chattiness rate, and tail latency** (p95/p99 need volume — the
+      tail only appears over many events; ties to NF-1 / the AD-23 watchdog).
+    - **Rare transcript modes** (e.g. the marker-absent `claude -p` shape, V12)
+      — rare per session, so coverage is a volume problem; and one of the two
+      named build-time verifications (marker presence on Max Cogar's *real*
+      interactive transcripts; whether platform-injected turns fire
+      `UserPromptSubmit`, AD-24 / L11) can only be answered from this corpus.
+    - **Pipeline robustness** on messy real input (real transcripts are the mess
+      that breaks parsers; synthetic fixtures are too clean to find it).
+    - **Regret ground-truth mining** — real agent mistakes that became reverts /
+      fix-of-a-fix commits are the ground truth for "a whisper here would have
+      helped," feeding both AD-18's regret proxy and future fixtures.
+
+    **What it structurally CANNOT measure — the off-policy / counterfactual
+    limit (state this so no one over-claims):** these transcripts are from
+    sessions where the oracle was *absent*. The recorded agent never received a
+    whisper, so it never reacts to one. Therefore **hit rate, whisper efficacy,
+    confidence calibration, and the value of the two blocks** (RETHINK §10's
+    outcome metrics) are **unmeasurable from replay, and no amount of volume
+    changes that** — the blind spot is structural, not a sample-size problem. A
+    *block*, especially, would rewrite the trajectory, so the replayed remainder
+    is fiction from the block onward. **Guard:** a green replay run never means
+    "the oracle works"; optimizing the oracle to score well on replayed logs is
+    a Goodhart trap, because you are tuning its firing distribution against
+    trajectories it cannot influence. Outcome validation needs a small number of
+    real closed-loop sessions; replay is a pre-filter, not a substitute.
+
+    **On volume (recorded because it was contested and resolved):** volume *is*
+    valuable — for everything in the "can measure" list above. Its payoff lives
+    in **taxonomy-blind, anomaly-surfacing capture**, NOT in filtering the
+    corpus to problem types you already know to look for. Narrowing the
+    discovery corpus to known-queryable problems is a logged **reduction**
+    collapse (collapse-log 2026-08-29, "narrowing the discovery-test corpus")
+    and defeats the tool's own unknown-unknowns purpose. Discovery stays wide
+    and un-pre-classified; the only admissible structure is
+    divergence/outlier/self-announcing-failure signals that presuppose no
+    failure class.
+
+    **On sanitization (corrects #6's blanket "(sanitized)"):** for a corpus that
+    lives on Max Cogar's own machine, feeding his own tooling, replayed by him,
+    there is no party to sanitize *from* — broad redaction (customer names,
+    source, business data) only costs realism, removing session opportunities
+    the oracle should see, and blanking a secret would additionally break the
+    AC-11 secret-detection path (the detector needs to *see* a secret-shaped
+    token). The one warranted pass is a **secret-scan with shape-preserving
+    substitution**: replace any live credential that landed in a transcript with
+    a syntactically valid *fake* of the same shape — liability hygiene for a
+    durable archive, at near-zero realism cost because the detector still sees
+    the shape. Everything else stays untouched.
+
+    **The two-phase model this implies:** (1) discovery — this, wide and
+    taxonomy-blind — produces the problem taxonomy; (2) regression — AD-24's
+    synthetic fixtures — pins each named class reproducibly. Opposite
+    relationships to the taxonomy; do not conflate (collapse-log 2026-08-29).
+
+    **Promotion note.** This is an *idea*, unvalidated, and it is deliberately
+    the "cheap idea" tier. Making the discovery-breadth rule *binding* on future
+    agents (so a later session cannot narrow it away) requires promoting it to a
+    spec §14 requirement with Max Cogar's explicit sign-off — a decision only he
+    makes. Until then the collapse-log entry is the guardrail; this entry is the
+    proposal.
