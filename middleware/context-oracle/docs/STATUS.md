@@ -76,14 +76,11 @@ a pre-emptive gate, never a Stop-based hold. §8 is the authority.
    current source that `transcript_path` is written asynchronously / may lag (`[HOOKS]`, spec §13;
    the FR-B1 clear-axis rests on it and the hooks contract has drifted before).
 
-## Question for Max (yes/no)
+## Resolved this session: spec sign-off
 
-The spec header used to say "draft for owner review," but no sign-off of the spec document as a
-whole is recorded in `OWNER-LEDGER.md` — only the individual OL entries are confirmed. **Do you
-want to bless the spec as-is so the architecture proceeds on a signed-off spec (yes), or should
-the agents proceed on the current spec of record without a formal sign-off entry (also fine —
-say so and this item is closed)?** Nothing is blocked either way; this only decides whether the
-ledger records a spec-level sign-off.
+Max Cogar signed off the spec on 2026-08-28 — *"yeah thats good with me. Mark it as good to
+go"* — recorded as **OL-C6** in `OWNER-LEDGER.md`; the spec header carries it. No owner
+questions are open.
 
 ## Open external unknown (does not gate v1 design)
 

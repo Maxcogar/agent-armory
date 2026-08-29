@@ -68,9 +68,11 @@ escalation** (OL-C2) — the OL-3 row and spec §8 state both.)
 | OL-C3 | **A case where the oracle should block: answer-drift** (the other is skill non-conformance, OL-C2). In his words (2026-08-16): *"if i ask a question, then it needs to be answered. the oracle should block that motherfucker until it stops ignoring me and actually answers. just dont make a convoluted fucked up way that its done."* A genuinely useful blocking case Max gave — must not be buried under the rejected generated-file idea (OL-R4). | Max, 2026-08-16 |
 | OL-C4 | **Uncertain hazards: option B.** Asked to choose between (A) warn only when quite sure and (B) also voice uncertain warnings clearly flagged, letting the learning loop demote ones that keep being wrong, Max answered *"B"* (2026-08-16). The wording of B is Claude's; Max's input is the selection. | Max, 2026-08-16 |
 | OL-C5 | **Answer-drift block — the definition.** Max's words (2026-08-25): *"if i ask a question and their next move isnt a direct answer or them taking actions to provide an answer, then then need corrected"* — after Max asks a question, the agent's next move must be a direct answer or an action taken to provide the answer; if it is neither, the agent is corrected. | Max, in chat, 2026-08-25 |
+| OL-C6 | **The v1 spec is signed off — good to go.** Asked whether to bless `docs/specs/spec-context-oracle.md` as a whole, proceed without a document-level sign-off, or review a one-page summary first (with the agent recommending proceed-without), Max answered: *"yeah thats good with me. Mark it as good to go."* The spec of record proceeds to Phase A architecture with his sign-off; the wording of the options is Claude's, the selection and the "good to go" are his. He did not line-read the document — the sign-off is authorization to build from it as the authority, resting on the individually CONFIRMED decisions above and the adversarial review record. | Max, in chat, 2026-08-28 |
 
 *(CONFIRMED: the RETHINK §12 decisions (OL-1…OL-12, OL-5 superseded) plus OL-C1,
-OL-C2, OL-C3, OL-C4, **OL-C5** (the answer-drift definition, 2026-08-25). Nothing is pending.
+OL-C2, OL-C3, OL-C4, **OL-C5** (the answer-drift definition, 2026-08-25), and **OL-C6**
+(spec sign-off, 2026-08-28). Nothing is pending.
 Separately, when Max was asked which languages the oracle should cover he answered that he does not know and
 it is not his to decide ("i dont know what it should cover. but probably more than just lik 3 of
 them"), i.e. he handed the choice to the agent; which languages is therefore a design decision,

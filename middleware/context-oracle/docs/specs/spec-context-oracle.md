@@ -1,9 +1,8 @@
 # Spec: Context Oracle (`ctxoracle`) — v1
 
 **Status:** spec of record for the whole tool (phases A/B/C are build order, §11.5); the
-blocking model was independently reviewed to convergence 2026-08-25. Sign-off of the document
-as a whole by Max Cogar is not recorded in `OWNER-LEDGER.md` — tracked as the open owner
-item in `docs/STATUS.md`. Every requirement traces to a CONFIRMED owner decision
+blocking model was independently reviewed to convergence 2026-08-25; **signed off by
+Max Cogar 2026-08-28 (`OL-C6` — "good to go")**. Every requirement traces to a CONFIRMED owner decision
 (`OWNER-LEDGER.md`), a named and current-verified standard, or a recorded judgment (§12).
 
 **Provenance keys.** `[OL-n]` / `[OL-Cn]` = a CONFIRMED owner decision in
