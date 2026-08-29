@@ -30,8 +30,9 @@ Legend: ✅ CONFIRMED (Max signed) · ⏳ PENDING (awaiting Max) · ❌ REJECTED
 Max confirmed these are accurately his (*"the rest look good"*), with OL-12
 reworded and separately approved. Load-bearing phrases quoted verbatim; full
 rationale in `RETHINK.md` §12. (OL-3's blocking question was resolved 2026-08-16:
-the generated-file block is **rejected** as agent fixation (OL-R4); the one block
-Max wants is **answer-drift** (OL-C3).)
+the generated-file block is **rejected** as agent fixation (OL-R4); the blocks
+Max wants are **answer-drift** (OL-C3) and the **skill non-conformance
+escalation** (OL-C2) — the OL-3 row and spec §8 state both.)
 
 | ID | Claim (confirmed his) | Source |
 |---|---|---|
@@ -43,7 +44,7 @@ Max wants is **answer-drift** (OL-C3).)
 | OL-6 | Two stores — per-project and per-user global — both outside the repo tree; solo scope, no team sharing. | RETHINK §12.6 |
 | OL-7 | **"No separate credentials, ever."** | RETHINK §12.7 (2026-07-15) |
 | OL-8 | Subagent whisper delivery is in v1 scope (revises OL-5). | RETHINK §12.8 |
-| OL-9 | Session-conduct genres (process conformance, answer drift) are in scope, advisory only. | RETHINK §12.9 |
+| OL-9 | Session-conduct genres (process conformance, answer drift) are in scope, advisory only. *(Superseded in part 2026-08-16: these two genres escalate to reactive blocks — OL-C2/OL-C3; OL-C5 defines the answer-drift trigger. Spec §8 is the mechanism authority.)* | RETHINK §12.9; superseded in part by OL-C2/OL-C3 (2026-08-16) |
 | OL-10 | Self-observability is required — **"it could fail a hundred ways in front of me and I wouldn't know."** | RETHINK §12.10 |
 | OL-11 | The project is agent-led; you start/end sessions, suggest features, speed up testing; design/build/verification/docs/roadmap are the agents'. You are a non-programmer by design. | RETHINK §12.11 |
 | OL-12 | The oracle speaking when an agent claims it's done is a must-have — **to catch a completion claim the work doesn't back**: an agent reporting "done" without having actually finished or verified. (*"having the oracle speak when an agent claims it's done is a must-have feature in my mind"*; concrete need = agents that *"did not finish their work but still stopped anyway."*) *What the oracle does to catch it is design, not owner wording.* Reworded & approved by Max 2026-08-13; the earlier "not ranked above the others" clause dropped — the no-primary-feature principle is held by the mission and OL-C2. | RETHINK §12.12; Max 2026-08-13 |
@@ -67,9 +68,11 @@ Max wants is **answer-drift** (OL-C3).)
 | OL-C3 | **A case where the oracle should block: answer-drift** (the other is skill non-conformance, OL-C2). In his words (2026-08-16): *"if i ask a question, then it needs to be answered. the oracle should block that motherfucker until it stops ignoring me and actually answers. just dont make a convoluted fucked up way that its done."* A genuinely useful blocking case Max gave — must not be buried under the rejected generated-file idea (OL-R4). | Max, 2026-08-16 |
 | OL-C4 | **Uncertain hazards: option B.** Asked to choose between (A) warn only when quite sure and (B) also voice uncertain warnings clearly flagged, letting the learning loop demote ones that keep being wrong, Max answered *"B"* (2026-08-16). The wording of B is Claude's; Max's input is the selection. | Max, 2026-08-16 |
 | OL-C5 | **Answer-drift block — the definition.** Max's words (2026-08-25): *"if i ask a question and their next move isnt a direct answer or them taking actions to provide an answer, then then need corrected"* — after Max asks a question, the agent's next move must be a direct answer or an action taken to provide the answer; if it is neither, the agent is corrected. | Max, in chat, 2026-08-25 |
+| OL-C6 | **The v1 spec is signed off — good to go.** Asked whether to bless `docs/specs/spec-context-oracle.md` as a whole, proceed without a document-level sign-off, or review a one-page summary first (with the agent recommending proceed-without), Max answered: *"yeah thats good with me. Mark it as good to go."* The spec of record proceeds to Phase A architecture with his sign-off; the wording of the options is Claude's, the selection and the "good to go" are his. He did not line-read the document — the sign-off is authorization to build from it as the authority, resting on the individually CONFIRMED decisions above and the adversarial review record. | Max, in chat, 2026-08-28 |
 
 *(CONFIRMED: the RETHINK §12 decisions (OL-1…OL-12, OL-5 superseded) plus OL-C1,
-OL-C2, OL-C3, OL-C4, **OL-C5** (the answer-drift definition, 2026-08-25). Nothing is pending.
+OL-C2, OL-C3, OL-C4, **OL-C5** (the answer-drift definition, 2026-08-25), and **OL-C6**
+(spec sign-off, 2026-08-28). Nothing is pending.
 Separately, when Max was asked which languages the oracle should cover he answered that he does not know and
 it is not his to decide ("i dont know what it should cover. but probably more than just lik 3 of
 them"), i.e. he handed the choice to the agent; which languages is therefore a design decision,

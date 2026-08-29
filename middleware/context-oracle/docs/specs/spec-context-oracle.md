@@ -1,6 +1,8 @@
 # Spec: Context Oracle (`ctxoracle`) — v1
 
-**Status:** draft for owner review. Every requirement traces to a CONFIRMED owner decision
+**Status:** spec of record for the whole tool (phases A/B/C are build order, §11.5); the
+blocking model was independently reviewed to convergence 2026-08-25; **signed off by
+Max Cogar 2026-08-28 (`OL-C6` — "good to go")**. Every requirement traces to a CONFIRMED owner decision
 (`OWNER-LEDGER.md`), a named and current-verified standard, or a recorded judgment (§12).
 
 **Provenance keys.** `[OL-n]` / `[OL-Cn]` = a CONFIRMED owner decision in
@@ -172,7 +174,7 @@ table is an advisory whisper.
 | **FR-A2j Answer** | A repo-answerable question in narration | The repo-grounded answer with a pointer. (Model-dependent — Phase B.) |
 | **FR-A2m Unfinished-work check** | A completion-claim stop | OL-12's concrete case — the agent claimed done but **did not finish the work**, beyond the unrun-test case FR-A2g catches. "Incomplete" is judged **relative to a named scope referent** — the user's prompt, an approved plan, or (when an expert skill is active) that skill's declared steps — never "the model decides done" with no anchor (that would be the unconstrained judge FR-C2 forbids). Where the referent is an active skill's steps, this overlaps FR-A2k (which *blocks* on a skipped step); FR-A2m is the *advisory* whisper at the done-claim, FR-A2k the enforcement mid-skill — same signal, different surface. Model-dependent — **Phase B**, acceptance authored there. It realises OL-12's core need as a tracked Phase-B requirement `[OL-12, D-27]`. |
 | **FR-A2k Process conformance → BLOCK** | An expert skill is active and an action deviates from its steps | Whether the agent's actions match the skill's steps. **Steers first** (advisory whisper); **escalates to a `PreToolUse` deny of the deviating action** when the agent skips a step without a stated reason, or steering isn't working `[OL-C2]` (§8, §11.4). Errs toward restraint (a wrongful mid-skill halt is disruptive), so its under-fire side carries an **automated missed-skill-block detector** that checks each step's observable post-condition directly (FR-B5, FR-C1, FR-C4) — Max cannot see a skipped step himself (OL-11). **Non-primary** — fires sparingly and holds no precedence over any genre (OL-C2, P9); block-precision still gets full investment (FR-B5, §11.4). |
-| **FR-A2l Answer-drift → BLOCK** | Max asked a question and the agent's next move is **not** a direct answer or an action taken to provide the answer `[OL-C5]` | **Denies that non-answer-directed action** (`PreToolUse`) with "answer Max's question first," until the agent answers; actions taken to provide the answer (reading, searching, running a test/build to get the answer) run freely `[OL-C3, OL-C5]` (§8, FR-B1). |
+| **FR-A2l Answer-drift → BLOCK** | Max asked a question and the agent's next move is **not** a direct answer or an action taken to provide the answer `[OL-C5]` | **Denies that non-answer-directed action** (`PreToolUse`) with "answer Max's question first," until the agent answers; actions taken to provide the answer (reading, searching, running a test/build to get the answer) run freely `[OL-C3, OL-C5]` (§8, FR-B1). Entered scope *advisory* under OL-9; OL-C3 (2026-08-16) superseded that and made it a block, OL-C5 (2026-08-25) defines it — authorised by OL-C3/OL-C5, not OL-9. |
 
 - **FR-A1 — The single internal question.** Per event the oracle asks: *given what the
   agent is doing now, do I know something it almost certainly does not that would
@@ -366,6 +368,17 @@ its next action is simply allowed; the deny needs no counter, no held turn, no c
       question. A content-free deferral ("I'll get to that") does not clear it; that is the dodge
       OL-C3 targets. A text turn is never a tool action, so it is never denied: the way out always
       exists.
+    - **The lag window holds, it does not pre-clear `[D-41]`.** The clear-state is read from
+      cached classification that can lag the newest turn (`transcript_path` is written
+      asynchronously and may lag — verified 2026-08-25 — and the async classifier may not have
+      run yet). While the newest text turn is **unclassified**, the block **holds/denies rather
+      than pre-clearing** — the *opposite* of the steady-state clear lean (FR-B5) — because a
+      wrongful hold self-recovers in one round-trip (the classifier catches up, the next move is
+      allowed, the event is a self-detected FR-M2 fault) while a missed drifter does not. The
+      hold governs the **clear-axis only**: it never widens what is denied — an answer-directed
+      move (a read, search, or test/build run to get the answer) runs freely in the lag window
+      exactly as in steady state, and a text answer is never a tool action, so it is never denied.
+      The way out exists throughout.
     - **Multiple questions** are tracked as a set, each cleared independently.
     - **Scope:** the block belongs to the consumer that holds the question — the main agent (FR-O6);
       a subagent is not subject to a question it never received.
@@ -423,7 +436,10 @@ its next action is simply allowed; the deny needs no counter, no held turn, no c
   - **Answer-drift.** A wrongful deny is trivially escaped (the agent answers, which it should do
     anyway); a *missed* one is Max's question dying silently. So the recognizer errs **toward not
     denying** (a rhetorical question, or a move that plausibly *is* answer-directed, is not denied)
-    and **toward clearing** on a substantive answer (only an empty deferral fails to clear). It
+    and **toward clearing** on a substantive answer (only an empty deferral fails to clear). That
+    clear lean is the **steady-state** posture, for turns already classified; in the **lag window**
+    (newest turn unclassified) the lean reverses to hold — on the clear-axis only, never widening
+    what is denied — per FR-B1's lag clause `[D-41]`. It
     clears on an answer that *substantively addresses* the question, not one *verified correct* —
     deciding correctness would make the oracle the unconstrained judge FR-C2 forbids; if an answer
     is inadequate, Max re-asks. Its under-fire guard is the **human channel** (FR-L6): a missed
@@ -448,6 +464,13 @@ its next action is simply allowed; the deny needs no counter, no held turn, no c
   (`updatedInput`/`updatedToolOutput` are never used to mutate) `[D-9]`. A `permissionDecision`
   deny is emitted **only** for the two reactive conditions of FR-B1, never as a standing gate
   on the agent's work.
+- **Retired requirement IDs (citation resolution) `[D-23]`.** Older documents (`RETHINK.md`, the
+  retained 2026-07 architecture record, past reviews) cite two IDs this spec supersedes:
+  **`FR-O4`** ("no deny path exists, structurally") — *superseded*; v1 **does** deny reactively in
+  FR-B1's two cases, and its surviving content (no pre-emptive deny, no plan/test gate, no
+  generated-file block, no mutation path) is carried by **FR-B3** — a citation to FR-O4 as a live
+  no-deny property is a defect. **`FR-O4a`** ("one continuation per stop") — *survives, renamed*:
+  the single-cycle Stop-time delivery bound is now **FR-B4**.
 - **FR-O2 — Delivery-capable events and mechanism (C-4, `[HOOKS]`, re-verified
   2026-08-25).** Model-visible context returns via structured
   `hookSpecificOutput.additionalContext` on the tool events, and via plain stdout on
@@ -645,7 +668,7 @@ requirement — grounded by the literature above, with the operating point set o
 
 ### 11.4 Corrective / steering feature (non-primary in purpose — and it blocks)
 
-**On "non-primary" (M1).** OL-C2 makes this feature non-primary: it fires sparingly and holds
+**On "non-primary" (finding M1, `docs/reviews/2026-08-25-independent-review-spec-revision.md`).** OL-C2 makes this feature non-primary: it fires sparingly and holds
 no precedence over any genre (P9). Its precision-critical parts — the intent→step recognizer
 (FR-C2) and the block-precision discipline (FR-B5) — still receive full investment, because the
 block it raises halts the agent and is a high-severity mechanism. It is the most machinery-heavy
@@ -778,7 +801,7 @@ numbers are set from Phase A's exit data.
 - **D-32 — The blocking model is exactly Max's two cases, realised as a `PreToolUse`
   `permissionDecision: "deny"` on the agent's deviating action, always reactive and
   self-clearing (§8, FR-B1–B3).** *Job (an
-  owner-objective, not a mission derivation — see §8's reconciliation):* enforce owner
+  owner-objective, not a mission derivation — see §8's opening paragraphs):* enforce owner
   authority in the two situations Max confirmed `[OL-C2, OL-C3]` without becoming the
   pre-emptive gate he rejected. Blocking is a second owner-set objective beside the
   mission. What is rejected — the pre-emptive "pass a test to
@@ -830,9 +853,12 @@ numbers are set from Phase A's exit data.
   answer (OL-C5) is not deterministically decidable, so **Phase A** ships the deny plumbing plus a
   conservative recognizer (clearly-non-answer-directed moves only — safe, low-coverage) and **Phase
   B** lifts it to OL-C5 precision by model-maintaining the question/answer state off the synchronous
-  deny path (§11.5). AC-12 claims only the deterministic plumbing model-free; the substantive-answer
-  discrimination (AC-2a-ii) is a Phase-B criterion. Whether the model answers rather than retrying
-  after a deny is model behavior, measured (FR-M4), not contract-guaranteed.
+  deny path (§11.5). The cached state is eventually-consistent; in its lag window the block holds
+  rather than pre-clears (FR-B1's lag clause — clear-axis only, answer-directed moves still run
+  freely; a wrongful hold self-recovers in one round-trip, a missed drifter does not). AC-12
+  claims only the deterministic plumbing model-free; the
+  substantive-answer discrimination (AC-2a-ii) is a Phase-B criterion. Whether the model answers
+  rather than retrying after a deny is model behavior, measured (FR-M4), not contract-guaranteed.
 
 ## 13. What is genuinely open
 
@@ -1088,7 +1114,7 @@ discrimination it and AC-2a-ii rest on is **Phase B** (D-41).
 
 ---
 
-*End of spec. Its foundation is `OWNER-LEDGER.md` CONFIRMED (OL-1…OL-12, OL-C1…OL-C4;
-OL-R1…OL-R4 for what is rejected) plus the mission. Verification recency is per the §9
+*End of spec. Its foundation is `OWNER-LEDGER.md` CONFIRMED (OL-1…OL-12, OL-C1…OL-C5;
+OL-R1…OL-R5 for what is rejected) plus the mission. Verification recency is per the §9
 table: most external premises confirmed 2026-08-25, `[NODE-SQLITE]` and `[ROSE]` on
 2026-08-16, `[MSR]` grounded via `[HERZIG]`.*

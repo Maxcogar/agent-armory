@@ -163,7 +163,7 @@ The session is a stream of intent signals:
 | Prompt submitted | The task, in the user's words | **Orientation**: 2–4 entry-point files, the one invariant that will matter, landmines matching the task's shape. ~150–400 tokens. Not a binder. |
 | Agent narration between tool calls | The richest signal: the agent's current hypothesis and assumptions, in prose | **Assumption check**: "your narration assumes X; the repo says Y at `file:line`." **Steering**: "what you're describing lives in `src/…`, not where you're looking." |
 | Read / Grep / Glob observed | What the agent is looking at and for | **Coupling**: co-change partners of the file just opened. **Reuse**: "the thing you grepped for has a canonical helper at Z; most call sites use it." |
-| Edit / Write about to run | What is about to change — the golden moment, the last cheap point to alter course | **Consequence**: "14 call sites in 3 packages; 2 in generated code." "Edits here historically break `tests/settings.test.ts`." "An existing implementation of what this adds is at `src/utils/x.ts` — consider reuse." Advisory, injected as context — never a denial. |
+| Edit / Write about to run | What is about to change — the golden moment, the last cheap point to alter course | **Consequence**: "14 call sites in 3 packages; 2 in generated code." "Edits here historically break `tests/settings.test.ts`." "An existing implementation of what this adds is at `src/utils/x.ts` — consider reuse." Advisory, injected as context — never a denial. *(Superseded in part 2026-08-16: an Edit/Write that is a deviating action under the two confirmed blocks — answer-drift `[OL-C3]`, skill non-conformance `[OL-C2]` — IS denied; spec §8. All else stays advisory.)* |
 | Edit completed / session stopping | The change so far | **Completeness**: "you changed the reducer but not the selector it pairs with in 9 of its last 10 changes." **Verification**: "the suite for this region is `npm test -- settings`." |
 
 At every signal the oracle answers one internal question: *given what the agent
@@ -174,6 +174,9 @@ Discipline rules:
 
 - **Per-trigger and per-session whisper budgets.** Hard caps; the orientation
   whisper decays out of consideration once the agent is deep in the work.
+  *(Superseded by the owner: OL-C1 — no volume, count, or budget limit
+  suppresses a candidate that clears the bar; the bar, not a cap, decides worth.
+  Spec FR-A5 is the authority. Dedup and the orientation decay survive.)*
 - **Dedup.** Never repeat a whisper whose content the agent has visibly
   incorporated (opened the pointed file, used the named helper).
 - **Latency budget.** A hook that slows the agent is a gate by another name.
@@ -197,6 +200,10 @@ Discipline rules:
   its confidence when confidence is not high.
 - **Confidence-gated**: speak only when confidence × decision-impact clears the
   bar. Ship with the bar set high and lower it against measured hit rate.
+  *(Qualified by the owner: OL-C4 — the warning/hazard genres do not require
+  high confidence; a real but uncertain hazard is delivered with its confidence
+  flagged, floored only by a noise floor. Spec FR-A5a is the authority; the
+  general marginal-value bar survives for the other genres.)*
 
 <!-- Removed 2026-08-16: a "single permitted hard intervention" subsection that
 described blocking a hand-edit of a provably-generated file. Max Cogar confirmed
@@ -308,7 +315,8 @@ tool grading its own paperwork. An oracle is measured on:
    that same path (Agent SDK / headless CLI with a small fast model). MCP
    sampling is the protocol-level version of the same idea, to adopt if/when
    host support is solid. A deterministic-only degraded mode remains mandatory
-   for true air-gap.
+   for true air-gap. *(Overtaken 2026-08-25: MCP sampling was deprecated —
+   SEP-2577; spec C-5 rules it out. The piggyback path stands.)*
 3. **No hard blocks. None, anywhere.** The owner's explicit position: the
    gatekeeper design was never wanted — prior agent sessions fixated on
    armoring against specific past failure cases, and the result blocked
@@ -318,6 +326,14 @@ tool grading its own paperwork. An oracle is measured on:
    Corollary: the oracle must be safe to run on real projects *by
    construction* — it never mutates the repo and never prevents an action; its
    worst case is a wasted sentence.
+
+   *(Superseded in part by the owner, 2026-08-16: Max confirmed **exactly two
+   reactive blocks** — answer-drift `[OL-C3]`/`[OL-C5]` and the skill
+   non-conformance escalation `[OL-C2]` — each a reactive `PreToolUse` deny of
+   the agent's deviating action, always self-clearing. What this decision
+   rejected — the **pre-emptive** gate ("prove your plan / pass a test to
+   proceed") — stays rejected. Authority: `OWNER-LEDGER.md` CONFIRMED;
+   mechanism: spec §8. Everything else remains an advisory whisper.)*
 4. **Sandbox compatibility is required.** The old sandbox build is archived as
    read-only reference; the new spec and data model are written with it closed,
    and specific functions may be cherry-picked during implementation only where
@@ -344,6 +360,12 @@ tool grading its own paperwork. An oracle is measured on:
    unverified completion claims) and answer drift (the user's direct question
    going unaddressed across successive turns). Advisory whispers like every
    other genre — no blocks.
+
+   *(Superseded in part by the owner, 2026-08-16: these two conduct genres are
+   exactly the two that now **escalate to a reactive block** — answer-drift per
+   `[OL-C3]`/`[OL-C5]`, skill non-conformance steer-then-block per `[OL-C2]`.
+   Their being in scope is unchanged; "no blocks" is not. Authority:
+   `OWNER-LEDGER.md` CONFIRMED; mechanism: spec §8.)*
 10. **Self-observability is required.** The oracle must detect, log, and
     surface its own failures — hooks not firing, latency breaches, model-path
     failures, store corruption, silent whisper loss — without depending on the
@@ -384,13 +406,24 @@ tool grading its own paperwork. An oracle is measured on:
     one purpose, and that doing so guarantees what gets built is not the tool he
     asked for — this is the second full remake caused by it. The mission is §1
     of this document and the mission sentence: deliver the fact that would
-    change the agent's next decision, across all twelve FR-A2 genres, none of
+    change the agent's next decision, across all twelve FR-A2 genres *(the count
+    when this was written, 2026-08-01; the current spec §4 table has thirteen —
+    eleven whisper genres plus the two OL-C2/OL-C3 blocks)*, none of
     them primary. Logged in `docs/collapse-log.md`.)*
 
-    **What this does not license.** The no-gates rule is unchanged: `decision:
-    "block"` stays structurally absent everywhere, and the oracle never prevents
-    a turn from ending. The accepted cost is bounded to *one* extra turn — the
-    oracle stays silent whenever `stop_hook_active` is true, so it can never
-    chain continuations or approach the harness's 8-continuation cap (spec
-    FR-O4a, AC-3). This is a decision to accept a named, bounded, audited cost —
-    not a decision that continuation is free.
+    **What this does not license.** The no-gates rule is unchanged: the oracle
+    never prevents a turn from ending. The accepted cost is bounded to *one*
+    extra turn — the oracle stays silent whenever `stop_hook_active` is true, so
+    it can never chain continuations or approach the harness's 8-continuation
+    cap. This is a decision to accept a named, bounded, audited cost — not a
+    decision that continuation is free.
+
+    *(Synced 2026-08-28 to the current blocking model. The original text here
+    read "`decision: \"block\"` stays structurally absent everywhere" and cited
+    spec FR-O4a — a Stop-based no-deny framing the 2026-08-25 rebuild replaced.
+    What is true now: the completion-claim whisper is **delivery, not
+    enforcement** — a single self-releasing Stop-time injection, bounded by
+    `stop_hook_active` (spec **FR-B4**, the renamed FR-O4a bound) — and blocking
+    exists **only** as the two reactive `PreToolUse` denies Max confirmed
+    2026-08-16 (`[OL-C2]`, `[OL-C3]`; spec §8, FR-B1–B3). No block ever lands at
+    a `Stop`, so "never prevents a turn from ending" still holds.)*

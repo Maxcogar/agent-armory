@@ -150,7 +150,10 @@ deferred to Phase 1 where P0-4's data will set it) — machinery removed, not in
 
 **And the over-attribution the correction was fixing had propagated into the
 correction's own record.** The "token" denomination — a reconstruction, since the
-owner's words (`RETHINK.md:175–176`) say only *"whisper budgets, hard caps"* — had
+owner's words (`RETHINK.md:175–176`) say only *"whisper budgets, hard caps"* *(Correction
+2026-08-28: per OL-R3 those `RETHINK.md` §5 words are themselves agent-introduced
+rationale, NOT Max Cogar's — the ledger rejects any budget as his. Even this entry's
+"the owner's words" framing was the defect it describes.)* — had
 been written as the owner's rule into `FR-A3`, `P0-D-27`, `OWNER-LEDGER.md` OL-R1, and
 even the 2026-08-12 entry below (*"a token budget, not a count"*). OL-R1 mattered most:
 `CLAUDE.md` has agents read the ledger **first** as the authority for what is Max
@@ -170,7 +173,11 @@ the substance-reviewer.
 **An agent-invented constraint was hardened into a rule and then handed back to
 the owner as his own.** v1 FR-A3 records *"at most one whisper per event."* The
 owner's actual words (`RETHINK.md:175–176`) are *"Per-trigger and per-session
-whisper **budgets**. Hard caps."* — a token budget, not a count. An agent
+whisper **budgets**. Hard caps."* *(Correction 2026-08-28: per OL-R3 those
+`RETHINK.md` §5 words are agent-introduced rationale, NOT Max Cogar's — no budget
+of any denomination is his; OL-C1 rules out arbitrary limits entirely. The
+lesson below stands, one level deeper than this entry knew.)* — a token budget,
+not a count. An agent
 tightened "budget" into "one," it propagated into the Phase 0 spec, and this
 session it reached Max Cogar as the binding premise of an owner question — *which
 of two whispers wins at an edit?* He rejected the premise outright. The invented
@@ -184,7 +191,8 @@ interface section (here v1 §6.1) with no `[OWNER-n]`/`[D-n]` is an agent judgme
 wearing a reference — verify it against `RETHINK.md` before a decision rests on it.
 This one reached the owner, which is the failure the collapse mechanism exists to
 prevent.
-→ `docs/specs/spec-context-oracle-phase0.md` P0-D-27.
+→ P0-D-27 — recorded in `docs/reviews/2026-08-13-verification-p0-d-27-token-budget-phase0-spec.md`
+(the Phase 0 spec itself was deleted 2026-08-28; one spec for the whole tool).
 
 ## 2026-08-01 — the Phase 0 spec, round 4
 
@@ -892,3 +900,57 @@ deliver." Six rounds got there because each round's independent hunt attacked th
 *previous round's fix*, and the author self-reviewed the fix first. The trajectory
 (6 → 1 → 5 → 4 → 1 → 0 findings) is what convergence looks like; a round that finds
 nothing is the signal, not an assumption you may make early.
+
+## 2026-08-28 — the narration strip silently un-applied a review finding
+
+The 2026-08-28 hygiene strip (removing self-narration and smuggled mechanism from
+the spec) deleted, along with the narration, the **lag-window lean** — the round-5
+collapse-hunt's one real finding (entry above, item 5; commit `d83ae5f`): in the
+answer-drift block's classifier lag window, hold/deny rather than pre-clear on
+unclassified text, the opposite of the steady-state clear lean. The strip removed
+it from FR-B1, FR-B5, and D-41 as if it were mechanism; it is an error-direction
+**property**, the same class as the FR-B5 leans the strip kept. STATUS.md then
+asserted "no loss of requirements or properties" — written by the same agent that
+did the stripping, and wrong. Max Cogar's suspicion, not the process, triggered
+the re-check; the diff audit found it (restored 2026-08-28, with the FR-O4/FR-O4a
+citation-resolution note the strip also deleted while downstream documents still
+cite those IDs). An independent full-document sweep the same day found a **third**
+strip-lost item the author's own diff audit missed — the FR-A2l clause recording
+that the answer-drift block is authorised by OL-C3/OL-C5, not OL-9 (the ledger's
+OL-9 still said "advisory only" with no supersession marker) — plus two live
+contradictions inside `OWNER-LEDGER.md` itself and owner-attribution defects in
+this very log (corrected in place above). All restored/annotated 2026-08-28.
+
+**Lesson 1: a deletion pass has the same blast radius as a writing pass and needs
+the same independent check.** "I only removed narration" is a claim about intent,
+not effect. Two checks are required, and neither substitutes for the other:
+diff each prior review round's *applied findings* against the post-strip text,
+AND run an independent full-document sweep — the author's own diff audit here
+found two of the three losses and the independent sweep found the third. A strip
+that follows the review is exactly positioned to undo it.
+
+**Lesson 2: "property vs mechanism" is itself a fallible classification — when a
+strip/refactor uses it as the knife, every cut it classifies as "mechanism" that
+originated in a review finding gets a second look.** An error-direction (which way
+a recognizer errs, in which regime) is a property, even when it reads like
+machinery.
+
+**Lesson 3: the agent that performed a cleanup may not be the one who certifies
+its losslessness.** "No loss" claims about one's own deletion are the same
+self-graded homework as the self-administered collapse test (entry above, item 3).
+
+## 2026-08-28 — correcting a reference inside misplaced content ratifies the misplacement
+
+Applying the same day's sweep findings, an agent "fixed" `CLAUDE.md`'s stale
+section numbers and phase vocabulary *inside* a dated history narrative (the
+"Amended 2026-07-31" paragraph) and a deleted-file tombstone — content that fails
+`CLAUDE.md`'s own membership test ("true regardless of where the project stands")
+and already had a home (the collapse-log's 2026-07-31 entry). The correction made
+the misplaced content *more* current, which is the opposite of the fix; Max Cogar
+caught it, not the process. **Lesson: before correcting any defect inside a
+document, apply that document's membership test to the content the defect sits
+in. If the content doesn't belong there, the fix is relocation to its home (or a
+pointer), never a better-maintained copy. A reviewer's "fix the reference" finding
+does not settle the placement question — that is the target file's policy to
+settle.** Dated *supersession pointers* on decisions belong in authority files;
+dated *narratives about how the file got this way* never do.
