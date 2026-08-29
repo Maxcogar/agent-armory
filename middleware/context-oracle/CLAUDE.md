@@ -185,11 +185,23 @@ ephemeral); (2) `docs/STATUS.md` rewritten, not appended — the whole state plu
 what to do next, with any owner question phrased for a non-programmer; (3)
 everything else routed by the policy; (4) no handoff document.
 
-This is checked mechanically: `.claude/hooks/session-end-check.sh` runs on
-`Stop` and flags a missing STATUS rewrite, a handoff file, or an unsanctioned
-new file (single-cycle, never blocks). It exists because written rules alone
-did not hold (collapse-log 2026-07-31). Assume you will break them too, and
-let the check catch you.
+This is checked mechanically, at two layers, because written rules alone did
+not hold (collapse-log 2026-07-31):
+
+- **In-session (advisory):** `.claude/hooks/session-end-check.sh` runs on
+  `Stop` and flags a missing STATUS rewrite, a handoff file, or an
+  unsanctioned new file (single-cycle, never blocks).
+- **At the merge gate (blocking):** CI runs
+  `middleware/context-oracle/tools/check_docs.py` on every pull request that
+  touches this project (`.github/workflows/context-oracle-docs.yml`) and
+  **fails the PR** on cross-document rot: a cited requirement or ledger key
+  that doesn't exist, a spec-section reference that doesn't exist, a retired
+  ID cited as live, a handoff file, an edited review, or a project change
+  without a STATUS rewrite. Keep it green; never weaken the checker to get a
+  PR through — extending it when a key is legitimately retired is a
+  deliberate, explained change in the same PR.
+
+Assume you will break the rules too, and let the checks catch you.
 
 ## Feature ideation
 

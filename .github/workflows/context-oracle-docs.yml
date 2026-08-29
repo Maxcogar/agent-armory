@@ -1,0 +1,25 @@
+name: context-oracle-docs
+
+# Doc-consistency gate for middleware/context-oracle. Runs on every PR that
+# touches the project and fails the PR on cross-document rot: citations to
+# requirement/ledger keys that don't exist, references to spec sections that
+# don't exist, retired IDs cited as live, handoff files, edited reviews, or a
+# project change without a STATUS.md rewrite. In-session rules and hooks are
+# advisory; this is the check no session can skip.
+
+on:
+  pull_request:
+    paths:
+      - "middleware/context-oracle/**"
+
+jobs:
+  check-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Doc-consistency check
+        run: |
+          python3 middleware/context-oracle/tools/check_docs.py \
+            --base "origin/${{ github.base_ref }}"

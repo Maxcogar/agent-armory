@@ -76,6 +76,19 @@ a pre-emptive gate, never a Stop-based hold. §8 is the authority.
    current source that `transcript_path` is written asynchronously / may lag (`[HOOKS]`, spec §13;
    the FR-B1 clear-axis rests on it and the hooks contract has drifted before).
 
+## New this session: a blocking CI gate on document consistency
+
+Max Cogar asked how future sessions are prevented from rotting the documents again. The honest
+answer was that nothing blocking existed — the CLAUDE.md rules are advisory and the Stop hook
+never blocks. Now `middleware/context-oracle/tools/check_docs.py` runs in CI on every pull
+request touching this project (`.github/workflows/context-oracle-docs.yml`) and **fails the PR**
+on: citations to nonexistent requirement/ledger keys, references to nonexistent spec sections,
+retired IDs cited as live, handoff files, edited reviews, or a project change without a STATUS
+rewrite. Verified by running it: passes the current tree, catches all seeded error classes.
+Honest scope: it catches *referential* rot mechanically; semantic contradictions (two documents
+asserting incompatible things in prose) still require the independent sweep discipline — the
+gate narrows the hole, it does not close it.
+
 ## Resolved this session: spec sign-off
 
 Max Cogar signed off the spec on 2026-08-28 — *"yeah thats good with me. Mark it as good to
