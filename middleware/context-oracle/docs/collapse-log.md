@@ -954,3 +954,34 @@ pointer), never a better-maintained copy. A reviewer's "fix the reference" findi
 does not settle the placement question — that is the target file's policy to
 settle.** Dated *supersession pointers* on decisions belong in authority files;
 dated *narratives about how the file got this way* never do.
+
+## 2026-08-29 — the Phase A architecture review series: the reviewer's own repair text is a first-class defect source
+
+Four dual-review rounds (expert review + collapse-hunt, blind pairs) on
+`docs/architecture-phase-a.md`; full evidence in the eight
+`docs/reviews/2026-08-29-*architecture-phase-a.md` files. Collapse trajectory
+5 → 6 → 1 → 1. Two durable lessons, both from round 4:
+
+1. **A reviewer's concrete repair prescription carries no verification of its
+   own — it must be attacked by the next round exactly as author text is.**
+   Round 4's collapse and its top partial both entered the document as
+   verbatim sentences from the round-3 reviews' own prescribed repairs,
+   faithfully applied under the apply-all-findings rule: the consumer-filter
+   prescription flattened two consumers with opposite correct semantics (a
+   failed Edit is not a change; a failed test run IS a run), and the
+   communicative-verb prescription shipped a false universal ("the requested
+   act is text") its own lexicon could not establish. Class: **unverified**
+   (prescription-carried). Fix-application fidelity and fix *correctness* are
+   different checks; apply-all-findings covers the first and exempts nothing
+   from the second.
+
+2. **When the same defect returns a third time through repairs, stop
+   patching by list — enumerate every consumer/producer of the touched
+   primitive by name, with each one's semantics.** The
+   run-and-failed-looks-never-run whisper died three times (no failure
+   producer; producer wired to an event that cannot carry it; producer wired,
+   rows filtered back out of the one consumer the wiring was justified by) —
+   each resurrection introduced by the repair for the previous death, each
+   passing a fixture pinned to the adjacent axis. The terminating repair was
+   the one that listed every reader of `observed_actions` and stated, per
+   reader, what a failed row *is* to it. Class: **wrong-check**, thrice.
