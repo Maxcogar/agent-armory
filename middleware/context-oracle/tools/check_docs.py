@@ -36,6 +36,10 @@ SPEC = PROJ / "docs/specs/spec-context-oracle.md"
 LEDGER = PROJ / "OWNER-LEDGER.md"
 CLAUDE_MD = PROJ / "CLAUDE.md"
 STATUS = PROJ / "docs/STATUS.md"
+# Current-authority architecture documents (per-phase). The banner-marked
+# historical record docs/architecture-context-oracle.md is deliberately NOT
+# checked — it predates the blocking rebuild and cites the old spec's keys.
+ARCH_DOCS = sorted(PROJ.glob("docs/architecture-phase-*.md"))
 
 # Retired IDs the spec's §8 resolution note documents; they may be cited in the
 # spec itself (the note), and only there.
@@ -77,7 +81,7 @@ def check_content() -> list[str]:
     ledger_keys = set(OL_KEY.findall(ledger_text))
 
     # 1. Requirement keys cited in current-authority docs resolve to the spec.
-    for doc in (CLAUDE_MD, LEDGER, STATUS):
+    for doc in (CLAUDE_MD, LEDGER, STATUS, *ARCH_DOCS):
         text = strip_generics(doc.read_text(encoding="utf-8"))
         for lineno, line in enumerate(text.splitlines(), 1):
             for key in REQ_KEY.findall(line):
@@ -90,7 +94,7 @@ def check_content() -> list[str]:
     # 1b. Retired IDs may be *cited as live* nowhere outside the spec's own
     # resolution note; a line that is itself about the retirement/resolution
     # (contains "retired" or "resolution") may name them.
-    for doc in (CLAUDE_MD, LEDGER, STATUS):
+    for doc in (CLAUDE_MD, LEDGER, STATUS, *ARCH_DOCS):
         for lineno, line in enumerate(doc.read_text(encoding="utf-8").splitlines(), 1):
             if "retired" in line.lower() or "resolution" in line.lower():
                 continue
@@ -103,7 +107,7 @@ def check_content() -> list[str]:
                     )
 
     # 2. OL- keys cited anywhere current resolve to the ledger.
-    for doc in (SPEC, CLAUDE_MD, STATUS):
+    for doc in (SPEC, CLAUDE_MD, STATUS, *ARCH_DOCS):
         text = strip_generics(doc.read_text(encoding="utf-8"))
         for lineno, line in enumerate(text.splitlines(), 1):
             for key in OL_KEY.findall(line):
@@ -124,7 +128,7 @@ def check_content() -> list[str]:
     spec_sections |= set(
         m.group(1) for m in re.finditer(r"^###?\s.*?§?(\d+\.\d+)\b", spec_text, re.M)
     )
-    for doc in (CLAUDE_MD, STATUS):
+    for doc in (CLAUDE_MD, STATUS, *ARCH_DOCS):
         for lineno, line in enumerate(doc.read_text(encoding="utf-8").splitlines(), 1):
             if "RETHINK" in line:
                 continue
