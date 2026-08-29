@@ -864,10 +864,12 @@ numbers are set from Phase A's exit data.
 
 ## 13. What is genuinely open
 
-Two items are genuine external unknowns this spec cannot close by decision. Both are
-stated where they bear on a requirement, and neither gates v1's design.
+Two items were genuine external unknowns this spec could not close by decision;
+the first has since resolved against current documentation (2026-08-29, noted in
+place below). Both are stated where they bear on a requirement, and neither
+gates v1's design.
 
-**One unconfirmed harness behavior.** The hooks contract was re-verified against current
+**One harness behavior, unconfirmed when first written.** The hooks contract was re-verified against current
 source on 2026-08-25 (§9, FR-O2): the event set, the `PreToolUse` `additionalContext`
 affordance, the `PreToolUse` deny returning `permissionDecisionReason` to the model *as the tool
 result* (so a text answer is always reachable; the docs' "avoids retrying" is a design intent, not
@@ -876,9 +878,13 @@ continuation with the `stop_hook_active` + 8-continuation bound, `transcript_pat
 (with the documented caveat that it is **written asynchronously and may lag** the in-memory
 conversation — bearing directly on the answer-drift clear-axis, FR-B1/D-41), `last_assistant_message`
 being Stop-only, the subagent `agent_id`/`agent_type` fields, and the timeouts are all confirmed —
-as are `PostToolUseFailure` and `PermissionRequest` as real events. The one thing the documentation does **not** state is whether a subagent hook's
-`additionalContext` propagates to the parent; the spec assumes it does **not** (C-4), and a
-pre-design spike showing otherwise only adds an option, it removes nothing.
+as are `PostToolUseFailure` and `PermissionRequest` as real events. *(Resolved
+2026-08-29: the current hooks reference now states it — a subagent hook's
+context reaches the subagent, **not** the parent, and "to inject context back
+into the parent session … a PostToolUse hook on the Agent tool should be used
+instead." C-4's assumption is confirmed as documented fact, and the
+parent-injection option this paragraph anticipated exists; nothing in the v1
+design depends on it.)*
 
 **Thin-history repositories.** On a thin-history repository
 the history-derived genres are thinner until the evidentiary corpus grows; the structural,

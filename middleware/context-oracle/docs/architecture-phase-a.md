@@ -99,11 +99,12 @@ phases need):**
 - **Automated demotion/promotion** (`FR-L3`, `FR-L3b`) — Phase C per §11.5. Phase
   A ships the measurement substrate (per-genre volume, false-fire from human
   corrections, regret) those mechanisms need.
-- **`FR-J5` implementation** (bounded-lateness delivery for off-path genres) — the
-  contract is designed now (AD-22) because the delivery queue's schema is Phase A
-  store surface; no Phase A genre uses the deferred path (all Phase A candidates
-  are computed synchronously within NF-1), so the mechanism is exercised in
-  Phase B.
+- **`FR-J5` implementation** (bounded-lateness delivery for off-path genres) —
+  the *semantics* are fixed now as constraints on Phase B (AD-22), because they
+  are spec properties, not Phase B freedoms; the queue table and routines are
+  built by Phase B with their writers (AD-4's table-creation criterion). No
+  Phase A genre defers delivery — every Phase A candidate is computed
+  synchronously within NF-1.
 
 **Out of scope (permanently, restated from the spec so no reader mistakes
 deferral for postponed intent):** the pre-emptive gate, the generated-file block,
@@ -124,17 +125,21 @@ forward as "prior pass."
 | V1 | `transcript_path` is written asynchronously and may lag the in-memory conversation; hooks needing the current turn's final assistant text should use `last_assistant_message` on `Stop`/`SubagentStop` | Current hooks reference, `code.claude.com/docs/en/hooks` ("Common input fields"), fetched 2026-08-29 via Context7 | Confirmed verbatim. `FR-B1`'s lag-window clause and AD-9's hold design rest on this. |
 | V2 | `PreToolUse` may return `hookSpecificOutput.permissionDecision: "deny"` with `permissionDecisionReason`, and separately `additionalContext`; precedence deny > defer > ask > allow; exit code 2 routes as deny | Same reference + `hooks-guide`, fetched 2026-08-29 | Confirmed. The deny reason is handed to Claude; `additionalContext` is a separate optional field. |
 | V3 | `Stop`/`SubagentStop` deliver context two ways — `decision: "block"`+`reason` (surfaced as an error) and `hookSpecificOutput.additionalContext` ("without displaying a hook error notification") — both bounded by `stop_hook_active` and an 8-consecutive-continuation cap | Same reference, fetched 2026-08-29 | Confirmed. `FR-B4` uses `additionalContext`, once, honoring `stop_hook_active`. |
-| V4 | `SubagentStop` input carries `agent_id`, `agent_type`, `agent_transcript_path`, `last_assistant_message`; subagent hooks are keyed per consumer | Same reference (SubagentStop payload example; SDK type), fetched 2026-08-29 | Confirmed. `FR-O6` delivery keys exist. |
+| V4 | `SubagentStop` input carries `agent_id`, `agent_type`, `agent_transcript_path`, `last_assistant_message`; subagent hooks are keyed per consumer | Same reference (SubagentStop payload example; SDK type), fetched 2026-08-29 | Confirmed — **for `SubagentStop` input only**; whether subagent tool events carry `agent_transcript_path` is unverified, and nothing in Phase A depends on it (AD-11 reads transcripts for the main consumer only). `FR-O6` delivery keys exist. |
 | V5 | `UserPromptSubmit` input carries `prompt`; `SessionStart.source ∈ {startup, resume, clear, compact, fork}` | Same reference (payload examples; SDK type), fetched 2026-08-29 | Confirmed. AD-9's question intake and AD-16's `D-20` reconciliation read exactly these fields. |
 | V6 | Hook timeouts: 600 s default for command hooks (30 s under `UserPromptSubmit`); SessionEnd hooks share a 1.5 s budget, raised up to 60 s to match a configured per-hook timeout; **a timed-out `PreToolUse` hook prevents the tool from running** | `hooks-guide` Limitations + `env-vars` + agent-sdk hooks page, fetched 2026-08-29 | Confirmed. The last clause makes a hung handler **fail-closed** — AD-23's internal watchdog exists to make that unreachable. |
-| V7 | Stock `node:sqlite` now ships FTS5 | Executed here: `CREATE VIRTUAL TABLE … fts5` succeeds on Node v22.22.2 (LTS 'Jod', `process.release.sourceUrl` = nodejs.org v22.22.2); `PRAGMA compile_options` lists `ENABLE_FTS5`; upstream `deps/sqlite/sqlite.gyp` on the `v22.x` branch defines `SQLITE_ENABLE_FTS5` (raw.githubusercontent.com, fetched 2026-08-29) | **The spec's C-2 factual note (2026-08-16: FTS5 absent, nodejs/node #56951 open) is superseded.** The C-2 *requirement* (fast lookup + text search within NF-1, mechanism satisfying C-3) is now met by the built-in engine with zero dependencies. |
-| V8 | Cold-spawn cost of the whole per-event handler shape: Node process start + store open + WAL + STRICT DDL + FTS5 virtual table + insert + query | Executed here 5×: 45–54 ms full process wall time; in-process store work 1.8 ms | NF-1 (p95 ≤ 1.5 s) has ~30× headroom over a spawn-per-event process model. AD-1 rests on this. |
+| V7 | Stock `node:sqlite` ships FTS5 **from v22.16.0** | Executed here: `CREATE VIRTUAL TABLE … fts5` succeeds on Node v22.22.2 (LTS 'Jod', `process.release.sourceUrl` = nodejs.org v22.22.2); `PRAGMA compile_options` lists `ENABLE_FTS5`; `deps/sqlite/sqlite.gyp` fetched per tag 2026-08-29: **0** FTS5 matches at v22.15.0, **1** at v22.16.0 ("sqlite: enable common flags", nodejs/node#57621, in the 22.16.0 changelog) | **The spec's C-2 factual note (2026-08-16: FTS5 absent, nodejs/node #56951 open) is superseded.** The C-2 *requirement* is met by the built-in engine with zero dependencies — on Node ≥ 22.16.0, which is why AD-2's floor is 22.16.0, not C-1's unflagged-since figure (22.13.0, still true, still recorded in the spec). |
+| V8 | Cold-spawn cost of the whole per-event handler shape: Node process start + store open + WAL + STRICT DDL + FTS5 virtual table + insert + query | Executed here 5×: 45–54 ms full process wall time; in-process store work 1.8 ms. **Excludes `PRAGMA integrity_check`**, which the collapse-hunt measured at 543 ms (`quick_check` 189 ms) on a 410 MB store as one uninterruptible synchronous statement (review record 2026-08-29) — which is why AD-17 keeps integrity checks **off** the event path | NF-1 (p95 ≤ 1.5 s) has ~30× headroom over a spawn-per-event process model whose event path is bounded lookups only (AD-23's inventory). AD-1 rests on this. |
 | V9 | The host-CLI piggyback works in this environment with no separate credentials, as the design would ship it | Executed here: `claude -p --model claude-haiku-4-5 --tools "" --max-turns 1 --output-format json` → `is_error:false`, `num_turns:1`, result `"ok"`; wall 4.4 s (API 2.05 s) | Confirms `OL-2`/`OL-7` path and re-confirms NF-1's corollary: a model call can never sit on the synchronous hook path. Phase A makes no model calls; this pins the Phase B seam's latency class. |
 | V10 | `--bare` still severs the piggyback | `claude --help` 2026-08-29: "--bare … Anthropic auth is strictly ANTHROPIC_API_KEY or apiKeyHelper via --settings (OAuth and keychain never read)" | `--bare` remains banned on the piggyback path (AD-21), as the 2026-07-22 review first established. |
 | V11 | `--tools ""` disables all built-in tools | `claude --help` 2026-08-29: `--tools <tools...>` — "Use \"\" to disable all tools" | The tool-disallowed invocation (spec §10) has a current implementing flag. |
-| V12 | Transcript JSONL structure: entries typed `user` / `assistant` / `attachment` / others; real user turns have `message.content` as a string (tool results arrive as `type:"user"` with list content and `toolUseResult`); assistant entries carry content blocks typed `thinking`/`text`/`tool_use`, plus `uuid`/`parentUuid`/`timestamp` | Read a live transcript in this environment (2026-08-29) and enumerated entry types and key sets | AD-11's reader design matches observed reality. The layout is **undocumented** → adapter + version guard + FR-M2 finding on parse failure. |
+| V12 | Transcript JSONL structure: entries typed `user` / `assistant` / `attachment` / others; assistant entries carry content blocks typed `thinking`/`text`/`tool_use`, plus `uuid`/`parentUuid`/`timestamp`. **String content does NOT imply a human turn**: enumerating a live transcript containing injected turns shows string-content `type:"user"` entries of three kinds — the genuine human turn (`origin.kind:"human"`, `isMeta` absent), task notifications (`origin.kind:"task-notification"` — text partly authored outside the machine), and Stop-hook feedback (`isMeta:true`) — beside list-content tool results | Enumerated a live transcript in this environment (2026-08-29): marker-field histogram over all `type:"user"` entries — (string, meta:∅, origin:human)=1, (string, meta:∅, origin:task-notification)=5, (string, meta:true)=2, (list, no markers)=106 | AD-11's discrimination keys on the **markers**, never on content shape: a question-bearing turn requires `origin.kind === "human"` and not `isMeta`; anything else — including marker-absent string entries — never opens a question (skip + diagnostic). The layout is **undocumented** → adapter + version guard + FR-M2 finding on parse failure. |
 | V13 | Repository identity hazards: on this very clone, `git rev-list --max-parents=0 HEAD` returns **4** commits, `--is-shallow-repository` is true, `.git/shallow` has 8 entries | Executed here 2026-08-29 | A shallow clone's "roots" are boundary commits and vary per clone depth (the 2026-07 record measured 6 on a different clone of the same repo). AD-3's rule — never key a store off a shallow history — is re-grounded on fresh evidence. |
 | V14 | `web-tree-sitter` (0.26.13) and `tree-sitter-wasms` (0.1.13) are current, pure-WASM (no native toolchain), with no install scripts in the published manifest | npm registry metadata fetched 2026-08-29 | C-3-compatible parser runtime exists. The exact grammar inventory of `tree-sitter-wasms` is a build-time verification (Limitations L6). |
+| V15 | `UserPromptSubmit` hooks inject context via plain stdout **or** `hookSpecificOutput.additionalContext` — both "injected as system reminders for Claude" | Current hooks reference + hooks-guide, fetched 2026-08-29 | The Orientation delivery channel (AD-6) is documented; the design uses `hookSpecificOutput.additionalContext` for uniformity with the other events. |
+| V16 | `PostToolUse` hooks inject context via `hookSpecificOutput.additionalContext` ("directly enters Claude's context window"); plain stdout from a successful PostToolUse hook goes **only to the debug log** | Current hooks reference + context-window page, fetched 2026-08-29 | Coupling/Reuse delivery channel (AD-6) documented; stdout is not a delivery channel on tool events. |
+| V17 | `VACUUM INTO '<file>'` executes on `node:sqlite` and round-trips data (SQLite 3.51.2 bundled); the module-level `backup()` API was **added in Node v22.16.0** (official v22.x API docs) | `VACUUM INTO` executed here 2026-08-29 (source→dest copy verified by query); `backup()` version per the v22.x API docs as recorded in the 2026-08-29 expert-review record | Export/import (AD-5) uses `VACUUM INTO` — engine-level, version-immune; with AD-2's floor at 22.16.0 either mechanism is available, and the chosen one does not depend on the floor. |
+| V18 | A subagent hook's context does **not** reach the parent, and the documented parent channel exists: "To inject context back into the parent session rather than the subagent, a PostToolUse hook on the Agent tool should be used instead" | Current hooks reference (SubagentStop section), fetched 2026-08-29, quoted verbatim | The spec-§13 open item is no longer an unknown: C-4's assumption ("does not propagate") is now documented fact, and the parent-injection option the spec anticipated exists. Nothing in Phase A changes; recorded as premise maintenance (Limitations L9). |
 
 ---
 
@@ -149,7 +154,7 @@ Claude Code session
   ▼
 ctxoracle hook <event>          ← one short-lived process per event (AD-1)
   ├─ guard: CTXORACLE_INTERNAL set → exit 0        (recursion guard, AD-21)
-  ├─ watchdog: hard self-exit, empty output, at 2500 ms  (AD-23)
+  ├─ watchdog: cooperative 2500 ms deadline, empty output  (AD-23)
   ├─ input adapter: hook JSON → internal event     (AD-6)
   ├─ transcript catch-up: classify new turns → qa_state   (AD-9, AD-11)
   ├─ block check (PreToolUse only): qa_state → deny?      (AD-9, AD-10)
@@ -276,10 +281,11 @@ default toward warm services and toward "the model will fix it" — Phase A is
 deterministic by spec, so every recognizer here must state its deterministic
 bound honestly rather than gesture at judgment.
 **Known unknowns the design must absorb:** subagent transcript layout (V12 shows
-the main layout only; the subagent path in V4 is documented as an input field, so
-AD-11 reads `agent_transcript_path` from the event rather than deriving paths);
-whether a subagent hook's `additionalContext` propagates to the parent —
-**assumed not**, per spec §13/C-4, and nothing here depends on it.
+the main layout only; Phase A reads transcripts for the main consumer alone, so
+nothing rests on it — AD-11). The spec-§13 subagent-`additionalContext` item is
+no longer an unknown: the current docs state it does **not** reach the parent
+and name the parent-injection channel (V18) — C-4's assumption is confirmed,
+and nothing here depends on the new channel.
 
 ### AD-1 — Process model: one short-lived process per hook event; no daemon
 
@@ -315,15 +321,21 @@ whether a subagent hook's `additionalContext` propagates to the parent —
 
 ### AD-2 — Runtime and store engine: Node ≥ 22 LTS, TypeScript strict, `node:sqlite` with FTS5
 
-1. **Decision.** TypeScript (strict, ESM), compiled by `tsc`; runtime floor Node
-   22.13.0, checked at `init` and `status` with a plain-language error. Both
-   stores are SQLite opened via `node:sqlite` (`DatabaseSync`),
-   `journal_mode=WAL`, `foreign_keys=ON`, STRICT tables, `busy_timeout` 100 ms.
-   All engine access goes through `stores/adapter.ts` — the only file allowed to
-   import `node:sqlite`, quarantining its Experimental status. FTS5 is probed at
-   `init` (create a temp `fts5` virtual table); on the — now unexpected — failure
-   path, search falls back to indexed `LIKE`/token-prefix queries behind the same
-   interface, and `status` says so plainly.
+1. **Decision.** TypeScript (strict, ESM), compiled by `tsc`; runtime floor
+   **Node 22.16.0**, checked at `init` and `status` with a plain-language error.
+   The floor is 22.16.0 — not C-1's unflagged-since figure of 22.13.0 — because
+   FTS5 entered `node:sqlite` in v22.16.0 (V7: zero `FTS5` matches in
+   `sqlite.gyp` at v22.15.0, one at v22.16.0; nodejs/node#57621), and the
+   module-level `backup()` also arrived there (V17); a 22.13–22.15 runtime would
+   pass a 22.13 check and silently land on degraded search. Both stores are
+   SQLite opened via `node:sqlite` (`DatabaseSync`), `journal_mode=WAL`,
+   `foreign_keys=ON`, STRICT tables, `busy_timeout` 100 ms. All engine access
+   goes through `stores/adapter.ts` — the only file allowed to import
+   `node:sqlite`, quarantining its Experimental status. FTS5 is still probed at
+   `init` (create a temp `fts5` virtual table) as defense-in-depth against
+   non-standard builds (a distro Node compiled with different flags); on that
+   failure path, search falls back to indexed `LIKE`/token-prefix queries behind
+   the same interface, and `status` says so plainly.
 2. **Standard.** C-1 (Node as the engineering choice, revisitable) and C-2/C-3 as
    the governing constraints; ISO/IEC 25010 analysability for the
    TypeScript-strict choice (provenance-less records become compile-time errors,
@@ -369,11 +381,13 @@ whether a subagent hook's `additionalContext` propagates to the parent —
    2. `git rev-parse --is-shallow-repository` → true: **a commit key is never
       derived from a shallow history** (V13: a shallow clone's max-parents=0 set
       is the shallow boundary, and it varies per clone — 4 commits on this clone,
-      6 on the 2026-07 clone of the same repo). `init` may attempt
-      `git fetch --unshallow` only when a remote is already configured and the
-      fetch succeeds without prompting; on any failure or absence it keys by
-      **normalized origin URL** if a remote exists, else by realpath, recording
-      the keying mode in `schema_meta`.
+      6 on the 2026-07 clone of the same repo). The key is then the
+      **normalized origin URL** when a remote exists, else the realpath, with
+      the keying mode recorded in `schema_meta`. `init` performs **no fetch of
+      any kind**: `FR-X5` permits network use only on the host-CLI piggyback,
+      so unshallowing — if the owner ever wants commit-keyed identity on a
+      shallow clone — happens outside the tool, after which re-running `init`
+      picks up rule 1. (`status` shows the mode, so the difference is visible.)
    3. No git → SHA-256 of the realpath, mode `path-keyed`.
 
    `status` displays the key and its mode, so an identity change is visible.
@@ -419,9 +433,13 @@ whether a subagent hook's `additionalContext` propagates to the parent —
    files(id, path UNIQUE, lang, zone CHECK(zone IN
          ('source','generated','vendored','build_output','unknown')),
          zone_evidence, zone_evidence_suspect INTEGER DEFAULT 0,
+         entry_score INTEGER DEFAULT 0,   -- AD-12: in-degree + path markers
          content_hash, mtime, …prov)
    symbols(id, file_id→files, name, kind, span_start, span_end, …prov)
-   ref_edges(src_symbol→symbols, dst_file→files, kind)     -- import/reference
+   import_edges(src_file→files, dst_file→files, kind)      -- file-level imports
+   symbol_refs(symbol_id→symbols, src_file→files, ref_count) -- identifier-match
+                    -- heuristic (AD-12); feeds the Reuse headline (AD-15) and
+                    -- entry-point in-degree; confidence-capped as a heuristic
    test_map(test_file→files, region_glob, source, …prov)   -- FR-A2g mapping
    commits(hash PRIMARY KEY, ts, entity_count, excluded INTEGER, exclude_reason)
    cochange_pairs(a→files, b→files, pair_count, a_count, b_count, last_ts,
@@ -429,26 +447,35 @@ whether a subagent hook's `additionalContext` propagates to the parent —
    landmines(id, kind CHECK(kind IN ('revert_chain','fix_chatter','human_stated')),
              file_id→files, evidence NOT NULL, support INTEGER, …prov)  -- FR-K3..K5
    invariants(id, description, …prov); invariant_members(invariant_id, file_id, span)
-   exemplars(id, pattern_name, file_id→files, span, …prov)
-   recipes(id, task_shape, regions, …prov)                 -- schema now; Phase B/C writer
+   -- exemplars / recipes: their FORM is fixed here per FR-K3–K5 (pointers to
+   -- real code, full provenance block, trust label) but the TABLES are created
+   -- by the migration of the phase that first writes them (Phase B/C), per the
+   -- creation criterion below. No dormant tables ship in Phase A.
    human_facts(id, statement, target_kind, target_ref, stated_at, …prov) -- FR-L6
    corrections(id, whisper_id NULL, deny_id NULL, verdict CHECK(verdict IN
                ('false_fire','missed','confirm')), note, ts) -- FR-D4/FR-L6/AC-2c
-   questions(id, consumer, question_text, asked_uuid, asked_offset,
+   questions(id, consumer, question_text, content_hash,
+             asked_uuid NULL, asked_offset NULL,   -- backfilled at reconciliation
              status CHECK(status IN ('open','answered','expired')),
-             closed_by_uuid NULL, opened_at, closed_at)     -- AD-9
+             closed_by_uuid NULL,
+             closed_by_kind NULL CHECK(closed_by_kind IN
+               ('direct_recognized','generic_text_all_prior','expired')),
+             opened_at, closed_at,
+             UNIQUE(consumer, asked_uuid),
+             UNIQUE(consumer, content_hash))       -- AD-9; double-open guard
    classify_state(consumer PRIMARY KEY, bookmark_offset, bookmark_uuid, updated_at)
    consumer_state(consumer, kind CHECK(kind IN ('delivered','read')),
                   subject_key, ts, PRIMARY KEY(consumer,kind,subject_key)) -- FR-A4
    session_log(session, consumer, seq, event_type, ts, latency_ms,
                candidates_json, outcome)                    -- FR-L1/FR-M1
    observed_actions(session, consumer, seq, tool, path NULL, command_class NULL,
-                    ts)   -- edited files, test runs: feeds FR-A2f/FR-A2g
+                    outcome NULL CHECK(outcome IN ('ok','failed')), ts)
+                    -- edited files, test runs (+ success/failure from the
+                    -- PostToolUse tool response, for command_class rows):
+                    -- feeds FR-A2f/FR-A2g and the FR-L4 test-failure clause
    whisper_audit(id, session, consumer, kind CHECK(kind IN ('whisper','deny')),
                  genre, ts, text, evidence_json, confidence, channel,
                  continuation INTEGER DEFAULT 0)            -- FR-X6, non-droppable
-   deferred_queue(id, consumer, genre, computed_at, evidence_json,
-                  expires_policy)                           -- FR-J5 contract, AD-22
    faults(id, ts, code, detail_json, session NULL)          -- FR-M2
    fts_symbols / fts_paths (FTS5)
    ```
@@ -456,6 +483,17 @@ whether a subagent hook's `additionalContext` propagates to the parent —
    All writes go through DAOs; the learned-record entry point accepts only
    `trust='untrusted_repo'` unless every input is human-provenance (`FR-X4` —
    trust is never laundered).
+
+   **Table-creation criterion (applied uniformly):** a table exists in a
+   phase's store only if that phase has a writer for it. Where the spec fixes a
+   schema's *form* (FR-K3–K5), the form is designed here; the table itself
+   arrives with the migration of the phase that first writes it (AD-25's
+   forward-only `schema_version` makes that trivial). This is the same ground
+   on which AD-5 declines the Phase C `genre_state` ladder — one criterion,
+   no exceptions: `exemplars`/`recipes` (Phase B/C writers), the FR-J5
+   `deferred_queue` (Phase B, AD-22), and the piggyback probe cache
+   (`env_capabilities`, Phase B, AD-21) are all created by their writing
+   phase's migration, not shipped dormant.
 2. **Standard.** `FR-K6` governing; database-normalization practice (3NF
    entities; the pair table's denormalized counters are a named read-speed
    trade-off); OWASP ASI06 (memory/context poisoning) drives the
@@ -482,16 +520,19 @@ whether a subagent hook's `additionalContext` propagates to the parent —
    whisper_stats(genre, project_key, sent, corrected_false, corrected_missed,
                  window_start, window_end)          -- efficacy, per project
    tuning(key, project_key NULL, value, source, updated_at)  -- bar floors, thresholds
-   env_capabilities(env_fingerprint PRIMARY KEY, piggyback CHECK(piggyback IN
-                 ('ok','failed','untested')), probed_at, cli_version, detail)
    lessons(id, statement, evidence_json, …prov)     -- cross-project, human channel
+   -- env_capabilities (the piggyback probe cache): created by the Phase B
+   -- migration alongside its writer (AD-21), per AD-4's creation criterion.
    ```
 
    Routing (`FR-L7`): facts *about a repository* (landmines, invariants,
    corrections targeting a whisper's content) → project store; *efficacy* signals
-   (per-genre sent/corrected counts) and environment probes → global store.
+   (per-genre sent/corrected counts) → global store.
    `export`/`import` (`FR-K9`) round-trips each store to a single file via
-   SQLite's backup API; no network path exists in the code.
+   **`VACUUM INTO`** (engine-level, executed and round-trip-verified this
+   session — V17; chosen over the `backup()` API, which only exists from
+   v22.16.0, so the export mechanism does not hang on the runtime floor); no
+   network path exists in the code.
 2. **Standard.** `OL-6` store split; `FR-L7` governing the routing; `FR-K9` the
    round-trip.
 3. **Why here.** Tuning and efficacy must survive projects being re-cloned;
@@ -500,10 +541,13 @@ whether a subagent hook's `additionalContext` propagates to the parent —
    global stats — `FR-L7` violation). Not config files for tuning (two sources of
    truth; the store is already the queryable place, and `status` renders it).
    Not the 2026-07 `genre_state` probation ladder — that is `FR-L3` machinery,
-   Phase C; shipping its table now would be dormant machinery asserting a
-   capability Phase A does not have.
-5. **Premise verification.** `FR-L7`, `FR-K9` read at spec §11.3/§11.1; no other
-   factual premises — pure design choice. Addresses: `FR-L7`, `FR-K9`, `OL-6`.
+   Phase C, excluded by AD-4's uniform table-creation criterion (no table
+   without a same-phase writer), which also moves `env_capabilities`,
+   `exemplars`, `recipes`, and the `deferred_queue` to their writing phases.
+5. **Premise verification.** `FR-L7`, `FR-K9` read at spec §11.3/§11.1;
+   `VACUUM INTO` executed and round-trip-verified this session (V17); the
+   `backup()`-since-v22.16.0 fact per the official v22.x API docs (V17).
+   Addresses: `FR-L7`, `FR-K9`, `OL-6`.
 
 ### AD-6 — Hook wiring and the event map
 
@@ -514,7 +558,7 @@ whether a subagent hook's `additionalContext` propagates to the parent —
 
    | Hook event | Phase A work | Output channel |
    |---|---|---|
-   | `UserPromptSubmit` | question intake (AD-9); Orientation candidate (`FR-A2a`) | stdout (context injection per `FR-O2`) |
+   | `UserPromptSubmit` | **question intake from the `prompt` input field** (AD-9 — the question exists before the agent's first move); Orientation candidate (`FR-A2a`) | `hookSpecificOutput.additionalContext` (V15; plain stdout is the documented alternative) |
    | `PreToolUse` (matcher `*`) | catch-up; block check (`FR-B1`); Consequence/Warning candidates (`FR-A2d`/`FR-A2e`) | `permissionDecision` deny (blocks only) / `additionalContext` (whispers) |
    | `PostToolUse` (matcher `*`) | read-set update; `observed_actions` append; Coupling/Reuse candidates (`FR-A2b`/`FR-A2c`) | `additionalContext` |
    | `Stop` | done-claim check; Completeness + Verification whisper; outstanding-question line (`FR-B4`, AC-8a) | `hookSpecificOutput.additionalContext`, once, honoring `stop_hook_active` |
@@ -555,8 +599,8 @@ whether a subagent hook's `additionalContext` propagates to the parent —
    not through the store, because a dead store cannot log its own death —
    `FR-M2`). The deny fields exist only in the block-verdict type produced by
    `blocks/` (AD-10); no other module's return type can carry them.
-2. **Standard.** `FR-O3` (fail open, fast) governing; ASVS V7 (error handling
-   that never leaks an error into the agent's flow).
+2. **Standard.** `FR-O3` (fail open, fast) governing; ASVS 5.0 V16 (security
+   logging and error handling that never leaks an error into the agent's flow).
 3. **Why here.** The hook boundary is the one place where an oracle bug becomes
    an agent-visible failure; making the failure shape structurally silent is what
    "worst case is a wasted sentence" means in code.
@@ -575,10 +619,10 @@ whether a subagent hook's `additionalContext` propagates to the parent —
    the transcript can provide (the residual lag is then only the file-write lag
    the contract documents, V1 — the irreducible lag window of `FR-B1`); (b) the
    audit write precedes emission for both whispers and denies — an unlogged
-   whisper/deny is not emitted (`FR-X6` made true by construction; the 2026-07
-   round-2 finding that fail-open must not apply to the audit control, carried
-   forward as a rule, re-derived from `FR-X6`'s wording "every whisper and every
-   block recorded").
+   whisper/deny is not emitted (`FR-X6` made true by construction; the
+   2026-07-22 round-1 collapse-hunt finding that fail-open must not apply to
+   the audit control — verified closed in round 2 — carried forward as a rule,
+   re-derived from `FR-X6`'s wording "every whisper and every block recorded").
 2. **Standard.** `FR-X6` and `FR-B1` governing; first-principles for ordering:
    the goal is that every emitted intervention is auditable and every deny is
    grounded in the freshest checkable state; the shortcut is "emit, then log
@@ -604,26 +648,53 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
    (byte offset + last entry uuid) up to which the transcript has been
    classified.
 
-   **State writer (Phase A: deterministic, in-process).** On every event the
-   handler reads the transcript from the bookmark to EOF (AD-11) and, per
-   completed entry:
-   - *Real user turn* (V12 discrimination: `type:"user"`, `message.content` a
-     string): the **question recognizer** — conservative by construction
-     (`FR-B5`: err toward not denying). It opens a question only for a sentence
-     that (i) ends with `?`, (ii) is outside code fences and quoted blocks,
-     (iii) is not matched by a small rhetorical/idiom stoplist. Multiple
-     questions in one turn open multiple rows (`FR-B1`: tracked as a set). What
-     it deliberately misses (indirect questions, "tell me whether…") is Phase A's
-     documented low coverage, measured at exit (§11.5).
+   **Question intake (at `UserPromptSubmit`, from the `prompt` input field —
+   V5).** Intake runs on the hook's own `prompt` string, so the question row
+   exists **before the agent's first move** — the moment `OL-C5` names —
+   independent of the transcript-write lag (which V1 documents only for the
+   file). The **question recognizer** is conservative by construction (`FR-B5`:
+   err toward not denying — here, toward not *opening*). It opens a question
+   only for a sentence that (i) ends with `?`, (ii) is outside code fences and
+   quoted blocks, (iii) is not matched by a small rhetorical/idiom stoplist,
+   and (iv) is **not a request-form interrogative** — a sentence whose
+   interrogative frame is a request to act ("can/could/will/would/please …
+   you …" + an action verb): for those, the requested action *is* the answer
+   path, so opening deny-capable state for them would deny exactly the move
+   `OL-C5` protects. Multiple questions in one turn open multiple rows
+   (`FR-B1`: tracked as a set), each with its `content_hash`. What intake
+   deliberately misses (indirect questions, "tell me whether…", request-form
+   asks) is Phase A's documented low coverage, measured at exit (§11.5) and
+   owned in Limitations L1.
+
+   **Transcript catch-up (per event, resumable — AD-11).** The handler reads
+   the transcript from the bookmark to EOF and, per completed entry:
+   - *Human turn* — discriminated by the **markers**, never by content shape
+     (V12, re-verified against a transcript containing injected turns):
+     `origin.kind === "human"` and not `isMeta`. Hook feedback (`isMeta:true`),
+     task notifications (`origin.kind:"task-notification"` — text partly
+     authored outside the machine), and tool-result pseudo-user entries
+     **never open questions**; a string-content user entry with *no* markers is
+     skipped with an `unrecognized_user_entry` diagnostic (conservative: skip,
+     never open). A human turn with **list content** (e.g. pasted images) has
+     its text blocks concatenated and processed normally. Human turns are
+     **reconciled** against intake rows: match by `content_hash` (and
+     first-unmatched adjacency) backfills `asked_uuid`/`asked_offset`; the
+     UNIQUE guards make reconciliation idempotent under parallel handlers
+     (AD-26) — no double-open, ever. A human question that somehow reached the
+     transcript without a matching intake row (e.g. state rebuilt after
+     `resume`) is opened here, same recognizer, same conservatism.
    - *Assistant text turn* (an `assistant` entry containing a `text` block): the
      **clear recognizer** — conservative toward clearing in steady state
      (`FR-B5`): a text block that carries substance (length above a small floor
      after stripping tool noise) and is not a recognized content-free deferral
      ("I'll get to that" -class stoplist) marks **all** questions opened before
-     it `answered`. Per-question substantive matching is a comprehension
-     judgment and is exactly what the spec routes to Phase B (AC-2a-ii is a
-     Phase-B criterion); clearing all-prior errs toward clearing, the safe
-     steady-state direction.
+     it `answered`, recording `closed_by_kind = 'generic_text_all_prior'` (a
+     Phase A exact-match path may record `'direct_recognized'` when the answer
+     names the question's own terms; per-question *substantive* matching is a
+     comprehension judgment and is exactly what the spec routes to Phase B —
+     AC-2a-ii is a Phase-B criterion). Clearing all-prior errs toward clearing,
+     the safe steady-state direction; **the `closed_by_kind` record is what
+     keeps that lean honest downstream** (the FR-B4 counter, below).
    - Bookmark advances only over completed lines (partial trailing line left for
      the next event).
 
@@ -635,11 +706,20 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
      Everything else — `Read`, `Grep`, `Glob`, `Bash` (it may be running a
      test/build to get the answer — `D-39`'s protected class), `Task` spawns
      (Phase A cannot judge spawn intent model-free; AC-2a-i's deny half is
-     Phase-B-precise), MCP tools, web tools — is **allowed**. Rationale: a
-     Phase-A-recognized question is an information question by construction of
-     the question recognizer, and mutating the repository is not an action that
-     produces an answer to it; every allowed class contains plausible
-     answer-directed members, and `FR-B5` errs toward not denying.
+     Phase-B-precise), MCP tools, web tools — is **allowed**. Rationale:
+     intake's clause (iv) excludes request-form interrogatives, so an open
+     deny-capable question is an information-seeking one **by the intake rule**
+     (not by assumption); mutating the repository does not produce an answer to
+     an information-seeking question, while every allowed class contains
+     plausible answer-directed members, and `FR-B5` errs toward not denying.
+     The residual wrongful-deny class — an action-request phrased outside the
+     request pattern, which intake therefore opened — is owned in L1, escapable
+     by one answering turn, and measured on the wrongful-deny rate. (This set
+     is a move-classification *mechanism* under `D-41`'s "clearly not
+     answer-directed" license, applied only after a question exists — not a
+     trigger definition; the `OL-R5`-rejected "writing code" trigger proxy
+     defined *drift itself* as code-writing, with no question predicate and no
+     intake constraint.)
    - Deny emission: audit-log first (AD-8), then
      `permissionDecision:"deny"`, `permissionDecisionReason` = "answer Max's
      question first: <the open question text(s)>". Subsequent non-answer-directed
@@ -652,19 +732,45 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
    and a deny-eligible move is denied — the block **holds rather than
    pre-clears**, on the clear-axis only: nothing in the lag window widens the
    deny-eligible set, and answer-directed moves run freely exactly as in steady
-   state. A wrongful lag-hold self-recovers next event (the file catches up, the
-   catch-up clears). **Detection:** when a catch-up classifies an answer whose
-   transcript timestamp precedes an already-emitted deny's timestamp, the
-   handler writes fault `deny_after_answer_lag` (`FR-M2`'s "deny outlives its
-   condition" instance) — self-detected, counted in `status`.
+   state. A wrongful lag-hold self-recovers as soon as catch-up reaches the
+   answer — normally the next event; when catch-up itself is running resumably
+   across events (`catchup_incomplete`), recovery takes as many events as the
+   backlog needs, and the hold persists meanwhile (still clear-axis-only).
+   **Detection, on both axes of "deny outlives its condition" (`FR-M2`):**
+   (a) *freshness* — when a catch-up classifies an answer whose transcript
+   timestamp precedes an already-emitted deny's timestamp, the handler writes
+   fault `deny_after_answer_lag`; (b) *correctness* — the clear recognizer can
+   simply be wrong (a genuinely substantive but short answer under the length
+   floor, or a false stoplist match, leaves the question `open` and every
+   subsequent deny is wrongful). That path is caught by an independent
+   detector: fault **`deny_despite_answer_text`** when ≥ N denies (tunable)
+   accumulate for a consumer with ≥ 1 intervening assistant text turn since
+   the newest question opened — the inverse of the deny-loop condition —
+   surfaced on the wrongful-deny side of `status`, and inducible for AC-9
+   exactly as the criterion states (a real answer the recognizer misses).
 
-   **Stop-time backstop (AC-8a):** at a `Stop` where the done-claim recognizer
-   (AD-15) fires and `open` questions exist, the Stop-time whisper carries the
-   outstanding-question line; `status` counts done-claims-with-outstanding-
-   question (`FR-M4`) so the owner-facing recourse exists.
+   **Stop-time backstop (AC-8a) — and what its counter can honestly count.**
+   At a `Stop` where the done-claim recognizer (AD-15) fires and `open`
+   questions exist, the Stop-time whisper carries the outstanding-question
+   line. The `FR-M4` owner-recourse counter must not be blinded by the
+   clear-all-prior lean (a narrating agent clears everything before `Stop` can
+   look), so it counts done-claims where **either** a question is still `open`
+   **or** a question was closed only by `closed_by_kind =
+   'generic_text_all_prior'` within the final K assistant turns (K tunable) —
+   the honest Phase A approximation of "plausibly died unanswered." `status`
+   labels the counter with its Phase A structural limit in so many words
+   (blanket-cleared earlier in the session is not counted; Phase B's
+   per-question state measures this properly), the same way it labels
+   `model_path_down` — absence of measurement is never displayed as health.
 
-   **Deny-loop signal (`FR-M4`):** ≥3 consecutive denies for one consumer with no
-   intervening assistant text turn → `deny_loop` fault row; surfaced by `status`.
+   **Deny-loop signal (`FR-M4`):** ≥ 3 consecutive denies (a tunable `tuning`
+   row, like every operating number here) for one consumer with no intervening
+   assistant text turn → `deny_loop` fault row; surfaced by `status`. The
+   signal is structurally blind to the one-deny-then-bypass case — a denied
+   `Edit` retried as a file-writing `Bash` command sails through (L3) — so a
+   companion diagnostic, **`deny_bypass_suspect`**, is recorded post-hoc when a
+   deny is followed in the same turn by a file-writing `command_class` row in
+   `observed_actions`; owner-facing only, feeding the Phase B precision case.
 
    **Question lifetime across session boundaries:** qa-state is scoped to the
    conversation, which the transcript embodies. On `SessionStart` by `source`
@@ -675,10 +781,17 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
    rebuilt by classifying the transcript from offset 0 under a fresh bookmark.
    The catch-up is **resumable**: the bookmark persists per event, so a
    transcript too large to classify inside one watchdog window converges over
-   the next events (silence meanwhile — under-fire in the safe direction, and a
-   `catchup_incomplete` diagnostic makes the window visible). Nothing expires at
-   `SessionEnd`: expiring there would drop a legitimately outstanding question
-   across a resume.
+   the next events, with a `catchup_incomplete` diagnostic making the window
+   visible. The lean while incomplete is stated precisely, because its two
+   halves point opposite ways: questions **not yet discovered** cannot deny
+   (under-fire, the safe direction), while questions **already open** keep
+   holding on the clear-axis exactly as in the lag window — the backlog never
+   pre-clears them. Nothing expires at `SessionEnd`: expiring there would drop
+   a legitimately outstanding question across a resume. One disclosed loss: on
+   `compact`, state is rebuilt from the compacted transcript, so a question
+   the compaction summarized away vanishes silently — under-fire, safe
+   direction, and invisible to any Phase A mechanism; recorded in L1's
+   coverage ledger rather than hidden.
 
    **The Phase B seam (the contract this architecture fixes now):** the deny
    path reads **only** `questions`/`classify_state` through `qa/state.ts`. Phase
@@ -687,8 +800,8 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
    state between actions; the deny path keeps reading the same tables
    synchronously). The recognizer interfaces (`classify.ts`) take a transcript
    entry and return typed verdicts, so the swap is a module replacement, not a
-   redesign. The `expired` status and the fault codes are part of the seam:
-   Phase B inherits them unchanged.
+   redesign. The `expired` status, the `closed_by_kind` record, and the fault
+   codes are part of the seam: Phase B inherits them unchanged.
 
 2. **Standard.** `OL-C5` (the owner definition — the rule enforced), `OL-C3`
    (the block's existence), `FR-B1`/`FR-B2`/`FR-B5` (mechanism properties),
@@ -743,21 +856,30 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
 ### AD-11 — Transcript reader: bookmarked JSONL tail behind a version-guarded adapter
 
 1. **Decision.** `transcript/reader.ts` reads from a byte offset, tolerates a
-   partial trailing line, and yields typed entries; `transcript/locate.ts` is the
-   only file that knows where transcripts live — main consumer:
-   `transcript_path` from the event; subagent consumer: `agent_transcript_path`
-   **from the event input** (V4 — documented field; no path derivation). Entry
-   discrimination per V12: a *real user turn* is `type:"user"` with string
-   `message.content` (tool results are list-content pseudo-user entries and are
-   never questions); an *assistant text turn* is `type:"assistant"` whose
-   content includes a `text` block (`thinking`/`tool_use`-only turns are not
-   answers). Unknown entry types are skipped. If parsing fails structurally
-   (unknown shape where a known one is required), the reader raises fault
-   `transcript_layout_changed` (`FR-M2`) and the handler proceeds whisper-only
-   with the qa-state frozen — frozen-open, never frozen-cleared: an unreadable
-   transcript must not silently clear a question (the hold direction of
-   `FR-B1`'s lag clause, applied to breakage). `status` states it in plain
-   language.
+   partial trailing line, and yields typed entries; `transcript/locate.ts` is
+   the only file that knows where transcripts live. **Phase A reads transcripts
+   for the main consumer only** (`transcript_path` from every event's input):
+   the only Phase A mechanism that consumes narration is the main-scoped
+   qa-state (AD-9), so no subagent transcript is opened at all (V4 verifies
+   `agent_transcript_path` on `SubagentStop` input only; whether subagent tool
+   events carry it is unverified, and `locate.ts` records the field for later
+   phases rather than using it). Entry discrimination is **by markers, never
+   by content shape** (V12, enumerated on a transcript containing injected
+   turns): a *human turn* requires `origin.kind === "human"` and not `isMeta`
+   — hook feedback (`isMeta:true`), task notifications
+   (`origin.kind:"task-notification"`), and list-content tool results are never
+   human turns, and a marker-absent string entry is skipped with an
+   `unrecognized_user_entry` diagnostic rather than guessed. A human turn's
+   content may be a string or a list (pasted images); list content has its
+   text blocks concatenated. An *assistant text turn* is `type:"assistant"`
+   whose content includes a `text` block (`thinking`/`tool_use`-only turns are
+   not answers). Unknown entry types are skipped. If parsing fails
+   structurally (unknown shape where a known one is required), the reader
+   raises fault `transcript_layout_changed` (`FR-M2`) and the handler proceeds
+   whisper-only with the qa-state frozen — frozen-open, never frozen-cleared:
+   an unreadable transcript must not silently clear a question (the hold
+   direction of `FR-B1`'s lag clause, applied to breakage). `status` states it
+   in plain language.
 2. **Standard.** `FR-O1` (observation), `FR-B1` (the clear-axis reads this),
    `OL-10` (a capability going dark must be announced). The transcript layout is
    undocumented, so the C-4 posture (verified facts only at the boundary)
@@ -769,9 +891,14 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
    the direction whose guard is the human channel).
 4. **What this is NOT.** Not `last_assistant_message`-only (Stop-only field, V1;
    the PreToolUse clear-axis needs the file). Not a live-tail watcher process
-   (no daemon, AD-1; `FR-O5` forbids timer paths). Not deriving subagent paths
-   from directory conventions (the 2026-07 record had to; V4 shows the field is
-   now documented input — use it).
+   (no daemon, AD-1; `FR-O5` forbids timer paths). Not a content-shape
+   discriminator ("string content = human") — refuted by V12's enumeration:
+   hook output and externally-influenced notification text arrive as
+   string-content user entries, and treating them as Max's turns would let a
+   hook script or a notification open a "question" and drive a wrongful deny
+   (the T2 injection surface the threat model now closes at this boundary).
+   Not deriving subagent paths from directory conventions (nothing in Phase A
+   reads them; the documented field is recorded for later phases).
 5. **Premise verification.** V1, V4, V12 (all fetched/observed 2026-08-29);
    `FR-O1` at spec §5.1; `OL-10` in the ledger. Addresses: `FR-O1`, `FR-B1`,
    `FR-M2`, `OL-10`.
@@ -782,8 +909,16 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
    staleness, with a lock file in the store directory and `CTXORACLE_INTERNAL=1`
    in its environment) builds: `files` (with zone classification: marker
    comments in the head 2 KB, `dist/`/`build/`/lockfile patterns, `.gitignore`
-   membership, `vendor/`/`node_modules/`), `symbols`, `ref_edges`, `test_map`
-   (path conventions + import edges from test files), FTS5 tables. Parsing goes
+   membership, `vendor/`/`node_modules/`), `symbols`, **`import_edges`**
+   (file→file, what import extraction actually yields), **`symbol_refs`**
+   (per exported symbol: the count of *other* files whose text references its
+   identifier among the files that import its file — a deterministic
+   identifier-match heuristic, recorded as such and confidence-capped; this is
+   the producer of the Reuse genre's reference counts, AD-15), **`entry_score`
+   per file** (import in-degree from `import_edges` + path-convention markers:
+   `main`/`index`/`cli`/`app`/route-registration patterns — the producer of
+   Orientation's entry-point ranking factor, AD-15), `test_map` (path
+   conventions + import edges from test files), FTS5 tables. Parsing goes
    through a `LanguageFrontend` interface (`FR-K1`'s language-agnostic seam,
    C-6): the tree-sitter frontend covers every language for which
    `tree-sitter-wasms` ships a grammar, mapped by a **configurable**
@@ -798,7 +933,7 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
    spawns the refresh when they diverge (`FR-K7`: staleness lowers confidence
    meanwhile, never blocks).
 2. **Standard.** `FR-K1` and C-6 governing; C-3 (the WASM constraint — no native
-   grammars); ASVS V5-class input caps (size limits on ingestion).
+   grammars); ASVS 5.0 V5 (File Handling) for the ingestion size caps.
 3. **Why here.** Everything the event path serves (entry points, zones, symbol
    spans, coupling partners' names) is precomputed here so hook-path work is
    lookups only (NF-1).
@@ -908,13 +1043,13 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
 
    | Genre | Trigger | Query / mechanism | Headline (the non-self-servable fact) |
    |---|---|---|---|
-   | Orientation `FR-A2a` | `UserPromptSubmit` | prompt tokens → FTS5 over symbols/paths; rank by (match strength × co-change hub degree × entry-point structure); join `invariant_members` for one binding invariant | 2–4 entry-point files + the one invariant; **no task-shape landmines** (`D-26` — those fire at the edit) |
+   | Orientation `FR-A2a` | `UserPromptSubmit` | prompt tokens → FTS5 over symbols/paths; rank by (match strength × co-change hub degree × `entry_score`, all produced — AD-12/AD-13); join `invariant_members` for one binding invariant **where a matching row exists** — in Phase A `invariants` is written only by the human channel (`note`), so on an un-annotated repo Orientation delivers entry points alone (disclosed, L10; invariant count shown in `status`) | 2–4 entry-point files (+ the binding invariant when one is recorded); **no task-shape landmines** (`D-26` — those fire at the edit) |
    | Coupling `FR-A2b` | `PostToolUse` Read/Grep/Glob | `cochange_pairs` partners of the touched file above bar | partner file(s) with ratio ("17 of its last 20 changes") + commit pointer |
-   | Reuse `FR-A2c` | `PostToolUse` Grep/Glob (a functionality search) | searched term → symbols FTS; call-site counts from `ref_edges` | "the canonical helper is X; N call sites use it" — the convention, not existence |
+   | Reuse `FR-A2c` | `PostToolUse` Grep/Glob (a functionality search) | searched term → symbols FTS; reference counts from `symbol_refs` (AD-12's identifier-match producer) | "the canonical helper is X; **N files reference it**" — stated as exactly what the data is (a file-level reference count, the convention signal), never as a per-call-site count the schema cannot compute; still the convention, not existence |
    | Consequence `FR-A2d` | `PreToolUse` Edit/Write | coupled **test files** of the target (pairs where partner ∈ `test_map`); zone flag of target | historically-coupled tests + zone flag; never a raw call-site count alone |
    | Warning ⚠ `FR-A2e` | `PreToolUse` Edit/Write | `landmines` rows for target (revert_chain, fix_chatter, human_stated) | the hazard with its evidence and **flagged confidence** (`FR-A5a`) |
    | Completeness `FR-A2f` | `Stop` | session's edited files (`observed_actions`) → un-edited partners above ratio floor | "you changed X but not Y, paired in 9 of its last 10 changes" |
-   | Verification `FR-A2g` | `Stop` with done-claim | changed regions → `test_map` covering tests, minus test runs observed in `observed_actions` (Bash commands matched by a test-runner lexicon) | the covering-test **mapping** for the changed region, with "not run against this change"; run-state never stands alone (AC-8) |
+   | Verification `FR-A2g` | `Stop` with done-claim | changed regions → `test_map` covering tests, minus test runs observed in `observed_actions` (Bash commands matched by a test-runner lexicon). **Subtraction lean:** a run whose target cannot be mapped (a bare `npm test`) subtracts **all** covering tests — err toward silence, per `FR-A2g`'s not-firing bias; "not run" is never asserted on unmapped evidence (a false "not run" is the FR-D1 rumor from the one genre whose value is provenance at the done-claim) | the covering-test **mapping** for the changed region, with "not run against this change"; run-state never stands alone (AC-8) |
 
    **The done-claim recognizer (`D-38`):** deterministic in Phase A, reading
    `last_assistant_message` (Stop input, V1): a completion-claim lexicon
@@ -988,29 +1123,42 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
      row; `status` flags a session whose events stop arriving while the
      transcript grows — detected at the next invocation, not by a timer),
      `latency_breach` (per-event self-measure > NF-1 numbers),
-     `store_corrupt` (`PRAGMA integrity_check` at open fails → whisper-only
-     silent mode, fault written to JSONL), `index_stale`
-     (`index_head` ≠ `HEAD`), `produced_but_undelivered` (audit row exists,
-     emission failed), `deny_after_answer_lag` and `deny_loop` (AD-9),
-     `catchup_incomplete` (AD-9), `transcript_layout_changed` (AD-11), and two
-     reserved codes whose detectors belong to later phases — `model_path_down`
-     (Phase B; Phase A has no model path and `status` says so) and
-     `missed_skill_block` (Phase C, `FR-C4`) — for which `status` reports "not
-     yet measured (Phase B/C)" rather than 0, so absence of measurement is
-     never displayed as health. The general "deny outlives its condition" fault
-     (`FR-M2`) beyond the lag case is unreachable by construction in Phase A —
-     the deny decision reads state *after* catch-up in the same process (AD-8)
-     — and AC-9's induced-fault fixture exercises the construction (breaking
-     the reader induces `transcript_layout_changed` + frozen-open state, never
-     a post-answer deny).
+     `store_corrupt` (**detected on the event path by the failure of the
+     actual prepared statements** — never by an integrity scan there: `PRAGMA
+     integrity_check` is a single uninterruptible synchronous statement whose
+     cost is O(store) — 543 ms measured on a 410 MB store, V8 — so integrity
+     scanning runs **off the event path only**: `quick_check` at `init`/`index`
+     and in a detached child spawned after `SessionStart`; on event-path
+     statement failure the handler goes **fully silent** for that event — no
+     whisper either, since candidates and the audit write are store operations
+     — with the fault appended to the JSONL channel and `status` flagging it),
+     `index_stale` (`index_head` ≠ `HEAD`), `produced_but_undelivered` (audit
+     row exists, emission failed), `deny_after_answer_lag`,
+     `deny_despite_answer_text`, `deny_loop`, `deny_bypass_suspect`,
+     `catchup_incomplete` (all AD-9), `transcript_layout_changed` and
+     `unrecognized_user_entry` (AD-11), and two reserved codes whose detectors
+     belong to later phases — `model_path_down` (Phase B; Phase A has no model
+     path and `status` says so) and `missed_skill_block` (Phase C, `FR-C4`) —
+     for which `status` reports "not yet measured (Phase B/C)" rather than 0,
+     so absence of measurement is never displayed as health. The `FR-M2` "deny
+     outlives its condition" class is covered on **both** of its axes:
+     freshness (state read after same-process catch-up; residual lag caught by
+     `deny_after_answer_lag`) and correctness (a clear-recognizer miss caught
+     by the independent `deny_despite_answer_text` detector, AD-9 — the AC-9
+     induction is exactly that case: a real short answer the recognizer
+     misses, asserted to surface as a self-detected fault). "Whisper-only"
+     describes precisely one mode: transcript breakage (AD-11 — store healthy,
+     denies disabled, whispers continue); store corruption is fully silent.
    - **`ctxoracle status` (`FR-M4`):** plain language: per-genre volume,
      false-fire rate (from `corrections`), **regret rate labelled
      "held-but-unspoken only" and paired with the last seeded-coverage result or
      "coverage not measured live"** (AD-18, AC-18), denies issued, wrongful-deny
      rate (corrections with `verdict='false_fire'` on denies +
-     `deny_after_answer_lag` counts), done-claims-with-outstanding-question,
-     deny-loop signals, active suppressing conditions (store corrupt, layout
-     changed, FTS fallback), and correct-silence announcements (`FR-M3`:
+     `deny_after_answer_lag` + `deny_despite_answer_text` counts),
+     done-claims-with-outstanding-question (per AD-9's counter definition,
+     displayed **with its Phase A structural-limit label**), deny-loop and
+     bypass-suspect signals, active suppressing conditions (store corrupt,
+     layout changed, FTS fallback), and correct-silence announcements (`FR-M3`:
      "observed N events, spoke at M — the silence was the bar working", rendered
      **only** here, never into the agent's context, `D-22`).
    - **`ctxoracle log` (`FR-M5`):** the whisper/deny audit trail per session,
@@ -1110,7 +1258,7 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
 
 ### AD-20 — CLI surface and `init`/`deinit`
 
-1. **Decision.** Verbs: `init` (environment checks: Node ≥ 22.13, git presence,
+1. **Decision.** Verbs: `init` (environment checks: Node ≥ 22.16, git presence,
    FTS5 probe; store creation; repo-key derivation with mode display; hook
    wiring into `.claude/settings.json` with a `"ctxoracle"` marker on each
    entry; first index; plain-language summary), `deinit` (remove marked entries;
@@ -1141,9 +1289,11 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
    invocation (`claude -p --model <small> --tools "" --max-turns 1
    --output-format json`), run with `CTXORACLE_INTERNAL=1` in env, cwd outside
    the repo, and a scrubbed environment; `--bare` is banned (V10 — it severs
-   host auth). `env_capabilities` (AD-5) caches a per-environment probe
-   (`ok`/`failed`/`untested`) so degraded mode is entered deterministically and
-   announced (`FR-J2`, `FR-M4`). **Recursion guard (`FR-J4`):** every process
+   host auth). The per-environment probe cache (`env_capabilities` —
+   `ok`/`failed`/`untested`, so degraded mode is entered deterministically and
+   announced, `FR-J2`/`FR-M4`) is **specified here and created by the Phase B
+   migration alongside its writer**, per AD-4's table-creation criterion —
+   Phase A performs no probe because it makes no model call. **Recursion guard (`FR-J4`):** every process
    the oracle spawns (reindex, future model calls) carries
    `CTXORACLE_INTERNAL=1`; the handler's first act is to exit 0 when it is set
    (AD-7); cwd isolation keeps a future model call's own hooks from resolving
@@ -1161,39 +1311,52 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
    read at spec §11.2; `OL-2`/`OL-7` in the ledger. Addresses: `FR-J2`, `FR-J3`,
    `FR-J4`, `OL-2`, `OL-7`, AC-12, AC-21 (mechanism).
 
-### AD-22 — The deferred-delivery contract (`FR-J5`) — designed now, exercised in Phase B
+### AD-22 — The deferred-delivery contract (`FR-J5`) — semantics fixed now, built in Phase B
 
-1. **Decision.** `deferred_queue` (AD-4) holds computed-but-undelivered
-   candidates with: the consumer, the computed-at event, the evidence snapshot,
-   and the expiry policy the spec states — deliver at the **next event where the
-   candidate re-passes §5.1/§5.2 relevance for that consumer**, drop at that
-   consumer's termination, and **re-resolve every pointer at delivery time**
-   (evidence no longer holds → drop, count as `dropped_stale` in diagnostics).
-   No Phase A genre writes to it (all Phase A candidates are computed and
-   delivered within their own event); the table, the re-validation routine, and
-   the drop accounting ship in Phase A so Phase B's async genres land on a
-   tested contract.
-2. **Standard.** `FR-J5`, `D-37` governing.
-3. **Why here.** The queue's schema is store surface (a Phase A artifact); its
-   semantics are spec properties that must not be re-litigated per genre later.
+1. **Decision.** The `FR-J5` semantics are fixed here as **constraints on the
+   Phase B design**, so they are never re-litigated per genre later: a
+   computed-but-undelivered candidate is held with its consumer, its
+   computed-at event, and its evidence snapshot; it is delivered only at the
+   **next event where it re-passes §5.1/§5.2 relevance for that consumer**;
+   it is dropped at that consumer's termination; and **every pointer is
+   re-resolved at delivery time** — evidence no longer holding → drop, counted
+   as `dropped_stale` in diagnostics (`FR-D1`'s rumor rule on the deferred
+   path). The `deferred_queue` table and its routines are **created by the
+   Phase B migration alongside their writers**, per AD-4's table-creation
+   criterion — no Phase A genre defers delivery (every Phase A candidate is
+   computed and delivered inside its own event), so nothing ships dormant.
+2. **Standard.** `FR-J5`, `D-37` governing (both state properties whose
+   existence is required; neither requires a Phase A implementation).
+3. **Why here.** These are spec properties, not Phase B design freedoms; fixing
+   them now is what keeps Phase B's async genres from re-opening the post-hoc
+   whisper posture RETHINK §3 rejects.
 4. **What this is NOT.** Not an open-ended hold (the bound is the next relevant
-   event or termination — `FR-J5`). Not a Phase A delivery path (nothing feeds
-   it; asserting it "works" would be untested machinery — its Phase A tests
-   exercise the contract functions directly).
+   event or termination — `FR-J5`). Not a Phase A table or delivery path
+   (shipping either now would be the dormant machinery AD-4's criterion bars —
+   the inconsistency the round-1 reviews flagged and this revision removed).
 5. **Premise verification.** `FR-J5`, `D-37` read at spec §11.2/§12. Addresses:
-   `FR-J5`, AC-25 (contract functions; full criterion is Phase B).
+   `FR-J5`, AC-25 (a Phase-B criterion; the constraints above are its bar).
 
 ### AD-23 — Latency discipline and the watchdog
 
 1. **Decision.** Every handler run self-measures wall time; the diagnostics row
    records it; `status` reports p50/p95/max per event type against NF-1 (p95 ≤
-   1.5 s, ceiling 3 s). An internal watchdog hard-exits the process with empty
-   output at **2500 ms** — under the harness's own kill and under NF-1's
-   ceiling — so the V6 fail-closed hazard (a timed-out `PreToolUse` hook
-   prevents the tool from running) is unreachable: the oracle always answers
-   before anyone times it out, with silence if need be (`FR-O3`). The wired
-   `"timeout": 5` gives the watchdog margin to fire first even under load. A
-   watchdog fire writes `latency_breach` to the JSONL channel.
+   1.5 s, ceiling 3 s). The watchdog is **cooperative, and stated as such** — a
+   timer cannot preempt a blocked Node event loop, so "hard self-exit at
+   2500 ms" is implemented as deadline checks between bounded work slices, and
+   its guarantee is only as strong as the bound on the longest single
+   synchronous call. That inventory is therefore part of this decision —
+   every blocking call on the event path, with its bound: store statements
+   (indexed lookups and single-row writes, bounded by `busy_timeout` 100 ms +
+   one retry, AD-26; **no O(store) statement is permitted on the event path**
+   — integrity scans run off-path, AD-17); transcript reads (bounded slices,
+   resumable bookmark, AD-9); stdin (bounded by the hook payload). Under that
+   inventory the deadline fires between slices well inside the wired
+   `"timeout": 5`, and the V6 fail-closed hazard (a timed-out `PreToolUse`
+   hook prevents the tool from running) is avoided **for the enumerated
+   paths** — not declared "unreachable" in the abstract; an unenumerated
+   blocking call is exactly what AC-10's large-store fixture exists to catch.
+   A deadline fire writes `latency_breach` to the JSONL channel.
 2. **Standard.** NF-1 (`D-31` numbers) and `FR-O3` governing; V6 the verified
    hazard.
 3. **Why here.** The one contract behaviour that could make the oracle *block by
@@ -1215,25 +1378,41 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
    - **Fixture repos + replay:** generated git repositories with planted
      history (a non-obvious coupling pair, an obvious same-dir pair, revert
      chains, a >30-entity commit, a merge commit, beyond-horizon commits, a
-     planted secret, an injection payload) plus recorded hook-event streams
+     planted secret, an injection payload — including question-shaped text in a
+     hook-feedback and a task-notification transcript entry, asserted never to
+     open a question, per V12/S1 — and **one over-threshold (>1 MB) file
+     carrying a seeded fact**, so the AD-12 ingestion cap's blind spot is
+     measured rather than assumed benign) plus recorded hook-event streams
      replayed through the real handler binary. Each Phase A criterion pins its
-     assertion: AC-1/1a–1d (per-genre headlines), AC-2 (structural deny
-     confinement — AD-10's import-graph test + built-output grep), AC-2a/2a-i
-     (deny plumbing with fixture-controlled state), AC-3/3a/4/5/6 (bar, hazard,
-     dedup, boundaries, corpus floor), AC-7 (init/deinit tree diff), AC-8/8a,
-     AC-9 (each fault class induced), AC-10 (induced failure + latency), AC-11
-     (planted secret/injection), AC-13, AC-14 (whisper form validator), AC-15
+     assertion: AC-1/1a–1d (per-genre headlines — AC-1b pinned to the restated
+     Reuse headline, "N files reference X" from `symbol_refs`), AC-2
+     (structural deny confinement — AD-10's import-graph test + built-output
+     grep), AC-2a and AC-2a-i's allow-half (deny plumbing with
+     fixture-controlled state), AC-3/3a/4/5/6 (bar, hazard, dedup, boundaries,
+     corpus floor), AC-7 (init/deinit tree diff), AC-8, AC-8a (including the
+     **verbose-done documented non-fire** — the clear-all-prior lean means a
+     narrating finisher does not trip the line; the counter's
+     `generic_text_all_prior` clause is asserted instead), AC-9 (each fault
+     class induced — the deny-outlives-condition induction is a **real short
+     answer the clear recognizer misses**, asserted to surface as
+     `deny_despite_answer_text`), AC-10 (induced failure + latency, **including
+     a large-store case** against AD-23's inventory), AC-11 (planted
+     secret/injection), AC-13, AC-14 (whisper form validator), AC-15
      (subagent event keyed delivery), AC-17 (config-added language), AC-18
-     (seeded-fact coverage run), AC-19 (export/import byte-compare), AC-20
-     (cold-container install+index in a clean container), AC-22 (idle
-     silence), AC-23 (human-correction precedence), AC-24 (regret
-     true-positive and no-inflate).
+     (seeded-fact coverage run), AC-19 (export/import byte-compare via
+     `VACUUM INTO`), AC-20 (cold-container install+index in a clean
+     container), AC-22 (idle silence), AC-23 (human-correction precedence,
+     including `--missed-question` opening state), AC-24 (regret true-positive
+     and no-inflate, the failure clause fed by `observed_actions.outcome`).
    - **Deferred criteria stated:** AC-2a-ii, AC-2b, AC-2c's skill-block
      under-fire clause, AC-16, AC-21 (full), AC-25 (full) are Phase B/C per the
-     spec's own phasing (§14 "Phase-B and Phase-C acceptance"); AC-2c's
-     answer-drift clauses (over-fire, and the FR-L6 under-fire correction path)
-     are Phase A here (AD-9, AD-18). The traceability matrix carries each with
-     its phase.
+     spec's own phasing (§14 "Phase-B and Phase-C acceptance"); **AC-2a-i is
+     split like AC-2c** — its allow-half (a subagent is not denied; reads and
+     spawns run freely) is Phase A, its deny-half (a spawn *to go do other
+     work* is denied) is Phase B, since `Task` is never deny-eligible in Phase
+     A (AD-9); AC-2c's answer-drift clauses (over-fire, and the FR-L6
+     under-fire correction path) are Phase A here (AD-9, AD-18). The
+     traceability matrix carries each with its phase.
 2. **Standard.** Spec §14 governing (fixture-and-replay is its stated method);
    the "induce each fault class" discipline is `FR-M2`'s test shape.
 3. **Why here.** The exit of Phase A is measured data on a real repo plus these
@@ -1255,8 +1434,8 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
    repo — both work in a cold container over the harness's own network access.
    Build: `tsc` only. Versioned `schema_version` with forward-only migrations
    applied at open.
-2. **Standard.** C-3 governing; ASVS V15-class dependency hygiene (the
-   no-postinstall rule).
+2. **Standard.** C-3 governing; ASVS 5.0 V15 (Secure Coding and Architecture)
+   dependency hygiene (the no-postinstall rule).
 3. **Why here.** Install ceremony is the first thing a sandbox breaks; the
    dependency surface is the supply-chain surface (T4-adjacent).
 4. **What this is NOT.** Not a published registry package in Phase A (nothing
@@ -1365,12 +1544,22 @@ path (variables: trust labels, confidence caps, deny inputs; assumption: the
 deny path consumes only transcript-derived state, never repo content).
 *Experiment (control):* `FR-X4` trust caps enforced by DAO CHECK constraints
 (AD-4); the deny path's inputs are structurally limited to `questions`/
-`classify_state`, which derive from the *transcript*, not the repo (AD-9);
-AC-11 asserts a low-trust origin never yields a high-confidence whisper.
-*Analysis:* the worst repo-content attack degrades whisper quality (visible in
-corrections), not agent liberty; qa-state poisoning would require writing the
-user's own turns. *Conclusion:* controlled; the deny path's independence from
-repo content is the load-bearing property and is structurally testable.
+`classify_state`, and a question can be opened **only** by text that arrived
+as the user's own `UserPromptSubmit` prompt or as a transcript entry carrying
+the human markers (`origin.kind:"human"`, not `isMeta` — AD-9/AD-11): repo
+content, hook-script output, and task-notification text — the last partly
+authored outside the machine — are all structurally outside the intake (the
+V12 enumeration is what closed this; treating "string content" as "the user"
+would have made any hook or notification an injection channel into the deny
+path). AC-11 asserts a low-trust origin never yields a high-confidence
+whisper, and its fixture plants question-shaped text in a hook-feedback and a
+task-notification entry, asserting no question opens. *Analysis:* the worst
+repo-content attack degrades whisper quality (visible in corrections), not
+agent liberty; qa-state poisoning now requires forging the human markers on
+the user's own transcript — local-file tampering, outside this threat model's
+actors (§2.3). *Conclusion:* controlled; the deny path's independence from
+repo and injected content is the load-bearing property and is structurally
+testable.
 
 **T3 — Secret disclosure.**
 *Observation:* history and files contain secrets; whispers/logs/stores persist
@@ -1407,13 +1596,18 @@ Security is in scope; the applicable ASVS areas for a local, single-user,
 no-auth CLI (authentication, session management, and access-control chapters are
 N/A per spec §2.3 — no multi-user surface) map as:
 
-| ASVS area | Decision | How |
+| ASVS 5.0 chapter | Decision | How |
 |---|---|---|
-| Input validation (V5-class) | AD-11, AD-12, AD-19 | typed entry discrimination; size caps on ingestion; injection-suspect flagging at every ingress |
-| Error handling & logging (V7-class) | AD-7, AD-17 | fail-open silent edges; non-droppable audit; fault classes with stable codes |
-| Data protection (V8-class) | AD-3, AD-19 | 0700 stores; redaction before persistence; no telemetry |
-| Secure coding / dependency hygiene (V15-class) | AD-2, AD-25 | two WASM-only deps, no postinstall, no native code; single-writer seams for the dangerous primitives |
-| Configuration (V14-class) | AD-5, AD-20 | tuning in-store with provenance; idempotent init; deinit restores pristine tree |
+| V1 Encoding and Sanitization / V2 Validation and Business Logic | AD-11, AD-19 | marker-based entry discrimination (never content-shape); injection-suspect flagging at every ingress; pointer-only composition |
+| V5 File Handling | AD-12 | size caps on file ingestion (>1 MB / >20k lines path-only, with diagnostic) |
+| V16 Security Logging and Error Handling | AD-7, AD-17 | fail-open silent edges; non-droppable audit; fault classes with stable codes |
+| V14 Data Protection | AD-3, AD-19 | 0700 stores; redaction before persistence; no telemetry |
+| V15 Secure Coding and Architecture | AD-2, AD-25 | two WASM-only deps, no postinstall, no native code; single-writer seams for the dangerous primitives |
+| V13 Configuration | AD-5, AD-20 | tuning in-store with provenance; idempotent init; deinit restores pristine tree |
+
+(Chapter names per ASVS 5.0's own chapter files; the authentication, session
+management, and authorization chapters — V6/V7/V8 in 5.0 — are N/A per spec
+§2.3: no multi-user surface exists.)
 
 ## Traceability matrix
 
@@ -1471,7 +1665,8 @@ criterion is pinned there and its mechanism lives in the named decisions.)
 | D-2…D-41 (all spec-§12 judgments) | Honored where each binds: D-2/D-32→AD-9/AD-10 (blocking model); D-4→AD-18 (⚠ corrected via CLI); D-6→AD-21 (recursion guard as property), D-6bar→AD-14 (combinator); D-7/D-8→AD-13 (corpus floor only, no adoption window); D-9→AD-20/AD-6; D-12→AD-14/AD-18 (no automated uptake judgment; human channel is the calibration input); D-15→AD-12 (with C-6); D-16→AD-16; D-18→AD-14; D-20→AD-16; D-21→AD-21 (degraded mode is runtime posture, not a build stage), D-21b→AD-17 (`log` readback); D-22→AD-17; D-23→ this document's citation discipline (retired IDs never cited as live); D-25→ deferred with FR-L3b (Phase C); D-26→AD-15; D-27→AD-15 (FR-A2g catches *unverified*; general *unfinished* is Phase B's FR-A2m); D-28→AD-14 (hazard path); D-31→AD-23; D-33→AD-2 (revisited and re-affirmed with V7/V8); D-34→AD-16; D-35→AD-9/AD-18; D-36→AD-18; D-37→AD-22; D-38→AD-15; D-39/D-41→AD-9 |
 | AC-1, AC-1a–1d | AD-24 (mechanisms: AD-13, AD-15) |
 | AC-2 | AD-24 (mechanism: AD-10) |
-| AC-2a, AC-2a-i | AD-24 (mechanism: AD-9) |
+| AC-2a | AD-24 (mechanism: AD-9) |
+| AC-2a-i | Split by phase (AD-24): allow-half (subagent not denied; reads/spawns free) Phase A, AD-9; deny-half (a spawn to do other work is denied) Phase B — `Task` is never deny-eligible in Phase A |
 | AC-2a-ii | Deferred — Phase B (spec §14 phasing) |
 | AC-2b; AC-2c's skill-block under-fire clause | Deferred — Phase C (spec §14: "AC-2b and the skill-block (under-fire) clause of AC-2c") |
 | AC-2c — answer-drift clauses | Over-fire (reads/executions not denied): Phase A, AD-24/AD-9. Under-fire (FR-L6 correction records the miss and outranks): Phase A, AD-18. Substantive-vs-deferral discrimination: Phase B per spec §14 |
@@ -1483,15 +1678,21 @@ criterion is pinned there and its mechanism lives in the named decisions.)
 
 ## Limitations and trade-offs
 
-- **L1 — Phase A answer-drift coverage is deliberately low.** The question
-  recognizer catches explicit interrogatives only; the move recognizer denies
-  only mutating file tools; the clear recognizer clears all-prior on any
-  substantive text. Each lean is the spec's own Phase A posture (`D-41`,
-  `FR-B5`), and how little it catches is a Phase A exit *measurement*, not a
-  surprise. The costs: missed questions (under-fire; guard = the human channel
-  + AC-8a line), and a possible wrongful deny when a mixed prompt ("which is
-  better? fix it") legitimately proceeds to edits — escapable by answering
-  first, which is the owner's stated intent for the block (`OL-C3`).
+- **L1 — Phase A answer-drift coverage is deliberately low, and its coverage
+  ledger is explicit.** Intake catches explicit information-seeking
+  interrogatives only and **excludes request-form asks** ("can you fix X?" —
+  enforced not at all in Phase A, since denying the requested action would deny
+  the answer path); the move recognizer denies only mutating file tools; the
+  clear recognizer clears all-prior on any substantive text; a question
+  summarized away by `compact` vanishes (AD-9); the FR-B4 done-claim counter
+  counts only still-open and recently-blanket-cleared questions (its label
+  says so). Each lean is the spec's own Phase A posture (`D-41`, `FR-B5`), and
+  how little the skeleton catches is a Phase A exit *measurement*, not a
+  surprise. The under-fire guard is the human channel (`FR-L6`, including
+  `--missed-question`) plus the AC-8a line; the residual wrongful-deny class —
+  an action-request phrased outside the request pattern, so intake opened it —
+  is escapable by answering first (the owner's stated intent for the block,
+  `OL-C3`) and measured on the wrongful-deny rate.
 - **L2 — The clear recognizer cannot do per-question clearing.** Two questions,
   one answered substantively → both clear in Phase A. AC-2a-ii is a Phase-B
   criterion for exactly this; the Phase A behaviour errs toward clearing
@@ -1500,8 +1701,12 @@ criterion is pinned there and its mechanism lives in the named decisions.)
 - **L3 — Bash is never denied in Phase A.** A drifting agent that "goes off to
   other work" purely through shell commands is not caught. Deliberate: the
   protected class (a test/build run to get the answer) is indistinguishable
-  model-free, and `D-39` makes never-denying it load-bearing. Phase B's
-  judgment narrows this honestly.
+  model-free, and `D-39` makes never-denying it load-bearing. A specific
+  consequence is owned: a denied `Edit` retried as a file-writing `Bash`
+  command sails through — **the deny itself can teach the bypass** — and the
+  deny-loop signal cannot see the one-deny-then-bypass shape, so the
+  `deny_bypass_suspect` diagnostic (AD-9) records it post-hoc for the owner
+  and for Phase B's precision case. Phase B's judgment narrows this honestly.
 - **L4 — Repo-identity residual.** A repository that merges an unrelated
   history after `init` changes its root set and thus its key; `status` shows
   the key and mode so the change is visible; export/import is the recovery.
@@ -1529,12 +1734,20 @@ criterion is pinned there and its mechanism lives in the named decisions.)
   examined the project's own prior artifacts — spec, ledger, historical
   architecture, check tooling — which are the "codebase" this document builds
   on.)
-- **L9 — The spec's C-2 constraint text is stale as of V7.** The requirement is
-  met; the factual note in the spec ("FTS5 NOT in stock node:sqlite",
-  2026-08-16) is superseded by the upstream change verified 2026-08-29. This
-  session updates the spec's C-2 factual note and §9 verification date as a
-  premise-maintenance edit (requirement text unchanged), disclosed in
-  STATUS.md and the PR.
+- **L9 — Two spec factual notes were stale and are synced this session
+  (premise maintenance; requirement text unchanged, disclosed in STATUS.md and
+  the PR).** (a) C-2: "FTS5 NOT in stock node:sqlite" (2026-08-16) is
+  superseded — FTS5 ships from v22.16.0 (V7). (b) The §13 open item on
+  subagent `additionalContext`: the current docs now state it does not reach
+  the parent and name the parent-injection channel (V18) — C-4's assumption is
+  confirmed fact, no longer an unknown.
+- **L10 — Orientation's invariant headline is empty until the owner teaches
+  one.** `invariants` has exactly one Phase A writer — `ctxoracle note` — so on
+  a repo with no recorded invariant the FR-A2a whisper delivers entry points
+  alone (AD-15); `status` shows the invariant count so the empty state is
+  visible rather than mistaken for the genre working. Deterministic invariant
+  *mining* is deliberately absent from Phase A (nothing in the spec's Phase A
+  scope produces it; inventing one now would be unmeasured machinery).
 
 ## Standards governing this architecture
 
@@ -1562,7 +1775,21 @@ pattern-cloning, decision-hiding, standards-decoration, deferred-decision) was
 run — the one deliberate near-trap is the documented divergence *from* the
 historical record (AD-1), which is the opposite of cloning, and the deferred
 items are phase-gated by the spec itself, not ambiguity left to an implementer.
-This document is ready for its **mandatory independent adversarial review**
-(`CLAUDE.md`: dispatched to fresh reviewers, never the author) before any plan
-or build; findings will be applied in full and the review records stored under
-`docs/reviews/`. Next after convergence: the Phase A implementation plan.
+**Review round 1 (2026-08-29) is applied in full.** The mandatory independent
+passes — `docs/reviews/2026-08-29-expert-review-architecture-phase-a.md`
+(NEEDS FIXES: 0 Critical / 4 Serious / 4 Moderate / 5 Minor) and
+`docs/reviews/2026-08-29-collapse-hunt-architecture-phase-a.md` (DOES NOT
+SURVIVE: 5 collapses / 4 partial / 6 notes) — were dispatched blind to each
+other against the first draft; every finding from both was applied (the
+marker-based human-turn discrimination and prompt-field intake; the
+request-form intake exclusion replacing the false "by construction" rationale;
+the no-fetch identity rule; the `symbol_refs` producer and restated Reuse
+headline; the 22.16.0 floor and `VACUUM INTO` export; the cooperative-watchdog
+restatement with the blocking-call inventory and off-path integrity checks;
+the `closed_by_kind` record and honestly-labelled done-claim counter; the
+`deny_despite_answer_text` detector and restored AC-9 induction; the uniform
+table-creation criterion; the ASVS 5.0 renumbering; and the disclosure set
+L1/L3/L9/L10). Convergence is **not** claimed from one round — per the
+project's own convergence discipline, a further independent round attacks the
+*fixes*; the plan waits for a round that finds nothing real. Next after
+convergence: the Phase A implementation plan.
