@@ -1022,3 +1022,34 @@ Serious and four partials, all inside round-5 repair text. Two durable lessons:
    direction is the reverse). The check: a default that resolves an
    incompleteness must be tested against both the members it protects and the
    members whose correct answer is the other way.
+
+## 2026-09-03 — round 7: widening the deny-capable set has its own two miss directions, and "classifies every row" is a claim over the whole input domain
+
+Seventh dual-review round on `docs/architecture-phase-a.md`; evidence in the two
+`docs/reviews/2026-09-03-round-7-*.md` files. Third consecutive zero-collapse
+round (5 → 6 → 1 → 1 → 0 → 0 → 0); one real Serious and one partial, both inside
+the round-6 classifier fixes. Two durable lessons:
+
+1. **When a round widens the deny-capable set, audit the new members for
+   fulfilling-move wrongful denies — not only the gap the change was made to
+   close.** Round 6 seeded "question"/"answer" into the information-object
+   lexicon to *close* an under-enforcement gap (restore the `OL-C3` recourse).
+   The same seed *widened* over-enforcement: it made deny-capable a class whose
+   answer IS a mutation ("can you answer the question in the ticket?"), so the
+   categorical `Edit`-deny wrongfully denies the fulfilling edit. Every round
+   since the deny-capable set began shrinking only shrank it (the safe
+   direction); round 6 was the first to grow it, and the growth's wrongful edge
+   went unaudited — resting on the false soundness universal "mutating the
+   repository does not produce an answer to it." Class: **unverified** (the "two
+   miss directions" lesson sharpened: a set-widening change is audited in both
+   directions, and its soundness rationale is attacked as author text).
+
+2. **A totality claim ("classifies, positively, every opened row") is a claim
+   over the whole input domain, not the cases the last fix enumerated.** The
+   object-head classifier enumerated by cases (wh-complement / info-object /
+   artifact-object / unlisted-object) and silently omitted the *no-object* input
+   ("can you explain?"), leaving the invariant false and an inline decision in
+   the soundness-critical classifier. An enumeration-by-cases is not a proof of
+   totality — when a decision claims to be total, list every reachable input
+   shape and confirm each has a defined, correct output. Class: **wrong-check**
+   (a totality invariant verified against the enumerated cases, not the domain).

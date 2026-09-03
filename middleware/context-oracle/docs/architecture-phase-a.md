@@ -500,10 +500,14 @@ and nothing here depends on the new channel.
                     --  * CHANGE/READ consumers — the edit-set (FR-A2f), the
                     --    changed-regions query (FR-A2g), the read-set (AD-16),
                     --    the Coupling/Reuse triggers, and the FR-L4 re-edit/
-                    --    revert clause (AD-18) — consume 'ok' rows only: a
-                    --    failed Edit is not a change, a failed Read is not a
-                    --    read, and a failed Edit is not a re-edit (counting it
-                    --    would inflate regret).
+                    --    revert clause (AD-18) — consume 'ok' rows only, and
+                    --    read the Edit/Write/Read tool rows only (NOT the Bash
+                    --    path-write rows below): a Bash-written file carries no
+                    --    region granularity and is not a Phase A change-set
+                    --    member — the safe under-detection direction. A failed
+                    --    Edit is not a change, a failed Read is not a read, and
+                    --    a failed Edit is not a re-edit (counting it would
+                    --    inflate regret).
                     --  * RUN-STATE consumers — the FR-A2g run-subtraction, the
                     --    weaker claim's "no recognized run" survey, and the
                     --    class-3 unknown-command scan (AD-15) — consume
@@ -521,7 +525,10 @@ and nothing here depends on the new channel.
                     --    by a path-write predicate on the Bash tool_input
                     --    (redirection > / >>, tee, in-place edit sed -i /
                     --    perl -i, copy/move/install to a path), which sets
-                    --    `path`, distinct from the run-state command_class.
+                    --    `path`; it fires only when that `path` matches the
+                    --    denied action's own target file_path (an uncorrelated
+                    --    write, incl. a redirected test run, does not fire),
+                    --    distinct from the run-state command_class.
    whisper_audit(id, session, consumer, kind CHECK(kind IN ('whisper','deny')),
                  genre, ts, text, evidence_json, confidence, channel,
                  continuation INTEGER DEFAULT 0)            -- FR-X6, non-droppable
@@ -767,14 +774,17 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
      why the login *test* fails?") does not flip an information question to a
      request. For a *communicative-lexicon* verb (answer / tell / explain /
      describe / show / list / clarify / confirm — closed, config-enumerated in
-     `tuning`, tended via `ctxoracle tune`): a wh-complement, or an object
-     whose head is on the **information-object lexicon** (error / output / log
-     / diff / result / value / version / status-class — plus **question /
-     answer**, the object of a meta-answer ask), classifies `kind='info'` —
-     fulfilment is text, which the deny-eligible set can never touch — so
-     "could you tell me why X fails?", "can you show me the error?", and the
-     `OL-C3` escalation re-ask "can you please answer my question?" (object
-     head "question") stay deny-capable. An object whose head is on the
+     `tuning`, tended via `ctxoracle tune`): a wh-complement, **no object at
+     all** (a bare communicative verb once the optional "me/us" is skipped —
+     "can you explain?", "can you clarify?", "can you confirm?", "can you
+     answer?"), or an object whose head is on the **information-object
+     lexicon** (error / output / log / diff / result / value / version /
+     status-class — plus **question / answer**, the object of a meta-answer
+     ask) classifies `kind='info'` — fulfilment is text, which the
+     deny-eligible set can never touch — so "could you tell me why X fails?",
+     "can you show me the error?", "can you explain?", and the `OL-C3`
+     escalation re-ask "can you please answer my question?" (object head
+     "question") stay deny-capable. An object whose head is on the
      **artifact-object lexicon** (demo / test / script / example / branch /
      file / PR-class) classifies `kind='request'` — "can you show me a
      **demo**?" is fulfilled by a build, not text. In Phase A this lexicon is
@@ -874,21 +884,32 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
      classifier runs at *every* opener: prompt-field intake, transcript
      catch-up, and the `--missed-question` correction path (AD-18), which
      routes through the same recognizer rather than bypassing it. So an open
-     deny-capable question is information-seeking wherever it came from;
-     mutating the repository does not produce an answer to it, while every
-     allowed class contains plausible answer-directed members, and `FR-B5`
-     errs toward not denying. The residual wrongful-deny class has **two
-     member shapes**, both opened by intake's clause (i)–(iii) and classified
-     `info` by clause (iv) for want of a request frame: (1) an action-request
-     **phrased outside the request frame entirely** ("mind fixing X?"); and
-     (2) a **rhetorical or idiomatic interrogative** that escapes clause
-     (iii)'s deliberately *small* stoplist ("ugh, why is CI always so
-     flaky??") — a non-request-frame interrogative that opens a deny-capable
-     row against a fulfilling move it never meant to block, often co-prompted
-     with a correctly-framed real request in the same turn. The stoplist is
-     fallible by construction, so this shape is owned, not eliminated. Both are
-     owned in L1, escapable by one answering turn, and measured on the
-     wrongful-deny rate. (This set is a
+     deny-capable question is information-seeking wherever it came from, and
+     `FR-B5` errs toward not denying. The move recognizer is model-free, so it
+     cannot tell a mutation that *is* the answer (an edit-to-test, or a build
+     that answers a request-shaped question) from one that ignores the
+     question: it denies **every** repo mutation while a deny-capable `info`
+     question is open. That over-enforcement against an answer-directed edit is
+     the accepted cost of a model-free recognizer — the exact mirror of L3's
+     `Bash` **under**-enforcement (a drift edit run through `Bash` escapes the
+     deny) — escapable by one answering turn and measured on the wrongful-deny
+     rate; Phase B, with model judgment, is where an answer-directed edit is
+     distinguished from a drift edit. The residual wrongful-deny class
+     therefore has **three member shapes**, all escapable by one answering
+     turn, owned in L1, and measured on the wrongful-deny rate: (1) an
+     action-request **phrased outside the request frame entirely** ("mind
+     fixing X?"), opened by clause (i)–(iii) and classified `info` for want of
+     a request frame; (2) a **rhetorical or idiomatic interrogative** that
+     escapes clause (iii)'s deliberately *small* stoplist ("ugh, why is CI
+     always so flaky??"), often co-prompted with a correctly-framed real
+     request in the same turn — the stoplist is fallible by construction, so
+     this shape is owned and shrunk by tending the stoplist, not eliminated; and
+     (3) an **in-frame `info`
+     question whose fulfilment is an action** — a communicative-verb ask whose
+     object classifies `info` but whose answer is a build ("can you answer the
+     question in the ticket?" where the ticket asks for a feature; "answer
+     whether the null check fixes it", whose answer is the edit-and-test) — the
+     deny falls on the fulfilling edit until one answering turn clears it. (This set is a
      move-classification *mechanism* under `D-41`'s "clearly not
      answer-directed" license, applied only after a question exists — not a
      redefinition of the trigger, which remains `OL-C5`'s owner definition;
@@ -975,10 +996,18 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
    `Edit` retried as a file-writing `Bash` command sails through (L3) — so a
    companion diagnostic, **`deny_bypass_suspect`**, is recorded post-hoc when a
    deny is followed in the same turn by a successful (`'ok'`) file-writing Bash
-   row in `observed_actions` — the write identified by a path-write predicate
-   on the Bash `tool_input` (redirection, `tee`, in-place edit, copy/move to a
-   path), distinct from the run-state `command_class`; a failed write is no
-   bypass. Owner-facing only, feeding the Phase B precision case.
+   row **whose written path is the denied action's own target** — the write
+   identified by a path-write predicate on the Bash `tool_input` (redirection,
+   `tee`, in-place edit, copy/move to a path) that resolves to a path, matched
+   against the denied `Edit`/`Write`'s `file_path`; distinct from the run-state
+   `command_class`, so a redirected test run (`npm test > out.log` — a different
+   path) and any write to an unrelated path do **not** fire it, and a failed
+   write is no bypass. It is a proxy, not a measurement: it still **over-counts**
+   a same-file shell rewrite made for a reason unrelated to the deny and
+   **under-counts** a bypass that writes the denied content to a *different*
+   path — both directions are stated wherever it is surfaced (`status`), never
+   presented as a count of real bypasses. Owner-facing only, feeding the
+   Phase B precision case.
 
    **Question lifetime across session boundaries:** qa-state is scoped to the
    conversation, which the transcript embodies. On `SessionStart` by `source`
@@ -1270,7 +1299,7 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
    | Consequence `FR-A2d` | `PreToolUse` Edit/Write | coupled **test files** of the target (pairs where partner ∈ `test_map`); zone flag of target | historically-coupled tests + zone flag; never a raw call-site count alone |
    | Warning ⚠ `FR-A2e` | `PreToolUse` Edit/Write | `landmines` rows for target (revert_chain, fix_chatter, human_stated) | the hazard with its evidence and **flagged confidence** (`FR-A5a`) |
    | Completeness `FR-A2f` | `Stop` | session's edited files (`observed_actions`) → un-edited partners above ratio floor | "you changed X but not Y, paired in 9 of its last 10 changes" |
-   | Verification `FR-A2g` | `Stop` with done-claim | changed regions (from `outcome='ok'` rows — AD-4's split filter) → `test_map` covering tests, minus test runs observed in `observed_actions` **of either outcome** (a failed run *is* a run — AD-4; a run-and-failed covering test at a done-claim is `FR-A2m`'s Phase B case per `D-27`, and Phase A's duty is only never to assert "not run" over it). The `command_class` classifier is **ternary; classes 1 and 2 are config-enumerated (in `tuning`, AD-5 — tended via `ctxoracle tune`, like every lexicon in this document), class 3 is the default complement** (anything outside both lists — a partial classifier would leave everyday commands with no class and an unstated default, whose unsafe direction re-admits the false "not run"): (1) *recognized test runner* → mapped subtraction (unmappable target ⇒ subtract all); (2) *recognized-innocuous* (a conservative allowlist of command heads that cannot run tests: `ls`, `cd`, `cat`, `git status`-class, `grep`/`rg`, …) → no effect on run-state; (3) everything else → run-state unknown, and **the shipped branch is the weaker honest claim** ("no *recognized* test run touched T; recognized runners: …" — it keeps the genre alive and still headlines the mapping, satisfying AC-8's content assertion), never the strong "not run". **Classification is per pipeline segment**: the command line is split on `&&`, `;`, `\|`, `\|\|` **quote-aware** (operators inside quotes are not split points; quoting the splitter cannot parse → class 3 wholesale; subshell / `sh -c` wrappers → class 3 wholesale); recognized-innocuous requires **every** segment's head on the allowlist; **segments contribute independently** — each runner segment subtracts its run, and any unknown segment still sets run-state unknown (so a runner+unknown compound both subtracts and composes the weak claim); head-matching a compound (`cd pkg && npm test`) as innocuous would re-manufacture the false "not run" (a round-4 finding) | the covering-test **mapping** for the changed region, with the honest run-state clause; run-state never stands alone (AC-8) |
+   | Verification `FR-A2g` | `Stop` with done-claim | changed regions (from `outcome='ok'` rows — AD-4's split filter) → `test_map` covering tests, minus test runs observed in `observed_actions` **of either outcome** (a failed run *is* a run — AD-4; a run-and-failed covering test at a done-claim is `FR-A2m`'s Phase B case per `D-27`, and Phase A's duty is only never to assert "not run" over it). The `command_class` classifier is **ternary; classes 1 and 2 are config-enumerated (in `tuning`, AD-5 — tended via `ctxoracle tune`), class 3 is the default complement** (anything outside both lists — a partial classifier would leave everyday commands with no class and an unstated default, whose unsafe direction re-admits the false "not run"): (1) *recognized test runner* → mapped subtraction (unmappable target ⇒ subtract all); (2) *recognized-innocuous* (a conservative allowlist of command heads that cannot run tests: `ls`, `cd`, `cat`, `git status`-class, `grep`/`rg`, …) → no effect on run-state; (3) everything else → run-state unknown, and **the shipped branch is the weaker honest claim** ("no *recognized* test run touched T; recognized runners: …" — it keeps the genre alive and still headlines the mapping, satisfying AC-8's content assertion), never the strong "not run". **Classification is per pipeline segment**: the command line is split on `&&`, `;`, `\|`, `\|\|` **quote-aware** (operators inside quotes are not split points; quoting the splitter cannot parse → class 3 wholesale; subshell / `sh -c` wrappers → class 3 wholesale); recognized-innocuous requires **every** segment's head on the allowlist; **segments contribute independently** — each runner segment subtracts its run, and any unknown segment still sets run-state unknown (so a runner+unknown compound both subtracts and composes the weak claim); head-matching a compound (`cd pkg && npm test`) as innocuous would re-manufacture the false "not run" (a round-4 finding) | the covering-test **mapping** for the changed region, with the honest run-state clause; run-state never stands alone (AC-8) |
 
    **The done-claim recognizer (`D-38`):** deterministic in Phase A, reading
    `last_assistant_message` (Stop input, V1): a completion-claim lexicon
@@ -1423,8 +1452,13 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
    the three limits the reported miss actually hit** (intake coverage:
    nothing to change, the row exists and is deny-capable; move coverage: a
    Bash-drift miss stays un-deniable per L3; **kind coverage**: the open row
-   is `kind='request'`, tracked but not enforced in Phase A per L1 — the CLI
-   says which, in plain language, instead of implying enforcement changed). The
+   is `kind='request'`, tracked but not enforced in Phase A per L1, and — when that `request` is
+   caused by an unlisted communicative verb or information noun — the CLI names
+   the unrecognized word and offers the exact `tune` command that adds it to
+   the right lexicon (e.g. `ctxoracle tune lexicon.communicative +<verb>`), so
+   the owner closes the L1 under-enforcement loss without having to infer the
+   word. The CLI says which limit was hit, in plain language, instead of
+   implying enforcement changed). The
    human channel outranks the recognizer without ever bypassing the one
    deny-eligibility invariant (`FR-L6`, `FR-B5`'s under-fire guard for this
    block, AC-2c's answer-drift under-fire clause; a bypassing opener was a
@@ -1519,11 +1553,13 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
    routes to the project store per `FR-L7`), **`tune <key> <value>`** (the
    plain-language writer for every tunable this document marks: **numbers**
    (`tune <key> <n>`) and **list-valued lexicon keys** — the communicative-verb,
-   information-object, and command-classification lexicons — edited with
-   add/remove element semantics (`tune lexicon.communicative +summarize` /
-   `-summarize`), the surface the owner uses to shrink the under-enforcement
-   losses clause (iv) and L1 name; every tunable this document marks has a
-   writer here. `tune` with no arguments lists the keys, their current values
+   information-object, and command-classification lexicons and the
+   rhetorical/idiom stoplist (`lexicon.stoplist`) — edited with add/remove
+   element semantics (`tune lexicon.communicative +summarize` / `-summarize`;
+   `tune lexicon.stoplist +"why is ci always so flaky"`), the surface the owner
+   uses to shrink the under-enforcement losses clause (iv) and L1 name and the
+   over-enforcement stoplist misses the deny residual names; every tunable this
+   document marks has a writer here. `tune` with no arguments lists the keys, their current values
    (list keys show their members), and their defaults), `export <file>`
    / `import <file>`, `hook <event>` (the internal entry; undocumented in
    help). `init` is idempotent; re-running repairs wiring. All output is plain
@@ -1716,13 +1752,21 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
      "can you show me a **prototype**?" → `request` (unlisted object noun fails
      safe); "could you tell me why the login **test** fails?" → `info` (the
      wh-complement takes precedence over the artifact noun inside it); "could
-     you confirm the version number?" → `info` (information-lexicon object));
+     you confirm the version number?" → `info` (information-lexicon object);
+     "can you **explain?**" → `info` (object-less communicative verb —
+     deny-capable, so the object-bearing and object-less siblings are both
+     pinned); "can you answer the question in the **ticket**?" (the ticket asks
+     for a feature) → `info` → the fulfilling `Edit` is **wrongfully denied
+     once**, cleared by one text turn and counted on the wrongful-deny rate —
+     the third residual member (an in-frame `info` question whose fulfilment is
+     an action), the over-enforcement mirror of the "answer my question" row));
      **failed actions, change/read consumers, and the bypass diagnostic** (a
      failed `Edit` appears in no Completeness/Verification changed-regions
      computation and records no re-edit regret row — AD-4's split filter,
-     `'ok'`-only for both; a successful (`'ok'`) file-writing Bash command in
-     the same turn as a deny raises `deny_bypass_suspect`, a failed one does
-     not); **run-state honesty and compound composition** (a session of
+     `'ok'`-only for both; a successful (`'ok'`) file-writing Bash command
+     **writing the denied action's own target** in the same turn as a deny
+     raises `deny_bypass_suspect`; a failed write, and a redirected test run
+     `npm test > out.log` writing an *unrelated* path, do **not**); **run-state honesty and compound composition** (a session of
      innocuous commands still fires the strong "not run" clause; a session
      containing `make check` composes only the weaker recognized-runners claim;
      a covering test **run-and-failed** (`PostToolUseFailure` row) at a
@@ -1791,7 +1835,12 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
    (fail-open) with a `store_busy` diagnostic. The detached reindex takes a
    directory lock; the handler never waits on it (staleness merely lowers
    confidence meanwhile, `FR-K7`). Audit-before-emit ordering (AD-8) holds per
-   process; ids are ULIDs so concurrent writers never collide.
+   process; ids are ULIDs so concurrent writers never collide. The
+   `whisper_stats` fold (AD-5) reads its project watermark, aggregates the rows
+   newer than it, and advances that watermark inside a **single `BEGIN
+   IMMEDIATE` transaction**, so two concurrent same-project folds cannot both
+   read the old mark and double-count the same `sent` rows — the second
+   serializes behind the first and sees the advanced watermark.
 2. **Standard.** SQLite WAL semantics (readers don't block the writer; one
    writer at a time) — engine-documented behaviour exercised by the V8 probe;
    `FR-O3` for the give-up path.
@@ -2054,11 +2103,17 @@ criterion is pinned there and its mechanism lives in the named decisions.)
   the rhetorical/idiom stoplist is the one list whose incompleteness fails the
   *other* way — see the residual below). **Enforced
   (`kind='info'`):** bare interrogatives, and communicative-verb request
-  forms with a wh-complement or an information-lexicon object ("could you
-  tell me why…?", "can you show me the error?"), including the meta-answer
-  escalation re-ask "can you please answer my question?" (object head
-  "question" is an information object, so the `OL-C3` recourse re-arms). The
-  move recognizer denies only mutating file tools; the clear
+  forms with a wh-complement, **no object at all** ("can you explain?"), or an
+  information-lexicon object ("could you tell me why…?", "can you show me the
+  error?"), including the meta-answer escalation re-ask "can you please answer
+  my question?" (object head "question" is an information object). The `OL-C3`
+  recourse therefore re-arms in Phase A for a bare re-ask, an object-less
+  communicative re-ask, and a "question"/"answer"-object ask; a *framed* re-ask
+  whose object is an unlisted noun or whose verb is non-communicative ("can you
+  answer **this**?", "can you **respond**?") classifies `request` and does not
+  re-arm — under-enforced until `--missed-question` or Phase B's
+  model-maintained state. The move recognizer denies only mutating file tools;
+  the clear
   recognizer clears all-prior on any substantive text — request rows
   included, so a blanket-cleared request leaves the counter's recency clause
   as its only trace; a question summarized away by `compact` vanishes (AD-9);
@@ -2067,16 +2122,20 @@ criterion is pinned there and its mechanism lives in the named decisions.)
   `FR-B5`), and how little the skeleton catches is a Phase A exit
   *measurement*, not a surprise. The under-fire guard is the human channel
   (`FR-L6`, including `--missed-question`, which classifies like every
-  opener) plus the AC-8a line. **The wrongful-deny residual has two member
-  shapes**, both classified `info` for want of a request frame, both escapable
-  by answering first (the owner's stated intent for the block, `OL-C3`) and
-  measured on the wrongful-deny rate: (1) the action-request phrased outside
-  the request frame entirely ("mind fixing X?"); and (2) a rhetorical or
-  idiomatic interrogative that escapes clause (iii)'s small stoplist ("ugh,
-  why is CI always so flaky??"), which opens a deny-capable row against a
-  fulfilling move — often a real request co-prompted in the same turn. The
-  stoplist is fallible by construction, so the second shape is owned and
-  shrunk by tending the stoplist, not eliminated.
+  opener) plus the AC-8a line. **The wrongful-deny residual has three member
+  shapes**, all escapable by answering first (the owner's stated intent for the
+  block, `OL-C3`) and measured on the wrongful-deny rate: (1) the
+  action-request phrased outside the request frame entirely ("mind fixing X?"),
+  classified `info` for want of a request frame; (2) a rhetorical or idiomatic
+  interrogative that escapes clause (iii)'s small stoplist ("ugh, why is CI
+  always so flaky??"), which opens a deny-capable row against a fulfilling move,
+  often a real request co-prompted in the same turn — the stoplist is fallible
+  by construction, so this shape is owned and shrunk by tending the stoplist
+  (`lexicon.stoplist`, via `tune`), not eliminated; and (3) an in-frame `info`
+  question whose fulfilment is an action ("can you answer the question in the
+  ticket?"; "answer whether the null check fixes it") — the model-free move
+  recognizer denies the fulfilling edit, the mirror of `Bash` under-enforcement
+  (L3), until one answering turn clears it (AD-9).
 - **L2 — The clear recognizer cannot do per-question clearing.** Two questions,
   one answered substantively → both clear in Phase A. AC-2a-ii is a Phase-B
   criterion for exactly this; the Phase A behaviour errs toward clearing
@@ -2106,7 +2165,10 @@ criterion is pinned there and its mechanism lives in the named decisions.)
   individually-shipped grammar WASMs without redesign (C-6). Two consequences
   for the Reuse genre: `symbol_refs` is an **identifier-match heuristic**
   whose false-positive class (same-named symbols, matches in comments and
-  strings) is stated in every whisper's evidence and capped in confidence;
+  strings) is stated in every whisper's evidence and capped in confidence (the
+  cap held at or above the Reuse confidence floor of AD-14, so a
+  same-name-inflated candidate still *fires* with the caveat rather than being
+  silently dropped below the floor);
   and in a mixed-language repo, symbols from generic-frontend languages have
   no `import_edges`, so a dominance comparison would systematically favor
   grammar-covered candidates — which is why AD-15 claims no crown over an
@@ -2334,3 +2396,31 @@ and four partials, so the terminal definition (a round that finds nothing
 real) is unmet, and the round-6 fixes are themselves unattacked. The next
 action on this document is a round-7 pair attacking the round-6 fixes, then (on
 a clean round) approval and the Phase A implementation plan.
+
+**Review round 7 (2026-09-03) is applied in full.** The seventh independent
+pair — `docs/reviews/2026-09-03-round-7-expert-review-architecture-phase-a.md`
+(NEEDS FIXES: 0 Critical / 1 Serious / 1 Moderate / 1 Minor) and
+`docs/reviews/2026-09-03-round-7-collapse-hunt-architecture-phase-a.md` (DOES
+NOT SURVIVE: **0 collapses** / 1 partial / 7 notes — the third consecutive
+zero-collapse round; trajectory 5 → 6 → 1 → 1 → 0 → 0 → 0) — attacked the
+round-6 fixes as author text, closing all nine round-6 findings at their named
+sites; the findings-count trajectory is 8 → 5 → 3. Applied: a **no-object
+communicative verb** ("can you explain?", "can you answer?") now classifies
+`info`, making clause (iv) total over its input domain and restoring the `OL-C3`
+recourse for the object-less phrasing class; the wrongful-deny residual
+re-opened to a **third member shape** — an in-frame `info` question whose
+fulfilment is an action ("can you answer the question in the ticket?") — with
+the false soundness universal "mutating the repository does not produce an
+answer to it" replaced by an honest over-enforcement disclosure mirroring L3's
+`Bash` under-enforcement; `tune` extended to the rhetorical/idiom stoplist
+(`lexicon.stoplist`) so the shape-(2) mitigation is deliverable, and AD-15's
+"every lexicon" universal corrected; `deny_bypass_suspect` correlated with the
+denied target (a redirected test run no longer fires it) and disclosed with
+both error directions; the CHANGE/READ consumers scoped to `Edit`/`Write` rows;
+`--missed-question` extended to name the untended word and its `tune` command;
+and the same-name cap-vs-floor relation and the fold's `BEGIN IMMEDIATE`
+atomicity stated. **Convergence has not been formally reached** — round 7 found
+a real Serious and one partial, so the terminal definition (a round that finds
+nothing real) is unmet, and the round-7 fixes are themselves unattacked. The
+next action on this document is a round-8 pair attacking the round-7 fixes, then
+(on a clean round) approval and the Phase A implementation plan.
