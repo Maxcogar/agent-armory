@@ -989,3 +989,64 @@ Four dual-review rounds (expert review + collapse-hunt, blind pairs) on
    re-edit clause), so the corollary is: **an enumeration offered as a
    terminating repair is itself the first thing the next round verifies for
    completeness.** Class: **wrong-check**, thrice.
+
+## 2026-08-29 — narrowing the discovery-test corpus to known problem types (caught by Max Cogar)
+
+Caught in-session, in the design discussion that produced IDEAS.md #14
+(discovery-mode real-transcript replay). No review artifact — the collapse and
+its catch are the conversation itself; this entry is the durable record so the
+trap does not reach the agent who eventually builds the test harness.
+
+**The collapse.** Discussing how to test/train the oracle by replaying real
+past session transcripts, the agent (this session) argued that raw replay
+volume "pays off through what you extract from it" and that the corpus should
+be **indexed around the problem boundaries you already care about** (sessions
+where a done-claim preceded an unrun test, etc.). Max Cogar rejected it: *"if I
+only use transcripts where I can query them for known problem types, then I'm
+fully missing the ones with unknown problem types. The entire point of this is
+that we don't know everything. So testing based only on what we already know we
+want to find is a fundamental failure of testing as a whole."* Class:
+**reduction** (+ **wrong-check**).
+
+**Why it is a collapse — and why it is worse for *this* tool than for most.**
+It collapses the deliberately broad purpose of *discovery* testing — surfacing
+problem classes nobody has named yet — into *confirming* the classes already
+named. That is the generic testing error (you cannot discover an unknown-unknown
+with a filter built from your known-knowns; if you already had the taxonomy you
+would not need a discovery phase). But it is **specifically self-contradictory
+here**, because the oracle's entire reason to exist is unknown-unknowns —
+`RETHINK.md` §3 defines it as the thing that "answers the question you didn't
+know to ask." A test methodology blind to unknown-unknowns cannot validate a
+tool whose whole value *is* unknown-unknowns. Testing it that way would grade
+the oracle on exactly the axis it is not for.
+
+**The lesson (mandatory for whoever designs the oracle's test/replay harness).**
+Testing has two phases with **opposite** relationships to the problem taxonomy,
+and they must not be conflated:
+1. **Discovery (first, taxonomy-*blind*).** Its job is to *produce* the
+   taxonomy. The corpus stays wide, unfiltered, and un-pre-classified on
+   purpose. You do **not** select or index it by known problem types — doing so
+   is this collapse. Discovery still needs *structure to be reviewable* (you
+   cannot eyeball a million events), but the only admissible structure is
+   **anomaly/surprise-oriented and taxonomy-free**: divergence (deterministic
+   proposer vs. model ranker disagree; two runs of one session disagree),
+   distributional outliers (an event type firing far more/less than its
+   neighbours; a session that fired on nearly everything or went dead silent),
+   and self-announcing failures (crashes, parse errors, latency spikes,
+   whispers whose pointers don't resolve). None of those presuppose the failure
+   class; they only concentrate a human's open-ended read onto the events most
+   likely to hide a new one. That open read is where new classes get *named*.
+2. **Regression (later, taxonomy-*bound*).** Only after discovery has named a
+   class does it graduate into a targeted, reproducible fixture. This is where
+   indexing-by-known-type is correct — and it is exactly what AD-24's synthetic
+   planted-history fixtures already are.
+
+**The tell for a future agent.** Any move that makes the discovery corpus
+smaller, cleaner, or pre-sorted by *what you expect to find* is this collapse
+wearing an efficiency costume. Breadth and taxonomy-blindness in the discovery
+phase are load-bearing, not wasteful; the value that looks like "noise" is the
+unnamed-problem surface. Narrowing it does not tighten the test — it deletes the
+only part that could find what you don't yet know to look for. This is the same
+**reduction** shape flagged as this project's most damaging recurring failure
+(RETHINK §12 dec. 12 correction: agents collapsing a deliberately broad tool
+onto one purpose) — here it recurred one level up, in how the tool is *tested*.
