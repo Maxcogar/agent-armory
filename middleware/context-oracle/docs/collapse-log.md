@@ -989,3 +989,36 @@ Four dual-review rounds (expert review + collapse-hunt, blind pairs) on
    re-edit clause), so the corollary is: **an enumeration offered as a
    terminating repair is itself the first thing the next round verifies for
    completeness.** Class: **wrong-check**, thrice.
+
+## 2026-09-03 — round 6: a fix must land where the finding named, and a default flip has two miss directions
+
+Sixth dual-review round on `docs/architecture-phase-a.md`; evidence in the two
+`docs/reviews/2026-09-03-*architecture-phase-a.md` files. Second consecutive
+zero-collapse round (collapse trajectory 5 → 6 → 1 → 1 → 0 → 0); one real
+Serious and four partials, all inside round-5 repair text. Two durable lessons:
+
+1. **A fix that names a location must land at that exact location, not one
+   decision away.** Round 5's tenth-reader fix stated the re-edit clause's
+   outcome semantics at the reader's own site (AD-18) but not in AD-4's
+   CONSUMER FILTER — the canonical enumeration whose completeness the
+   2026-08-29 corollary makes the deliverable — so the enumeration was still
+   one reader short on audit. Round 5's per-project-watermark fix updated the
+   `global_meta` comment but left its operative sibling, the `whisper_stats`
+   WRITER comment, describing the bare global watermark an implementer would
+   build from — re-encoding the exact stranding bug the fix removed. Class:
+   **wrong-check** + unapplied sub-clause. The check: when a finding names
+   *where* the defect lives ("add to the filter", "sync the comment",
+   "per-project"), re-read that exact sentence after the fix, not only the
+   decision that owns the mechanism.
+
+2. **A default flip closes one miss direction and can open the opposite one.**
+   Round 5 flipped the unlisted-object classification default to `request` to
+   stop wrongly denying build-fulfilled unlisted nouns ("show me a
+   prototype?"). The same flip swept the escalation re-ask "can you please
+   answer my question?" (object head "question", also unlisted) into `request`,
+   disarming the `OL-C3` recourse — a regression on the *opposite*
+   (under-enforcement) axis. Class: **unverified** (a default's safe direction
+   asserted for the whole class without checking the members whose safe
+   direction is the reverse). The check: a default that resolves an
+   incompleteness must be tested against both the members it protects and the
+   members whose correct answer is the other way.
