@@ -761,21 +761,32 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
    err toward not denying — here, toward not *opening*). It opens a question
    for a sentence that (i) ends with `?`, (ii) is outside code fences and
    quoted blocks, and (iii) is not matched by a small rhetorical/idiom
-   stoplist. Clause (iv) then **classifies, positively, every opened row**,
-   and its rules and defaults are stated with their error directions, because
-   this classification is where the block's soundness lives — a
-   mis-classification either disarms the recourse or wrongfully denies a
-   fulfilling move:
+   stoplist. Clause (iv) then assigns a **conservative best-effort classification to
+   every opened row** — a model-free recognizer, not an exact parser: it labels
+   every row but does not assert the label is always correct. Its rules and
+   defaults are stated with their error directions and chosen so a
+   mis-classification is **safe** — a mis-parse lands either on the
+   under-enforced `request` side (`FR-B5`'s err-toward-not-denying) or, if it
+   routes to `info`, into the owned wrongful-deny residual (the deny rationale
+   below). This is the spec's conservative, low-coverage Phase A skeleton
+   (`D-41`, §11.5): coverage is *measured at exit*, never asserted complete:
    - A **non-request-frame** interrogative ("why does X fail?", "did you run
      the tests?") classifies `kind='info'` — deny-capable.
    - A **request-frame** interrogative ("can/could/will/would/please … you …"
      + verb) classifies by its verb, and — for communicative verbs — by the
      verb's **direct object**. The object is the noun phrase **immediately
      following the verb** (skipping an optional "me/us"); its **head is the
-     rightmost noun** of that phrase — attributive modifiers are ignored ("the
-     version number" → "number", "the test results" → "results") — and only the
-     head is matched against the lexicons (never a bag-of-words scan, so an
-     incidental listed modifier does not classify the object). A
+     rightmost noun of the *base* noun phrase** — attributive modifiers fold
+     left ("the version number" → "number", "the test results" → "results") and
+     any **post-head modifier** (a prepositional phrase or relative clause) is
+     set aside ("the question in the ticket" → "question", "the file with the
+     error" → "file"). Only the head is matched against the lexicons — never a
+     bag-of-words scan — and the match folds simple inflection, so a plural or
+     possessive form hits the same entry ("questions"/"question",
+     "answers"/"answer"). This head extraction is a **conservative model-free
+     heuristic, not an exact parse**: where it mis-identifies a head the error
+     is safe by the branch defaults (unlisted → `request`, under-enforced; a
+     mis-route to `info` falls into the owned residual). A
      **wh-complement** ("why…", "how…", "whether…") takes precedence over any
      noun inside it, so an artifact noun sitting inside a wh-clause ("tell me
      why the login *test* fails?") does not flip an information question to a
@@ -795,7 +806,7 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
      please answer my question?" stay deny-capable; where the fulfilment is
      instead a repo mutation ("can you show me [a demo]?", "answer the question
      in the ticket"), the categorical `Edit`-deny falls on that mutation — the
-     owned over-enforcement residual (member (3), the deny rationale below). An
+     owned over-enforcement residual (the deny rationale below). An
      object whose head is on the **artifact-object lexicon** (demo / test /
      script / example / branch / file / PR-class) classifies `kind='request'` —
      "can you show me a **demo**?" is fulfilled by a build, not text. In Phase A
@@ -814,8 +825,8 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
      top-level verb is communicative and its own object/complement classifies
      `info` (or is object-less), else `kind='request'`. When it opens `info`
      the block arms and the co-asked repo action is subject to the deny: an
-     owned over-enforcement residual member (member (3), the deny rationale
-     below), escapable by answering first.
+     owned member of the wrongful-deny residual class (the deny rationale
+     below), escapable by answering — or stating a plan — first.
    - The **request-frame remainder** — any non-communicative verb ("can you
      **rename** the helper?", "can you **fix** X?") — is `kind='request'`:
      the safe, `FR-B5`-faithful direction (a wrongful deny on the requested
@@ -912,28 +923,27 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
      `Bash` **under**-enforcement (a drift edit run through `Bash` escapes the
      deny) — escapable by one answering turn and measured on the wrongful-deny
      rate; Phase B, with model judgment, is where an answer-directed edit is
-     distinguished from a drift edit. The residual wrongful-deny class
-     therefore has **three member shapes**, all escapable by one answering
-     turn, owned in L1, and measured on the wrongful-deny rate: (1) an
-     action-request **phrased outside the request frame entirely** ("mind
-     fixing X?"), opened by clause (i)–(iii) and classified `info` for want of
-     a request frame; (2) a **rhetorical or idiomatic interrogative** that
-     escapes clause (iii)'s deliberately *small* stoplist ("ugh, why is CI
-     always so flaky??"), often co-prompted with a correctly-framed real
-     request in the same turn — the stoplist is fallible by construction, so
-     this shape is owned and shrunk by tending the stoplist, not eliminated; and
-     (3) **any in-frame ask that classifies `info`
-     (deny-capable) but whose fulfilment — or a co-asked action — is a repo
-     mutation.** This is one class, however the `info` label arose: an
-     info-object ask whose answer is a build ("can you answer the question in
-     the ticket?" where the ticket asks for a feature), a wh-complement ask
-     whose answer is an edit ("answer whether the null check fixes it"), an
-     **object-less** `show`/`list` ask whose fulfilment is a build ("can you
-     show me?" meaning show a demo), or a **coordinated** ask pairing an `info`
+     distinguished from a drift edit. The residual wrongful-deny class is
+     **one open class, defined by a property, not an enumeration**: a row the
+     recognizer classified `info` (deny-capable) coexists in the turn with a
+     repo mutation that legitimately serves the user's intent — because the
+     ask's own fulfilment *is* that mutation, or a real action was co-asked
+     alongside the question. Every such deny is escapable by one answering — or
+     plan-stating — turn, owned in L1, and measured on the wrongful-deny rate.
+     Its recognizable forms are **illustrations of the property, not members to
+     complete**: an action-request the recognizer mis-framed as `info` for want
+     of a request frame ("mind fixing X?"); a rhetorical or idiomatic
+     interrogative that escaped clause (iii)'s deliberately *small* stoplist
+     ("ugh, why is CI always so flaky??"), often co-prompted with a real
+     request — the stoplist is fallible, so this form is owned and shrunk by
+     tending the stoplist, not eliminated; an `info`-object, wh-complement, or
+     object-less ask whose answer is a build ("answer the question in the
+     ticket" where the ticket asks for a feature; "answer whether the null check
+     fixes it"; "show me [a demo]"); and a coordinated ask pairing an `info`
      question with an action co-ask ("show me the error **and** fix the bug").
-     In every case the model-free recognizer denies the mutation that is (or
-     provides) the answer, until one answering turn clears it — complete as a
-     *class*, not an enumeration of phrasings. (This set is a
+     A new phrasing, or a head-heuristic mis-route, that lands an `info` row
+     beside a legitimate mutation is *the same class*, not a new member — the
+     model-free recognizer denies the mutation until one clearing turn. (This set is a
      move-classification *mechanism* under `D-41`'s "clearly not
      answer-directed" license, applied only after a question exists — not a
      redefinition of the trigger, which remains `OL-C5`'s owner definition;
@@ -1710,7 +1720,10 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
 
 1. **Decision.** `node:test` suites in three tiers:
    - **Unit:** recognizers (question/clear/move/done-claim lexicons and the
-     info/request classifier against a labeled corpus), bar arithmetic,
+     info/request classifier against a labeled corpus **derived from the
+     clause-(iv) rules — the corpus illustrates the heuristic, it is not an
+     independent oracle, so a row can never contradict the rule that produces
+     it**), bar arithmetic,
      redactor, repo-key rule (full vs shallow fixtures — V13's scenario
      reproduced in a purpose-built pair), reader discrimination (V12 shapes,
      including the marker-absent probe-mode shape).
@@ -1791,11 +1804,11 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
      the object-bearing and object-less siblings are both pinned); "can you
      answer the question in the **ticket**?" (the ticket asks for a feature) →
      `info` → the fulfilling `Edit` is **wrongfully denied once**, cleared by
-     one text turn and counted on the wrongful-deny rate — residual member (3)
-     (an `info`-classified ask whose fulfilment is a mutation); and the
-     **coordinated** "can you answer my question **and** fix the bug?" → `info`
-     (a top-level communicative-`info` verb) → the co-asked fix-`Edit` is
-     wrongfully denied once, also residual member (3) — the over-enforcement
+     one text turn and counted on the wrongful-deny rate — the wrongful-deny
+     residual class (an `info`-classified ask whose fulfilment is a mutation);
+     and the **coordinated** "can you answer my question **and** fix the bug?"
+     → `info` (a top-level communicative-`info` verb) → the co-asked fix-`Edit`
+     is wrongfully denied once, also the residual class — the over-enforcement
      mirror of the "answer my question" row));
      **failed actions, change/read consumers, and the bypass diagnostic** (a
      failed `Edit` appears in no Completeness/Verification changed-regions
@@ -2161,25 +2174,25 @@ criterion is pinned there and its mechanism lives in the named decisions.)
   `FR-B5`), and how little the skeleton catches is a Phase A exit
   *measurement*, not a surprise. The under-fire guard is the human channel
   (`FR-L6`, including `--missed-question`, which classifies like every
-  opener) plus the AC-8a line. **The wrongful-deny residual has three member
-  shapes**, all escapable by answering first (the owner's stated intent for the
-  block, `OL-C3`) and measured on the wrongful-deny rate: (1) the
-  action-request phrased outside the request frame entirely ("mind fixing X?"),
-  classified `info` for want of a request frame; (2) a rhetorical or idiomatic
-  interrogative that escapes clause (iii)'s small stoplist ("ugh, why is CI
-  always so flaky??"), which opens a deny-capable row against a fulfilling move,
-  often a real request co-prompted in the same turn — the stoplist is fallible
-  by construction, so this shape is owned and shrunk by tending the stoplist
-  (`lexicon.stoplist`, via `tune`), not eliminated; and (3) **any in-frame ask
-  that classifies `info` (deny-capable) but whose fulfilment or a co-asked
-  action is a repo mutation** — an info-object or wh-complement ask whose answer
-  is a build ("can you answer the question in the ticket?"), an object-less
-  `show`/`list` build-ask, or a coordinated `info`-plus-action ask ("show me the
-  error and fix the bug") — the model-free recognizer denies the mutation that
-  is (or provides) the answer, the mirror of `Bash` under-enforcement (L3),
-  until one answering turn clears it (AD-9). Shape (3) is a *class*, not a
-  phrasing list, so lexicon or parse gaps that route more asks to `info` fall
-  into it rather than adding a fourth shape.
+  opener) plus the AC-8a line. **The wrongful-deny residual is one open
+  class**, defined by a property: a row classified `info` (deny-capable)
+  coexists in the turn with a repo mutation that legitimately serves the user's
+  intent — the ask's own fulfilment is that mutation, or a real action was
+  co-asked with the question. Every such deny is escapable by answering — or
+  stating a plan — first (the owner's stated intent for the block, `OL-C3`) and
+  measured on the wrongful-deny rate. Its recognizable forms are illustrations,
+  not members to complete: the action-request phrased outside the request frame
+  ("mind fixing X?"), classified `info` for want of a frame; a rhetorical or
+  idiomatic interrogative that escapes clause (iii)'s small stoplist ("ugh, why
+  is CI always so flaky??"), often co-prompted with a real request — the
+  stoplist is fallible, owned and shrunk by tending it (`lexicon.stoplist`, via
+  `tune`), not eliminated; an `info`-object, wh-complement, or object-less ask
+  whose answer is a build ("answer the question in the ticket"; "show me
+  [a demo]"); and a coordinated `info`-plus-action ask ("show me the error and
+  fix the bug"). A new phrasing, or a head-heuristic mis-route, that lands an
+  `info` row beside a legitimate mutation is *the same class*, not a fourth
+  shape — the model-free recognizer denies the mutation, the mirror of `Bash`
+  under-enforcement (L3), until one clearing turn (AD-9).
 - **L2 — The clear recognizer cannot do per-question clearing.** Two questions,
   one answered substantively → both clear in Phase A. AC-2a-ii is a Phase-B
   criterion for exactly this; the Phase A behaviour errs toward clearing
@@ -2504,3 +2517,36 @@ definition is unmet and the round-8 fixes are themselves unattacked; the finding
 count plateaued, so the tripwire's count condition is armed for round 9. The
 next action on this document is a round-9 pair attacking the round-8 fixes, then
 (on a clean round) approval and the Phase A implementation plan.
+
+**Review round 9 (2026-09-03) is applied in full — as a foundational reframe,
+not a fourth patch.** The ninth independent pair —
+`docs/reviews/2026-09-03-round-9-expert-review-architecture-phase-a.md` (NEEDS
+FIXES: 0 Critical / 1 Serious / 1 Moderate / 1 Minor) and
+`docs/reviews/2026-09-03-round-9-collapse-hunt-architecture-phase-a.md` (DOES
+NOT SURVIVE: **0 collapses** / 1 partial / 3 notes — the fifth consecutive
+zero-collapse round) — attacked the round-8 fixes as author text. The finding
+count held at 3 (8 → 5 → 3 → 3 → 3), firing the non-convergence tripwire's count
+condition: the answer-drift classifier had been found incomplete a new way for
+four straight rounds (R6–R9), and round 8's "specify it completely once" attempt
+itself introduced R9-S1. Both passes prescribed the same thing, and it is what
+spec `D-41`/§11.5 ask of Phase A: **stop asserting a totality/completeness a
+model-free recognizer cannot meet.** Applied: clause (iv) is demoted to a
+**conservative best-effort classification** whose mis-parses are *safe by
+construction* (a mis-parse lands on the under-enforced `request` side or in the
+owned residual), coverage measured at exit, not asserted; the object-head
+heuristic is refined (the rightmost noun of the *base* noun phrase — post-head
+PP/relative modifiers set aside, so "the question in the ticket" → "question";
+inflection folded, so "questions" matches "question") and framed as a heuristic
+whose errors are owned, not a rule requiring an exact parse; the wrongful-deny
+residual is collapsed from a growing "N member shapes" enumeration into **one
+open class defined by a property** (an `info`-classified row coexisting in the
+turn with a mutation that legitimately serves the user's intent),
+frame-independent, its forms now illustrations rather than members to complete —
+so a new phrasing or a head mis-route is *the same class*, ending the P1-lineage
+recurrence at its root; and the AC-24 corpus is made **derived from the rules**
+(illustrative, not an independent oracle a row can contradict). The residual's
+escape is widened to "answer or state a plan first". **Convergence has not been
+formally reached** — the reframe is itself unattacked. The next action is a
+round-10 pair attacking the round-9 reframe — the test of whether returning the
+classifier to a conservative skeleton finally converges. On a clean round,
+approval and the Phase A implementation plan.

@@ -9,67 +9,72 @@ lessons in `docs/collapse-log.md`, and everything attributed to Max Cogar in
 
 The spec (`docs/specs/spec-context-oracle.md`) is signed off (`OL-C6`,
 2026-08-28). The Phase A architecture document (`docs/architecture-phase-a.md`)
-has been through **eight full rounds** of the mandatory independent adversarial
+has been through **nine full rounds** of the mandatory independent adversarial
 review — each round a fresh expert review (premise/standards axis) plus a fresh
 collapse-hunt (mission-fidelity axis), dispatched blind to each other and never
 to the author. Every finding from every round has been applied in full; all
-sixteen review files live under `docs/reviews/` (rounds 1–5 dated 2026-08-29,
-rounds 6–8 dated 2026-09-03).
+eighteen review files live under `docs/reviews/` (rounds 1–5 dated 2026-08-29,
+rounds 6–9 dated 2026-09-03).
 
-**Round 8 (2026-09-03):**
+**Round 9 (2026-09-03) — the tripwire fired, and round 9 was applied as a
+foundational reframe, not a fourth patch.**
 
 - Expert review — NEEDS FIXES: 0 Critical / 1 Serious / 1 Moderate / 1 Minor.
-- Collapse-hunt — DOES NOT SURVIVE: 0 collapses / 1 partial / 5 notes (the fourth
+- Collapse-hunt — DOES NOT SURVIVE: 0 collapses / 1 partial / 3 notes (the fifth
   consecutive zero-collapse round).
-- Findings count: 8 → 5 → 3 → **3** (plateaued after three straight decreases —
-  the first non-decrease). Collapse-class: 5 → 6 → 1 → 1 → 0 → 0 → 0 → 0. The
-  non-convergence tripwire has NOT fired, but its count condition is now **armed**:
-  if round 9's total is not below 3, it fires.
+- Finding count: 8 → 5 → 3 → 3 → **3**. The non-convergence tripwire's count
+  condition (total findings not strictly decreasing for two consecutive rounds)
+  **fired** for the first time.
 
-All three round-8 defects were in the **answer-drift classifier** — the same
-component rounds 6, 7, and 8 each found incomplete in a new way. That pattern
-(a component found incomplete a different way each round) was itself the signal:
-the classifier was being patched input-by-input rather than specified once. So
-round 8 was applied as a **specification completion**, not another patch:
+For four straight rounds (6–9), the answer-drift classifier was found incomplete
+a *new* way each round — a seeded object class, a missing no-object case, an
+undefined compound/coordinated parse, and now a post-head-PP parse plus a
+corpus row that contradicted its own rule. Round 8's "specify it completely,
+once" attempt itself over-claimed and introduced round 9's Serious. Both round-9
+passes prescribed the same thing, and it is what spec `D-41`/§11.5 actually asks
+of Phase A — **a conservative, low-coverage skeleton whose coverage is measured
+at exit, not a classifier asserting a totality a model-free recognizer cannot
+meet.** So round 9 demoted the over-claims rather than patching again:
 
-- Clause (iv) now carries an explicit **object-head-extraction rule** (the head
-  is the rightmost noun of the object phrase; attributive modifiers ignored; the
-  head alone matched, never a bag-of-words scan) and a **coordinated-verb rule**
-  (an ask with more than one top-level verb is `info` when any top-level verb is
-  communicative-and-`info`). The "version number → info" corpus row that
-  contradicted the head-noun rule is re-pinned to the rule.
-- The wrongful-deny residual's member (3) is **generalized to a class** — any
-  in-frame ask that classifies `info` but whose fulfilment or a co-asked action
-  is a repo mutation. A lexicon or parse gap that routes more asks to `info` now
-  falls into the class rather than exposing a missing enumerated member, which
-  ends the P1-lineage "N member shapes" recurrence (it grew every round 5→7).
-- `deny_bypass_suspect`'s correlation gets a **named receptacle** (the denied
-  target path recorded on the deny row's `evidence_json`, covering Edit/Write/
-  NotebookEdit); the Bash-authored-change under-detection is owned in L3.
+- **Clause (iv) is a conservative best-effort classification**, not a total
+  rule. Its mis-parses are *safe by construction* — a mis-parse lands on the
+  under-enforced `request` side or in the owned residual. The object-head
+  heuristic is refined (rightmost noun of the *base* noun phrase; post-head
+  PP/relative modifiers set aside; inflection folded) and framed as a heuristic,
+  not an exact parse.
+- **The wrongful-deny residual is now one open class defined by a property** (an
+  `info`-classified row coexisting in the turn with a mutation that legitimately
+  serves intent), frame-independent, its forms illustrations rather than members
+  to complete. A new phrasing or a head mis-route is *the same class*, which ends
+  the P1-lineage "N member shapes" recurrence (it grew every round 5→8) at its
+  root.
+- **The AC-24 corpus is derived from the rules** (illustrative), so a row can
+  never contradict the rule again — the exact defect (R9-S1) that the round-8
+  "complete spec" attempt had introduced.
 
 **Convergence has NOT been reached, and this is not the terminal round.** The
-terminal definition (a round that finds nothing real) is unmet — round 8 found a
-real Serious and a partial. The architecture is an **eight-times-reviewed draft,
-not an approved artifact. No plan, no build, until a round finds nothing real.**
+architecture is a **nine-times-reviewed draft, not an approved artifact. No
+plan, no build, until a round finds nothing real.** The reframe is itself
+unattacked.
 
 ## What to do next (agent-owned)
 
-1. **Dispatch review round 9** — a fresh independent expert review + collapse
-   hunt, blind to each other, attacking the round-8 fixes, carrying the standing
-   charter questions plus round 8's inheritance: (a) the classifier is now
-   specified as rules-plus-corpus-derived-from-rules — verify the corpus is
-   actually consistent with the stated rules and that the head-extraction and
-   coordinated-verb rules cover every reachable shape; (b) the residual is now a
-   *class* — verify a newly-routed ask falls into it rather than needing a new
-   member; (c) verify every specified cross-event read has a named receptacle.
-   Apply all findings.
-2. **Watch the tripwire.** If round 9 finds a real Serious/partial in the
-   classifier again AND the finding count does not fall below 3, the
-   non-convergence tripwire fires — that is the signal that patch-forward on this
-   component has run its course and the classifier's foundation should be
-   reconsidered (a design question I own per OL-11; I will raise it with the
-   owner only if it turns into a scope or spec-changing call). Otherwise, repeat
-   the review loop until a round finds nothing real — that is convergence.
+1. **Dispatch review round 10** — the test of whether the reframe converges. A
+   fresh independent expert review + collapse hunt, blind to each other,
+   attacking the round-9 reframe, carrying its inheritance: (a) verify the
+   "mis-parse is safe by construction" claim actually holds — is there any
+   head-heuristic mis-parse that lands on the *deny-capable* side AND outside the
+   owned residual (i.e. a genuinely unsafe error)? (b) verify the one-class
+   residual truly has no escape (an `info`-classified mutation-fulfilled ask the
+   property misses); (c) confirm the demoted-totality framing did not silently
+   drop a real requirement the spec does make. Apply all findings.
+2. **If round 10 also finds a real Serious/partial in the classifier and the
+   count does not fall:** that would mean the reframe did not converge either,
+   and the classifier's *approach* (model-free recognition of answer-drift in
+   Phase A) may be more than a Phase A skeleton can bear. That is the point to
+   bring Max a scoped question — whether to narrow Phase A's answer-drift
+   coverage further (a spec-§13/§14 scope call, his to make) rather than keep
+   iterating the architecture. Until then the loop continues.
 3. **On convergence:** rewrite this file, mark the architecture approved in its
    "Status of this architecture" section, then write the Phase A implementation
    plan (consuming spec + architecture), then build against §11.5's Phase A exit
@@ -81,4 +86,6 @@ not an approved artifact. No plan, no build, until a round finds nothing real.**
   presence on the owner's real interactive transcripts, and whether
   platform-injected turns fire `UserPromptSubmit`. Neither gates the design; both
   are resolved with real captured sessions during the build.
-- No owner question is open.
+- No owner question is open **yet** — but see "What to do next" item 2: if round
+  10 does not converge, a Phase A answer-drift *scope* question is Max's to
+  decide.

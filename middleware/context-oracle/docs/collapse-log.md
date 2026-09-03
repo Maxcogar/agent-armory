@@ -1085,3 +1085,35 @@ durable lessons:
    or a co-asked action is a repo mutation — so a newly-routed ask falls into the
    class rather than exposing a missing enumerated member. A completeness claim
    over an open set must be a class predicate, never a list.
+
+## 2026-09-03 — round 9: when per-input findings plateau (the tripwire fires), demote the over-claim to what the spec mandates — don't patch again
+
+Ninth dual-review round on `docs/architecture-phase-a.md`; evidence in the two
+`docs/reviews/2026-09-03-round-9-*.md` files. Fifth consecutive zero-collapse
+round; one Serious, one partial, three notes — and the finding count held at 3
+(8 → 5 → 3 → 3 → 3), firing the non-convergence tripwire's count condition for
+the first time. The durable lesson:
+
+**A model-free / heuristic component that keeps failing a new way each round is
+over-claiming — the convergence-forcing fix is to demote the claim to what the
+spec actually mandates, not to patch the next input.** The answer-drift
+classifier was found incomplete four rounds running (R6–R9), each fix closing
+one construction and the next round finding another (compound, coordinated,
+post-head PP, morphology). Round 8's "specify it completely, once" attempt still
+over-claimed — it asserted the classifier was *total over its input domain* and
+the residual had *exactly N member shapes*, guarantees a model-free recognizer
+cannot meet — so round 9 found R9-S1 (a corpus row the completed rule
+contradicted) and the (N+1)th residual member on a new axis (frame). The spec
+(`D-41`, §11.5) asks Phase A only for a **conservative, low-coverage skeleton**
+whose coverage is *measured at exit*, not asserted. The reframe: (a) demote the
+classifier to a best-effort heuristic whose mis-parses are **safe by
+construction** (they fall to the under-enforced side or into the owned
+residual); (b) collapse the residual from a growing enumeration into **one open
+class defined by its property**, so a new phrasing or mis-parse is the same
+class, not a missing member; (c) make the test corpus **derived from the rules**
+(illustrative), so a row can never contradict the rule again. When the tripwire
+fires on a component, find the totality/completeness claim the component makes
+that its own mechanism cannot back — and remove it, returning to the spec's
+actual (weaker, honest) mandate. Class: **reduction, inverted** — not a broad
+requirement collapsed into a narrow mechanism, but a narrow mechanism inflated
+with guarantees broader than the requirement.
