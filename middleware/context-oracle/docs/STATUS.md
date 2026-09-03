@@ -2,8 +2,8 @@
 
 *Plain-language project status, rewritten each session (not appended). It states
 the current state and what to do next; evidence lives in `docs/reviews/`, durable
-lessons in `docs/collapse-log.md`, and everything attributed to Max Cogar in
-`OWNER-LEDGER.md`.*
+lessons in `docs/collapse-log.md`, ideas in `docs/IDEAS.md`, and everything
+attributed to Max Cogar in `OWNER-LEDGER.md`.*
 
 ## Where the project stands (2026-09-03)
 
