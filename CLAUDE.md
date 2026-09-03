@@ -5,12 +5,14 @@ hooks, system prompts, and workflows.
 
 ## Active work threads
 
-### Codebase RAG MCP rebuild
-- **Branch**: `claude/fix-rag-tool-setup-te1aE`
+### Codebase RAG MCP — round 3 pending
+- **Status**: rounds 1 + 2 merged to `main` via PR #10 (merge commit `b1cc29c`,
+  feature branch was `claude/fix-rag-tool-setup-te1aE`). 12/12 e2e tests
+  green at merge.
 - **Where**: `mcp-servers/codebase-rag/`
-- **Status**: round 2 of expert review applied (commit `5a959fc`); 12/12 e2e tests passing.
 - **Round 3 handoff**: `/root/.claude/plans/codebase-rag-mcp-round-3-handoff.md`
-  Lists 12 remaining findings (3 Serious, 6 Moderate, 3 Minor) with concrete fixes.
+  Lists 12 remaining findings (3 Serious, 6 Moderate, 3 Minor) with concrete
+  fixes. Cut a fresh branch off `main` when picking this up.
 - **Test command**:
   ```
   cd mcp-servers/codebase-rag/mcp-server-python && \
