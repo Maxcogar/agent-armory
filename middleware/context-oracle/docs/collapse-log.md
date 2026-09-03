@@ -990,63 +990,130 @@ Four dual-review rounds (expert review + collapse-hunt, blind pairs) on
    terminating repair is itself the first thing the next round verifies for
    completeness.** Class: **wrong-check**, thrice.
 
-## 2026-08-29 — narrowing the discovery-test corpus to known problem types (caught by Max Cogar)
+## 2026-09-03 — round 6: a fix must land where the finding named, and a default flip has two miss directions
 
-Caught in-session, in the design discussion that produced IDEAS.md #14
-(discovery-mode real-transcript replay). No review artifact — the collapse and
-its catch are the conversation itself; this entry is the durable record so the
-trap does not reach the agent who eventually builds the test harness.
+Sixth dual-review round on `docs/architecture-phase-a.md`; evidence in the two
+`docs/reviews/2026-09-03-*architecture-phase-a.md` files. Second consecutive
+zero-collapse round (collapse trajectory 5 → 6 → 1 → 1 → 0 → 0); one real
+Serious and four partials, all inside round-5 repair text. Two durable lessons:
 
-**The collapse.** Discussing how to test/train the oracle by replaying real
-past session transcripts, the agent (this session) argued that raw replay
-volume "pays off through what you extract from it" and that the corpus should
-be **indexed around the problem boundaries you already care about** (sessions
-where a done-claim preceded an unrun test, etc.). Max Cogar rejected it: *"if I
-only use transcripts where I can query them for known problem types, then I'm
-fully missing the ones with unknown problem types. The entire point of this is
-that we don't know everything. So testing based only on what we already know we
-want to find is a fundamental failure of testing as a whole."* Class:
-**reduction** (+ **wrong-check**).
+1. **A fix that names a location must land at that exact location, not one
+   decision away.** Round 5's tenth-reader fix stated the re-edit clause's
+   outcome semantics at the reader's own site (AD-18) but not in AD-4's
+   CONSUMER FILTER — the canonical enumeration whose completeness the
+   2026-08-29 corollary makes the deliverable — so the enumeration was still
+   one reader short on audit. Round 5's per-project-watermark fix updated the
+   `global_meta` comment but left its operative sibling, the `whisper_stats`
+   WRITER comment, describing the bare global watermark an implementer would
+   build from — re-encoding the exact stranding bug the fix removed. Class:
+   **wrong-check** + unapplied sub-clause. The check: when a finding names
+   *where* the defect lives ("add to the filter", "sync the comment",
+   "per-project"), re-read that exact sentence after the fix, not only the
+   decision that owns the mechanism.
 
-**Why it is a collapse — and why it is worse for *this* tool than for most.**
-It collapses the deliberately broad purpose of *discovery* testing — surfacing
-problem classes nobody has named yet — into *confirming* the classes already
-named. That is the generic testing error (you cannot discover an unknown-unknown
-with a filter built from your known-knowns; if you already had the taxonomy you
-would not need a discovery phase). But it is **specifically self-contradictory
-here**, because the oracle's entire reason to exist is unknown-unknowns —
-`RETHINK.md` §3 defines it as the thing that "answers the question you didn't
-know to ask." A test methodology blind to unknown-unknowns cannot validate a
-tool whose whole value *is* unknown-unknowns. Testing it that way would grade
-the oracle on exactly the axis it is not for.
+2. **A default flip closes one miss direction and can open the opposite one.**
+   Round 5 flipped the unlisted-object classification default to `request` to
+   stop wrongly denying build-fulfilled unlisted nouns ("show me a
+   prototype?"). The same flip swept the escalation re-ask "can you please
+   answer my question?" (object head "question", also unlisted) into `request`,
+   disarming the `OL-C3` recourse — a regression on the *opposite*
+   (under-enforcement) axis. Class: **unverified** (a default's safe direction
+   asserted for the whole class without checking the members whose safe
+   direction is the reverse). The check: a default that resolves an
+   incompleteness must be tested against both the members it protects and the
+   members whose correct answer is the other way.
 
-**The lesson (mandatory for whoever designs the oracle's test/replay harness).**
-Testing has two phases with **opposite** relationships to the problem taxonomy,
-and they must not be conflated:
-1. **Discovery (first, taxonomy-*blind*).** Its job is to *produce* the
-   taxonomy. The corpus stays wide, unfiltered, and un-pre-classified on
-   purpose. You do **not** select or index it by known problem types — doing so
-   is this collapse. Discovery still needs *structure to be reviewable* (you
-   cannot eyeball a million events), but the only admissible structure is
-   **anomaly/surprise-oriented and taxonomy-free**: divergence (deterministic
-   proposer vs. model ranker disagree; two runs of one session disagree),
-   distributional outliers (an event type firing far more/less than its
-   neighbours; a session that fired on nearly everything or went dead silent),
-   and self-announcing failures (crashes, parse errors, latency spikes,
-   whispers whose pointers don't resolve). None of those presuppose the failure
-   class; they only concentrate a human's open-ended read onto the events most
-   likely to hide a new one. That open read is where new classes get *named*.
-2. **Regression (later, taxonomy-*bound*).** Only after discovery has named a
-   class does it graduate into a targeted, reproducible fixture. This is where
-   indexing-by-known-type is correct — and it is exactly what AD-24's synthetic
-   planted-history fixtures already are.
+## 2026-09-03 — round 7: widening the deny-capable set has its own two miss directions, and "classifies every row" is a claim over the whole input domain
 
-**The tell for a future agent.** Any move that makes the discovery corpus
-smaller, cleaner, or pre-sorted by *what you expect to find* is this collapse
-wearing an efficiency costume. Breadth and taxonomy-blindness in the discovery
-phase are load-bearing, not wasteful; the value that looks like "noise" is the
-unnamed-problem surface. Narrowing it does not tighten the test — it deletes the
-only part that could find what you don't yet know to look for. This is the same
-**reduction** shape flagged as this project's most damaging recurring failure
-(RETHINK §12 dec. 12 correction: agents collapsing a deliberately broad tool
-onto one purpose) — here it recurred one level up, in how the tool is *tested*.
+Seventh dual-review round on `docs/architecture-phase-a.md`; evidence in the two
+`docs/reviews/2026-09-03-round-7-*.md` files. Third consecutive zero-collapse
+round (5 → 6 → 1 → 1 → 0 → 0 → 0); one real Serious and one partial, both inside
+the round-6 classifier fixes. Two durable lessons:
+
+1. **When a round widens the deny-capable set, audit the new members for
+   fulfilling-move wrongful denies — not only the gap the change was made to
+   close.** Round 6 seeded "question"/"answer" into the information-object
+   lexicon to *close* an under-enforcement gap (restore the `OL-C3` recourse).
+   The same seed *widened* over-enforcement: it made deny-capable a class whose
+   answer IS a mutation ("can you answer the question in the ticket?"), so the
+   categorical `Edit`-deny wrongfully denies the fulfilling edit. Every round
+   since the deny-capable set began shrinking only shrank it (the safe
+   direction); round 6 was the first to grow it, and the growth's wrongful edge
+   went unaudited — resting on the false soundness universal "mutating the
+   repository does not produce an answer to it." Class: **unverified** (the "two
+   miss directions" lesson sharpened: a set-widening change is audited in both
+   directions, and its soundness rationale is attacked as author text).
+
+2. **A totality claim ("classifies, positively, every opened row") is a claim
+   over the whole input domain, not the cases the last fix enumerated.** The
+   object-head classifier enumerated by cases (wh-complement / info-object /
+   artifact-object / unlisted-object) and silently omitted the *no-object* input
+   ("can you explain?"), leaving the invariant false and an inline decision in
+   the soundness-critical classifier. An enumeration-by-cases is not a proof of
+   totality — when a decision claims to be total, list every reachable input
+   shape and confirm each has a defined, correct output. Class: **wrong-check**
+   (a totality invariant verified against the enumerated cases, not the domain).
+
+## 2026-09-03 — round 8: a component found incomplete a new way each round is under-specified, not unlucky; and a residual is owned as a class, not a growing enumeration
+
+Eighth dual-review round on `docs/architecture-phase-a.md`; evidence in the two
+`docs/reviews/2026-09-03-round-8-*.md` files. Fourth consecutive zero-collapse
+round (5 → 6 → 1 → 1 → 0 → 0 → 0 → 0); one real Serious and one partial. The
+finding count plateaued (8 → 5 → 3 → 3) after three straight decreases — the
+first non-decrease — and all three defects were in the answer-drift classifier
+that rounds 6, 7, and 8 each found incomplete in a **new** way (a seeded object
+class; a missing no-object case; an undefined compound/coordinated parse). Two
+durable lessons:
+
+1. **A component found incomplete in a new way each round is under-specified,
+   not unlucky — complete it as a specification once, don't patch per-input.**
+   The object/verb classifier had been fixed input-by-input (add question/answer;
+   add the no-object case), and each fix left the next reachable input shape
+   undefined. The convergence-forcing move was to write the extraction/selection
+   rules down completely — object-head = the rightmost noun, matched alone;
+   coordinated-verb selection — and then re-derive the labeled corpus FROM the
+   rules, so a corpus row can never again contradict the rule (the "version
+   number → info" row did, because it needed a bag-of-words match the head-noun
+   rule forbids). When three rounds find one component incomplete three different
+   ways, the defect is the specification's completeness, not the individual gaps.
+
+2. **A residual owned as "exactly N member shapes" that grows every round is the
+   wrong shape — own it as a class.** The wrongful-deny residual grew from one to
+   two to three enumerated members over rounds 5–7, each round's collapse-hunt
+   finding the (N+1)th; the P1 lineage recurred seven times. The fix was to state
+   member (3) as a *class* — any in-frame `info`-classified ask whose fulfilment
+   or a co-asked action is a repo mutation — so a newly-routed ask falls into the
+   class rather than exposing a missing enumerated member. A completeness claim
+   over an open set must be a class predicate, never a list.
+
+## 2026-09-03 — round 9: when per-input findings plateau (the tripwire fires), demote the over-claim to what the spec mandates — don't patch again
+
+Ninth dual-review round on `docs/architecture-phase-a.md`; evidence in the two
+`docs/reviews/2026-09-03-round-9-*.md` files. Fifth consecutive zero-collapse
+round; one Serious, one partial, three notes — and the finding count held at 3
+(8 → 5 → 3 → 3 → 3), firing the non-convergence tripwire's count condition for
+the first time. The durable lesson:
+
+**A model-free / heuristic component that keeps failing a new way each round is
+over-claiming — the convergence-forcing fix is to demote the claim to what the
+spec actually mandates, not to patch the next input.** The answer-drift
+classifier was found incomplete four rounds running (R6–R9), each fix closing
+one construction and the next round finding another (compound, coordinated,
+post-head PP, morphology). Round 8's "specify it completely, once" attempt still
+over-claimed — it asserted the classifier was *total over its input domain* and
+the residual had *exactly N member shapes*, guarantees a model-free recognizer
+cannot meet — so round 9 found R9-S1 (a corpus row the completed rule
+contradicted) and the (N+1)th residual member on a new axis (frame). The spec
+(`D-41`, §11.5) asks Phase A only for a **conservative, low-coverage skeleton**
+whose coverage is *measured at exit*, not asserted. The reframe: (a) demote the
+classifier to a best-effort heuristic whose mis-parses are **safe by
+construction** (they fall to the under-enforced side or into the owned
+residual); (b) collapse the residual from a growing enumeration into **one open
+class defined by its property**, so a new phrasing or mis-parse is the same
+class, not a missing member; (c) make the test corpus **derived from the rules**
+(illustrative), so a row can never contradict the rule again. When the tripwire
+fires on a component, find the totality/completeness claim the component makes
+that its own mechanism cannot back — and remove it, returning to the spec's
+actual (weaker, honest) mandate. Class: **reduction, inverted** — not a broad
+requirement collapsed into a narrow mechanism, but a narrow mechanism inflated
+with guarantees broader than the requirement.
