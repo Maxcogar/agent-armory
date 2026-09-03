@@ -526,9 +526,12 @@ and nothing here depends on the new channel.
                     --    (redirection > / >>, tee, in-place edit sed -i /
                     --    perl -i, copy/move/install to a path), which sets
                     --    `path`; it fires only when that `path` matches the
-                    --    denied action's own target file_path (an uncorrelated
-                    --    write, incl. a redirected test run, does not fire),
-                    --    distinct from the run-state command_class.
+                    --    denied action's target file_path, which the deny
+                    --    handler recorded in the kind='deny' row's
+                    --    evidence_json (a denied Edit runs no PostToolUse, so
+                    --    its target has no observed_actions row — AD-9). An
+                    --    uncorrelated write, incl. a redirected test run, does
+                    --    not fire; distinct from the run-state command_class.
    whisper_audit(id, session, consumer, kind CHECK(kind IN ('whisper','deny')),
                  genre, ts, text, evidence_json, confidence, channel,
                  continuation INTEGER DEFAULT 0)            -- FR-X6, non-droppable
@@ -767,8 +770,12 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
      the tests?") classifies `kind='info'` — deny-capable.
    - A **request-frame** interrogative ("can/could/will/would/please … you …"
      + verb) classifies by its verb, and — for communicative verbs — by the
-     verb's **direct object**. The object is the head noun of the noun phrase
-     **immediately following the verb** (skipping an optional "me/us"); a
+     verb's **direct object**. The object is the noun phrase **immediately
+     following the verb** (skipping an optional "me/us"); its **head is the
+     rightmost noun** of that phrase — attributive modifiers are ignored ("the
+     version number" → "number", "the test results" → "results") — and only the
+     head is matched against the lexicons (never a bag-of-words scan, so an
+     incidental listed modifier does not classify the object). A
      **wh-complement** ("why…", "how…", "whether…") takes precedence over any
      noun inside it, so an artifact noun sitting inside a wh-clause ("tell me
      why the login *test* fails?") does not flip an information question to a
@@ -780,24 +787,35 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
      answer?"), or an object whose head is on the **information-object
      lexicon** (error / output / log / diff / result / value / version /
      status-class — plus **question / answer**, the object of a meta-answer
-     ask) classifies `kind='info'` — fulfilment is text, which the
-     deny-eligible set can never touch — so "could you tell me why X fails?",
-     "can you show me the error?", "can you explain?", and the `OL-C3`
-     escalation re-ask "can you please answer my question?" (object head
-     "question") stay deny-capable. An object whose head is on the
-     **artifact-object lexicon** (demo / test / script / example / branch /
-     file / PR-class) classifies `kind='request'` — "can you show me a
-     **demo**?" is fulfilled by a build, not text. In Phase A this lexicon is
-     **inert**: the unlisted-object default also yields `request`, so the
-     artifact list changes no Phase A classification; it is retained as the
-     explicit enumeration of the build-fulfilled object class, ready to
-     discriminate if the default is ever tightened. **Any other object — an
-     unlisted head noun ("show me a prototype?") — defaults to
-     `kind='request'`:** lexicon incompleteness must fail toward
-     under-enforcement, never toward denying a fulfilling move. The lone
-     object direction that must fail the other way — "question"/"answer",
-     whose correct kind is `info` to preserve the `OL-C3` recourse — is
-     carried by the information-object lexicon above, not by this default.
+     ask) classifies `kind='info'` (deny-capable): the ask is
+     information-seeking, so the block may hold the agent to answering it. Its
+     fulfilment is *usually* text (a read plus an explanation), which the deny
+     never touches — so "could you tell me why X fails?", "can you show me the
+     error?", "can you explain?", and the `OL-C3` escalation re-ask "can you
+     please answer my question?" stay deny-capable; where the fulfilment is
+     instead a repo mutation ("can you show me [a demo]?", "answer the question
+     in the ticket"), the categorical `Edit`-deny falls on that mutation — the
+     owned over-enforcement residual (member (3), the deny rationale below). An
+     object whose head is on the **artifact-object lexicon** (demo / test /
+     script / example / branch / file / PR-class) classifies `kind='request'` —
+     "can you show me a **demo**?" is fulfilled by a build, not text. In Phase A
+     this lexicon is **inert**: the unlisted-object default also yields
+     `request`, so the artifact list changes no Phase A classification; it is
+     retained as the explicit enumeration of the build-fulfilled object class,
+     ready to discriminate if the default is ever tightened. **Any other object
+     — an unlisted head noun ("show me a prototype?"; "the version number" →
+     head "number") — defaults to `kind='request'`:** lexicon incompleteness
+     must fail toward under-enforcement, never toward denying a fulfilling move.
+     The lone object direction that must fail the other way — "question"/
+     "answer", whose correct kind is `info` to preserve the `OL-C3` recourse —
+     is carried by the information-object lexicon above, not by this default.
+   - A **coordinated ask** — more than one top-level verb ("can you **answer**
+     my question **and fix** the bug?") — classifies `kind='info'` when any
+     top-level verb is communicative and its own object/complement classifies
+     `info` (or is object-less), else `kind='request'`. When it opens `info`
+     the block arms and the co-asked repo action is subject to the deny: an
+     owned over-enforcement residual member (member (3), the deny rationale
+     below), escapable by answering first.
    - The **request-frame remainder** — any non-communicative verb ("can you
      **rename** the helper?", "can you **fix** X?") — is `kind='request'`:
      the safe, `FR-B5`-faithful direction (a wrongful deny on the requested
@@ -904,12 +922,18 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
      always so flaky??"), often co-prompted with a correctly-framed real
      request in the same turn — the stoplist is fallible by construction, so
      this shape is owned and shrunk by tending the stoplist, not eliminated; and
-     (3) an **in-frame `info`
-     question whose fulfilment is an action** — a communicative-verb ask whose
-     object classifies `info` but whose answer is a build ("can you answer the
-     question in the ticket?" where the ticket asks for a feature; "answer
-     whether the null check fixes it", whose answer is the edit-and-test) — the
-     deny falls on the fulfilling edit until one answering turn clears it. (This set is a
+     (3) **any in-frame ask that classifies `info`
+     (deny-capable) but whose fulfilment — or a co-asked action — is a repo
+     mutation.** This is one class, however the `info` label arose: an
+     info-object ask whose answer is a build ("can you answer the question in
+     the ticket?" where the ticket asks for a feature), a wh-complement ask
+     whose answer is an edit ("answer whether the null check fixes it"), an
+     **object-less** `show`/`list` ask whose fulfilment is a build ("can you
+     show me?" meaning show a demo), or a **coordinated** ask pairing an `info`
+     question with an action co-ask ("show me the error **and** fix the bug").
+     In every case the model-free recognizer denies the mutation that is (or
+     provides) the answer, until one answering turn clears it — complete as a
+     *class*, not an enumeration of phrasings. (This set is a
      move-classification *mechanism* under `D-41`'s "clearly not
      answer-directed" license, applied only after a question exists — not a
      redefinition of the trigger, which remains `OL-C5`'s owner definition;
@@ -999,7 +1023,14 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
    row **whose written path is the denied action's own target** — the write
    identified by a path-write predicate on the Bash `tool_input` (redirection,
    `tee`, in-place edit, copy/move to a path) that resolves to a path, matched
-   against the denied `Edit`/`Write`'s `file_path`; distinct from the run-state
+   against the denied action's target path **recorded on the deny** — because a
+   denied `Edit`/`Write`/`NotebookEdit` never executes (it produces no
+   `observed_actions` row, V19) and the deny reason text carries only the
+   question, the deny handler writes the denied action's target path
+   (`file_path`, or `notebook_path` for `NotebookEdit`; redacted per AD-19) into
+   the `kind='deny'` `whisper_audit` row's `evidence_json`, and this correlation
+   reads it there;
+   distinct from the run-state
    `command_class`, so a redirected test run (`npm test > out.log` — a different
    path) and any write to an unrelated path do **not** fire it, and a failed
    write is no bypass. It is a proxy, not a measurement: it still **over-counts**
@@ -1752,21 +1783,29 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
      "can you show me a **prototype**?" → `request` (unlisted object noun fails
      safe); "could you tell me why the login **test** fails?" → `info` (the
      wh-complement takes precedence over the artifact noun inside it); "could
-     you confirm the version number?" → `info` (information-lexicon object);
-     "can you **explain?**" → `info` (object-less communicative verb —
-     deny-capable, so the object-bearing and object-less siblings are both
-     pinned); "can you answer the question in the **ticket**?" (the ticket asks
-     for a feature) → `info` → the fulfilling `Edit` is **wrongfully denied
-     once**, cleared by one text turn and counted on the wrongful-deny rate —
-     the third residual member (an in-frame `info` question whose fulfilment is
-     an action), the over-enforcement mirror of the "answer my question" row));
+     you confirm the **version**?" → `info` (head "version" on the
+     information-object lexicon) beside "could you confirm the version
+     **number**?" → `request` (head "number", unlisted — the rightmost-head
+     rule, not a bag-of-words match on the modifier "version"); "can you
+     **explain?**" → `info` (object-less communicative verb — deny-capable, so
+     the object-bearing and object-less siblings are both pinned); "can you
+     answer the question in the **ticket**?" (the ticket asks for a feature) →
+     `info` → the fulfilling `Edit` is **wrongfully denied once**, cleared by
+     one text turn and counted on the wrongful-deny rate — residual member (3)
+     (an `info`-classified ask whose fulfilment is a mutation); and the
+     **coordinated** "can you answer my question **and** fix the bug?" → `info`
+     (a top-level communicative-`info` verb) → the co-asked fix-`Edit` is
+     wrongfully denied once, also residual member (3) — the over-enforcement
+     mirror of the "answer my question" row));
      **failed actions, change/read consumers, and the bypass diagnostic** (a
      failed `Edit` appears in no Completeness/Verification changed-regions
      computation and records no re-edit regret row — AD-4's split filter,
      `'ok'`-only for both; a successful (`'ok'`) file-writing Bash command
-     **writing the denied action's own target** in the same turn as a deny
-     raises `deny_bypass_suspect`; a failed write, and a redirected test run
-     `npm test > out.log` writing an *unrelated* path, do **not**); **run-state honesty and compound composition** (a session of
+     **writing the denied action's own target** (matched via the target
+     `file_path` the deny recorded in its `whisper_audit.evidence_json`, AD-9)
+     in the same turn as a deny raises `deny_bypass_suspect`; a failed write,
+     and a redirected test run `npm test > out.log` writing an *unrelated*
+     path, do **not**); **run-state honesty and compound composition** (a session of
      innocuous commands still fires the strong "not run" clause; a session
      containing `make check` composes only the weaker recognized-runners claim;
      a covering test **run-and-failed** (`PostToolUseFailure` row) at a
@@ -2131,11 +2170,16 @@ criterion is pinned there and its mechanism lives in the named decisions.)
   always so flaky??"), which opens a deny-capable row against a fulfilling move,
   often a real request co-prompted in the same turn — the stoplist is fallible
   by construction, so this shape is owned and shrunk by tending the stoplist
-  (`lexicon.stoplist`, via `tune`), not eliminated; and (3) an in-frame `info`
-  question whose fulfilment is an action ("can you answer the question in the
-  ticket?"; "answer whether the null check fixes it") — the model-free move
-  recognizer denies the fulfilling edit, the mirror of `Bash` under-enforcement
-  (L3), until one answering turn clears it (AD-9).
+  (`lexicon.stoplist`, via `tune`), not eliminated; and (3) **any in-frame ask
+  that classifies `info` (deny-capable) but whose fulfilment or a co-asked
+  action is a repo mutation** — an info-object or wh-complement ask whose answer
+  is a build ("can you answer the question in the ticket?"), an object-less
+  `show`/`list` build-ask, or a coordinated `info`-plus-action ask ("show me the
+  error and fix the bug") — the model-free recognizer denies the mutation that
+  is (or provides) the answer, the mirror of `Bash` under-enforcement (L3),
+  until one answering turn clears it (AD-9). Shape (3) is a *class*, not a
+  phrasing list, so lexicon or parse gaps that route more asks to `info` fall
+  into it rather than adding a fourth shape.
 - **L2 — The clear recognizer cannot do per-question clearing.** Two questions,
   one answered substantively → both clear in Phase A. AC-2a-ii is a Phase-B
   criterion for exactly this; the Phase A behaviour errs toward clearing
@@ -2149,7 +2193,12 @@ criterion is pinned there and its mechanism lives in the named decisions.)
   command sails through — **the deny itself can teach the bypass** — and the
   deny-loop signal cannot see the one-deny-then-bypass shape, so the
   `deny_bypass_suspect` diagnostic (AD-9) records it post-hoc for the owner
-  and for Phase B's precision case. Phase B's judgment narrows this honestly.
+  and for Phase B's precision case. A second consequence of the same model-free
+  line: a file changed only through `Bash` (`echo > f.py`, `sed -i`) carries no
+  region granularity and is **not** a member of the Completeness/Verification
+  change-set (AD-4 reads `Edit`/`Write`/`Read` rows only), so a coupling or
+  coverage gap in a Bash-authored change goes unflagged — safe under-detection
+  (never a false claim). Phase B's judgment narrows both honestly.
 - **L4 — Repo-identity residual.** A repository that merges an unrelated
   history after `init` changes its root set and thus its key; `status` shows
   the key and mode so the change is visible; export/import is the recovery.
@@ -2423,4 +2472,35 @@ atomicity stated. **Convergence has not been formally reached** — round 7 foun
 a real Serious and one partial, so the terminal definition (a round that finds
 nothing real) is unmet, and the round-7 fixes are themselves unattacked. The
 next action on this document is a round-8 pair attacking the round-7 fixes, then
+(on a clean round) approval and the Phase A implementation plan.
+
+**Review round 8 (2026-09-03) is applied in full.** The eighth independent
+pair — `docs/reviews/2026-09-03-round-8-expert-review-architecture-phase-a.md`
+(NEEDS FIXES: 0 Critical / 1 Serious / 1 Moderate / 1 Minor) and
+`docs/reviews/2026-09-03-round-8-collapse-hunt-architecture-phase-a.md` (DOES
+NOT SURVIVE: **0 collapses** / 1 partial / 5 notes — the fourth consecutive
+zero-collapse round; trajectory 5 → 6 → 1 → 1 → 0 → 0 → 0 → 0) — attacked the
+round-7 fixes as author text, closing all nine round-7 findings at their named
+sites. The finding count plateaued (8 → 5 → 3 → 3), all three defects in the
+answer-drift classifier the last three rounds kept touching — the signal that
+the classifier was being patched per-input rather than specified once. Applied
+as a specification completion, not another patch: clause (iv) now carries an
+explicit **object-head-extraction rule** (the head is the rightmost noun of the
+object phrase; attributive modifiers ignored; the head alone matched, never a
+bag-of-words scan) and a **coordinated-verb rule** (an ask with more than one
+top-level verb is `info` when any top-level verb is communicative-and-`info`),
+and the "version number → info" corpus row that contradicted the head-noun rule
+is re-pinned to the rule (head "number" → `request`; "the version" → `info`).
+Member (3) of the wrongful-deny residual is **generalized to a class** — any
+in-frame ask that classifies `info` but whose fulfilment or a co-asked action is
+a repo mutation — so lexicon or parse gaps that route more asks to `info` fall
+into it rather than adding an (N+1)th member shape, ending the P1-lineage
+enumeration recurrence at its root. The `deny_bypass_suspect` correlation gets a
+**named receptacle** (the denied target path recorded in the `kind='deny'` row's
+`evidence_json`, covering `Edit`/`Write`/`NotebookEdit`), and the
+Bash-authored-change under-detection is owned in L3. **Convergence has not been
+formally reached** — round 8 found a real Serious and a partial, so the terminal
+definition is unmet and the round-8 fixes are themselves unattacked; the finding
+count plateaued, so the tripwire's count condition is armed for round 9. The
+next action on this document is a round-9 pair attacking the round-8 fixes, then
 (on a clean round) approval and the Phase A implementation plan.

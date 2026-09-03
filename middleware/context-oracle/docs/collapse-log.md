@@ -1053,3 +1053,35 @@ the round-6 classifier fixes. Two durable lessons:
    totality — when a decision claims to be total, list every reachable input
    shape and confirm each has a defined, correct output. Class: **wrong-check**
    (a totality invariant verified against the enumerated cases, not the domain).
+
+## 2026-09-03 — round 8: a component found incomplete a new way each round is under-specified, not unlucky; and a residual is owned as a class, not a growing enumeration
+
+Eighth dual-review round on `docs/architecture-phase-a.md`; evidence in the two
+`docs/reviews/2026-09-03-round-8-*.md` files. Fourth consecutive zero-collapse
+round (5 → 6 → 1 → 1 → 0 → 0 → 0 → 0); one real Serious and one partial. The
+finding count plateaued (8 → 5 → 3 → 3) after three straight decreases — the
+first non-decrease — and all three defects were in the answer-drift classifier
+that rounds 6, 7, and 8 each found incomplete in a **new** way (a seeded object
+class; a missing no-object case; an undefined compound/coordinated parse). Two
+durable lessons:
+
+1. **A component found incomplete in a new way each round is under-specified,
+   not unlucky — complete it as a specification once, don't patch per-input.**
+   The object/verb classifier had been fixed input-by-input (add question/answer;
+   add the no-object case), and each fix left the next reachable input shape
+   undefined. The convergence-forcing move was to write the extraction/selection
+   rules down completely — object-head = the rightmost noun, matched alone;
+   coordinated-verb selection — and then re-derive the labeled corpus FROM the
+   rules, so a corpus row can never again contradict the rule (the "version
+   number → info" row did, because it needed a bag-of-words match the head-noun
+   rule forbids). When three rounds find one component incomplete three different
+   ways, the defect is the specification's completeness, not the individual gaps.
+
+2. **A residual owned as "exactly N member shapes" that grows every round is the
+   wrong shape — own it as a class.** The wrongful-deny residual grew from one to
+   two to three enumerated members over rounds 5–7, each round's collapse-hunt
+   finding the (N+1)th; the P1 lineage recurred seven times. The fix was to state
+   member (3) as a *class* — any in-frame `info`-classified ask whose fulfilment
+   or a co-asked action is a repo mutation — so a newly-routed ask falls into the
+   class rather than exposing a missing enumerated member. A completeness claim
+   over an open set must be a class predicate, never a list.
