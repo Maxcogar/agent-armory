@@ -74,7 +74,7 @@ not implement, extend, or cite them as current. The gatekeeper posture — deny
 paths, plan gates, assumption firewalls — is rejected by owner decision (see
 "Decisions are locked" below).
 
-## The two dominating rules
+## The three dominating rules
 
 **1. The owner cannot catch your mistakes.** Never claim something works
 without having run it — paste the actual command and its output. Never mark an
@@ -104,6 +104,22 @@ and say so rather than shipping an unattacked decision. The owner is never the
 collapse-tester — if a hollow decision reaches him, that is a process failure:
 log it. Record every collapse in `docs/collapse-log.md`. (Evidence for why
 each clause exists: collapse-log 2026-08-01, 2026-07-31.)
+
+**3. The phase goal governs — and passing review is not the goal.** Every phase
+has a goal (spec §11.5). State it at session start and before any
+spec/architecture/plan/build decision, and judge every decision — *and every
+review* — against it: **does this serve the phase goal?** A document can be
+correct, consistent, well-cited, and pass every review round and still be slop,
+because review checks correctness, not goal-service — and a mechanism built to
+survive review rather than serve the goal drifts further from it each round. When
+a non-trivial mechanism only passes review without serving the phase goal, cut
+it: that is a finding, not a decision to defend. **Phase A's goal is an honest
+deterministic foundation, running on the owner's real repos, that measures its
+own floor — how little it catches — with clean seams the later phases plug into;
+never fake completeness dressed to look like a working product.** (Why: the
+answer-drift classifier `AD-9`, elaborated over ten rounds to look like it works,
+was abandoned 2026-09-04 — the exact slop that cost three prior versions of this
+tool. See `docs/collapse-log.md` 2026-09-04.)
 
 ## Don't hand the owner a decision that is already written
 

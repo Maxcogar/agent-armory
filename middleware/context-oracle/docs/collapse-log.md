@@ -1117,3 +1117,40 @@ that its own mechanism cannot back — and remove it, returning to the spec's
 actual (weaker, honest) mandate. Class: **reduction, inverted** — not a broad
 requirement collapsed into a narrow mechanism, but a narrow mechanism inflated
 with guarantees broader than the requirement.
+
+## 2026-09-04 — the review treadmill built AI slop: passing reviews replaced serving the phase goal
+
+**Caught by Max Cogar, not by any of ten review rounds.** The Phase A
+answer-drift classifier (`AD-9`) was elaborated across rounds 1–10 —
+communicative-verb and information-object lexicons, base-noun-phrase head
+extraction, wh-complement precedence, coordinated-ask handling — each round
+closing the last round's findings and adding machinery, until it *looked like* a
+working answer-drift block. Max read it and asked "why is the answer drift so
+large? there shouldn't be anything special about it," then named the disease:
+*"fake bullshit to make it look like its working instead of setting it up to be
+able to cleanly add the rest of what it requires when the next phases are
+built"* — *"the same kind of bullshit that made me have to abandon 3 other fully
+built versions of this."*
+
+**Class: goal-loss (mechanism-not-mission at the process layer).** The spec
+(`D-41`, §11.5) asks Phase A for a recognizer that "errs hard toward
+not-firing," "low-coverage," explicitly "a skeleton, not 'the block working.'"
+The architecture over-reached its own spec into a coverage-maximizing
+classifier. The defect was the architecture, not the spec.
+
+**Why ten rounds could not catch it.** Both passes check the artifact for
+correctness, consistency, standards-conformance, and citation integrity. Neither
+asks "does this mechanism serve the Phase A goal, or is it machinery that only
+passes review?" The finding count reached zero (round 10) precisely because the
+machinery was internally consistent — a correct, self-consistent, well-cited
+fake. Review optimized for passing; passing is not the goal. (This is the
+process-layer twin of the same day's mechanism-layer lesson, 2026-09-03 round 9:
+a narrow mechanism inflated with guarantees broader than its requirement.)
+
+**Standing lesson (now `CLAUDE.md` dominating rule 3).** State the phase goal
+before any spec/architecture/plan/build decision, and judge every decision *and
+every review* against it. A document that passes review but does not serve the
+phase goal is slop — cut the machinery, log it as a finding. Phase A's goal: an
+honest deterministic foundation that measures its own floor with clean seams for
+later phases, never fake completeness. `AD-9` returns to the architecture layer
+to be rebuilt to that goal, then re-reviewed.
