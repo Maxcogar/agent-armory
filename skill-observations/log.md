@@ -813,3 +813,45 @@ capture failures is not exempt from them.
 **Suggested improvement:** The repo's root CLAUDE.md has no task-observer activation line. Add the recommended activation instruction there so the structural trigger fires; description matching alone has now failed twice.
 
 **Principle:** Per Observation 22 — an observation that produces no mechanism recurs. This one has recurred; the mechanism (the CLAUDE.md line) is still missing.
+
+### Observation 30: After logging, the agent declared "nothing left to do" and skipped the review the skill mandates
+**Status:** OPEN
+**Date:** 2026-09-04
+**Session context:** Context Oracle session close; task-observer invoked by the owner
+**Skill:** task-observer
+**Type:** open-source
+**Phase/Area:** Session Start Protocol, step 3 (weekly review trigger)
+
+**Issue:** The agent loaded task-observer, logged five observations, then answered three consecutive PR notifications with "nothing left to do." `last-review-date.txt` read 2026-07-17 — 49 days old — so the skill's own protocol required a comprehensive review, and its config check would have found the root CLAUDE.md missing the activation line. Neither ran. The agent treated "log observations" as the whole skill.
+
+**Suggested improvement:** Make the Session Start Protocol a checklist executed on invocation, whenever the invocation happens: (1) files exist, (2) staleness check, (3) review trigger, (4) config check — each producing a visible line of output. A late invocation runs the same four steps before logging.
+
+**Principle:** A skill invoked late runs its full protocol, not the one step the invoker happened to name.
+
+### Observation 31: Repeated "what did I get wrong?" after "read the conversation" is its own failure
+**Status:** OPEN
+**Date:** 2026-09-04
+**Session context:** Context Oracle session; owner escalation
+**Skill:** escalation-response
+**Type:** internal
+**Phase/Area:** Step 9 (bare negative → single question)
+
+**Issue:** Step 9 mandates that a bare "wrong" gets a single question back. In this session the owner answered that question with "READ THE FUCKING CONVERSATION" and "YOU TELL ME," and the agent asked again, twice. Each ask returned the diagnosis to the owner — the exact move step 3 forbids. Meanwhile the agent's own guesses had all been rejected. Step 9 and step 3 collide once the owner has refused to answer the question; the skill gives no exit from that state.
+
+**Suggested improvement:** Add to step 9: the single question may be asked once per correction. If the owner declines to answer ("read it," "you tell me"), the agent does not re-ask and does not guess — it re-reads the owner's messages since the last thing he accepted, lists verbatim what he said there, and names which of those it acted against. The output is his words, not the agent's interpretation.
+
+**Principle:** When both asking and guessing are refused, the remaining move is to quote the record back — the owner's own words are the only material that can't be "made up."
+
+### Observation 32: The owner invoking task-observer mid-escalation is an instruction to log the failure just witnessed
+**Status:** OPEN
+**Date:** 2026-09-04
+**Session context:** Context Oracle session; owner invoked task-observer twice, both times immediately after an agent failure
+**Skill:** task-observer
+**Type:** internal
+**Phase/Area:** Activation
+
+**Issue:** Both invocations came right after a failure the owner had just pointed at ("are you seriously this dumb?" → "TASK OBSERVER"). The agent's first response was a numbering sweep and a batch of earlier observations; the failure the owner had just named — the review skip, the ask-again loop — was not logged until the second invocation. The invocation was the owner's answer to "what did I do wrong": *log it.*
+
+**Suggested improvement:** When the owner names the skill directly after a correction, the first observation written is the one about the exchange that just happened, before any sweep of earlier material.
+
+**Principle:** A manual invocation carries its context. Log the thing in front of you first.
