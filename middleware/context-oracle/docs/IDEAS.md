@@ -145,9 +145,8 @@ Added 2026-08-29 (testing-methodology discussion with Max Cogar):
     valuable — for everything in the "can measure" list above. Its payoff lives
     in **taxonomy-blind, anomaly-surfacing capture**, NOT in filtering the
     corpus to problem types you already know to look for. Narrowing the
-    discovery corpus to known-queryable problems is a logged **reduction**
-    collapse (collapse-log 2026-08-29, "narrowing the discovery-test corpus")
-    and defeats the tool's own unknown-unknowns purpose. Discovery stays wide
+    discovery corpus to known-queryable problems is a **reduction** trap
+    that defeats the tool's own unknown-unknowns purpose. Discovery stays wide
     and un-pre-classified; the only admissible structure is
     divergence/outlier/self-announcing-failure signals that presuppose no
     failure class.
@@ -167,11 +166,10 @@ Added 2026-08-29 (testing-methodology discussion with Max Cogar):
     **The two-phase model this implies:** (1) discovery — this, wide and
     taxonomy-blind — produces the problem taxonomy; (2) regression — AD-24's
     synthetic fixtures — pins each named class reproducibly. Opposite
-    relationships to the taxonomy; do not conflate (collapse-log 2026-08-29).
+    relationships to the taxonomy; do not conflate.
 
     **Promotion note.** This is an *idea*, unvalidated, and it is deliberately
     the "cheap idea" tier. Making the discovery-breadth rule *binding* on future
     agents (so a later session cannot narrow it away) requires promoting it to a
     spec §14 requirement with Max Cogar's explicit sign-off — a decision only he
-    makes. Until then the collapse-log entry is the guardrail; this entry is the
-    proposal.
+    makes. Until then this entry is itself the guardrail and the proposal.

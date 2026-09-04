@@ -48,6 +48,11 @@ different (that freelancing is exactly what the lifecycle exists to stop). So
 `AD-9` is corrected at the architecture layer first, then the plan resumes from
 the corrected architecture.
 
+**Update (2026-09-04):** the Phase A test-bed purpose, found missing from the
+governing docs this session, is now stated in spec §11.5 (one-line pointer in
+`CLAUDE.md` rule 3). The `AD-9` rebuild is judged against it and is the immediate
+next step.
+
 ## What to do next (agent-owned)
 
 1. **Rebuild `AD-9` at the architecture layer to serve the Phase A goal.** Keep

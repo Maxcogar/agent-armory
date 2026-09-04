@@ -750,7 +750,16 @@ accordingly.
   precision is Phase B**. Also in Phase A: the stores/index/miner, delivery, self-observability,
   security, and the human-correction calibration channel. Exits by producing measured whisper/block
   + false-fire **and regret** data on a real repo — including how little the conservative recognizer
-  catches before Phase B.
+  catches before Phase B. **Phase A is also the build's test bed.** It is run on the
+  owner's real repos and Claude Code transcripts to *discover* how the honest
+  deterministic mechanism actually behaves (`docs/IDEAS.md` #14, discovery-mode
+  replay), and Phase B and the `AD-24` regression fixtures are **designed from that
+  discovery** (the exit-data dependency below). A faked or over-built Phase A
+  mechanism corrupts the very measurement the later phases read — the failure
+  recorded in `docs/collapse-log.md` 2026-09-04 — so Phase A ships the honest
+  minimum, and the fallible recognizers are gotten right by running it on real
+  transcripts, never by reviewing an imagined-phrasing classifier into apparent
+  completeness.
 - **Phase B — Model-in-the-loop genres.** Assumption-check, Steering, Answer, the
   **unfinished-work check (FR-A2m)**, and — crucially for the answer-drift block — the
   **model-assisted maintenance of the question/answer state**: classifying, on each *user* turn,

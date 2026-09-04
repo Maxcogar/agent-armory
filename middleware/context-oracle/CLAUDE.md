@@ -116,7 +116,10 @@ a non-trivial mechanism only passes review without serving the phase goal, cut
 it: that is a finding, not a decision to defend. **Phase A's goal is an honest
 deterministic foundation, running on the owner's real repos, that measures its
 own floor — how little it catches — with clean seams the later phases plug into;
-never fake completeness dressed to look like a working product.** (Why: the
+never fake completeness dressed to look like a working product.** Phase A is also the build's **test bed** — run on real repos to
+produce the discovery data Phase B and the regression fixtures are designed from
+(spec §11.5) — so faked machinery poisons the data the rest of the build reads.
+(Why: the
 answer-drift classifier `AD-9`, elaborated over ten rounds to look like it works,
 was abandoned 2026-09-04 — the exact slop that cost three prior versions of this
 tool. See `docs/collapse-log.md` 2026-09-04.)
