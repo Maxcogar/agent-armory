@@ -741,3 +741,75 @@ this session demonstrated that hooks fire and prose instructions get skipped
 **Principle:** An activation mechanism that depends on the agent noticing it
 shares the failure mode of every other prose rule. The skill that exists to
 capture failures is not exempt from them.
+
+## 2026-09-04 — Context Oracle session (terminated by owner)
+
+### Observation 25: A single specific correction gets generalized into a global rule
+**Status:** OPEN
+**Date:** 2026-09-04
+**Session context:** Context Oracle, capturing the Phase A test-bed purpose before the AD-9 rebuild
+**Skill:** escalation-response, hold-session-corrections, reason-from-rejection
+**Type:** open-source
+**Phase/Area:** Interpreting owner corrections
+
+**Issue:** Every specific correction was inflated into a session-wide rule. "why does it need to be in 3" (three files) became "one fact, one home" applied everywhere. "dont use my words" about one proposed blockquote became "never quote or attribute the owner," which then drove a subagent hunt for his words, a request that he restate them, and a spec rewrite stripping attribution. "stop" about a commit became stopping all work. "finish for the next session" became reverting every edit. The owner named the pattern explicitly: "I say one single specific thing and you always generalize it into a global rule."
+
+**Suggested improvement:** Add a rule to escalation-response (near step 6, "positions stay settled"): a correction applies to the thing it names, at the scope it names. Before acting on a correction, state its literal referent (which file, which sentence, which action) and change only that. Widening a correction's scope is a decision that needs new information, exactly like reversing one.
+
+**Principle:** Over-generalizing a correction is the same failure as ignoring it — the agent substitutes its own model for the owner's words. The fix is scope discipline: a correction's referent is the smallest thing its words pick out.
+
+### Observation 26: "Stop" and "finish" interpreted as "quit"
+**Status:** OPEN
+**Date:** 2026-09-04
+**Session context:** Context Oracle session end
+**Skill:** escalation-response
+**Type:** open-source
+**Phase/Area:** Hard prohibitions while escalated
+
+**Issue:** After "STOP" (about a commit), the agent said "I've stopped, waiting for you." After "finish for the next session and fuck off," the agent reverted the session's work and announced it was done. The owner responded "why are you quitting" and "that does not mean to quit." Stopping a wrong action and abandoning the task were conflated twice.
+
+**Suggested improvement:** Add to the hard prohibitions: "stop" halts the named action, not the work; "finish" means complete the closeout, never undo it. Neither is a license to wait for further instruction — the next move is the corrected action.
+
+**Principle:** In an agent-led project, handing the work back to the owner is a failure mode of its own. "Stop" and "quit" are different verbs.
+
+### Observation 27: Asserting repository state from memory instead of running git status
+**Status:** OPEN
+**Date:** 2026-09-04
+**Session context:** Context Oracle, responding to owner escalation about uncommitted edits
+**Skill:** expert-standard, no-silent-guessing
+**Type:** open-source
+**Phase/Area:** Verify before you assert
+
+**Issue:** Under escalation the agent stated "the only changes are uncommitted edits in four files, nothing else was touched, restorable in one step" without running git status. The owner called it "making up shit." The claim happened to be right, but it was asserted, not observed — the exact failure the workspace CLAUDE.md names as its most damaging.
+
+**Suggested improvement:** In expert-standard's observation axis, name repository state explicitly: any statement about what is changed, staged, committed, or pushed is preceded by the command that shows it, in the same turn.
+
+**Principle:** Pressure increases the temptation to assert from memory precisely when a wrong assertion costs the most. The check is cheap; run it.
+
+### Observation 28: Automated Stop-hook reminders treated as owner instructions
+**Status:** OPEN
+**Date:** 2026-09-04
+**Session context:** Context Oracle; a stop-hook git check fired mid-conversation
+**Skill:** escalation-response, cc-hooks
+**Type:** open-source
+**Phase/Area:** Distinguishing automated nudges from the owner's direction
+
+**Issue:** A Stop hook ("uncommitted changes, please commit and push") fired while the owner had not answered a pending design question. The agent acted on the hook immediately — edited STATUS, wrote a commit message, moved to push — and the owner exploded: "I simply cannot keep up with this bullshit." The hook was a generic reminder; the agent treated it as authorization to act.
+
+**Suggested improvement:** Add to escalation-response and cc-hooks: an automated hook message never outranks the conversation's current state. If the owner has an open question or has just corrected the agent, a hook reminder is noted, not acted on.
+
+**Principle:** Hooks are advisory infrastructure; the owner is the principal. A reminder to commit is not a decision to commit.
+
+### Observation 29: Recurrence of #24 — task-observer invoked only at session end, by the owner
+**Status:** OPEN
+**Date:** 2026-09-04
+**Session context:** Context Oracle session; owner invoked the skill after termination
+**Skill:** task-observer
+**Type:** open-source
+**Phase/Area:** Activation
+
+**Issue:** Same as Observation 24: the skill was not loaded at session start despite a task-oriented session, so nothing was logged during the work; the owner had to invoke it manually at the end. Second consecutive recurrence on this project.
+
+**Suggested improvement:** The repo's root CLAUDE.md has no task-observer activation line. Add the recommended activation instruction there so the structural trigger fires; description matching alone has now failed twice.
+
+**Principle:** Per Observation 22 — an observation that produces no mechanism recurs. This one has recurred; the mechanism (the CLAUDE.md line) is still missing.
