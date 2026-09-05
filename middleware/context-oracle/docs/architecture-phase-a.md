@@ -1323,7 +1323,8 @@ and nothing here depends on the new channel.
    held is AC-18's seeded-coverage concern — `status` pairs the two so the
    distinction is visible). Not automated demotion input (Phase C).
 5. **Premise verification.** `FR-L4`, `FR-L6`, `FR-L7`, `D-36`, `D-12` read at
-   spec §11.3/§12. Addresses: those, AC-23, AC-24.
+   spec §11.3/§12. Addresses: those, AC-2c (answer-drift under-fire), AC-23,
+   AC-24.
 
 ### AD-19 — Security controls (mapped to the threat model below)
 
@@ -1900,7 +1901,7 @@ criterion is pinned there and its mechanism lives in the named decisions.)
 | AC-2b; AC-2c's skill-block under-fire clause | Deferred — Phase C (spec §14: "AC-2b and the skill-block (under-fire) clause of AC-2c") |
 | AC-2c — answer-drift clauses | Over-fire (reads/executions not denied): Phase A, AD-24/AD-9. Under-fire (FR-L6 correction records the miss and outranks): Phase A, AD-18 — enforcement-real when the missed deviation is a mutating edit (reopening the question via `--missed-question` re-arms the mutating-edit deny); a non-mutating / Bash-drift miss is recorded and disclosed (the CLI names which limit was hit) but changes no enforcement, per L3/AD-18. Substantive-vs-deferral discrimination: Phase B per spec §14 |
 | AC-3, AC-3a, AC-4, AC-5, AC-6, AC-7, AC-8, AC-8a, AC-9, AC-10, AC-11, AC-13, AC-14, AC-15, AC-17, AC-18, AC-19, AC-20, AC-22, AC-23, AC-24 | AD-24 (each pinned; mechanisms in the named decisions) |
-| AC-12 | AD-21/AD-24 (Phase A scope: deterministic plumbing model-free; precision clauses Phase B per the criterion's own text) |
+| AC-12 | AD-9/AD-21/AD-24 (Phase A scope: deterministic plumbing model-free; precision clauses Phase B per the criterion's own text) |
 | AC-16 | Deferred — Phase C (`FR-L3b` machinery) |
 | AC-21 | AD-21 (guard ships and is unit-tested); full induced-self-trigger criterion Phase B |
 | AC-25 | Deferred — Phase B (AD-22 fixes its semantics as constraints; nothing of it is built or tested in Phase A) |
