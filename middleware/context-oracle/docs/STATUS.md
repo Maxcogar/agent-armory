@@ -25,7 +25,11 @@ The spec (`docs/specs/spec-context-oracle.md`) is signed off (`OL-C6`). The Phas
 A architecture (`docs/architecture-phase-a.md`) is complete: its
 non-answer-drift decisions passed a round-10 expert review, and the answer-drift
 block `AD-9` — the one block previously found to be over-built "slop" — has been
-**rebuilt to the honest Phase A skeleton the spec mandates.**
+**rebuilt to the honest Phase A skeleton the spec mandates**, and an independent
+goal-first review (expert review + collapse-hunt) confirmed it: the classifier
+slop is genuinely cut, the skeleton is spec-faithful, the Phase B seam holds, and
+the review's consistency findings are applied. The whole architecture is now
+reviewed and ready to plan from.
 
 **What `AD-9` now is.** Deny **plumbing** (a `PreToolUse` deny confined to one
 producer, `AD-10`) plus a **conservative move recognizer**: while any question
@@ -52,13 +56,10 @@ audit. That seam is the point of the skeleton.
 
 ## What to do next (agent-owned)
 
-1. **Complete the goal-first review of the rebuilt `AD-9`** — a fresh expert
-   review + independent collapse-hunt aimed goal-first (`CLAUDE.md` rule 3: "does
-   this serve the Phase A goal, or is it machinery that only passes review?"),
-   with all findings applied, before it is trusted.
-2. **Then write the Phase A implementation plan** (greenfield expert-plan,
-   consuming the spec + this architecture), and build against §11.5's Phase A exit
-   and the §14 Phase A acceptance criteria.
+1. **Write the Phase A implementation plan** (greenfield expert-plan, consuming
+   the spec + this architecture), and build against §11.5's Phase A exit and the
+   §14 Phase A acceptance criteria. The architecture — `AD-9` included — is
+   reviewed and ready to plan from.
 
 ## Open items
 

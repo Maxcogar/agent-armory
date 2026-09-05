@@ -797,7 +797,7 @@ and nothing here depends on the new channel.
    the answer — `D-39`'s protected class), `Task` spawns (spawn intent is not
    judgeable model-free; `AC-2a-i`'s deny half is Phase B), MCP tools, web tools —
    is **allowed**. Being model-free, the move recognizer cannot tell a mutation
-   that *is* the answer to a request ("rename `foo`") from one that ignores the
+   that *is* the answer to a request ("can you rename `foo`?") from one that ignores the
    question: it denies **every** repo mutation while any question is open. That
    over-enforcement is the accepted, **measured** cost of a model-free recognizer
    (the wrongful-deny residual, L1), escapable by one answering — or plan-stating
@@ -920,7 +920,7 @@ and nothing here depends on the new channel.
    (CONFIRMED); `FR-B1`/`FR-B2`/`FR-B5`, `D-39`, `D-41` read at spec §8/§12;
    `AC-2a`/`AC-2a-i`/`AC-2a-ii`/`AC-8a`/`AC-12` at spec §14. Addresses: `FR-A2l`,
    `FR-B1`, `FR-B2`, `FR-B5`, `FR-O6`, `D-39`, `D-41`, `AC-2a`, `AC-2a-i`,
-   `AC-8a`, `AC-12` (deterministic parts).
+   `AC-2c` (answer-drift over-fire), `AC-8a`, `AC-12` (deterministic parts).
 
 ### AD-10 — Deny confinement: one producer, structurally
 
@@ -1900,7 +1900,7 @@ criterion is pinned there and its mechanism lives in the named decisions.)
 | AC-2a-i | Split by phase (AD-24): allow-half (subagent not denied; reads/spawns free) Phase A, AD-9; deny-half (a spawn to do other work is denied) Phase B — `Task` is never deny-eligible in Phase A |
 | AC-2a-ii | Deferred — Phase B (spec §14 phasing) |
 | AC-2b; AC-2c's skill-block under-fire clause | Deferred — Phase C (spec §14: "AC-2b and the skill-block (under-fire) clause of AC-2c") |
-| AC-2c — answer-drift clauses | Over-fire (reads/executions not denied): Phase A, AD-24/AD-9. Under-fire (FR-L6 correction records the miss and outranks): Phase A, AD-18 — enforcement-real for intake-missed *info* questions; a request-class or move-class (Bash-drift, L3) miss is recorded and disclosed but changes no enforcement, and the CLI says which limit was hit. Substantive-vs-deferral discrimination: Phase B per spec §14 |
+| AC-2c — answer-drift clauses | Over-fire (reads/executions not denied): Phase A, AD-24/AD-9. Under-fire (FR-L6 correction records the miss and outranks): Phase A, AD-18 — enforcement-real when the missed deviation is a mutating edit (reopening the question via `--missed-question` re-arms the mutating-edit deny); a non-mutating / Bash-drift miss is recorded and disclosed (the CLI names which limit was hit) but changes no enforcement, per L3/AD-18. Substantive-vs-deferral discrimination: Phase B per spec §14 |
 | AC-3, AC-3a, AC-4, AC-5, AC-6, AC-7, AC-8, AC-8a, AC-9, AC-10, AC-11, AC-13, AC-14, AC-15, AC-17, AC-18, AC-19, AC-20, AC-22, AC-23, AC-24 | AD-24 (each pinned; mechanisms in the named decisions) |
 | AC-12 | AD-21/AD-24 (Phase A scope: deterministic plumbing model-free; precision clauses Phase B per the criterion's own text) |
 | AC-16 | Deferred — Phase C (`FR-L3b` machinery) |
@@ -1922,7 +1922,7 @@ criterion is pinned there and its mechanism lives in the named decisions.)
   under-fire guard is the human channel (`FR-L6`, including `--missed-question`)
   plus the AC-8a line. **The wrongful-deny residual** is one class: a repo
   mutation that is itself the answer to an open question (the ask's fulfilment
-  *is* the edit — "rename `foo`" — or a real action co-asked with the question)
+  *is* the edit — "can you rename `foo`?" — or a real action co-asked with the question)
   is denied while the question is open, because a model-free recognizer cannot
   tell that edit from drift. Every such deny is escapable by one answering — or
   plan-stating — turn (`OL-C3`) and measured on the wrongful-deny rate; Phase B
