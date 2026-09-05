@@ -63,11 +63,6 @@ audit. That seam is the point of the skeleton.
 
 ## Open items
 
-- **Residual fix-narration elsewhere in the architecture doc.** A few small
-  "round-N" review mentions remain in sections unrelated to `AD-9` (e.g. `AD-4`'s
-  fail-open note, `AD-24`'s AC-19 note). They break the "never narrate fixes in
-  the architecture doc" rule and should be swept in a separate pass; they change
-  no design.
 - The two **build-time verifications** the architecture names (`L11`): human-turn
   marker presence on Max's real interactive transcripts, and whether
   platform-injected turns fire `UserPromptSubmit`. Neither gates the design; both

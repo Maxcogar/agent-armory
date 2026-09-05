@@ -2054,8 +2054,4 @@ items are phase-gated by the spec itself, not ambiguity left to an implementer.
 The answer-drift block (AD-9) is the Phase A **safe skeleton** the spec mandates
 (`D-41`, §11.5): the deny plumbing plus a conservative recognizer that fires only
 on a clearly-non-answer-directed move, its precision deferred to Phase B and its
-coverage **measured at exit**, not asserted. A fresh goal-first review of AD-9 —
-independent expert review plus collapse-hunt, judged against the Phase A goal —
-is the gate before the Phase A implementation plan (`/expert-plan`), which
-consumes this architecture and the spec and builds against §11.5's Phase A exit
-and the §14 Phase A acceptance criteria.
+coverage **measured at exit**, not asserted.
