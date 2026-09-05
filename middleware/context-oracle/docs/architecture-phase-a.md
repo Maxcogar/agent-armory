@@ -680,7 +680,7 @@ and nothing here depends on the new channel.
    wiring — nothing in Phase A consumes it, and the spec requires no
    `permissionDecision` be emitted on it ever (`FR-B3`, AC-2's control-flow
    assertion); `PostToolUseFailure` **is** wired, observation-only, because
-   the round-2 review established failure outcomes exist nowhere else (V19),
+   failure outcomes exist nowhere else (V19),
    and it emits nothing on any channel. Not stdout injection on tool events (the contract routes
    tool-event context via `hookSpecificOutput`, V2).
 5. **Premise verification.** V1–V6 and V15/V16/V19 (channels, fields, timeouts,
@@ -718,10 +718,9 @@ and nothing here depends on the new channel.
    the transcript can provide (the residual lag is then only the file-write lag
    the contract documents, V1 — the irreducible lag window of `FR-B1`); (b) the
    audit write precedes emission for both whispers and denies — an unlogged
-   whisper/deny is not emitted (`FR-X6` made true by construction; the
-   2026-07-22 round-1 collapse-hunt finding that fail-open must not apply to
-   the audit control — verified closed in round 2 — carried forward as a rule,
-   re-derived from `FR-X6`'s wording "every whisper and every block recorded").
+   whisper/deny is not emitted (`FR-X6` made true by construction; fail-open must
+   not apply to the audit control, per `FR-X6`'s wording "every whisper and every
+   block recorded").
 2. **Standard.** `FR-X6` and `FR-B1` governing; first-principles for ordering:
    the goal is that every emitted intervention is auditable and every deny is
    grounded in the freshest checkable state; the shortcut is "emit, then log
@@ -1086,7 +1085,7 @@ and nothing here depends on the new channel.
      touched). **No genre term, no intent term** (`D-18`: intent entered via the
      trigger).
    - **Marginal value** `m`, defined for **all three** Phase A fact classes
-     (leaving a genre's own class undefined was a round-2 collapse finding):
+     (no fact class is left undefined):
      *single-file current-state* facts fail — the agent's own tools surface
      them in one call (AC-1's obviousness clause: a same-directory/same-stem
      pair is suppressed); *cross-file history-derived* facts pass by
@@ -1146,7 +1145,7 @@ and nothing here depends on the new channel.
    | Consequence `FR-A2d` | `PreToolUse` Edit/Write | coupled **test files** of the target (pairs where partner ∈ `test_map`); zone flag of target | historically-coupled tests + zone flag; never a raw call-site count alone |
    | Warning ⚠ `FR-A2e` | `PreToolUse` Edit/Write | `landmines` rows for target (revert_chain, fix_chatter, human_stated) | the hazard with its evidence and **flagged confidence** (`FR-A5a`) |
    | Completeness `FR-A2f` | `Stop` | session's edited files (`observed_actions`) → un-edited partners above ratio floor | "you changed X but not Y, paired in 9 of its last 10 changes" |
-   | Verification `FR-A2g` | `Stop` with done-claim | changed regions (from `outcome='ok'` rows — AD-4's split filter) → `test_map` covering tests, minus test runs observed in `observed_actions` **of either outcome** (a failed run *is* a run — AD-4; a run-and-failed covering test at a done-claim is `FR-A2m`'s Phase B case per `D-27`, and Phase A's duty is only never to assert "not run" over it). The `command_class` classifier is **ternary; classes 1 and 2 are config-enumerated (in `tuning`, AD-5 — tended via `ctxoracle tune`), class 3 is the default complement** (anything outside both lists — a partial classifier would leave everyday commands with no class and an unstated default, whose unsafe direction re-admits the false "not run"): (1) *recognized test runner* → mapped subtraction (unmappable target ⇒ subtract all); (2) *recognized-innocuous* (a conservative allowlist of command heads that cannot run tests: `ls`, `cd`, `cat`, `git status`-class, `grep`/`rg`, …) → no effect on run-state; (3) everything else → run-state unknown, and **the shipped branch is the weaker honest claim** ("no *recognized* test run touched T; recognized runners: …" — it keeps the genre alive and still headlines the mapping, satisfying AC-8's content assertion), never the strong "not run". **Classification is per pipeline segment**: the command line is split on `&&`, `;`, `\|`, `\|\|` **quote-aware** (operators inside quotes are not split points; quoting the splitter cannot parse → class 3 wholesale; subshell / `sh -c` wrappers → class 3 wholesale); recognized-innocuous requires **every** segment's head on the allowlist; **segments contribute independently** — each runner segment subtracts its run, and any unknown segment still sets run-state unknown (so a runner+unknown compound both subtracts and composes the weak claim); head-matching a compound (`cd pkg && npm test`) as innocuous would re-manufacture the false "not run" (a round-4 finding) | the covering-test **mapping** for the changed region, with the honest run-state clause; run-state never stands alone (AC-8) |
+   | Verification `FR-A2g` | `Stop` with done-claim | changed regions (from `outcome='ok'` rows — AD-4's split filter) → `test_map` covering tests, minus test runs observed in `observed_actions` **of either outcome** (a failed run *is* a run — AD-4; a run-and-failed covering test at a done-claim is `FR-A2m`'s Phase B case per `D-27`, and Phase A's duty is only never to assert "not run" over it). The `command_class` classifier is **ternary; classes 1 and 2 are config-enumerated (in `tuning`, AD-5 — tended via `ctxoracle tune`), class 3 is the default complement** (anything outside both lists — a partial classifier would leave everyday commands with no class and an unstated default, whose unsafe direction re-admits the false "not run"): (1) *recognized test runner* → mapped subtraction (unmappable target ⇒ subtract all); (2) *recognized-innocuous* (a conservative allowlist of command heads that cannot run tests: `ls`, `cd`, `cat`, `git status`-class, `grep`/`rg`, …) → no effect on run-state; (3) everything else → run-state unknown, and **the shipped branch is the weaker honest claim** ("no *recognized* test run touched T; recognized runners: …" — it keeps the genre alive and still headlines the mapping, satisfying AC-8's content assertion), never the strong "not run". **Classification is per pipeline segment**: the command line is split on `&&`, `;`, `\|`, `\|\|` **quote-aware** (operators inside quotes are not split points; quoting the splitter cannot parse → class 3 wholesale; subshell / `sh -c` wrappers → class 3 wholesale); recognized-innocuous requires **every** segment's head on the allowlist; **segments contribute independently** — each runner segment subtracts its run, and any unknown segment still sets run-state unknown (so a runner+unknown compound both subtracts and composes the weak claim); head-matching a compound (`cd pkg && npm test`) as innocuous would re-manufacture the false "not run" | the covering-test **mapping** for the changed region, with the honest run-state clause; run-state never stands alone (AC-8) |
 
    **The done-claim recognizer (`D-38`):** deterministic in Phase A, reading
    `last_assistant_message` (Stop input, V1): a completion-claim lexicon
@@ -1465,8 +1464,7 @@ and nothing here depends on the new channel.
    whisper posture RETHINK §3 rejects.
 4. **What this is NOT.** Not an open-ended hold (the bound is the next relevant
    event or termination — `FR-J5`). Not a Phase A table or delivery path
-   (shipping either now would be the dormant machinery AD-4's criterion bars —
-   the inconsistency the round-1 reviews flagged and this revision removed).
+   (shipping either now would be the dormant machinery AD-4's criterion bars).
 5. **Premise verification.** `FR-J5`, `D-37` read at spec §11.2/§12. Addresses:
    `FR-J5`, AC-25 (a Phase-B criterion; the constraints above are its bar).
 
@@ -1558,7 +1556,7 @@ and nothing here depends on the new channel.
      canonical-order per-table dump of the original store diffed against the
      imported store — the spec's "record-identical"; a byte-compare is pinned
      nowhere, because a `VACUUM INTO` copy is *not* byte-identical to its
-     source, demonstrated by execution in the round-2 review), AC-20
+     source, demonstrated by execution), AC-20
      (cold-container install+index in a clean container), AC-22 (idle
      silence), AC-23 (human-correction precedence, including
      `--missed-question` routed through the classifier), AC-24 (regret
