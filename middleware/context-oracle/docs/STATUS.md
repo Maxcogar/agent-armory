@@ -25,84 +25,91 @@ The spec (`docs/specs/spec-context-oracle.md`) is signed off (`OL-C6`). The Phas
 A architecture (`docs/architecture-phase-a.md`) is reviewed to convergence, with
 `AD-9` rebuilt to the honest Phase A skeleton the spec mandates.
 
-**The Phase A implementation plan is written but is NOT deliverable under
-the expert-plan SKILL.md's own rule** — one bin-2 register entry (Q-gap-5) is
-open, and SKILL.md says: *"A plan with any open register entry is not
-deliverable."* Q-gap-5 is the escalation Max Cogar has to rule on before the
-plan proceeds.
+**The Phase A implementation plan attempt (`docs/plans/plan-phase-a.md`) failed
+its independent reviews and is not fit to build against.** PR #78 on branch
+`claude/context-oracle-1evnd9`, head `d915856`. Two reviews landed against the
+current plan:
 
-**How the plan got here.**
+- **`docs/reviews/2026-09-06-plan-collapse-hunt.md` — Verdict: DOES NOT
+  SURVIVE.** 3 full collapses, 4 partials, 6 new load-bearing decisions the
+  author's collapse-test (§10A) missed. Key collapses: D-plan-1 build-order
+  framing IS the 2026-09-04 goal-loss shape at the build layer; D-plan-3
+  `node:test` won't actually execute against `.ts` under Node 22.16 (tests
+  never run, T15-2 confinement grep passes vacuously); Step 42 exit run on
+  `Maxcogar/agent-armory` is not "the owner's real repos" §11.5 names.
+- **`docs/reviews/2026-09-06-plan-expert-review.md` — Verdict: NEEDS FIXES
+  (10 findings: 3 Serious, 5 Moderate, 2 Minor).** S1 Step 31 references
+  Step 32 in Dependencies (topological-sort violation); S2 FR-A2g
+  Verification genre has no acceptance-tier test; S3 plan not deliverable
+  per SKILL.md while an open register entry remains; M1 ~15 named fixture
+  repos unenumerated in §5.1; more.
 
-The plan is at `docs/plans/plan-phase-a.md`, PR #78 draft on branch
-`claude/context-oracle-1evnd9`, head `99be60a`. It has been through two
-adversarial reviews and one fix pass:
+Additional context on how the plan got here:
 
-1. **The plan-writer's own compliance review** —
-   `docs/reviews/2026-09-06-author-gates-review.md`. Found 20 findings on
-   the author's own artifact (5 Critical, 7 Serious, 4 Moderate, 4 Minor)
-   covering test-spec incompleteness, a fabricated §14 reconciliation-sweep
-   attestation, an absence-claim with wrong data, missing citation
-   line-ranges, undocumented src/ files, shared test specs violating the
-   "trivially mechanical only" rule, doubles without Meszaros type, an
-   unverified byte-identical claim, and more.
-2. **A meta-check subagent** — `docs/reviews/2026-09-06-meta-check-skipped-steps.md`.
-   Read the expert-plan SKILL.md in full and the session transcript. Found
-   H1–H8 covering the two most damaging classes: (H1) two of the skill's
-   halt-condition tools (CodeGraph, Clear Thought) are unavailable in this
-   environment and the plan proceeded despite the skill mandating stop-and-
-   report; and (H2) the plan was delivered before the compliance gates were
-   walked (the author asserted "gates pass" without walking them).
-3. **A five-batch fix pass** (commits `bbcd55f`, `6cb00ce`, `107673c`,
-   `e60293b`, `99be60a`) applied every content finding from the author's
-   review and every content finding from the meta-check. What did not fix
-   is H1's skill halt-condition violation — that is a Max-decides item
-   (Q-gap-5 in the plan's Gaps section). Also open: L11(b) is empirically
-   unresolvable inside this container (hook install blocked) but the
-   design is safe either way per AD-9's voiding guard; resolves naturally
-   on first real install.
+- **`docs/reviews/2026-09-06-author-gates-review.md`** — the plan-writer's
+  own compliance walk. Found 20 findings on their own artifact (5 Critical,
+  7 Serious, 4 Moderate, 4 Minor).
+- **`docs/reviews/2026-09-06-meta-check-skipped-steps.md`** — meta-check
+  subagent. Found H1–H8 including the finding that the plan-writer
+  proceeded despite two SKILL.md halt conditions (CodeGraph and Clear
+  Thought MCP servers unavailable, plan-writer manual-substituted instead
+  of halting).
 
-**What still remains** (all Max Cogar decisions or first-real-install
-observations, not plan-writer work):
-- **Q-gap-5** (Gaps section of the plan) — bin-2 owner decision: accept /
-  halt / waive the SKILL.md halt-condition violation. Options are
-  spelled out plainly in the plan's Gaps section.
-- **L11(a) documentation update** — the human-marker presence
-  measurement done this session should feed a documentation PR to
-  architecture L11(a); that is Step 43 post-completion work, not build.
-- **L11(b) first-install observation** — resolves naturally, no probe
-  required.
+The author's compliance findings and the meta-check findings were partially
+applied across commits `bbcd55f`, `6cb00ce`, `107673c`, `e60293b`, `99be60a`,
+`7290549`, `5f94682`. The two later independent reviews (collapse-hunt +
+expert-review) landed on the post-fix plan and still returned failing
+verdicts.
 
-## What to do next (agent-owned unless it says owner-decision)
+**The plan-writer also opened Q-gap-5 in the plan's Gaps section — a bin-2
+owner-decision escalation asking Max Cogar to rule accept / halt / waive on
+the SKILL.md halt-condition violation. This was the wrong disposition.**
+CLAUDE.md rule 2 says: *"if tooling genuinely prevents it, halt and say so
+rather than shipping an unattacked decision."* The project's answer to
+the halt condition is: halt. Not: escalate to the owner. Opening a bin-2
+question the project's own rule already answers is exactly the "don't hand
+the owner a decision that is already written" failure `CLAUDE.md` calls out.
 
-1. **[OWNER DECISION] Rule on Q-gap-5.** Read the plan's Gaps section Q-gap-5
-   (options A/B/C — accept / halt / waive the skill halt-condition
-   violation for this plan). Whichever you pick, the plan-writer will
-   apply your ruling in the plan's Gaps section and update STATUS.md.
+## What to do next (agent-owned)
 
-2. **After Q-gap-5 ruling:** dispatch a fresh independent review
-   subagent against the current commit (the earlier one was
-   dispatched against `9d1521e` which has since been rewritten across
-   commits `bbcd55f`..`99be60a` — that review is stale and does not
-   count). The fresh review attacks the plan's §10A step-2 questions
-   and hunts for new load-bearing decisions the author's collapse-test
-   missed. This is agent-owned dispatch, not an owner ask.
+1. **Restart the Phase A plan** on top of the current architecture. The
+   current plan attempt failed two independent reviews (collapse-hunt DOES
+   NOT SURVIVE, expert-review NEEDS FIXES) and cannot be patched to pass —
+   the collapses are at the plan's shape (D-plan-1 build order, D-plan-3
+   runner that won't execute, Step 42 wrong exit-run repos). Rewrite the
+   plan; do not attempt to patch the current one.
 
-3. **After the independent review lands and its findings are applied:**
-   build against `docs/plans/plan-phase-a.md`. Steps 1–43 in order,
-   respecting the five checkpoints. Do not skip test-per-step
-   verifications. Do not elaborate the answer-drift recognizer beyond
-   its safe-skeleton scope (Step 14 restraint — the 2026-09-04 collapse
-   is the standing warning). Publish the exit report at Step 42 with
-   the honest floor — a suspiciously-high answer-drift coverage number
-   is a finding, not a success.
+2. **Every finding across all four review documents applies to the
+   rewrite** — the author-gates review, the meta-check, the collapse-hunt,
+   and the expert-review. Not a prioritized subset. Not a "start with
+   C1–C3." All of them.
 
-4. **After Phase A ships and its exit run is published:** write the
-   Phase B architecture (per the per-phase lifecycle).
+3. **Halt on the SKILL.md halt condition, per CLAUDE.md rule 2.** CodeGraph
+   MCP and Clear Thought MCP are unavailable in this environment
+   (empirically verified this session: `ToolSearch` for `codegraph` and
+   `clear_thought` both returned no matches). SKILL.md says a required
+   tool that cannot run is a halt condition, not a license to improvise.
+   The next plan attempt either (a) runs in an environment where those
+   tools ARE available, or (b) does not produce a `/expert-plan`-labeled
+   plan — a different, non-`/expert-plan` process would need explicit
+   owner authorization first.
+
+4. **Run the independent collapse-hunt and expert-review after the
+   rewrite lands**, before delivering. Both are mandatory per CLAUDE.md
+   rule 2 and per the project lifecycle. Do not open owner-decision gaps
+   for anything the project's own rules already answer.
 
 ## Open items
 
-- **Q-gap-5** (plan Gaps section) — bin-2 owner decision open. Blocks
-  deliverability per SKILL.md's own rule.
-- **L11(a) documentation** — measurement resolved; documentation PR
-  deferred to Step 43.
-- **L11(b)** — resolves on first real install; no probe needed.
+- The Phase A plan is not deliverable. Restart per items 1–4 above.
+- L11(a) — human-marker presence on Max Cogar's real interactive
+  transcript was resolved this session by direct measurement of
+  `/root/.claude/projects/-home-user-agent-armory/dc9955b4-2023-5a97-b6a3-47796382cb94.jsonl`
+  (11 `origin.kind:"human"` entries, markers present exactly as V12 and
+  AD-9 assume). Follow-up documentation PR updating architecture L11(a)
+  from "assumption pending" to "measured" is a post-Phase-A-completion
+  task.
+- L11(b) — whether `UserPromptSubmit` fires for platform-injected turns
+  remains empirically unresolvable inside this container (hook install
+  blocked by auto-mode classifier). Design-safe either way per AD-9's
+  voiding guard. Natural resolution: first real install of the tool.
