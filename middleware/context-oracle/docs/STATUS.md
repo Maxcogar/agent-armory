@@ -46,21 +46,40 @@ architectural decisions.
 
 ## What to do next (agent-owned)
 
-1. **Build against `docs/plans/plan-phase-a.md`.** Steps 1–42 in order,
-   respecting the five checkpoints. Do not skip the tests-per-step
-   verifications. Do not elaborate the answer-drift recognizer beyond its safe-
-   skeleton scope (Step 14 restraint — the 2026-09-04 collapse is the standing
-   warning). Publish the exit report at Step 42 to `docs/reviews/<date>-phase-a-
-   exit-run.md` with the honest floor — a suspiciously-high answer-drift
-   coverage number is a finding, not a success.
+1. **Independent expert-review + collapse-hunt on
+   `docs/plans/plan-phase-a.md`** — dispatched to a fresh session/subagent
+   who did not author it, per `CLAUDE.md` dominating rule 2. The author's
+   own compliance passes (expert-plan Gates A/B/C, already run) do not
+   substitute for adversarial attack. The reviewer's job: attack every
+   step's collapse-test question harder and hunt for new ones; test
+   whether Step 14's recognizer-minimalism holds under pressure or drifts
+   toward the 2026-09-04 slop the plan is supposed to be armored against;
+   verify every factual claim in the plan's Verification section
+   resolves at the cited evidence; verify every register bin-1 answer
+   is real (not a bin-2 in disguise); verify every gap's attempt
+   evidence is real. Findings written to
+   `docs/reviews/<date>-plan-phase-a-review.md`, never edited after.
 
-2. **Run the two L11 owner-run verifications alongside the build** (per
+2. **Apply every finding from Step 1** (per `CLAUDE.md` engineering
+   standard: "When a review surfaces findings, apply all of them"). A
+   plan update lives in the same file, `docs/plans/plan-phase-a.md`.
+
+3. **Only then, build against `docs/plans/plan-phase-a.md`.** Steps
+   1–42 in order, respecting the five checkpoints. Do not skip the
+   tests-per-step verifications. Do not elaborate the answer-drift
+   recognizer beyond its safe-skeleton scope (Step 14 restraint — the
+   2026-09-04 collapse is the standing warning). Publish the exit
+   report at Step 42 to `docs/reviews/<date>-phase-a-exit-run.md` with
+   the honest floor — a suspiciously-high answer-drift coverage number
+   is a finding, not a success.
+
+4. **Run the two L11 owner-run verifications alongside the build** (per
    plan-phase-a Step 40): `test/build_time/real_transcript_marker_probe.md`
-   and `test/build_time/user_prompt_submit_provenance.md`. Their results update
-   L11's disclosure in `docs/architecture-phase-a.md` via a follow-up
-   documentation PR after the build lands.
+   and `test/build_time/user_prompt_submit_provenance.md`. Their results
+   update L11's disclosure in `docs/architecture-phase-a.md` via a
+   follow-up documentation PR after the build lands.
 
-3. **After Phase A ships and its exit run is published, write the Phase B
+5. **After Phase A ships and its exit run is published, write the Phase B
    architecture** — per the per-phase lifecycle, only when Phase A's data
    exists.
 
