@@ -3,6 +3,10 @@
     "clear-thought": {
       "command": "npx",
       "args": ["-y", "@waldzellai/clear-thought-onepointfive"]
+    },
+    "codegraph": {
+      "command": "bash",
+      "args": ["-c", "exec \"${CLAUDE_PROJECT_DIR:-.}/mcp-servers/codegraph-mcp/run.sh\""]
     }
   }
 }

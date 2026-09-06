@@ -1154,3 +1154,26 @@ phase goal is slop — cut the machinery, log it as a finding. Phase A's goal: a
 honest deterministic foundation that measures its own floor with clean seams for
 later phases, never fake completeness. `AD-9` returns to the architecture layer
 to be rebuilt to that goal, then re-reviewed.
+
+## 2026-09-06 — "tool unavailable" was asserted from a tool search; the tool was one file location away
+
+The 2026-09-06 plan session halted on CodeGraph and Clear Thought being
+unavailable — correct under the plan skill's no-fallback rule — and then handed
+the halt to Max Cogar as an accept / halt / waive decision. "Unavailable" had
+been established only by searching the loaded tool set, never by reading how the
+harness loads tools. Clear Thought was already configured in
+`middleware/context-oracle/.mcp.json`, a file Claude Code never reads (project
+servers come only from the repository root's `.mcp.json` — current docs, read
+2026-09-06); CodeGraph is a server checked into this very repository
+(`mcp-servers/codegraph-mcp/`) that installs, builds, and starts here in seconds.
+Class: **unverified** (an absence claim about the environment resting on a search
+of the wrong scope) + **over-asking** (a mechanism-forced environment fix
+presented to the owner as a choice — the 2026-08-25 item 6 shape). **Lesson: a
+"required tool is unavailable" halt is an absence claim about the environment,
+and it gets the same treatment as any absence claim — read the environment, not
+the tool list: where the harness loads tools from, whether the tool exists in the
+repository, whether it starts. When the fix is derivable (configure the tool),
+it is the agents' work; only an environment the agents genuinely cannot change
+goes to the owner, as evidence, not as a menu.** Fix: repository-root
+`.mcp.json` declaring both servers (2026-09-06); verification is the next
+session's first check (`docs/STATUS.md`).
