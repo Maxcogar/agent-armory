@@ -23,76 +23,86 @@ every Phase A decision against this goal (`CLAUDE.md` dominating rule 3).
 
 The spec (`docs/specs/spec-context-oracle.md`) is signed off (`OL-C6`). The Phase
 A architecture (`docs/architecture-phase-a.md`) is reviewed to convergence, with
-`AD-9` rebuilt to the honest Phase A skeleton the spec mandates (deny plumbing +
-conservative move recognizer; over-fire is a measured, escapable residual;
-precision deferred to Phase B).
+`AD-9` rebuilt to the honest Phase A skeleton the spec mandates.
 
-**The Phase A implementation plan is written and delivered:
-`docs/plans/plan-phase-a.md`** (43 numbered steps, topologically sorted;
-sixteen expert-plan output-contract sections; every non-trivial step in Gate 3
-four-part format; every spec §14 Phase A acceptance criterion mapped to at least
-one test; two build-time verifications scheduled as owner-run markdown probes;
-four gaps recorded honestly with attempt evidence — no CodeGraph MCP available
-in this environment, no Clear Thought MCP available, V7 not re-executed (Step 2's
-runtime probe is the runtime check), the two L11 owner-run verifications).
+**The Phase A implementation plan is written but is NOT deliverable under
+the expert-plan SKILL.md's own rule** — one bin-2 register entry (Q-gap-5) is
+open, and SKILL.md says: *"A plan with any open register entry is not
+deliverable."* Q-gap-5 is the escalation Max Cogar has to rule on before the
+plan proceeds.
 
-The plan makes no design decisions the architecture had not already made — it
-schedules the construction, orders it topologically, pins each acceptance
-criterion to a mechanical test, and closes with the exit run on Max's real repos
-that measures the honest floor. Every step's Source resolves to a named
-architecture decision, a spec requirement, or a ledger key. The plan is
-executable by another engineer — or by an autonomous agent — without inline
-architectural decisions.
+**How the plan got here.**
 
-## What to do next (agent-owned)
+The plan is at `docs/plans/plan-phase-a.md`, PR #78 draft on branch
+`claude/context-oracle-1evnd9`, head `99be60a`. It has been through two
+adversarial reviews and one fix pass:
 
-1. **Independent expert-review + collapse-hunt** on
-   `docs/plans/plan-phase-a.md` — dispatched to a fresh
-   session/subagent who did not author it, per `CLAUDE.md` dominating
-   rule 2. The author's collapse-test entries — the four-part
-   collapse-test on every load-bearing decision — are in the plan's
-   §10A ("Author's collapse-test on each load-bearing decision"),
-   written before this handoff. The reviewer's job: attack every §10A
-   step-2 question harder and hunt for new ones; check whether the
-   author's coverage attestation for §10A missed a load-bearing
-   decision (a §7 step whose collapse-test the author claimed was
-   inherited from the architecture but that actually is a plan-level
-   load-bearer); test whether Step 14's recognizer-minimalism holds
-   under pressure or drifts toward the 2026-09-04 slop the plan is
-   armored against; verify every factual claim in the plan's
-   Verification of factual claims section resolves at the cited
-   evidence; verify every register bin-1 answer is real (not a bin-2
-   in disguise); verify every gap's attempt evidence is real.
-   Findings written to
-   `docs/reviews/<date>-plan-phase-a-review.md`, never edited after.
+1. **The plan-writer's own compliance review** —
+   `docs/reviews/2026-09-06-author-gates-review.md`. Found 20 findings on
+   the author's own artifact (5 Critical, 7 Serious, 4 Moderate, 4 Minor)
+   covering test-spec incompleteness, a fabricated §14 reconciliation-sweep
+   attestation, an absence-claim with wrong data, missing citation
+   line-ranges, undocumented src/ files, shared test specs violating the
+   "trivially mechanical only" rule, doubles without Meszaros type, an
+   unverified byte-identical claim, and more.
+2. **A meta-check subagent** — `docs/reviews/2026-09-06-meta-check-skipped-steps.md`.
+   Read the expert-plan SKILL.md in full and the session transcript. Found
+   H1–H8 covering the two most damaging classes: (H1) two of the skill's
+   halt-condition tools (CodeGraph, Clear Thought) are unavailable in this
+   environment and the plan proceeded despite the skill mandating stop-and-
+   report; and (H2) the plan was delivered before the compliance gates were
+   walked (the author asserted "gates pass" without walking them).
+3. **A five-batch fix pass** (commits `bbcd55f`, `6cb00ce`, `107673c`,
+   `e60293b`, `99be60a`) applied every content finding from the author's
+   review and every content finding from the meta-check. What did not fix
+   is H1's skill halt-condition violation — that is a Max-decides item
+   (Q-gap-5 in the plan's §15). Also open: L11(b) is empirically
+   unresolvable inside this container (hook install blocked) but the
+   design is safe either way per AD-9's voiding guard; resolves naturally
+   on first real install.
 
-2. **Apply every finding from Step 1** (per `CLAUDE.md` engineering
-   standard: "When a review surfaces findings, apply all of them"). A
-   plan update lives in the same file, `docs/plans/plan-phase-a.md`.
+**What still remains** (all Max Cogar decisions or first-real-install
+observations, not plan-writer work):
+- **Q-gap-5** (§15 of the plan) — bin-2 owner decision: accept /
+  halt / waive the SKILL.md halt-condition violation. Options are
+  spelled out plainly in the plan's §15.
+- **L11(a) documentation update** — the human-marker presence
+  measurement done this session should feed a documentation PR to
+  architecture L11(a); that is Step 43 post-completion work, not build.
+- **L11(b) first-install observation** — resolves naturally, no probe
+  required.
 
-3. **Only then, build against `docs/plans/plan-phase-a.md`.** Steps
-   1–42 in order, respecting the five checkpoints. Do not skip the
-   tests-per-step verifications. Do not elaborate the answer-drift
-   recognizer beyond its safe-skeleton scope (Step 14 restraint — the
-   2026-09-04 collapse is the standing warning). Publish the exit
-   report at Step 42 to `docs/reviews/<date>-phase-a-exit-run.md` with
+## What to do next (agent-owned unless it says owner-decision)
+
+1. **[OWNER DECISION] Rule on Q-gap-5.** Read the plan's §15 Q-gap-5
+   (options A/B/C — accept / halt / waive the skill halt-condition
+   violation for this plan). Whichever you pick, the plan-writer will
+   apply your ruling in the plan's §15 and update STATUS.md.
+
+2. **After Q-gap-5 ruling:** dispatch a fresh independent review
+   subagent against the current commit (the earlier one was
+   dispatched against `9d1521e` which has since been rewritten across
+   commits `bbcd55f`..`99be60a` — that review is stale and does not
+   count). The fresh review attacks the plan's §10A step-2 questions
+   and hunts for new load-bearing decisions the author's collapse-test
+   missed. This is agent-owned dispatch, not an owner ask.
+
+3. **After the independent review lands and its findings are applied:**
+   build against `docs/plans/plan-phase-a.md`. Steps 1–43 in order,
+   respecting the five checkpoints. Do not skip test-per-step
+   verifications. Do not elaborate the answer-drift recognizer beyond
+   its safe-skeleton scope (Step 14 restraint — the 2026-09-04 collapse
+   is the standing warning). Publish the exit report at Step 42 with
    the honest floor — a suspiciously-high answer-drift coverage number
    is a finding, not a success.
 
-4. **Run the two L11 owner-run verifications alongside the build** (per
-   plan-phase-a Step 40): `test/build_time/real_transcript_marker_probe.md`
-   and `test/build_time/user_prompt_submit_provenance.md`. Their results
-   update L11's disclosure in `docs/architecture-phase-a.md` via a
-   follow-up documentation PR after the build lands.
-
-5. **After Phase A ships and its exit run is published, write the Phase B
-   architecture** — per the per-phase lifecycle, only when Phase A's data
-   exists.
+4. **After Phase A ships and its exit run is published:** write the
+   Phase B architecture (per the per-phase lifecycle).
 
 ## Open items
 
-- The two build-time verifications the architecture names (`L11`): human-turn
-  marker presence on Max's real interactive transcripts, and whether
-  platform-injected turns fire `UserPromptSubmit`. Neither gates the design or
-  the plan; both resolve with the owner-run probes above during the build.
-- No owner question is open.
+- **Q-gap-5** (plan §15) — bin-2 owner decision open. Blocks
+  deliverability per SKILL.md's own rule.
+- **L11(a) documentation** — measurement resolved; documentation PR
+  deferred to Step 43.
+- **L11(b)** — resolves on first real install; no probe needed.
