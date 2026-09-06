@@ -264,108 +264,215 @@ limited to two documentation files at plan-delivery time.
 
 ### 5.1 New files (the AD-24 project skeleton, materialised)
 
+Every source file named below is created by exactly one §7 step; every
+test file listed corresponds exactly to one T-ID's `File.` field in
+§12. Cross-checked mechanically at plan-write time.
+
 ```
 middleware/context-oracle/ctxoracle/
-  package.json                             # AD-25 — bin, deps, no postinstall
-  tsconfig.json                            # AD-25 — strict ESM
-  README.md                                # AD-25 — install + verbs (owner-facing)
+  package.json                             # Step 1 (AD-25)
+  tsconfig.json                            # Step 1 (AD-25)
   scripts/
-    check-cold-container.sh                # AC-20 — cold-install probe
+    check-cold-container.sh                # Step 40 T40-4 / AC-20
+    check-status-post-build.sh             # Step 43 T43-1
   src/
-    cli.ts                                 # AD-20 — verb dispatch
+    cli/
+      dispatch.ts                          # Step 31 — verb dispatcher (previously src/cli.ts)
+      init.ts                              # Step 31 — init verb impl
+      deinit.ts                            # Step 32 — deinit verb impl
+      index.ts                             # Step 32 — index verb impl
+      hook.ts                              # Step 32 — internal `hook <event>` verb (routes to handler)
+      status.ts                            # Step 33 — status verb impl (renders diag/status.ts)
+      log.ts                               # Step 33 — log verb impl (renders diag/log.ts)
+      tune.ts                              # Step 33 — tune verb impl
+      correct.ts                           # Step 34 — correct verb impl
+      note.ts                              # Step 35 — note verb impl (routes per FR-L7)
+      export.ts                            # Step 32 — export verb impl (VACUUM INTO)
+      import.ts                            # Step 32 — import verb impl
     hook/
-      adapter.ts                           # AD-6 — the ONE file that names CC hook fields
-      handler.ts                           # AD-7, AD-8 — per-event pipeline
-      watchdog.ts                          # AD-23 — cooperative deadline
-      guard.ts                             # AD-21 — CTXORACLE_INTERNAL check
+      adapter.ts                           # Step 28 — the ONE file naming CC hook fields (AD-6)
+      handler.ts                           # Step 28 — per-event pipeline (AD-7, AD-8)
+      watchdog.ts                          # Step 29 — cooperative deadline (AD-23)
+      guard.ts                             # Step 29 — CTXORACLE_INTERNAL check (AD-21)
+      compose.ts                           # Step 27 — whisper composer + rumor rule
+      delivery.ts                          # Step 30 — per-consumer dedup + Stop-time additionalContext
     blocks/
-      verdict.ts                           # AD-10 — the ONE deny-verdict producer
-      answer_drift.ts                      # AD-9 — the block; Phase A's only verdict caller
+      verdict.ts                           # Step 15 — the ONE deny-verdict producer (AD-10)
+      answer_drift.ts                      # Step 16 — the block; Phase A's only verdict caller
+      health.ts                            # Step 18 — deny health detectors (loop, lag, bypass-suspect)
     qa/
-      state.ts                             # AD-9 — DAO; Phase B seam (read interface stable)
-      classify.ts                          # AD-9 — recognizers (Phase B replaces this file)
+      state.ts                             # Step 13 — DAO; Phase B seam (read interface stable)
+      classify.ts                          # Step 14 — recognizers (Phase B replaces this file)
     transcript/
-      reader.ts                            # AD-11 — bookmarked JSONL tail
-      locate.ts                            # AD-11 — path resolution
+      reader.ts                            # Step 12 — bookmarked JSONL tail (AD-11)
+      locate.ts                            # Step 12 — path resolution
     genres/
-      orientation.ts                       # AD-15 FR-A2a
-      coupling.ts                          # AD-15 FR-A2b
-      reuse.ts                             # AD-15 FR-A2c
-      consequence.ts                       # AD-15 FR-A2d
-      warning.ts                           # AD-15 FR-A2e (⚠, FR-A5a)
-      completeness.ts                      # AD-15 FR-A2f
-      verification.ts                      # AD-15 FR-A2g + done-claim recognizer
-      command_class.ts                     # AD-15 — ternary classifier
+      orientation.ts                       # Step 25 — FR-A2a
+      coupling.ts                          # Step 25 — FR-A2b
+      reuse.ts                             # Step 25 — FR-A2c
+      consequence.ts                       # Step 25 — FR-A2d
+      warning.ts                           # Step 25 — FR-A2e (⚠, FR-A5a)
+      completeness.ts                      # Step 25 — FR-A2f
+      verification.ts                      # Step 25 — FR-A2g + done-claim recognizer
+      command_class.ts                     # Step 26 — ternary classifier
     bar/
-      combinator.ts                        # AD-14
+      combinator.ts                        # Step 24 (AD-14)
     stores/
-      adapter.ts                           # AD-2 — the ONLY node:sqlite importer
+      adapter.ts                           # Step 3 — the ONLY node:sqlite importer (AD-2)
+      migration_runner.ts                  # Step 7
       migrations/
-        001_phase_a_project.sql            # AD-4
-        002_phase_a_global.sql             # AD-5
+        001_phase_a_project.sql            # Step 7 (AD-4)
+        002_phase_a_global.sql             # Step 8 (AD-5)
       dao/
         files.ts symbols.ts import_edges.ts symbol_refs.ts test_map.ts
         commits.ts cochange_pairs.ts landmines.ts invariants.ts
         human_facts.ts corrections.ts questions.ts classify_state.ts
         consumer_state.ts session_log.ts observed_actions.ts
         whisper_audit.ts faults.ts tuning.ts whisper_stats.ts
+                                           # Step 9 — one file per Phase A table
     index/
-      indexer.ts                           # AD-12 — orchestrator
-      frontend.ts                          # AD-12 — LanguageFrontend interface
-      tree_sitter_frontend.ts              # AD-12 — WASM grammars
-      generic_frontend.ts                  # AD-12 — line-based fallback
-      zone.ts                              # AD-12 — zone classification + evidence
+      indexer.ts                           # Step 21 — orchestrator
+      frontend.ts                          # Step 21 — LanguageFrontend interface
+      tree_sitter_frontend.ts              # Step 22 — WASM grammars
+      generic_frontend.ts                  # Step 22 — line-based fallback
+      zone.ts                              # Step 21 — zone classification + evidence
     miner/
-      cochange.ts                          # AD-13
+      cochange.ts                          # Step 20 (AD-13)
     security/
-      redact.ts                            # AD-19 FR-X1
-      injection.ts                         # AD-19 FR-X3
-      trust.ts                             # AD-19 FR-X4 (helpers; the CHECK is DB-level)
+      redact.ts                            # Step 11 (FR-X1)
+      injection.ts                         # Step 11 (FR-X3)
+      trust.ts                             # Step 11 (FR-X4 helpers)
     identity/
-      repo_key.ts                          # AD-3
-      home.ts                              # AD-3 — ~/.ctxoracle layout, 0700
+      home.ts                              # Step 4 — ~/.ctxoracle layout, 0700
+      layout.ts                            # Step 4 — ensureLayout helper
+      repo_key.ts                          # Step 5 (AD-3)
     diag/
-      fault_codes.ts                       # AD-17 — the stable code enum
-      jsonl.ts                             # AD-17 — direct-file diagnostic writer
-      status.ts                            # AD-17 — status renderer (FR-M4)
-      log.ts                               # AD-17 — log renderer (FR-M5)
+      fault_codes.ts                       # Step 6 — stable code enum (AD-17)
+      jsonl.ts                             # Step 6 — direct-file writer
+      session_writer.ts                    # Step 10 — session_log writer
+      fault_writer.ts                      # Step 10 — mirror-write faults
+      status.ts                            # Step 33 — status renderer (FR-M4)
+      log.ts                               # Step 33 — log renderer (FR-M5)
     human/
-      correct.ts                           # AD-18 FR-D4/FR-L6
-      note.ts                              # AD-18 FR-L6 (+ global routing FR-L7)
-      regret.ts                            # AD-18 FR-L4 proxy
+      regret.ts                            # Step 36 — regret proxy (FR-L4)
     model/
-      invoke.ts                            # AD-21 — Phase B seam stub (never called in Phase A)
+      invoke.ts                            # Step 38 — Phase B seam stub (never called in Phase A)
     types/
-      events.ts                            # internal event type — the ONLY consumer of adapter.ts output
+      events.ts                            # internal event type; only consumer of adapter.ts output
       verdict.ts                           # response shape (re-exports blocks/verdict.ts's type)
     util/
-      env.ts                               # runtime floor check (AD-2)
-      hash.ts                              # SHA-256 helpers
-      ulid.ts                              # ULID generator (AD-26)
+      env.ts                               # Step 2 — runtime floor check
+      hash.ts                              # SHA-256 helpers (Step 5 uses)
+      ulid.ts                              # Step 37 — ULID generator (AD-26)
   test/
-    unit/                                  # AD-24 tier 1
-      recognizer_question.test.ts
-      recognizer_clear.test.ts
-      recognizer_move.test.ts
-      recognizer_done_claim.test.ts
-      bar.test.ts
-      redact.test.ts
-      injection.test.ts
-      repo_key.test.ts
-      reader.test.ts
-      command_class.test.ts
-      verdict_confinement.test.ts         # AC-2 structural
-      export_roundtrip.test.ts            # AC-19 record-identical
-    fixtures/                              # AD-24 tier 2
-      repos/                               # generated git repos per AC (§12 lists them)
-    replay/                                # AD-24 tier 2 harness
-      runner.ts
-      hook_stream_fixtures/                # captured hook JSON streams
-    build_time/                            # AD-24 build-time verifications
-      grammar_inventory_check.ts           # L6
-      real_transcript_marker_probe.md      # L11 (a) — owner-run
-      user_prompt_submit_provenance.md     # L11 (b) — owner-run
+    unit/                                  # AD-24 tier 1 (each file matches a §12 T-ID's File field)
+      package_build.test.ts                # T1-1
+      env.test.ts                          # T2-1
+      fts5_probe.test.ts                   # T2-2
+      stores_adapter.test.ts               # T3-1
+      adapter_confinement.test.ts          # T3-2 (AD-2 structural)
+      layout.test.ts                       # T4-1
+      repo_key.test.ts                     # T5-1
+      fault_codes.test.ts                  # T6-1
+      jsonl_writer.test.ts                 # T6-2
+      migrations_phase_a.test.ts           # T7-1
+      migrations_global.test.ts            # T8-1
+      dao_crud.test.ts                     # T9-1 (per-DAO round-trips)
+      store_corrupt_induction.test.ts      # T10-1
+      latency_instrument.test.ts           # T10-2
+      redact_positive.test.ts              # T11-1
+      redact_negative.test.ts              # T11-2
+      injection_positive.test.ts           # T11-3
+      injection_negative.test.ts           # T11-4
+      trust_typecheck.test.ts              # T11-5 (compile-time)
+      reader.test.ts                       # T12-1
+      reader_v12_counts.test.ts            # T12-2
+      qa_state.test.ts                     # T13-1
+      recognizer_question.test.ts          # T14-1
+      recognizer_clear.test.ts             # T14-2
+      recognizer_move.test.ts              # T14-3
+      verdict_confinement.test.ts          # T15-2 (AD-10 structural)
+      miner.test.ts                        # T20-1
+      indexer.test.ts                      # T21-1
+      tree_sitter_frontend.test.ts         # T22-1
+      generic_frontend.test.ts             # T22-2
+      tuning_dao.test.ts                   # T23-1
+      bar.test.ts                          # T24-1
+      command_class.test.ts                # T26-1
+      command_class_compound.test.ts       # T26-2
+      whisper_form.test.ts                 # T27-1
+      hook_field_names_isolated.test.ts    # T28-2 (AD-6 structural)
+      concurrency.test.ts                  # T37-1
+      whisper_stats_fold.test.ts           # T37-2
+      model_invoke_stub.test.ts            # T38-1
+    build/                                 # compile-time typecheck fixtures
+      typecheck_provenance.test.ts         # T9-1 (compile-time)
+      typecheck_verdict_shape.test.ts      # T15-1
+      fixtures/
+        missing_provenance.ts              # T9-1 fixture (must fail tsc)
+        verdict_shape_mutation.ts          # T15-1 fixture (must fail tsc)
+    conventions/                           # convention greps (Step 41)
+      no_direct_dao_from_handler.test.ts   # T41-1a
+      hook_field_names_isolated.test.ts    # T41-1b (also referenced as T28-2)
+      permission_decision_confined.test.ts # T41-1c
+    replay/                                # AD-24 tier 2: real handler + real store + captured hook streams
+      runner.ts                            # replay harness (spawns real handler)
+      hook_stream_fixtures/                # captured hook JSON streams (per T-ID)
+      answer_drift_off_to_unrelated.test.ts        # T16-1
+      answer_drift_reconciliation.test.ts          # T16-2
+      answer_drift_subagent_allow.test.ts          # T16-3
+      answer_drift_lag_hold.test.ts                # T17-1
+      deny_after_answer_lag.test.ts                # T17-2
+      deny_health.test.ts                          # T18-1
+      session_start_startup.test.ts                # T19-1
+      session_start_resume.test.ts                 # T19-2
+      stop_outstanding_question_line.test.ts       # T19-3
+      coupling_nonobvious.test.ts                  # T25-1
+      orientation_mixed_shape.test.ts              # T25-2
+      reuse_mixed_language.test.ts                 # T25-3
+      consequence_coupled_tests.test.ts            # T25-4
+      completeness_paired_change.test.ts           # T25-5
+      bar_no_cap.test.ts                           # T25-6
+      bar_hazard_bypass.test.ts                    # T25-6a
+      dedup_read_set.test.ts                       # T25-6b
+      corpus_floor.test.ts                         # T25-7
+      rumor_rule.test.ts                           # T27-2
+      pipeline_order.test.ts                       # T28-1
+      fail_open.test.ts                            # T28-3
+      watchdog.test.ts                             # T29-1
+      recursion_guard.test.ts                      # T29-2
+      session_boundary_dedup.test.ts               # T30-1
+      stop_single_cycle.test.ts                    # T30-2
+      init_fresh.test.ts                           # T31-1
+      init_idempotent.test.ts                      # T31-2
+      init_keying_change.test.ts                   # T31-3
+      deinit_marker.test.ts                        # T32-1
+      export_roundtrip.test.ts                     # T32-2 (AC-19)
+      status_renders_all.test.ts                   # T33-1
+      log_readback.test.ts                         # T33-2
+      tune_roundtrip.test.ts                       # T33-3
+      correct_verdict.test.ts                      # T34-1
+      correct_missed_question.test.ts              # T34-2
+      note_project.test.ts                         # T35-1
+      note_global.test.ts                          # T35-2
+      regret_proxy.test.ts                         # T36-1
+      security_ac11.test.ts                        # T40-1 (AC-11)
+      subagent_delivery.test.ts                    # T40-2 (AC-15)
+      language_config_added.test.ts                # T40-3 (AC-17)
+      idle_silence.test.ts                         # T40-5 (AC-22)
+      seeded_facts_exit.test.ts                    # T40-6 (AC-18; runs as part of Step 42)
+    fixtures/                              # AD-24 tier 2 fixture repos (deterministic generators, D-plan-5)
+      generate.ts                          # entry point for all fixture-repo generators
+      repos/                               # (git repos generated at test time; see §12 for the full set)
+    build_time/                            # AD-24 build-time verifications (§15 Q-gap-4 disposition)
+      grammar_inventory_check.ts           # L6 — automated at build (Step 40)
+      l11_a_measurement.md                 # L11(a) — RESOLVED (§15 Q-gap-4); post-completion doc PR
+      l11_b_disposition.md                 # L11(b) — design-safe both ways (§15 Q-gap-4); no probe
 ```
+
+There is deliberately no `README.md` in the source tree — none exists
+today at `middleware/context-oracle/README.md` (verified this session)
+and Step 43 leaves that as-is unless one is added later.
 
 ### 5.2 Files modified at plan-delivery time (this session)
 
