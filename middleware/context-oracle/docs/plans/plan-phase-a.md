@@ -3287,123 +3287,160 @@ session (fetched at plan-time, 2026-09-06). Where an entry cites a
 
 - **Claim.** The store adapter (`stores/adapter.ts`) is the ONLY file
   importing `node:sqlite`. **Steps.** Step 3, Step 41. **Evidence.**
-  Architecture AD-2 read this session: "All engine access goes
-  through stores/adapter.ts — the only file allowed to import
-  node:sqlite."
+  Read `docs/architecture-phase-a.md:325–364` (AD-2 body, 2026-09-06
+  this session). Quoted: "All engine access goes through
+  stores/adapter.ts — the only file allowed to import node:sqlite,
+  quarantining its Experimental status."
 
 - **Claim.** The single deny-producer discipline (one caller of the
   emit function, verified structurally) is AD-10's mechanism.
-  **Steps.** Step 15. **Evidence.** Architecture AD-10 read this
-  session: "A single module (blocks/verdict.ts) defines the deny-
+  **Steps.** Step 15. **Evidence.** Read
+  `docs/architecture-phase-a.md:924–946` (AD-10 body, 2026-09-06).
+  Quoted: "A single module (blocks/verdict.ts) defines the deny-
   verdict type and the only function that can place permissionDecision
-  into a hook response."
+  into a hook response. In Phase A exactly one caller exists:
+  blocks/answer_drift.ts."
 
 - **Claim.** Question intake reads `UserPromptSubmit.prompt` before
-  the agent's first move. **Steps.** Step 16. **Evidence.**
-  Architecture AD-9 read this session: "Intake runs on the hook's
-  own prompt string, so the row exists **before the agent's first
-  move** — the moment OL-C5 names — independent of the
-  transcript-write lag (V1)."
+  the agent's first move. **Steps.** Step 16. **Evidence.** Read
+  `docs/architecture-phase-a.md:736–923` (AD-9 body, 2026-09-06),
+  specifically the "Question intake" subsection. Quoted: "Intake
+  runs on the hook's own prompt string, so the row exists **before
+  the agent's first move** — the moment OL-C5 names — independent of
+  the transcript-write lag (V1)."
 
 - **Claim.** V5 confirms `UserPromptSubmit.prompt` is a valid field.
-  **Steps.** Step 16. **Evidence.** Architecture V5 row read this
-  session: "UserPromptSubmit input carries prompt; SessionStart.source
-  ∈ {startup, resume, clear, compact, fork} — Confirmed. AD-9's
+  **Steps.** Step 16. **Evidence.** Read
+  `docs/architecture-phase-a.md:129` (V5 row, 2026-09-06). Quoted:
+  "UserPromptSubmit input carries prompt; SessionStart.source ∈
+  {startup, resume, clear, compact, fork} … Confirmed. AD-9's
   question intake and AD-16's D-20 reconciliation read exactly these
   fields."
 
 - **Claim.** V1 confirms `transcript_path` is written asynchronously
-  and may lag. **Steps.** Steps 16, 17. **Evidence.** Architecture V1
-  row read this session (verbatim): "transcript_path is written
-  asynchronously and may lag the in-memory conversation."
+  and may lag. **Steps.** Steps 16, 17. **Evidence.** Read
+  `docs/architecture-phase-a.md:125` (V1 row, 2026-09-06). Quoted:
+  "transcript_path is written asynchronously and may lag the
+  in-memory conversation."
 
 - **Claim.** V3 confirms `Stop`/`SubagentStop` delivers context via
   `hookSpecificOutput.additionalContext` bounded by `stop_hook_active`
-  and 8-continuation cap. **Steps.** Step 30. **Evidence.**
-  Architecture V3 row read this session (verbatim quote).
+  and 8-continuation cap. **Steps.** Step 30. **Evidence.** Read
+  `docs/architecture-phase-a.md:127` (V3 row, 2026-09-06). Quoted:
+  "Stop/SubagentStop deliver context two ways — decision:'block'+reason
+  (surfaced as an error) and hookSpecificOutput.additionalContext
+  ('without displaying a hook error notification') — both bounded by
+  stop_hook_active and an 8-consecutive-continuation cap."
 
 - **Claim.** V6 confirms a timed-out `PreToolUse` hook prevents the
-  tool from running. **Steps.** Step 29. **Evidence.** Architecture
-  V6 row read this session: "a timed-out PreToolUse hook prevents
-  the tool from running."
+  tool from running. **Steps.** Step 29. **Evidence.** Read
+  `docs/architecture-phase-a.md:130` (V6 row, 2026-09-06). Quoted:
+  "a timed-out PreToolUse hook prevents the tool from running."
 
 - **Claim.** V7 confirms `node:sqlite` ships FTS5 from v22.16.0.
-  **Steps.** Step 2. **Evidence.** Architecture V7 row read this
-  session, including the executed test on Node v22.22.2 and the git
-  diff on `deps/sqlite/sqlite.gyp` (0 matches at v22.15.0, 1 at
-  v22.16.0). Plan does not re-execute; premise inherited from V7 and
-  recorded as such in §15 Gaps (deliberate deferral).
+  **Steps.** Step 2. **Evidence.** Read
+  `docs/architecture-phase-a.md:131` (V7 row, 2026-09-06). V7 records
+  the executed test on Node v22.22.2 plus the git diff on
+  `deps/sqlite/sqlite.gyp` at v22.x tags (0 FTS5 matches at v22.15.0,
+  1 at v22.16.0 — the changelog entry nodejs/node#57621). Plan does
+  not re-execute; premise inherited from V7 and recorded as such in
+  §15 Q-gap-3 (deliberate deferral).
 
 - **Claim.** V8 measures cold-spawn cost at 45–54ms against the
   1500ms p95 budget. **Steps.** Step 29 (watchdog rationale), Step
-  22 (indexer runs off-path). **Evidence.** Architecture V8 row read
-  this session.
+  22 (indexer runs off-path). **Evidence.** Read
+  `docs/architecture-phase-a.md:132` (V8 row, 2026-09-06). Quoted:
+  "45–54 ms full process wall time; in-process store work 1.8 ms."
 
 - **Claim.** V12 shows human-turn markers are mode-dependent and
   string-content user entries come in three kinds (human, task
   notification, hook feedback) beside list-content tool results.
-  **Steps.** Steps 12, 19 (rebuild path). **Evidence.** Architecture
-  V12 row read this session (enumeration counts included).
+  **Steps.** Steps 12, 19 (rebuild path). **Evidence.** Read
+  `docs/architecture-phase-a.md:136` (V12 row, 2026-09-06). Quoted
+  enumeration: "the interactive-session transcript —
+  (string, meta:∅, origin:human)=1, (string, meta:∅,
+  origin:task-notification)=5, (string, meta:true)=2, (list, no
+  markers)=106 — and a claude -p probe transcript whose genuine
+  user prompts carry no origin and no isMeta at all (2 of 2)."
 
 - **Claim.** V13 shows a shallow clone's max-parents=0 set varies per
-  clone. **Steps.** Step 5 (repo-key). **Evidence.** Architecture V13
-  row read this session (executed on this clone: 4 boundary commits;
-  2026-07 clone had 6).
+  clone. **Steps.** Step 5 (repo-key). **Evidence.** Read
+  `docs/architecture-phase-a.md:137` (V13 row, 2026-09-06). Quoted:
+  "on this very clone, git rev-list --max-parents=0 HEAD returns 4
+  commits, --is-shallow-repository is true, .git/shallow has 8
+  entries."
 
 - **Claim.** V14 confirms `web-tree-sitter` 0.26.13 and
   `tree-sitter-wasms` 0.1.13 are current, pure-WASM, no install
-  scripts. **Steps.** Step 1 (deps), Step 22. **Evidence.**
-  Architecture V14 row read this session **and** direct npm registry
-  reads this session (2026-09-06):
-  `https://registry.npmjs.org/web-tree-sitter` — latest 0.27.0, no
-  install/postinstall/preinstall scripts, no runtime deps;
-  `https://registry.npmjs.org/tree-sitter-wasms` — latest 0.1.13
-  (published 2025-10-07), no install/postinstall/preinstall scripts.
-  The plan's `^0.26.13` accepts either.
+  scripts. **Steps.** Step 1 (deps), Step 22. **Evidence.** Read
+  `docs/architecture-phase-a.md:138` (V14 row, 2026-09-06). V14
+  records: "web-tree-sitter (0.26.13) and tree-sitter-wasms (0.1.13)
+  are current, pure-WASM (no native toolchain), with no install
+  scripts in the published manifest." Corroborated this session by
+  direct npm registry reads (see §11.4).
 
 - **Claim.** V17 confirms `VACUUM INTO` round-trips data on
   `node:sqlite` and `backup()` API is v22.16.0+. **Steps.** Step 32.
-  **Evidence.** Architecture V17 row read this session.
+  **Evidence.** Read `docs/architecture-phase-a.md:141` (V17 row,
+  2026-09-06). Quoted: "VACUUM INTO '<file>' executes on
+  node:sqlite and round-trips data (SQLite 3.51.2 bundled); the
+  module-level backup() API was added in Node v22.16.0 (official
+  v22.x API docs)."
 
 - **Claim.** V19 confirms `PostToolUse` fires on success only;
   `PostToolUseFailure` fires on tool-execution failure; neither fires
   on pre-execution rejection. **Steps.** Steps 12, 25 (Verification
   genre's run-state consumption; regret's failure clause).
-  **Evidence.** Architecture V19 row read this session.
+  **Evidence.** Read `docs/architecture-phase-a.md:143` (V19 row,
+  2026-09-06). Quoted: "PostToolUse fires after a tool executes
+  successfully and carries tool_name/tool_input/tool_response; a
+  failing executing tool fires PostToolUseFailure instead …
+  PostToolUseFailure does not fire for pre-execution rejections —
+  permission denials included."
 
 - **Claim.** AD-4's uniform table-creation criterion: a table exists
   only in a phase where a writer exists. **Steps.** Step 7 (no
   `exemplars`, `recipes`, `env_capabilities`, `deferred_queue`,
-  `genre_state` in Phase A migrations). **Evidence.** Architecture
-  AD-4 "Table-creation criterion (applied uniformly)" paragraph,
-  read this session.
+  `genre_state` in Phase A migrations). **Evidence.** Read
+  `docs/architecture-phase-a.md:540–549` (AD-4 "Table-creation
+  criterion (applied uniformly)" paragraph, 2026-09-06). Quoted: "a
+  table exists in a phase's store only if that phase has a writer
+  for it."
 
 - **Claim.** AD-19 requires pointer-only composition in Phase A (no
   verbatim repo text in whispers). **Steps.** Step 27.
-  **Evidence.** Architecture AD-19 read this session: "Phase A
-  whispers carry **no verbatim repo-derived text at all** — pointers
-  (path:line-span, commit hashes), numbers, and names only."
+  **Evidence.** Read `docs/architecture-phase-a.md:1329–1375`
+  (AD-19 body, 2026-09-06). Quoted: "Phase A whispers carry **no
+  verbatim repo-derived text at all** — pointers (path:line-span,
+  commit hashes), numbers, and names only."
 
 ### 11.3 Claims from the ledger
 
 - **Claim.** OL-C1 forbids arbitrary volume/count/budget caps.
-  **Steps.** Step 24 (bar). **Evidence.** OWNER-LEDGER.md OL-C1 read
-  this session (verbatim quote from Max Cogar: *"either the
-  information its giving the agent is important, or its not. at no
-  point should an arbitrary limit influence how that operates."*).
+  **Steps.** Step 24 (bar). **Evidence.** Read
+  `OWNER-LEDGER.md:66` (OL-C1 row, 2026-09-06). Verbatim quote from
+  Max Cogar: *"either the information its giving the agent is
+  important, or its not. at no point should an arbitrary limit
+  influence how that operates."*
 
 - **Claim.** OL-C5 defines the answer-drift trigger. **Steps.**
-  Steps 14, 16. **Evidence.** OWNER-LEDGER OL-C5 read this session
-  (verbatim Max quote).
+  Steps 14, 16. **Evidence.** Read `OWNER-LEDGER.md:70` (OL-C5 row,
+  2026-09-06). Verbatim Max Cogar quote: *"if i ask a question and
+  their next move isnt a direct answer or them taking actions to
+  provide an answer, then then need corrected."*
 
 - **Claim.** OL-11 states Max Cogar is a non-programmer by design;
   plain-language output required. **Steps.** Steps 31, 33 (init and
-  status render plain-language). **Evidence.** OWNER-LEDGER OL-11
-  read this session.
+  status render plain-language). **Evidence.** Read
+  `OWNER-LEDGER.md:49` (OL-11 row, 2026-09-06). Quoted: "The project
+  is agent-led; you start/end sessions, suggest features, speed up
+  testing; design/build/verification/docs/roadmap are the agents'.
+  You are a non-programmer by design."
 
 - **Claim.** OL-C6 signs off the spec of record 2026-08-28.
-  **Steps.** §3. **Evidence.** OWNER-LEDGER OL-C6 read this session
-  (Max Cogar: *"yeah thats good with me. Mark it as good to go."*).
+  **Steps.** §3. **Evidence.** Read `OWNER-LEDGER.md:71` (OL-C6 row,
+  2026-09-06). Verbatim Max Cogar: *"yeah thats good with me. Mark
+  it as good to go."*
 
 ### 11.4 Claims from external sources this session
 
@@ -3423,10 +3460,14 @@ session (fetched at plan-time, 2026-09-06). Where an entry cites a
 
 - **Claim.** The 2026-09-04 entry names Phase A's "fake completeness"
   failure and mandates measuring the floor rather than padding it.
-  **Steps.** §1 goal, Step 14 (recognizer minimalism), Step 42 (exit
-  run). **Evidence.** `docs/collapse-log.md` entry
-  "2026-09-04 — the review treadmill built AI slop" read this
-  session; the standing lesson is quoted verbatim.
+  **Steps.** §1 goal, Step 14 (recognizer minimalism), Step 42
+  (exit run). **Evidence.** Read `docs/collapse-log.md:1121–1156`
+  (entry "2026-09-04 — the review treadmill built AI slop",
+  2026-09-06). Quoted standing lesson: "State the phase goal before
+  any spec/architecture/plan/build decision, and judge every
+  decision *and every review* against it. A document that passes
+  review but does not serve the phase goal is slop — cut the
+  machinery, log it as a finding."
 
 - **Claim.** The 2026-09-03 round 9 entry names the reduction-
   inverted pattern (narrow mechanism inflated with guarantees
@@ -3434,8 +3475,12 @@ session (fetched at plan-time, 2026-09-06). Where an entry cites a
   over-claim to the spec's mandate, do not patch the next input.
   **Steps.** Steps 14 (recognizers are minimal), 25 (Reuse
   incomparable-set silence rather than a false crown).
-  **Evidence.** `docs/collapse-log.md` entry "2026-09-03 — round
-  9" read this session.
+  **Evidence.** Read `docs/collapse-log.md:1089–1120` (entry
+  "2026-09-03 — round 9", 2026-09-06). Quoted: "A model-free /
+  heuristic component that keeps failing a new way each round is
+  over-claiming — the convergence-forcing fix is to demote the
+  claim to what the spec actually mandates, not to patch the next
+  input."
 
 ### 11.6 Absence claims
 
