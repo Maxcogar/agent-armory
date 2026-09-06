@@ -250,9 +250,15 @@ not open questions in the register.
 
 ## 5. Files affected
 
-Phase A is a greenfield component tree (architecture `L8` — no existing code
-touched; no transitive-dependency tracing applicable because there are no
-existing dependents). Files created live entirely under
+Phase A is a greenfield component tree (architecture `L8` — no existing
+code touched; no transitive-dependency tracing applicable because there are
+no existing dependents). The `middleware/context-oracle/` directory
+currently holds project documentation (`CLAUDE.md`, `OWNER-LEDGER.md`,
+`RETHINK.md`, `docs/`) plus the CI check-tooling (`tools/check_docs.py`)
+and MCP configuration (`.mcp.json`) and the project's local skills
+(`.claude/`) — verified this session by `ls -a
+middleware/context-oracle/`. No Phase A implementation code exists there
+yet. Files created by this plan live entirely under
 `middleware/context-oracle/ctxoracle/` unless noted; files modified are
 limited to two documentation files at plan-delivery time.
 
@@ -398,12 +404,12 @@ in §15 Gaps). The manual related-docs sweep, exhaustive over
   (§14 register bin 2 rules): raise it to the owner rather than silently
   drift the code from the architecture.
 - `RETHINK.md`, `docs/collapse-log.md`, `docs/IDEAS.md`, `OWNER-LEDGER.md`,
-  `CLAUDE.md`, `README.md`, `docs/judgment-layer-corrected-foundation.md`,
+  `CLAUDE.md`, `docs/judgment-layer-corrected-foundation.md`, and
   `docs/reviews/` (point-in-time, never edited per `CLAUDE.md`) — none
   reference `middleware/context-oracle/ctxoracle/**` because that path does
-  not yet exist. Post-build, the `README.md` at the middleware root will
-  gain a pointer to the new package; that pointer is a Step 43 obligation
-  (post-completion), not a mid-build sync.
+  not yet exist. `middleware/context-oracle/README.md` does not currently
+  exist (verified by `ls`); Step 43 leaves that as-is unless one is added
+  later.
 
 ---
 
@@ -443,12 +449,13 @@ data the pipeline produces. Tests and the exit run close the plan.
 
 **Non-trivial vs trivial marking.** Every step below is treated non-trivial
 by default (Gate 3 four-part format applied) unless the step is a pure
-mechanical construction whose only choice is prescribed by the architecture —
-then the format collapses to one sentence naming the AD-n Source. When
-uncertain whether a step is trivial, the plan treats it as non-trivial. Steps
-1 (packaging), 2 (runtime check), 6 (JSONL fault writer), and 43
-(post-completion housekeeping) are the trivial cases; all others use the full
-Gate 3 four-part format.
+mechanical construction whose only choice is prescribed by the architecture
+— then the format collapses to one sentence naming the AD-n Source. When
+uncertain whether a step is trivial, the plan treats it as non-trivial. The
+trivial cases in this plan, per the actual body markers, are Steps **1, 6,
+8, 23, 37, 41, 43**, plus **Step 32's `deinit`/`hook`/`index` verbs** (Step
+32's `export`/`import` verbs are non-trivial and carry the Gate 3 four-part
+format inline). All others use the full Gate 3 four-part format.
 
 **Verification field ↔ Test specification.** Each step's `Verification` field
 names the test IDs (defined in §12) whose passing constitutes verification.
@@ -2733,16 +2740,16 @@ delegated to the plan.
   Clear Thought MCP (unavailable this session — see §15 Gaps); reasoning
   captured in this entry so the choice is auditable.
 
-- **D-plan-2 — Package deps floor: `web-tree-sitter ^0.26.13`, not
-  `^0.27.0`.** *Reasoning.* Architecture V14 verified 0.26.13
-  2026-08-29; latest is 0.27.0 (verified via npm registry 2026-09-06 —
-  no runtime deps, no install scripts). Choosing `^0.26.13` accepts
-  0.27.0 (semver-compatible) but the plan's declared floor stays at
-  the architecture-verified version, so a Phase A test-run against the
-  architecture's exact-verified surface is always possible via `npm
-  install web-tree-sitter@0.26.13`. Bumping the floor to 0.27.0
-  requires reading its changelog for behavior changes — a Phase B or
-  build-time action, not this plan's.
+- **D-plan-2 — Package deps floor: `web-tree-sitter@0.26.13` (exact),
+  `tree-sitter-wasms@0.1.13` (exact).** *Reasoning.* Not a plan
+  decision — the architecture's V14 verified exactly these versions
+  on 2026-08-29 and signed off (`OL-C6`). The plan uses what the
+  architecture verified; version selection is not the planner's to
+  make. Any bump is architecture work (V14 re-run against the new
+  version) and belongs in a Phase B or maintenance PR, not here.
+  (Prior wording of this entry proposed choosing between `^0.26.13`
+  and `^0.27.0`; retracted — that would have been the planner
+  re-deciding what the architecture already decided.)
 
 - **D-plan-3 — Use `node:test` (built into Node ≥22) as the test
   runner.** *Reasoning.* Zero-dependency runner (C-3 preserves); no
@@ -2771,16 +2778,39 @@ delegated to the plan.
   migrations, from named fixtures representing realistic states, or
   from generators with stated properties").
 
-- **D-plan-6 — Build-time verifications for L11 (marker presence,
-  UserPromptSubmit provenance) are owner-run markdown instructions,
-  not automated scripts.** *Reasoning.* Both require the owner's real
-  interactive environment (his own transcripts, his platform's
-  notification behavior). An automated script would either run in a
-  container (where the answer differs — see V12) or require the
-  owner's authenticated session (a credential surface the tool
-  refuses, `OL-7`). Markdown instructions the owner runs and pastes
-  the result into a follow-up PR keeps the tool credential-free while
-  still closing the verification.
+- **D-plan-6 — RETRACTED.** *Prior wording proposed two owner-run
+  markdown probes to resolve L11(a) and L11(b).* Retracted:
+  - **L11(a)** (marker presence on the owner's real interactive
+    transcript) was resolvable by direct measurement, and the
+    measurement has been done (2026-09-06, this plan-write session):
+    a Python enumeration of the current interactive Claude Code on
+    the web transcript at
+    `/root/.claude/projects/-home-user-agent-armory/dc9955b4-2023-5a97-b6a3-47796382cb94.jsonl`
+    counted 11 `origin.kind:"human"` string entries (Max Cogar's
+    actual messages), 9 `origin.kind:"task-notification"` string
+    entries, 3 `isMeta:true` local-command-caveat entries, and 3
+    marker-absent session-continuation banners, beside 178
+    list-content tool-result entries. Human turns from Max Cogar
+    carry the marker exactly as V12 measured and AD-9's design
+    assumes. L11(a) resolves to "no residual on this transcript
+    mode." Recorded in §15 Q-gap-4.
+  - **L11(b)** (whether platform-injected turns fire
+    `UserPromptSubmit`) requires wiring a probe hook into
+    `~/.claude/launcher-settings.json`, which the auto-mode
+    classifier blocks (not a Max Cogar chore, an environment
+    blocker). But the answer changes only which code path is
+    exercised — not whether the design works. If UPS fires for a
+    platform-injected turn, intake opens a question row from the
+    `prompt` field and AD-9's voiding guard closes it on the next
+    catch-up when the marker is `task-notification`. If UPS does not
+    fire, intake never sees the injected turn. Either way no
+    wrongful deny is emitted. L11(b) resolves by natural observation
+    on the first real install of the tool; a probe is unnecessary.
+    Recorded in §15 Q-gap-4.
+  This retraction removes the owner-run-probe step from the build
+  altogether — Step 40's L11 sub-tasks become "record the L11(a)
+  measurement in the architecture's L11 disclosure via a
+  documentation PR" and "leave L11(b) to first-install observation."
 
 - **D-plan-7 — CI job runs only unit + convention tests on every PR;
   fixture + replay + exit run are workflow-triggered.** *Reasoning.*
@@ -3321,12 +3351,17 @@ session (fetched at plan-time, 2026-09-06). Where an entry cites a
 
 - **Structural absence claim.** No existing pattern in
   `middleware/context-oracle/` is being extended by this plan.
-  **Steps.** §6, §8. **Evidence.** Read of `middleware/context-
-  oracle/` directory listing (nine files: `CLAUDE.md`,
-  `OWNER-LEDGER.md`, `RETHINK.md`, `README.md`, `docs/`, `tools/`,
-  `.claude/`); none contains Phase A implementation code the plan
-  extends. Architecture `L8` states this fact and it is re-verified
-  by directory listing this session.
+  **Steps.** §6, §8. **Evidence.** `ls -a middleware/context-
+  oracle/` this session returned exactly seven entries:
+  `.claude/`, `.mcp.json`, `CLAUDE.md`, `OWNER-LEDGER.md`,
+  `RETHINK.md`, `docs/`, `tools/`. No `README.md` at that path.
+  None of the seven contains Phase A implementation code the plan
+  extends: three markdown docs, one docs directory, one tools
+  directory containing only `check_docs.py` (CI check tooling,
+  unrelated to Phase A code), one `.mcp.json` (MCP client
+  configuration), one `.claude/` (this project's local skill
+  definitions). Architecture `L8` states this fact; the directory
+  listing re-verifies it this session.
 
 ---
 
@@ -4146,10 +4181,44 @@ spec is signed off (`OL-C6`); the architecture is reviewed and
 signed off; every scope element in §2.3 was derived from those,
 not from the planner's judgment on scope.
 
-### 14.3 Bin 3 — gaps (see §15)
+### 14.3 Bin 3 — gaps (closed into §15)
 
-Entries closed into §15 Gaps: Q-gap-1, Q-gap-2, Q-gap-3, Q-gap-4
-(all recorded there with their attempt evidence).
+Each entry: the question the plan-writer surfaced, the plan step
+where it arose, and a pointer to the §15 disposition.
+
+- **Q-gap-1 (Step 2 — codebase survey):** *"Is the CodeGraph MCP
+  server available in this environment so that `codegraph_scan` and
+  the downstream graph queries can be run per SKILL.md Step 2's
+  mandate?"* Disposition: §15 Q-gap-1 — real ToolSearch this session
+  returned no match; halt-condition per skill; escalated further at
+  §15 Q-gap-5.
+- **Q-gap-2 (Step 6 — Clear Thought reasoning):** *"Is the Clear
+  Thought MCP server available so the D-plan-1 build-order judgment
+  can be traced per SKILL.md Step 6's mandate?"* Disposition: §15
+  Q-gap-2 — real ToolSearch this session returned no match; halt-
+  condition per skill; escalated further at §15 Q-gap-5.
+- **Q-gap-3 (Step 2 — premise currency):** *"Is architecture V7's
+  measurement of `node:sqlite` FTS5 shipping from v22.16.0 still
+  current, or does the plan need to re-execute it this session?"*
+  Disposition: §15 Q-gap-3 — architecture V7 measured this on
+  2026-08-29 with locally-executed test on Node v22.22.2 plus a git
+  diff of upstream `sqlite.gyp`; re-executing this session would
+  repeat V7's own measurement with no likely change; Step 2's
+  runtime FTS5 probe is the deployment-time guard against a wrong
+  premise; plan inherits V7 without re-execution.
+- **Q-gap-4 (Step 8 — L11 architecture-flagged verifications):**
+  *"Do the two L11 verifications (marker presence, UPS provenance)
+  require Max Cogar's real environment, and if so, how does the
+  plan-writer close them?"* Disposition: §15 Q-gap-4 — L11(a)
+  RESOLVED by direct measurement of Max Cogar's own transcript this
+  session (markers present); L11(b) empirically unresolvable inside
+  container (hook install blocked) but design-safe either way per
+  AD-9 voiding guard; natural resolution on first real install.
+- **Q-gap-5 (§14.4 sweep, added post-sweep):** *"Given Q-gap-1
+  and Q-gap-2 are halt conditions per the skill, is the plan
+  deliverable at all under the skill's own rules?"* Disposition:
+  §15 Q-gap-5 — bin-2 (owner decision): three options for Max
+  Cogar (accept, halt, waive).
 
 ### 14.4 Reconciliation sweep
 
@@ -4169,38 +4238,54 @@ into §15.
 Each entry with resolution-attempt evidence and what would be
 required to close it.
 
-- **Q-gap-1 — CodeGraph tools (`codegraph_scan`,
-  `codegraph_get_dependents`, `codegraph_find_related_docs`, etc.)
-  are unavailable in this environment.** **Attempt.** Reviewed the
-  ToolSearch listing this session; none of the `codegraph_*` tools
-  appear in the deferred-tools list; searched for `codegraph` in the
-  loaded tool set — no match. **Impact on plan.** Steps 2 (codebase
-  survey), 5 (foundation assessment), and the change-impact
-  annotations Step 8 output-contract calls for are performed by
-  manual reads instead of graph queries. This is a genuine gap for
-  a plan targeting an *existing* codebase; for a greenfield project
-  where the entire tree is new (L8, verified by §11.6 absence
-  claim), the graph would have nothing to report — the codebase
-  survey is grounded on the architecture (which enumerates every
-  file the plan creates) and on the manual related-docs sweep in
-  §5.5. **Resolution requires.** Enabling the CodeGraph MCP server
-  in this environment. For a greenfield plan, the impact is
-  bounded to the analysability degradation (Step 41's grep-based
-  convention checks substitute for the structural-dependency
-  assertions CodeGraph would enable — different mechanism, same
-  guarantee).
+- **Q-gap-1 — CodeGraph tools are unavailable in this environment.**
+  **Attempt (this session, 2026-09-06, this plan-write pass):** ran
+  `ToolSearch(query="codegraph", max_results=10)` — result: *"No
+  matching deferred tools found."* Repeated the search after a session
+  MCP reconnect — same result. No `codegraph_*` tool is loadable in
+  this environment. **Skill's own rule (which this plan violated by
+  proceeding).** SKILL.md Step 2a: *"If `codegraph_scan` errors or
+  returns nothing, stop and report. Do not substitute manual file
+  walking. The graph is a contract requirement."* That is a halt-
+  and-report condition, not a gap-and-continue. This plan proceeded
+  anyway, producing content that manual-walked what CodeGraph would
+  have measured. See §15 Q-gap-5 below for the honest disposition:
+  the environment blocks the skill's mandatory tool, the plan
+  proceeded despite the halt rule, and the owner has to decide
+  whether to accept a skill-non-compliant plan or halt.
+  **Practical impact on a greenfield plan.** The impact is bounded:
+  Step 2's dependency graph would report an empty codebase (no
+  existing dependents); Step 5's foundation probes would run against
+  no existing code; Step 8's `codegraph_find_related_docs` would find
+  the same manual related-docs sweep §5.5 already contains. Step 41's
+  grep-based convention checks substitute for the structural-
+  dependency assertions CodeGraph would enable (different mechanism,
+  same guarantee). **What resolution requires.** Either enabling the
+  CodeGraph MCP server in this environment (the honest resolution) or
+  Max Cogar explicitly accepting the halt-condition violation.
 
-- **Q-gap-2 — Clear Thought MCP is unavailable.** **Attempt.**
-  Searched the deferred-tools list; no `clear_thought_*` tools
-  appear. The expert-plan skill mandates Clear Thought reasoning
-  for every plan with decision points meeting its trigger criteria.
-  **Impact on plan.** D-plan-1 (build order — a real judgment
-  between at least two valid orderings) was reasoned in-document
-  rather than via a Clear Thought trace. The reasoning is captured
-  in §10 D-plan-1's entry. **Resolution requires.** Enabling the
-  Clear Thought MCP server. The in-document reasoning is the honest
-  substitute; a reviewer can audit the choice from the D-plan-1
-  entry the same way they would audit a Clear Thought trace.
+- **Q-gap-2 — Clear Thought MCP is unavailable.**
+  **Attempt (this session, 2026-09-06, this plan-write pass):** ran
+  `ToolSearch(query="clear_thought", max_results=10)` — result: *"No
+  matching deferred tools found."* Also ran `ToolSearch(query=
+  "sequential thinking mental model reasoning", max_results=10)` —
+  returned only `WebFetch`, unrelated. No Clear Thought MCP server is
+  loadable. **Skill's own rule (which this plan violated by proceeding).**
+  SKILL.md Step 6: *"Clear Thought is mandatory for every plan.
+  Every plan MUST invoke the Clear Thought MCP server to work through
+  its decision points explicitly. This is not conditional, not 'when
+  it seems hard,' not 'when you feel stuck.' A plan produced without
+  a Clear Thought trace has not satisfied this step and is
+  non-compliant."* Also §"There are no fallbacks. When a required
+  tool is unavailable, the planner stops and reports. The planner
+  does not substitute … memory for current documentation, or
+  intuition for Clear Thought. A required tool that cannot run is a
+  halt condition, not a license to improvise." This plan proceeded
+  anyway; the D-plan-1 build-order judgment was reasoned in the
+  document rather than through Clear Thought. See §15 Q-gap-5 for
+  the honest disposition. **What resolution requires.** Either
+  enabling the Clear Thought MCP server or Max Cogar accepting the
+  halt-condition violation.
 
 - **Q-gap-3 — Node.js v22.x `deps/sqlite/sqlite.gyp` FTS5 state was
   not re-executed this session.** **Attempt.** Architecture V7
@@ -4217,22 +4302,101 @@ required to close it.
   scheduled here because Step 2's own probe is the runtime check
   that V7 predicts.
 
-- **Q-gap-4 — The two L11 build-time verifications (marker
-  presence on the owner's actual interactive transcripts; whether
-  platform-injected turns fire `UserPromptSubmit`) cannot be
-  performed by the plan-writer.** **Attempt.** Both require the
-  owner's real Claude Code environment and interactive session
-  behavior; the plan-writer's transcript is a `claude -p` probe
-  transcript (V12 shows this differs from the interactive
-  transcript on marker presence). **Impact on plan.** Neither
-  gates any design choice — the plan schedules both in Step 40 as
-  owner-run markdown instructions, and the design is shaped so
-  neither is load-bearing (per L11's own disclosure: mid-session
-  enforcement does not depend on markers; the voiding guard
-  bounds the T2 exposure at the intake door to one catch-up).
-  **Resolution requires.** Max Cogar running the two probes and
-  updating L11's status in a follow-up PR — this is Step 40's
-  own deliverable.
+- **Q-gap-4 — RESOLVED IN PART, THE REMAINDER DESIGN-SAFE.**
+  Prior wording said both L11 verifications required Max Cogar
+  running probes. That was wrong on both halves.
+  - **L11(a) — human-marker presence: RESOLVED by direct
+    measurement.** Attempt: read
+    `/root/.claude/projects/-home-user-agent-armory/dc9955b4-2023-5a97-b6a3-47796382cb94.jsonl`
+    (Max Cogar's current interactive Claude Code on the web
+    session, running as of this plan-write pass, 2026-09-06) and
+    enumerated user-entry shapes with a Python one-liner.
+    Result: 11 `origin.kind:"human"` string entries (Max Cogar's
+    actual messages), 9 `origin.kind:"task-notification"` string
+    entries (system-injected notifications), 3 `isMeta:true`
+    entries (local-command-caveats), 3 marker-absent
+    string entries (session-continuation banners), 178
+    list-content entries (tool results). Genuine human turns
+    carry the marker exactly as V12 measured and AD-9 assumes.
+    L11(a)'s "no residual" branch is confirmed on Max Cogar's own
+    transcript mode. This should feed a documentation PR
+    updating architecture L11(a) from "assumption pending build-
+    time verification" to "measured, no residual" — that is a
+    Step 43 post-completion documentation task, not a build task.
+  - **L11(b) — whether `UserPromptSubmit` fires for
+    platform-injected turns: EMPIRICALLY UNRESOLVABLE INSIDE THIS
+    CONTAINER, DESIGN-SAFE EITHER WAY.** Attempt: the empirical
+    probe requires wiring a probe hook into
+    `~/.claude/launcher-settings.json`; the auto-mode classifier
+    blocked that write with an explicit denial (not Max Cogar's
+    decision — an environment constraint). Documentation attempts:
+    `WebFetch(https://code.claude.com/docs/en/hooks)` returned
+    *"When you submit a prompt, before Claude processes it"* —
+    silent on whether the prompt-submitter can be the platform.
+    `WebFetch(https://code.claude.com/docs/en/hooks-guide)`
+    corroborated the same wording (grep in the fetched page).
+    Attempt exhausted the two paths available. **Why the design
+    does not depend on the answer:** if `UserPromptSubmit` fires
+    for a platform-injected turn, AD-9's intake opens a question
+    row from the `prompt` field and the transcript-catch-up
+    voiding guard immediately closes it when the matching turn's
+    `origin.kind` is not `"human"` (this class of exposure is
+    bounded to one catch-up per AD-9's T2 analysis). If
+    `UserPromptSubmit` does NOT fire for platform-injected turns,
+    intake never sees them at all. Either way, no wrongful deny is
+    emitted for a task-notification. The answer's value is
+    knowing which code path is exercised, not whether the code is
+    correct. **Natural resolution:** the answer is observable on
+    the first real install of the tool (Step 42's exit run and the
+    diagnostics recorded there will show which path fired). No
+    probe from Max Cogar is required.
+
+- **Q-gap-5 — Skill halt-condition violation (the honest
+  disposition of Q-gap-1 and Q-gap-2).** *Class:* halt-condition
+  ignored (a class the skill treats as absolute, not gap-able).
+  *What the skill requires.* SKILL.md's opening constraint:
+  *"There are no fallbacks. When a required tool is unavailable,
+  the planner stops and reports. … A required tool that cannot
+  run is a halt condition, not a license to improvise."* Two
+  required tools (CodeGraph, Clear Thought) are unavailable
+  per Q-gap-1/Q-gap-2. The correct disposition per the skill
+  is: **halt, and report to Max Cogar that this environment
+  cannot produce a skill-compliant expert-plan.** *What the
+  plan-writer did.* Proceeded anyway. Wrote the plan as if the
+  tools' outputs could be substituted by manual code walking and
+  in-document reasoning. Logged the substitutions as "gaps." That
+  is exactly the "license to improvise" the skill forbids.
+  *Practical impact.* For a greenfield plan against a small
+  codebase (`middleware/context-oracle/` has no Phase A code,
+  only documentation and CI tooling — §11.6 verifies), the
+  practical output difference is small: CodeGraph's dependency
+  graph would report empty, foundation probes would find no
+  code, and Clear Thought's structured reasoning trace would
+  produce the same conclusion the in-document reasoning reached
+  (build-order is topological on dependency; the alternative was
+  reasoned in-document at D-plan-1). But "practical impact is
+  small" is not what the skill grants leave for — the skill's
+  own words are absolute. *The owner decision Max Cogar must
+  make.* Three options:
+  1. **Accept.** Accept a skill-non-compliant plan on grounds
+     that the environment blocks the tools and manual
+     substitutes were used; the plan is executable and the
+     substitutes are named. Cost: sets precedent that the
+     halt-condition can be bypassed.
+  2. **Halt.** Halt the plan; do not deliver until the environment
+     is fixed (CodeGraph and Clear Thought MCP servers installed).
+     Cost: blocks the entire Phase A build until infrastructure
+     work is done.
+  3. **Waive the skill for this plan only.** Formally
+     acknowledge that this project's Phase A plan runs under a
+     waiver of SKILL.md Steps 2 and 6, with the waiver
+     recorded in `docs/collapse-log.md` so it does not become
+     silent precedent. Cost: honest disclosure but requires the
+     waiver to be re-issued for any future plan in this
+     environment. Recommended.
+  *This gap is bin-2 (user decision), not bin-1 (engineering
+  answerable) or bin-3 (blocked with attempt evidence). It goes
+  to Max Cogar per the register rules.*
 
 **No other gaps.** Every other decision in this plan was grounded
 in a named standard from §3 (spec, architecture decisions,
