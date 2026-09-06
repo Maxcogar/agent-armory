@@ -22,50 +22,94 @@ every Phase A decision against this goal (`CLAUDE.md` dominating rule 3).
 ## Where the project stands
 
 The spec (`docs/specs/spec-context-oracle.md`) is signed off (`OL-C6`). The Phase
-A architecture (`docs/architecture-phase-a.md`) is complete: its
-non-answer-drift decisions passed a round-10 expert review, and the answer-drift
-block `AD-9` — the one block previously found to be over-built "slop" — has been
-**rebuilt to the honest Phase A skeleton the spec mandates**, and an independent
-goal-first review (expert review + collapse-hunt) confirmed it: the classifier
-slop is genuinely cut, the skeleton is spec-faithful, the Phase B seam holds, and
-the review's consistency findings are applied. The whole architecture is now
-reviewed and ready to plan from.
+A architecture (`docs/architecture-phase-a.md`) is reviewed to convergence, with
+`AD-9` rebuilt to the honest Phase A skeleton the spec mandates.
 
-**What `AD-9` now is.** Deny **plumbing** (a `PreToolUse` deny confined to one
-producer, `AD-10`) plus a **conservative move recognizer**: while any question
-Max asked is open, a repo-mutating file edit (`Write`/`Edit`/`NotebookEdit`) is
-denied ("answer Max's question first"); every other move — reads, searches,
-test/build runs, spawns, MCP, web — runs free (`D-39`). A question is tracked as
-open when Max asks a clear interrogative and cleared when the agent gives a
-substantive text turn; Phase A **never classifies what kind of answer a question
-wants.** The model-free info/request classifier the previous version had grown
-(verb/object lexicons, noun-phrase heads, wh-precedence, coordinated-ask) is
-**removed entirely** — that was the fake-completeness `D-41`/§11.5 forbid Phase A
-from building (`docs/collapse-log.md` 2026-09-04).
+**The Phase A implementation plan attempt (`docs/plans/plan-phase-a.md`) failed
+its independent reviews and is not fit to build against.** PR #78 on branch
+`claude/context-oracle-1evnd9`, head `d915856`. Two reviews landed against the
+current plan:
 
-**Why this is the honest skeleton, not a working block.** A model-free recognizer
-cannot tell an edit that *is* the answer to a request ("rename `foo`") from an
-edit that ignores the question, so `AD-9` over-denies that case — the
-**wrongful-deny residual**, escapable by one answering turn and **measured** on
-the wrongful-deny rate. Its real-repo coverage is deliberately low and is a Phase
-A **exit measurement**, not a claim. The precision — judging whether a move is
-answer-directed — is a comprehension judgment deferred to **Phase B**, which
-swaps the deterministic state-writer for a model-maintained one behind the same
-`qa/state.ts` interface, with no change to the deny path, tables, hook wiring, or
-audit. That seam is the point of the skeleton.
+- **`docs/reviews/2026-09-06-plan-collapse-hunt.md` — Verdict: DOES NOT
+  SURVIVE.** 3 full collapses, 4 partials, 6 new load-bearing decisions the
+  author's collapse-test (§10A) missed. Key collapses: D-plan-1 build-order
+  framing IS the 2026-09-04 goal-loss shape at the build layer; D-plan-3
+  `node:test` won't actually execute against `.ts` under Node 22.16 (tests
+  never run, T15-2 confinement grep passes vacuously); Step 42 exit run on
+  `Maxcogar/agent-armory` is not "the owner's real repos" §11.5 names.
+- **`docs/reviews/2026-09-06-plan-expert-review.md` — Verdict: NEEDS FIXES
+  (10 findings: 3 Serious, 5 Moderate, 2 Minor).** S1 Step 31 references
+  Step 32 in Dependencies (topological-sort violation); S2 FR-A2g
+  Verification genre has no acceptance-tier test; S3 plan not deliverable
+  per SKILL.md while an open register entry remains; M1 ~15 named fixture
+  repos unenumerated in §5.1; more.
+
+Additional context on how the plan got here:
+
+- **`docs/reviews/2026-09-06-author-gates-review.md`** — the plan-writer's
+  own compliance walk. Found 20 findings on their own artifact (5 Critical,
+  7 Serious, 4 Moderate, 4 Minor).
+- **`docs/reviews/2026-09-06-meta-check-skipped-steps.md`** — meta-check
+  subagent. Found H1–H8 including the finding that the plan-writer
+  proceeded despite two SKILL.md halt conditions (CodeGraph and Clear
+  Thought MCP servers unavailable, plan-writer manual-substituted instead
+  of halting).
+
+The author's compliance findings and the meta-check findings were partially
+applied across commits `bbcd55f`, `6cb00ce`, `107673c`, `e60293b`, `99be60a`,
+`7290549`, `5f94682`. The two later independent reviews (collapse-hunt +
+expert-review) landed on the post-fix plan and still returned failing
+verdicts.
+
+**The plan-writer also opened Q-gap-5 in the plan's Gaps section — a bin-2
+owner-decision escalation asking Max Cogar to rule accept / halt / waive on
+the SKILL.md halt-condition violation. This was the wrong disposition.**
+CLAUDE.md rule 2 says: *"if tooling genuinely prevents it, halt and say so
+rather than shipping an unattacked decision."* The project's answer to
+the halt condition is: halt. Not: escalate to the owner. Opening a bin-2
+question the project's own rule already answers is exactly the "don't hand
+the owner a decision that is already written" failure `CLAUDE.md` calls out.
 
 ## What to do next (agent-owned)
 
-1. **Write the Phase A implementation plan** (greenfield expert-plan, consuming
-   the spec + this architecture), and build against §11.5's Phase A exit and the
-   §14 Phase A acceptance criteria. The architecture — `AD-9` included — is
-   reviewed and ready to plan from.
+1. **Restart the Phase A plan** on top of the current architecture. The
+   current plan attempt failed two independent reviews (collapse-hunt DOES
+   NOT SURVIVE, expert-review NEEDS FIXES) and cannot be patched to pass —
+   the collapses are at the plan's shape (D-plan-1 build order, D-plan-3
+   runner that won't execute, Step 42 wrong exit-run repos). Rewrite the
+   plan; do not attempt to patch the current one.
+
+2. **Every finding across all four review documents applies to the
+   rewrite** — the author-gates review, the meta-check, the collapse-hunt,
+   and the expert-review. Not a prioritized subset. Not a "start with
+   C1–C3." All of them.
+
+3. **Halt on the SKILL.md halt condition, per CLAUDE.md rule 2.** CodeGraph
+   MCP and Clear Thought MCP are unavailable in this environment
+   (empirically verified this session: `ToolSearch` for `codegraph` and
+   `clear_thought` both returned no matches). SKILL.md says a required
+   tool that cannot run is a halt condition, not a license to improvise.
+   The next plan attempt either (a) runs in an environment where those
+   tools ARE available, or (b) does not produce a `/expert-plan`-labeled
+   plan — a different, non-`/expert-plan` process would need explicit
+   owner authorization first.
+
+4. **Run the independent collapse-hunt and expert-review after the
+   rewrite lands**, before delivering. Both are mandatory per CLAUDE.md
+   rule 2 and per the project lifecycle. Do not open owner-decision gaps
+   for anything the project's own rules already answer.
 
 ## Open items
 
-- The two **build-time verifications** the architecture names (`L11`): human-turn
-  marker presence on Max's real interactive transcripts, and whether
-  platform-injected turns fire `UserPromptSubmit`. Neither gates the design; both
-  resolve with real captured sessions during the build.
-- No owner question is open. The answer-drift design principle is settled (honest
-  skeleton + clean seam, coverage measured at exit, never fake completeness).
+- The Phase A plan is not deliverable. Restart per items 1–4 above.
+- L11(a) — human-marker presence on Max Cogar's real interactive
+  transcript was resolved this session by direct measurement of
+  `/root/.claude/projects/-home-user-agent-armory/dc9955b4-2023-5a97-b6a3-47796382cb94.jsonl`
+  (11 `origin.kind:"human"` entries, markers present exactly as V12 and
+  AD-9 assume). Follow-up documentation PR updating architecture L11(a)
+  from "assumption pending" to "measured" is a post-Phase-A-completion
+  task.
+- L11(b) — whether `UserPromptSubmit` fires for platform-injected turns
+  remains empirically unresolvable inside this container (hook install
+  blocked by auto-mode classifier). Design-safe either way per AD-9's
+  voiding guard. Natural resolution: first real install of the tool.
