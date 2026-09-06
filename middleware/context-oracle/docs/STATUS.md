@@ -56,16 +56,16 @@ adversarial reviews and one fix pass:
    `e60293b`, `99be60a`) applied every content finding from the author's
    review and every content finding from the meta-check. What did not fix
    is H1's skill halt-condition violation — that is a Max-decides item
-   (Q-gap-5 in the plan's §15). Also open: L11(b) is empirically
+   (Q-gap-5 in the plan's Gaps section). Also open: L11(b) is empirically
    unresolvable inside this container (hook install blocked) but the
    design is safe either way per AD-9's voiding guard; resolves naturally
    on first real install.
 
 **What still remains** (all Max Cogar decisions or first-real-install
 observations, not plan-writer work):
-- **Q-gap-5** (§15 of the plan) — bin-2 owner decision: accept /
+- **Q-gap-5** (Gaps section of the plan) — bin-2 owner decision: accept /
   halt / waive the SKILL.md halt-condition violation. Options are
-  spelled out plainly in the plan's §15.
+  spelled out plainly in the plan's Gaps section.
 - **L11(a) documentation update** — the human-marker presence
   measurement done this session should feed a documentation PR to
   architecture L11(a); that is Step 43 post-completion work, not build.
@@ -74,10 +74,10 @@ observations, not plan-writer work):
 
 ## What to do next (agent-owned unless it says owner-decision)
 
-1. **[OWNER DECISION] Rule on Q-gap-5.** Read the plan's §15 Q-gap-5
+1. **[OWNER DECISION] Rule on Q-gap-5.** Read the plan's Gaps section Q-gap-5
    (options A/B/C — accept / halt / waive the skill halt-condition
    violation for this plan). Whichever you pick, the plan-writer will
-   apply your ruling in the plan's §15 and update STATUS.md.
+   apply your ruling in the plan's Gaps section and update STATUS.md.
 
 2. **After Q-gap-5 ruling:** dispatch a fresh independent review
    subagent against the current commit (the earlier one was
@@ -101,7 +101,7 @@ observations, not plan-writer work):
 
 ## Open items
 
-- **Q-gap-5** (plan §15) — bin-2 owner decision open. Blocks
+- **Q-gap-5** (plan Gaps section) — bin-2 owner decision open. Blocks
   deliverability per SKILL.md's own rule.
 - **L11(a) documentation** — measurement resolved; documentation PR
   deferred to Step 43.
