@@ -19,70 +19,53 @@ honest capability plus honest measurement, with clean seams the later phases plu
 into — **never fake completeness dressed to look like a working product.** Judge
 every Phase A decision against this goal (`CLAUDE.md` dominating rule 3).
 
-## Where the project stands (2026-09-04)
+## Where the project stands
 
-The spec (`docs/specs/spec-context-oracle.md`) is signed off (`OL-C6`,
-2026-08-28). The Phase A architecture (`docs/architecture-phase-a.md`) passed its
-round-10 **expert** review clean (0 findings); the paired round-10
-**collapse-hunt was never run** — the prior session was halted mid-round-10. Max
-directed (2026-09-04) proceeding toward the Phase A plan without re-running that
-hunt.
+The spec (`docs/specs/spec-context-oracle.md`) is signed off (`OL-C6`). The Phase
+A architecture (`docs/architecture-phase-a.md`) is complete: its
+non-answer-drift decisions passed a round-10 expert review, and the answer-drift
+block `AD-9` — the one block previously found to be over-built "slop" — has been
+**rebuilt to the honest Phase A skeleton the spec mandates**, and an independent
+goal-first review (expert review + collapse-hunt) confirmed it: the classifier
+slop is genuinely cut, the skeleton is spec-faithful, the Phase B seam holds, and
+the review's consistency findings are applied. The whole architecture is now
+reviewed and ready to plan from.
 
-**In grounding the plan, the answer-drift block `AD-9` was found to be AI slop
-and sent back to the architecture layer.** Across the ten review rounds the Phase
-A answer-drift classifier was elaborated — communicative-verb and
-information-object lexicons, base-noun-phrase head extraction, wh-complement
-precedence, coordinated-ask handling — into a coverage-maximizing classifier that
-*looks like* a working answer-drift block. The spec (`D-41`, §11.5) asks Phase A
-only for a recognizer that "errs hard toward not-firing," "low-coverage,"
-explicitly "a skeleton, not 'the block working.'" The architecture over-reached
-its own spec. Max caught it — the reviews did not, because they check
-correctness, not whether a mechanism serves the Phase A goal — and named it the
-same fake-completeness pattern that cost three prior versions of this tool. The
-lesson is now `CLAUDE.md` dominating rule 3 and `docs/collapse-log.md`
-2026-09-04.
+**What `AD-9` now is.** Deny **plumbing** (a `PreToolUse` deny confined to one
+producer, `AD-10`) plus a **conservative move recognizer**: while any question
+Max asked is open, a repo-mutating file edit (`Write`/`Edit`/`NotebookEdit`) is
+denied ("answer Max's question first"); every other move — reads, searches,
+test/build runs, spawns, MCP, web — runs free (`D-39`). A question is tracked as
+open when Max asks a clear interrogative and cleared when the agent gives a
+substantive text turn; Phase A **never classifies what kind of answer a question
+wants.** The model-free info/request classifier the previous version had grown
+(verb/object lexicons, noun-phrase heads, wh-precedence, coordinated-ask) is
+**removed entirely** — that was the fake-completeness `D-41`/§11.5 forbid Phase A
+from building (`docs/collapse-log.md` 2026-09-04).
 
-**The Phase A plan is on hold until `AD-9` is honest.** A plan translates the
-architecture faithfully; it cannot fix a wrong architecture by building something
-different (that freelancing is exactly what the lifecycle exists to stop). So
-`AD-9` is corrected at the architecture layer first, then the plan resumes from
-the corrected architecture.
-
-**Update (2026-09-04):** the Phase A test-bed purpose, found missing from the
-governing docs this session, is now stated in spec §11.5 (one-line pointer in
-`CLAUDE.md` rule 3). The `AD-9` rebuild is judged against it and is the immediate
-next step.
+**Why this is the honest skeleton, not a working block.** A model-free recognizer
+cannot tell an edit that *is* the answer to a request ("rename `foo`") from an
+edit that ignores the question, so `AD-9` over-denies that case — the
+**wrongful-deny residual**, escapable by one answering turn and **measured** on
+the wrongful-deny rate. Its real-repo coverage is deliberately low and is a Phase
+A **exit measurement**, not a claim. The precision — judging whether a move is
+answer-directed — is a comprehension judgment deferred to **Phase B**, which
+swaps the deterministic state-writer for a model-maintained one behind the same
+`qa/state.ts` interface, with no change to the deny path, tables, hook wiring, or
+audit. That seam is the point of the skeleton.
 
 ## What to do next (agent-owned)
 
-1. **Rebuild `AD-9` at the architecture layer to serve the Phase A goal.** Keep
-   what is real and already right: the deny plumbing confined to one producer
-   (`AD-10`), the `questions`/`classify_state` state tables, and the clean
-   Phase-B seam (`qa/state.ts`) the model plugs into with no redesign. Replace the
-   coverage-maximizing classifier with the honest minimum the spec's `D-41`
-   skeleton asks for — a recognizer that fires only on a move *clearly* not
-   answer-directed, errs hard toward not-firing, and whose low coverage is
-   *measured at exit*, not hidden behind machinery. Whether that minimum is a
-   single unambiguous trigger or no automatic recognizer at all (the plumbing
-   tested with fixture-controlled state, all answer-directedness judgment deferred
-   to Phase B) is the architecture decision to make here — grounded in
-   `D-41`/§11.5, not freelanced.
-2. **Re-review the rebuilt `AD-9`** — a fresh expert review + collapse-hunt, aimed
-   goal-first per rule 3 ("does this serve the Phase A goal, or is it machinery
-   that only passes review?"), all findings applied, before it is trusted.
-3. **Then write the Phase A implementation plan** (greenfield expert-plan,
-   consuming spec + the corrected architecture), and build against §11.5's Phase A
-   exit and the §14 Phase A acceptance criteria.
+1. **Write the Phase A implementation plan** (greenfield expert-plan, consuming
+   the spec + this architecture), and build against §11.5's Phase A exit and the
+   §14 Phase A acceptance criteria. The architecture — `AD-9` included — is
+   reviewed and ready to plan from.
 
 ## Open items
 
-- The round-10 collapse-hunt on the pre-rework architecture was never run; it is
-  now moot — `AD-9` is being reworked and its rework carries its own review, and
-  the rest of the architecture stands on the round-10 expert-review PASS.
 - The two **build-time verifications** the architecture names (`L11`): human-turn
   marker presence on Max's real interactive transcripts, and whether
   platform-injected turns fire `UserPromptSubmit`. Neither gates the design; both
   resolve with real captured sessions during the build.
-- No owner question is open. The answer-drift *design principle* is settled
-  (honest skeleton + clean seam, never fake completeness); the specific rebuilt
-  `AD-9` is agent-owned architecture work, reviewed before it is trusted.
+- No owner question is open. The answer-drift design principle is settled (honest
+  skeleton + clean seam, coverage measured at exit, never fake completeness).

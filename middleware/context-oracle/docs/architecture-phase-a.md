@@ -458,16 +458,11 @@ and nothing here depends on the new channel.
    corrections(id, whisper_id NULL, deny_id NULL, verdict CHECK(verdict IN
                ('false_fire','missed','confirm')), note, ts) -- FR-D4/FR-L6/AC-2c
    questions(id, consumer, question_text, content_hash,
-             kind TEXT NOT NULL CHECK(kind IN ('info','request')),
-                                          -- AD-9: only 'info' rows are
-                                          -- deny-capable (NOT NULL, so the
-                                          -- invariant never rests on SQLite's
-                                          -- CHECK-passes-NULL accident)
              asked_uuid NULL, asked_offset NULL,   -- backfilled at reconciliation
              status CHECK(status IN ('open','answered','expired')),
              closed_by_uuid NULL,
              closed_by_kind NULL CHECK(closed_by_kind IN
-               ('direct_recognized','generic_text_all_prior','expired',
+               ('generic_text_all_prior','expired',
                 'intake_invalidated')),            -- AD-9: voided intake rows
              opened_at, closed_at,
              UNIQUE(consumer, asked_uuid))
@@ -484,8 +479,7 @@ and nothing here depends on the new channel.
                candidates_json, outcome,
                detail_json NULL)   -- FR-L1/FR-M1; detail_json carries e.g.
                                    -- the done-claim counter's counted
-                                   -- questions (AD-9 — a receptacle the
-                                   -- round-4 review found missing)
+                                   -- questions (AD-9)
    observed_actions(session, consumer, seq, tool, path NULL, command_class NULL,
                     outcome NULL CHECK(outcome IN ('ok','failed')), ts)
                     -- edited files, test runs. outcome='ok' from PostToolUse
@@ -686,7 +680,7 @@ and nothing here depends on the new channel.
    wiring — nothing in Phase A consumes it, and the spec requires no
    `permissionDecision` be emitted on it ever (`FR-B3`, AC-2's control-flow
    assertion); `PostToolUseFailure` **is** wired, observation-only, because
-   the round-2 review established failure outcomes exist nowhere else (V19),
+   failure outcomes exist nowhere else (V19),
    and it emits nothing on any channel. Not stdout injection on tool events (the contract routes
    tool-event context via `hookSpecificOutput`, V2).
 5. **Premise verification.** V1–V6 and V15/V16/V19 (channels, fields, timeouts,
@@ -724,10 +718,9 @@ and nothing here depends on the new channel.
    the transcript can provide (the residual lag is then only the file-write lag
    the contract documents, V1 — the irreducible lag window of `FR-B1`); (b) the
    audit write precedes emission for both whispers and denies — an unlogged
-   whisper/deny is not emitted (`FR-X6` made true by construction; the
-   2026-07-22 round-1 collapse-hunt finding that fail-open must not apply to
-   the audit control — verified closed in round 2 — carried forward as a rule,
-   re-derived from `FR-X6`'s wording "every whisper and every block recorded").
+   whisper/deny is not emitted (`FR-X6` made true by construction; fail-open must
+   not apply to the audit control, per `FR-X6`'s wording "every whisper and every
+   block recorded").
 2. **Standard.** `FR-X6` and `FR-B1` governing; first-principles for ordering:
    the goal is that every emitted intervention is auditable and every deny is
    grounded in the freshest checkable state; the shortcut is "emit, then log
@@ -740,381 +733,193 @@ and nothing here depends on the new channel.
 5. **Premise verification.** V1 (lag), V8 (cost headroom); `FR-X6` at spec §7.2.
    Addresses: `FR-X6`, `FR-B1`, NF-1.
 
-### AD-9 — The answer-drift block: state, recognizers, lag-window hold, and the Phase B seam
-
-This is the mechanism `docs/STATUS.md` names first, designed to the spec's phased
-contract: Phase A ships deny plumbing plus conservative recognizers — safe,
-low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
+### AD-9 — The answer-drift block: state, recognizers, and the Phase B seam
 
 1. **Decision.**
 
    **State (project store, AD-4):** `questions` rows per consumer with status
    `open`/`answered`/`expired`; `classify_state` holds the per-consumer bookmark
    (byte offset + last entry uuid) up to which the transcript has been
-   classified.
+   classified. A row carries the question text and a `content_hash`. **Nothing
+   classifies a question into a type** — Phase A tracks *that* a question is open,
+   never *what kind* of answer it wants.
 
-   **Question intake (at `UserPromptSubmit`, from the `prompt` input field —
-   V5).** Intake runs on the hook's own `prompt` string, so the question row
-   exists **before the agent's first move** — the moment `OL-C5` names —
-   independent of the transcript-write lag (which V1 documents only for the
-   file). The **question recognizer** is conservative by construction (`FR-B5`:
-   err toward not denying — here, toward not *opening*). It opens a question
-   for a sentence that (i) ends with `?`, (ii) is outside code fences and
-   quoted blocks, and (iii) is not matched by a small rhetorical/idiom
-   stoplist. Clause (iv) then assigns a **conservative best-effort classification to
-   every opened row** — a model-free recognizer, not an exact parser: it labels
-   every row but does not assert the label is always correct. Its rules and
-   defaults are stated with their error directions and chosen so a
-   mis-classification is **safe** — a mis-parse lands either on the
-   under-enforced `request` side (`FR-B5`'s err-toward-not-denying) or, if it
-   routes to `info`, into the owned wrongful-deny residual (the deny rationale
-   below). This is the spec's conservative, low-coverage Phase A skeleton
-   (`D-41`, §11.5): coverage is *measured at exit*, never asserted complete:
-   - A **non-request-frame** interrogative ("why does X fail?", "did you run
-     the tests?") classifies `kind='info'` — deny-capable.
-   - A **request-frame** interrogative ("can/could/will/would/please … you …"
-     + verb) classifies by its verb, and — for communicative verbs — by the
-     verb's **direct object**. The object is the noun phrase **immediately
-     following the verb** (skipping an optional "me/us"); its **head is the
-     rightmost noun of the *base* noun phrase** — attributive modifiers fold
-     left ("the version number" → "number", "the test results" → "results") and
-     any **post-head modifier** (a prepositional phrase or relative clause) is
-     set aside ("the question in the ticket" → "question", "the file with the
-     error" → "file"). Only the head is matched against the lexicons — never a
-     bag-of-words scan — and the match folds simple inflection, so a plural or
-     possessive form hits the same entry ("questions"/"question",
-     "answers"/"answer"). This head extraction is a **conservative model-free
-     heuristic, not an exact parse**: where it mis-identifies a head the error
-     is safe by the branch defaults (unlisted → `request`, under-enforced; a
-     mis-route to `info` falls into the owned residual). A
-     **wh-complement** ("why…", "how…", "whether…") takes precedence over any
-     noun inside it, so an artifact noun sitting inside a wh-clause ("tell me
-     why the login *test* fails?") does not flip an information question to a
-     request. For a *communicative-lexicon* verb (answer / tell / explain /
-     describe / show / list / clarify / confirm — closed, config-enumerated in
-     `tuning`, tended via `ctxoracle tune`): a wh-complement, **no object at
-     all** (a bare communicative verb once the optional "me/us" is skipped —
-     "can you explain?", "can you clarify?", "can you confirm?", "can you
-     answer?"), or an object whose head is on the **information-object
-     lexicon** (error / output / log / diff / result / value / version /
-     status-class — plus **question / answer**, the object of a meta-answer
-     ask) classifies `kind='info'` (deny-capable): the ask is
-     information-seeking, so the block may hold the agent to answering it. Its
-     fulfilment is *usually* text (a read plus an explanation), which the deny
-     never touches — so "could you tell me why X fails?", "can you show me the
-     error?", "can you explain?", and the `OL-C3` escalation re-ask "can you
-     please answer my question?" stay deny-capable; where the fulfilment is
-     instead a repo mutation ("can you show me [a demo]?", "answer the question
-     in the ticket"), the categorical `Edit`-deny falls on that mutation — the
-     owned over-enforcement residual (the deny rationale below). An
-     object whose head is on the **artifact-object lexicon** (demo / test /
-     script / example / branch / file / PR-class) classifies `kind='request'` —
-     "can you show me a **demo**?" is fulfilled by a build, not text. In Phase A
-     this lexicon is **inert**: the unlisted-object default also yields
-     `request`, so the artifact list changes no Phase A classification; it is
-     retained as the explicit enumeration of the build-fulfilled object class,
-     ready to discriminate if the default is ever tightened. **Any other object
-     — an unlisted head noun ("show me a prototype?"; "the version number" →
-     head "number") — defaults to `kind='request'`:** lexicon incompleteness
-     must fail toward under-enforcement, never toward denying a fulfilling move.
-     The lone object direction that must fail the other way — "question"/
-     "answer", whose correct kind is `info` to preserve the `OL-C3` recourse —
-     is carried by the information-object lexicon above, not by this default.
-   - A **coordinated ask** — more than one top-level verb ("can you **answer**
-     my question **and fix** the bug?") — classifies `kind='info'` when any
-     top-level verb is communicative and its own object/complement classifies
-     `info` (or is object-less), else `kind='request'`. When it opens `info`
-     the block arms and the co-asked repo action is subject to the deny: an
-     owned member of the wrongful-deny residual class (the deny rationale
-     below), escapable by answering — or stating a plan — first.
-   - The **request-frame remainder** — any non-communicative verb ("can you
-     **rename** the helper?", "can you **fix** X?") — is `kind='request'`:
-     the safe, `FR-B5`-faithful direction (a wrongful deny on the requested
-     act is the forbidden error; an under-enforced unlisted communicative
-     verb — "could you **summarize** the error?" — or unlisted information
-     noun is the accepted loss, guarded like every under-fire miss by
-     `--missed-question` and shrunk by tending the communicative-verb and
-     information-object lexicons). **Both kinds are tracked; only
-   `kind='info'` is deny-capable.** For a request **to act on the repo**, the
-   requested action *is* the answer path, so denying on it would deny exactly
-   the move `OL-C5` protects — but the *tracking* costs nothing and is what
-   keeps the AC-8a outstanding-question line, the `FR-M4` recourse counter (to
-   the K-window extent L1 states — a row cleared before the final K turns
-   leaves no owner-visible trace), the Phase A exit measurement, and Phase B's
-   inherited state alive for that phrasing (a round-2 collapse finding:
-   excluding requests from intake entirely blinded the recourse machinery
-   exactly where the recourse is most needed). Multiple questions in one turn open multiple rows
-   (`FR-B1`: tracked as a set), each with its `content_hash`; a hash matching
-   only a **closed** row opens a fresh row — the open-scoped dedup index
-   (AD-4) exists precisely so the verbatim re-ask, the spec's thrice-named
-   recourse, always works. What intake deliberately misses (indirect
-   questions, "tell me whether…") is Phase A's documented low coverage,
-   measured at exit (§11.5) and owned in Limitations L1.
+   **Question intake (`UserPromptSubmit`, from the `prompt` input field — V5).**
+   Intake runs on the hook's own `prompt` string, so the row exists **before the
+   agent's first move** — the moment `OL-C5` names — independent of the
+   transcript-write lag (V1). The **question recognizer** opens a row for a
+   sentence that (i) ends with `?`, (ii) is outside code fences and quoted
+   blocks, and (iii) is not matched by a small rhetorical/idiom stoplist
+   (`lexicon.stoplist`, tunable). It opens on the interrogative and nothing more;
+   it does not judge whether the ask wants text or an action. Multiple questions
+   in one turn open multiple rows (`FR-B1`: a tracked set), each with its
+   `content_hash`; a hash matching only a **closed** row opens a fresh row — the
+   open-scoped dedup index (AD-4) keeps the verbatim re-ask, the spec's recourse,
+   always working. What intake misses — indirect questions, "tell me whether…",
+   any ask without a `?` — is Phase A's documented low coverage (L1), **measured
+   at exit** (§11.5), never classified around.
 
-   **Transcript catch-up (per event, resumable — AD-11).** The handler reads
-   the transcript from the bookmark to EOF and, per completed entry:
+   **Transcript catch-up (per event, resumable — AD-11).** The handler reads the
+   transcript from the bookmark to EOF and, per completed entry:
    - *Human turn* — discriminated by the **markers**, never by content shape
-     (V12, re-verified against a transcript containing injected turns):
-     `origin.kind === "human"` and not `isMeta`. Hook feedback (`isMeta:true`),
-     task notifications (`origin.kind:"task-notification"` — text partly
-     authored outside the machine), and tool-result pseudo-user entries
-     **never open questions**; a string-content user entry with *no* markers is
-     skipped with an `unrecognized_user_entry` diagnostic (conservative: skip,
-     never open). A human turn with **list content** (e.g. pasted images) has
-     its text blocks concatenated and processed normally. Human turns are
-     **reconciled** against intake rows: match by `content_hash` (and
-     first-unmatched adjacency) backfills `asked_uuid`/`asked_offset`; the
-     open-scoped dedup index makes reconciliation idempotent under parallel
-     handlers (AD-26) — no double-open of a live question, ever, while a
-     closed question stays re-askable. **Intake-row validation:** when the
-     transcript turn matching an intake row arrives and carries an
-     **affirmatively non-human** marker (`origin.kind` present and not
-     `"human"` — e.g. `task-notification` — or `isMeta:true`), the row is
-     **voided** (`closed_by_kind='intake_invalidated'`, fault recorded): if a
-     **marker-carrying** platform-injected turn ever fires `UserPromptSubmit`
-     (an unverified contract behavior — L11), its question row survives at
-     most one catch-up. A **marker-absent** matching turn does *not* void the
-     row — V12's probe transcript proves genuine turns can lack markers, so
-     voiding on absence would erase real questions in marker-less modes; the
-     residual (an unknown marker-less synthetic class staying open) is
-     escapable, auditable on the FR-X6 trail, and **counted when corrected**
-     (the automated detectors cannot see it — ordinary narration blanket-
-     clears it first), named in L11. A human question that reached the
-     transcript without a matching intake row (e.g. state rebuilt after
-     `resume`) is opened here, same recognizer, same conservatism.
+     (V12): `origin.kind === "human"` and not `isMeta`. Hook feedback
+     (`isMeta:true`), task notifications (`origin.kind:"task-notification"`), and
+     tool-result pseudo-user entries never open questions; a marker-absent
+     string-content user entry is skipped with an `unrecognized_user_entry`
+     diagnostic. Human turns are reconciled against intake rows by `content_hash`
+     (backfilling `asked_uuid`/`asked_offset`); the open-scoped dedup index makes
+     reconciliation idempotent under parallel handlers (AD-26). A matching turn
+     carrying an **affirmatively non-human** marker voids the row
+     (`closed_by_kind='intake_invalidated'`, fault recorded); a **marker-absent**
+     matching turn does not void it (V12 proves genuine turns can lack markers, so
+     voiding on absence would erase real questions). A human question that reached
+     the transcript with no matching intake row (e.g. state rebuilt after
+     `resume`) is opened here, same recognizer.
    - *Assistant text turn* (an `assistant` entry containing a `text` block): the
-     **clear recognizer** — conservative toward clearing in steady state
-     (`FR-B5`): a text block that carries substance (length above a small floor
-     after stripping tool noise) and is not a recognized content-free deferral
-     ("I'll get to that" -class stoplist) marks **all** questions opened before
-     it `answered`, recording `closed_by_kind = 'generic_text_all_prior'` (a
-     Phase A exact-match path may record `'direct_recognized'` when the answer
-     names the question's own terms; per-question *substantive* matching is a
-     comprehension judgment and is exactly what the spec routes to Phase B —
-     AC-2a-ii is a Phase-B criterion). Clearing all-prior errs toward clearing,
-     the safe steady-state direction; **the `closed_by_kind` record is what
-     keeps that lean honest downstream** (the FR-B4 counter, below).
-   - Bookmark advances only over completed lines (partial trailing line left for
-     the next event).
+     **clear recognizer** marks **all** currently-open questions `answered`
+     (`closed_by_kind='generic_text_all_prior'`) when the text carries substance
+     (length above a small floor after stripping tool noise) and is not a
+     recognized content-free deferral ("I'll get to that"-class). Clearing
+     all-prior errs **toward clearing** — the safe steady-state direction
+     (`FR-B5`). Whether a given turn *substantively addresses* a *specific*
+     question is a comprehension judgment routed to Phase B (`AC-2a-ii`, `D-41`);
+     Phase A does not attempt it.
+   - Bookmark advances only over completed lines (a partial trailing line is left
+     for the next event).
 
-   **The deny decision (PreToolUse, main consumer only — `FR-O6`, AC-2a-i):**
-   after catch-up, with at least one `open` question of **`kind='info'`** (the
-   single deny-eligibility predicate, structurally testable under AD-10's
-   confinement; `kind='request'` rows are tracked state only):
-   - The move is judged by the **Phase A move recognizer**, which denies only
-     moves *clearly not directed at answering* (`D-41`): the deny-eligible set is
-     exactly the repo-mutating file tools (`Write`, `Edit`, `NotebookEdit`).
-     Everything else — `Read`, `Grep`, `Glob`, `Bash` (it may be running a
-     test/build to get the answer — `D-39`'s protected class), `Task` spawns
-     (Phase A cannot judge spawn intent model-free; AC-2a-i's deny half is
-     Phase-B-precise), MCP tools, web tools — is **allowed**. Rationale: the
-     invariant that makes the deny sound is **"a deny-capable (`kind='info'`)
-     row is created only by the info/request classifier"** — and that
-     classifier runs at *every* opener: prompt-field intake, transcript
-     catch-up, and the `--missed-question` correction path (AD-18), which
-     routes through the same recognizer rather than bypassing it. So an open
-     deny-capable question is information-seeking wherever it came from, and
-     `FR-B5` errs toward not denying. The move recognizer is model-free, so it
-     cannot tell a mutation that *is* the answer (an edit-to-test, or a build
-     that answers a request-shaped question) from one that ignores the
-     question: it denies **every** repo mutation while a deny-capable `info`
-     question is open. That over-enforcement against an answer-directed edit is
-     the accepted cost of a model-free recognizer — the exact mirror of L3's
-     `Bash` **under**-enforcement (a drift edit run through `Bash` escapes the
-     deny) — escapable by one answering turn and measured on the wrongful-deny
-     rate; Phase B, with model judgment, is where an answer-directed edit is
-     distinguished from a drift edit. The residual wrongful-deny class is
-     **one open class, defined by a property, not an enumeration**: a row the
-     recognizer classified `info` (deny-capable) coexists in the turn with a
-     repo mutation that legitimately serves the user's intent — because the
-     ask's own fulfilment *is* that mutation, or a real action was co-asked
-     alongside the question. Every such deny is escapable by one answering — or
-     plan-stating — turn, owned in L1, and measured on the wrongful-deny rate.
-     Its recognizable forms are **illustrations of the property, not members to
-     complete**: an action-request the recognizer mis-framed as `info` for want
-     of a request frame ("mind fixing X?"); a rhetorical or idiomatic
-     interrogative that escaped clause (iii)'s deliberately *small* stoplist
-     ("ugh, why is CI always so flaky??"), often co-prompted with a real
-     request — the stoplist is fallible, so this form is owned and shrunk by
-     tending the stoplist, not eliminated; an `info`-object, wh-complement, or
-     object-less ask whose answer is a build ("answer the question in the
-     ticket" where the ticket asks for a feature; "answer whether the null check
-     fixes it"; "show me [a demo]"); and a coordinated ask pairing an `info`
-     question with an action co-ask ("show me the error **and** fix the bug").
-     A new phrasing, or a head-heuristic mis-route, that lands an `info` row
-     beside a legitimate mutation is *the same class*, not a new member — the
-     model-free recognizer denies the mutation until one clearing turn. (This set is a
-     move-classification *mechanism* under `D-41`'s "clearly not
-     answer-directed" license, applied only after a question exists — not a
-     redefinition of the trigger, which remains `OL-C5`'s owner definition;
-     the `OL-R5`-rejected item *defined the answer-drift trigger itself* as
-     "writing code" with negative-space scoping, which the ledger row rejects
-     as a proxy for the definition.)
-   - Deny emission: audit-log first (AD-8), then
-     `permissionDecision:"deny"`, `permissionDecisionReason` = "answer Max's
-     question first: <the open question text(s)>". Subsequent non-answer-directed
-     moves are denied the same way — no counter, no held turn (`FR-B2`). A text
-     answer is never a tool action, so the way out always exists.
+   **The deny decision (`PreToolUse`, main consumer only — `FR-O6`, `AC-2a-i`).**
+   After catch-up, if the consumer has **at least one `open` question**, the
+   pending move is judged by the **move recognizer**, which denies only a move
+   *clearly not directed at answering* (`D-41`): the deny-eligible set is exactly
+   the repo-mutating file tools (`Write`, `Edit`, `NotebookEdit`). Every other
+   move — `Read`, `Grep`, `Glob`, `Bash` (it may be running a test or build to get
+   the answer — `D-39`'s protected class), `Task` spawns (spawn intent is not
+   judgeable model-free; `AC-2a-i`'s deny half is Phase B), MCP tools, web tools —
+   is **allowed**. Being model-free, the move recognizer cannot tell a mutation
+   that *is* the answer to a request ("can you rename `foo`?") from one that ignores the
+   question: it denies **every** repo mutation while any question is open. That
+   over-enforcement is the accepted, **measured** cost of a model-free recognizer
+   (the wrongful-deny residual, L1), escapable by one answering — or plan-stating
+   — turn (`OL-C3`); Phase B distinguishes the answer-directed edit from the drift
+   edit.
+
+   **Deny emission.** Audit-log first (AD-8), then `permissionDecision:"deny"`,
+   `permissionDecisionReason` = *"answer Max's question first: `<the open
+   question text(s)>`."* A subsequent non-answer-directed move is denied the same
+   way — no counter, no held turn (`FR-B2`). A text answer is never a tool action,
+   so the way out always exists; the block never lands at a `Stop`.
 
    **The lag-window hold (`FR-B1`'s lag clause, `D-41`).** The clear-state is
    whatever the classified transcript shows. When the newest assistant text has
-   not reached the file yet (V1's documented lag), the state still says `open`,
-   and a deny-eligible move is denied — the block **holds rather than
-   pre-clears**, on the clear-axis only: nothing in the lag window widens the
-   deny-eligible set, and answer-directed moves run freely exactly as in steady
-   state. A wrongful lag-hold self-recovers as soon as catch-up reaches the
-   answer — normally the next event; when catch-up itself is running resumably
-   across events (`catchup_incomplete`), recovery takes as many events as the
-   backlog needs, and the hold persists meanwhile (still clear-axis-only).
-   **Detection, on both axes of "deny outlives its condition" (`FR-M2`):**
-   (a) *freshness* — when a catch-up classifies an answer whose transcript
-   timestamp precedes an already-emitted deny's timestamp, the handler writes
-   fault `deny_after_answer_lag`; (b) *correctness* — the clear recognizer can
-   simply be wrong (a genuinely substantive but short answer under the length
-   floor, or a false stoplist match, leaves the question `open` and every
-   subsequent deny is wrongful). That path is caught by an independent
-   detector: fault **`deny_despite_answer_text`** when ≥ N denies (tunable)
-   accumulate for a consumer with ≥ 1 intervening assistant text turn since
-   the newest question opened, **excluding turns matched by the deferral
-   stoplist** — a correct deny-through-deferral ("I'll get to that", the
-   dodge `OL-C3` targets) must not inflate the wrongful-deny signal, and
-   sharing only the stoplist's deferral half keeps the detector independent
-   of the substance judgment it guards. **Coverage stated exactly** (the
-   exclusion forecloses one sub-case, and saying so beats claiming both): the
-   detector catches the *length-floor* miss (a real short answer is a
-   non-deferral text turn, so it accumulates); the *false-stoplist-match*
-   miss — a genuine answer the deferral list wrongly matches — is excluded by
-   construction and is caught only by the human channel (`ctxoracle correct`
-   on the deny), self-recovering when the agent re-answers in non-deferral
-   words. The inverse of the deny-loop condition; surfaced on the
-   wrongful-deny side of `status`; inducible for AC-9 exactly as the
-   criterion states (a real short answer the recognizer misses).
+   not reached the file yet (V1's documented lag), the state still says `open` and
+   a deny-eligible move is denied — the block **holds rather than pre-clears**, on
+   the **clear-axis only**: nothing in the lag window widens the deny-eligible
+   set, and answer-directed moves (a read, search, or test/build run) run freely
+   exactly as in steady state. A wrongful lag-hold self-recovers as soon as
+   catch-up reaches the answer. **Detection (`FR-M2`):** (a) `deny_after_answer_lag`
+   — a catch-up classifies an answer whose transcript timestamp precedes an
+   already-emitted deny; (b) `deny_despite_answer_text` — ≥ N denies (tunable)
+   accumulate for a consumer with ≥ 1 intervening assistant text turn since the
+   newest question opened, **excluding deferral-stoplist turns**, catching a
+   question the clear recognizer wrongly held open (the length-floor miss; the
+   deferral-false-match miss is caught only by the human channel,
+   `ctxoracle correct`).
 
-   **Stop-time backstop (AC-8a) — and what its counter can honestly count.**
-   At a `Stop` where the done-claim recognizer (AD-15) fires and `open`
-   questions exist, the Stop-time whisper carries the outstanding-question
-   line — and the line covers **both kinds**: an unanswered `info` question
-   and an un-actioned, un-answered `request` row alike (OL-C5 draws no such
-   distinction; the kind split exists for deny-eligibility, not tracking).
-   The `FR-M4` owner-recourse counter must not be blinded by the
-   clear-all-prior lean (a narrating agent clears everything before `Stop` can
-   look), so it counts done-claims where **either** a question is still `open`
-   **or** a question was closed only by `closed_by_kind =
-   'generic_text_all_prior'` within the final K assistant turns (K tunable) —
-   a labelled Phase A approximation of "plausibly died unanswered." `status`
-   states the label's **both** error directions in so many words:
-   under-count (blanket-cleared earlier in the session is not counted) and
-   over-count (a genuinely-answered late question is normally recorded
-   `generic_text_all_prior`, since the exact-match `direct_recognized` path is
-   rare by construction, so an honestly-answered late ask still increments the
-   counter — and an un-narrated *fulfilled* request can appear here too: doing
-   without saying leaves its row open). **The count is readable, not just
-   countable** (a round-3 finding: a number whose questions Max cannot see
-   makes the recourse session archaeology): each increment writes the counted
-   questions (text, kind, `closed_by_kind`, closing turn) into the session's
-   `session_log.detail_json` (the column exists for this — AD-4);
-   `ctxoracle log` (defaulting to the most recent session; `--session <id>`
-   for another) renders them under the done-claim entry **whether or not any
-   whisper fired at that Stop** — a done-claim can increment the counter with
-   nothing above the bar, and the rendering must not presume a
-   `whisper_audit` entry to hang off — and `status`'s counter line points
-   there ("3 — see ctxoracle log"). Phase B's per-question state measures this properly; the
-   label discipline is the same as `model_path_down`'s — absence of
-   measurement is never displayed as health, and a proxy is never displayed as
-   a measurement.
+   **Stop-time backstop (`AC-8a`).** At a `Stop` where the done-claim recognizer
+   (AD-15) fires and `open` questions exist, the Stop-time whisper carries an
+   outstanding-question line naming them — **delivery, not a block** (the stop
+   proceeds). Because "Max re-asks" is the recourse for every uncaught case and he
+   cannot re-ask what he does not know was dropped, the `FR-M4` counter also
+   records done-claims reached with a question still `open`, or closed only by
+   `generic_text_all_prior` within the final K assistant turns (K tunable) — a
+   labelled Phase A approximation, both error directions stated in `status`, its
+   counted questions written to `session_log.detail_json` and rendered by
+   `ctxoracle log`. It chains two conservative recognizers (done-claim + clear),
+   so for the common Phase A case it may not fire; it is best-effort, not a
+   guarantee.
 
-   **Deny-loop signal (`FR-M4`):** ≥ 3 consecutive denies (a tunable `tuning`
-   row, like every operating number here) for one consumer with no intervening
-   assistant text turn → `deny_loop` fault row; surfaced by `status`. The
-   signal is structurally blind to the one-deny-then-bypass case — a denied
-   `Edit` retried as a file-writing `Bash` command sails through (L3) — so a
-   companion diagnostic, **`deny_bypass_suspect`**, is recorded post-hoc when a
-   deny is followed in the same turn by a successful (`'ok'`) file-writing Bash
-   row **whose written path is the denied action's own target** — the write
-   identified by a path-write predicate on the Bash `tool_input` (redirection,
-   `tee`, in-place edit, copy/move to a path) that resolves to a path, matched
-   against the denied action's target path **recorded on the deny** — because a
-   denied `Edit`/`Write`/`NotebookEdit` never executes (it produces no
-   `observed_actions` row, V19) and the deny reason text carries only the
-   question, the deny handler writes the denied action's target path
-   (`file_path`, or `notebook_path` for `NotebookEdit`; redacted per AD-19) into
-   the `kind='deny'` `whisper_audit` row's `evidence_json`, and this correlation
-   reads it there;
-   distinct from the run-state
-   `command_class`, so a redirected test run (`npm test > out.log` — a different
-   path) and any write to an unrelated path do **not** fire it, and a failed
-   write is no bypass. It is a proxy, not a measurement: it still **over-counts**
-   a same-file shell rewrite made for a reason unrelated to the deny and
-   **under-counts** a bypass that writes the denied content to a *different*
-   path — both directions are stated wherever it is surfaced (`status`), never
-   presented as a count of real bypasses. Owner-facing only, feeding the
-   Phase B precision case.
+   **Deny-loop signal (`FR-M4`).** ≥ 3 consecutive denies for one consumer with
+   no intervening assistant text → `deny_loop` fault. A companion diagnostic,
+   `deny_bypass_suspect`, records post-hoc when a deny is followed in the same
+   turn by a successful (`'ok'`) file-writing `Bash` row whose written path
+   matches the denied action's target — the target `file_path`/`notebook_path`
+   recorded in the `kind='deny'` `whisper_audit` row's `evidence_json` (a denied
+   file tool runs no `PostToolUse`, V19). A proxy, not a measurement — it
+   over-counts an unrelated same-file shell rewrite and under-counts a bypass to a
+   different path; both directions stated in `status`. Owner-facing, feeding Phase
+   B's precision case (L3).
 
-   **Question lifetime across session boundaries:** qa-state is scoped to the
-   conversation, which the transcript embodies. On `SessionStart` by `source`
-   (V5): `startup`/`clear` → fresh empty state for the session's consumers (any
-   prior `open` rows for a superseded conversation on the same consumer key are
-   marked `expired` — bookkeeping, not a deny basis); `resume`/`fork`/`compact`
-   → the conversation continues, so open questions should survive: state is
-   rebuilt by classifying the transcript from offset 0 under a fresh bookmark
-   — **a recovery whose reach is exactly the marker premise's reach** (V12): in
-   a transcript mode whose human turns carry no markers, rebuild recovers
-   nothing (under-fire, the safe direction, but a capability going dark — so a
-   rebuild that scans a non-empty transcript, recognizes zero human turns, and
-   emitted `unrecognized_user_entry` diagnostics raises the distinct fault
-   **`rebuild_recovered_nothing`**, surfaced loudly per `OL-10`; L11 owns the
-   limit, and marker presence on the owner's interactive transcripts is a
-   build-time verification, AD-24).
-   The catch-up is **resumable**: the bookmark persists per event, so a
-   transcript too large to classify inside one watchdog window converges over
-   the next events, with a `catchup_incomplete` diagnostic making the window
-   visible. The lean while incomplete is stated precisely, because its two
-   halves point opposite ways: questions **not yet discovered** cannot deny
-   (under-fire, the safe direction), while questions **already open** keep
-   holding on the clear-axis exactly as in the lag window — the backlog never
-   pre-clears them. Nothing expires at `SessionEnd`: expiring there would drop
-   a legitimately outstanding question across a resume. One disclosed loss: on
-   `compact`, state is rebuilt from the compacted transcript, so a question
-   the compaction summarized away vanishes silently — under-fire, safe
-   direction, and invisible to any Phase A mechanism; recorded in L1's
-   coverage ledger rather than hidden.
+   **Question lifetime across session boundaries.** qa-state is scoped to the
+   conversation the transcript embodies. On `SessionStart` by `source` (V5):
+   `startup`/`clear` → fresh state (prior `open` rows for a superseded
+   conversation are marked `expired`); `resume`/`fork`/`compact` → the
+   conversation continues, so state is rebuilt by classifying the transcript from
+   offset 0 under a fresh bookmark — recovery reaching exactly as far as the
+   marker premise does (V12): in a marker-less transcript mode rebuild recovers
+   nothing (under-fire, safe), and when it scans a non-empty transcript,
+   recognizes zero human turns, and emitted `unrecognized_user_entry` diagnostics,
+   it raises `rebuild_recovered_nothing` (surfaced per `OL-10`; L11 owns the
+   limit). Catch-up is resumable — the bookmark persists per event, so a
+   transcript too large for one watchdog pass converges over later events with a
+   `catchup_incomplete` diagnostic (questions not yet discovered cannot deny;
+   questions already open keep holding). Nothing expires at `SessionEnd`. On
+   `compact`, a question the compaction summarized away vanishes silently —
+   under-fire, safe, recorded in L1.
 
-   **The Phase B seam (the contract this architecture fixes now):** the deny
-   path reads **only** `questions`/`classify_state` through `qa/state.ts`. Phase
-   B replaces the *writer* (the deterministic classifiers) with the
-   model-maintained updater running off-path (`§11.5`: the model updates cached
-   state between actions; the deny path keeps reading the same tables
-   synchronously). The recognizer interfaces (`classify.ts`) take a transcript
-   entry and return typed verdicts, so the swap is a module replacement, not a
-   redesign. The `expired` status, the `closed_by_kind` record, and the fault
-   codes are part of the seam: Phase B inherits them unchanged.
+   **The Phase B seam.** The deny path reads **only** `questions`/`classify_state`
+   through `qa/state.ts`. Phase B replaces the *writer* — the deterministic
+   recognizers behind `classify.ts` (each takes a transcript entry and returns a
+   typed verdict) — with the model-maintained updater running **off** the
+   synchronous path (§11.5: the model updates the cached state between actions; the
+   `PreToolUse` deny stays synchronous, reading that cached state — the model never
+   sits on the deny path). The swap is a module replacement, not a redesign: the
+   tables, the deny mechanism (AD-10), the hook wiring, the audit, and the
+   `qa/state.ts` read interface are unchanged. The `expired` status, the
+   `closed_by_kind` record, and the fault codes are part of the seam, inherited
+   unchanged.
 
-2. **Standard.** `OL-C5` (the owner definition — the rule enforced), `OL-C3`
-   (the block's existence), `FR-B1`/`FR-B2`/`FR-B5` (mechanism properties),
-   `D-39`/`D-41` (the protected answer-directed class; the phasing). The
-   conservative leans implement `FR-B5`'s stated cost function per error
-   direction.
-3. **Why here.** This is the one Phase A mechanism that can halt an agent, so
-   every recognizer bound is stated and every error direction has a named
-   detector: over-fire → wrongful-deny visibility via `corrections`
-   (`FR-L6`/AC-2c) and `deny_after_answer_lag`; under-fire → the human channel
-   (Max sees his own unanswered question, `FR-B5`) plus the AC-8a backstop line.
-4. **What this is NOT.** Not a Stop-based hold (`FR-B1`: the deny lands on the
-   deviating action; a text turn is never denied). Not a Bash-command classifier
-   that denies "obviously unrelated" commands — distinguishing `pytest` from
-   other work is intent judgment, and a wrong Bash deny would strand legitimate
-   answer-gathering (`D-39`'s protected class is load-bearing); Phase A's
-   coverage loss is the documented trade. Not a per-question clear matcher in
-   Phase A (comprehension judgment — Phase B, AC-2a-ii). Not question persistence
-   across sessions (a deny must be self-clearing within the conversation that
-   grounds it, `FR-B2`; expiry is the conservative reading and the miss is
-   visible in `status`).
-5. **Premise verification.** V1 (lag is real and documented — the hold clause has
-   a live premise); V12 (the entry discrimination the recognizers key on,
-   observed on a real transcript); V2 (deny channel); `OL-C5` read in
-   `OWNER-LEDGER.md` (CONFIRMED, 2026-08-25); `FR-B1`/`FR-B2`/`FR-B5`, `D-39`,
-   `D-41` read at spec §8/§12. Addresses: `FR-A2l`, `FR-B1`, `FR-B2`, `FR-B5`,
-   `FR-O6`, `D-39`, `D-41`, AC-2a, AC-2a-i, AC-8a, AC-12 (deterministic parts).
+2. **Standard.** `OL-C5` (the owner definition — the rule enforced), `OL-C3` (the
+   block's existence), `FR-B1`/`FR-B2`/`FR-B5` (mechanism properties), `D-39` (the
+   protected answer-directed class — reads/searches/test runs are never denied),
+   `D-41` (the block is phased because judging answer-directedness is a
+   comprehension judgment: Phase A ships the plumbing plus a conservative
+   recognizer, precision is Phase B).
+
+3. **Why here.** This is the one Phase A mechanism that can halt an agent, so its
+   every bound is stated and every error direction has a named detector: over-fire
+   → the wrongful-deny rate via `corrections` (`FR-L6`/`AC-2c`) and
+   `deny_after_answer_lag`/`deny_despite_answer_text`; under-fire → the human
+   channel (Max sees his own unanswered question, `FR-B5`) plus the `AC-8a` line.
+   Phase A ships the honest floor — a recognizer that fires only on the
+   clearly-non-answer-directed move class — and **measures** how little it catches
+   on real repos; that measurement is what Phase B and the `AD-24` regression
+   fixtures are designed from (§11.5). The recognizer is deliberately **not**
+   reasoned toward completeness here: a model-free recognizer cannot reach it, and
+   asserting it is the failure that returned this block to the architecture layer
+   (`docs/collapse-log.md` 2026-09-04).
+
+4. **What this is NOT.** Not a question classifier — Phase A does not decide
+   model-free whether a question wants a text answer or a repo action (a
+   comprehension judgment: Phase B, `AC-2a-ii`); it tracks that a question is open
+   and denies the mutating-edit move class while it is. Not a Stop-based hold
+   (`FR-B1`: the deny lands on the deviating action; a text turn is never denied).
+   Not a `Bash`-command classifier that denies "obviously unrelated" commands —
+   distinguishing a test run from other work is intent judgment, and a wrong
+   `Bash` deny would strand legitimate answer-gathering (`D-39` is load-bearing);
+   the coverage loss is owned in L3. Not a per-question clear matcher
+   (comprehension — Phase B, `AC-2a-ii`). Not question persistence across sessions
+   beyond transcript-grounded rebuild (a deny must be self-clearing within the
+   conversation that grounds it, `FR-B2`).
+
+5. **Premise verification.** V1 (transcript lag is real and documented — the hold
+   clause rests on it), V5 (`UserPromptSubmit.prompt`, `SessionStart.source`
+   values), V12 (human-turn marker discrimination, observed on a real transcript
+   containing injected turns), V2 (the `PreToolUse` deny channel) — all
+   fetched/observed 2026-08-29. `OL-C5`, `OL-C3` read in `OWNER-LEDGER.md`
+   (CONFIRMED); `FR-B1`/`FR-B2`/`FR-B5`, `D-39`, `D-41` read at spec §8/§12;
+   `AC-2a`/`AC-2a-i`/`AC-2a-ii`/`AC-8a`/`AC-12` at spec §14. Addresses: `FR-A2l`,
+   `FR-B1`, `FR-B2`, `FR-B5`, `FR-O6`, `D-39`, `D-41`, `AC-2a`, `AC-2a-i`,
+   `AC-2c` (answer-drift over-fire), `AC-8a`, `AC-12` (deterministic parts).
 
 ### AD-10 — Deny confinement: one producer, structurally
 
@@ -1280,7 +1085,7 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
      touched). **No genre term, no intent term** (`D-18`: intent entered via the
      trigger).
    - **Marginal value** `m`, defined for **all three** Phase A fact classes
-     (leaving a genre's own class undefined was a round-2 collapse finding):
+     (no fact class is left undefined):
      *single-file current-state* facts fail — the agent's own tools surface
      them in one call (AC-1's obviousness clause: a same-directory/same-stem
      pair is suppressed); *cross-file history-derived* facts pass by
@@ -1340,7 +1145,7 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
    | Consequence `FR-A2d` | `PreToolUse` Edit/Write | coupled **test files** of the target (pairs where partner ∈ `test_map`); zone flag of target | historically-coupled tests + zone flag; never a raw call-site count alone |
    | Warning ⚠ `FR-A2e` | `PreToolUse` Edit/Write | `landmines` rows for target (revert_chain, fix_chatter, human_stated) | the hazard with its evidence and **flagged confidence** (`FR-A5a`) |
    | Completeness `FR-A2f` | `Stop` | session's edited files (`observed_actions`) → un-edited partners above ratio floor | "you changed X but not Y, paired in 9 of its last 10 changes" |
-   | Verification `FR-A2g` | `Stop` with done-claim | changed regions (from `outcome='ok'` rows — AD-4's split filter) → `test_map` covering tests, minus test runs observed in `observed_actions` **of either outcome** (a failed run *is* a run — AD-4; a run-and-failed covering test at a done-claim is `FR-A2m`'s Phase B case per `D-27`, and Phase A's duty is only never to assert "not run" over it). The `command_class` classifier is **ternary; classes 1 and 2 are config-enumerated (in `tuning`, AD-5 — tended via `ctxoracle tune`), class 3 is the default complement** (anything outside both lists — a partial classifier would leave everyday commands with no class and an unstated default, whose unsafe direction re-admits the false "not run"): (1) *recognized test runner* → mapped subtraction (unmappable target ⇒ subtract all); (2) *recognized-innocuous* (a conservative allowlist of command heads that cannot run tests: `ls`, `cd`, `cat`, `git status`-class, `grep`/`rg`, …) → no effect on run-state; (3) everything else → run-state unknown, and **the shipped branch is the weaker honest claim** ("no *recognized* test run touched T; recognized runners: …" — it keeps the genre alive and still headlines the mapping, satisfying AC-8's content assertion), never the strong "not run". **Classification is per pipeline segment**: the command line is split on `&&`, `;`, `\|`, `\|\|` **quote-aware** (operators inside quotes are not split points; quoting the splitter cannot parse → class 3 wholesale; subshell / `sh -c` wrappers → class 3 wholesale); recognized-innocuous requires **every** segment's head on the allowlist; **segments contribute independently** — each runner segment subtracts its run, and any unknown segment still sets run-state unknown (so a runner+unknown compound both subtracts and composes the weak claim); head-matching a compound (`cd pkg && npm test`) as innocuous would re-manufacture the false "not run" (a round-4 finding) | the covering-test **mapping** for the changed region, with the honest run-state clause; run-state never stands alone (AC-8) |
+   | Verification `FR-A2g` | `Stop` with done-claim | changed regions (from `outcome='ok'` rows — AD-4's split filter) → `test_map` covering tests, minus test runs observed in `observed_actions` **of either outcome** (a failed run *is* a run — AD-4; a run-and-failed covering test at a done-claim is `FR-A2m`'s Phase B case per `D-27`, and Phase A's duty is only never to assert "not run" over it). The `command_class` classifier is **ternary; classes 1 and 2 are config-enumerated (in `tuning`, AD-5 — tended via `ctxoracle tune`), class 3 is the default complement** (anything outside both lists — a partial classifier would leave everyday commands with no class and an unstated default, whose unsafe direction re-admits the false "not run"): (1) *recognized test runner* → mapped subtraction (unmappable target ⇒ subtract all); (2) *recognized-innocuous* (a conservative allowlist of command heads that cannot run tests: `ls`, `cd`, `cat`, `git status`-class, `grep`/`rg`, …) → no effect on run-state; (3) everything else → run-state unknown, and **the shipped branch is the weaker honest claim** ("no *recognized* test run touched T; recognized runners: …" — it keeps the genre alive and still headlines the mapping, satisfying AC-8's content assertion), never the strong "not run". **Classification is per pipeline segment**: the command line is split on `&&`, `;`, `\|`, `\|\|` **quote-aware** (operators inside quotes are not split points; quoting the splitter cannot parse → class 3 wholesale; subshell / `sh -c` wrappers → class 3 wholesale); recognized-innocuous requires **every** segment's head on the allowlist; **segments contribute independently** — each runner segment subtracts its run, and any unknown segment still sets run-state unknown (so a runner+unknown compound both subtracts and composes the weak claim); head-matching a compound (`cd pkg && npm test`) as innocuous would re-manufacture the false "not run" | the covering-test **mapping** for the changed region, with the honest run-state clause; run-state never stands alone (AC-8) |
 
    **The done-claim recognizer (`D-38`):** deterministic in Phase A, reading
    `last_assistant_message` (Stop input, V1): a completion-claim lexicon
@@ -1484,26 +1289,16 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
    query time (the DAO resolves conflicts human-first, AC-23). A `missed`
    verdict on answer-drift may carry the dropped question's text
    (`ctxoracle correct --missed-question "<q>"`); the text is routed **through
-   the same info/request classifier as every other opener** (minus the `?`
-   requirement — Max may paraphrase), so it opens `kind='info'` (deny-capable:
-   the identical deviation is thereafter denied) or `kind='request'` (tracked:
-   it feeds the AC-8a line and the counter, and Phase B's precision inherits
-   it), and the CLI's output tells Max which was recorded and what it will do
-   — including, on a hash collision with an already-`open` row, **which of
-   the three limits the reported miss actually hit** (intake coverage:
-   nothing to change, the row exists and is deny-capable; move coverage: a
-   Bash-drift miss stays un-deniable per L3; **kind coverage**: the open row
-   is `kind='request'`, tracked but not enforced in Phase A per L1, and — when that `request` is
-   caused by an unlisted communicative verb or information noun — the CLI names
-   the unrecognized word and offers the exact `tune` command that adds it to
-   the right lexicon (e.g. `ctxoracle tune lexicon.communicative +<verb>`), so
-   the owner closes the L1 under-enforcement loss without having to infer the
-   word. The CLI says which limit was hit, in plain language, instead of
-   implying enforcement changed). The
-   human channel outranks the recognizer without ever bypassing the one
-   deny-eligibility invariant (`FR-L6`, `FR-B5`'s under-fire guard for this
-   block, AC-2c's answer-drift under-fire clause; a bypassing opener was a
-   round-2 collapse finding). Routing per `FR-L7` (AD-5). **Regret proxy (`FR-L4`, Phase A form):** at `SessionEnd`
+   the same question recognizer as every other opener** (minus the `?`
+   requirement — Max may paraphrase), so it opens a question row and the
+   identical deviation is thereafter denied. On a hash collision with an
+   already-`open` row the CLI says, in plain language, which limit the reported
+   miss actually hit — intake coverage: the row already exists and is armed,
+   nothing to change; move coverage: a Bash-drift miss stays un-deniable per
+   L3 — instead of implying enforcement changed. The
+   human channel outranks the recognizer without bypassing the deny mechanism
+   (`FR-L6`, `FR-B5`'s under-fire guard for this block, AC-2c's answer-drift
+   under-fire clause). Routing per `FR-L7` (AD-5). **Regret proxy (`FR-L4`, Phase A form):** at `SessionEnd`
    (and at `index` refresh), for each store-held fact whose subject region was
    re-edited or reverted in the session (or whose covering test failed in an
    observed test run) while the oracle stayed silent on it, *and* the churn is
@@ -1528,7 +1323,8 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
    held is AC-18's seeded-coverage concern — `status` pairs the two so the
    distinction is visible). Not automated demotion input (Phase C).
 5. **Premise verification.** `FR-L4`, `FR-L6`, `FR-L7`, `D-36`, `D-12` read at
-   spec §11.3/§12. Addresses: those, AC-23, AC-24.
+   spec §11.3/§12. Addresses: those, AC-2c (answer-drift under-fire), AC-23,
+   AC-24.
 
 ### AD-19 — Security controls (mapped to the threat model below)
 
@@ -1593,14 +1389,13 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
    (`--global` writes a cross-project lesson to the global store; plain `note`
    routes to the project store per `FR-L7`), **`tune <key> <value>`** (the
    plain-language writer for every tunable this document marks: **numbers**
-   (`tune <key> <n>`) and **list-valued lexicon keys** — the communicative-verb,
-   information-object, and command-classification lexicons and the
-   rhetorical/idiom stoplist (`lexicon.stoplist`) — edited with add/remove
-   element semantics (`tune lexicon.communicative +summarize` / `-summarize`;
-   `tune lexicon.stoplist +"why is ci always so flaky"`), the surface the owner
-   uses to shrink the under-enforcement losses clause (iv) and L1 name and the
-   over-enforcement stoplist misses the deny residual names; every tunable this
-   document marks has a writer here. `tune` with no arguments lists the keys, their current values
+   (`tune <key> <n>`) and **list-valued keys** — the command-classification and
+   completion-claim lexicons, the rhetorical/idiom stoplist (`lexicon.stoplist`),
+   and the deferral stoplist — edited with add/remove element semantics
+   (`tune lexicon.stoplist +"why is ci always so flaky"`), the surface the owner
+   uses to shrink the coverage losses L1 and L3 name and the over-enforcement
+   stoplist misses the deny residual names; every tunable this document marks
+   has a writer here. `tune` with no arguments lists the keys, their current values
    (list keys show their members), and their defaults), `export <file>`
    / `import <file>`, `hook <event>` (the internal entry; undocumented in
    help). `init` is idempotent; re-running repairs wiring. All output is plain
@@ -1670,8 +1465,7 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
    whisper posture RETHINK §3 rejects.
 4. **What this is NOT.** Not an open-ended hold (the bound is the next relevant
    event or termination — `FR-J5`). Not a Phase A table or delivery path
-   (shipping either now would be the dormant machinery AD-4's criterion bars —
-   the inconsistency the round-1 reviews flagged and this revision removed).
+   (shipping either now would be the dormant machinery AD-4's criterion bars).
 5. **Premise verification.** `FR-J5`, `D-37` read at spec §11.2/§12. Addresses:
    `FR-J5`, AC-25 (a Phase-B criterion; the constraints above are its bar).
 
@@ -1719,11 +1513,9 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
 ### AD-24 — Test and fixture architecture (the Phase A acceptance criteria made mechanical)
 
 1. **Decision.** `node:test` suites in three tiers:
-   - **Unit:** recognizers (question/clear/move/done-claim lexicons and the
-     info/request classifier against a labeled corpus **derived from the
-     clause-(iv) rules — the corpus illustrates the heuristic, it is not an
-     independent oracle, so a row can never contradict the rule that produces
-     it**), bar arithmetic,
+   - **Unit:** recognizers (the question recognizer's `?`/fence/stoplist rule,
+     the clear recognizer's substance/deferral rule, the move recognizer's
+     deny-eligible tool set, and the done-claim lexicon), bar arithmetic,
      redactor, repo-key rule (full vs shallow fixtures — V13's scenario
      reproduced in a purpose-built pair), reader discrimination (V12 shapes,
      including the marker-absent probe-mode shape).
@@ -1765,51 +1557,28 @@ low-coverage, a skeleton (`D-41`); the OL-C5-serving precision is Phase B.
      canonical-order per-table dump of the original store diffed against the
      imported store — the spec's "record-identical"; a byte-compare is pinned
      nowhere, because a `VACUUM INTO` copy is *not* byte-identical to its
-     source, demonstrated by execution in the round-2 review), AC-20
+     source, demonstrated by execution), AC-20
      (cold-container install+index in a clean container), AC-22 (idle
      silence), AC-23 (human-correction precedence, including
      `--missed-question` routed through the classifier), AC-24 (regret
      true-positive and no-inflate, the failure clause fed by
      `observed_actions.outcome` via the `PostToolUseFailure` wiring, V19).
-     **Answer-drift cases:** **re-ask after a blanket
-     clear** (asked → narration-cleared → re-asked verbatim → the next
-     mutating move is denied again — the open-scoped dedup index at work);
-     **request-form tracked-not-denied** (a "can you fix X?" opens
-     `kind='request'`, the fix-edit is *not* denied, the row still feeds the
-     AC-8a line and counter); **communicative-verb request forms stay
-     deny-capable** ("could you tell me why X fails?" opens `kind='info'` and
-     a deviating `Edit` is denied; the `OL-C3` escalation re-ask "can you
-     please answer my question?" opens `kind='info'` via the information-object
-     lexicon (object head "question") and re-arms the block after a blanket
-     clear — classifying it `request` **fails** this fixture); **the
-     rhetorical-lead-in wrongful-deny** ("ugh, why is CI always so flaky??
-     anyway please add the null check to `parser.js`" — the rhetorical opens
-     `kind='info'` because clause (iii)'s small stoplist does not catch it, so
-     the requested edit is **wrongfully denied once** until a narrating turn
-     clears it — the second wrongful-deny residual member, owned in L1 and
-     counted on the wrongful-deny rate); **the object-classification corpus**
-     ("can you rename the helper?" → `request`, the rename-edit not denied;
-     "can you show me a demo?" → `request` (via the artifact-object lexicon and,
-     equivalently in Phase A, the unlisted-object default), the demo-edit not
-     denied; "can you show me the error?" → `info`, deny-capable; "could you
-     summarize the error?" → `request`, the documented under-enforcement loss;
-     "can you show me a **prototype**?" → `request` (unlisted object noun fails
-     safe); "could you tell me why the login **test** fails?" → `info` (the
-     wh-complement takes precedence over the artifact noun inside it); "could
-     you confirm the **version**?" → `info` (head "version" on the
-     information-object lexicon) beside "could you confirm the version
-     **number**?" → `request` (head "number", unlisted — the rightmost-head
-     rule, not a bag-of-words match on the modifier "version"); "can you
-     **explain?**" → `info` (object-less communicative verb — deny-capable, so
-     the object-bearing and object-less siblings are both pinned); "can you
-     answer the question in the **ticket**?" (the ticket asks for a feature) →
-     `info` → the fulfilling `Edit` is **wrongfully denied once**, cleared by
-     one text turn and counted on the wrongful-deny rate — the wrongful-deny
-     residual class (an `info`-classified ask whose fulfilment is a mutation);
-     and the **coordinated** "can you answer my question **and** fix the bug?"
-     → `info` (a top-level communicative-`info` verb) → the co-asked fix-`Edit`
-     is wrongfully denied once, also the residual class — the over-enforcement
-     mirror of the "answer my question" row));
+     **Answer-drift cases** (the deny path with the question/answer state
+     fixture-controlled, AC-2a): **off-to-unrelated** (a question open, the
+     next move a mutating `Edit` → denied; a `Read`/search and a test/build run
+     in the same state → allowed, D-39); **re-ask after a blanket clear**
+     (asked → narration-cleared → re-asked verbatim → the next mutating move is
+     denied again — the open-scoped dedup index at work); **substantive clear**
+     (a reworded but substantive text turn clears all open questions, so the
+     next `Edit` is allowed — AC-2c over-fire); **the wrongful-deny residual**
+     (a request whose answer is itself an edit — "can you rename the helper?" —
+     has its rename-`Edit` denied once while the question is open, escaped by
+     one answering or plan-stating text turn, and counted on the wrongful-deny
+     rate; the model-free move recognizer cannot tell this edit from drift, the
+     accepted Phase A cost, L1); **under-fire human channel** (a clearly
+     non-answer-directed move with the question unanswered and no deny fired →
+     `ctxoracle correct --missed-question` records the miss and the identical
+     deviation is thereafter denied — AC-2c under-fire, FR-L6);
      **failed actions, change/read consumers, and the bypass diagnostic** (a
      failed `Edit` appears in no Completeness/Verification changed-regions
      computation and records no re-edit regret row — AD-4's split filter,
@@ -1936,7 +1705,7 @@ outcome a hard constraint predetermines would be decoration.
 
 - **Planner:** "Where would I have to make an architectural call inline?" — The
   places a planner most plausibly stalls were checked: recognizer stoplists
-  (AD-9 names the classes and their biases; the exact word lists are
+  (AD-9 names them and their bias direction; the exact words are
   implementation vocabulary, not architecture), bar defaults (numbers given,
   marked tunable, storage named), schema (given), event wiring (given), fixture
   set (enumerated). No inline architectural calls found remaining.
@@ -1946,7 +1715,7 @@ outcome a hard constraint predetermines would be decoration.
   mechanically checkable.
 - **Stakeholder:** "Do I know what was chosen and what it costs?" — The costs
   are stated where they live: Phase A's answer-drift coverage is deliberately
-  low (AD-9 §4, Limitations L1); the generic language frontend is weaker than a
+  low (AD-9, Limitations L1); the generic language frontend is weaker than a
   grammar (L6); the regret proxy is noisy by design (AD-18). Synthesis: no
   perspective-specific gaps requiring document changes were found beyond those
   now recorded in Limitations.
@@ -1984,7 +1753,7 @@ deny path consumes only transcript-derived state, never repo content).
 *Experiment (control):* `FR-X4` trust caps enforced by DAO CHECK constraints
 (AD-4); the deny path's inputs are structurally limited to `questions`/
 `classify_state`, whose rows are created at runtime by exactly **three** openers, each
-running the same info/request classifier: the `UserPromptSubmit` `prompt`
+running the same question recognizer: the `UserPromptSubmit` `prompt`
 field (intake), transcript entries carrying the human markers
 (`origin.kind:"human"`, not `isMeta` — AD-9/AD-11), and the owner's own CLI
 correction (AD-18 — Max at his own terminal, inside the trust boundary).
@@ -2130,69 +1899,34 @@ criterion is pinned there and its mechanism lives in the named decisions.)
 | AC-2a-i | Split by phase (AD-24): allow-half (subagent not denied; reads/spawns free) Phase A, AD-9; deny-half (a spawn to do other work is denied) Phase B — `Task` is never deny-eligible in Phase A |
 | AC-2a-ii | Deferred — Phase B (spec §14 phasing) |
 | AC-2b; AC-2c's skill-block under-fire clause | Deferred — Phase C (spec §14: "AC-2b and the skill-block (under-fire) clause of AC-2c") |
-| AC-2c — answer-drift clauses | Over-fire (reads/executions not denied): Phase A, AD-24/AD-9. Under-fire (FR-L6 correction records the miss and outranks): Phase A, AD-18 — enforcement-real for intake-missed *info* questions; a request-class or move-class (Bash-drift, L3) miss is recorded and disclosed but changes no enforcement, and the CLI says which limit was hit. Substantive-vs-deferral discrimination: Phase B per spec §14 |
+| AC-2c — answer-drift clauses | Over-fire (reads/executions not denied): Phase A, AD-24/AD-9. Under-fire (FR-L6 correction records the miss and outranks): Phase A, AD-18 — enforcement-real when the missed deviation is a mutating edit (reopening the question via `--missed-question` re-arms the mutating-edit deny); a non-mutating / Bash-drift miss is recorded and disclosed (the CLI names which limit was hit) but changes no enforcement, per L3/AD-18. Substantive-vs-deferral discrimination: Phase B per spec §14 |
 | AC-3, AC-3a, AC-4, AC-5, AC-6, AC-7, AC-8, AC-8a, AC-9, AC-10, AC-11, AC-13, AC-14, AC-15, AC-17, AC-18, AC-19, AC-20, AC-22, AC-23, AC-24 | AD-24 (each pinned; mechanisms in the named decisions) |
-| AC-12 | AD-21/AD-24 (Phase A scope: deterministic plumbing model-free; precision clauses Phase B per the criterion's own text) |
+| AC-12 | AD-9/AD-21/AD-24 (Phase A scope: deterministic plumbing model-free; precision clauses Phase B per the criterion's own text) |
 | AC-16 | Deferred — Phase C (`FR-L3b` machinery) |
 | AC-21 | AD-21 (guard ships and is unit-tested); full induced-self-trigger criterion Phase B |
 | AC-25 | Deferred — Phase B (AD-22 fixes its semantics as constraints; nothing of it is built or tested in Phase A) |
 
 ## Limitations and trade-offs
 
-- **L1 — Phase A answer-drift coverage is deliberately low, and its coverage
-  ledger is explicit — in both error directions.** Intake recognizes explicit
-  interrogatives only. **Under-enforced (tracked, never deny-eligible —
-  `kind='request'`, feeding the AC-8a line, the counter, and Phase B's
-  state):** repo-action request asks ("can you fix X?"), communicative-verb
-  asks with an artifact-lexicon or **unlisted** object noun ("can you show me
-  a demo?", "…a prototype?"), and the request-frame remainder with a
-  non-communicative verb — including unlisted *communicative* verbs ("could
-  you summarize the error?") and unlisted information nouns: the
-  object-classification lexicons' incompleteness fails toward this side by
-  design, the accepted loss of the safe default, guarded by `--missed-question`
-  and shrunk by tending the communicative-verb and information-object lexicons
-  (`tuning`, via `tune`; the artifact-object lexicon is inert in Phase A, and
-  the rhetorical/idiom stoplist is the one list whose incompleteness fails the
-  *other* way — see the residual below). **Enforced
-  (`kind='info'`):** bare interrogatives, and communicative-verb request
-  forms with a wh-complement, **no object at all** ("can you explain?"), or an
-  information-lexicon object ("could you tell me why…?", "can you show me the
-  error?"), including the meta-answer escalation re-ask "can you please answer
-  my question?" (object head "question" is an information object). The `OL-C3`
-  recourse therefore re-arms in Phase A for a bare re-ask, an object-less
-  communicative re-ask, and a "question"/"answer"-object ask; a *framed* re-ask
-  whose object is an unlisted noun or whose verb is non-communicative ("can you
-  answer **this**?", "can you **respond**?") classifies `request` and does not
-  re-arm — under-enforced until `--missed-question` or Phase B's
-  model-maintained state. The move recognizer denies only mutating file tools;
-  the clear
-  recognizer clears all-prior on any substantive text — request rows
-  included, so a blanket-cleared request leaves the counter's recency clause
-  as its only trace; a question summarized away by `compact` vanishes (AD-9);
-  the FR-B4 done-claim counter is a labelled proxy with both error directions
-  stated (AD-9). Each lean is the spec's own Phase A posture (`D-41`,
-  `FR-B5`), and how little the skeleton catches is a Phase A exit
-  *measurement*, not a surprise. The under-fire guard is the human channel
-  (`FR-L6`, including `--missed-question`, which classifies like every
-  opener) plus the AC-8a line. **The wrongful-deny residual is one open
-  class**, defined by a property: a row classified `info` (deny-capable)
-  coexists in the turn with a repo mutation that legitimately serves the user's
-  intent — the ask's own fulfilment is that mutation, or a real action was
-  co-asked with the question. Every such deny is escapable by answering — or
-  stating a plan — first (the owner's stated intent for the block, `OL-C3`) and
-  measured on the wrongful-deny rate. Its recognizable forms are illustrations,
-  not members to complete: the action-request phrased outside the request frame
-  ("mind fixing X?"), classified `info` for want of a frame; a rhetorical or
-  idiomatic interrogative that escapes clause (iii)'s small stoplist ("ugh, why
-  is CI always so flaky??"), often co-prompted with a real request — the
-  stoplist is fallible, owned and shrunk by tending it (`lexicon.stoplist`, via
-  `tune`), not eliminated; an `info`-object, wh-complement, or object-less ask
-  whose answer is a build ("answer the question in the ticket"; "show me
-  [a demo]"); and a coordinated `info`-plus-action ask ("show me the error and
-  fix the bug"). A new phrasing, or a head-heuristic mis-route, that lands an
-  `info` row beside a legitimate mutation is *the same class*, not a fourth
-  shape — the model-free recognizer denies the mutation, the mirror of `Bash`
-  under-enforcement (L3), until one clearing turn (AD-9).
+- **L1 — Phase A answer-drift coverage is deliberately low, and its coverage is
+  a measured exit number, not a claim.** Intake opens a question only on an
+  explicit interrogative (`?`, outside code/quotes, off the rhetorical
+  stoplist); indirect asks ("tell me whether…") and any ask without a `?` are
+  not opened — the safe under-fire direction, its size **measured at exit**
+  (§11.5), not classified around. The move recognizer denies only mutating file
+  tools; the clear recognizer clears all-prior on any substantive text turn (so
+  a blanket-clear can close a question the agent did not truly answer — a
+  false-clear, under-fire); a question `compact` summarized away vanishes
+  (AD-9). Each lean is the spec's own Phase A posture (`D-41`, `FR-B5`). The
+  under-fire guard is the human channel (`FR-L6`, including `--missed-question`)
+  plus the AC-8a line. **The wrongful-deny residual** is one class: a repo
+  mutation that is itself the answer to an open question (the ask's fulfilment
+  *is* the edit — "can you rename `foo`?" — or a real action co-asked with the question)
+  is denied while the question is open, because a model-free recognizer cannot
+  tell that edit from drift. Every such deny is escapable by one answering — or
+  plan-stating — turn (`OL-C3`) and measured on the wrongful-deny rate; Phase B
+  distinguishes it. This is the accepted cost of the honest floor, not a gap to
+  close with more rules.
 - **L2 — The clear recognizer cannot do per-question clearing.** Two questions,
   one answered substantively → both clear in Phase A. AC-2a-ii is a Phase-B
   criterion for exactly this; the Phase A behaviour errs toward clearing
@@ -2317,236 +2051,8 @@ pattern-cloning, decision-hiding, standards-decoration, deferred-decision) was
 run — the one deliberate near-trap is the documented divergence *from* the
 historical record (AD-1), which is the opposite of cloning, and the deferred
 items are phase-gated by the spec itself, not ambiguity left to an implementer.
-**Review round 1 (2026-08-29) is applied in full.** The mandatory independent
-passes — `docs/reviews/2026-08-29-expert-review-architecture-phase-a.md`
-(NEEDS FIXES: 0 Critical / 4 Serious / 4 Moderate / 5 Minor) and
-`docs/reviews/2026-08-29-collapse-hunt-architecture-phase-a.md` (DOES NOT
-SURVIVE: 5 collapses / 4 partial / 6 notes) — were dispatched blind to each
-other against the first draft; every finding from both was applied (the
-marker-based human-turn discrimination and prompt-field intake; the
-request-form intake exclusion replacing the false "by construction" rationale;
-the no-fetch identity rule; the `symbol_refs` producer and restated Reuse
-headline; the 22.16.0 floor and `VACUUM INTO` export; the cooperative-watchdog
-restatement with the blocking-call inventory and off-path integrity checks;
-the `closed_by_kind` record and honestly-labelled done-claim counter; the
-`deny_despite_answer_text` detector and restored AC-9 induction; the uniform
-table-creation criterion; the ASVS 5.0 renumbering; and the disclosure set
-L1/L3/L9/L10).
 
-**Review round 2 (2026-08-29) is applied in full.** The second independent
-pair — `docs/reviews/2026-08-29-round-2-expert-review-architecture-phase-a.md`
-(NEEDS FIXES: 0 Critical / 4 Serious / 3 Moderate / 4 Minor) and
-`docs/reviews/2026-08-29-round-2-collapse-hunt-architecture-phase-a.md` (DOES
-NOT SURVIVE: 6 collapses / 4 partial / 6 notes) — attacked the round-1 fixes
-and confirmed the round-1 findings (28 rows, 25 distinct after the three
-cross-duplicates its own resolution table names) resolved in substance — one,
-the failure-outcome producer, only partially until this round's fix landed —
-and found the new defects concentrated in the repairs, all applied: the `kind='info'/'request'`
-split (requests tracked, never deny-eligible — the recourse machinery no
-longer blind to the dominant ask form); `--missed-question` routed through
-the same classifier (no bypassing opener); the open-scoped dedup index (the
-verbatim re-ask always works); the `PostToolUseFailure` observation wiring
-(failure outcomes now have a real producer — V19); the marker-premise
-scoping with `rebuild_recovered_nothing` and the intake voiding guard (T2
-restated to bounded, not structural, exposure at the intake door — L11); the
-comparative Reuse headline with the marginal-value axis defined for its fact
-class; the deferral-excluding `deny_despite_answer_text` predicate; the
-runner-lexicon layer of the Verification lean; the watchdog inventory
-completed (compose-time re-resolution, SessionStart items); `tune`/`note
---global` writers for every tunable and the global tables; the AC-19
-record-level pin; and the survival sweep (quality table, AC-25 row, V6
-phrasing, OL-R5 characterization).
-
-**Review round 3 (2026-08-29) is applied in full.** The third independent
-pair — `docs/reviews/2026-08-29-round-3-expert-review-architecture-phase-a.md`
-(NEEDS FIXES: 0 Critical / 0 Serious / 2 Moderate / 6 Minor) and
-`docs/reviews/2026-08-29-round-3-collapse-hunt-architecture-phase-a.md` (DOES
-NOT SURVIVE: 1 collapse / 4 partial / 6 notes) — verified every round-2 fix
-resolved and converged sharply (collapse trajectory 5 → 6 → 1; no Serious
-finding on the premise/standards axis). Applied: the communicative-verb split
-(polite information questions — "could you tell me…?" — and the OL-C3
-escalation re-ask stay deny-capable; only repo-action requests are
-tracked-only); the `outcome='failed'` consumer filter (failed actions feed
-only the FR-L4 clause and diagnostics — never the edit-set, read-set, or
-whisper computations); the ternary command classifier with the
-weaker-honest-claim branch shipped (Verification stays alive in real
-sessions); the readable recourse counter (`log --session` renders the counted
-questions; `status` points there); the detector-coverage statement scoped to
-what the deferral exclusion actually permits; the `whisper_stats` watermark
-aggregation (post-session corrections reach the efficacy table); T2's bounds
-conditioned on the marker-carrying class; and the sync sweep (component map,
-AD-8 order, V-ranges, fixture pins, matrix qualifiers, L1/L6 restatements,
-the Status count corrected to 25-distinct).
-
-**Review round 4 (2026-08-29) is applied in full.** The fourth independent
-pair — `docs/reviews/2026-08-29-round-4-expert-review-architecture-phase-a.md`
-(NEEDS FIXES: 0 Critical / 1 Serious / 1 Moderate / 5 Minor) and
-`docs/reviews/2026-08-29-round-4-collapse-hunt-architecture-phase-a.md` (DOES
-NOT SURVIVE: 1 collapse / 3 partial / 4 notes) — confirmed every round-3
-finding resolved and found the new defects concentrated in round-3's own
-*prescribed repair text* (both top findings entered as verbatim reviewer
-prescriptions — the durable lesson now in the collapse-log's 2026-08-29
-entry). Applied: the consumer filter split by what a failed action *is* per
-consumer (a failed run IS a run — the run-subtraction and unknown-scan read
-either outcome, so "not run" is never asserted over a run-and-failed test;
-the run-and-failed done-claim itself is FR-A2m's Phase B case per D-27); the
-request-frame default flipped to `request` with the artifact-object noun
-lexicon (unlisted doing-verbs are never wrongfully denied; the
-under-enforcement losses are owned in L1 both ways); per-segment command
-classification (compound `cd x && npm test` can no longer masquerade as
-innocuous); class 3 restated as the default complement; the watermark's named
-home (`global_meta.whisper_stats_watermark`), its audit+corrections fold, and
-its two fixed run points (`correct`, SessionEnd — never tool events);
-`session_log.detail_json` as the counter's receptacle with whisper-independent
-`log` rendering; the AD-6 unconditional-`failed` sweep; the marker-carrying
-qualifier on AD-9's bound sentence; "counted when corrected" precision in
-T2/L11; the third `--missed-question` collision limit named; and the AC-8/
-AC-1b fixture set extended (run-and-failed, compound commands, the round-4
-lexicon corpus, the mixed-language dominance case).
-
-**Review round 5 (2026-08-29) is applied in full — the final round of this
-session's series, by the owner's direction.** The fifth independent pair —
-`docs/reviews/2026-08-29-round-5-expert-review-architecture-phase-a.md`
-(NEEDS FIXES: 0 Critical / 1 Serious / 2 Moderate / 5 Minor) and
-`docs/reviews/2026-08-29-round-5-collapse-hunt-architecture-phase-a.md`
-(DOES NOT SURVIVE: **0 collapses** / 4 partial / 5 notes — the series' first
-zero-collapse round; trajectory 5 → 6 → 1 → 1 → 0) — confirmed every round-4
-finding resolved, hand-verified the D-27/FR-A2m routing and the collapse-log
-entry, and audited the consumer enumeration per that entry's own corollary
-(finding the tenth reader). Applied: the object-mechanism made precise
-(direct-object head noun, wh-complement precedence — a bag-of-words scan
-would have disarmed "tell me why the login *test* fails"); the
-information-object lexicon with **request as the safe default for every
-unlisted object** (unlisted-object incompleteness fails toward
-under-enforcement — the safe direction); the regret proxy's outcome semantics
-(the tenth reader) and the
-designed-silence regret-floor label; per-project fold watermarks;
-comparability-gated dominance (no crown over an incomparable mixed-language
-set — the round-5 fixture asserts silence, which the mechanism can pass);
-quote-aware, independently-contributing segment classification; the
-SessionEnd fold synced into AD-6 and AD-23; and the extended fixture corpus.
-**Convergence has not been formally reached** — the round-5 fixes are
-themselves unattacked, and the terminal definition (a round that finds
-nothing real) is unmet; the owner ended the loop here for this session, so
-the next action on this document is a round-6 pair attacking the round-5
-fixes, then (on a clean round) approval and the Phase A implementation plan.
-
-**Review round 6 (2026-09-03) is applied in full.** The sixth independent
-pair — `docs/reviews/2026-09-03-round-6-expert-review-architecture-phase-a.md`
-(NEEDS FIXES: 0 Critical / 1 Serious / 1 Moderate / 3 Minor) and
-`docs/reviews/2026-09-03-round-6-collapse-hunt-architecture-phase-a.md` (DOES
-NOT SURVIVE: **0 collapses** / 4 partial / 5 notes — the second consecutive
-zero-collapse round; trajectory 5 → 6 → 1 → 1 → 0 → 0) — attacked the round-5
-fixes as author text, re-established the hooks premises against current source,
-and re-audited the `observed_actions` consumer enumeration. Applied: the
-`OL-C3` escalation re-ask "can you please answer my question?" restored to
-`kind='info'` by seeding "question"/"answer" into the information-object
-lexicon (the round-5 unlisted-object default had swept it to `request`,
-disarming the recourse); the wrongful-deny residual re-opened to its two member
-shapes (outside-frame action-request; rhetorical-lead-in interrogative) in the
-deny rationale and L1, with the lexicon count corrected and the artifact-object
-lexicon marked inert in Phase A; the FR-L4 re-edit clause and the re-bucketed
-`deny_bypass_suspect` (an `'ok'` file-writing Bash row identified by a
-path-write predicate) added to AD-4's canonical consumer enumeration; the
-`whisper_stats` WRITER comment synced to the per-project watermark; `tune`
-extended to list-valued lexicon keys with add/remove semantics so the lexicons
-are actually tunable; the comparability gate's language discriminator stated
-(AD-15); and the AC-1b same-name fixture corrected to honest disclosure with
-the unimported-grammar and `npm test && make integration` fixtures added.
-**Convergence has not been formally reached** — round 6 found a real Serious
-and four partials, so the terminal definition (a round that finds nothing
-real) is unmet, and the round-6 fixes are themselves unattacked. The next
-action on this document is a round-7 pair attacking the round-6 fixes, then (on
-a clean round) approval and the Phase A implementation plan.
-
-**Review round 7 (2026-09-03) is applied in full.** The seventh independent
-pair — `docs/reviews/2026-09-03-round-7-expert-review-architecture-phase-a.md`
-(NEEDS FIXES: 0 Critical / 1 Serious / 1 Moderate / 1 Minor) and
-`docs/reviews/2026-09-03-round-7-collapse-hunt-architecture-phase-a.md` (DOES
-NOT SURVIVE: **0 collapses** / 1 partial / 7 notes — the third consecutive
-zero-collapse round; trajectory 5 → 6 → 1 → 1 → 0 → 0 → 0) — attacked the
-round-6 fixes as author text, closing all nine round-6 findings at their named
-sites; the findings-count trajectory is 8 → 5 → 3. Applied: a **no-object
-communicative verb** ("can you explain?", "can you answer?") now classifies
-`info`, making clause (iv) total over its input domain and restoring the `OL-C3`
-recourse for the object-less phrasing class; the wrongful-deny residual
-re-opened to a **third member shape** — an in-frame `info` question whose
-fulfilment is an action ("can you answer the question in the ticket?") — with
-the false soundness universal "mutating the repository does not produce an
-answer to it" replaced by an honest over-enforcement disclosure mirroring L3's
-`Bash` under-enforcement; `tune` extended to the rhetorical/idiom stoplist
-(`lexicon.stoplist`) so the shape-(2) mitigation is deliverable, and AD-15's
-"every lexicon" universal corrected; `deny_bypass_suspect` correlated with the
-denied target (a redirected test run no longer fires it) and disclosed with
-both error directions; the CHANGE/READ consumers scoped to `Edit`/`Write` rows;
-`--missed-question` extended to name the untended word and its `tune` command;
-and the same-name cap-vs-floor relation and the fold's `BEGIN IMMEDIATE`
-atomicity stated. **Convergence has not been formally reached** — round 7 found
-a real Serious and one partial, so the terminal definition (a round that finds
-nothing real) is unmet, and the round-7 fixes are themselves unattacked. The
-next action on this document is a round-8 pair attacking the round-7 fixes, then
-(on a clean round) approval and the Phase A implementation plan.
-
-**Review round 8 (2026-09-03) is applied in full.** The eighth independent
-pair — `docs/reviews/2026-09-03-round-8-expert-review-architecture-phase-a.md`
-(NEEDS FIXES: 0 Critical / 1 Serious / 1 Moderate / 1 Minor) and
-`docs/reviews/2026-09-03-round-8-collapse-hunt-architecture-phase-a.md` (DOES
-NOT SURVIVE: **0 collapses** / 1 partial / 5 notes — the fourth consecutive
-zero-collapse round; trajectory 5 → 6 → 1 → 1 → 0 → 0 → 0 → 0) — attacked the
-round-7 fixes as author text, closing all nine round-7 findings at their named
-sites. The finding count plateaued (8 → 5 → 3 → 3), all three defects in the
-answer-drift classifier the last three rounds kept touching — the signal that
-the classifier was being patched per-input rather than specified once. Applied
-as a specification completion, not another patch: clause (iv) now carries an
-explicit **object-head-extraction rule** (the head is the rightmost noun of the
-object phrase; attributive modifiers ignored; the head alone matched, never a
-bag-of-words scan) and a **coordinated-verb rule** (an ask with more than one
-top-level verb is `info` when any top-level verb is communicative-and-`info`),
-and the "version number → info" corpus row that contradicted the head-noun rule
-is re-pinned to the rule (head "number" → `request`; "the version" → `info`).
-Member (3) of the wrongful-deny residual is **generalized to a class** — any
-in-frame ask that classifies `info` but whose fulfilment or a co-asked action is
-a repo mutation — so lexicon or parse gaps that route more asks to `info` fall
-into it rather than adding an (N+1)th member shape, ending the P1-lineage
-enumeration recurrence at its root. The `deny_bypass_suspect` correlation gets a
-**named receptacle** (the denied target path recorded in the `kind='deny'` row's
-`evidence_json`, covering `Edit`/`Write`/`NotebookEdit`), and the
-Bash-authored-change under-detection is owned in L3. **Convergence has not been
-formally reached** — round 8 found a real Serious and a partial, so the terminal
-definition is unmet and the round-8 fixes are themselves unattacked; the finding
-count plateaued, so the tripwire's count condition is armed for round 9. The
-next action on this document is a round-9 pair attacking the round-8 fixes, then
-(on a clean round) approval and the Phase A implementation plan.
-
-**Review round 9 (2026-09-03) is applied in full — as a foundational reframe,
-not a fourth patch.** The ninth independent pair —
-`docs/reviews/2026-09-03-round-9-expert-review-architecture-phase-a.md` (NEEDS
-FIXES: 0 Critical / 1 Serious / 1 Moderate / 1 Minor) and
-`docs/reviews/2026-09-03-round-9-collapse-hunt-architecture-phase-a.md` (DOES
-NOT SURVIVE: **0 collapses** / 1 partial / 3 notes — the fifth consecutive
-zero-collapse round) — attacked the round-8 fixes as author text. The finding
-count held at 3 (8 → 5 → 3 → 3 → 3), firing the non-convergence tripwire's count
-condition: the answer-drift classifier had been found incomplete a new way for
-four straight rounds (R6–R9), and round 8's "specify it completely once" attempt
-itself introduced R9-S1. Both passes prescribed the same thing, and it is what
-spec `D-41`/§11.5 ask of Phase A: **stop asserting a totality/completeness a
-model-free recognizer cannot meet.** Applied: clause (iv) is demoted to a
-**conservative best-effort classification** whose mis-parses are *safe by
-construction* (a mis-parse lands on the under-enforced `request` side or in the
-owned residual), coverage measured at exit, not asserted; the object-head
-heuristic is refined (the rightmost noun of the *base* noun phrase — post-head
-PP/relative modifiers set aside, so "the question in the ticket" → "question";
-inflection folded, so "questions" matches "question") and framed as a heuristic
-whose errors are owned, not a rule requiring an exact parse; the wrongful-deny
-residual is collapsed from a growing "N member shapes" enumeration into **one
-open class defined by a property** (an `info`-classified row coexisting in the
-turn with a mutation that legitimately serves the user's intent),
-frame-independent, its forms now illustrations rather than members to complete —
-so a new phrasing or a head mis-route is *the same class*, ending the P1-lineage
-recurrence at its root; and the AC-24 corpus is made **derived from the rules**
-(illustrative, not an independent oracle a row can contradict). The residual's
-escape is widened to "answer or state a plan first". **Convergence has not been
-formally reached** — the reframe is itself unattacked. The next action is a
-round-10 pair attacking the round-9 reframe — the test of whether returning the
-classifier to a conservative skeleton finally converges. On a clean round,
-approval and the Phase A implementation plan.
+The answer-drift block (AD-9) is the Phase A **safe skeleton** the spec mandates
+(`D-41`, §11.5): the deny plumbing plus a conservative recognizer that fires only
+on a clearly-non-answer-directed move, its precision deferred to Phase B and its
+coverage **measured at exit**, not asserted.
