@@ -2801,6 +2801,304 @@ delegated to the plan.
   — matching by exact-command-string — breaks when the command
   string is legitimately updated (e.g. an install path change).
 
+### 10A. Author's collapse-test on each load-bearing decision (`CLAUDE.md` rule 2)
+
+The rationale entries above are the `expert-plan` skill's §10 frame-
+correctness proof. `CLAUDE.md` dominating rule 2 demands a separate
+four-part collapse-test on each load-bearing decision, in writing,
+before acceptance and again in review. The **independent collapse-
+hunt** (a fresh session/subagent, never the author) attacks the
+step-2 questions written here. If a step-2 question is missing, the
+hunter has nothing to attack. What follows is the author's obligation
+per rule 2, done for every D-plan-* decision above and for every
+plan-level structural choice that is load-bearing on the build's
+outcome. Each entry names (1) the decision's job in one sentence in
+mission terms, (2) the single hardest question a mission-literate
+skeptic would ask to expose it as hollow, (3) an answer with a
+citation, and (4) what the decision steers the agent toward plus a
+confirmation it is a guide, never a gate.
+
+#### D-plan-1 (build order)
+
+1. **Job.** Sequence the Phase A build so the highest-correctness-risk
+   mechanism — the deny path that halts agents — is exercised against
+   its own tests before code that depends on the deny primitive
+   exists.
+2. **Hardest question.** Building the deny path before the whisper
+   genres optimizes attention for the block, not for the mission of
+   speaking a decision-changing fact — since the whisper path is what
+   serves the mission and the block is a *second* owner-set objective
+   (spec §8).
+3. **Answer.** The order is topological on dependency, not on
+   importance: stores/adapter come first because everything opens
+   them; the deny path is second because it depends only on the
+   substrate; whispers third because they depend on substrate +
+   miner + indexer. Nothing here elevates the block over the mission;
+   `P9` ("no feature is primary") holds by construction — the block
+   is not built first because it matters more, it is built first
+   because its blast radius is largest and its own correctness needs
+   isolated exercise before the whisper path arrives to complicate
+   diagnosis. Cite: spec §8 opening ("Blocking is a **second
+   owner-set objective**, separate from the mission"); spec `P9`.
+4. **Steers toward.** An implementer building the substrate correctly
+   before consumers depend on it, and exercising the deny path
+   against its own AC-2* fixtures before whisper genres complicate
+   failure diagnosis. **Guide, not gate** — the order is what the
+   implementer follows; no step polices whether they may proceed to
+   the next.
+
+#### D-plan-2 (dependency floor)
+
+1. **Job.** Pin the runtime-dependency floor to the exact version
+   architecture V14 measured, so plan-time re-verification cannot
+   drift the tool onto a version whose behavior V14 did not observe.
+2. **Hardest question.** Pinning at the architecture-verified version
+   is drift theater — the caret in `^0.26.13` accepts 0.27.0 anyway,
+   so the pin protects nothing.
+3. **Answer.** The caret is deliberate: 0.27.0 is semver-compatible
+   and works, but the floor at 0.26.13 makes it possible to
+   reproduce V14's exact-verified surface by `npm install web-tree-
+   sitter@0.26.13` when diagnosing a regression. The pin is not
+   drift-blocking; it is drift-*witnessable*. Cite: architecture V14
+   (measurement date 2026-08-29); plan §11.4 npm-registry evidence
+   (2026-09-06).
+4. **Steers toward.** Install times matching V14's tested surface by
+   default, with the option to install 0.27.0 explicitly when the
+   implementer wants its behavior. **Guide, not gate** — the caret
+   means either version resolves; the pin says which one is the
+   audited baseline.
+
+#### D-plan-3 (`node:test` as the runner)
+
+1. **Job.** Preserve the two-runtime-dependency invariant (`C-3`,
+   spec §8) by choosing a test runner that ships with the runtime
+   floor, so cold-container install stays free of a test-runner
+   package to fetch and configure.
+2. **Hardest question.** The two-dep invariant governs *runtime*, not
+   dev deps; a mature test runner (jest, vitest) adds no
+   cold-container risk. Choosing `node:test` sacrifices runner
+   features (mocking, watch, snapshot) that a mature runner
+   provides for free.
+3. **Answer.** `node:test` has `describe`/`it`, parallel execution,
+   subtest reporting, `mock`/`spy` primitives, and a JSON reporter
+   — enough for the plan's §12 unit tier as specified. The "features
+   for free" argument evaluates only against features the plan
+   actually needs; none of §12's tests use snapshot semantics or
+   watch-mode workflows. Cite: Node ≥ 22.16 `node:test` API; plan
+   §12 unit-tier test specifications.
+4. **Steers toward.** An implementer running `node --test test/
+   unit/**/*.test.ts` and getting the same result CI gets, with no
+   installed runner and no config file. **Guide, not gate** — every
+   test is a plain Node script; nothing polices which runner is
+   used.
+
+#### D-plan-4 (`sqlite3` shell for AC-19 dump comparison)
+
+1. **Job.** Make the AC-19 record-identical assertion diffable by a
+   human reviewer at a glance, so a store-corruption regression
+   surfaces during code review, not only in a test log.
+2. **Hardest question.** The `sqlite3` CLI is a *system* dependency
+   the plan otherwise avoids (`C-3`'s cold-container discipline);
+   naming it as the preferred tool re-introduces exactly the "install
+   this to test" surface the packaging philosophy rejects.
+3. **Answer.** The plan says the CLI is *preferred when available*;
+   the fallback is a Node script using the same `Store.prepare(
+   "SELECT * FROM ...")` interface, and the AC-19 assertion is
+   testable either way. The CLI is a convenience for interactive
+   debugging, not a hard test dependency. Cite: plan §10 D-plan-4
+   (fallback stated); §12 T32-2 (uses either).
+4. **Steers toward.** An implementer with `sqlite3` installed getting
+   an immediately-readable diff; one without it still passing AC-19
+   via the Node path. **Guide, not gate** — either path satisfies
+   the AC.
+
+#### D-plan-5 (deterministic fixture generators, not committed tarballs)
+
+1. **Job.** Keep the fixture's *construction* auditable by review, so
+   the AC assertion's grounding — the fixture history the tool runs
+   against — is diffable in git history, not sealed inside an opaque
+   binary.
+2. **Hardest question.** A deterministic-seed generator can construct
+   the fixture *from* the AC's expected output, making the test
+   tautological (`testing-standards.md` Fake-Test #3, backward-
+   fabricated data).
+3. **Answer.** The generator plants the *shape* of history (commit
+   sequence, file changes, merge patterns) from the AC's description
+   of the *scenario*, not from the AC's expected *output*; the AC
+   asserts what the tool produces *given* that scenario, e.g. "the
+   coupling pair fires with an evidence ratio computed from the
+   planted history" where the ratio is derived by the tool, not by
+   the fixture. Backward-fabrication would require the fixture to
+   shape the tool's expected output — but every AC's assertion is
+   on the tool's response to real fixture inputs, not on the
+   fixture's own contents. Cite: `references/testing-standards.md`
+   Fake-Test #3; plan §12 AC-1 assertion (the ratio is a computed
+   output, not a fixture-planted value).
+4. **Steers toward.** Reviewers reading the generator script and
+   confirming what it did or didn't plant. **Guide, not gate** —
+   the fixture is source-of-truth for the scenario; the test's
+   assertion is a separate artifact.
+
+#### D-plan-6 (L11 verifications as owner-run markdown probes)
+
+1. **Job.** Preserve the credential-free property (`OL-7`) — no
+   automated verification of Max Cogar's real interactive environment
+   can run inside the tool's process without either shipping a
+   credential or dropping the OL-7 property.
+2. **Hardest question.** An owner-run markdown probe puts execution
+   burden on Max Cogar (`OL-11`: non-programmer by design) — the exact
+   "the owner cannot catch mistakes" failure (`CLAUDE.md` dominating
+   rule 1), asking him to execute a probe and interpret its result.
+3. **Answer.** Each probe is a copy-and-paste one-liner + a
+   binary-outcome file read (marker present / absent). The
+   alternative — automating it — requires either a credential or a
+   live session tap, both refused by `OL-7`. And the *design does not
+   rest on the probe outcome*: architecture L11 discloses that
+   mid-session enforcement never depends on markers (intake reads
+   the `prompt` field directly), so a failed probe result narrows a
+   disclosed residual, it doesn't invalidate the block. Cite:
+   OWNER-LEDGER `OL-7`, `OL-11`; architecture L11; plan §15 Q-gap-4
+   attempt evidence.
+4. **Steers toward.** Max running two short probes and pasting a
+   two-line result into a follow-up PR that updates L11's
+   disclosure. **Guide, not gate** — the build proceeds regardless
+   of probe outcome; the disclosure narrows.
+
+#### D-plan-7 (CI unit-tier on every PR; fixture-tier on demand)
+
+1. **Job.** Keep PR feedback fast (unit + convention checks under a
+   minute) so a reviewer sees green quickly on a merge-ready change,
+   while the slower fixture-replay tier runs before the Step 42 exit
+   run as its own gate.
+2. **Hardest question.** A fixture-replay regression that lands on
+   `main` without CI catching it is the "CI green but code is broken"
+   failure — the reason CI exists at all is to catch that class.
+3. **Answer.** The fixture tier is *workflow-triggered*, not skipped
+   — Step 42 gates on it. And the unit + convention tier catches
+   every *structural* precondition of the fixture tier (deny
+   confinement `T15-2`, adapter isolation `T28-2`, DAO provenance
+   `T9-1`) before the fixture tier's behavioral assertions run.
+   A defect that only the fixture tier catches is a *behavior*
+   regression, and behavior regressions land on `main` via merged
+   PRs whose fixture tier the implementer ran per the drive-to-
+   green rules. Cite: plan §12 `T15-2`, `T28-2`, `T9-1`; plan §9
+   Checkpoint 4 (acceptance-set complete before exit run).
+4. **Steers toward.** Reviewers merging fast when unit + convention
+   pass; running the full suite before Step 42's exit run.
+   **Guide, not gate** — CI does not police mergeability; the
+   reviewer does.
+
+#### D-plan-8 (`.claude/settings.json` marker discipline)
+
+1. **Job.** Guarantee that `deinit` removes exactly what `init`
+   added, so the `AC-7` pristine-tree assertion holds under every
+   install/upgrade ordering.
+2. **Hardest question.** An arbitrary marker field is not part of the
+   Claude Code settings schema; a future harness that validates
+   settings strictly could reject the marker and break `init`
+   permanently for Max Cogar's repos.
+3. **Answer.** The Claude Code settings schema historically accepts
+   arbitrary fields alongside recognized keys (the harness reads the
+   fields it knows, ignores the rest); a future strict-validating
+   harness would be a hooks-contract drift, and the plan's response
+   to that class of drift is the AD-6 single-adapter discipline —
+   the marker field name is a plan detail an implementer migrates
+   in one file. Cite: architecture AD-6 adapter-file discipline;
+   architecture AD-20 init's marker requirement.
+4. **Steers toward.** Implementer implementing `deinit` by
+   marker-match, not by exact-command-string match (which breaks on
+   legitimate command updates). **Guide, not gate** — the marker
+   field is data; deinit reads it.
+
+#### Plan-level: Checkpoint placement (§9's five checkpoints)
+
+1. **Job.** Force a re-check of accumulated state at exactly the
+   boundaries where an unnoticed defect would cascade through
+   subsequent steps — the schema (Checkpoint 1), the deny path
+   (Checkpoint 2), pipeline complete (Checkpoint 3), acceptance-set
+   complete (Checkpoint 4), and the honest-exit-measurement gate
+   (Checkpoint 5).
+2. **Hardest question.** Five checkpoints in a 43-step build is the
+   "constant ceremony" load that `P3` (zero ceremony for the agent)
+   was written against — the plan is imposing exactly the ritual the
+   spec principle forbids.
+3. **Answer.** `P3`'s target is *the agent driven by the tool*, not
+   the *implementer building the tool*; the two are different
+   subjects. Checkpoints on the implementer's build are the "measure
+   twice, cut once" discipline `CLAUDE.md` "Executing actions with
+   care" requires. Each of the five is placed at a boundary an
+   unnoticed defect would cascade past — schema → every DAO writer;
+   deny path → every deny caller; pipeline complete → orchestrated
+   behavior; acceptance-set → the exit run; exit report → the Phase B
+   design input. Cite: `CLAUDE.md` "Executing actions with care";
+   spec `P3` (target is the agent).
+4. **Steers toward.** Implementer pausing to verify accumulated state
+   at exactly five risk boundaries, not on every step. **Guide, not
+   gate** — the checkpoint is a re-check discipline; no mechanism
+   prevents step N+1 from starting before checkpoint N is signed off.
+
+#### Plan-level: Test tier split (unit + fixture-replay + build-time)
+
+1. **Job.** Distribute verification across the Test Pyramid so each
+   defect class has a fast, cheap tier that catches it — unit for
+   recognizer correctness, fixture-replay for orchestrated AC
+   behavior, build-time markdown probes for the two owner-environment
+   premises the tool cannot probe from inside its own process.
+2. **Hardest question.** The build-time tier is a *manual* step;
+   Fake-Test Anti-Pattern #10 (Flake-tolerated) is what a manual
+   test becomes when nobody runs it.
+3. **Answer.** The build-time tier is not a routine test — it is two
+   named preconditions of specific L11 disclosures, executed once at
+   Step 40 and recorded as the deliverable of that step. The plan
+   marks Step 40 as unfinished until the probes are executed;
+   `docs/STATUS.md` will not report "Phase A complete" until Step 40
+   is closed. This is the honest form of "coverage the tool cannot
+   generate itself" — recorded as a gap (§15 Q-gap-4), not hidden as
+   a passing "test." Cite: `references/testing-standards.md`
+   Anti-Pattern #10; architecture L11; plan §15 Q-gap-4.
+4. **Steers toward.** Implementer running unit + convention on every
+   commit; fixture-replay on demand; build-time probes as one-shot
+   pre-exit tasks. **Guide, not gate** — the tiers are performance
+   ordering, not permission gates.
+
+#### Plan-level: Exit-run report shape (Step 42's mandatory metrics)
+
+1. **Job.** Prevent the `docs/collapse-log.md` 2026-09-04 slop pattern
+   — padding coverage to look like the block "works" — by making the
+   exit report's metric set mandatory and its numbers visible in
+   `ctxoracle status`, so a suspiciously-high answer-drift coverage
+   number is caught at review, not swallowed as success.
+2. **Hardest question.** A mandatory report shape doesn't prevent
+   padded *numbers*; the collapse-log 2026-09-04 collapse was in the
+   recognizer, not the report format.
+3. **Answer.** The report shape is one leg of a three-part defense:
+   (a) Step 14's recognizer-minimalism stops the padding at
+   recognizer-construction time; (b) Checkpoint 5's explicit direction
+   ("a suspiciously-high answer-drift coverage number is a finding,
+   not a success") catches the padding at report-review time; (c) the
+   mandatory shape stops silent omission of an inconvenient number.
+   Together they close the collapse pattern's three routes; alone
+   any one would leak. Cite: `CLAUDE.md` dominating rule 3;
+   `docs/collapse-log.md` 2026-09-04; spec §11.5 exit clause.
+4. **Steers toward.** Implementer writing a report whose numbers
+   reflect what the recognizer actually caught, and treating a
+   suspiciously-high number as a finding to investigate. **Guide,
+   not gate** — the report shape is a template; the recognizer and
+   the reviewer are the checks.
+
+**Coverage attestation for the collapse-test.** Every D-plan-*
+decision above has a §10A entry. Every plan-level structural choice
+that is load-bearing on the build's outcome (checkpoint placement,
+test tier split, exit-run report shape) has an entry. Steps 1–43 in
+§7 are transcriptions of architecture decisions AD-1..AD-26, each of
+which passed its own collapse-test in the architecture document; the
+plan's §7 does not re-litigate those and does not require re-doing
+their collapse-tests. If the reader disagrees about the load-bearing
+scope — believes a specific §7 step is a plan-level load-bearing
+decision the collapse-test missed — that is exactly the kind of
+finding the independent collapse-hunt (STATUS Step 2) is dispatched
+to raise.
+
 ---
 
 ## 11. Verification of factual claims

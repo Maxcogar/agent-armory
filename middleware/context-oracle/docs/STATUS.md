@@ -46,18 +46,24 @@ architectural decisions.
 
 ## What to do next (agent-owned)
 
-1. **Independent expert-review + collapse-hunt on
-   `docs/plans/plan-phase-a.md`** — dispatched to a fresh session/subagent
-   who did not author it, per `CLAUDE.md` dominating rule 2. The author's
-   own compliance passes (expert-plan Gates A/B/C, already run) do not
-   substitute for adversarial attack. The reviewer's job: attack every
-   step's collapse-test question harder and hunt for new ones; test
-   whether Step 14's recognizer-minimalism holds under pressure or drifts
-   toward the 2026-09-04 slop the plan is supposed to be armored against;
-   verify every factual claim in the plan's Verification section
-   resolves at the cited evidence; verify every register bin-1 answer
-   is real (not a bin-2 in disguise); verify every gap's attempt
-   evidence is real. Findings written to
+1. **Independent expert-review + collapse-hunt** on
+   `docs/plans/plan-phase-a.md` — dispatched to a fresh
+   session/subagent who did not author it, per `CLAUDE.md` dominating
+   rule 2. The author's collapse-test entries — the four-part
+   collapse-test on every load-bearing decision — are in the plan's
+   §10A ("Author's collapse-test on each load-bearing decision"),
+   written before this handoff. The reviewer's job: attack every §10A
+   step-2 question harder and hunt for new ones; check whether the
+   author's coverage attestation for §10A missed a load-bearing
+   decision (a §7 step whose collapse-test the author claimed was
+   inherited from the architecture but that actually is a plan-level
+   load-bearer); test whether Step 14's recognizer-minimalism holds
+   under pressure or drifts toward the 2026-09-04 slop the plan is
+   armored against; verify every factual claim in the plan's
+   Verification of factual claims section resolves at the cited
+   evidence; verify every register bin-1 answer is real (not a bin-2
+   in disguise); verify every gap's attempt evidence is real.
+   Findings written to
    `docs/reviews/<date>-plan-phase-a-review.md`, never edited after.
 
 2. **Apply every finding from Step 1** (per `CLAUDE.md` engineering
