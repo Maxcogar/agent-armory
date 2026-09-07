@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "strict": true, "target": "ES2022", "module": "NodeNext", "moduleResolution": "NodeNext",
+    "rootDir": ".", "outDir": "dist", "declaration": false, "verbatimModuleSyntax": true, "types": ["node"]
+  },
+  "include": ["src", "test"],
+  "exclude": ["test/build/fixtures"]
+}

@@ -1,0 +1,4 @@
+node:22-bookworm FROM: FROM buildpack-deps:bookworm
+buildpack-deps:bookworm FROM: FROM buildpack-deps:bookworm-scm
+buildpack-deps:bookworm-scm installs git: yes
+node:22-bookworm-slim installs git: no

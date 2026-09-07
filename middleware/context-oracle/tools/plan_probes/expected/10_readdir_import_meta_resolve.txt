@@ -1,0 +1,2 @@
+readdirSync recursive finds nested test file: true
+import.meta.resolve grammar from inside the package: true

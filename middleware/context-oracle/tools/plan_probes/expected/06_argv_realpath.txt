@@ -1,0 +1,4 @@
+direct:  {"argv1_basename":"dispatch.js","real_endswith":true,"execPath_absolute":true}
+symlink: {"argv1_basename":"ctxoracle","real_endswith":true,"execPath_absolute":true}
+npm -g:  {"argv1_basename":"ctxoracle","real_endswith":true,"execPath_absolute":true}
+npx:     {"argv1_basename":"ctxoracle","real_endswith":true,"execPath_absolute":true}

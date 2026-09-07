@@ -1,0 +1,11 @@
+{
+  "name": "ctxoracle-plan-probe-layout",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": { "ctxoracle": "dist/src/cli/dispatch.js" },
+  "engines": { "node": ">=22.16.0" },
+  "dependencies": { "web-tree-sitter": "0.26.13", "tree-sitter-wasms": "0.1.13" },
+  "devDependencies": { "typescript": "5.9.3", "@types/node": "22.20.1" },
+  "scripts": { "build": "tsc -p tsconfig.json" }
+}

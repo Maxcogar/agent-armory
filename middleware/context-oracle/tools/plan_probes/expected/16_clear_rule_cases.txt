@@ -1,0 +1,13 @@
+ok  "" -> false
+ok  "." -> false
+ok  "No." -> true
+ok  "Yes." -> true
+ok  "Yes, line 12." -> true
+ok  "I'll get to that." -> false
+ok  "Sure, I'll get to that after the refactor." -> false
+ok  "I'll get to that. The null check does not fix it, see line 12." -> true
+ok  "No — the null check does not fix it, see line 12, though I'll get to the rest later." -> true
+ok  "Ok." -> false
+ok  "Got it, will do." -> false
+ok  "```js\nx\n```\nNo." -> true
+ok  "<tool>noise</tool>" -> false
