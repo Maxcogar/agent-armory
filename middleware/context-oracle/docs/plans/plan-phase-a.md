@@ -1892,7 +1892,19 @@ brace expansion requires a dedicated first check:
 This handles the general case round 8's own collapse-hunt named
 (`-M`'s output collapses a detected rename to a single line, not a
 plain path) for both rename shapes git actually produces, not only the
-same-directory case; per commit: records the commit in
+same-directory case. **Disclosed residual (round 10 collapse-hunt,
+Minor — not fixed, named honestly rather than silently left unstated,
+in the same spirit as N1's scheme-normalization gap):** a file whose
+own name contains a literal `{` or `}` character (legal but rare on
+POSIX filesystems) can make the brace regex backtrack to the wrong
+brace pair, producing a corrupted path for that one rename. This is
+outside `T20-1`'s fixture and is not fixed in Phase A — the dominant,
+every-day rename shapes (same-directory, cross-directory, and
+dissimilar-name renames) are the ones this mechanism exists to get
+right, and are verified correct; a repository containing a
+brace-in-filename rename is expected to be rare enough that this
+residual is accepted rather than adding further parsing complexity for
+Phase A; per commit: records the commit in
 `commits` with `entity_count`, excludes if `entity_count >
 opts.maxTransactionEntities` (default 30, tunable via `tuning`); for
 included commits, generates all canonical-ordered file pairs from the
@@ -2939,13 +2951,32 @@ In `src/index/indexer.ts` (Step 21):
      file's mtime. If it is older than `reindex.lock_stale_ms`
      (default 600000ms / 10 minutes — well beyond any real index run,
      plan-judgment default, not architecture-sourced), treat it as
-     abandoned by a crashed process: unlink it and retry acquisition
-     once. If the retry also fails, or the lock is not stale, skip
-     this reindex attempt silently (the next `refreshIfStale` trigger
-     tries again) — no PID liveness check is needed beyond the mtime
-     threshold, since this is a single-host, single-user tool with no
-     cross-machine lock contention to distinguish "still running" from
-     "crashed" more precisely than elapsed time.
+     abandoned by a crashed process and attempt to reclaim it — **made
+     race-safe this fix pass, round 10 (collapse-hunt Serious finding:
+     a plain `unlinkSync`-then-recreate reclaim is an unsynchronized
+     check-then-act — two concurrent triggers can both pass the
+     staleness check on the same abandoned lock, both reclaim, and
+     both believe they hold exclusive ownership, after which the
+     first process's own correct `finally`-block release deletes the
+     second process's live lock out from under it, reproduced by
+     direct hand-interleaved execution):** call
+     `fs.renameSync(lockPath, lockPath + '.reclaiming-' + process.pid)`
+     — `rename` on the same filesystem is atomic, so only one
+     concurrent reclaimer's rename can succeed against the stale
+     lock's path. If the rename succeeds, this process owns the
+     reclaim: delete the renamed file and retry acquisition once. If
+     the rename throws `ENOENT` (another process already renamed or
+     removed it a moment earlier), this process lost the race: skip
+     this reindex attempt silently, exactly as the "not stale" case
+     already does — no new failure mode. If the retry acquisition
+     still fails, or the lock is not stale, skip this reindex attempt
+     silently (the next `refreshIfStale` trigger tries again) — no PID
+     liveness check is needed beyond the mtime threshold, since this
+     is a single-host, single-user tool with no cross-machine lock
+     contention to distinguish "still running" from "crashed" more
+     precisely than elapsed time; the race the atomic rename closes is
+     between two reclaimers of the *same* lock, not between "running"
+     and "crashed" processes.
   The lock is advisory, not kernel-enforced, which is sufficient here
   since the handler never waits on it (staleness merely lowers
   confidence).
@@ -2962,15 +2993,22 @@ watermark).
 one wins the transaction, the other retries once and succeeds;
 after that a third contended write fails-open with `store_busy`),
 `T37-2` (fold correctness: two concurrent same-project folds do
-not double-count), `T37-3` (reindex lock acquire/release/staleness —
-added this fix pass, round 9: neither `T37-1` nor `T37-2` previously
-touched the reindex directory lock at all).
+not double-count), `T37-3` (reindex lock acquire/release/staleness/
+concurrent-reclaim safety — added this fix pass, round 9: neither
+`T37-1` nor `T37-2` previously touched the reindex directory lock at
+all; extended round 10 with the concurrent-reclaim case, per the
+race-safe rename fix above).
 
 **Impact if wrong.** Race conditions and silent double-counts in
 efficacy stats. Caught by `T37-1`/`T37-2`. A missing or wrong lock
 release would silently and permanently disable the automatic
 self-refresh mechanism after its first successful run per project —
-caught by `T37-3`.
+caught by `T37-3`. Two concurrent reclaimers of the same stale lock
+both believing they hold it would let two detached reindexes run
+against `store.db` unlocked and unserialized at the application
+level — silent index corruption, not caught by `T37-1`/`T37-2` (a
+different mechanism) — caught by `T37-3`'s round-10 concurrent-reclaim
+case.
 
 ---
 
@@ -4152,21 +4190,62 @@ predates Step 38, the assumed spawn site.
    implementer from editing the globs; the build/grep pair catches it
    fast if they collide.
 
+#### N7 (Step 37 — `reindex.lock_stale_ms` staleness-reclaim mechanism). Added this fix pass, round 10 (collapse-hunt finding: this new mechanism, introduced round 9 to close the "lock never released" gap, shipped with no §10A entry of its own — N3/N4's count was corrected to "seven" tuning defaults but its own Answer field is scoped to the exit-run calibration loop, which this value is explicitly not part of, so it could never have covered this decision even with an updated denominator).
+
+1. **Job.** Let a crashed process's abandoned reindex lock be reclaimed
+   by a later attempt, so one crash does not permanently disable the
+   automatic self-refresh mechanism for a project.
+2. **Hardest question.** What happens when two reclaim attempts land
+   inside the same staleness window, against the same abandoned lock —
+   the one scenario this mechanism's entire job is to arbitrate, and
+   the one question single-process reasoning about the threshold's
+   length does not cover?
+3. **Answer (this collapse-test written after the fact, round 10 —
+   the hardest question above was not asked before Step 37's original
+   round-9 text shipped, and asking it would have surfaced the defect
+   directly: a plain `unlinkSync`-then-recreate reclaim is an
+   unsynchronized check-then-act race — verified by direct,
+   hand-interleaved execution of the round-9 algorithm this fix pass:
+   two reclaimers can both pass the staleness check on the same lock,
+   both reclaim, and both believe they hold exclusive ownership, after
+   which the first's own correct release deletes the second's live
+   lock while its reindex is still running).** Fixed by making the
+   reclaim atomic: `fs.renameSync(lockPath, lockPath +
+   '.reclaiming-' + pid)` before deleting and retrying — `rename` on
+   the same filesystem admits only one winner against a given source
+   path, so a losing reclaimer's rename throws `ENOENT` and it skips
+   silently (the existing, already-safe fallback for "lock not stale"
+   or "retry failed"), with no new failure mode. `T37-3`'s fixture now
+   exercises two simulated concurrent reclaimers directly. Cite: direct
+   execution, this fix pass (§11.4 candidate — the race itself is a
+   plan-original algorithmic gap, not an external library/tool claim,
+   so it is recorded here and in Step 37's own text rather than as a
+   separate §11.4 external-source entry).
+4. **Steers toward.** An implementer treating "staleness reclaim" as
+   requiring the same atomicity discipline as lock acquisition itself
+   — a reclaim is a second acquisition attempt, not a cleanup
+   operation exempt from the races the first acquisition already
+   guards against. **Guide, not gate** — the atomic rename is a
+   specific, cheap primitive choice; an implementer using a
+   differently-shaped atomic reclaim (e.g., a token-verify-before-unlink)
+   satisfies the same job.
+
 **Coverage attestation for the collapse-test (corrected twice now —
 round 1's collapse-hunt found the original version of this paragraph
 to be the strongest instance of the shape it declared immune; round
 2's collapse-hunt then found N1–N6 still had no *formal* four-part
 collapse-test despite round 1's correction naming them as plan-level
 judgments — finding 6, "disclosed, not hidden, by the plan itself,"
-its own words).** Every D-plan-* decision, and now every N1–N6
+its own words).** Every D-plan-* decision, and now every N1–N7
 decision, has a full four-part §10A entry — N1 through N6 formalized
-in round 2 directly above, each attacked with a harder question than
+in round 2 directly above (N7 added round 10), each attacked with a harder question than
 its originating Step's inline Gate-3 rationale posed. Not every §7
 step is a transcription of an architecture decision: N1 (Step 5 URL
 normalization), N2 (Step 18 `deny_bypass_suspect` coverage bound), N3
 and N4 (Step 23/14's bar defaults and length floor), N5 (Step 2.5's
-`oracleSpawn` wrapper), N6 (Step 15's confinement-grep scope), and
-the C1/C3/P1–P4 corrections above are plan-level judgments the
+`oracleSpawn` wrapper), N6 (Step 15's confinement-grep scope), N7
+(Step 37's `reindex.lock_stale_ms` staleness-reclaim mechanism, added
+round 10), and the C1/C3/P1–P4 corrections above are plan-level judgments the
 architecture did not decide and that this fix pass added or corrected
 with their own reasoning, in the open — not silently absorbed under
 "transcription," and no longer resting on inline rationale alone.
@@ -4175,7 +4254,7 @@ architecture decision (the majority of §7) still do not require
 re-doing the architecture's own collapse-tests. If the reader
 disagrees about the load-bearing scope — believes a specific §7 step
 still contains an untested plan-level judgment, or that one of the
-N1–N6 answers above doesn't survive a still-harder question — that is
+N1–N7 answers above doesn't survive a still-harder question — that is
 exactly the kind of finding the independent collapse-hunt is
 dispatched to raise, and this paragraph's own history (wrong in
 round 1, incomplete in round 2) is why it is checked again rather
@@ -5245,25 +5324,39 @@ lock-file replacement for `flock`(2) specified acquisition but no
 release, and no test exercised the lock at all).
 - **File.** `test/unit/reindex_lock.test.ts`.
 - **Verifies.** Step 37 — the reindex lock file is created with
-  `O_CREAT|O_EXCL`, removed on completion, and a stale lock (mtime
-  older than `reindex.lock_stale_ms`) is reclaimed by the next
-  attempt rather than blocking forever.
+  `O_CREAT|O_EXCL`, removed on completion, a stale lock (mtime older
+  than `reindex.lock_stale_ms`) is reclaimed via atomic rename by the
+  next attempt rather than blocking forever, and two simultaneous
+  reclaimers of the same stale lock never both succeed — added this
+  sub-case round 10 (collapse-hunt Serious finding: the round-9 lock
+  mechanism's staleness reclaim was an unsynchronized check-then-act
+  race with no test exercising concurrent reclaim).
 - **Level.** Unit (real filesystem, no store needed).
 - **Real/doubles.** Real `fs` calls against a tempdir. No doubles.
 - **Data.** (a) A completed reindex run — asserts the lock file is
   absent afterward. (b) A lock file manually created with an mtime set
   older than the stale threshold — asserts the next acquisition
-  attempt reclaims it (unlinks and succeeds) rather than failing
-  `EEXIST`. (c) A lock file with a fresh mtime (younger than the
-  threshold) — asserts acquisition fails `EEXIST` and is *not*
-  reclaimed (a genuinely live lock must not be stolen). Technique:
-  state-transition (no-lock → held → released; held-stale →
-  reclaimed; held-fresh → blocked).
-- **NOT asserts.** Cross-process contention timing (that is `T37-1`'s
-  concern for the SQLite-level lock; this test is filesystem-only).
-  **Fails when** the lock file survives a completed reindex, OR a
-  stale lock is not reclaimed, OR a fresh lock is incorrectly
-  reclaimed.
+  attempt reclaims it (renames, deletes, and succeeds) rather than
+  failing `EEXIST`. (c) A lock file with a fresh mtime (younger than
+  the threshold) — asserts acquisition fails `EEXIST` and is *not*
+  reclaimed (a genuinely live lock must not be stolen). (d) Two
+  simulated concurrent reclaim attempts against the same stale lock,
+  their `renameSync` calls issued back-to-back with no serialization
+  between them — asserts exactly one succeeds and proceeds to
+  acquisition, the other's rename throws `ENOENT` and it skips
+  silently, and the winner's own lock file survives until its own
+  release (i.e., the loser never deletes the winner's live lock).
+  Technique: state-transition (no-lock → held → released; held-stale
+  → reclaimed; held-fresh → blocked; held-stale + two racing
+  reclaimers → exactly one winner).
+- **NOT asserts.** Cross-process contention timing at the SQLite level
+  (that is `T37-1`'s concern for `store.db`'s own writes; this test is
+  filesystem-only, covering the directory lock file itself, including
+  its concurrent-reclaim path per case (d)). **Fails when** the lock
+  file survives a completed reindex, OR a stale lock is not reclaimed,
+  OR a fresh lock is incorrectly reclaimed, OR two concurrent
+  reclaimers of the same stale lock both believe they hold the lock
+  (case (d)'s core assertion).
 
 **T38-1 — Model seam stub returns not-implemented.**
 - **File.** `test/unit/model_invoke_stub.test.ts`.
