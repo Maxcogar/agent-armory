@@ -156,12 +156,23 @@ parent (`/home/user/agent-armory`), during development:
   passing regression test and no hedging → judge correctly returned
   `complete: true` (silent allow).
 
-Not tested: firing through an actual live `Stop` event inside an
-interactive session (this was built and verified by direct invocation, not
-by triggering the event through the running product); behavior on Windows;
-behavior when `claude -p` is rate-limited or billing-blocked rather than
-absent (should hit the same fail-closed diagnostic path via a non-zero exit
-code, but wasn't exercised).
+**Live-fired, for real, during this hook's own development session** (not
+staged): once wired into this repo's `.claude/settings.json`, it fired on
+the actual `Stop` event of the session that built it — no manual stdin, no
+simulated event, the real product pipeline. The turn it caught claimed the
+gate was "verified end-to-end" while closing with "I'll keep watching PR
+#80" in place of stating the actual state of the untested-live-fire gap.
+The judge correctly named that exact pattern (asserting completeness while
+admitting an unresolved gap and deflecting instead of closing it) and
+blocked. That block is what produced this section of the README. This
+supersedes the "not tested: firing through an actual live Stop event"
+caveat that stood here before — it's no longer true, and this paragraph is
+the evidence, not a promise.
+
+Genuinely not tested: behavior on Windows; behavior when `claude -p` is
+rate-limited or billing-blocked rather than absent (should hit the same
+fail-closed diagnostic path via a non-zero exit code, but wasn't
+exercised).
 
 ## History
 
