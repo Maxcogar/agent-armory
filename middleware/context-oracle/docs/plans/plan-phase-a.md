@@ -3284,8 +3284,9 @@ V1–V6, V15, V16, V19.
 **Dependencies.** Declared above (`depends_on`).
 
 **Verification.** `T-28-1` (replay: a transcript already containing a
-clearing answer at `PreToolUse` time yields no deny — catch-up ran before
-the block check), `T-28-2` (adapter isolation convention), `T-28-3` (replay:
+clearing answer at `PreToolUse` time yields no deny and a `questions` row
+closed by that answer's uuid at that event — catch-up ran before the block
+check), `T-28-2` (adapter isolation convention), `T-28-3` (replay:
 forced store-open failure, parse failure, and a corrupted store each yield
 exit 0, empty stdout, a JSONL fault), `T-28-4` (replay: audit row written,
 stdout closed → `produced_but_undelivered` recorded, exit 0), `T-28-5` (the
@@ -7265,14 +7266,21 @@ rules 1 and 2); fixture repositories are real git repositories produced by
 
 - **T-28-1 — Pipeline order: catch-up before the block check.**
   - **File.** `test/replay/pipeline_order.test.ts`.
-  - **Verifies.** Step 28 (AD-8 order).
+  - **Verifies.** Step 28 (AD-8 order): catch-up closes the question before
+    the block check reads it.
   - **Level.** Acceptance (replay through the built handler).
   - **Real/doubles.** Real handler binary spawned per event; real store; real
     transcript fixture. No doubles.
-  - **Data.** Intake of a question, then a transcript already containing a
-    clearing answer at `PreToolUse Edit` time. Technique: state-transition.
-  - **NOT asserts.** Downstream behaviour. **Fails when** a deny is emitted
-    (the block check read state older than the transcript).
+  - **Data.** Intake of a question (`UserPromptSubmit`), then a `PreToolUse
+    Edit` whose transcript already contains the clearing answer. Technique:
+    state-transition (open after intake → answered at the `Edit` event).
+  - **NOT asserts.** Downstream behaviour; deny content (T-38-1). **Fails
+    when** a deny is emitted, OR a `kind = 'deny'` `whisper_audit` row
+    exists, OR the `questions` row is not `open` after the intake event, OR
+    after the `Edit` event it is not `answered` with `closed_by_uuid` = the
+    clearing turn's uuid and `closed_by_kind = 'generic_text_all_prior'`,
+    OR either event lacks its `session_log` row with `outcome` set, OR the
+    temp home's JSONL channel holds a fault line.
 
 - **T-28-3 — Fail-open on any error.**
   - **File.** `test/replay/fail_open.test.ts`.
@@ -7637,10 +7645,17 @@ and are stated on each entry.
   - **Real/doubles.** Real handler binary spawned per event by
     `test/replay/runner.ts`; real stores in a temp home; real fixture
     repositories and transcript files. No doubles.
-  - **Data.** Main-agent question open; a subagent `PreToolUse Edit` carrying
-    `agent_id`. Technique: state-transition.
-  - **NOT asserts.** The deny-half (Phase B). **Fails when** the subagent's
-    `Edit` is denied.
+  - **Data.** Main-agent question open (`UserPromptSubmit`); a subagent
+    `PreToolUse Edit` carrying `agent_id`; then the same `PreToolUse Edit`
+    from the main consumer (the control). Technique: state-transition.
+  - **NOT asserts.** The deny-half (Phase B); deny content (T-38-1). **Fails
+    when** the subagent's `Edit` is denied, OR a `kind = 'deny'`
+    `whisper_audit` row exists for the subagent consumer, OR the main
+    consumer's `questions` row is not still `open` after the subagent event,
+    OR the subagent event's `session_log` row — keyed by its `(session_id,
+    agent_id)` consumer — is absent or lacks `outcome`, OR the main
+    consumer's `Edit` is not denied with its audit row, OR the JSONL channel
+    holds a fault line.
 
 - **T-38-4 (FR-B1 lag clause) — Lag hold and self-recovery.**
   - **File.** `test/replay/answer_drift_lag_hold.test.ts`.
@@ -7814,18 +7829,26 @@ and are stated on each entry.
   - **NOT asserts.** High-confidence hazards. **Fails when** the whisper is
     suppressed OR the confidence flag is missing from the text.
 
-- **T-38-17 (AC-4) — Read-set subject withheld.**
+- **T-38-17 (AC-4) — Read-set subject withheld; not-yet-seen subject delivered; untouched file silent.**
   - **File.** `test/replay/dedup_read_set.test.ts`.
   - **Verifies.** Step 20 (per-consumer read-set dedup) through the pipeline; `AC-4`.
   - **Level.** Acceptance (system-level replay through the built handler).
   - **Real/doubles.** Real handler binary spawned per event by
     `test/replay/runner.ts`; real stores in a temp home; real fixture
     repositories and transcript files. No doubles.
-  - **Data.** Fixture `dedup-read-set`; `PostToolUse Read` on X, then a
-    candidate on X; a candidate on a file the agent is not touching.
-    Technique: state-transition.
-  - **NOT asserts.** Cross-consumer withholding. **Fails when** the read-set
-    subject is delivered OR the untouched-file candidate fires.
+  - **Data.** Fixture `dedup-read-set` (two coupled pairs X–P and Y–Q, and
+    an unrelated file U carrying a planted fact); stream: `PostToolUse Read`
+    on X; `PostToolUse Read` on P (its Coupling candidate's subject is X,
+    already read); `PostToolUse Read` on Q (its candidate's subject is Y,
+    never read); no event touches U. Technique: state-transition; decision
+    table over AC-4's three clauses.
+  - **NOT asserts.** Cross-consumer withholding. **Fails when** the
+    `consumer_state` `read` row for X is absent after the `Read` on X, OR the
+    candidate on X is delivered, OR the candidate on Y is not delivered via
+    `additionalContext` with its `whisper_audit` row and its
+    `consumer_state` `delivered` row, OR any whisper names U, OR any event
+    lacks its `session_log` row with `outcome` set, OR the JSONL channel
+    holds a fault line.
 
 - **T-38-18 (AC-6) — Corpus floor.**
   - **File.** `test/replay/corpus_floor.test.ts`.
@@ -7869,10 +7892,15 @@ and are stated on each entry.
   - **Real/doubles.** Real handler binary spawned per event by
     `test/replay/runner.ts`; real stores in a temp home; real fixture
     repositories and transcript files. No doubles.
-  - **Data.** Two `Stop` events, the second with `stop_hook_active: true`.
-    Technique: state-transition.
-  - **NOT asserts.** The harness's 8-cap. **Fails when** the second emits
-    `additionalContext`.
+  - **Data.** Fixture `completeness-paired-change`, an `Edit` on one half
+    (T-38-14's stream), then two `Stop` events, the second with
+    `stop_hook_active: true`. Technique: state-transition.
+  - **NOT asserts.** The harness's 8-cap; what the second `Stop` computes
+    before `deliverStop` returns `null`. **Fails when** the first `Stop`
+    emits no `additionalContext` naming the partner, OR its `whisper_audit`
+    row is absent, OR the second emits `additionalContext`, OR either `Stop`
+    lacks its `session_log` row with `outcome` set, OR the JSONL channel
+    holds a fault line.
 
 - **T-38-22 (AC-11) — Planted secrets and injection payloads.**
   - **File.** `test/replay/security_ac11.test.ts`.
@@ -8013,7 +8041,13 @@ and are stated on each entry.
     Technique: decision table.
   - **NOT asserts.** Substantive-vs-deferral discrimination (Phase B,
     AC-2a-ii). **Fails when** the post-answer `Edit` is denied, OR any
-    information-gathering move is denied.
+    information-gathering move is denied, OR a `kind = 'deny'`
+    `whisper_audit` row exists in any stream, OR in any stream the
+    `questions` row is not `open` after intake, OR in streams one to four it
+    is not `answered` with `closed_by_uuid` = the answering turn's uuid
+    after the `Edit` event, OR in the fifth stream it is not still `open`
+    after the last event, OR any event lacks its `session_log` row with
+    `outcome` set, OR the JSONL channel holds a fault line.
 
 - **T-38-31 (L1 residual) — The wrongful-deny residual is counted, escapable, and re-ask works.**
   - **File.** `test/replay/answer_drift_residual.test.ts`.
