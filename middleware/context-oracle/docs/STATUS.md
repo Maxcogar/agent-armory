@@ -72,15 +72,29 @@ the owner a decision that is already written" failure `CLAUDE.md` calls out.
 
 ## What to do next (agent-owned)
 
-1. **Restart the Phase A plan** on top of the current architecture. The
-   current plan attempt failed two independent reviews (collapse-hunt DOES
-   NOT SURVIVE, expert-review NEEDS FIXES) and cannot be patched to pass —
-   the collapses are at the plan's shape (D-plan-1 build order, D-plan-3
-   runner that won't execute, Step 42 wrong exit-run repos). Rewrite the
-   plan; do not attempt to patch the current one.
+1. **Fix the current plan in place; a rewrite is not what either review
+   calls for.** Neither review says the plan's *shape* is unsalvageable:
+   collapse-hunt names exactly 3 full collapses (C1 build-order framing,
+   C2 `node:test` won't execute `.ts` under Node 22.16, C3 Step 42's
+   exit-run repo set is one-and-that-one — `Maxcogar/agent-armory`), 4
+   partials (P1–P4), and 6 new load-bearing decisions its own §10A missed
+   (N1–N6) — while explicitly recording 3 decisions that survive as-is
+   (S1–S3). Expert-review's verdict is literally "NEEDS FIXES" (10
+   findings: 3 Serious, 5 Moderate, 2 Minor), the project's own term for a
+   fixable artifact, not a rebuild-from-zero one. This project has direct
+   precedent for exactly this situation: `docs/architecture-phase-a.md`
+   returned this same collapse-hunt verdict, "DOES NOT SURVIVE," across at
+   least four rounds (`docs/reviews/2026-08-29-collapse-hunt-architecture-phase-a.md`,
+   `2026-08-29-round-2-...md`, `2026-09-03-round-6-...md`,
+   `2026-09-03-round-9-...md`) and converged to acceptance every time by
+   fixing the round's named collapses in the existing document and
+   re-reviewing — never by discarding it and starting over. Apply that
+   same discipline here: fix C1–C3, P1–P4, and N1–N6 in
+   `docs/plans/plan-phase-a.md` and the 10 expert-review findings, on top
+   of the current architecture, in the current plan document.
 
-2. **Every finding across all four review documents applies to the
-   rewrite** — the author-gates review, the meta-check, the collapse-hunt,
+2. **Every finding across all four review documents applies to the fix
+   pass** — the author-gates review, the meta-check, the collapse-hunt,
    and the expert-review. Not a prioritized subset. Not a "start with
    C1–C3." All of them.
 
@@ -89,19 +103,23 @@ the owner a decision that is already written" failure `CLAUDE.md` calls out.
    (empirically verified this session: `ToolSearch` for `codegraph` and
    `clear_thought` both returned no matches). SKILL.md says a required
    tool that cannot run is a halt condition, not a license to improvise.
-   The next plan attempt either (a) runs in an environment where those
-   tools ARE available, or (b) does not produce a `/expert-plan`-labeled
-   plan — a different, non-`/expert-plan` process would need explicit
-   owner authorization first.
+   The next attempt at the plan either (a) runs in an environment where
+   those tools ARE available, or (b) does not produce a
+   `/expert-plan`-labeled fix — a different, non-`/expert-plan` process
+   would need explicit owner authorization first.
 
-4. **Run the independent collapse-hunt and expert-review after the
-   rewrite lands**, before delivering. Both are mandatory per CLAUDE.md
+4. **Run the independent collapse-hunt and expert-review after the fix
+   pass lands**, before delivering. Both are mandatory per CLAUDE.md
    rule 2 and per the project lifecycle. Do not open owner-decision gaps
-   for anything the project's own rules already answer.
+   for anything the project's own rules already answer. If that round
+   still returns findings, fix and re-review again — the same iterate-to-
+   convergence loop the architecture document went through, not a reason
+   to discard the plan.
 
 ## Open items
 
-- The Phase A plan is not deliverable. Restart per items 1–4 above.
+- The Phase A plan is not deliverable as written. Fix per items 1–4
+  above, in place — not a restart or rewrite from zero.
 - L11(a) — human-marker presence on Max Cogar's real interactive
   transcript was resolved this session by direct measurement of
   `/root/.claude/projects/-home-user-agent-armory/dc9955b4-2023-5a97-b6a3-47796382cb94.jsonl`
