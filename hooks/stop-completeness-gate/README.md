@@ -174,20 +174,6 @@ rate-limited or billing-blocked rather than absent (should hit the same
 fail-closed diagnostic path via a non-zero exit code, but wasn't
 exercised).
 
-- `detect_propose_before_build_directive` against a transcript containing
-  the actual literal user phrase from this session ("...THAT MEANS
-  PROPOSE AND NOT IMMEDIATELY RUSH INTO TRYING TO BUILD SHIT") → correctly
-  extracted the matching snippet.
-- Full pipeline, real `claude -p` calls (3 repeated runs), the exact turn
-  shape that previously produced opposite verdicts (concrete proposal
-  ending in "ready to build?") with the directive present → `complete:
-  true` on every run, consistently.
-- Full pipeline, real `claude -p` call, a deliberately vague/hedged
-  proposal ("I could maybe build something... might not fully work...
-  want me to try?") with the same directive present → correctly still
-  `complete: false` — the directive narrows one specific judgment call, it
-  does not blanket-exempt weak proposals.
-
 ## Transcript pollution and a self-sustaining feedback loop (critical, found in production)
 
 A direct consequence of the session-isolation bug below: because judge
@@ -306,53 +292,3 @@ require genuinely irreversible/unknowable input with everything else
 already done, and by removing the "ask a question instead" line from the
 block message entirely — by the time that message fires, the judge has
 already ruled a question out.
-
-## Judge non-determinism on "propose, then check in before building" (critical, found in production)
-
-Direct evidence, not theory: the raw judge-subprocess transcripts (under
-`/root/.claude/projects/-home-user-agent-armory/`, one per judge firing)
-showed the *same turn shape* — a concrete, substantive design proposal
-ending with a checkpoint question like "ready to build?" — receiving
-opposite verdicts from this gate within minutes of each other. One firing:
-`"complete": true, "reason": "...a legitimate design-review checkpoint
-rather than a deferral of undone work."` A later firing on the same shape:
-`"complete": false, "reason": "...ends with a question...instead of
-actually implementing...it's still a proposal/plan, not the delivered
-fix."` Same gate, same fact pattern, opposite answers — a real coin-flip
-on one specific, recurring question: does an explicit user requirement to
-propose-and-confirm-before-building change what "complete" means for a
-proposal turn?
-
-The fix is not another instruction telling the judge to be more careful —
-that's the exact class of control this repo's own `skill-observations/
-log.md` (Obs 21) documents getting rationalized past. Instead: whether the
-user has explicitly required a propose-then-confirm workflow *for this
-task* is a fact that's either quoted in the transcript or it isn't, so it
-is detected mechanically (`detect_propose_before_build_directive`, a small
-set of regex patterns run against every real user message in the
-conversation, not just the latest) and handed to the judge as an explicit,
-prominent premise (`build_prompt`'s `directive_note`) instead of being left
-for the judge to notice-or-not while weighing a large context window each
-time. When the directive is detected, the judge is told outright that a
-concrete proposal ending in a confirmation check-in satisfies this task's
-process requirement — but is still instructed to rule a vague, hedged, or
-narrower-than-asked proposal incomplete regardless. This narrows the
-judge's discretion on one specific, verified failure point; it does not
-remove judgment from the rest of the gate.
-
-Verified directly: the exact turn shape that previously flip-flopped now
-returns `complete: true` consistently across repeated runs against the
-same input, while a deliberately vague/hedged proposal with the same
-directive present is still correctly ruled `complete: false` — the
-override does not create a blanket license to end every turn with a
-question.
-
-A parallel check was made against `stop-instruction-adherence-gate`, whose
-verdicts across this same stretch of the conversation looked contradictory
-at first glance (once blocking an attempt to touch restricted files,
-later blocking a decision *not* to touch them). On inspection, each
-verdict was independently justified by what was actually done on that
-specific turn — the apparent contradiction dissolves once the sequence of
-distinct actions is accounted for, rather than being the same input
-producing different outputs. No fix was made there because no defect was
-verified; a fix was made here because one was.

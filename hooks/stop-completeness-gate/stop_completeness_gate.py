@@ -51,26 +51,6 @@ MAX_BUDGET_USD = os.environ.get("STOP_GATE_MAX_BUDGET_USD", "0.50")
 TIMEOUT_SECONDS = int(os.environ.get("STOP_GATE_TIMEOUT_SECONDS", "45"))
 STALE_REQUEST_TURN_THRESHOLD = int(os.environ.get("STOP_GATE_STALE_REQUEST_TURN_THRESHOLD", "3"))
 
-# Verified bug, not theory: the raw judge-subprocess transcripts for this
-# gate show the SAME turn shape (a concrete proposal ending in a
-# confirmation-to-build question) getting opposite verdicts minutes apart -
-# once "a legitimate design-review checkpoint", once "not the delivered
-# fix". That is the judge being non-deterministic on one specific,
-# recurring fact pattern: whether a user has explicitly required
-# propose-then-confirm for the current task. That fact is mechanically
-# checkable (it's either quoted in the transcript or it isn't), so it is
-# detected here and handed to the judge as an explicit premise instead of
-# being left for the judge to notice-or-not inside a large context window
-# each time. This narrows, but does not remove, the judge's discretion:
-# it still rules a vague, hedged, or narrower-than-asked proposal
-# incomplete even when this directive is active.
-_PROPOSE_BEFORE_BUILD_PATTERNS = [
-    re.compile(r"propose[^.?!\n]{0,60}\bnot\b[^.?!\n]{0,40}\b(rush|jump|dive)?[^.?!\n]{0,20}\bbuild", re.I),
-    re.compile(r"\bdon'?t\b[^.?!\n]{0,30}\brush\b[^.?!\n]{0,30}\bbuild", re.I),
-    re.compile(r"propose[^.?!\n]{0,20}\bfirst\b", re.I),
-    re.compile(r"\bnot\b[^.?!\n]{0,20}\bimmediately\b[^.?!\n]{0,20}\bbuild", re.I),
-]
-
 JUDGE_INSTRUCTIONS = """You are a strict completeness auditor for an AI coding assistant's turn.
 You are given the user's most recent request and the assistant's final
 response for that same turn. Decide whether the response actually satisfies
@@ -217,26 +197,6 @@ def _extract_text(content):
     return None
 
 
-def _read_transcript_entries(transcript_path):
-    if not transcript_path or not os.path.isfile(transcript_path):
-        return []
-    try:
-        with open(transcript_path, "r", encoding="utf-8", errors="replace") as f:
-            lines = f.readlines()
-    except OSError:
-        return []
-    entries = []
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            entries.append(json.loads(line))
-        except json.JSONDecodeError:
-            continue
-    return entries
-
-
 def last_user_text(transcript_path):
     """Scan the transcript JSONL backward for the most recent real user
     message: skips tool_result-only entries (also type "user"), and skips
@@ -246,7 +206,22 @@ def last_user_text(transcript_path):
     fresh request from one that's been sitting for a while during a long
     autonomous stretch with no new human input - see the staleness note in
     JUDGE_INSTRUCTIONS. Returns (text, turns_since) or (None, 0)."""
-    entries = _read_transcript_entries(transcript_path)
+    if not transcript_path or not os.path.isfile(transcript_path):
+        return None, 0
+    try:
+        with open(transcript_path, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+    except OSError:
+        return None, 0
+    entries = []
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            entries.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
     for i in range(len(entries) - 1, -1, -1):
         entry = entries[i]
         if entry.get("type") != "user":
@@ -266,53 +241,14 @@ def last_user_text(transcript_path):
     return None, 0
 
 
-def detect_propose_before_build_directive(transcript_path):
-    """Mechanically check whether the user has, anywhere in this
-    conversation, explicitly required a propose-then-confirm workflow for
-    the active task. Returns the matched snippet (for quoting to the
-    judge) or None. This is a deliberately narrow, literal check - it
-    exists to remove one specific, verified source of judge
-    non-determinism (see the comment above _PROPOSE_BEFORE_BUILD_PATTERNS),
-    not to make general "was a question OK" calls."""
-    entries = _read_transcript_entries(transcript_path)
-    for entry in entries:
-        if entry.get("type") != "user":
-            continue
-        message = entry.get("message") or {}
-        text = _extract_text(message.get("content"))
-        if not text or text.startswith(_NOT_A_REAL_USER_MESSAGE_PREFIXES):
-            continue
-        for pattern in _PROPOSE_BEFORE_BUILD_PATTERNS:
-            match = pattern.search(text)
-            if match:
-                start = max(0, match.start() - 30)
-                end = min(len(text), match.end() + 30)
-                return text[start:end].strip()
-    return None
-
-
-def build_prompt(user_text, assistant_text, turns_since, propose_directive):
+def build_prompt(user_text, assistant_text, turns_since):
     staleness_note = (
         f"(This request is from {turns_since} assistant turn(s) ago - the "
         "user has not spoken since. See the staleness guidance above.)\n"
         if turns_since > 0 else ""
     )
-    directive_note = (
-        "\n--- STANDING PROCESS DIRECTIVE FOR THIS TASK (verified present in "
-        "the conversation, not the assistant's claim) ---\n"
-        f'The user has explicitly required, in their own words: "...{propose_directive}..."\n'
-        "Given this, a concrete, substantive proposal that ends by checking "
-        "in before building satisfies THIS task's process requirement - do "
-        "not rule it incomplete merely because code has not been written "
-        "yet or because it ends in a confirmation question. Still rule it "
-        "incomplete if the proposal itself is vague, hedged, narrower than "
-        "what was actually asked, or dodges something it could have "
-        "answered outright.\n"
-        if propose_directive else ""
-    )
     return (
         JUDGE_INSTRUCTIONS
-        + directive_note
         + "\n--- USER'S REQUEST ---\n"
         + staleness_note
         + user_text.strip()
@@ -322,8 +258,8 @@ def build_prompt(user_text, assistant_text, turns_since, propose_directive):
     )
 
 
-def run_judge(user_text, assistant_text, turns_since, propose_directive):
-    prompt = build_prompt(user_text, assistant_text, turns_since, propose_directive)
+def run_judge(user_text, assistant_text, turns_since):
+    prompt = build_prompt(user_text, assistant_text, turns_since)
     env = os.environ.copy()
     for var in _SESSION_ISOLATION_STRIP_VARS:
         env.pop(var, None)
@@ -404,8 +340,7 @@ def main():
         allow()
         return
 
-    propose_directive = detect_propose_before_build_directive(transcript_path)
-    raw_output, err = run_judge(user_text, assistant_text, turns_since, propose_directive)
+    raw_output, err = run_judge(user_text, assistant_text, turns_since)
     if err:
         degraded(err)
         return
