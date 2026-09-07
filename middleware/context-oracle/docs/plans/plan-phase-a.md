@@ -417,11 +417,13 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/src/stores/dao/lessons.ts | create | S9 |
 | middleware/context-oracle/ctxoracle/src/stores/dao/observed_actions.ts | create | S9 |
 | middleware/context-oracle/ctxoracle/src/stores/dao/questions.ts | create | S9 |
+| middleware/context-oracle/ctxoracle/src/stores/dao/regret.ts | create | S9 |
 | middleware/context-oracle/ctxoracle/src/stores/dao/schema_meta.ts | create | S9 |
 | middleware/context-oracle/ctxoracle/src/stores/dao/session_log.ts | create | S9 |
 | middleware/context-oracle/ctxoracle/src/stores/dao/symbol_refs.ts | create | S9 |
 | middleware/context-oracle/ctxoracle/src/stores/dao/symbols.ts | create | S9 |
 | middleware/context-oracle/ctxoracle/src/stores/dao/test_map.ts | create | S9 |
+| middleware/context-oracle/ctxoracle/src/stores/dao/tuning_seeds.ts | create | S12 |
 | middleware/context-oracle/ctxoracle/src/stores/dao/tuning.ts | create | S12 |
 | middleware/context-oracle/ctxoracle/src/stores/dao/whisper_audit.ts | create | S9 |
 | middleware/context-oracle/ctxoracle/src/stores/dao/whisper_stats.ts | create | S9 |
@@ -505,6 +507,7 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/test/replay/deny_health_induced.test.ts | create | S38 |
 | middleware/context-oracle/ctxoracle/test/replay/export_roundtrip.test.ts | create | S32 |
 | middleware/context-oracle/ctxoracle/test/replay/fail_open.test.ts | create | S28 |
+| middleware/context-oracle/ctxoracle/test/replay/hook_stream_fixtures/ | create | S38 |
 | middleware/context-oracle/ctxoracle/test/replay/hooks_not_firing.test.ts | create | S33 |
 | middleware/context-oracle/ctxoracle/test/replay/idle_silence.test.ts | create | S38 |
 | middleware/context-oracle/ctxoracle/test/replay/init_fresh.test.ts | create | S31 |
@@ -1536,7 +1539,7 @@ Step 12.
 step: S9
 covers: [PA-3]
 files:
-  create: [middleware/context-oracle/ctxoracle/src/stores/dao/files.ts, middleware/context-oracle/ctxoracle/src/stores/dao/symbols.ts, middleware/context-oracle/ctxoracle/src/stores/dao/import_edges.ts, middleware/context-oracle/ctxoracle/src/stores/dao/symbol_refs.ts, middleware/context-oracle/ctxoracle/src/stores/dao/test_map.ts, middleware/context-oracle/ctxoracle/src/stores/dao/commits.ts, middleware/context-oracle/ctxoracle/src/stores/dao/cochange_pairs.ts, middleware/context-oracle/ctxoracle/src/stores/dao/landmines.ts, middleware/context-oracle/ctxoracle/src/stores/dao/invariants.ts, middleware/context-oracle/ctxoracle/src/stores/dao/human_facts.ts, middleware/context-oracle/ctxoracle/src/stores/dao/corrections.ts, middleware/context-oracle/ctxoracle/src/stores/dao/questions.ts, middleware/context-oracle/ctxoracle/src/stores/dao/classify_state.ts, middleware/context-oracle/ctxoracle/src/stores/dao/consumer_state.ts, middleware/context-oracle/ctxoracle/src/stores/dao/session_log.ts, middleware/context-oracle/ctxoracle/src/stores/dao/observed_actions.ts, middleware/context-oracle/ctxoracle/src/stores/dao/whisper_audit.ts, middleware/context-oracle/ctxoracle/src/stores/dao/faults.ts, middleware/context-oracle/ctxoracle/src/stores/dao/whisper_stats.ts, middleware/context-oracle/ctxoracle/src/stores/dao/lessons.ts, middleware/context-oracle/ctxoracle/src/stores/dao/global_meta.ts, middleware/context-oracle/ctxoracle/src/stores/dao/schema_meta.ts, middleware/context-oracle/ctxoracle/src/util/ulid.ts, middleware/context-oracle/ctxoracle/test/unit/dao_crud.test.ts, middleware/context-oracle/ctxoracle/test/build/typecheck_provenance.test.ts, middleware/context-oracle/ctxoracle/test/build/fixtures/missing_provenance.ts]
+  create: [middleware/context-oracle/ctxoracle/src/stores/dao/files.ts, middleware/context-oracle/ctxoracle/src/stores/dao/symbols.ts, middleware/context-oracle/ctxoracle/src/stores/dao/import_edges.ts, middleware/context-oracle/ctxoracle/src/stores/dao/symbol_refs.ts, middleware/context-oracle/ctxoracle/src/stores/dao/test_map.ts, middleware/context-oracle/ctxoracle/src/stores/dao/commits.ts, middleware/context-oracle/ctxoracle/src/stores/dao/cochange_pairs.ts, middleware/context-oracle/ctxoracle/src/stores/dao/landmines.ts, middleware/context-oracle/ctxoracle/src/stores/dao/invariants.ts, middleware/context-oracle/ctxoracle/src/stores/dao/human_facts.ts, middleware/context-oracle/ctxoracle/src/stores/dao/corrections.ts, middleware/context-oracle/ctxoracle/src/stores/dao/questions.ts, middleware/context-oracle/ctxoracle/src/stores/dao/classify_state.ts, middleware/context-oracle/ctxoracle/src/stores/dao/consumer_state.ts, middleware/context-oracle/ctxoracle/src/stores/dao/session_log.ts, middleware/context-oracle/ctxoracle/src/stores/dao/observed_actions.ts, middleware/context-oracle/ctxoracle/src/stores/dao/whisper_audit.ts, middleware/context-oracle/ctxoracle/src/stores/dao/faults.ts, middleware/context-oracle/ctxoracle/src/stores/dao/regret.ts, middleware/context-oracle/ctxoracle/src/stores/dao/whisper_stats.ts, middleware/context-oracle/ctxoracle/src/stores/dao/lessons.ts, middleware/context-oracle/ctxoracle/src/stores/dao/global_meta.ts, middleware/context-oracle/ctxoracle/src/stores/dao/schema_meta.ts, middleware/context-oracle/ctxoracle/src/util/ulid.ts, middleware/context-oracle/ctxoracle/test/unit/dao_crud.test.ts, middleware/context-oracle/ctxoracle/test/build/typecheck_provenance.test.ts, middleware/context-oracle/ctxoracle/test/build/fixtures/missing_provenance.ts]
   modify: []
   delete: []
 provides: []
@@ -1587,7 +1590,7 @@ depend on this being synchronous per AD-8's audit-log-before-emit ordering.
 The learned-record entry points accept only `trust='untrusted_repo'`
 unless every input is human-provenance (`FR-X4`).
 
-**Creates.** `src/stores/dao/files.ts`; `src/stores/dao/symbols.ts`; `src/stores/dao/import_edges.ts`; `src/stores/dao/symbol_refs.ts`; `src/stores/dao/test_map.ts`; `src/stores/dao/commits.ts`; `src/stores/dao/cochange_pairs.ts`; `src/stores/dao/landmines.ts`; `src/stores/dao/invariants.ts`; `src/stores/dao/human_facts.ts`; `src/stores/dao/corrections.ts`; `src/stores/dao/questions.ts`; `src/stores/dao/classify_state.ts`; `src/stores/dao/consumer_state.ts`; `src/stores/dao/session_log.ts`; `src/stores/dao/observed_actions.ts`; `src/stores/dao/whisper_audit.ts`; `src/stores/dao/faults.ts`; `src/stores/dao/whisper_stats.ts`; `src/stores/dao/lessons.ts`; `src/stores/dao/global_meta.ts` — one file per Phase A table; `src/stores/dao/schema_meta.ts` — one file per Phase A table; `src/util/ulid.ts` — ULID generator (AD-26).
+**Creates.** `src/stores/dao/files.ts`; `src/stores/dao/symbols.ts`; `src/stores/dao/import_edges.ts`; `src/stores/dao/symbol_refs.ts`; `src/stores/dao/test_map.ts`; `src/stores/dao/commits.ts`; `src/stores/dao/cochange_pairs.ts`; `src/stores/dao/landmines.ts`; `src/stores/dao/invariants.ts`; `src/stores/dao/human_facts.ts`; `src/stores/dao/corrections.ts`; `src/stores/dao/questions.ts`; `src/stores/dao/classify_state.ts`; `src/stores/dao/consumer_state.ts`; `src/stores/dao/session_log.ts`; `src/stores/dao/observed_actions.ts`; `src/stores/dao/whisper_audit.ts`; `src/stores/dao/faults.ts`; `src/stores/dao/regret.ts` — the plan-table DAO AD-18's regret row needs; `src/stores/dao/whisper_stats.ts`; `src/stores/dao/lessons.ts`; `src/stores/dao/global_meta.ts` — one file per Phase A table; `src/stores/dao/schema_meta.ts` — one file per Phase A table; `src/util/ulid.ts` — ULID generator (AD-26).
 
 **Source.** `AD-4`, `AD-5` (schemas); `AD-8` (audit-before-emit ordering
 demands a synchronous audit append); `AD-26` (ULIDs so concurrent writers
@@ -1650,10 +1653,10 @@ table when a store handle is given AND (mirror) to the JSONL channel (Step
 6). Every fault and every session record is written through these two
 writers, and that is the structural property AD-17 makes of its two
 tables: `test/conventions/fault_session_writers_only.test.ts` is an import
-scan over `dist/src/**` asserting that `stores/dao/faults.js` is imported
-only by `diag/fault_writer.js` and `diag/status.js`, and
-`stores/dao/session_log.js` only by `diag/session_writer.js`,
-`diag/status.js`, `diag/log.js`, and `diag/regret.js` — the readers §5.1
+scan over `dist/src/**` asserting that `dist/src/stores/dao/faults.js` is imported
+only by `dist/src/diag/fault_writer.js` and `dist/src/diag/status.js`, and
+`dist/src/stores/dao/session_log.js` only by `dist/src/diag/session_writer.js`,
+`dist/src/diag/status.js`, `dist/src/diag/log.js`, and `dist/src/diag/regret.js` — the readers §5.1
 names; every other module reaches the two tables through the writers.
 
 Create `src/hook/watchdog.ts` — the cooperative deadline the handler
@@ -1780,7 +1783,7 @@ whisper-side leakage independently.
 step: S12
 covers: [PA-3]
 files:
-  create: [middleware/context-oracle/ctxoracle/src/stores/dao/tuning.ts, middleware/context-oracle/ctxoracle/test/unit/tuning_dao.test.ts]
+  create: [middleware/context-oracle/ctxoracle/src/stores/dao/tuning.ts, middleware/context-oracle/ctxoracle/src/stores/dao/tuning_seeds.ts, middleware/context-oracle/ctxoracle/test/unit/tuning_dao.test.ts]
   modify: []
   delete: []
 provides: []
@@ -1844,7 +1847,7 @@ owner-tunable via `tune`, AD-20): `lexicon.command_class_test_runners` (`npm tes
 (`done`, `complete`, `completed`, `implemented`, `fixed`, `finished`),
 `index.ext_to_grammar` (the default extension → grammar table of Step 15).
 
-**Creates.** `src/stores/dao/tuning.ts` — tuning DAO + seeding.
+**Creates.** `src/stores/dao/tuning.ts` — tuning DAO + seeding; `src/stores/dao/tuning_seeds.ts` — the single seed source (values + provenance) `seedDefaults` and the reader both read.
 
 **Source.** `AD-5` (`tuning` is the writer-backed store for every tunable;
 scalar = one row per key, list = one member per row); `AD-14` (bar defaults,
@@ -2752,11 +2755,11 @@ no-mutation clause is unrepresentable (`T-24-1`). It is a type-only module
 
 Create `test/conventions/permission_decision_confined.test.ts` (AC-2's
 structural assertion made mechanical): an import scan over
-`dist/src/**/*.js` asserting that `blocks/verdict.js` is imported by
-exactly one module, `blocks/answer_drift.js` (the Phase C skill block will
+`dist/src/**/*.js` asserting that `dist/src/blocks/verdict.js` is imported by
+exactly one module, `dist/src/blocks/answer_drift.js` (the Phase C skill block will
 be the second permitted importer). The wire-level field is confined
 separately: `permissionDecision` appears in `dist/src/**` only in
-`hook/adapter.js` (`T-28-2`), which maps a `DenyVerdict` to it. Compiled
+`dist/src/hook/adapter.js` (`T-28-2`), which maps a `DenyVerdict` to it. Compiled
 tests under `dist/test/**` are outside both scans by construction.
 
 **Creates.** `src/blocks/verdict.ts` — the ONE deny-verdict producer (AD-10); `src/types/hook_response.ts` — the adapter's wire response type (type-only; no updatedInput/updatedToolOutput).
@@ -3816,7 +3819,7 @@ probe cache is Phase B's); V9, V10, V11 (re-executed 2026-09-07, §11.4).
 **Dependencies.** Declared above (`depends_on`).
 
 **Verification.** `T-36-1` (the interface compiles; the sentinel returns
-`phase_a_no_model`; no `dist/src/**` module outside `model/invoke.js`
+`phase_a_no_model`; no `dist/src/**` module outside `dist/src/model/invoke.js`
 imports it).
 
 **Impact if wrong.** Contained — no Phase A caller; a wrong shape is caught
@@ -3879,7 +3882,7 @@ file. The runner guard and this reconciliation are the two checks.
 step: S38
 covers: [PA-10]
 files:
-  create: [middleware/context-oracle/ctxoracle/scripts/check-cold-container.sh, middleware/context-oracle/ctxoracle/test/replay/answer_drift_off_to_unrelated.test.ts, middleware/context-oracle/ctxoracle/test/replay/answer_drift_reconciliation.test.ts, middleware/context-oracle/ctxoracle/test/replay/answer_drift_subagent_allow.test.ts, middleware/context-oracle/ctxoracle/test/replay/answer_drift_lag_hold.test.ts, middleware/context-oracle/ctxoracle/test/replay/deny_after_answer_lag.test.ts, middleware/context-oracle/ctxoracle/test/replay/deny_health_induced.test.ts, middleware/context-oracle/ctxoracle/test/replay/session_start_startup.test.ts, middleware/context-oracle/ctxoracle/test/replay/session_start_resume.test.ts, middleware/context-oracle/ctxoracle/test/replay/stop_outstanding_question_line.test.ts, middleware/context-oracle/ctxoracle/test/replay/coupling_nonobvious.test.ts, middleware/context-oracle/ctxoracle/test/replay/orientation_mixed_shape.test.ts, middleware/context-oracle/ctxoracle/test/replay/reuse_mixed_language.test.ts, middleware/context-oracle/ctxoracle/test/replay/consequence_coupled_tests.test.ts, middleware/context-oracle/ctxoracle/test/replay/completeness_paired_change.test.ts, middleware/context-oracle/ctxoracle/test/replay/bar_no_cap.test.ts, middleware/context-oracle/ctxoracle/test/replay/bar_hazard_bypass.test.ts, middleware/context-oracle/ctxoracle/test/replay/dedup_read_set.test.ts, middleware/context-oracle/ctxoracle/test/replay/corpus_floor.test.ts, middleware/context-oracle/ctxoracle/test/replay/rumor_rule.test.ts, middleware/context-oracle/ctxoracle/test/replay/session_boundary_dedup.test.ts, middleware/context-oracle/ctxoracle/test/replay/stop_single_cycle.test.ts, middleware/context-oracle/ctxoracle/test/replay/security_ac11.test.ts, middleware/context-oracle/ctxoracle/test/replay/subagent_delivery.test.ts, middleware/context-oracle/ctxoracle/test/replay/language_config_added.test.ts, middleware/context-oracle/ctxoracle/test/replay/idle_silence.test.ts, middleware/context-oracle/ctxoracle/test/replay/seeded_facts_exit.test.ts, middleware/context-oracle/ctxoracle/test/replay/verification_headline.test.ts, middleware/context-oracle/ctxoracle/test/replay/warning_headline.test.ts, middleware/context-oracle/ctxoracle/test/replay/answer_drift_overfire.test.ts, middleware/context-oracle/ctxoracle/test/replay/answer_drift_residual.test.ts, middleware/context-oracle/ctxoracle/test/build_time/marker_presence.ts, middleware/context-oracle/ctxoracle/test/build_time/grammar_inventory_check.ts]
+  create: [middleware/context-oracle/ctxoracle/scripts/check-cold-container.sh, middleware/context-oracle/ctxoracle/test/replay/hook_stream_fixtures/, middleware/context-oracle/ctxoracle/test/replay/answer_drift_off_to_unrelated.test.ts, middleware/context-oracle/ctxoracle/test/replay/answer_drift_reconciliation.test.ts, middleware/context-oracle/ctxoracle/test/replay/answer_drift_subagent_allow.test.ts, middleware/context-oracle/ctxoracle/test/replay/answer_drift_lag_hold.test.ts, middleware/context-oracle/ctxoracle/test/replay/deny_after_answer_lag.test.ts, middleware/context-oracle/ctxoracle/test/replay/deny_health_induced.test.ts, middleware/context-oracle/ctxoracle/test/replay/session_start_startup.test.ts, middleware/context-oracle/ctxoracle/test/replay/session_start_resume.test.ts, middleware/context-oracle/ctxoracle/test/replay/stop_outstanding_question_line.test.ts, middleware/context-oracle/ctxoracle/test/replay/coupling_nonobvious.test.ts, middleware/context-oracle/ctxoracle/test/replay/orientation_mixed_shape.test.ts, middleware/context-oracle/ctxoracle/test/replay/reuse_mixed_language.test.ts, middleware/context-oracle/ctxoracle/test/replay/consequence_coupled_tests.test.ts, middleware/context-oracle/ctxoracle/test/replay/completeness_paired_change.test.ts, middleware/context-oracle/ctxoracle/test/replay/bar_no_cap.test.ts, middleware/context-oracle/ctxoracle/test/replay/bar_hazard_bypass.test.ts, middleware/context-oracle/ctxoracle/test/replay/dedup_read_set.test.ts, middleware/context-oracle/ctxoracle/test/replay/corpus_floor.test.ts, middleware/context-oracle/ctxoracle/test/replay/rumor_rule.test.ts, middleware/context-oracle/ctxoracle/test/replay/session_boundary_dedup.test.ts, middleware/context-oracle/ctxoracle/test/replay/stop_single_cycle.test.ts, middleware/context-oracle/ctxoracle/test/replay/security_ac11.test.ts, middleware/context-oracle/ctxoracle/test/replay/subagent_delivery.test.ts, middleware/context-oracle/ctxoracle/test/replay/language_config_added.test.ts, middleware/context-oracle/ctxoracle/test/replay/idle_silence.test.ts, middleware/context-oracle/ctxoracle/test/replay/seeded_facts_exit.test.ts, middleware/context-oracle/ctxoracle/test/replay/verification_headline.test.ts, middleware/context-oracle/ctxoracle/test/replay/warning_headline.test.ts, middleware/context-oracle/ctxoracle/test/replay/answer_drift_overfire.test.ts, middleware/context-oracle/ctxoracle/test/replay/answer_drift_residual.test.ts, middleware/context-oracle/ctxoracle/test/build_time/marker_presence.ts, middleware/context-oracle/ctxoracle/test/build_time/grammar_inventory_check.ts]
   modify: [.github/workflows/context-oracle-ctxoracle.yml]
   delete: []
 provides: []
@@ -4295,8 +4298,12 @@ architecture made its 26 design decisions; the plan decides ordering, test
 mechanics, the values the architecture left open, and the small set of
 implementation-level shapes it delegated. Every decision below was reasoned
 through the Clear Thought MCP server (`sequential_thinking` chains and, where
-options competed, `decision_framework` multi-criteria scoring; the trace was
-taken on 2026-09-07 and its conclusions and reasoning are what appears here).
+options competed, `decision_framework` multi-criteria scoring). The captured
+stdio logs are `docs/reviews/2026-09-07-plan-tool-traces.md` (the planning
+run: D-plan-1, 3, 7, 9, 11, 12, 14, and the first chains for 6, 8, 10) and
+`docs/reviews/2026-09-07-plan-tool-traces-2.md` (the corrections run:
+D-plan-2, 4, 5, 6, 8, 10, 13, 15–26); where the two disagree on a decision,
+the second file's chain is the one whose conclusion appears here.
 The §7 steps that carry plan-level judgment beyond transcribing an
 architecture decision are named against their entry so a reader can find
 every such step: Step 1 (D-plan-2, D-plan-3, D-plan-13), Step 5 (D-plan-14,
@@ -5711,8 +5718,9 @@ this session; line numbers are of that revision.
   `codegraph_find_symbol_dependents`, `codegraph_get_path_between`,
   `codegraph_find_related_docs`, `codegraph_verify_doc`,
   `codegraph_diff_surface`, `codegraph_list_docs` (and others). The Clear
-  Thought trace for §10 comprises 43 `sequential_thinking` thoughts and 5
-  scored `decision_framework` evaluations.
+  Thought logs are the two trace files §10 names; each carries every call
+  verbatim with its thought numbering and scored options, so the coverage
+  of §10's decisions is read from the files, not from a count stated here.
 
 - **Claim.** A module-private `unique symbol` brand on `DenyVerdict` makes
   an annotated construction outside `src/blocks/verdict.ts` fail to compile
@@ -6160,10 +6168,10 @@ rules 1 and 2); fixture repositories are real git repositories produced by
 
 - **T-10-3 — Fault and session records are written only through the two writers.**
   - **File.** `test/conventions/fault_session_writers_only.test.ts`.
-  - **Verifies.** Step 10 — over `dist/src/**`, `stores/dao/faults.js` is
-    imported only by `diag/fault_writer.js` and `diag/status.js`;
-    `stores/dao/session_log.js` only by `diag/session_writer.js`,
-    `diag/status.js`, `diag/log.js`, `diag/regret.js` (the readers §5.1
+  - **Verifies.** Step 10 — over `dist/src/**`, `dist/src/stores/dao/faults.js` is
+    imported only by `dist/src/diag/fault_writer.js` and `dist/src/diag/status.js`;
+    `dist/src/stores/dao/session_log.js` only by `dist/src/diag/session_writer.js`,
+    `dist/src/diag/status.js`, `dist/src/diag/log.js`, `dist/src/diag/regret.js` (the readers §5.1
     names).
   - **Level.** Unit (import scan over `dist/src/**`).
   - **Real/doubles.** Real `dist/`; no doubles.
@@ -6662,8 +6670,8 @@ rules 1 and 2); fixture repositories are real git repositories produced by
 
 - **T-24-2 — Deny confinement: importer set.**
   - **File.** `test/conventions/permission_decision_confined.test.ts`.
-  - **Verifies.** Step 24 — over `dist/src/**`, `blocks/verdict.js` is
-    imported by exactly one module, `blocks/answer_drift.js`.
+  - **Verifies.** Step 24 — over `dist/src/**`, `dist/src/blocks/verdict.js` is
+    imported by exactly one module, `dist/src/blocks/answer_drift.js`.
   - **Level.** Unit (import scan over `dist/src/**`, both specifier forms).
   - **Real/doubles.** Real `dist/`; no doubles.
   - **Data.** Clean build; a seeded second importer in a temporary compiled
@@ -6799,7 +6807,7 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **File.** `test/unit/model_invoke_stub.test.ts`.
   - **Verifies.** Step 36 — the interface compiles; `phaseANotImplemented.invoke`
     returns `{ok:false, reason:'phase_a_no_model'}`; no `dist/src/**` module
-    other than `model/invoke.js` imports it.
+    other than `dist/src/model/invoke.js` imports it.
   - **Level.** Unit + built-output import scan.
   - **Real/doubles.** Real function; real `dist/`; no doubles.
   - **Data.** Any request; the import scan. Technique: equivalence
@@ -7913,7 +7921,8 @@ bin, and its closed disposition.
   set; executed three ways 2026-09-07 (§11.4).
 - **Q37 (Step 39).** What is the denominator of "the fraction of human
   questions the recognizer opened"? **Disposition.** Answered — D-plan-10:
-  a seeded labelled sample under OL-C5's definition, published with the
+  a seeded labelled sample under the plan's written rule (D-plan-26),
+  labelled before replay and blind to the store, published with the
   report; leg 2's re-asks and corrections as closed-loop ground truth.
 - **Q38 (Step 39).** What does leg 1 mount as `transcript_path`?
   **Disposition.** Answered — D-plan-10: a per-event prefix of the stored
@@ -7924,18 +7933,54 @@ bin, and its closed disposition.
   listener was never contacted either way (§11.4); D-plan-23.
 - **Q40 (Step 24).** Can AD-10's single producer and AD-6's single naming
   site both hold when the deny is a wire field? **Disposition.** Answered:
-  yes — the verdict is an internal branded value only `blocks/verdict.ts`
-  can construct (`T-24-3`) and only `answer_drift.ts` imports (`T-24-2`);
-  the adapter alone writes `permissionDecision` (`T-28-2`).
+  yes — the verdict is an internal branded value whose annotated
+  construction fails outside `blocks/verdict.ts` (`T-24-3`; an `as`
+  assertion still compiles, §11.4) and which only `answer_drift.ts`
+  imports (`T-24-2`, the structural guard); the adapter alone writes
+  `permissionDecision` (`T-28-2`).
 - **Q41 (Step 23).** Where may a deferral phrase sit in a turn for the
-  turn not to clear? **Disposition.** Answered: anywhere — the sentence
-  containing it is discarded whole, and the turn clears only on what
-  survives (Step 23; `T-23-2`); AD-9's "not a recognized content-free
-  deferral" carries no positional restriction.
+  turn not to clear? **Disposition.** Answered: anywhere — the clause
+  containing it is discarded, and the turn clears only on what survives
+  (Step 23; `T-23-2`; D-plan-24 — executed over the case table, §11.4);
+  AD-9's "not a recognized content-free deferral" carries no positional
+  restriction, and FR-B5 forbids holding on a substantive clause that
+  shares a sentence with one.
 - **Q42 (Step 30).** Is a fact no generator ever produced a candidate for
   inside the regret population? **Disposition.** Answered: yes — FR-L4
   says "below-bar, or never triggered"; the population is store-held
   facts (Step 30; `T-30-1`).
+- **Q43 (Step 39).** Does a hook entry written to `.claude/settings.json`
+  during a session take effect in that session? **Disposition.** Answered:
+  not relied on — hooks in settings files load at session start under the
+  workspace-trust rule, and a `-p` session does not count as accepting it
+  (hooks reference, §11.4, `probe:13_hooks_reference.optional`); the leg-2
+  protocol installs in a bootstrap session and measures only in sessions
+  started afterwards, with a liveness row as the precondition (D-plan-26).
+- **Q44 (Step 39).** How many `Stop` events does one turn produce?
+  **Disposition.** Answered: one — the reference's once-per-turn cadence
+  (§11.4); leg 1's reconstruction emits one `Stop` after the last assistant
+  entry that precedes the next human turn (D-plan-10).
+- **Q45 (Step 38).** Does the cold-container image carry `git`?
+  **Disposition.** Answered: `node:22-bookworm` does (its
+  `buildpack-deps` scm layer installs it) and `-slim` does not
+  (`probe:14_docker_node_git.optional`); the job runs on
+  `node:22.16.0-bookworm`.
+- **Q46 (Step 3).** Does T-3-3's contention schedule produce its asserted
+  outcomes every time? **Disposition.** Answered: the schedule is A holding
+  0–400 ms, C at 100 ms (`StoreBusy` after two attempts), B at 250 ms
+  (success on its retry), identical across three runs
+  (`probe:07_sqlite_busy_schedule`, §11.4).
+- **Q47 (Step 24).** Does the `unique symbol` brand prevent every
+  construction of a `DenyVerdict` outside its module? **Disposition.**
+  Answered: no — an `as` assertion compiles; an annotated construction
+  fails with `TS2741` (`probe:05_deny_brand`); the importer scan `T-24-2`
+  is the structural guard and the brand is stated as confining annotated
+  construction only.
+- **Q48 (Step 33).** Can `hooks_not_firing` see a wiring that never fired?
+  **Disposition.** Answered: not with the per-session detector alone — the
+  totally-dead half compares transcripts for the repository's slug against
+  the newest liveness row, and `init`/`status` print the pinned interpreter
+  with an existence check (D-plan-25; `T-33-4` case (c)).
 
 ### 14.2 Bin 2 — user decisions
 
@@ -7959,7 +8004,7 @@ no exclusion or deferral beyond the spec's own phasing was proposed.
 
 ### 14.4 Reconciliation sweep
 
-Three passes over the assembled document, 2026-09-07.
+Five passes over the assembled document, 2026-09-07.
 
 - **Pass 1 (mechanical + read).** A script over the plan reconciled every
   T-ID defined in §12 against every step's Verification field, every
@@ -7975,8 +8020,19 @@ Three passes over the assembled document, 2026-09-07.
   of every step's
   `What changes` and `Verification` against §5.1 and §12 and of every
   register entry against the step it names. Register entries added:
-  Q33–Q42, each closed. The final read added zero entries. Bin 2 remains
-  empty; bins 1 and 3 are fully dispositioned.
+  Q33–Q42, each closed.
+- **Pass 4 (round-3 corrections, mechanical re-check).** After the round-3
+  findings were applied and the plan converted to the skill's step
+  declarations: the derivation script's `--check` (declarations, build
+  order, generated regions, probe citations) and the probe run, plus a read
+  of every changed step and its tests against §10, §11, and §12. Register
+  entries added: Q43–Q48, each closed; Q37, Q40, Q41 re-derived from the
+  changed decisions.
+- **Pass 5 (whole-document re-read).** The same checks re-run on the pass-4
+  text, plus a read of every register entry against the step it names and
+  of every §10 decision against its trace file. Zero reconciliation
+  defects; added zero entries. Bin 2 remains empty; bins 1 and 3 are fully
+  dispositioned.
 
 ---
 

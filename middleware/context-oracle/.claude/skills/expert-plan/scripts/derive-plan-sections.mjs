@@ -76,7 +76,9 @@
 // mention's first k words joined by `-`, for any k) must resolve to a step among
 // the mentioning step's declared or transitive dependencies. Explanation of a
 // future consumer is written without backticking the future artifact. A path
-// created by two steps is an error.
+// created by two steps is an error. A backticked path whose first segment is
+// a directory some step creates in, and that no step's files: lists declare,
+// is an error (a phantom file no step builds).
 //
 // Executed evidence is cited as `probe:<name>`; the probe lives in the plan's
 // sibling directory <plan-stem>.probes/ and is run by run-plan-probes.mjs. This
@@ -457,6 +459,30 @@ function processDocument(text) {
         }
         return owners;
       };
+      // A mention shaped like a path under a directory some step creates in
+      // (its first segment equals a segment of a declared create: path) must
+      // match a declared create/modify/delete path: a file no step declares
+      // is a phantom the implementer cannot build.
+      const declaredAll = new Set();
+      const createSegments = new Set();
+      for (const s of steps) {
+        for (const kind of ['create', 'modify', 'delete']) for (const p of s.files[kind]) declaredAll.add(p.replace(/\/+$/, ''));
+        for (const p of s.files.create) for (const seg of p.replace(/\/+$/, '').split('/').slice(0, -1)) createSegments.add(seg);
+      }
+      const isDeclared = (m) => {
+        const path = m.replace(/\/+$/, '');
+        for (const p of declaredAll) {
+          if (p === path || p.endsWith('/' + path)) return true;
+          if (m.endsWith('/') && (p.startsWith(path + '/') || p.includes('/' + path + '/'))) return true;
+        }
+        return false;
+      };
+      const looksLikeUndeclaredPath = (m) => {
+        if (!/^[\w.@+-]+(\/[\w.@+-]+)+\/?$/.test(m) || m.includes('*')) return false;
+        if (!/\.[A-Za-z0-9]+$/.test(m.replace(/\/+$/, '')) && !m.endsWith('/')) return false;
+        const first = m.split('/')[0];
+        return createSegments.has(first) && !isDeclared(m);
+      };
       for (let idx = 0; idx < ordered.length; idx++) {
         const s = ordered[idx];
         if (!s.id) continue;
@@ -474,6 +500,11 @@ function processDocument(text) {
           while ((mm = re.exec(l)) !== null) {
             const mention = mm[1];
             if (reported.has(mention)) continue;
+            if (looksLikeUndeclaredPath(mention)) {
+              reported.add(mention);
+              errors.push(`step ${s.id} (line ${i + 1}) names \`${mention}\`, a path under a directory the plan creates in, which no step's files: declaration names`);
+              continue;
+            }
             const owners = ownersOfMention(mention);
             if (owners.size === 0) continue;
             if (owners.has(s.id)) continue;
@@ -715,6 +746,7 @@ function selfCheck() {
     ['undeclared consumption of a provided name', base(VALID, 'elements: [R-1]', S0()).replace('Step S1.', 'Step S1 runs `tool run --fast`.'), 'not among S1\'s declared or transitive dependencies'],
     ['missing Plan heading', base(VALID).replace('## 7. Plan', '## 7. Steps'), 'no "Plan" heading found'],
     ['document title is not the Plan section', base(VALID).replace('# t', '# Plan for t').replace('## 7. Plan', '## 7. Steps'), 'no "Plan" heading found'],
+    ['undeclared path under a created directory', base(VALID, 'elements: [R-1]', S0()).replace('Step S1.', 'Step S1 reads `src/nothing.js`.'), "which no step's files: declaration names"],
     ['step-decl outside the Plan section', base(VALID).replace('## 12. Test specifications', '## 7. Plan\n\n## 12. Test specifications').replace('## 7. Plan\n\nStep S1.', '## 6. Foundation corrections\n\nStep S1.'), 'lies outside the Plan section'],
     // M-1: the fence-indentation constraint produced a defect in three
     // consecutive rounds (J-3, K-4, L-3) with no guard — an indented fence
