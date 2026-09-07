@@ -1456,9 +1456,12 @@ CREATE INDEX files_path ON files(path);
 The two FTS5 virtual tables are a **separate, conditional** migration
 (D-plan-28),
 `src/stores/migrations/001b_phase_a_fts.sql`, which the runner applies only
-when `schema_meta.fts_state = 'fts5'` (Step 3's `probeFts5` returned true
-at `init`); on `'fallback'` it is skipped and never retried, and the search
-interface (Step 14) uses the indexed `LIKE` path (AD-2):
+when `schema_meta.fts_state = 'fts5'` — the row the runner itself records,
+right after 001 has created `schema_meta`, from its `fts` argument (Step
+3's `probeFts5` result, which `init` passes, Step 31); on `'fallback'` it
+is skipped and never retried (the row is written once, when the key is
+absent, so a later run cannot flip it), and the search interface (Step 14)
+uses the indexed `LIKE` path (AD-2):
 
 ```sql
 -- 001b_phase_a_fts.sql (applied only when schema_meta.fts_state = 'fts5')
@@ -1477,9 +1480,15 @@ uniform table-creation criterion (no table without a same-phase writer)
 means those arrive with their writing phase's migration.
 
 Add `src/stores/migration_runner.ts` — `applyMigrations(store, {fts:
-boolean})` reads `schema_meta.schema_version`, applies the numbered
-migrations in order, skipping a migration whose name carries the `_fts`
-suffix when `fts` is false, and records the new version. Forward-only per
+boolean})` reads `schema_meta.schema_version` (0 when the table does not
+exist yet — an empty store), applies the numbered migrations in order,
+and between 001 and 001b records `schema_meta.fts_state` — `'fts5'` when
+`fts` is true, `'fallback'` otherwise — only when that key is absent, so
+the state a store was created under is never retried; it then applies a
+migration whose name carries the `_fts` suffix only when
+`schema_meta.fts_state = 'fts5'`, skipping it otherwise, and records the
+new version. The runner is the row's only writer and `init` (Step 31) its
+only caller. Forward-only per
 AD-25. The `.sql` files are read at runtime from the package's own `src/`
 tree, resolved from `import.meta.url` of the compiled runner
 (`../../../src/stores/migrations/`), so the package ships `src/` beside
@@ -1507,8 +1516,9 @@ migrations).
 4. **What this is NOT — and why.** Not a generic `facts(kind, json)` table
    (`FR-K6` violation, exactly what the provenance CHECK is designed to
    prevent). Not a runtime version comparison at every open (adds latency;
-   the migration runner at `init`/`index` open is enough because Phase A
-   ships one schema version). Not shipping dormant tables (AD-4's criterion,
+   the migration runner at `init` — its one caller, Step 31 — is enough
+   because Phase A ships one schema version). Not shipping dormant tables
+   (AD-4's criterion,
    applied uniformly).
 
 **Dependencies.** Declared above (`depends_on`).
@@ -3501,11 +3511,15 @@ depends_on: [S1, S2, S3, S4, S5, S7, S8, S12, S14, S15, S28]
 **What changes.** Register the `init` verb in Step 28's `dispatch.ts`
 switch. Create `src/cli/init.ts`:
 1. `assertRuntime()` (Step 2); open the stores (Step 3) and `probeFts5`;
-   on a failed runtime check print a plain-language error and exit 1; on a
-   failed probe record `schema_meta.fts_state = 'fallback'` before the
-   migrations run, so `applyMigrations(store, {fts: false})` skips the FTS
-   migration and the `LIKE` path is what `search.ts` uses; the summary
-   names the state.
+   on a failed runtime check print a plain-language error and exit 1. The
+   probe's result is not written here — `schema_meta` does not exist
+   before migration 001 — it is passed to `applyMigrations` (item 3), which
+   records it as `schema_meta.fts_state` once 001 has created the table
+   and applies 001b only under `'fts5'` (Step 7); on `false` the `LIKE`
+   path is what `search.ts` uses. The summary names the recorded state
+   and, when this run's probe disagrees with a state recorded by an earlier
+   `init` (the row is written once), says so in plain language and names
+   the recovery — `deinit --purge`, then `init` (AD-25 forward-only; Q7).
 2. `resolveRepoKey` (Step 5). Keying-mode change detection: compute the
    identity and key under **every** rule that applies to this checkout
    (`commit` when the history is full, `url` when a remote exists, `path`
@@ -3513,9 +3527,10 @@ switch. Create `src/cli/init.ts`:
    exists under a mode other than the resolved one, print the
    plain-language warning AD-20 specifies (naming both keys and modes) and
    offer the `export`/`import` migration before proceeding.
-3. `ensureLayout` (Step 4); `applyMigrations` for the project store (001,
-   001b when `fts_state` is `'fts5'`) and the global store (002) (Steps 7,
-   8); `seedDefaults` (Step 12).
+3. `ensureLayout` (Step 4); `applyMigrations(store, {fts: <the probe
+   result>})` for the project store (001; `fts_state` recorded; 001b when
+   the row reads `'fts5'`) and `applyMigrations` for the global store
+   (002) (Steps 7, 8); `seedDefaults` (Step 12).
 4. Write hook entries into `<repoPath>/.claude/settings.json` for the eight
    AD-6 events: each entry `{ "type": "command", "command": "\"<node>\"
    \"<dispatch>\" hook <event>", "timeout": 5 }` where `<node>` is
@@ -4497,7 +4512,9 @@ counted-session invocation), and
 `docs/reviews/2026-09-07-plan-tool-traces-5.md` (the round-5 correction of
 issue S2: D-plan-29), and
 `docs/reviews/2026-09-07-plan-tool-traces-6.md` (the round-5 correction of
-issue S-2: the re-derivation of D-plan-24); where the files disagree on a
+issue S-2: the re-derivation of D-plan-24), and
+`docs/reviews/2026-09-07-plan-tool-traces-7.md` (the round-5 correction of
+issue M1: the amendment to D-plan-28); where the files disagree on a
 decision, the latest file's chain is the one whose conclusion appears here.
 The §7 steps that carry plan-level judgment beyond transcribing an
 architecture decision are named against their entry so a reader can find
@@ -4506,7 +4523,7 @@ D-plan-15), Step 7 (D-plan-28), Step 9 (D-plan-27), Step 12 (D-plan-7, D-plan-24
 Step 14 (D-plan-28, D-plan-29), Step 15 (D-plan-29), Step 23 (D-plan-19,
 D-plan-24), Step 25 (D-plan-9,
 D-plan-27), Step 26 (D-plan-16, D-plan-27), Step 29 (D-plan-5, D-plan-12),
-Step 31 (D-plan-6, D-plan-25), Step 32 (D-plan-4), Step 33 (D-plan-25),
+Step 31 (D-plan-6, D-plan-25, D-plan-28), Step 32 (D-plan-4), Step 33 (D-plan-25),
 Step 36 (D-plan-8),
 Step 38 (D-plan-5, D-plan-11, D-plan-17), Step 39 (D-plan-10, D-plan-11,
 D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
@@ -4996,22 +5013,38 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   earlier.
 - **D-plan-28 — The FTS5 DDL lives in its own migration,
   `001b_phase_a_fts.sql`, applied only when `schema_meta.fts_state =
-  'fts5'`; the `LIKE` path's indexes (`symbols_name`, `files_path`) are
-  always created by 001; one module, `src/index/search.ts`, exposes
-  `symbolSearch` and `pathSearch` with the implementation chosen by
-  `fts_state` at call time; the migration runner reads the `.sql` files
-  from the package's shipped `src/` tree.** *Reasoning.* AD-2 mandates that
-  when the FTS5 probe fails, search falls back to indexed `LIKE`/token-prefix
-  queries behind the same interface and `status` says so; a migration that
-  creates the virtual tables unconditionally makes `init` fail on a runtime
-  without FTS5 after announcing the fallback, and a caller that knows which
-  implementation ran is a second interface. Under this shape no caller (the
-  indexer, the Orientation and Reuse genres) knows which ran; `T-7-1` runs
-  the migrations under both flags and `T-14-1` asserts the same hit set
-  under both; shipping the `.sql` files in `src/` (Step 1's `files` list)
-  with the runner resolving them from `import.meta.url` means `tsc`, which
+  'fts5'` — a row the migration runner itself records from `init`'s probe
+  result right after 001 creates `schema_meta`, once, never retried; the
+  `LIKE` path's indexes (`symbols_name`, `files_path`) are always created
+  by 001; one module, `src/index/search.ts`, exposes `symbolSearch` and
+  `pathSearch` with the implementation chosen by `fts_state` at call time;
+  the migration runner reads the `.sql` files from the package's shipped
+  `src/` tree.** *Reasoning.* AD-2 mandates that when the FTS5 probe
+  fails, search falls back to indexed `LIKE`/token-prefix queries behind
+  the same interface and `status` says so; a migration that creates the
+  virtual tables unconditionally makes `init` fail on a runtime without
+  FTS5 after announcing the fallback, and a caller that knows which
+  implementation ran is a second interface. The row's writer sits inside
+  the runner's ordered walk because nothing can write `schema_meta` before
+  001 creates it (AD-4) and 001b's decision must follow it: `init` writing
+  the row between two runner calls would split that walk and give the row
+  two writers, and a runner that probes FTS5 itself could force the
+  `'fallback'` state in `T-7-1` only through a doubled probe; so `init`
+  passes the probe result as the runner's `fts` flag, the runner records
+  the row when the key is absent and decides 001b by the row, and a later
+  run cannot flip a store's state (AD-25's forward-only migrations; the
+  rebuild path is `deinit --purge` then `init`, Q7). Under this shape no
+  caller (the indexer, the Orientation and Reuse genres) knows which ran;
+  `T-7-1` runs the migrations under both flags, asserts the recorded state
+  and its write-once rule, and `T-14-1` asserts the same hit set under
+  both; shipping the `.sql` files in `src/` (Step 1's `files` list) with
+  the runner resolving them from `import.meta.url` means `tsc`, which
   emits no `.sql`, needs no copy step. This is AD-2's own requirement given
-  a shape, not a new capability.
+  a shape, not a new capability. Score (executable on an empty store; one
+  writer of `fts_state` on both paths; prose and signature agree; both
+  states forced in `T-7-1` without a double; never-retried semantics
+  explicit): the runner records the row 1.0, `init` writes it between two
+  runner calls 0.7, the runner probes FTS5 itself 0.7.
 - **D-plan-29 — `runIndex` takes its frontend list as an argument; Step 14
   builds and tests the indexer skeleton with an empty list, Step 15 creates
   both frontends and `defaultFrontends()`, and the `index` verb (Step 28)
@@ -5593,11 +5626,13 @@ collapse-hunt attacks these questions harder and hunts for the ones missing.
    outright.*
 3. **Answer.** AD-2 chose the fallback over the refusal, and this is the
    smallest shape that honours it: one extra migration applied by one
-   flag, two indexes that cost nothing under FTS5, one interface with the
-   choice made in one place. `T-7-1` and `T-14-1` run both paths in every
-   CI run, so the path has a user on every pull request whether or not
-   the exit run's machines lack FTS5, and `status` names the state so the
-   owner knows which path he is on. Cite: AD-2;
+   recorded state — seeded once from `init`'s probe by the runner that
+   applies it, so it exists before anything reads it and no later run
+   flips it — two indexes that cost nothing under FTS5, one interface with
+   the choice made in one place. `T-7-1` and `T-14-1` run both paths in
+   every CI run, so the path has a user on every pull request whether or
+   not the exit run's machines lack FTS5, and `status` names the state so
+   the owner knows which path he is on. Cite: AD-2; AD-25;
    `probe:02_sqlite_features` (this runtime's FTS5 state); `T-7-1`,
    `T-14-1`.
 4. **Steers toward.** One search interface, with the state visible in
@@ -6610,9 +6645,12 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Verifies.** Step 7.
   - **Level.** Integration (real engine + the real migration file).
   - **Real/doubles.** Real `node:sqlite`; no doubles.
-  - **Data.** Empty DB → migrations with `fts: true` (001 and 001b) and,
-    on a second empty DB, with `fts: false` (001 only; `sqlite_master`
-    holds no `fts_*` table and the two `LIKE` indexes exist); per knowledge
+  - **Data.** Empty DB → migrations with `fts: true` (001, `fts_state` =
+    `'fts5'` recorded, 001b) and, on a second empty DB, with `fts: false`
+    (001 only; `fts_state` = `'fallback'`; `sqlite_master` holds no `fts_*`
+    table and the two `LIKE` indexes exist); the second DB migrated again
+    with `fts: true` (`fts_state` still `'fallback'`, still no `fts_*`
+    table — the row is written once); per knowledge
     table one valid row and one row per CHECK-constrained column violating
     it; the `questions` sequence open → duplicate open (rejected) →
     answered → re-open (accepted); `sqlite_master` must not contain
@@ -6620,9 +6658,12 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     `genre_state`. Technique: decision table over CHECKs and the FTS flag;
     state-transition for the index.
   - **NOT asserts.** DAO behaviour (T-9-1). **Fails when** the migration
-    errors under either flag, OR the `fts: false` run creates an `fts_*`
-    table or lacks an index, OR any CHECK accepts its negative, OR the
-    dedup index deviates from the sequence, OR a forbidden table exists.
+    errors under either flag, OR `fts_state` is not `'fts5'` after the
+    first run or `'fallback'` after the second, OR the `fts: false` run
+    creates an `fts_*` table or lacks an index, OR the re-run flips the
+    recorded state or creates an `fts_*` table, OR any CHECK accepts its
+    negative, OR the dedup index deviates from the sequence, OR a
+    forbidden table exists.
 
 - **T-8-1 — Global migration: exactly the four tables.**
   - **File.** `test/unit/migrations_global.test.ts`.
@@ -8639,9 +8680,11 @@ bin, and its closed disposition.
   §11.4); the totally-dead detector calls it, so `locate.ts` stays the one
   module that knows the layout (AD-11).
 - **Q51 (Steps 7, 14).** What do `init` and search do on a runtime whose
-  SQLite lacks FTS5? **Disposition.** Answered — D-plan-28: `init` applies
-  001 and skips 001b, `symbolSearch`/`pathSearch` take the indexed `LIKE`
-  path behind the same interface, `status` prints `fts_state`; `T-7-1` and
+  SQLite lacks FTS5? **Disposition.** Answered — D-plan-28: `init` passes
+  the probe's `false` to the migration runner, which applies 001, records
+  `fts_state = 'fallback'` once the table exists, and skips 001b (never
+  retried); `symbolSearch`/`pathSearch` take the indexed `LIKE` path
+  behind the same interface, `status` prints `fts_state`; `T-7-1` and
   `T-14-1` run both paths.
 - **Q52 (Step 29).** Where and when is the ≈400 MB `large-store` built?
   **Disposition.** Answered — D-plan-5 as amended: Step 29's generator
