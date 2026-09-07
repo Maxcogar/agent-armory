@@ -1209,26 +1209,34 @@ was preparing for.
 proposed fix — a plan-local gate script, a written execute-before-write
 rule, and a dry-run implementer pass before each review — was rejected by
 Max Cogar: a rule is not a mechanism, another review is not a fix, and
-tooling that works for one plan has no value. The fix that stands is in the
-expert-plan skill, where every plan written under it inherits it
-(`claude-plugins/expert-dev-tools/skills/expert-plan/`, `SKILL-CHANGELOG.md`
-entry 18; synced to this project's `.claude/skills/expert-plan/`): (1) each
-structural fact is declared once — a `step-decl` block per step — and every
-surface that restates it (the file table, the coverage table, the step→test
-table) is generated from the declarations, so a second copy cannot drift;
-(2) build order is checked from the declarations — a step's text may name
-only artifacts it or a declared or transitive dependency creates or provides,
-and a path no step declares is an error — so the class behind eleven of
-round 3's findings fails a check before it reaches a reviewer; (3) an
-executed claim is kept as a probe beside the plan with its recorded output
-and re-run by the gate, so a transcription of a one-off run cannot outlive
-the environment it was true in; (4) CI runs the gate on every pull request
-that touches the plan. Run on the round-3 text, the build-order check
-reproduced every round-3 build-order finding and two the round did not
-name. The general principle: when a correction loop regresses, the
-mechanism that verifies the corrections is the defect; the fix is a check
-that fails on the class, installed where every future artifact of that kind
-inherits it — never a rule, never another pass, never a check that knows one
-document's shape. Evidence: the round-2 and round-3 reviews, the skill's
-changelog entry, and `docs/reviews/2026-09-07-round-4-author-gates-review.md`
+tooling that works for one plan has no value. The fix that stands lives in
+**this project's own copy of the expert-plan skill**
+(`.claude/skills/expert-plan/`: `scripts/derive-plan-sections.mjs`,
+`scripts/run-plan-probes.mjs`, and the additions to
+`references/output-contract.md` that every plan written under this copy is
+graded against): (1) each structural fact is declared once — a `step-decl`
+block per step — and every surface that restates it (the file table, the
+coverage table, the step→test table) is generated from the declarations,
+so a second copy cannot drift; (2) build order is checked from the
+declarations — a step's text may name only artifacts it or a declared or
+transitive dependency creates or provides, consumption by exported name
+counts (a bare call-shaped identifier shared between steps must be
+provided), an action item may not name a later step, and a path no step
+declares is an error; (3) an executed claim is kept as a probe beside the
+plan with its recorded output, re-run by the gate, repeated under CPU
+load, and scoped to the section of a page it cites, so a transcription of
+a one-off run cannot outlive the environment it was true in; (4) after a
+correction pass, `--impact <rev>` lists every authored surface that
+restates a changed step, so re-derivation is a checklist rather than
+memory; (5) CI runs the gate on every pull request that touches the plan.
+The general principle: when a correction loop regresses, the mechanism
+that verifies the corrections is the defect; the fix is a check that fails
+on the class, installed where every future artifact of that kind inherits
+it — never a rule, never another pass, never a check that knows one
+document's shape. And the scope rule that bounds it: the mechanism is
+installed in this project's skill copy, never in a plugin or skill outside
+`middleware/context-oracle/` — a session that edited the shared plugin to
+house it was reverted on the owner's instruction, because nothing this
+project needs may be done outside it. Evidence: the round-2, round-3, and
+round-4 reviews and `docs/reviews/2026-09-07-round-4-author-gates-review.md`
 §1.

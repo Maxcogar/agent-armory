@@ -194,7 +194,7 @@ elements: [PA-1, PA-2, PA-3, PA-4, PA-5, PA-6, PA-7, PA-8, PA-9, PA-10, PA-11, P
 | PA-6 | S4, S11, S14, S19 |
 | PA-7 | S34, S35 |
 | PA-8 | S22, S24, S36 |
-| PA-9 | S5, S29, S36 |
+| PA-9 | S5, S10, S29, S36 |
 | PA-10 | S1, S28, S37, S38, S39 |
 | PA-11 | S28, S31, S32, S33, S34, S35 |
 | PA-12 | S1 |
@@ -241,7 +241,7 @@ recorded in §11 with what was found.
   patterns and, absent type stripping, executes JavaScript files only; type
   stripping is default from v22.18.0 (experimental behind
   `--experimental-strip-types` from v22.6.0); `node:sqlite` FTS5, WAL, STRICT,
-  `VACUUM INTO` and the module-level `backup()` executed on v22.22.2 (§11.4).
+  `VACUUM INTO` and the module-level `sqlite.backup()` executed on v22.22.2 (§11.4).
   Governs Steps 1, 2, 3, 32, 37.
 - **npm registry metadata, read 2026-09-07** (§11.4): `web-tree-sitter`
   0.26.13 (published 2026-08-23) and 0.27.0 (2026-08-30, current);
@@ -349,15 +349,17 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/scripts/run-tests.mjs | create | S1 |
 | middleware/context-oracle/ctxoracle/src/bar/combinator.ts | create | S16 |
 | middleware/context-oracle/ctxoracle/src/blocks/answer_drift.ts | create | S25 |
+| middleware/context-oracle/ctxoracle/src/blocks/answer_drift.ts | modify | S27 |
 | middleware/context-oracle/ctxoracle/src/blocks/health.ts | create | S26 |
 | middleware/context-oracle/ctxoracle/src/blocks/verdict.ts | create | S24 |
 | middleware/context-oracle/ctxoracle/src/cli/correct.ts | create | S34 |
 | middleware/context-oracle/ctxoracle/src/cli/deinit.ts | create | S32 |
 | middleware/context-oracle/ctxoracle/src/cli/dispatch.ts | create | S28 |
+| middleware/context-oracle/ctxoracle/src/cli/dispatch.ts | modify | S31, S32, S33, S34, S35 |
 | middleware/context-oracle/ctxoracle/src/cli/export.ts | create | S32 |
 | middleware/context-oracle/ctxoracle/src/cli/hook.ts | create | S28 |
 | middleware/context-oracle/ctxoracle/src/cli/import.ts | create | S32 |
-| middleware/context-oracle/ctxoracle/src/cli/index.ts | create | S32 |
+| middleware/context-oracle/ctxoracle/src/cli/index.ts | create | S28 |
 | middleware/context-oracle/ctxoracle/src/cli/init.ts | create | S31 |
 | middleware/context-oracle/ctxoracle/src/cli/integrity_check.ts | create | S28 |
 | middleware/context-oracle/ctxoracle/src/cli/log.ts | create | S33 |
@@ -385,6 +387,7 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/src/hook/delivery.ts | create | S20 |
 | middleware/context-oracle/ctxoracle/src/hook/guard.ts | create | S10 |
 | middleware/context-oracle/ctxoracle/src/hook/handler.ts | create | S28 |
+| middleware/context-oracle/ctxoracle/src/hook/handler.ts | modify | S30 |
 | middleware/context-oracle/ctxoracle/src/hook/watchdog.ts | create | S10 |
 | middleware/context-oracle/ctxoracle/src/identity/home.ts | create | S4 |
 | middleware/context-oracle/ctxoracle/src/identity/layout.ts | create | S4 |
@@ -392,6 +395,8 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/src/index/frontend.ts | create | S14 |
 | middleware/context-oracle/ctxoracle/src/index/generic_frontend.ts | create | S15 |
 | middleware/context-oracle/ctxoracle/src/index/indexer.ts | create | S14 |
+| middleware/context-oracle/ctxoracle/src/index/indexer.ts | modify | S30 |
+| middleware/context-oracle/ctxoracle/src/index/search.ts | create | S14 |
 | middleware/context-oracle/ctxoracle/src/index/tree_sitter_frontend.ts | create | S15 |
 | middleware/context-oracle/ctxoracle/src/index/zone.ts | create | S14 |
 | middleware/context-oracle/ctxoracle/src/miner/cochange.ts | create | S13 |
@@ -400,8 +405,9 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/src/qa/state.ts | create | S22 |
 | middleware/context-oracle/ctxoracle/src/security/injection.ts | create | S11 |
 | middleware/context-oracle/ctxoracle/src/security/redact.ts | create | S11 |
-| middleware/context-oracle/ctxoracle/src/security/trust.ts | create | S11 |
+| middleware/context-oracle/ctxoracle/src/security/trust.ts | create | S6 |
 | middleware/context-oracle/ctxoracle/src/stores/adapter.ts | create | S3 |
+| middleware/context-oracle/ctxoracle/src/stores/dao/classified_turns.ts | create | S9 |
 | middleware/context-oracle/ctxoracle/src/stores/dao/classify_state.ts | create | S9 |
 | middleware/context-oracle/ctxoracle/src/stores/dao/cochange_pairs.ts | create | S9 |
 | middleware/context-oracle/ctxoracle/src/stores/dao/commits.ts | create | S9 |
@@ -429,6 +435,7 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/src/stores/dao/whisper_stats.ts | create | S9 |
 | middleware/context-oracle/ctxoracle/src/stores/migration_runner.ts | create | S7 |
 | middleware/context-oracle/ctxoracle/src/stores/migrations/001_phase_a_project.sql | create | S7 |
+| middleware/context-oracle/ctxoracle/src/stores/migrations/001b_phase_a_fts.sql | create | S7 |
 | middleware/context-oracle/ctxoracle/src/stores/migrations/002_phase_a_global.sql | create | S8 |
 | middleware/context-oracle/ctxoracle/src/transcript/locate.ts | create | S21 |
 | middleware/context-oracle/ctxoracle/src/transcript/reader.ts | create | S21 |
@@ -458,6 +465,7 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/test/conventions/no_network_modules.test.ts | create | S32 |
 | middleware/context-oracle/ctxoracle/test/conventions/permission_decision_confined.test.ts | create | S24 |
 | middleware/context-oracle/ctxoracle/test/conventions/sqlite_single_importer.test.ts | create | S3 |
+| middleware/context-oracle/ctxoracle/test/fixtures/generate_large_store.ts | create | S29 |
 | middleware/context-oracle/ctxoracle/test/fixtures/generate.ts | create | S1 |
 | middleware/context-oracle/ctxoracle/test/fixtures/repos/answer-drift-clearly-off/ | create | S1 |
 | middleware/context-oracle/ctxoracle/test/fixtures/repos/bar-two-candidates/ | create | S1 |
@@ -468,7 +476,6 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/test/fixtures/repos/dedup-read-set/ | create | S1 |
 | middleware/context-oracle/ctxoracle/test/fixtures/repos/indexer-small/ | create | S1 |
 | middleware/context-oracle/ctxoracle/test/fixtures/repos/language-config-added/ | create | S1 |
-| middleware/context-oracle/ctxoracle/test/fixtures/repos/large-store/ | create | S1 |
 | middleware/context-oracle/ctxoracle/test/fixtures/repos/miner-hygiene/ | create | S1 |
 | middleware/context-oracle/ctxoracle/test/fixtures/repos/orientation-mixed-shape/ | create | S1 |
 | middleware/context-oracle/ctxoracle/test/fixtures/repos/over-threshold-file/ | create | S1 |
@@ -682,12 +689,13 @@ scheduled here because no such change is currently identified.
 Steps are topologically sorted: a step's `Dependencies` field names every
 earlier step it consumes, and no step names a later one. The order is:
 substrate (Steps 1–12: packaging, runtime, adapter, layout, identity, faults,
-schemas, DAOs, diagnostics writers, security, tuning) → the whisper path
+schemas, DAOs, diagnostics writers with the watchdog and guard, security,
+tuning) → the whisper path
 (Steps 13–20: miner, indexer, frontends, bar, command classifier, genres,
 compose, delivery) → the answer-drift block (Steps 21–27: reader, qa state,
 recognizers, deny confinement, the block, deny health, question lifetime) →
 the pipeline (Steps 28–30: handler, adapter, CLI entry and replay harness;
-watchdog and guard; SessionEnd fold and regret) → the CLI verbs (Steps
+watchdog and guard verification; SessionEnd fold and regret) → the CLI verbs (Steps
 31–35) → the Phase B seam stub (Step 36) → tests and exit (Steps 37–40).
 The block is built after the whisper path and before the handler for two
 reasons: every acceptance test of the block replays through the real
@@ -721,7 +729,7 @@ function-level tests it names.
 step: S1
 covers: [PA-10, PA-12]
 files:
-  create: [.github/workflows/context-oracle-ctxoracle.yml, middleware/context-oracle/ctxoracle/package.json, middleware/context-oracle/ctxoracle/tsconfig.json, middleware/context-oracle/ctxoracle/scripts/run-tests.mjs, middleware/context-oracle/ctxoracle/test/build/tsc_fixture.ts, middleware/context-oracle/ctxoracle/test/replay/transcript_fixtures/, middleware/context-oracle/ctxoracle/test/fixtures/generate.ts, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-full/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-shallow/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-shallow-no-origin/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-nongit/, middleware/context-oracle/ctxoracle/test/fixtures/repos/miner-hygiene/, middleware/context-oracle/ctxoracle/test/fixtures/repos/indexer-small/, middleware/context-oracle/ctxoracle/test/fixtures/repos/coupling-nonobvious/, middleware/context-oracle/ctxoracle/test/fixtures/repos/orientation-mixed-shape/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-mixed-language/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-observed-zero/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-same-name-collision/, middleware/context-oracle/ctxoracle/test/fixtures/repos/consequence-coupled-tests/, middleware/context-oracle/ctxoracle/test/fixtures/repos/warning-landmine/, middleware/context-oracle/ctxoracle/test/fixtures/repos/completeness-paired-change/, middleware/context-oracle/ctxoracle/test/fixtures/repos/verification-covering-test/, middleware/context-oracle/ctxoracle/test/fixtures/repos/bar-two-candidates/, middleware/context-oracle/ctxoracle/test/fixtures/repos/dedup-read-set/, middleware/context-oracle/ctxoracle/test/fixtures/repos/corpus-floor-29/, middleware/context-oracle/ctxoracle/test/fixtures/repos/answer-drift-clearly-off/, middleware/context-oracle/ctxoracle/test/fixtures/repos/pristine-tree/, middleware/context-oracle/ctxoracle/test/fixtures/repos/secret-injection/, middleware/context-oracle/ctxoracle/test/fixtures/repos/subagent-delivery/, middleware/context-oracle/ctxoracle/test/fixtures/repos/language-config-added/, middleware/context-oracle/ctxoracle/test/fixtures/repos/seeded-facts/, middleware/context-oracle/ctxoracle/test/fixtures/repos/regret-true-positive/, middleware/context-oracle/ctxoracle/test/fixtures/repos/regret-no-inflate/, middleware/context-oracle/ctxoracle/test/fixtures/repos/large-store/, middleware/context-oracle/ctxoracle/test/fixtures/repos/over-threshold-file/, middleware/context-oracle/ctxoracle/test/unit/package_build.test.ts, middleware/context-oracle/ctxoracle/test/unit/run_tests_guard.test.ts, middleware/context-oracle/ctxoracle/test/unit/generator_determinism.test.ts]
+  create: [.github/workflows/context-oracle-ctxoracle.yml, middleware/context-oracle/ctxoracle/package.json, middleware/context-oracle/ctxoracle/tsconfig.json, middleware/context-oracle/ctxoracle/scripts/run-tests.mjs, middleware/context-oracle/ctxoracle/test/build/tsc_fixture.ts, middleware/context-oracle/ctxoracle/test/replay/transcript_fixtures/, middleware/context-oracle/ctxoracle/test/fixtures/generate.ts, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-full/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-shallow/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-shallow-no-origin/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-nongit/, middleware/context-oracle/ctxoracle/test/fixtures/repos/miner-hygiene/, middleware/context-oracle/ctxoracle/test/fixtures/repos/indexer-small/, middleware/context-oracle/ctxoracle/test/fixtures/repos/coupling-nonobvious/, middleware/context-oracle/ctxoracle/test/fixtures/repos/orientation-mixed-shape/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-mixed-language/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-observed-zero/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-same-name-collision/, middleware/context-oracle/ctxoracle/test/fixtures/repos/consequence-coupled-tests/, middleware/context-oracle/ctxoracle/test/fixtures/repos/warning-landmine/, middleware/context-oracle/ctxoracle/test/fixtures/repos/completeness-paired-change/, middleware/context-oracle/ctxoracle/test/fixtures/repos/verification-covering-test/, middleware/context-oracle/ctxoracle/test/fixtures/repos/bar-two-candidates/, middleware/context-oracle/ctxoracle/test/fixtures/repos/dedup-read-set/, middleware/context-oracle/ctxoracle/test/fixtures/repos/corpus-floor-29/, middleware/context-oracle/ctxoracle/test/fixtures/repos/answer-drift-clearly-off/, middleware/context-oracle/ctxoracle/test/fixtures/repos/pristine-tree/, middleware/context-oracle/ctxoracle/test/fixtures/repos/secret-injection/, middleware/context-oracle/ctxoracle/test/fixtures/repos/subagent-delivery/, middleware/context-oracle/ctxoracle/test/fixtures/repos/language-config-added/, middleware/context-oracle/ctxoracle/test/fixtures/repos/seeded-facts/, middleware/context-oracle/ctxoracle/test/fixtures/repos/regret-true-positive/, middleware/context-oracle/ctxoracle/test/fixtures/repos/regret-no-inflate/, middleware/context-oracle/ctxoracle/test/fixtures/repos/over-threshold-file/, middleware/context-oracle/ctxoracle/test/unit/package_build.test.ts, middleware/context-oracle/ctxoracle/test/unit/run_tests_guard.test.ts, middleware/context-oracle/ctxoracle/test/unit/generator_determinism.test.ts]
   modify: []
   delete: []
 provides: [npm-ci, npm-test, npm-run-test, npm-run-build]
@@ -736,8 +744,9 @@ with `"type": "module"`, `"bin": {"ctxoracle": "dist/src/cli/dispatch.js"}`,
 `{"web-tree-sitter": "0.26.13", "tree-sitter-wasms": "0.1.13"}` (exact
 pins, no range), dev dependencies exactly `{"typescript": "5.9.3",
 "@types/node": "22.20.1"}`, scripts `"build": "tsc -p tsconfig.json"`,
-`"test": "node scripts/run-tests.mjs"`, and **no** `install`,
-`postinstall`, or `preinstall` script. Create `tsconfig.json` with
+`"test": "node scripts/run-tests.mjs"`, a `"files"` list of `dist/`,
+`src/` (the runtime-read `.sql` migrations live there), and `scripts/`,
+and **no** `install`, `postinstall`, or `preinstall` script. Create `tsconfig.json` with
 `"strict": true`, `"target": "ES2022"`, `"module": "NodeNext"`,
 `"moduleResolution": "NodeNext"`, `"rootDir": "."`, `"outDir": "dist"`,
 `"include": ["src", "test"]`, `"exclude": ["test/build/fixtures"]`,
@@ -798,7 +807,7 @@ exists (the runner's count guard covers `test/replay` too, so adding it
 earlier would be a red run on an empty set), and the `cold-container` job
 `AC-20` names is added by Step 38, when its script exists.
 
-**Creates.** `.github/workflows/context-oracle-ctxoracle.yml` — CI: build + unit/integration/convention tier; `package.json` — AD-25; `tsconfig.json` — AD-25; compiles src/ and test/ into dist/; `scripts/run-tests.mjs` — enumerates compiled tests; refuses a zero/mismatched set; `test/build/tsc_fixture.ts` — helper: runs tsc --noEmit on one fixture, returns exit code + diagnostics; `test/replay/transcript_fixtures/` — transcript JSONL fixtures (marker-carrying, marker-less, injected-turn, lag); `test/fixtures/generate.ts` — entry point for all fixture-repo generators (D-plan-5); `test/fixtures/repos/repo-key-full/` — full history, 3 root commits; `test/fixtures/repos/repo-key-shallow/` — depth-1 clone of repo-key-full with origin; `test/fixtures/repos/repo-key-shallow-no-origin/`; `test/fixtures/repos/repo-key-nongit/` — plain directory; `test/fixtures/repos/miner-hygiene/` — planted pair, merge commit, 45-file commit, beyond-horizon commit; `test/fixtures/repos/indexer-small/` — 3 .ts files, 1 .py, 1 .sh, 1 >1 MB file, planted secret; `test/fixtures/repos/coupling-nonobvious/` — cross-directory pair + same-dir same-stem pair; `test/fixtures/repos/orientation-mixed-shape/` — low-in-degree main/cli + high-in-degree hub; `test/fixtures/repos/reuse-mixed-language/` — grammar-covered dominant + generic-frontend candidate; `test/fixtures/repos/reuse-observed-zero/` — grammar-covered symbol with observed 0 count; `test/fixtures/repos/reuse-same-name-collision/` — comment/string collisions; `test/fixtures/repos/consequence-coupled-tests/` — file co-changing with two test files; `test/fixtures/repos/warning-landmine/` — revert_chain + fix_chatter rows, low-confidence row; `test/fixtures/repos/completeness-paired-change/`; `test/fixtures/repos/verification-covering-test/` — changed region with a covering test; run / not-run / run-and-failed variants; `test/fixtures/repos/bar-two-candidates/`; `test/fixtures/repos/dedup-read-set/`; `test/fixtures/repos/corpus-floor-29/` — 29 non-excluded commits, generator adds the 30th; `test/fixtures/repos/answer-drift-clearly-off/`; `test/fixtures/repos/pristine-tree/`; `test/fixtures/repos/secret-injection/`; `test/fixtures/repos/subagent-delivery/`; `test/fixtures/repos/language-config-added/`; `test/fixtures/repos/seeded-facts/` — planted coupling + planted landmine; `test/fixtures/repos/regret-true-positive/` — a held fact and a never-triggered fact); `test/fixtures/repos/regret-no-inflate/`; `test/fixtures/repos/large-store/` — a store of the AD-23/V8 class (≈400 MB: ≈2 M `cochange_pairs` rows, ≈1 M `symbols` rows) that stresses the inventory's largest statements, generated once per run directory and cached by the generator's hash; `test/fixtures/repos/over-threshold-file/` — >1 MB file carrying a seeded fact (AD-24).
+**Creates.** `.github/workflows/context-oracle-ctxoracle.yml` — CI: build + unit/integration/convention tier; `package.json` — AD-25; `tsconfig.json` — AD-25; compiles src/ and test/ into dist/; `scripts/run-tests.mjs` — enumerates compiled tests; refuses a zero/mismatched set; `test/build/tsc_fixture.ts` — helper: runs tsc --noEmit on one fixture, returns exit code + diagnostics; `test/replay/transcript_fixtures/` — transcript JSONL fixtures (marker-carrying, marker-less, injected-turn, lag); `test/fixtures/generate.ts` — entry point for all fixture-repo generators (D-plan-5); `test/fixtures/repos/repo-key-full/` — full history, 3 root commits; `test/fixtures/repos/repo-key-shallow/` — depth-1 clone of repo-key-full with origin; `test/fixtures/repos/repo-key-shallow-no-origin/`; `test/fixtures/repos/repo-key-nongit/` — plain directory; `test/fixtures/repos/miner-hygiene/` — planted pair, merge commit, 45-file commit, beyond-horizon commit; `test/fixtures/repos/indexer-small/` — 3 .ts files, 1 .py, 1 .sh, 1 >1 MB file, planted secret; `test/fixtures/repos/coupling-nonobvious/` — cross-directory pair + same-dir same-stem pair; `test/fixtures/repos/orientation-mixed-shape/` — low-in-degree main/cli + high-in-degree hub; `test/fixtures/repos/reuse-mixed-language/` — grammar-covered dominant + generic-frontend candidate; `test/fixtures/repos/reuse-observed-zero/` — grammar-covered symbol with observed 0 count; `test/fixtures/repos/reuse-same-name-collision/` — comment/string collisions; `test/fixtures/repos/consequence-coupled-tests/` — file co-changing with two test files; `test/fixtures/repos/warning-landmine/` — revert_chain + fix_chatter rows, low-confidence row; `test/fixtures/repos/completeness-paired-change/`; `test/fixtures/repos/verification-covering-test/` — changed region with a covering test; run / not-run / run-and-failed variants; `test/fixtures/repos/bar-two-candidates/`; `test/fixtures/repos/dedup-read-set/`; `test/fixtures/repos/corpus-floor-29/` — 29 non-excluded commits, generator adds the 30th; `test/fixtures/repos/answer-drift-clearly-off/`; `test/fixtures/repos/pristine-tree/`; `test/fixtures/repos/secret-injection/`; `test/fixtures/repos/subagent-delivery/`; `test/fixtures/repos/language-config-added/`; `test/fixtures/repos/seeded-facts/` — planted coupling + planted landmine; `test/fixtures/repos/regret-true-positive/` — a held fact and a never-triggered fact); `test/fixtures/repos/regret-no-inflate/`; `test/fixtures/repos/over-threshold-file/` — >1 MB file carrying a seeded fact (AD-24).
 
 **Source.** `AD-25` (packaging: two runtime deps, no postinstall, no native
 code, `tsc` build); `AD-2` (Node ≥ 22.16.0, TypeScript strict ESM); `AD-24`
@@ -875,7 +884,7 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/util/env.ts, middleware/context-oracle/ctxoracle/test/unit/env.test.ts]
   modify: []
   delete: []
-provides: []
+provides: [assertRuntime]
 tests: [T-2-1]
 depends_on: [S1]
 ```
@@ -891,7 +900,7 @@ versions on mismatch. Called from Step 31's `init` verb and Step 33's
 
 **Source.** `AD-2` (runtime floor 22.16.0, checked at `init` and `status`
 with a plain-language error; the floor exists because FTS5 entered
-`node:sqlite` in v22.16.0 — V7 — and `backup()` too — V17).
+`node:sqlite` in v22.16.0 — V7 — and `sqlite.backup()` too — V17).
 
 **Why this approach (Gate 3):**
 1. **The decision.** Fail loud at `init` and `status` with a plain-language
@@ -930,9 +939,9 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/stores/adapter.ts, middleware/context-oracle/ctxoracle/test/unit/stores_adapter.test.ts, middleware/context-oracle/ctxoracle/test/conventions/sqlite_single_importer.test.ts, middleware/context-oracle/ctxoracle/test/unit/concurrency.test.ts, middleware/context-oracle/ctxoracle/test/unit/fts5_probe.test.ts]
   modify: []
   delete: []
-provides: []
+provides: [Store, StoreBusy, probeFts5]
 tests: [T-3-1, T-3-2, T-3-3, T-3-4]
-depends_on: [S1]
+depends_on: [S1, S2]
 ```
 
 
@@ -1014,9 +1023,9 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/identity/home.ts, middleware/context-oracle/ctxoracle/src/identity/layout.ts, middleware/context-oracle/ctxoracle/test/unit/layout.test.ts]
   modify: []
   delete: []
-provides: []
+provides: [ensureLayout]
 tests: [T-4-1]
-depends_on: [S1]
+depends_on: [S1, S3]
 ```
 
 
@@ -1073,9 +1082,9 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/identity/repo_key.ts, middleware/context-oracle/ctxoracle/src/util/hash.ts, middleware/context-oracle/ctxoracle/src/util/spawn.ts, middleware/context-oracle/ctxoracle/test/unit/repo_key.test.ts, middleware/context-oracle/ctxoracle/test/unit/spawn_wrapper.test.ts, middleware/context-oracle/ctxoracle/test/conventions/child_process_single_importer.test.ts]
   modify: []
   delete: []
-provides: []
+provides: [resolveRepoKey, oracleSpawn]
 tests: [T-5-1, T-5-2, T-5-3]
-depends_on: [S1]
+depends_on: [S1, S4]
 ```
 
 
@@ -1189,12 +1198,12 @@ and by AD-20's plain-language "would change keying mode" prompt on re-init
 step: S6
 covers: [PA-3, PA-5]
 files:
-  create: [middleware/context-oracle/ctxoracle/src/diag/fault_codes.ts, middleware/context-oracle/ctxoracle/src/diag/jsonl.ts, middleware/context-oracle/ctxoracle/src/types/events.ts, middleware/context-oracle/ctxoracle/src/types/candidate.ts, middleware/context-oracle/ctxoracle/src/types/index_types.ts, middleware/context-oracle/ctxoracle/test/unit/fault_codes.test.ts, middleware/context-oracle/ctxoracle/test/unit/jsonl_writer.test.ts]
+  create: [middleware/context-oracle/ctxoracle/src/diag/fault_codes.ts, middleware/context-oracle/ctxoracle/src/diag/jsonl.ts, middleware/context-oracle/ctxoracle/src/types/events.ts, middleware/context-oracle/ctxoracle/src/types/candidate.ts, middleware/context-oracle/ctxoracle/src/types/index_types.ts, middleware/context-oracle/ctxoracle/test/unit/fault_codes.test.ts, middleware/context-oracle/ctxoracle/test/unit/jsonl_writer.test.ts, middleware/context-oracle/ctxoracle/src/security/trust.ts]
   modify: []
   delete: []
-provides: []
+provides: [Candidate, EventContext, InternalEvent, EventKind, SymbolRow, ImportEdge, Pointer, Trust, assertProvenance, TuningReader]
 tests: [T-6-1, T-6-2]
-depends_on: [S1]
+depends_on: [S1, S4]
 ```
 
 
@@ -1212,8 +1221,16 @@ renderer to say "not yet measured (Phase B/C)"); from AD-26 `store_busy`;
 and two codes this plan names: `whisper_dropped_stale` for AD-15's
 compose-time drop (a candidate whose pointer failed re-resolution) and
 `tuning_missing` for a `tuning` key read that finds no row (Step 12's
-consumer falls back to its stated seed and records this code with the key
-in `detail`).
+`TuningReader` re-seeds the key from its seed module and records this code
+with the key in `detail`).
+
+Create `src/security/trust.ts` — the `Trust` type (`'untrusted_repo' |
+'human' | 'mechanical'`, mirroring the DB CHECK of Step 7) and
+`assertProvenance(row)`, the helper every learned-record DAO entry point
+(Step 9) calls so that a non-human-provenance input can only be written as
+`'untrusted_repo'` (`FR-X4`); it lives here, with the shared types, because
+Step 9 consumes it and Step 11 (the redactor and the injection flagger) is
+built after Step 9.
 
 Create the shared internal types every later module names, so that no step
 uses a type a later step defines: `src/types/events.ts` — `EventKind` (the
@@ -1229,7 +1246,7 @@ session's `observed_actions` reader); `src/types/candidate.ts` — `Candidate`
 (`genre`, `subjectKey`, `factClass: 'mined' | 'structural' | 'human'`,
 `pointers: Pointer[]`, `support?`, `ratio?`, `lastTs?`, `hazard: boolean`,
 `headline`, `evidenceJson`), `Pointer` (`{ path, spanStart?, spanEnd? } |
-{ commit }`), and `TuningReader` (`get(key)`, `list(key)`);
+{ commit }`), and `TuningReader` (`tuning.get(key)`, `tuning.list(key)`);
 `src/types/index_types.ts` — `SymbolRow` (`name`, `kind`, `spanStart`,
 `spanEnd`) and `ImportEdge` (`dst`, `kind`). All are type-only exports
 (erased at build).
@@ -1295,12 +1312,12 @@ fail simultaneously.
 step: S7
 covers: [PA-3]
 files:
-  create: [middleware/context-oracle/ctxoracle/src/stores/migration_runner.ts, middleware/context-oracle/ctxoracle/src/stores/migrations/001_phase_a_project.sql, middleware/context-oracle/ctxoracle/test/unit/migrations_phase_a.test.ts]
+  create: [middleware/context-oracle/ctxoracle/src/stores/migration_runner.ts, middleware/context-oracle/ctxoracle/src/stores/migrations/001_phase_a_project.sql, middleware/context-oracle/ctxoracle/test/unit/migrations_phase_a.test.ts, middleware/context-oracle/ctxoracle/src/stores/migrations/001b_phase_a_fts.sql]
   modify: []
   delete: []
-provides: []
+provides: [applyMigrations]
 tests: [T-7-1]
-depends_on: [S1, S3]
+depends_on: [S1, S3, S6]
 ```
 
 
@@ -1422,8 +1439,26 @@ CREATE TABLE whisper_audit(id TEXT PRIMARY KEY, session TEXT NOT NULL,
   continuation INTEGER NOT NULL DEFAULT 0) STRICT;
 CREATE TABLE faults(id TEXT PRIMARY KEY, ts INTEGER NOT NULL,
   code TEXT NOT NULL, detail_json TEXT, session TEXT) STRICT;
--- FTS5 (created only when Step 3's probeFts5 returned true; otherwise
--- schema_meta.fts_state = 'fallback' and search uses indexed LIKE):
+CREATE TABLE classified_turns(consumer TEXT NOT NULL, uuid TEXT NOT NULL,
+  ts INTEGER NOT NULL, clears INTEGER NOT NULL CHECK(clears IN (0,1)),
+  reason TEXT CHECK(reason IN ('below_length_floor','deferral_only')),
+  PRIMARY KEY(consumer, uuid)) STRICT;   -- plan table: the per-turn record
+  -- AD-9's deny_loop and deny_despite_answer_text detectors read across
+  -- events (each event is a fresh process, AD-1); written by the catch-up
+  -- (Step 25), read by the detectors (Step 26)
+-- indexes the LIKE fallback searches use (AD-2); always created
+CREATE INDEX symbols_name ON symbols(name);
+CREATE INDEX files_path ON files(path);
+```
+
+The two FTS5 virtual tables are a **separate, conditional** migration,
+`src/stores/migrations/001b_phase_a_fts.sql`, which the runner applies only
+when `schema_meta.fts_state = 'fts5'` (Step 3's `probeFts5` returned true
+at `init`); on `'fallback'` it is skipped and never retried, and the search
+interface (Step 14) uses the indexed `LIKE` path (AD-2):
+
+```sql
+-- 001b_phase_a_fts.sql (applied only when schema_meta.fts_state = 'fts5')
 CREATE VIRTUAL TABLE fts_symbols USING fts5(name, kind UNINDEXED,
   file_id UNINDEXED, tokenize = 'unicode61');
 CREATE VIRTUAL TABLE fts_paths USING fts5(path, file_id UNINDEXED,
@@ -1438,11 +1473,17 @@ orders them by every column in schema order (D-plan-4). **Do NOT create**
 uniform table-creation criterion (no table without a same-phase writer)
 means those arrive with their writing phase's migration.
 
-Add `src/stores/migration_runner.ts` — reads `schema_meta.schema_version`,
-applies numbered migrations in order, records the new version. Forward-only
-per AD-25.
+Add `src/stores/migration_runner.ts` — `applyMigrations(store, {fts:
+boolean})` reads `schema_meta.schema_version`, applies the numbered
+migrations in order, skipping a migration whose name carries the `_fts`
+suffix when `fts` is false, and records the new version. Forward-only per
+AD-25. The `.sql` files are read at runtime from the package's own `src/`
+tree, resolved from `import.meta.url` of the compiled runner
+(`../../../src/stores/migrations/`), so the package ships `src/` beside
+`dist/` (Step 1's `files` list) and `tsc` — which emits no `.sql` — needs
+no copy step.
 
-**Creates.** `src/stores/migration_runner.ts`; `src/stores/migrations/001_phase_a_project.sql` — AD-4.
+**Creates.** `src/stores/migration_runner.ts`; `src/stores/migrations/001_phase_a_project.sql` — AD-4; `src/stores/migrations/001b_phase_a_fts.sql` — the FTS5 tables, applied only under fts_state 'fts5' (AD-2).
 
 **Source.** `AD-4` (project-store schema, STRICT + CHECK, provenance-
 mandatory; the uniform table-creation criterion); `AD-25` (forward-only
@@ -1539,12 +1580,12 @@ Step 12.
 step: S9
 covers: [PA-3]
 files:
-  create: [middleware/context-oracle/ctxoracle/src/stores/dao/files.ts, middleware/context-oracle/ctxoracle/src/stores/dao/symbols.ts, middleware/context-oracle/ctxoracle/src/stores/dao/import_edges.ts, middleware/context-oracle/ctxoracle/src/stores/dao/symbol_refs.ts, middleware/context-oracle/ctxoracle/src/stores/dao/test_map.ts, middleware/context-oracle/ctxoracle/src/stores/dao/commits.ts, middleware/context-oracle/ctxoracle/src/stores/dao/cochange_pairs.ts, middleware/context-oracle/ctxoracle/src/stores/dao/landmines.ts, middleware/context-oracle/ctxoracle/src/stores/dao/invariants.ts, middleware/context-oracle/ctxoracle/src/stores/dao/human_facts.ts, middleware/context-oracle/ctxoracle/src/stores/dao/corrections.ts, middleware/context-oracle/ctxoracle/src/stores/dao/questions.ts, middleware/context-oracle/ctxoracle/src/stores/dao/classify_state.ts, middleware/context-oracle/ctxoracle/src/stores/dao/consumer_state.ts, middleware/context-oracle/ctxoracle/src/stores/dao/session_log.ts, middleware/context-oracle/ctxoracle/src/stores/dao/observed_actions.ts, middleware/context-oracle/ctxoracle/src/stores/dao/whisper_audit.ts, middleware/context-oracle/ctxoracle/src/stores/dao/faults.ts, middleware/context-oracle/ctxoracle/src/stores/dao/regret.ts, middleware/context-oracle/ctxoracle/src/stores/dao/whisper_stats.ts, middleware/context-oracle/ctxoracle/src/stores/dao/lessons.ts, middleware/context-oracle/ctxoracle/src/stores/dao/global_meta.ts, middleware/context-oracle/ctxoracle/src/stores/dao/schema_meta.ts, middleware/context-oracle/ctxoracle/src/util/ulid.ts, middleware/context-oracle/ctxoracle/test/unit/dao_crud.test.ts, middleware/context-oracle/ctxoracle/test/build/typecheck_provenance.test.ts, middleware/context-oracle/ctxoracle/test/build/fixtures/missing_provenance.ts]
+  create: [middleware/context-oracle/ctxoracle/src/stores/dao/files.ts, middleware/context-oracle/ctxoracle/src/stores/dao/symbols.ts, middleware/context-oracle/ctxoracle/src/stores/dao/import_edges.ts, middleware/context-oracle/ctxoracle/src/stores/dao/symbol_refs.ts, middleware/context-oracle/ctxoracle/src/stores/dao/test_map.ts, middleware/context-oracle/ctxoracle/src/stores/dao/commits.ts, middleware/context-oracle/ctxoracle/src/stores/dao/cochange_pairs.ts, middleware/context-oracle/ctxoracle/src/stores/dao/landmines.ts, middleware/context-oracle/ctxoracle/src/stores/dao/invariants.ts, middleware/context-oracle/ctxoracle/src/stores/dao/human_facts.ts, middleware/context-oracle/ctxoracle/src/stores/dao/corrections.ts, middleware/context-oracle/ctxoracle/src/stores/dao/questions.ts, middleware/context-oracle/ctxoracle/src/stores/dao/classify_state.ts, middleware/context-oracle/ctxoracle/src/stores/dao/consumer_state.ts, middleware/context-oracle/ctxoracle/src/stores/dao/session_log.ts, middleware/context-oracle/ctxoracle/src/stores/dao/observed_actions.ts, middleware/context-oracle/ctxoracle/src/stores/dao/whisper_audit.ts, middleware/context-oracle/ctxoracle/src/stores/dao/faults.ts, middleware/context-oracle/ctxoracle/src/stores/dao/regret.ts, middleware/context-oracle/ctxoracle/src/stores/dao/classified_turns.ts, middleware/context-oracle/ctxoracle/src/stores/dao/whisper_stats.ts, middleware/context-oracle/ctxoracle/src/stores/dao/lessons.ts, middleware/context-oracle/ctxoracle/src/stores/dao/global_meta.ts, middleware/context-oracle/ctxoracle/src/stores/dao/schema_meta.ts, middleware/context-oracle/ctxoracle/src/util/ulid.ts, middleware/context-oracle/ctxoracle/test/unit/dao_crud.test.ts, middleware/context-oracle/ctxoracle/test/build/typecheck_provenance.test.ts, middleware/context-oracle/ctxoracle/test/build/fixtures/missing_provenance.ts]
   modify: []
   delete: []
 provides: []
 tests: [T-9-1, T-9-2]
-depends_on: [S1, S7]
+depends_on: [S1, S3, S7, S8]
 ```
 
 
@@ -1574,6 +1615,7 @@ returning typed rows or void — the surface later steps call:
 | `session_log` | `append(row)` (returns the ULID), `forSession(session)`, `lastEventTs(session)`, `livenessRows(open = true)` |
 | `observed_actions` | `append(row)`, `okEdits(session)`, `okReads(session)`, `runs(session)`, `pathWrites(session, sinceSeq)`, `firstHash(session, path)` |
 | `regret` | `append(row)`, `forSession(session)`, `countsByState()` |
+| `classified_turns` | `record(consumer, uuid, ts, clears, reason)`, `sinceQuestionOpened(consumer)` (the assistant text turns since the newest open question, in order), `between(consumer, fromTs, toTs)` |
 | `whisper_audit` | `append(row)` (returns the ULID synchronously), `forSession(session)`, `denies(consumer, sinceTs)`, `lastKinds(consumer, n)`, `deliveredSubjects(session)` |
 | `faults` | `append(row)`, `sinceTs(ts)`, `countByCode()` |
 | `whisper_stats` | `upsertFold(rows)` |
@@ -1588,9 +1630,10 @@ generated by the DAO. The `whisper_audit` DAO's `append()` returns the id
 synchronously — the deny emitter (Step 25) and the composer (Step 19)
 depend on this being synchronous per AD-8's audit-log-before-emit ordering.
 The learned-record entry points accept only `trust='untrusted_repo'`
-unless every input is human-provenance (`FR-X4`).
+unless every input is human-provenance (`FR-X4`) — `assertProvenance`
+(Step 6's `src/security/trust.ts`) is what each entry point calls.
 
-**Creates.** `src/stores/dao/files.ts`; `src/stores/dao/symbols.ts`; `src/stores/dao/import_edges.ts`; `src/stores/dao/symbol_refs.ts`; `src/stores/dao/test_map.ts`; `src/stores/dao/commits.ts`; `src/stores/dao/cochange_pairs.ts`; `src/stores/dao/landmines.ts`; `src/stores/dao/invariants.ts`; `src/stores/dao/human_facts.ts`; `src/stores/dao/corrections.ts`; `src/stores/dao/questions.ts`; `src/stores/dao/classify_state.ts`; `src/stores/dao/consumer_state.ts`; `src/stores/dao/session_log.ts`; `src/stores/dao/observed_actions.ts`; `src/stores/dao/whisper_audit.ts`; `src/stores/dao/faults.ts`; `src/stores/dao/regret.ts` — the plan-table DAO AD-18's regret row needs; `src/stores/dao/whisper_stats.ts`; `src/stores/dao/lessons.ts`; `src/stores/dao/global_meta.ts` — one file per Phase A table; `src/stores/dao/schema_meta.ts` — one file per Phase A table; `src/util/ulid.ts` — ULID generator (AD-26).
+**Creates.** `src/stores/dao/files.ts`; `src/stores/dao/symbols.ts`; `src/stores/dao/import_edges.ts`; `src/stores/dao/symbol_refs.ts`; `src/stores/dao/test_map.ts`; `src/stores/dao/commits.ts`; `src/stores/dao/cochange_pairs.ts`; `src/stores/dao/landmines.ts`; `src/stores/dao/invariants.ts`; `src/stores/dao/human_facts.ts`; `src/stores/dao/corrections.ts`; `src/stores/dao/questions.ts`; `src/stores/dao/classify_state.ts`; `src/stores/dao/consumer_state.ts`; `src/stores/dao/session_log.ts`; `src/stores/dao/observed_actions.ts`; `src/stores/dao/whisper_audit.ts`; `src/stores/dao/faults.ts`; `src/stores/dao/regret.ts` — the plan-table DAO AD-18's regret row needs; `src/stores/dao/classified_turns.ts` — the per-turn classification record the deny-health detectors read across events; `src/stores/dao/whisper_stats.ts`; `src/stores/dao/lessons.ts`; `src/stores/dao/global_meta.ts` — one file per Phase A table; `src/stores/dao/schema_meta.ts` — one file per Phase A table; `src/util/ulid.ts` — ULID generator (AD-26).
 
 **Source.** `AD-4`, `AD-5` (schemas); `AD-8` (audit-before-emit ordering
 demands a synchronous audit append); `AD-26` (ULIDs so concurrent writers
@@ -1633,14 +1676,14 @@ compile-time fixture.
 
 ```step-decl
 step: S10
-covers: [PA-5]
+covers: [PA-5, PA-9]
 files:
   create: [middleware/context-oracle/ctxoracle/src/diag/session_writer.ts, middleware/context-oracle/ctxoracle/src/diag/fault_writer.ts, middleware/context-oracle/ctxoracle/src/hook/watchdog.ts, middleware/context-oracle/ctxoracle/src/hook/guard.ts, middleware/context-oracle/ctxoracle/test/unit/watchdog_deadline.test.ts, middleware/context-oracle/ctxoracle/test/unit/store_corrupt_induction.test.ts, middleware/context-oracle/ctxoracle/test/unit/latency_instrument.test.ts, middleware/context-oracle/ctxoracle/test/conventions/fault_session_writers_only.test.ts]
   modify: []
   delete: []
-provides: []
+provides: [DeadlineExceeded, createDeadline, isInternal, recordFault, writeSessionEvent]
 tests: [T-10-1, T-10-2, T-10-3, T-10-4]
-depends_on: [S1, S6]
+depends_on: [S1, S6, S9]
 ```
 
 
@@ -1661,7 +1704,7 @@ names; every other module reaches the two tables through the writers.
 
 Create `src/hook/watchdog.ts` — the cooperative deadline the handler
 (Step 28) drives: `createDeadline({ms = 2500, now = performance.now})`
-returns `{check(): void, elapsed(): number}`; `check()` throws the typed
+returns `{check(): void, elapsed(): number}`; `deadline.check()` throws the typed
 `DeadlineExceeded` once `now() − start ≥ ms` (the clock is injected so the
 boundary is unit-testable, `T-10-4`; `ms` is the wired default or the
 override Step 28's `hook` verb passes through). Create `src/hook/guard.ts`
@@ -1712,12 +1755,12 @@ records; caught by `T-10-1`/`T-10-2` and by absence in `status`.
 step: S11
 covers: [PA-6]
 files:
-  create: [middleware/context-oracle/ctxoracle/src/security/redact.ts, middleware/context-oracle/ctxoracle/src/security/injection.ts, middleware/context-oracle/ctxoracle/src/security/trust.ts, middleware/context-oracle/ctxoracle/test/unit/redact_positive.test.ts, middleware/context-oracle/ctxoracle/test/unit/redact_negative.test.ts, middleware/context-oracle/ctxoracle/test/unit/injection_positive.test.ts, middleware/context-oracle/ctxoracle/test/unit/injection_negative.test.ts, middleware/context-oracle/ctxoracle/test/build/typecheck_trust.test.ts, middleware/context-oracle/ctxoracle/test/build/fixtures/trust_out_of_set.ts]
+  create: [middleware/context-oracle/ctxoracle/src/security/redact.ts, middleware/context-oracle/ctxoracle/src/security/injection.ts, middleware/context-oracle/ctxoracle/test/unit/redact_positive.test.ts, middleware/context-oracle/ctxoracle/test/unit/redact_negative.test.ts, middleware/context-oracle/ctxoracle/test/unit/injection_positive.test.ts, middleware/context-oracle/ctxoracle/test/unit/injection_negative.test.ts, middleware/context-oracle/ctxoracle/test/build/typecheck_trust.test.ts, middleware/context-oracle/ctxoracle/test/build/fixtures/trust_out_of_set.ts]
   modify: []
   delete: []
-provides: []
+provides: [redact, isSuspect]
 tests: [T-11-1, T-11-2, T-11-3, T-11-4, T-11-5]
-depends_on: [S1]
+depends_on: [S1, S9]
 ```
 
 
@@ -1734,11 +1777,10 @@ pass literals). Replacements use the stable marker
 `[redacted:<kind>]`. Create `src/security/injection.ts` exporting
 `isSuspect(input: string): boolean` — heuristic lexicon (imperative verbs
 directed at "the AI"/"the assistant", `ignore previous instructions`-class
-phrases, common jailbreak markers). `src/security/trust.ts` exposes the
-`Trust` type (`'untrusted_repo' | 'human' | 'mechanical'`) mirroring the
-DB CHECK, and the helpers the DAO entry points use.
+phrases, common jailbreak markers). The `Trust` type and its helpers are Step 6's `src/security/trust.ts`,
+which the DAOs (Step 9) already enforce provenance with.
 
-**Creates.** `src/security/redact.ts` — FR-X1; `src/security/injection.ts` — FR-X3; `src/security/trust.ts` — FR-X4 helpers.
+**Creates.** `src/security/redact.ts` — FR-X1; `src/security/injection.ts` — FR-X3.
 
 **Source.** `AD-19` (redaction at every ingress; pointer-only composition
 in Phase A means suspect content is pointer-only + confidence-capped);
@@ -1786,14 +1828,14 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/stores/dao/tuning.ts, middleware/context-oracle/ctxoracle/src/stores/dao/tuning_seeds.ts, middleware/context-oracle/ctxoracle/test/unit/tuning_dao.test.ts]
   modify: []
   delete: []
-provides: []
+provides: [seedDefaults]
 tests: [T-12-1]
-depends_on: [S1, S6]
+depends_on: [S1, S6, S8, S9]
 ```
 
 
-**What changes.** Create `src/stores/dao/tuning.ts` with `get(store, key):
-string | null`, `set(store, key, value, source)`, `list(store, key):
+**What changes.** Create `src/stores/dao/tuning.ts` with `tuning.get(store,
+key): string | null`, `tuning.set(store, key, value, source)`, `tuning.list(store, key):
 string[]` (list-valued keys: all rows sharing the key), `addToList(store,
 key, value, source)`, `removeFromList(store, key, value)`, and
 `seedDefaults(store)` (idempotent: inserts only keys absent). The seed
@@ -1833,19 +1875,23 @@ other seed: `lexicon.stoplist` (rhetorical or idiomatic `?` sentences
 that open no question: `why is CI always so flaky?`, `who knows?`, `what
 could go wrong?`, `right?`, `you know?`, `isn't it?`, `see?`, `ok?`),
 `lexicon.deferral_stoplist` (`i'll get to that`, `i will get to that`,
-`i'll come back to`, `i'll get back to you`, `will look into that`,
-`later`, `in a moment`, `first let me`, `before i answer`),
-`lexicon.acknowledgement` (`ok`, `okay`, `sure`, `got it`, `will do`,
-`understood`, `noted`, `right`, `alright`, `gotcha` — a clause consisting
-only of these is content-free, Step 23). List-valued
-`architecture_default` keys (members are the seed vocabulary and are
-owner-tunable via `tune`, AD-20): `lexicon.command_class_test_runners` (`npm test`,
-`npm run test`, `pnpm test`, `yarn test`, `pytest`, `cargo test`, `go test`,
-`jest`, `mocha`, `vitest`, `node --test`), `lexicon.command_class_innocuous`
-(`ls`, `cd`, `cat`, `pwd`, `echo`, `git status`, `git log`, `git diff`,
-`grep`, `rg`, `find`, `head`, `tail`, `wc`), `lexicon.completion_claim`
-(`done`, `complete`, `completed`, `implemented`, `fixed`, `finished`),
-`index.ext_to_grammar` (the default extension → grammar table of Step 15).
+`i'll come back to`, `i'll get back to you`, `will look into that`, `first
+let me`, `before i answer` — multi-word phrases of AD-9's "I'll get to
+that" class only; a bare common word such as `later` is never a member,
+because it would hold on an answer that contains it, Step 23). The three
+command-class and completion lexicons are `plan_seed` lists as well — the
+architecture names the classes and a few members (AD-15's `ls`, `cd`,
+`cat`, `git status`, `grep`/`rg`, "…"), and every member beyond those is
+the plan's choice, printed with every measurement like the other seeds:
+`lexicon.command_class_test_runners` (`npm test`, `npm run test`, `pnpm
+test`, `yarn test`, `pytest`, `cargo test`, `go test`, `jest`, `mocha`,
+`vitest`, `node --test`), `lexicon.command_class_innocuous` (`ls`, `cd`,
+`cat`, `pwd`, `echo`, `git status`, `git log`, `git diff`, `grep`, `rg`,
+`find`, `head`, `tail`, `wc`), `lexicon.completion_claim` (`done`,
+`complete`, `completed`, `implemented`, `fixed`, `finished`). The one
+list-valued `architecture_default` key is `index.ext_to_grammar` (the
+default extension → grammar table of Step 15). All list keys are
+owner-tunable via `tune` (AD-20).
 
 **Creates.** `src/stores/dao/tuning.ts` — tuning DAO + seeding; `src/stores/dao/tuning_seeds.ts` — the single seed source (values + provenance) `seedDefaults` and the reader both read.
 
@@ -1897,7 +1943,7 @@ files:
   delete: []
 provides: []
 tests: [T-13-1]
-depends_on: [S1]
+depends_on: [S1, S9, S12]
 ```
 
 
@@ -1963,12 +2009,12 @@ stay silent, `FR-A6`).
 step: S14
 covers: [PA-1, PA-3, PA-6]
 files:
-  create: [middleware/context-oracle/ctxoracle/src/index/indexer.ts, middleware/context-oracle/ctxoracle/src/index/frontend.ts, middleware/context-oracle/ctxoracle/src/index/zone.ts, middleware/context-oracle/ctxoracle/test/unit/indexer.test.ts, middleware/context-oracle/ctxoracle/test/unit/indexer_stale.test.ts]
+  create: [middleware/context-oracle/ctxoracle/src/index/indexer.ts, middleware/context-oracle/ctxoracle/src/index/frontend.ts, middleware/context-oracle/ctxoracle/src/index/zone.ts, middleware/context-oracle/ctxoracle/test/unit/indexer.test.ts, middleware/context-oracle/ctxoracle/test/unit/indexer_stale.test.ts, middleware/context-oracle/ctxoracle/src/index/search.ts]
   modify: []
   delete: []
-provides: []
+provides: [LanguageFrontend, runIndex, refreshIfStale, symbolSearch, pathSearch]
 tests: [T-14-1, T-14-2]
-depends_on: [S1, S10, S11, S12, S13]
+depends_on: [S1, S5, S9, S10, S11, S12, S13]
 ```
 
 
@@ -1980,7 +2026,14 @@ interface LanguageFrontend {
     { symbols: SymbolRow[]; imports: ImportEdge[] };
 }
 ```
-Create `src/index/zone.ts` (zone classification per AD-12: marker comments
+Create `src/index/search.ts` — the one search interface (AD-2):
+`symbolSearch(store, terms): SymbolHit[]` and `pathSearch(store, terms):
+PathHit[]`, each with two implementations chosen by `schema_meta.fts_state`
+at call time — `MATCH` over `fts_symbols`/`fts_paths` when `'fts5'`, and
+indexed `LIKE`/token-prefix queries over `symbols(name)` and `files(path)`
+(Step 7's indexes) when `'fallback'` — returning the same shape so no
+caller knows which ran; `status` prints the state (Step 33). Create
+`src/index/zone.ts` (zone classification per AD-12: marker comments
 in the head 2 KB, `dist/`/`build/`/lockfile patterns, `.gitignore`
 membership, `vendor/`/`node_modules/`; the evidence string is redacted and
 injection-flagged at capture — `zone_evidence_suspect`). Create
@@ -2064,7 +2117,7 @@ files:
   delete: []
 provides: []
 tests: [T-15-1, T-15-2]
-depends_on: [S1]
+depends_on: [S1, S14]
 ```
 
 
@@ -2122,7 +2175,7 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/bar/combinator.ts, middleware/context-oracle/ctxoracle/test/unit/bar.test.ts]
   modify: []
   delete: []
-provides: []
+provides: [passesBar]
 tests: [T-16-1]
 depends_on: [S1, S12, S13, S14]
 ```
@@ -2189,9 +2242,9 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/genres/command_class.ts, middleware/context-oracle/ctxoracle/test/unit/command_class.test.ts, middleware/context-oracle/ctxoracle/test/unit/command_class_compound.test.ts]
   modify: []
   delete: []
-provides: []
+provides: [classifyBashCommand]
 tests: [T-17-1, T-17-2]
-depends_on: [S1]
+depends_on: [S1, S12]
 ```
 
 
@@ -2248,7 +2301,7 @@ files:
   delete: []
 provides: []
 tests: [T-18-1, T-18-2, T-18-3, T-18-4, T-18-5, T-18-6, T-18-7, T-18-8, T-38-10, T-38-11, T-38-12, T-38-13, T-38-14, T-38-28, T-38-29]
-depends_on: [S1]
+depends_on: [S1, S9, S12, S13, S14, S15, S16, S17]
 ```
 
 
@@ -2261,8 +2314,9 @@ interface Generator {
 }
 ```
 Per genre:
-- `orientation.ts` (FR-A2a, `UserPromptSubmit`): tokenize prompt, FTS5-query
-  `fts_symbols`/`fts_paths`, rank by (match strength × co-change hub degree
+- `orientation.ts` (FR-A2a, `UserPromptSubmit`): tokenize prompt, query
+  `symbolSearch`/`pathSearch` (Step 14's interface — FTS5 or the `LIKE`
+  fallback, unseen here), rank by (match strength × co-change hub degree
   × `entry_score`), select the top 2–4 entry-point files; join
   `invariant_members` for one binding invariant when one exists for a
   matched file (L10: invariants exist only via `note`). Marginal value:
@@ -2351,7 +2405,7 @@ files:
   delete: []
 provides: []
 tests: [T-19-1, T-19-2, T-38-19]
-depends_on: [S1]
+depends_on: [S1, S9, S11, S18]
 ```
 
 
@@ -2411,9 +2465,9 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/hook/delivery.ts, middleware/context-oracle/ctxoracle/test/unit/delivery_dedup.test.ts, middleware/context-oracle/ctxoracle/test/unit/delivery_stop_channel.test.ts]
   modify: []
   delete: []
-provides: []
+provides: [StopDelivery, deliverStop]
 tests: [T-20-1, T-20-2, T-38-17, T-38-20, T-38-21, T-38-23]
-depends_on: [S1]
+depends_on: [S1, S9]
 ```
 
 
@@ -2473,17 +2527,21 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/transcript/reader.ts, middleware/context-oracle/ctxoracle/src/transcript/locate.ts, middleware/context-oracle/ctxoracle/test/unit/reader.test.ts, middleware/context-oracle/ctxoracle/test/unit/reader_v12_counts.test.ts]
   modify: []
   delete: []
-provides: []
+provides: [TranscriptReader, locateTranscript, projectTranscriptDir]
 tests: [T-21-1, T-21-2]
-depends_on: [S1]
+depends_on: [S1, S6, S9]
 ```
 
 
-**What changes.** Create `src/transcript/locate.ts` — reads
-`transcript_path` from the internal event, returns the resolved absolute
-path. Phase A **reads main-consumer transcripts only** (AD-11); the file
-records `agent_transcript_path` from `SubagentStop` inputs for later
-phases but never opens it in Phase A.
+**What changes.** Create `src/transcript/locate.ts` — the only module that
+knows where transcripts live (AD-11): `locateTranscript(ev: InternalEvent):
+string` returns the resolved absolute path of `ev.transcriptPath`, and
+`projectTranscriptDir(cwd: string): string` returns the directory Claude
+Code keeps a project's transcripts in — `~/.claude/projects/<slug>/`, where
+`<slug>` is the realpath of `cwd` with every `/` replaced by `-` (the
+observed encoding, §11.4; V12's undocumented layout, held in this one file
+so a layout change is one edit). Phase A **reads main-consumer transcripts
+only** (AD-11); subagent transcripts are not located, opened, or recorded.
 
 Create `src/transcript/reader.ts` exporting `TranscriptReader`:
 - `readFrom(path, offset)`: opens the file at `offset`, reads to EOF in
@@ -2560,9 +2618,9 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/qa/state.ts, middleware/context-oracle/ctxoracle/test/unit/qa_state.test.ts]
   modify: []
   delete: []
-provides: []
+provides: [openQuestion, answerQuestions, voidQuestion, getOpenQuestions]
 tests: [T-22-1]
-depends_on: [S1, S7]
+depends_on: [S1, S7, S9]
 ```
 
 
@@ -2629,9 +2687,9 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/qa/classify.ts, middleware/context-oracle/ctxoracle/test/unit/recognizer_question.test.ts, middleware/context-oracle/ctxoracle/test/unit/recognizer_clear.test.ts, middleware/context-oracle/ctxoracle/test/unit/recognizer_move.test.ts]
   modify: []
   delete: []
-provides: []
+provides: [recognizeQuestions, recognizeClearing, recognizeMove]
 tests: [T-23-1, T-23-2, T-23-3]
-depends_on: [S1]
+depends_on: [S1, S12]
 ```
 
 
@@ -2647,38 +2705,39 @@ conservative recognizers, each a small pure function:
   opens a question**: an indirect ask ("tell me whether …"), an imperative
   ("explain the failure"), or a question without `?` is not recognized —
   L1's documented low coverage, measured at exit, never classified around.
-- `recognizeClearing(assistantText, deferralStoplist, acknowledgementLexicon,
-  lengthFloorChars): {clears: boolean; reason?: 'below_length_floor' |
-  'deferral_only' | 'acknowledgement_only'}` — strip tool-noise blocks and
-  code fences; split the remainder into sentences at `.` / `!` / `?`
-  boundaries and each sentence into clauses at `,` / `;` / `:` / an em dash
-  / a spaced hyphen; discard every clause that contains a
-  deferral-stoplist phrase and every clause that is, after trimming
-  punctuation and case, exactly an acknowledgement-lexicon member; the
-  turn clears when the surviving text is at least `lengthFloorChars`
-  characters (a "small floor", AD-9 — the seeded value 2 rejects an empty
-  or one-mark turn and nothing else, so "No." and "Yes, line 12." clear).
-  The reason for a non-clearing turn is `deferral_only` when a deferral
-  clause was dropped, else `acknowledgement_only` when an acknowledgement
-  clause was dropped, else `below_length_floor`. A deferral-only turn
-  ("I'll get to that."), a deferral with an acknowledgement ("Sure, I'll get
-  to that after the refactor." — both clauses drop), an
-  acknowledgement-only turn ("Ok.", "Got it, will do."), and an empty turn
-  do not clear; a deferral followed by a substantive sentence ("I'll get
-  to that. The null check does not fix it, see line 12.") and a
-  substantive clause sharing a sentence with a deferral ("No — the null
-  check does not fix it, see line 12, though I'll get to the rest later.")
-  clear on the surviving clauses — FR-B5's "only an empty deferral fails
-  to clear", with no format tax on where the answer sits (D-plan-24; the
-  rule was executed over the T-23-2 cases, §11.4). The function takes no
-  question text: it cannot match a turn to a specific question, which is
-  the Phase B comprehension judgment (`AC-2a-ii`).
+- `recognizeClearing(assistantText, deferralStoplist, lengthFloorChars):
+  {clears: boolean; reason?: 'below_length_floor' | 'deferral_only'}` —
+  AD-9's two conditions and nothing else: strip tool-noise blocks and code
+  fences; remove every occurrence of a deferral-stoplist phrase (the
+  "I'll get to that"-class phrases Step 12 seeds — never a bare common
+  word); the turn clears when the text that remains, punctuation and
+  whitespace aside, is at least `lengthFloorChars` characters (a "small
+  floor", AD-9 — the seeded value 2 rejects an empty or one-mark turn and
+  nothing else). A turn that does not clear reports `deferral_only` when a
+  phrase was removed and `below_length_floor` otherwise. So "No.", "Yes,
+  line 12.", and the one-word direct answers "Sure.", "Ok.", "Right.",
+  "Understood." clear (FR-B5: the recognizer errs toward clearing — a
+  direct answer is never held for being short); a causal answer that
+  happens to contain the word "later" clears (no bare word is a phrase); a
+  deferral beside an answer, in either order and in one sentence or two
+  ("I'll get to that. The null check does not fix it, see line 12."; "No —
+  the null check does not fix it, see line 12, though I'll get to the rest
+  later."), clears on what remains; "I'll get to that." and an empty turn
+  do not. A dodge dressed in extra words ("Sure, I'll get to that after the
+  refactor.") clears — the skeleton errs toward clearing, the exit report
+  measures every deny escaped by a text turn (Step 39), and the human
+  channel corrects the ones that matter (AD-9's deferral-false-match
+  class) — never a vocabulary of acknowledgements or a clause grammar that
+  would hold on an answer because of where it sat (D-plan-24; the rule was
+  executed over the spec's examples, the direct answers, and the deferral
+  cases, §11.4). The function takes no question text: it cannot match a
+  turn to a specific question, which is the Phase B comprehension judgment
+  (`AC-2a-ii`).
 - `recognizeMove(toolName): boolean` — `true` exactly for `Write`, `Edit`,
   `NotebookEdit`; every other tool name is `false` (`D-39`: reads, searches,
   `Bash`, `Task`, MCP and web tools are never denied in Phase A).
-The stoplists, the acknowledgement lexicon, and the length floor are read
-from `tuning` by the caller (Step 25) and passed in; the functions hold no
-configuration.
+The stoplists and the length floor are read from `tuning` by the caller
+(Step 25) and passed in; the functions hold no configuration.
 
 **Creates.** `src/qa/classify.ts` — recognizers (Phase B replaces this file).
 
@@ -2729,9 +2788,9 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/blocks/verdict.ts, middleware/context-oracle/ctxoracle/src/types/hook_response.ts, middleware/context-oracle/ctxoracle/test/build/typecheck_verdict_shape.test.ts, middleware/context-oracle/ctxoracle/test/build/fixtures/verdict_updated_input.ts, middleware/context-oracle/ctxoracle/test/build/fixtures/verdict_updated_tool_output.ts, middleware/context-oracle/ctxoracle/test/conventions/permission_decision_confined.test.ts, middleware/context-oracle/ctxoracle/test/build/typecheck_deny_brand.test.ts, middleware/context-oracle/ctxoracle/test/build/fixtures/deny_literal_outside.ts]
   modify: []
   delete: []
-provides: []
+provides: [DenyVerdict, makeDenyVerdict]
 tests: [T-24-1, T-24-2, T-24-3]
-depends_on: [S1]
+depends_on: [S1, S6, S9, S10]
 ```
 
 
@@ -2813,9 +2872,9 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/blocks/answer_drift.ts, middleware/context-oracle/ctxoracle/test/unit/answer_drift_intake.test.ts, middleware/context-oracle/ctxoracle/test/unit/answer_drift_catchup.test.ts, middleware/context-oracle/ctxoracle/test/unit/answer_drift_decide.test.ts]
   modify: []
   delete: []
-provides: []
+provides: [decideDeny, intakeFromPrompt, catchUpTranscript]
 tests: [T-25-1, T-25-2, T-25-3, T-38-1, T-38-2, T-38-3, T-38-4, T-38-5, T-38-30, T-38-31]
-depends_on: [S1]
+depends_on: [S1, S12, S21, S22, S23, S24]
 ```
 
 
@@ -2831,7 +2890,10 @@ depends_on: [S1]
   question with no intake row (same recognizer), and void an intake row
   whose matching turn carries an affirmatively non-human marker
   (`voidQuestion(..., 'intake_invalidated', denyFired)` + fault);
-  `assistant_text` → `recognizeClearing`, and on `clears`
+  `assistant_text` → `recognizeClearing`; every classified turn is
+  recorded (`classified_turns.record(consumer, uuid, ts, clears, reason)`,
+  Step 9 — the record AD-9's `deny_loop` and `deny_despite_answer_text`
+  detectors read across events), and on `clears`
   `answerQuestions(store, consumer, entry.uuid, 'generic_text_all_prior')`;
   `skip` with `unknown_shape` → `unrecognized_user_entry` fault. The
   bookmark advances only over completed lines; if the deadline fires
@@ -2918,7 +2980,7 @@ files:
   delete: []
 provides: []
 tests: [T-26-1, T-38-6]
-depends_on: [S1, S23]
+depends_on: [S1, S9, S23, S25]
 ```
 
 
@@ -2929,17 +2991,20 @@ handler calls after every deny emission and every catch-up:
   precedes an already-emitted deny for the consumer, record
   `deny_after_answer_lag` with both ids.
 - `checkDenyLoop(store, consumer)` — ≥ `deny.loop_threshold` consecutive
-  `kind='deny'` audit rows with no intervening assistant text →
-  `deny_loop`.
+  `kind='deny'` audit rows with no `classified_turns` row between them
+  (`classified_turns.between`, Step 9) → `deny_loop`.
 - `checkDenyDespiteAnswerText(store, consumer)` — ≥
   `deny.despite_answer_text_threshold` denies since the newest question
   opened with ≥ 1 intervening assistant text turn that the clear
   recognizer (Step 23) rejected with reason `below_length_floor` →
-  `deny_despite_answer_text`. Turns rejected as `deferral_only` or
-  `acknowledgement_only` are excluded (AD-9's "excluding deferral-stoplist
-  turns"): a deferral-only turn is the dodge the block exists for (FR-B1,
-  OL-C3) and a deny after it is correct, never a wrongful-deny component;
-  a deferral the stoplist does not recognize is human-channel-caught, AD-9.
+  `deny_despite_answer_text`. Turns rejected as `deferral_only` are
+  excluded (AD-9's "excluding deferral-stoplist turns"): a deferral-only
+  turn is the dodge the block exists for (FR-B1, OL-C3) and a deny after it
+  is correct, never a wrongful-deny component; a deferral the stoplist does
+  not recognize is human-channel-caught, AD-9. The classified turns both
+  detectors read are the `classified_turns` rows the catch-up writes (Step
+  25; the table is Step 7's, the DAO Step 9's), so the detectors see turns
+  from earlier events — each event is a fresh process (AD-1).
 - `checkDenyBypassSuspect(store, consumer, postToolUseBashRow)` — on an
   `outcome='ok'` Bash row whose command matches the **enumerated path-write
   predicate** — redirection `>`/`>>`, `tee`, `sed -i`, `perl -i`, and
@@ -2993,11 +3058,11 @@ step: S27
 covers: [PA-2]
 files:
   create: [middleware/context-oracle/ctxoracle/test/unit/question_lifetime.test.ts, middleware/context-oracle/ctxoracle/test/unit/stop_outstanding_line.test.ts]
-  modify: []
+  modify: [middleware/context-oracle/ctxoracle/src/blocks/answer_drift.ts]
   delete: []
 provides: []
 tests: [T-27-1, T-27-2, T-38-7, T-38-8, T-38-9]
-depends_on: [S1, S18, S25]
+depends_on: [S1, S18, S22, S25]
 ```
 
 
@@ -3060,12 +3125,12 @@ Step 39 marker-presence verification.
 step: S28
 covers: [PA-4, PA-10, PA-11]
 files:
-  create: [middleware/context-oracle/ctxoracle/src/cli/dispatch.ts, middleware/context-oracle/ctxoracle/src/cli/hook.ts, middleware/context-oracle/ctxoracle/src/cli/integrity_check.ts, middleware/context-oracle/ctxoracle/test/replay/integrity_check_verb.test.ts, middleware/context-oracle/ctxoracle/src/hook/adapter.ts, middleware/context-oracle/ctxoracle/src/hook/handler.ts, middleware/context-oracle/ctxoracle/test/replay/runner.ts, middleware/context-oracle/ctxoracle/test/replay/pipeline_order.test.ts, middleware/context-oracle/ctxoracle/test/conventions/hook_field_names_isolated.test.ts, middleware/context-oracle/ctxoracle/test/replay/fail_open.test.ts, middleware/context-oracle/ctxoracle/test/replay/produced_but_undelivered.test.ts, middleware/context-oracle/ctxoracle/test/replay/liveness_row.test.ts]
+  create: [middleware/context-oracle/ctxoracle/src/cli/dispatch.ts, middleware/context-oracle/ctxoracle/src/cli/hook.ts, middleware/context-oracle/ctxoracle/src/cli/index.ts, middleware/context-oracle/ctxoracle/src/cli/integrity_check.ts, middleware/context-oracle/ctxoracle/test/replay/integrity_check_verb.test.ts, middleware/context-oracle/ctxoracle/src/hook/adapter.ts, middleware/context-oracle/ctxoracle/src/hook/handler.ts, middleware/context-oracle/ctxoracle/test/replay/runner.ts, middleware/context-oracle/ctxoracle/test/replay/pipeline_order.test.ts, middleware/context-oracle/ctxoracle/test/conventions/hook_field_names_isolated.test.ts, middleware/context-oracle/ctxoracle/test/replay/fail_open.test.ts, middleware/context-oracle/ctxoracle/test/replay/produced_but_undelivered.test.ts, middleware/context-oracle/ctxoracle/test/replay/liveness_row.test.ts]
   modify: [.github/workflows/context-oracle-ctxoracle.yml]
   delete: []
-provides: [ctxoracle-hook, hook-integrity-check]
+provides: [ctxoracle-hook, hook-integrity-check, ctxoracle-index, toInternalEvent, toHookResponse]
 tests: [T-28-1, T-28-2, T-28-3, T-28-4, T-28-5, T-28-6]
-depends_on: [S1, S3, S6, S10, S14, S16, S17, S18, S20, S24, S25, S26, S27]
+depends_on: [S1, S3, S6, S9, S10, S14, S16, S17, S18, S19, S20, S24, S25, S26, S27]
 ```
 
 
@@ -3098,7 +3163,8 @@ Create `src/cli/dispatch.ts` — the `bin` entry (`#!/usr/bin/env node`; a
 manual verb switch, no argument-parsing dependency) with, at this step, the
 single undocumented internal verb `hook <event> [--deadline-ms <n>]` →
 `src/cli/hook.ts` → the handler: stdin JSON in, response JSON out, exit 0
-always. Later steps register their verbs in the same switch (Steps 31–35);
+always. Later steps register their verbs in the same switch, each declaring
+the edit under `modify:`;
 `--deadline-ms` overrides the watchdog deadline (Step 29) and exists for the
 replay harness only — `init` never writes it, and no environment variable
 can set it.
@@ -3125,8 +3191,12 @@ Create `src/hook/handler.ts` — the per-event pipeline in AD-8's fixed order:
    'liveness'`, `detail_json` = `{transcriptPath, transcriptBytes}`) —
    AD-17's `hooks_not_firing` input, read by `status` (Step 33); dedup
    reconciliation (Step 20); qa lifetime (Step 27); staleness check →
-   `index_stale` + detached reindex (Step 14); detached integrity child
-   (`hook integrity-check`, this step's second internal verb, via the
+   `index_stale` (Step 14's `refreshIfStale`) and, when it reports stale, a
+   detached reindex child — `<node> <dispatch.js> index`, this step's
+   `index` verb (`src/cli/index.ts`: `index [--full]` → `runIndex`, Step 14;
+   `--full` re-mines from scratch), spawned through Step 5's wrapper and
+   observable by the `.reindex.lock` `runIndex` takes; detached integrity
+   child (`hook integrity-check`, this step's other internal verb, via the
    wrapper); no output.
 5. Question intake (`UserPromptSubmit` only; Step 25).
 6. Transcript catch-up (Step 25) + health detectors on classified turns
@@ -3147,14 +3217,15 @@ Create `src/hook/handler.ts` — the per-event pipeline in AD-8's fixed order:
    At `Stop`/`SubagentStop`: done-claim recognizer (Step 18), Completeness +
    Verification candidates, the outstanding-question line (Step 27),
    delivered through `deliverStop` honoring `stop_hook_active` (Step 20).
-10. `SessionEnd`: finalize the session diagnostics row; the `whisper_stats`
-    fold and the regret proxy (Step 30).
+10. `SessionEnd`: finalize the session diagnostics row. (The `whisper_stats`
+    fold and the regret proxy are added to this branch by the step that
+    creates them, which declares the edit.)
 11. Diagnostics row (Step 10). Exit 0 always (AD-7); any error or watchdog
     fire ⇒ empty output + JSONL fault, no deny, no whisper.
 
 Create `test/conventions/hook_field_names_isolated.test.ts` (built-output
-grep over `dist/src/**` outside `dist/src/hook/adapter.js` for every input
-and response field name listed above; no match permitted — Step 24's
+grep over `dist/src/**` outside `dist/src/hook/adapter.js` for every
+identifier in the convention list above; no match permitted — Step 24's
 `hook_response.ts` is type-only and Step 20's `deliverStop` returns an
 internal object, so a clean build has none).
 
@@ -3165,7 +3236,7 @@ on failure; it is the detached child the `SessionStart` branch above spawns
 through Step 5's wrapper, and the off-path check the `init` and `index` verbs
 (Steps 31, 32) run (AD-17).
 
-**Creates.** `src/cli/dispatch.ts` — verb dispatcher (bin entry: dist/src/cli/dispatch.js); verbs registered by Steps 28, 31–35; `src/cli/hook.ts` — internal `hook <event> [--deadline-ms n]` verb (routes to handler); `src/cli/integrity_check.ts` — internal `hook integrity-check` verb (off-path quick_check); `src/hook/adapter.ts` — the ONE file naming Claude Code hook fields (AD-6); `src/hook/handler.ts` — per-event pipeline (AD-7, AD-8); `test/replay/runner.ts` — replay harness (spawns the built handler through the CLI).
+**Creates.** `src/cli/dispatch.ts` — verb dispatcher (bin entry: dist/src/cli/dispatch.js); verbs registered by Steps 28, 31–35; `src/cli/hook.ts` — internal `hook <event> [--deadline-ms n]` verb (routes to handler); `src/cli/index.ts` — `index [--full]` verb → runIndex (Step 14), the reindex child the handler spawns; `src/cli/integrity_check.ts` — internal `hook integrity-check` verb (off-path quick_check); `src/hook/adapter.ts` — the ONE file naming Claude Code hook fields (AD-6); `src/hook/handler.ts` — per-event pipeline (AD-7, AD-8); `test/replay/runner.ts` — replay harness (spawns the built handler through the CLI).
 
 **Source.** `AD-6` (event map, adapter file, `PostToolUseFailure`
 observation-only); `AD-7` (fail-open, exit 0 always); `AD-8` (pipeline
@@ -3215,17 +3286,26 @@ AC-2a replays.
 step: S29
 covers: [PA-9]
 files:
-  create: [middleware/context-oracle/ctxoracle/test/replay/watchdog.test.ts, middleware/context-oracle/ctxoracle/test/replay/recursion_guard.test.ts]
+  create: [middleware/context-oracle/ctxoracle/test/replay/watchdog.test.ts, middleware/context-oracle/ctxoracle/test/replay/recursion_guard.test.ts, middleware/context-oracle/ctxoracle/test/fixtures/generate_large_store.ts]
   modify: []
   delete: []
 provides: []
 tests: [T-29-1, T-29-2]
-depends_on: [S1, S28]
+depends_on: [S1, S6, S28]
 ```
 
 
-**What changes.** Nothing new in `src/`: this step verifies, through the
-built handler, the two Step 10 modules the Step 28 pipeline placed first
+**What changes.** Nothing new in `src/`. Create
+`test/fixtures/generate_large_store.ts`: builds the `large-store` *store*
+(not a repository) through the real migrations (Step 7) and DAOs (Step 9)
+— ≈400 MB of the AD-23/V8 class, ≈2 M `cochange_pairs` rows and ≈1 M
+`symbols` rows, the population that made one statement take 543 ms in V8
+— into the test's temp home, once per run directory and cached there by
+the generator's content hash; on CI, where no run directory survives, it
+is rebuilt per job and its build time is measured and printed by Step 37's
+run (the number is stated in the exit report, not assumed here). This
+step verifies, through the built handler, the two Step 10 modules the
+Step 28 pipeline placed first
 (`isInternal` before any store is opened; `createDeadline` started before
 parse). `deadline.check()` is called between bounded work slices per
 AD-23's inventory (after parse, after each transcript slice, after
@@ -3283,11 +3363,11 @@ step: S30
 covers: [PA-5]
 files:
   create: [middleware/context-oracle/ctxoracle/src/diag/regret.ts, middleware/context-oracle/ctxoracle/src/diag/whisper_stats_fold.ts, middleware/context-oracle/ctxoracle/test/replay/regret_proxy.test.ts, middleware/context-oracle/ctxoracle/test/unit/whisper_stats_fold.test.ts]
-  modify: []
+  modify: [middleware/context-oracle/ctxoracle/src/hook/handler.ts, middleware/context-oracle/ctxoracle/src/index/indexer.ts]
   delete: []
-provides: []
+provides: [foldWhisperStats, recordRegret]
 tests: [T-30-1, T-30-2]
-depends_on: [S1, S14]
+depends_on: [S1, S9, S14, S28]
 ```
 
 
@@ -3298,7 +3378,9 @@ depends_on: [S1, S14]
 store's `whisper_audit` rows (`sent` per genre) and `corrections` rows
 (`corrected_false`, `corrected_missed`) newer than the watermark, upserts
 `whisper_stats`, and advances only that project's watermark (AD-5, AD-26).
-Run points: `SessionEnd` (handler) and the `correct` verb (Step 34) — never
+Run points: `SessionEnd` — this step adds the call to the handler's
+`SessionEnd` branch (`src/hook/handler.ts`, Step 28; declared under
+`modify:`) — and the `correct` verb, whose step calls it (Step 34); never
 on tool events.
 
 Create `src/diag/regret.ts` exporting `recordRegret(store, session)`: the
@@ -3317,8 +3399,10 @@ bar, **or never triggered**" — a fact no generator ever produced a candidate
 for is in the population; AD-18's relevance test is the subject / direct-
 partner bound). A regret row names the fact, the churn, and whether a
 candidate existed (`held_below_bar`, `held_dedup`, `never_triggered`) so
-`status` can show the split. Called at `SessionEnd` and from `runIndex` refresh (Step 14) so a
-between-session revert is caught. The rate is rendered by `status` under
+`status` can show the split. This step adds the two call sites: the
+handler's `SessionEnd` branch (`src/hook/handler.ts`, Step 28) and the end
+of `runIndex` (`src/index/indexer.ts`, Step 14) so a between-session revert
+is caught; both files are declared under `modify:`. The rate is rendered by `status` under
 its mandated label, with the note that the designed silence at a
 run-and-failed done-claim is self-counted here (AD-18).
 
@@ -3364,11 +3448,11 @@ step: S31
 covers: [PA-11]
 files:
   create: [middleware/context-oracle/ctxoracle/src/cli/init.ts, middleware/context-oracle/ctxoracle/test/replay/init_fresh.test.ts, middleware/context-oracle/ctxoracle/test/replay/init_idempotent.test.ts, middleware/context-oracle/ctxoracle/test/replay/init_keying_change.test.ts]
-  modify: []
+  modify: [middleware/context-oracle/ctxoracle/src/cli/dispatch.ts]
   delete: []
 provides: [ctxoracle-init]
 tests: [T-31-1, T-31-2, T-31-3]
-depends_on: [S1, S2, S3, S4, S5, S7, S12, S14, S28]
+depends_on: [S1, S2, S3, S4, S5, S7, S8, S12, S14, S28]
 ```
 
 
@@ -3376,8 +3460,10 @@ depends_on: [S1, S2, S3, S4, S5, S7, S12, S14, S28]
 switch. Create `src/cli/init.ts`:
 1. `assertRuntime()` (Step 2); open the stores (Step 3) and `probeFts5`;
    on a failed runtime check print a plain-language error and exit 1; on a
-   failed probe continue with the `LIKE` fallback recorded in `schema_meta`
-   and named in the summary.
+   failed probe record `schema_meta.fts_state = 'fallback'` before the
+   migrations run, so `applyMigrations(store, {fts: false})` skips the FTS
+   migration and the `LIKE` path is what `search.ts` uses; the summary
+   names the state.
 2. `resolveRepoKey` (Step 5). Keying-mode change detection: compute the
    identity and key under **every** rule that applies to this checkout
    (`commit` when the history is full, `url` when a remote exists, `path`
@@ -3385,8 +3471,9 @@ switch. Create `src/cli/init.ts`:
    exists under a mode other than the resolved one, print the
    plain-language warning AD-20 specifies (naming both keys and modes) and
    offer the `export`/`import` migration before proceeding.
-3. `ensureLayout` (Step 4); apply migrations 001 and 002 (Steps 7, 8);
-   `seedDefaults` (Step 12).
+3. `ensureLayout` (Step 4); `applyMigrations` for the project store (001,
+   001b when `fts_state` is `'fts5'`) and the global store (002) (Steps 7,
+   8); `seedDefaults` (Step 12).
 4. Write hook entries into `<repoPath>/.claude/settings.json` for the eight
    AD-6 events: each entry `{ "type": "command", "command": "\"<node>\"
    \"<dispatch>\" hook <event>", "timeout": 5 }` where `<node>` is
@@ -3397,9 +3484,10 @@ switch. Create `src/cli/init.ts`:
    2026-09-07 in the layout reproduction — §11.4); both paths are quoted so
    a space in either survives the shell. The pin is a liability the plan
    owns: an interpreter upgrade that removes `<node>` makes every hook exit
-   127 with no liveness row ever written, so `init`'s summary prints the
-   pinned interpreter and `status` re-checks its existence beside the
-   totally-dead detector (Step 33, D-plan-25). **The marker is the command
+   127 with no liveness row ever written, so `init` records the pin as
+   `schema_meta.pinned_interpreter`, prints it in its summary, and `status`
+   reads that key and re-checks the path's existence beside the totally-dead
+   detector (Step 33, D-plan-25). **The marker is the command
    itself**: an entry belongs to the oracle iff its `command` matches
    `/[\\/]dist[\\/]src[\\/]cli[\\/]dispatch\.js"? hook <event>$/`
    (the package's own entry file plus the verb; the path prefix is free so
@@ -3468,16 +3556,16 @@ what `T-31-3` and the identity-string display guard.
 
 ---
 
-### Step 32 — `deinit`, `index`, `export`, `import` verbs
+### Step 32 — `deinit`, `export`, `import` verbs
 
 ```step-decl
 step: S32
 covers: [PA-11]
 files:
-  create: [middleware/context-oracle/ctxoracle/src/cli/deinit.ts, middleware/context-oracle/ctxoracle/src/cli/index.ts, middleware/context-oracle/ctxoracle/src/cli/export.ts, middleware/context-oracle/ctxoracle/src/cli/import.ts, middleware/context-oracle/ctxoracle/test/replay/deinit_marker.test.ts, middleware/context-oracle/ctxoracle/test/replay/export_roundtrip.test.ts, middleware/context-oracle/ctxoracle/test/conventions/no_network_modules.test.ts]
-  modify: []
+  create: [middleware/context-oracle/ctxoracle/src/cli/deinit.ts, middleware/context-oracle/ctxoracle/src/cli/export.ts, middleware/context-oracle/ctxoracle/src/cli/import.ts, middleware/context-oracle/ctxoracle/test/replay/deinit_marker.test.ts, middleware/context-oracle/ctxoracle/test/replay/export_roundtrip.test.ts, middleware/context-oracle/ctxoracle/test/conventions/no_network_modules.test.ts]
+  modify: [middleware/context-oracle/ctxoracle/src/cli/dispatch.ts]
   delete: []
-provides: [ctxoracle-deinit, ctxoracle-index, ctxoracle-export, ctxoracle-import]
+provides: [ctxoracle-deinit, ctxoracle-export, ctxoracle-import]
 tests: [T-32-1, T-32-2, T-32-3]
 depends_on: [S1, S3, S14, S28, S31]
 ```
@@ -3492,8 +3580,6 @@ depends_on: [S1, S3, S14, S28, S31]
   `settings.json` and the pruned document equals `{}`, removes the file,
   and likewise the `.claude/` directory it created when empty; with
   `--purge` deletes the project store and its diagnostics directory.
-- `src/cli/index.ts`: `index [--full]` → `runIndex` (Step 14); `--full`
-  re-mines from scratch.
 - `src/cli/export.ts` / `src/cli/import.ts`: `export <dir>` writes
   `<dir>/project.db` and `<dir>/global.db` via `Store.exportTo` (`VACUUM
   INTO`, Step 3); `import <dir>` copies them into the layout paths after a
@@ -3506,12 +3592,16 @@ depends_on: [S1, S3, S14, S28, S31]
   `globalThis.fetch`, `.fetch` appears — the
   structural form of AC-19's and AC-11's no-egress clauses (`T-32-3`). The
   runtime form (`T-32-2`) executes the verbs inside a network namespace with
-  no interfaces (`unshare -rn`, available on the Linux CI runners — executed
-  2026-09-07, §11.4) and asserts they still succeed; on a host without
-  `unshare` that leg reports itself as not executed and `T-32-3` remains the
+  no interfaces (`unshare -rn` — available in this sandbox, §11.4, and
+  **refused on the `ubuntu-24.04` GitHub runner**, which forbids the
+  unprivileged user namespace: `write failed /proc/self/uid_map: Operation
+  not permitted`, observed 2026-09-07 in the plan's own CI job, §11.4) and
+  asserts they still succeed; on a host without `unshare`, or one that
+  refuses it, that leg reports itself as not executed with the reason and
+  `T-32-3` remains the
   asserted property.
 
-**Creates.** `src/cli/deinit.ts`; `src/cli/index.ts`; `src/cli/export.ts` — VACUUM INTO; `src/cli/import.ts`.
+**Creates.** `src/cli/deinit.ts`; `src/cli/export.ts` — VACUUM INTO; `src/cli/import.ts`.
 
 **Source.** `AD-20` (verbs); `AD-5` (export/import via `VACUUM INTO`,
 record-identical per AC-19); `AD-12`/`AD-13` (index runs both indexer and
@@ -3530,7 +3620,7 @@ miner); SQLite `VACUUM` documentation (2026-09-07, §11.4).
 3. **Why this standard applies here.** `FR-K9` requires the round-trip;
    AC-19 says record-identical; the engine-level copy has no dependence on
    the runtime floor.
-4. **What this is NOT — and why.** Not the `backup()` API (exists from
+4. **What this is NOT — and why.** Not the `sqlite.backup()` API (exists from
    v22.16.0 — the floor — but the engine-level path keeps export
    independent of the floor). Not a JSON export (loses STRICT constraints
    on import). Not a byte-compare in the test (the documentation says the
@@ -3558,11 +3648,11 @@ step: S33
 covers: [PA-5, PA-11]
 files:
   create: [middleware/context-oracle/ctxoracle/src/cli/status.ts, middleware/context-oracle/ctxoracle/src/cli/log.ts, middleware/context-oracle/ctxoracle/src/cli/tune.ts, middleware/context-oracle/ctxoracle/src/diag/status.ts, middleware/context-oracle/ctxoracle/src/diag/log.ts, middleware/context-oracle/ctxoracle/test/replay/status_renders_all.test.ts, middleware/context-oracle/ctxoracle/test/replay/log_readback.test.ts, middleware/context-oracle/ctxoracle/test/replay/tune_roundtrip.test.ts, middleware/context-oracle/ctxoracle/test/replay/hooks_not_firing.test.ts]
-  modify: []
+  modify: [middleware/context-oracle/ctxoracle/src/cli/dispatch.ts]
   delete: []
 provides: [ctxoracle-status, ctxoracle-log, ctxoracle-tune]
 tests: [T-33-1, T-33-2, T-33-3, T-33-4]
-depends_on: [S1, S2, S4, S5, S26]
+depends_on: [S1, S2, S4, S5, S9, S10, S12, S26, S28, S30]
 ```
 
 
@@ -3586,12 +3676,17 @@ depends_on: [S1, S2, S4, S5, S26]
   `diag.hooks_not_firing_gap_s`, record `hooks_not_firing` for that session
   and flag it — detected at this invocation, never by a timer) **and its
   totally-dead half** (AD-17, L7 — "liveness rows go stale": transcripts
-  under `~/.claude/projects/<cwd-slug>/` for this repository newer than
-  the newest liveness row — or present when no liveness row exists at all
-  — by more than the gap ⇒ `hooks_not_firing` with detail "no session
-  started the hooks"; run at `status`, `init`, and `index`, D-plan-25),
-  the pinned interpreter `init` wrote and whether it still exists (a Node
-  upgrade that removed it is named, never silent — OL-10), latency
+  in the directory `projectTranscriptDir(cwd)` returns (Step 21's
+  `locate.ts`, the one module that knows the layout) newer than the newest
+  liveness row — or present when no liveness row exists at all — by more
+  than the gap ⇒ `hooks_not_firing` with detail "no session started the
+  hooks"; when that directory does not exist, `status` prints "no
+  transcript directory found for this repository" so a changed layout is
+  visible rather than silent; run at `status`, `init`, and `index`,
+  D-plan-25),
+  the pinned interpreter `init` recorded in `schema_meta.pinned_interpreter`
+  and whether that path still exists (a Node upgrade that removed it is
+  named, never silent — OL-10), latency
   p50/p95/max per event type, every `plan_seed` tuning value in force (Step
   12), the correct-silence announcement (`FR-M3`, owner-facing only — never
   injected into the agent's context, `D-22`), and the two reserved codes
@@ -3646,11 +3741,11 @@ step: S34
 covers: [PA-7, PA-11]
 files:
   create: [middleware/context-oracle/ctxoracle/src/cli/correct.ts, middleware/context-oracle/ctxoracle/test/replay/correct_verdict.test.ts, middleware/context-oracle/ctxoracle/test/replay/correct_missed_question.test.ts]
-  modify: []
+  modify: [middleware/context-oracle/ctxoracle/src/cli/dispatch.ts]
   delete: []
 provides: [ctxoracle-correct]
 tests: [T-34-1, T-34-2]
-depends_on: [S1, S22, S23, S30]
+depends_on: [S1, S9, S22, S23, S30, S33]
 ```
 
 
@@ -3707,11 +3802,11 @@ step: S35
 covers: [PA-7, PA-11]
 files:
   create: [middleware/context-oracle/ctxoracle/src/cli/note.ts, middleware/context-oracle/ctxoracle/test/replay/note_project.test.ts, middleware/context-oracle/ctxoracle/test/replay/note_global.test.ts]
-  modify: []
+  modify: [middleware/context-oracle/ctxoracle/src/cli/dispatch.ts]
   delete: []
 provides: [ctxoracle-note]
 tests: [T-35-1, T-35-2]
-depends_on: [S1]
+depends_on: [S1, S9, S11, S31]
 ```
 
 
@@ -3887,7 +3982,7 @@ files:
   delete: []
 provides: []
 tests: [T-38-1, T-38-2, T-38-3, T-38-4, T-38-5, T-38-6, T-38-7, T-38-8, T-38-9, T-38-10, T-38-11, T-38-12, T-38-13, T-38-14, T-38-15, T-38-16, T-38-17, T-38-18, T-38-19, T-38-20, T-38-21, T-38-22, T-38-23, T-38-24, T-38-25, T-38-26, T-38-27, T-38-28, T-38-29, T-38-30, T-38-31, T-38-32, T-38-33]
-depends_on: [S1, S28, S29, S30, S31, S32, S33, S34, S35]
+depends_on: [S1, S5, S15, S28, S29, S30, S31, S32, S33, S34, S35]
 ```
 
 
@@ -3965,7 +4060,7 @@ files:
   delete: []
 provides: []
 tests: [T-38-27]
-depends_on: [S1, S5, S28, S38]
+depends_on: [S1, S5, S28, S31, S38]
 ```
 
 
@@ -4017,67 +4112,76 @@ leg 2 carry the measurement.
 construction).** The target repositories are `Maxcogar/NOVA` and
 `Maxcogar/Nova-Integrations` — the two most recently pushed repositories
 in §11.4's 2026-09-07 listing other than the tool's own; if a named
-repository holds no grammar-covered code file at run time, the next
+repository holds no grammar-covered code file at run time, or cannot be
+cloned with the implementing agent's repository access, the next
 repository in that listing's push-date order replaces it, and the report
-records the replacement. **The implementing agent creates every session
-with its own session tooling** (the session-creation and messaging tools
-its environment provides); `scripts/exit-run.sh` never starts a session —
-it collects (`ctxoracle import` of each exported directory, `status`,
-`log`) and computes. Per repository, the protocol is:
+records the replacement. **Every counted session is a `claude -p`
+conversation the implementing agent drives from its own environment** —
+the same invocation shape the model seam verified (V9, Step 36), as a
+child process of the agent's session, with `CTXORACLE_INTERNAL` absent
+from the child's environment (the driver prints the child's environment
+filtered for `CTXORACLE_*` and the report carries that output, which must
+be empty). The hooks reference's settings-file rule makes this the
+executable session kind: a `-p` or SDK session never shows the trust
+dialog and treats the folder as trusted, so the hooks `init` wrote to the
+clone's `.claude/settings.json` run from the session's first event
+(§11.4); an interactive session would hold them back until a dialog no
+agent can accept. Per repository, the protocol is:
 
-1. **Bootstrap session (not counted).** A session on a fresh clone of the
-   repository installs the packed tool (`npm install -g <package
-   tarball>`), runs `ctxoracle init`, prints its environment filtered for
-   `CTXORACLE_*` (which must be empty — a session carrying
-   `CTXORACLE_INTERNAL` would make the handler exit 0 at every event and
-   the measurement would read as a silent zero), and ends. Hooks written
-   to a settings file are loaded when a session starts and follow the
-   workspace-trust rule — an interactive session holds them back until
-   the trust dialog is accepted and a `-p` session does not count as
-   accepting it (hooks reference, §11.4) — so the session that installs
-   is never the session that measures.
-2. **Counted sessions.** At least **three** sessions per repository, each
-   created after the bootstrap session on the same initialised clone so
-   the hooks load at startup. Inside each, the driver prints the
-   `CTXORACLE_*` check, asks at least one `?`-terminated question **and at
+1. **Setup (once, no session).** On the report machine — the environment
+   the implementing agent runs in, where `~/.ctxoracle` and
+   `~/.claude/projects/` are local to the report — clone the repository,
+   install the packed tool (`npm install -g <package tarball>`), and run
+   `ctxoracle init` in the clone. The wiring is in place before any
+   session starts; nothing is installed inside a session.
+2. **Counted sessions.** At least **three** `claude -p` conversations per
+   repository, each a fresh session (`--resume` continues one; a new
+   session id starts the next), driven turn by turn by the agent. Inside
+   each, the driver asks at least one `?`-terminated question **and at
    least one indirect ask without a `?`** ("tell me whether …" — the
    intake-miss class the floor measures; whether it was opened, re-asked,
    or corrected is recorded), performs at least five tool events including
-   one `Edit`, and performs the **L11(b) induction**: a background task is
-   started and allowed to complete (a task-notification turn) and a
-   scheduled wake is triggered; the diagnostics and `log` are then read
-   for a `UserPromptSubmit` event, an intake row, and an
-   `intake_invalidated` fault for those turns. Three is the minimum
-   because one session cannot separate a lag hold from a steady-state
-   deny; three gives each detector at least two chances to fire.
-3. **Export.** Every session — bootstrap and counted, agent-driven or
-   owner-driven — ends with `ctxoracle export <dir>` and the directory is
-   transferred to the report machine (a remote session's `~/.ctxoracle`
-   lives in its own container, G3, so export is the one path its data has
-   to the report); `exit-run.sh` imports each directory into a per-session
-   home and reads `status` and `log` from there.
+   one `Edit`, and attempts the **L11(b) induction**: a background task is
+   started and allowed to complete and a scheduled wake is triggered where
+   the `-p` harness produces those turns; where it does not, the induction
+   is recorded as *not performed* for that session, and Max Cogar's
+   interactive sessions (below) are where it is expected to be observed.
+   Three is the minimum because one session cannot separate a lag hold
+   from a steady-state deny; three gives each detector at least two
+   chances to fire.
+3. **Collection.** Every counted session's store and transcript are
+   already on the report machine (`~/.ctxoracle` and the session's
+   `~/.claude/projects/<slug>/` file, located through Step 21's
+   `projectTranscriptDir`); `exit-run.sh` reads `status` and `log` per
+   session and computes. No transfer step exists for agent-driven
+   sessions.
 
-Max Cogar may additionally drive sessions in his own environment
-(`OL-11`: he speeds up testing); those reach the report through the same
-one action on his side — `ctxoracle export <dir>` in each such repository
-and handing the directory over — and the report lists them separately with
-driver "Max Cogar". The outcome of each induction — fires / does not fire
-/ fires with the row voided / not performed — is a line in the report.
+Max Cogar may additionally drive sessions in his own interactive
+environment (`OL-11`: he speeds up testing); those reach the report
+through one action on his side — `ctxoracle export <dir>` in each such
+repository, plus the session's transcript file copied into that directory,
+and handing the directory over — and `ctxoracle import` on the report
+machine; the report lists them separately with driver "Max Cogar". The
+outcome of each induction — fires / does not fire / fires with the row
+voided / not performed — is a line in the report.
 
 **Leg 3 — AC-18 seeded fixture.** `T-38-27` on `seeded-facts`.
 
 **Validity rule.** The report is **invalid** unless leg 2 completed the
 three-session minimum on at least one of its target repositories, the
 `CTXORACLE_*` environment check was empty in every leg-2 session, and
-**every counted session's exported store holds a `SessionStart` liveness
-row** (a session whose hooks never fired — trust not accepted, wiring
-dead — can never count, and is listed as such); the tool's own repository
-never counts toward the minimum. The report states the rule and whether it
-was met.
+**every counted session's store holds a `SessionStart` liveness row for
+that session** (a session whose hooks never fired — wiring dead, a
+settings file not read — can never count, and is listed as such); the
+tool's own repository never counts toward the minimum. The report states
+the rule and whether it was met.
 
-**The recognizer floor number and its denominator.** From the human turns
-of the leg 1 corpus and the leg 2 transcripts, `exit-run.sh` draws a
-seeded random sample of `N = min(200, all human turns)` (seed printed); the
+**The recognizer floor number and its denominator.** Separately for the
+leg 1 corpus and for the leg 2 transcripts — never pooled, since leg 1's
+turns are what Max Cogar actually wrote and leg 2's are authored by the
+driver under a protocol that prescribes their shape — `exit-run.sh` draws a
+seeded random sample of `N = min(200, all human turns)` per leg (seeds
+printed); the
 implementing agent labels each sampled turn **before the replay opens any
 row, from a view of the corpus with no store present**, against the plan's
 written rule (D-plan-26) *"a turn that asks the agent for information or a
@@ -4088,11 +4192,13 @@ recognizer grading itself (collapse-log 2026-08-25 item 1); the report
 records the labelling order and that the labeller is the implementing
 agent, so the estimate is read with that caveat. The report prints the sample size, the
 rule, the labeller, the full label table as an appendix (turn uuid,
-label), and two numbers: **recall** = opened rows on labelled questions /
-labelled questions, and **precision** = opened rows on labelled questions /
-opened rows in the sample — each stated as an estimate with its `N`. Leg
-2 adds the ground truth the closed loop provides: questions the driver had
-to re-ask, and `--missed-question` corrections, are counted as misses.
+label), and, per leg, two numbers: **recall** = opened rows on labelled
+questions / labelled questions, and **precision** = opened rows on labelled
+questions / opened rows in the sample — each stated as an estimate with
+its `N`, leg 2's labelled "protocol-driven". Leg 2 adds the ground truth
+the closed loop provides: questions the driver had to re-ask, the indirect
+asks' outcomes, and `--missed-question` corrections, reported as their own
+lines, not folded into recall.
 
 **Report** (`docs/reviews/<date>-phase-a-exit-run.md` — D-plan-21): per-leg
 inputs (repository set with any replacement, transcript count per origin
@@ -4117,11 +4223,12 @@ declared `owner-local/interactive` holds at least one transcript and
 otherwise *not observed*; the L11(b) outcome per session; active
 suppressing conditions; every `plan_seed` value in force; the IDEAS.md
 #14 limit paragraph naming the leg-2-only fields above; and — **the honest
-floor numbers Max Cogar reads** — the recall and precision estimates above
-with their sample size, the labelling order and labeller, the count of
-questions opened over the count of human turns scanned, the indirect-ask
-outcomes from leg 2, and the fraction of leg-2 denies that were escaped
-by a text turn versus corrected as wrongful.
+floor numbers Max Cogar reads** — the per-leg recall and precision
+estimates above with their sample sizes (leg 1's from real turns; leg 2's
+labelled protocol-driven), the labelling order and labeller, the count of
+questions opened over the count of human turns scanned per leg, the
+indirect-ask outcomes from leg 2, and the fraction of leg-2 denies that
+were escaped by a text turn versus corrected as wrongful.
 
 **Creates.** `scripts/exit-run.sh` — three-leg exit run + report.
 
@@ -4145,9 +4252,9 @@ dominating rule 3.
    and the AD-24 regression fixtures are designed from this report
    (§11.5), so a biased substrate biases both. Naming the two repositories
    removes the "owner supplies a list" step a non-programmer should not
-   carry; making the sessions agent-driven by construction keeps the owner
-   out of the loop, and every session's export is what brings its data to
-   the machine that writes the report; a labelled
+   carry; making the sessions `claude -p` children of the agent's own
+   environment keeps the owner out of the loop and the data on the machine
+   that writes the report; a labelled
    sample is the only denominator a corpus with no planted ground truth
    can honestly carry (IDEAS.md #14), and a per-event transcript prefix is
    the only replay that does not hand the handler the session's future.
@@ -4164,8 +4271,8 @@ dominating rule 3.
 **Dependencies.** Declared above (`depends_on`).
 
 **Verification.** **Checkpoint 5**: the report exists with every field
-above; `ctxoracle status` on each imported leg-2 store shows the same
-numbers; `T-38-27` passed; the validity rule is met; the
+above; `ctxoracle status` on each leg-2 store (local or imported) shows the
+same numbers; `T-38-27` passed; the validity rule is met; the
 `CTXORACLE_*` check is empty for every leg-2 session; the marker-presence
 table by origin, the L11(a) verdict, and the L11(b) outcomes are present;
 the label appendix has `N` rows. A suspiciously *high* answer-drift
@@ -4188,7 +4295,7 @@ files:
   delete: []
 provides: []
 tests: [T-40-1]
-depends_on: [S1]
+depends_on: [S1, S39]
 ```
 
 
@@ -4516,11 +4623,10 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   sample under OL-C5's definition is the only ground truth a corpus with
   "no planted ground truth" (IDEAS.md #14) can carry, and the label table
   is published so the estimate is auditable. Leg 2 is agent-driven so no
-  session is asked of the owner; every session, agent-driven or
-  owner-driven, ends with `ctxoracle export`, and the exported directories
-  are what the report machine imports (a remote session's stores live in
-  its container) — when Max Cogar drives, his one action is `export`,
-  never data entry. Whether
+  session is asked of the owner; the agent's sessions are `claude -p`
+  children of its own environment, so their stores and transcripts are on
+  the report machine already (D-plan-26); when Max Cogar drives, his one
+  action is `export`, never data entry. Whether
   transcripts exist under `~/.claude/projects/` on the exit-run machine is
   discovered by enumeration and reported, including zero.
 
@@ -4532,9 +4638,10 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   non-programmer (`OL-11`, `CLAUDE.md` rule 1: the owner cannot catch
   mistakes), so an owner-run markdown probe is a workload transfer the
   project forbids. The induction needs a session whose hooks were loaded at
-  startup, which is why it lives in the counted closed-loop sessions —
-  those started after the bootstrap session installed and initialised the
-  clone (D-plan-26). Plan-time measurement (§11.4): the
+  its start, which is why it lives in the counted closed-loop sessions —
+  `claude -p` conversations on clones `init` prepared beforehand — and is
+  recorded *not performed* where that harness gives no injected turn
+  (D-plan-26). Plan-time measurement (§11.4): the
   2026-09-07 session transcript's one human prompt carries
   `origin.kind: "human"`; that is the expectation the script tests, not a
   resolution of L11(a) — AD-24 asks for a transcript "from the owner's
@@ -4681,22 +4788,27 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   network call at all (AD-1, spec §10), so the structural scan is the
   property itself; `unshare -rn` on the Linux CI runners gives a runtime
   check the process cannot bypass.
-- **D-plan-24 — The clear recognizer is clause-level: strip tool noise and
-  fences, split sentences into clauses, drop every clause carrying a
-  deferral-stoplist phrase and every clause that is exactly an
-  acknowledgement-lexicon member, clear when the surviving text meets the
-  floor.** *Reasoning.* FR-B1 and FR-B5 say only a *content-free* deferral
-  fails to clear and the recognizer errs toward clearing on a substantive
-  answer; P3 forbids a format tax. A sentence carrying the answer beside a
-  deferral ("No — the null check does not fix it, though I'll get to the
-  rest later") is not content-free: a sentence-level discard holds on it
-  and makes the agent re-answer in a separate sentence — a wrongful deny of
-  the recognizer's own making. A phrase-level strip leaves "Sure" / "Ok"
-  fragments that clear on the floor, so the acknowledgement lexicon (a
-  `plan_seed` list, printed with every measurement per D-plan-7) is the
-  named vocabulary that closes that hole. The rule was executed over the
-  T-23-2 cases as a reference implementation (§11.4) before it was written
-  here.
+- **D-plan-24 — "Content-free deferral" is operationalized as phrase-strip
+  then floor: remove every deferral-stoplist phrase from the stripped turn
+  and clear when what remains meets the small floor; the stoplist holds
+  multi-word phrases of AD-9's "I'll get to that" class only, and there is
+  no other vocabulary and no clause grammar.** *Reasoning.* AD-9 states two
+  conditions — above a small floor, not a recognized content-free deferral
+  — and FR-B5 sets the lean: toward clearing on a substantive answer, with
+  only an empty deferral failing to clear. Every richer rule the plan tried
+  held on an answer: a sentence-level discard held on "No — …, though I'll
+  get to the rest later"; a clause-level discard with an acknowledgement
+  lexicon held on "Sure." and "Understood." as whole answers and, with a
+  bare `later` in the stoplist, on a causal sentence — an elaboration in
+  the hold direction, the wrong error for the clear axis, and one the
+  detector exclusion of Step 26 made invisible to the exit report. Under
+  phrase-strip-then-floor the twelve direct answers the round-4 review
+  executed all clear, the deferral-only turns do not, and a dressed dodge
+  ("Sure, I'll get to that after the refactor.") clears — the skeleton's
+  designed under-hold, counted by Step 39's escape fraction and corrected
+  through the human channel, exactly as AD-9 files the deferral-false-match
+  miss. The rule was executed over the spec's examples, the direct-answer
+  class, and the deferral cases before it was written here (§11.4).
 - **D-plan-25 — `hooks_not_firing` has two detectors — the stale-session
   half (a liveness row whose transcript keeps growing without events) and
   the totally-dead half (transcripts for this repository's slug newer than
@@ -4710,31 +4822,35 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   every hook exits 127, no handler runs, no liveness row is written. OL-10
   is the owner asking to see exactly that, and a silent zero is the
   falsely reported success `CLAUDE.md` rule 1 forbids.
-- **D-plan-26 — Leg 2's protocol: per repository a bootstrap session
-  installs and initialises the clone and is not counted; counted sessions
-  are created afterwards so the hooks load at startup; the implementing
-  agent creates every session with its own session tooling and
-  `exit-run.sh` only collects and computes; every session ends with
-  `ctxoracle export` and a transfer; a counted session must hold a
+- **D-plan-26 — Leg 2's counted sessions are `claude -p` conversations the
+  implementing agent drives from its own environment on clones it
+  initialised beforehand; nothing is installed inside a session; stores
+  and transcripts are local to the report; a counted session must hold a
   `SessionStart` liveness row; each counted session asks one
   `?`-terminated and one indirect question; the floor sample is labelled
-  before replay, blind, against the plan's own rule; every corpus carries a
-  declared origin.** *Reasoning.* A shell script cannot call the agent's
-  session tooling, so the script's job is collection. Hooks in settings
-  files load at session start under the workspace-trust rule and a `-p`
-  session does not count as accepting it (hooks reference, §11.4), so
-  installing inside the measured session is a model the plan cannot hold
-  and the liveness row is the only observable that a counted session's
-  hooks were live. A remote session's stores live in its container (G3),
-  so export is the one path its data has to the report. OL-C5 states the
-  trigger ("if i ask a question"), not a definition of a question, so the
-  label rule is the plan's and is attributed as such; a labeller who can
-  read the store is not independent of what it measures. A corpus's origin
-  is a fact about where it came from, unknowable from its contents (V12:
-  marker presence is mode-dependent, so keying by markers is circular), so
-  it is declared by the run. The indirect ask is the intake-miss class the
-  floor exists to measure; a protocol that asks only `?` questions
-  measures the recognizer on the inputs it was built for.
+  before replay, blind, per leg, against the plan's own rule; every corpus
+  carries a declared origin.** *Reasoning.* The hooks reference's
+  settings-file rule (§11.4, asserted inside its section) is what decides
+  the session kind: a `-p` or SDK session treats the folder as trusted and
+  runs the settings-file hooks from its first event, while an interactive
+  session holds them back until a dialog no agent can accept; and a
+  session created by remote session tooling lives in its own container,
+  where a wiring written in one session is not there for the next (G3) and
+  a hook written mid-session is undocumented behaviour the plan may not
+  assume. A `claude -p` child of the agent's own session is the invocation
+  the model seam already verified (V9) and needs neither premise: `init`
+  runs before the session, the hooks load at its start, and the store and
+  transcript it produces are on the machine that writes the report. The
+  liveness row is then a genuine observable of live hooks, not a
+  precondition no session can meet. OL-C5 states the trigger ("if i ask a
+  question"), not a definition of a question, so the label rule is the
+  plan's and is attributed as such; a labeller who can read the store is
+  not independent of what it measures; and pooling leg-1 (real) and leg-2
+  (protocol-authored) turns into one sample would report neither the real
+  floor nor the protocol compliance rate, so the sample is drawn and
+  reported per leg. A corpus's origin is a fact about where it came from,
+  unknowable from its contents (V12), so it is declared by the run. The
+  indirect ask is the intake-miss class the floor exists to measure.
 
 ### 10A. Author's collapse-test on each load-bearing decision (`CLAUDE.md` rule 2)
 
@@ -4945,9 +5061,9 @@ collapse-hunt attacks these questions harder and hunts for the ones missing.
    session counts, transcript counts, and drivers, and Phase B's
    architecture (written from this report, §11.5) is where "is this enough
    data" is judged, with the report's own numbers in view. The labelled
-   sample is judged against the plan's written rule (D-plan-26), labelled
-   before the replay opens any row, not against the `?` rule, and the
-   label table is published, so the estimate is auditable and independent
+   sample is drawn per leg and judged against the plan's written rule
+   (D-plan-26), labelled before the replay opens any row, not against the
+   `?` rule, and the label tables are published, so the estimate is auditable and independent
    of the thing it measures (collapse-log 2026-08-25 item 1); leg 2's
    re-asks and `--missed-question` corrections are ground truth the loop
    itself produces. The per-event transcript prefix is what makes replay
@@ -4966,9 +5082,11 @@ collapse-hunt attacks these questions harder and hunts for the ones missing.
    leg; if leg 2 is driven by Max Cogar in his normal work, the "agent
    executes it" claim is false and the owner is running the probe after
    all.*
-3. **Answer.** Leg 2 is agent-driven by construction (D-plan-10), so the
-   induction — two actions and a read of `ctxoracle log` — is performed in
-   every agent-driven session; a session Max Cogar drives on his own is
+3. **Answer.** Leg 2 is agent-driven by construction (D-plan-10,
+   D-plan-26), so the induction — two actions and a read of `ctxoracle
+   log` — is attempted in every agent-driven session and recorded *not
+   performed* where the `claude -p` harness produces no task-notification
+   or scheduled-wake turn; a session Max Cogar drives on his own is
    additional, reaches the report through `export`, and its induction is
    recorded as *not performed* rather than asked of him — the report field
    is "fires / does not fire / not observed / not performed", and "not
@@ -5005,10 +5123,13 @@ collapse-hunt attacks these questions harder and hunts for the ones missing.
    agent — "the reviewer is the gate" is self-graded homework.*
 3. **Answer.** That is the project's standing condition for every
    artifact, not this decision's defect; the mitigation this decision owns
-   is mechanical: Checkpoints 3 and 4 and the exit run each require the
-   replay tier green, and the report records the run. Cite: §9; AD-24;
+   is mechanical and needs no reviewer's memory: from Step 28 the replay
+   tier runs in the every-PR `test` job beside the fast tier, so a
+   replay-only regression is red on the pull request that introduces it,
+   and Checkpoints 3–5 require it green as well. Cite: §9; AD-24;
    collapse-log 2026-08-25 item 3.
-4. **Steers toward.** Fast tier every commit; replay at the checkpoints.
+4. **Steers toward.** Both tiers on every pull request from the step the
+   first replay test exists; the fast tier alone only before that.
    **Guide, not gate.**
 
 #### D-plan-14 (single spawn wrapper)
@@ -5176,26 +5297,25 @@ collapse-hunt attacks these questions harder and hunts for the ones missing.
 4. **Steers toward.** Asserting the absence at the import graph. **Guide,
    not gate.**
 
-#### D-plan-24 (clause-level clear rule)
+#### D-plan-24 (phrase-strip-then-floor clear rule)
 
-1. **Job.** Let a real answer clear the block wherever it sits in the
-   turn, while a dodge never does.
-2. **Hardest question.** *Clause splitting on commas is a heuristic; an
-   agent that writes "I'll get to that, but first: no" clears on "no", and
-   one that writes "no, I'll get to that" clears too — the rule cannot
-   tell a substantive "no" from a dismissive one, so the axis is still
-   decided by punctuation.*
-3. **Answer.** The rule decides content-free versus not, never
-   comprehension — that is Phase B's judgment (`AC-2a-ii`), and FR-B5 sets
-   the bias toward clearing on anything substantive. "No" is a substantive
-   answer to a question by FR-B1's own example ("No." clears); a
-   dismissive "no" that is wrong is the human channel's case (`ctxoracle
-   correct`), exactly as the architecture files the deferral-false-match
-   miss. What the rule must never do is hold on an answered question
-   because of where the deferral sat, and the executed cases (§11.4) show
-   it does not. Cite: FR-B1, FR-B5, P3; AD-9 ("not a recognized
-   content-free deferral"); `AC-2a-ii`.
-4. **Steers toward.** Reading the whole turn for content before holding.
+1. **Job.** Let every answer clear the block, including a one-word one,
+   while an empty deferral never does.
+2. **Hardest question.** *Stripping the phrase and measuring what is left
+   means "Sure, I'll get to that after the refactor" clears on "Sure, after
+   the refactor" — the dodge OL-C3 named, dressed in five extra words, walks
+   through; the recognizer is now blind exactly where the owner asked it to
+   look.*
+3. **Answer.** Yes — by design, and measured. The spec assigns the clear
+   axis its error direction: FR-B5 says err toward clearing, only an empty
+   deferral fails to clear, and §11.5 asks Phase A to measure how little
+   the conservative recognizer catches; every attempt to catch the dressed
+   dodge with vocabulary held on real answers (the round-4 executions). A
+   deny escaped by a text turn is a report field (Step 39), and the human
+   channel (`ctxoracle correct`) is where the dodge that matters is filed,
+   as AD-9 files the deferral-false-match miss. Cite: FR-B1, FR-B5, P3;
+   AD-9 ("not a recognized content-free deferral"); spec §11.5; `AC-2a-ii`.
+4. **Steers toward.** Clearing on any answer and counting the escapes.
    **Guide, not gate.**
 
 #### D-plan-25 (totally-dead detector and interpreter pin)
@@ -5218,27 +5338,30 @@ collapse-hunt attacks these questions harder and hunts for the ones missing.
 4. **Steers toward.** Checking `status` after an environment change.
    **Guide, not gate.**
 
-#### D-plan-26 (leg-2 protocol, exports, corpus origin, blind labelling)
+#### D-plan-26 (leg-2 protocol: `claude -p` sessions the agent drives)
 
 1. **Job.** Make leg 2 an executable measurement of the block on the
-   owner's code — sessions whose hooks were live, data that reaches the
-   report, a floor number the recognizer did not grade itself.
-2. **Hardest question.** *The implementing agent creates the sessions,
-   drives them, exports them, labels the floor sample, and writes the
-   report; every number is one agent's account of its own work, and the
-   liveness row only proves the hooks fired at `SessionStart`, not that
-   the block ever saw a real deviation.*
-3. **Answer.** The protocol does not make the agent honest; it makes the
-   account checkable: every exported store is imported on the report
-   machine and `ctxoracle status` on it must show the report's numbers
-   (Checkpoint 5); the label table is published in full; the labelling
-   order is recorded; the liveness row is a precondition, not the
-   evidence — the evidence is the five tool events and the `Edit` in each
-   counted session, whose denies and clears are in the exported audit.
-   The owner's own sessions enter through the same export and are listed
-   separately, so the agent's account can be compared against his. Cite:
-   spec §11.5; hooks reference (workspace trust; `-p` sessions), §11.4;
-   G3; OL-C5; V12; collapse-log 2026-08-25 item 1.
+   owner's code — sessions whose hooks were live at their first event,
+   data that is where the report is written, a floor number the recognizer
+   did not grade itself.
+2. **Hardest question.** *A `claude -p` conversation driven by the agent
+   that built the tool is the tool measuring an agent the tool's author
+   scripts: the questions, the edits, and the indirect asks are all shaped
+   by someone who knows the recognizer's rule, and the harness that
+   produces the L11(b) turns may not exist under `-p` at all.*
+3. **Answer.** The protocol does not make the driver disinterested; it
+   makes the account checkable and labels what it is: leg-2 numbers are
+   reported per leg and marked protocol-driven, the label table and the
+   labelling order are published, `ctxoracle status` on each store must
+   reproduce the report's numbers (Checkpoint 5), and the induction is
+   recorded *not performed* where the `-p` harness gives no
+   task-notification or scheduled-wake turn — the owner's interactive
+   sessions, listed separately, are where L11(b) is expected to be
+   observed. What the agent cannot script is the block's behaviour on a
+   real repository's index and the recognizer's floor on turns it did not
+   write (leg 1), which is why the two legs are never pooled. Cite: spec
+   §11.5; the hooks reference's settings-file workspace-trust rule (§11.4);
+   V9; G3; OL-C5; V12; collapse-log 2026-08-25 item 1.
 4. **Steers toward.** Reporting inputs beside outputs and never counting a
    session the hooks did not see. **Guide, not gate.**
 
@@ -5354,7 +5477,7 @@ this session; line numbers are of that revision.
   are pure WASM with no install scripts. **Steps.** 1, 15. **Evidence.**
   Read `:138`; re-read from the registry 2026-09-07 (§11.4).
 - **Claim.** V17: `VACUUM INTO` round-trips on `node:sqlite`; the
-  module-level `backup()` arrived in v22.16.0. **Steps.** 3, 32.
+  module-level `sqlite.backup()` arrived in v22.16.0. **Steps.** 3, 32.
   **Evidence.** Read `:141`; re-executed 2026-09-07 (§11.4).
 - **Claim.** V19: `PostToolUse` is success-only; `PostToolUseFailure` fires
   on execution failure and never on a pre-execution rejection. **Steps.**
@@ -5520,23 +5643,24 @@ this session; line numbers are of that revision.
   loader. **Steps.** 1, 15. **Evidence.** Both are documented in the Node
   v22.x API pages (`fs` and `esm` pages via Context7
   `/websites/nodejs_latest-v22_x_api`, read 2026-09-07); executed on Node
-  v22.22.2 inside the layout reproduction: `readdirSync('dist/test',
-  {recursive: true})` returned the compiled test file and
-  `import.meta.resolve('web-tree-sitter')` returned the package's
-  `web-tree-sitter.js` URL (`probe:10_readdir_import_meta_resolve`). The 22.16.0 floor is not executed in this
-  environment; CI's floor entry (Step 1) is the check that establishes it.
+  v22.22.2 inside the layout by `probe:10_readdir_import_meta_resolve`:
+  `readdirSync recursive finds nested test file: true` and
+  `import.meta.resolve grammar from inside the package: true` (a
+  `tree-sitter-wasms/out/*.wasm` grammar resolved from a module inside the
+  package). The 22.16.0 floor is not executed in this environment; CI's
+  floor entry (Step 1) is the check that establishes it.
 - **Claim.** On this runtime an FTS5 virtual table creates and answers a
-  `MATCH` query; `ENABLE_FTS5` is in `PRAGMA compile_options`; SQLite is
-  3.51.2; WAL, `busy_timeout` 100, and STRICT rejection behave as Step 3
-  states; `VACUUM INTO` round-trips a row; `DatabaseSync.prototype.backup`
-  is undefined while the module-level `backup` is a function. **Steps.** 2,
-  3, 32. **Evidence.** Executed `probe:02_sqlite_features` on Node v22.22.2,
-  2026-09-07:
-  `fts5 query: [{"x":"hello world"}]`, `ENABLE_FTS5 in compile_options:
-  true`, `journal_mode: {"journal_mode":"wal"} busy_timeout:
-  {"timeout":100}`, `STRICT rejected: cannot store TEXT value in INT column
-  s.x`, `VACUUM INTO round-trip rows: [{"x":1}]`, `typeof
-  DatabaseSync.prototype.backup: undefined | module-level backup: function`.
+  `MATCH` query; `ENABLE_FTS5` is in `PRAGMA compile_options`; the SQLite
+  library is 3.51.2; WAL, `busy_timeout` 100, and STRICT rejection behave
+  as Step 3 states; `VACUUM INTO` round-trips a row;
+  `DatabaseSync.prototype.backup` is undefined while the module-level
+  `backup` is a function. **Steps.** 2, 3, 32. **Evidence.** Executed
+  `probe:02_sqlite_features` on Node v22.22.2, 2026-09-07, which prints
+  exactly: `fts5 MATCH rows: 1`, `sqlite_version: 3.51.2`, `ENABLE_FTS5
+  compiled: true`, `journal_mode: wal busy_timeout: 100`, `STRICT
+  text-into-INT: rejected`, `VACUUM INTO round-trip rows: 1`,
+  `DatabaseSync.prototype.backup: undefined | module-level backup:
+  function`.
 - **Claim.** The hooks reference documents the settings hook entry fields
   (`type`, `command`, `args`, `timeout`, `statusMessage`, `if`, `once`,
   `async`, `asyncRewake`, `shell`; `url`/`headers`/`allowedEnvVars` for
@@ -5549,14 +5673,20 @@ this session; line numbers are of that revision.
   states the timeout semantics, states the event cadences (once per
   session: `SessionStart`, `SessionEnd`; once per turn: `UserPromptSubmit`,
   `Stop`, `StopFailure`; on every tool call: `PreToolUse`, `PostToolUse`),
-  states that hooks in settings files follow the workspace-trust rule (an
-  interactive session holds them back until the trust dialog is accepted;
-  a `-p` session does not count as accepting it), and states the Stop
-  `additionalContext` loop protection (`stop_hook_active` and the
-  8-consecutive-continuation cap). **Steps.** §4, 20, 25, 28, 29, 31, 39.
+  states, in its "Workspace trust" section, the settings-file rule — "Interactive
+  session: Claude Code holds back hooks from every settings file … until
+  you accept the workspace trust dialog for the folder"; "-p or SDK
+  session: Claude Code never shows the dialog and treats the folder as
+  trusted, so hooks committed in a repository's .claude/settings.json run
+  in a folder you've never trusted" — while the sentence "A -p session
+  doesn't count as accepting it" belongs to a different, stricter rule in
+  the "Hooks in skills and agents" section (project *subagent frontmatter*
+  hooks), and states the Stop `additionalContext` loop protection
+  (`stop_hook_active` and the 8-consecutive-continuation cap). **Steps.**
+  §4, 20, 25, 28, 29, 31, 39.
   **Evidence.** Fetched `https://code.claude.com/docs/en/hooks` 2026-09-07
-  (2,821,561 bytes; the passages re-fetched by
-  `probe:13_hooks_reference.optional`) and read the timeout and common-fields passages
+  (2,821,561 bytes; each passage re-fetched and asserted inside its own
+  section by `probe:13_hooks_reference.optional`) and read the timeout and common-fields passages
   verbatim: "a `command`, `http`, or `mcp_tool` hook that reaches its
   `timeout`, discarding the hook's output, so on most events a timed-out
   hook renders no decision"; "On `PreToolUse`, by contrast, a timed-out
@@ -5611,20 +5741,19 @@ this session; line numbers are of that revision.
 - **Claim.** The shipped seam command authenticates under the Step 5 scrub
   and reports a fresh `session_id`; the session-identity set is
   sufficient; the environment carries routing variables the scrub keeps.
-  **Steps.** 5, 36. **Evidence.** Executed 2026-09-07 from `/tmp` with
-  `claude -p "Reply with the single word OK" --model
-  claude-haiku-4-5-20251001 --tools "" --max-turns 1 --output-format json`
-  three ways: (1) inherited environment + `CTXORACLE_INTERNAL=1` →
-  `is_error False, subtype success, session_id
-  f37d10bc-406a-52ca-ac50-2f259a7a9b29` (the parent's); (2) every
-  `CLAUDE_*`/`ANTHROPIC_*` variable removed (43 variables, listed by `env |
-  grep -E '^(CLAUDE|ANTHROPIC)'`, including `ANTHROPIC_BASE_URL`,
-  `CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST`, `CLAUDE_SESSION_INGRESS_TOKEN_FILE`)
-  → `is_error False, session_id eca73548-…` (fresh); (3) only
-  `CLAUDECODE`, `CLAUDE_CODE_SESSION_ID`, `CLAUDE_CODE_REMOTE_SESSION_ID`,
+  **Steps.** 5, 36. **Evidence.** Executed 2026-09-07 by
+  `probe:15_claude_p_scrub.optional` — `claude -p "Reply with the single
+  word OK" --model claude-haiku-4-5-20251001 --tools "" --max-turns 1
+  --output-format json` from inside this session, three ways, printing:
+  `unscrubbed: is_error=False session=parent`; `session-identity scrub:
+  is_error=False session=fresh` (the six variables `CLAUDECODE`,
+  `CLAUDE_CODE_SESSION_ID`, `CLAUDE_CODE_REMOTE_SESSION_ID`,
   `CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_PID`, `CLAUDE_CODE_ENTRYPOINT`
-  removed → `is_error False, session_id 0148b937-…` (fresh). Result
-  `"OK"` and `num_turns 1` in all three (`probe:15_claude_p_scrub.optional`).
+  removed); the count of `CLAUDE_*`/`ANTHROPIC_*` variables present and
+  whether `ANTHROPIC_BASE_URL` is among them; and `every
+  CLAUDE_*/ANTHROPIC_* removed: is_error=False session=fresh` — the wider
+  scrub also authenticates here, which is why D-plan-8 keeps the narrower
+  set that the piggyback's routing variables survive.
 - **Claim.** A must-fail TypeScript fixture inside the project's `include`
   turns `tsc -p` red; with `"exclude": ["test/build/fixtures"]` the build
   is green and a per-fixture `tsc --noEmit` invocation still fails on the
@@ -5641,16 +5770,15 @@ this session; line numbers are of that revision.
   `dist/src/cli/dispatch.js` under direct `node`, an `npm install -g`
   symlink, and `npx`; `process.argv[1]` itself keeps the link name;
   `process.execPath` is the interpreter's absolute path. **Steps.** 31,
-  32. **Evidence.** Executed 2026-09-07 in the layout reproduction with a
-  `dispatch.js` printing `{argv1, realpathSync(argv1), execPath}`: direct
-  → `argv1 = …/dist/src/cli/dispatch.js`; symlink shim
-  `/tmp/claude-0/binlink/ctxoracle` → `argv1 = /tmp/claude-0/binlink/ctxoracle`,
-  `real = …/dist/src/cli/dispatch.js`; `npx --no-install ctxoracle` →
-  `argv1 = /root/.npm/_npx/…/node_modules/.bin/ctxoracle`, `real =
-  …/dist/src/cli/dispatch.js`; `npm install -g --prefix /tmp/claude-0/gprefix .`
-  → `bin/ctxoracle -> ../lib/node_modules/…/dist/src/cli/dispatch.js`,
-  `real = …/dist/src/cli/dispatch.js`; `execPath = /opt/node22/bin/node` in
-  every case (`probe:06_argv_realpath`).
+  32. **Evidence.** Executed 2026-09-07 in the layout by
+  `probe:06_argv_realpath`, a `dispatch.js` printing the basename of
+  `process.argv[1]`, whether `fs.realpathSync(process.argv[1])` ends with
+  `dist/src/cli/dispatch.js`, and whether `process.execPath` is absolute,
+  under four invocation modes — direct `node` (`argv1_basename:
+  "dispatch.js"`), a symlink shim named `ctxoracle`, an `npm install -g`
+  into a prefix, and `npx --yes --package=<the packed tarball> ctxoracle`
+  (each `argv1_basename: "ctxoracle"`) — with `real_endswith: true` and
+  `execPath_absolute: true` in every mode.
 - **Claim.** Node consults `HTTP_PROXY`/`HTTPS_PROXY` only when
   `NODE_USE_ENV_PROXY=1` or `--use-env-proxy` is set, and a proxy listener
   is not contacted for a loopback target either way; a network namespace
@@ -5667,6 +5795,24 @@ this session; line numbers are of that revision.
   (`probe:08_node_proxy_env`). `unshare -rn node -e
   "fetch('http://example.com')…"` → `no network: EAI_AGAIN`
   (`probe:09_unshare_no_network.optional`).
+- **Claim.** `unshare -rn` is refused on the `ubuntu-24.04` GitHub Actions
+  runner: writing the unprivileged user namespace's `uid_map` fails with
+  `Operation not permitted`. **Steps.** 32, 38. **Evidence.** The plan's
+  own CI job (`.github/workflows/context-oracle-docs.yml`, `check-plan`,
+  run 34151517903 on 2026-09-07) executed
+  `probe:09_unshare_no_network.optional` and printed `SKIPPED: unshare
+  refused or behaved unexpectedly: unshare: write failed
+  /proc/self/uid_map: Operation not permitted`; in this sandbox the same
+  probe prints `no network: EAI_AGAIN`.
+- **Claim.** Claude Code keeps a project's transcripts under
+  `~/.claude/projects/<slug>/`, where `<slug>` is the project directory's
+  absolute path with every `/` replaced by `-`. **Steps.** 21, 33.
+  **Evidence.** Observed 2026-09-07: this session's transcript is
+  `/root/.claude/projects/-home-user-agent-armory/<session>.jsonl` for the
+  project directory `/home/user/agent-armory` — one observation of an
+  undocumented layout (V12), held in `locate.ts` alone so a change is one
+  edit and reported by `status` as "no transcript directory found" when
+  the derived directory does not exist.
 - **Claim.** `tree-sitter-wasms` 0.1.13 ships its grammars under `out/`
   with no `exports` map, resolvable by `import.meta.resolve`;
   `web-tree-sitter` 0.26.13 exposes `Parser.init`, `Parser#setLanguage`,
@@ -5729,14 +5875,17 @@ this session; line numbers are of that revision.
   **Evidence.** Executed `probe:05_deny_brand` 2026-09-07 with `typescript`
   5.9.3 in the layout: `annotated return: error TS2741`, `annotated return:
   exit=2`, `type assertion: exit=0`.
-- **Claim.** With `busy_timeout` 100 ms and retry-once, a writer holding
-  `BEGIN IMMEDIATE` from 0 to 400 ms makes a writer starting at 100 ms raise
-  `StoreBusy` after two attempts and a writer starting at 250 ms succeed on
-  its second attempt, identically across three runs. **Steps.** 3 (the
-  T-3-3 schedule). **Evidence.** Executed `probe:07_sqlite_busy_schedule`
-  2026-09-07 on Node v22.22.2: `identical across 3 runs: true`, `A success
-  attempts=1`, `B success attempts=2`, `C StoreBusy attempts=2`, `rows
-  ["A","B"]`.
+- **Claim.** With `busy_timeout` 100 ms and retry-once, under the
+  causally forced schedule T-3-3 states (A holds and reports; C makes both
+  attempts while A holds; B fails once while A holds; A commits only then;
+  B retries only then), the outcomes are A success after one attempt, C
+  `StoreBusy` after two, B success after two, rows `["A","B"]`, on every
+  run and under CPU load. **Steps.** 3 (the T-3-3 schedule). **Evidence.**
+  Executed `probe:07_sqlite_busy_schedule` 2026-09-07 on Node v22.22.2:
+  `identical across 3 runs: true`, `A success attempts=1`, `B success
+  attempts=2`, `C StoreBusy attempts=2`, `rows ["A","B"]`; the same output
+  on five consecutive runs through `run-plan-probes.mjs --repeat 5 --load
+  3` (three CPU-bound sibling processes for the whole run).
 - **Claim.** `node:22-bookworm` is built `FROM buildpack-deps:bookworm`,
   which is built `FROM buildpack-deps:bookworm-scm`, whose Dockerfile
   installs `git`; `node:22-bookworm-slim` installs no `git`. **Steps.** 38.
@@ -5745,17 +5894,18 @@ this session; line numbers are of that revision.
   `docker-library/buildpack-deps` on GitHub and grepped their `FROM` and
   package lines — `buildpack-deps:bookworm-scm installs git: yes`,
   `node:22-bookworm-slim installs git: no`.
-- **Claim.** The clause-level clear rule — strip fenced code and tool
-  blocks, split sentences into clauses, drop clauses on the deferral
-  stoplist and acknowledgement-only clauses, clear when the surviving text
-  is at least the floor (2) — classifies the T-23-2 case table as stated:
-  `I'll get to that.` and `Sure, I'll get to that after the refactor.` and
-  `Got it, will do.` do not clear; `No.`, `Yes, line 12.`, `I'll get to
-  that. The null check does not fix it, see line 12.` and `No — the null
-  check does not fix it, see line 12, though I'll get to the rest later.`
-  clear. **Steps.** 12, 23. **Evidence.** Executed `probe:16_clear_rule_cases`
-  2026-09-07 (a reference implementation of the rule over the thirteen
-  cases): every case prints `ok`.
+- **Claim.** The phrase-strip-then-floor clear rule — strip fenced code
+  and tool blocks, remove every deferral-stoplist phrase, clear when the
+  remaining text is at least the floor (2) — classifies the T-23-2 case
+  table as stated: the empty and one-mark turns and the tool-noise-only
+  turn do not clear (`below_length_floor`); `I'll get to that.` does not
+  clear (`deferral_only`); `No.`, `Yes.`, `Sure.`, `Ok.`, `Right.`,
+  `Understood.`, `Got it, will do.`, the causal sentences containing
+  `later`, `First let me check: …`, the deferral-beside-answer turns, and
+  `Sure, I'll get to that after the refactor.` clear. **Steps.** 12, 23.
+  **Evidence.** Executed `probe:16_clear_rule_cases` 2026-09-07 (a reference
+  implementation of the rule over the twenty-three cases): every case
+  prints `ok`.
 
 ### 11.5 Claims from the collapse-log (`docs/collapse-log.md`)
 
@@ -5924,8 +6074,10 @@ rules 1 and 2); fixture repositories are real git repositories produced by
 - **T-1-3 — Fixture generator is deterministic and complete.**
   - **File.** `test/unit/generator_determinism.test.ts`.
   - **Verifies.** Step 1 — `generateFixture(name, dir)` produces the same
-    commit hashes for the same name on two runs, and every fixture name
-    §5.1 lists generates without error.
+    commit hashes for the same name on two runs, and every fixture
+    repository under `test/fixtures/repos/` generates without error (the
+    `large-store` store is not a repository; Step 29's generator builds it
+    through the migrations).
   - **Level.** Integration (real `git`, real filesystem).
   - **Real/doubles.** Real `git`; no doubles.
   - **Data.** Every name under `test/fixtures/repos/` in §5.1, generated
@@ -5983,16 +6135,20 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Level.** Integration (real engine; two spawned child processes holding
     a write transaction).
   - **Real/doubles.** Real `node:sqlite`; real child processes; no doubles.
-  - **Data.** A store with one table; child A holds `BEGIN IMMEDIATE` from
-    t = 0 for 400 ms; child C issues its write at t = 100 ms — its first
-    attempt is busy until ~200 ms and its retry until ~300 ms, both inside
-    A's hold, so it raises `StoreBusy` after exactly two attempts; child B
-    issues its write at t = 250 ms — its first attempt is busy until
-    ~350 ms, its retry succeeds once A commits at 400 ms (inside the 100 ms
-    `busy_timeout` + one-retry budget); the offsets are enforced by the test
-    driving each child through a start signal on stdin. The schedule and
-    its outcome were executed and reproduce identically across three runs
-    (§11.4). Technique: state-transition (idle → busy → retry → fail-open).
+  - **Data.** A store with one table and three child processes the test
+    sequences by observables, never by the clock: A takes `BEGIN IMMEDIATE`
+    and reports "holding" on stdout; only then C is started and makes both
+    attempts while A holds — each waits the 100 ms `busy_timeout`, fails,
+    and C reports `StoreBusy` after exactly two attempts and exits; only
+    then B is started, makes its first attempt while A holds, reports that
+    failure (a marker file), and waits; A is released to commit only after
+    B's report; B is released to retry only after A has exited, so its
+    retry finds the lock free by construction. The outcomes are forced by
+    the ordering, not by margins, so the test is load-independent and runs
+    under `node --test`'s default file concurrency without isolation
+    flags. The schedule is executed as a probe under repetition and CPU
+    load (§11.4). Technique: state-transition (idle → busy → retry →
+    fail-open).
   - **NOT asserts.** Throughput. **Fails when** B succeeds without a retry
     being recorded, OR B does not succeed after one retry, OR C does not
     raise `StoreBusy` after exactly two attempts, OR the table holds any
@@ -6096,15 +6252,19 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Verifies.** Step 7.
   - **Level.** Integration (real engine + the real migration file).
   - **Real/doubles.** Real `node:sqlite`; no doubles.
-  - **Data.** Empty DB → migration 001; per knowledge table one valid row and
-    one row per CHECK-constrained column violating it; the `questions`
-    sequence open → duplicate open (rejected) → answered → re-open (accepted);
-    `sqlite_master` must not contain `exemplars`, `recipes`,
-    `env_capabilities`, `deferred_queue`, `genre_state`. Technique: decision
-    table over CHECKs; state-transition for the index.
+  - **Data.** Empty DB → migrations with `fts: true` (001 and 001b) and,
+    on a second empty DB, with `fts: false` (001 only; `sqlite_master`
+    holds no `fts_*` table and the two `LIKE` indexes exist); per knowledge
+    table one valid row and one row per CHECK-constrained column violating
+    it; the `questions` sequence open → duplicate open (rejected) →
+    answered → re-open (accepted); `sqlite_master` must not contain
+    `exemplars`, `recipes`, `env_capabilities`, `deferred_queue`,
+    `genre_state`. Technique: decision table over CHECKs and the FTS flag;
+    state-transition for the index.
   - **NOT asserts.** DAO behaviour (T-9-1). **Fails when** the migration
-    errors, OR any CHECK accepts its negative, OR the dedup index deviates
-    from the sequence, OR a forbidden table exists.
+    errors under either flag, OR the `fts: false` run creates an `fts_*`
+    table or lacks an index, OR any CHECK accepts its negative, OR the
+    dedup index deviates from the sequence, OR a forbidden table exists.
 
 - **T-8-1 — Global migration: exactly the four tables.**
   - **File.** `test/unit/migrations_global.test.ts`.
@@ -6296,20 +6456,28 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     an expected symbol/edge/`test_map` row is missing, OR the > 1 MB file is
     not path-only with a diagnostic, OR the secret appears verbatim in the
     store, OR the second run writes rows, OR two concurrent reindexes both
-    proceed.
+    proceed, OR — the whole run repeated on a store migrated with `fts:
+    false` — `symbolSearch` and `pathSearch` return a different hit set
+    than under `fts: true` for the fixture's exact-token queries.
 
-- **T-14-2 — `refreshIfStale` records `index_stale` and spawns one reindex.**
+- **T-14-2 — `refreshIfStale` records `index_stale`, sets the flag, spawns nothing.**
   - **File.** `test/unit/indexer_stale.test.ts`.
-  - **Verifies.** Step 14 — AD-17's `index_stale` detector.
-  - **Level.** Integration (real store, real git fixture, real detached
-    child through the spawn wrapper).
-  - **Real/doubles.** Real `node:sqlite`; real `git`; no doubles.
+  - **Verifies.** Step 14 — AD-17's `index_stale` detector as a pure store
+    effect: a moved `HEAD` yields an `index_stale` fault,
+    `schema_meta.index_stale = '1'`, and `{stale: true}`; an unmoved `HEAD`
+    yields nothing and `{stale: false}`; a completed `runIndex` clears the
+    flag to `'0'`.
+  - **Level.** Integration (real store, real git fixture).
+  - **Real/doubles.** Real `node:sqlite`; real `git`; no doubles — no child
+    process is expected, and the test asserts that none was spawned by
+    observing the spawn wrapper's audit (Step 5) is empty for the call.
   - **Data.** `indexer-small` indexed; then one commit added (`HEAD` moves);
-    then `refreshIfStale` twice. Technique: state-transition (fresh → stale
-    → refreshing).
-  - **NOT asserts.** Reindex completion time. **Fails when** the stale call
-    records no `index_stale` fault, OR spawns zero or two children, OR the
-    fresh call records a fault or spawns a child.
+    `refreshIfStale` twice; then `runIndex`; then `refreshIfStale` again.
+    Technique: state-transition (fresh → stale → stale → fresh).
+  - **NOT asserts.** Who spawns the reindex (T-28-5 observes the handler's
+    child). **Fails when** the stale call records no `index_stale` fault or
+    leaves the flag unset, OR any call spawns a child, OR the fresh call
+    records a fault, OR `runIndex` does not clear the flag.
 
 - **T-15-1 — Tree-sitter frontend on a TypeScript fixture.**
   - **File.** `test/unit/tree_sitter_frontend.test.ts`.
@@ -6344,9 +6512,9 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     twins differing only in `last_ts` (one at the reference instant, one two
     half-lives older — the older must carry one quarter of the fresh
     confidence and, sitting just above the floor when fresh, must fail it
-    when old); the same candidate with `schema_meta.index_head` equal to and
-    different from `HEAD` (the stale case must be reduced by
-    `bar.stale_index_factor` and never blocked). Technique: decision table +
+    when old); the same candidate with `ctx.indexStale` false and true (the
+    stale case must be reduced by `bar.stale_index_factor` and never
+    blocked). Technique: decision table +
     boundary value on the dampeners.
   - **NOT asserts.** ROSE-figure recovery. **Fails when** a wrong
     `failedAxis` is returned, OR two above-bar candidates yield one pass, OR
@@ -6478,14 +6646,19 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **File.** `test/unit/done_claim_recognizer.test.ts`.
   - **Verifies.** Step 18 — fires on a `lexicon.completion_claim` phrase in
     the concluding position Step 18 defines (final non-empty sentence, not a
-    question); never fires on a paraphrase outside the lexicon, on the
-    phrase in a non-final sentence, or on an ordinary stop.
+    question, not negated in its own clause); never fires on a paraphrase
+    outside the lexicon, on the phrase in a non-final sentence, on a negated
+    final sentence, or on an ordinary stop.
   - **Level.** Unit.
   - **Real/doubles.** Real function; lexicon from the seeded table.
   - **Data.** Positives: "Done — all tests pass."; "I've implemented the
     parser and the tests pass." (one sentence, final). Negatives: "Is this
     done?"; "Working on the next part."; "Fixed the parser. Now looking at
-    the tests." (phrase in a non-final sentence); a generated corpus
+    the tests." (phrase in a non-final sentence); "Not done yet.", "This
+    isn't finished.", "I haven't fixed it." (the negation clause — a
+    negated final sentence never fires); a positive with the negation in an
+    earlier clause, "Not the tests, but the parser is done." (fires — the
+    clause scope is pinned); a generated corpus
     (seeded) of final sentences built from a grammar of completion
     paraphrases outside the lexicon ("that should do it", "all set", "ready
     for review", "wrapped up", …) crossed with subjects and tails, none
@@ -6621,24 +6794,28 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Real/doubles.** Real function; floor and deferral list read from the
     seeded table.
   - **Data.** An empty turn and a one-mark turn "." (no clear,
-    `below_length_floor` — below the seeded floor of 2); "No." and "Yes,
-    line 12." (clear); "I'll get to that." (no clear, `deferral_only`);
-    "Sure, I'll get to that after the refactor." (no clear,
-    `deferral_only` — the acknowledgement clause and the deferral clause
-    both drop); "Ok." and "Got it, will do." (no clear,
-    `acknowledgement_only`); "I'll get to that. The null check does not fix
-    it, see line 12." (clears on the second sentence); "No — the null check
-    does not fix it, see line 12, though I'll get to the rest later."
-    (clears on the surviving clauses of one sentence); a turn that is only
-    tool-noise blocks (no clear); a turn of a code fence plus "No."
+    `below_length_floor` — below the seeded floor of 2); "No.", "Yes, line
+    12.", "Sure.", "Ok.", "Right.", "Understood.", "Got it, will do." (clear
+    — direct answers are never held for being short); "Because the fixture
+    is written later than the assertion reads it." and "First let me check:
+    the null check is not the cause." (clear — a bare word is no phrase, and
+    a phrase beside an answer is stripped, not the answer); "I'll get to
+    that." and "I'll get to that!" (no clear, `deferral_only`); "I'll get
+    to that. The null check does not fix it, see line 12." and "No — the
+    null check does not fix it, see line 12, though I'll get to the rest
+    later." (clear on what remains); "Sure, I'll get to that after the
+    refactor." (clears — the dressed dodge the skeleton lets through and
+    the exit report counts); a turn that is only tool-noise blocks (no
+    clear, `below_length_floor`); a turn of a code fence plus "No."
     (clears). The function's signature carries no question text (asserted
-    at compile time by calling it with the three seeded lists and a string
-    only). Technique: boundary value + decision table over clause
-    composition (the cases executed by §11.4's reference implementation).
+    at compile time by calling it with the seeded list, the seeded floor,
+    and a string only). Technique: boundary value + decision table over
+    the spec's examples and the direct-answer class (the cases executed by
+    §11.4's reference implementation, `probe:16_clear_rule_cases`).
   - **NOT asserts.** Answer correctness; per-question matching (Phase B —
     the recognizer cannot see a question). **Fails when** any case behaves
     opposite to its class, OR the boundary is not at the seeded floor, OR
-    the reason code is wrong for any of the three failing classes.
+    the reason code is wrong for either failing class.
 
 - **T-23-3 — Move recognizer: exactly three deny-eligible tools.**
   - **File.** `test/unit/recognizer_move.test.ts`.
@@ -6755,8 +6932,11 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Data.** Seeded audit/session rows: a clearing turn timestamped before
     a deny (`deny_after_answer_lag`); three consecutive denies without text
     (`deny_loop`); `deny.despite_answer_text_threshold` denies with a
-    below-floor text turn between (`deny_despite_answer_text`), and the
-    same denies with only a deferral-only text turn between (no
+    below-floor text turn between (`deny_despite_answer_text`), the same
+    with the below-floor turn recorded two events earlier — a
+    `classified_turns` row written by a previous catch-up, so the detector
+    reads the store, not the current event (`deny_despite_answer_text`),
+    and the same denies with only a deferral-only text turn between (no
     `deny_despite_answer_text` — AD-9's exclusion); a Bash row
     `echo x > target.ts` in the same turn as a deny on `target.ts` (bypass);
     `npm test > out.log` (no bypass); `cp a.ts target.ts` (bypass); `dd
@@ -6854,18 +7034,24 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     is absent, OR no `produced_but_undelivered` fault names its id, OR exit
     ≠ 0.
 
-- **T-28-5 — `SessionStart` writes the liveness row.**
+- **T-28-5 — `SessionStart` writes the liveness row and spawns the reindex child when stale.**
   - **File.** `test/replay/liveness_row.test.ts`.
   - **Verifies.** Step 28 — the row AD-17's `hooks_not_firing` detector
-    reads exists with the transcript path and size.
+    reads exists with the transcript path and size; on a stale index the
+    branch spawns exactly one detached `index` child, observable by the
+    `.reindex.lock` `runIndex` takes (Step 14) and by the index head moving
+    afterwards.
   - **Level.** Acceptance.
-  - **Real/doubles.** Real handler; real store; real transcript fixture. No
-    doubles.
+  - **Real/doubles.** Real handler; real store; real transcript fixture;
+    real `indexer-small` repository. No doubles.
   - **Data.** A `SessionStart` event with `transcript_path` set to a
-    fixture. Technique: equivalence partitioning.
-  - **NOT asserts.** Detection (T-33-4). **Fails when** no `session_log` row
-    with `event_type = 'liveness'` exists, OR its `detail_json` lacks the
-    path or the byte size.
+    fixture, once against a fresh index and once after one commit moved
+    `HEAD`. Technique: equivalence partitioning (fresh / stale).
+  - **NOT asserts.** Detection (T-33-4); reindex duration. **Fails when** no
+    `session_log` row with `event_type = 'liveness'` exists, OR its
+    `detail_json` lacks the path or the byte size, OR the stale run leaves
+    no `.reindex.lock` trace and an unmoved index head within the test's
+    wait, OR the fresh run spawns a child.
 
 - **T-28-6 — `hook integrity-check` records `store_corrupt` off-path.**
   - **File.** `test/replay/integrity_check_verb.test.ts`.
@@ -6883,8 +7069,10 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **File.** `test/replay/watchdog.test.ts`.
   - **Verifies.** Step 29; AC-10.
   - **Level.** Acceptance.
-  - **Real/doubles.** Real handler; real stores; the `large-store` fixture
-    (≈400 MB, the AD-23/V8 class, Step 1) for AD-23's inventory. No doubles — the over-run is induced with the
+  - **Real/doubles.** Real handler; real stores; the `large-store` store
+    `test/fixtures/generate_large_store.ts` builds through the real
+    migrations and DAOs (≈400 MB, the AD-23/V8 class) for AD-23's
+    inventory. No doubles — the over-run is induced with the
     `hook` verb's `--deadline-ms 1` argument, which the harness passes and
     `init` never writes.
   - **Data.** A fixture hook stream on `coupling-nonobvious` replayed with
@@ -7047,12 +7235,15 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Level.** Acceptance.
   - **Real/doubles.** Real `ctxoracle status`; a store seeded with one row
     per fault code, one whisper, one deny, one correction, a voided intake
-    row with a deny fired, every `plan_seed` row. No doubles.
+    row with a deny fired, every `plan_seed` row, and
+    `schema_meta.pinned_interpreter` set once to an existing path and once
+    to a removed one. No doubles.
   - **Data.** The seeded store. Technique: decision table (each signal
     present/absent in output).
   - **NOT asserts.** Aesthetics. **Fails when** any Step 33 signal is missing,
     OR the reserved codes render as 0, OR the regret rate lacks its label or
-    pairing, OR the bypass bound or any seed value is absent.
+    pairing, OR the bypass bound or any seed value is absent, OR the
+    removed-interpreter case is not named as missing.
 
 - **T-33-2 — `log` renders the per-session audit trail.**
   - **File.** `test/replay/log_readback.test.ts`.
@@ -7430,8 +7621,9 @@ and are stated on each entry.
     the oracle must not act on it), and question-shaped text in a
     hook-feedback and a task-notification transcript entry (must open no
     question); export both stores; the whole stream and both verbs run
-    inside `unshare -rn` on Linux (T-32-2's condition; `T-32-3` is the
-    structural assertion elsewhere). Technique: decision table (surface ×
+    inside `unshare -rn` where it is available and permitted (T-32-2's
+    condition and its recorded-as-not-executed branch on an absent or
+    refusing `unshare`; `T-32-3` carries AC-11's no-egress clause then). Technique: decision table (surface ×
     payload).
   - **NOT asserts.** Exhaustive secret coverage (L5). **Fails when** any
     secret appears verbatim in any whisper, store, log, or export, OR any
@@ -7464,13 +7656,14 @@ and are stated on each entry.
     use the tree-sitter frontend for that file.
 
 - **T-38-25 (AC-20) — Cold-container install and first index.**
-  - **File.** `scripts/check-cold-container.sh` (invoked by Step 1's
-    `cold-container` CI job, not by the runner).
+  - **File.** `scripts/check-cold-container.sh` (invoked by the
+    `cold-container` CI job Step 38 adds, not by the runner).
   - **Verifies.** Step 1 (packaging), Step 3 (FTS5 probe), Step 31 (`init`); `AC-20`.
   - **Level.** System (real clean container).
   - **Real/doubles.** Real container, real `npm`, real install. No doubles.
-  - **Data.** A fresh container with only the harness's network access;
-    `pristine-tree`. Technique: error guessing.
+  - **Data.** A fresh `node:22.16.0-bookworm` container with the network
+    policy Step 38 states (the default runner network); `pristine-tree`.
+    Technique: error guessing.
   - **NOT asserts.** Runtime behaviour beyond install and index. **Fails
     when** `npm ci` or `npm run build` fails, OR an install-phase script ran,
     OR `init` does not complete its first index, OR the FTS5 probe is false.
@@ -7546,10 +7739,12 @@ and are stated on each entry.
     repositories and transcript files. No doubles.
   - **Data.** Question open; the assistant answers substantively in
     different words; `PreToolUse Edit` (allowed); a second stream where the
-    answer is the terse direct "No." (allowed — the seeded floor of 2 does
-    not tax a direct answer); a third stream where `Read`, `Grep`, and
-    `Bash` are taken with the question open (all allowed). Technique:
-    decision table.
+    answer is the terse direct "No." and a third where it is "Sure."
+    (allowed — the seeded floor of 2 does not tax a direct answer); a
+    fourth where the answer is a causal sentence containing the word
+    "later" (allowed — no bare word holds); a fifth stream where `Read`,
+    `Grep`, and `Bash` are taken with the question open (all allowed).
+    Technique: decision table.
   - **NOT asserts.** Substantive-vs-deferral discrimination (Phase B,
     AC-2a-ii). **Fails when** the post-answer `Edit` is denied, OR any
     information-gathering move is denied.
@@ -7856,9 +8051,10 @@ bin, and its closed disposition.
   outcome).
 - **Q22 (Step 39).** What repository set and what modes make the exit run
   honest, and who drives the closed-loop sessions? **Disposition.**
-  Answered — D-plan-10 (three legs, validity rule, named candidates; the
-  drivers are Max Cogar in his OL-11 role or the implementing agent, and
-  the report records which).
+  Answered — D-plan-10 and D-plan-26 (three legs, validity rule, named
+  candidates; the implementing agent creates and drives every counted
+  session; sessions Max Cogar drives in his OL-11 role are additional,
+  reach the report through the same export, and are listed separately).
 - **Q23 (Step 39).** Do transcripts exist under `~/.claude/projects/` on
   the machine the exit run executes on? **Disposition.** Discovered at run
   time by enumeration and reported, including zero; the plan does not
@@ -7888,7 +8084,7 @@ bin, and its closed disposition.
   (Step 1), which is the only place the floor is executed.
 - **Q29 (Step 3).** Is `DatabaseSync.prototype.backup` the right API for
   export? **Disposition.** Answered: no such method exists on this runtime
-  (the module-level `backup()` does — §11.4); export uses `VACUUM INTO` per
+  (the module-level `sqlite.backup()` does — §11.4); export uses `VACUUM INTO` per
   AD-5 regardless.
 - **Q30 (Step 6).** Does the fault-code set include codes the architecture
   names outside AD-17? **Disposition.** Answered: `store_busy` (AD-26) and
@@ -7939,23 +8135,27 @@ bin, and its closed disposition.
   imports (`T-24-2`, the structural guard); the adapter alone writes
   `permissionDecision` (`T-28-2`).
 - **Q41 (Step 23).** Where may a deferral phrase sit in a turn for the
-  turn not to clear? **Disposition.** Answered: anywhere — the clause
-  containing it is discarded, and the turn clears only on what survives
-  (Step 23; `T-23-2`; D-plan-24 — executed over the case table, §11.4);
-  AD-9's "not a recognized content-free deferral" carries no positional
-  restriction, and FR-B5 forbids holding on a substantive clause that
-  shares a sentence with one.
+  turn not to clear? **Disposition.** Answered: the phrase's position is
+  irrelevant — every deferral phrase is removed and the turn clears when
+  what remains meets the floor (Step 23; `T-23-2`; D-plan-24 — executed
+  over the spec's examples and the direct-answer class, §11.4); AD-9's
+  "not a recognized content-free deferral" carries no positional
+  restriction, and FR-B5 forbids holding on an answer for being short or
+  for sitting beside a deferral.
 - **Q42 (Step 30).** Is a fact no generator ever produced a candidate for
   inside the regret population? **Disposition.** Answered: yes — FR-L4
   says "below-bar, or never triggered"; the population is store-held
   facts (Step 30; `T-30-1`).
-- **Q43 (Step 39).** Does a hook entry written to `.claude/settings.json`
-  during a session take effect in that session? **Disposition.** Answered:
-  not relied on — hooks in settings files load at session start under the
-  workspace-trust rule, and a `-p` session does not count as accepting it
-  (hooks reference, §11.4, `probe:13_hooks_reference.optional`); the leg-2
-  protocol installs in a bootstrap session and measures only in sessions
-  started afterwards, with a liveness row as the precondition (D-plan-26).
+- **Q43 (Step 39).** Which session kind runs the hooks `init` wrote to a
+  clone's `.claude/settings.json` without a trust dialog, and does a hook
+  written during a session take effect in it? **Disposition.** Answered:
+  a `-p` or SDK session treats the folder as trusted and runs settings-file
+  hooks from its first event; an interactive session holds them back until
+  the dialog is accepted (the "Workspace trust" section, §11.4,
+  `probe:13_hooks_reference.optional` asserting the sentence inside that
+  section); mid-session loading is undocumented and is not relied on — the
+  leg-2 protocol runs `init` before any session and drives `claude -p`
+  sessions, with the liveness row as the observable (D-plan-26).
 - **Q44 (Step 39).** How many `Stop` events does one turn produce?
   **Disposition.** Answered: one — the reference's once-per-turn cadence
   (§11.4); leg 1's reconstruction emits one `Stop` after the last assistant
@@ -7966,9 +8166,11 @@ bin, and its closed disposition.
   (`probe:14_docker_node_git.optional`); the job runs on
   `node:22.16.0-bookworm`.
 - **Q46 (Step 3).** Does T-3-3's contention schedule produce its asserted
-  outcomes every time? **Disposition.** Answered: the schedule is A holding
-  0–400 ms, C at 100 ms (`StoreBusy` after two attempts), B at 250 ms
-  (success on its retry), identical across three runs
+  outcomes every time, including on a loaded runner? **Disposition.**
+  Answered: a timed schedule did not (a 50 ms process-start shift flipped
+  B's outcome under load); the schedule is now forced by observables —
+  each child starts or proceeds only after the previous child's reported
+  state — and reproduces under `--repeat 5 --load 3`
   (`probe:07_sqlite_busy_schedule`, §11.4).
 - **Q47 (Step 24).** Does the `unique symbol` brand prevent every
   construction of a `DenyVerdict` outside its module? **Disposition.**
@@ -8097,7 +8299,7 @@ Each entry carries its resolution-attempt evidence and what would close it.
    fixtures (`npm test` and `npm run test -- --replay` green at the floor
    and at the current 22.x) AND the exit run's report exists with the
    validity rule met; `ctxoracle status` reports a clean session in each
-   imported leg-2 store (spec §14's opening clause, Phase A subset).
+   leg-2 store (spec §14's opening clause, Phase A subset).
 
 2. **Publish the exit report** at `docs/reviews/<date>-phase-a-exit-run.md`
    with every field Step 39 lists.
@@ -8133,7 +8335,16 @@ Each entry carries its resolution-attempt evidence and what would close it.
    `codegraph_verify_doc` on `docs/architecture-phase-a.md` and this plan:
    every symbol name they cite must resolve to the built code.
 
-7. **Re-run the structural probes** on the built tree
+7. **File-list reconciliation.** `git diff --stat` against the
+   pre-implementation baseline (the commit this plan was delivered at) is
+   compared with §5.1's generated file→step table in both directions: a
+   touched file with no §5.1 row, or a §5.1 row whose file the diff never
+   touched, is investigated, not waved through — this is the
+   implementation-time check that surfaces a path a declaration got wrong
+   (a phantom `create:`, a missing `modify:`), which no delivery-time check
+   can see because no diff exists before implementation.
+
+8. **Re-run the structural probes** on the built tree
    (`codegraph_find_cycles`, `codegraph_find_broken_imports`,
    `codegraph_find_unused_imports`, `codegraph_find_dead_exports`,
    `codegraph_find_unreachable`) — all must be empty except the entry

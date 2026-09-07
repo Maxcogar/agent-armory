@@ -3,6 +3,7 @@ const { DatabaseSync, backup } = require("node:sqlite"); const fs = require("nod
 const db = new DatabaseSync(":memory:");
 db.exec("CREATE VIRTUAL TABLE t USING fts5(x)"); db.exec("INSERT INTO t VALUES ('hello world')");
 console.log("fts5 MATCH rows:", db.prepare("SELECT x FROM t WHERE t MATCH 'hello'").all().length);
+console.log("sqlite_version:", db.prepare("select sqlite_version() v").get().v);
 console.log("ENABLE_FTS5 compiled:", db.prepare("pragma compile_options").all().some(r => Object.values(r)[0] === "ENABLE_FTS5"));
 const p = path.join(process.env.PROBE_LAYOUT, "probe02.db"); for (const s of ["", "-wal", "-shm", "-copy"]) { try { fs.unlinkSync(p + s) } catch {} }
 const d2 = new DatabaseSync(p); d2.exec("PRAGMA journal_mode=WAL"); d2.exec("PRAGMA busy_timeout=100"); d2.exec("CREATE TABLE s(x INT NOT NULL) STRICT");

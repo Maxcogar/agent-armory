@@ -1,5 +1,6 @@
 present: hook doesn’t block the tool call
 present: once per turn: UserPromptSubmit , Stop , and StopFailure
-present: same workspace trust rule as hooks in settings files
-present: A -p session doesn’t count as accepting it
+present under 'Workspace trust': Interactive session : Claude Code holds back hooks from every settings file
+present under 'Workspace trust': -p or SDK session : Claude Code never shows the dialog and treats the folder as trusted
+present under 'Hooks in skills and agents': A -p session doesn’t count as accepting it
 present: the stop_hook_active input and the 8-consecutive-continuation cap

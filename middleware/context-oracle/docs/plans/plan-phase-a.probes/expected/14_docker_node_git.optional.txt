@@ -1,4 +1,5 @@
-node:22-bookworm FROM: FROM buildpack-deps:bookworm
+22/bookworm Dockerfile at d073523: ENV NODE_VERSION 22.16.0
+node:22.16.0-bookworm FROM: FROM buildpack-deps:bookworm
 buildpack-deps:bookworm FROM: FROM buildpack-deps:bookworm-scm
 buildpack-deps:bookworm-scm installs git: yes
 node:22-bookworm-slim installs git: no

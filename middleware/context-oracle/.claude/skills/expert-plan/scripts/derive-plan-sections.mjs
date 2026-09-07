@@ -17,6 +17,16 @@
 //   node derive-plan-sections.mjs --check <plan.md>    verify only; never writes;
 //                                                      exit 1 if regions are stale
 //                                                      or cross-references broken
+//   node derive-plan-sections.mjs --impact REV <plan.md>
+//                                                      list, for every step whose
+//                                                      text changed since git
+//                                                      revision REV, the authored
+//                                                      surfaces that restate it
+//                                                      (test specs, register
+//                                                      entries, decisions,
+//                                                      checkpoints, other steps)
+//                                                      so each is re-read and
+//                                                      re-derived, not remembered
 //   node derive-plan-sections.mjs --self-check         validate the contract's own
 //                                                      fenced examples, the checked-in
 //                                                      fixture, and the embedded
@@ -76,7 +86,13 @@
 // mention's first k words joined by `-`, for any k) must resolve to a step among
 // the mentioning step's declared or transitive dependencies. Explanation of a
 // future consumer is written without backticking the future artifact. A path
-// created by two steps is an error. A backticked path whose first segment is
+// created by two steps is an error. Consumption by name: a bare call-shaped
+// identifier (`name(`, not `obj.name(` — a qualified call names a library or
+// a method) that two or more steps mention must be in some step's provides:
+// (the exported functions later steps call are interfaces), and a bare
+// call-shaped mention resolves to its provider like any provided name. An
+// enumerated action item (a list line) that names a later step is an error.
+// A backticked path whose first segment is
 // a directory some step creates in, and that no step's files: lists declare,
 // is an error (a phantom file no step builds).
 //
@@ -452,6 +468,11 @@ function processDocument(text) {
             if (p === path || p.endsWith('/' + path)) for (const id of ids2) owners.set(id, `creates \`${p}\``);
           }
         }
+        const call = /^([A-Za-z_$][\w$]*)\(/.exec(m.trim());
+        if (call) {
+          const name = call[1];
+          for (const id of providers.get(name) || []) owners.set(id, `provides \`${name}\``);
+        }
         const words = m.trim().split(/\s+/);
         for (let k = 1; k <= words.length; k++) {
           const cand = words.slice(0, k).join('-');
@@ -483,6 +504,42 @@ function processDocument(text) {
         const first = m.split('/')[0];
         return createSegments.has(first) && !isDeclared(m);
       };
+      // Consumption by exported name: a call-shaped identifier (`name(`)
+      // that two or more steps mention is an interface between them and must
+      // be in some step's provides:, so the dependency check has something
+      // to resolve; the mentioning steps then need the provider among their
+      // dependencies (checked by the ordinary provides resolution below).
+      const callMentions = new Map(); // identifier -> Set of step ids
+      const stepIndexOf = new Map(ordered.map((s, i) => [s.id, i]));
+      const numberOf = (id) => Number(/^S(\d+)/.exec(id || '')?.[1] || 0);
+      for (let idx = 0; idx < ordered.length; idx++) {
+        const s = ordered[idx];
+        if (!s.id) continue;
+        const from = titleLine(s);
+        const to = idx + 1 < ordered.length ? titleLine(ordered[idx + 1]) : planEnd0;
+        let inFence = false;
+        for (let i = from; i < to; i++) {
+          const l = lines[i];
+          if (/^\s*```/.test(l)) { inFence = !inFence; continue; }
+          if (inFence) continue;
+          // Only bare calls count as interfaces between steps: a qualified
+          // call (`fs.realpathSync(`, `db.exec(`) names a library or an
+          // object's method, which no step provides.
+          const re = /`([A-Za-z_$][\w$]*)\(/g;
+          let mm;
+          while ((mm = re.exec(l)) !== null) {
+            const name = mm[1];
+            if (!callMentions.has(name)) callMentions.set(name, new Set());
+            callMentions.get(name).add(s.id);
+          }
+        }
+      }
+      const providedNames = new Set(providers.keys());
+      for (const [name, users] of callMentions) {
+        if (users.size >= 2 && !providedNames.has(name)) {
+          errors.push(`identifier \`${name}(\` is named by steps ${[...users].join(', ')} but no step's provides: declares it — an interface between steps must be provided by the step that creates it`);
+        }
+      }
       for (let idx = 0; idx < ordered.length; idx++) {
         const s = ordered[idx];
         if (!s.id) continue;
@@ -495,6 +552,20 @@ function processDocument(text) {
           const l = lines[i];
           if (/^\s*```/.test(l)) { inFence = !inFence; continue; }
           if (inFence) continue;
+          // An enumerated action item (a list line) that names a later step
+          // is consuming that step's work before it exists; explanation in
+          // running prose ("Step 30 later adds…") is not an action item.
+          if (/^\s*(?:\d+\.|[-*])\s/.test(l)) {
+            const fre = /\bStep (\d+)\b/g;
+            let fm;
+            while ((fm = fre.exec(l)) !== null) {
+              const k = Number(fm[1]);
+              if (k > numberOf(s.id)) {
+                errors.push(`step ${s.id} (line ${i + 1}) has an action item that names Step ${k}, a later step — an action item consumes only what exists when the step is built`);
+                break;
+              }
+            }
+          }
           const re = /`([^`\n]+)`/g;
           let mm;
           while ((mm = re.exec(l)) !== null) {
@@ -585,7 +656,83 @@ function processDocument(text) {
     updated = next;
   }
 
-  return { errors, stale, updated, steps, elements, declaredTests };
+  return { errors, stale, updated, steps, elements, declaredTests, lines, planLine0: planAnchor(lines) };
+}
+
+function planAnchor(lines) {
+  const planHeadRe = /^(#{2,4})\s+(\d+\.?\s*)?Plan(?:\s|$)/;
+  let best = -1, level = 99, numbered = false;
+  for (let i = 0; i < lines.length; i++) {
+    const pm = planHeadRe.exec(lines[i]);
+    if (!pm) continue;
+    const isNumbered = pm[2] !== undefined;
+    if (isNumbered && !numbered) { best = i; level = pm[1].length; numbered = true; }
+    else if (!numbered && pm[1].length < level) { best = i; level = pm[1].length; }
+  }
+  return best;
+}
+
+// ---------- impact: what a changed step restates elsewhere ----------
+
+function stepTexts(text) {
+  // step id -> its text span (title line to the next title line), as one string
+  const r = processDocument(text);
+  const lines = r.lines;
+  const ordered = [...r.steps].filter((s) => s.id).sort((a, b) => a.fenceLine0 - b.fenceLine0);
+  const planLine0 = r.planLine0;
+  let planEnd0 = lines.length;
+  if (planLine0 >= 0) {
+    const level = /^(#+)/.exec(lines[planLine0])[1].length;
+    for (let i = planLine0 + 1; i < lines.length; i++) {
+      const hm = /^(#{1,4})\s+\S/.exec(lines[i]);
+      if (hm && hm[1].length <= level) { planEnd0 = i; break; }
+    }
+  }
+  const titleLine = (s) => { let j = s.fenceLine0 - 1; while (j > planLine0 && lines[j].trim() === '') j--; return j; };
+  const out = new Map();
+  for (let i = 0; i < ordered.length; i++) {
+    const from = titleLine(ordered[i]);
+    const to = i + 1 < ordered.length ? titleLine(ordered[i + 1]) : planEnd0;
+    out.set(ordered[i].id, { from, to, text: lines.slice(from, to).join('\n'), decl: ordered[i] });
+  }
+  return { steps: out, lines, planLine0, planEnd0 };
+}
+
+export function impactReport(currentText, baseText) {
+  const cur = stepTexts(currentText);
+  const base = baseText ? stepTexts(baseText) : { steps: new Map() };
+  const changed = [];
+  for (const [id, s] of cur.steps) {
+    const b = base.steps.get(id);
+    if (!b || b.text !== s.text) changed.push(id);
+  }
+  const lines = cur.lines;
+  const report = [];
+  for (const id of changed) {
+    const n = Number(/^S(\d+)/.exec(id)[1]);
+    const decl = cur.steps.get(id).decl;
+    const stepRe = new RegExp(`\\bStep ${n}\\b(?!\\d)`);
+    const dependents = { tests: new Set(decl.tests), register: [], decisions: [], checkpoints: [], steps: [], other: [] };
+    // any line outside the step's own span that names "Step n": classify by the nearest heading above it
+    let heading = '';
+    const stepSpan = cur.steps.get(id);
+    for (let i = 0; i < lines.length; i++) {
+      const hm = /^(#{1,4})\s+(.*)$/.exec(lines[i]);
+      if (hm) { heading = hm[2].trim(); continue; }
+      if (i >= stepSpan.from && i < stepSpan.to) continue;
+      if (!stepRe.test(lines[i])) continue;
+      const inOtherStep = [...cur.steps.values()].find((s) => i >= s.from && i < s.to);
+      const line = `${i + 1}: ${lines[i].trim().slice(0, 100)}`;
+      if (inOtherStep) dependents.steps.push(`${inOtherStep.decl.id} ${line}`);
+      else if (/^\s*- \*\*T-/.test(lines[i]) || /Test specifications/i.test(heading) || /^\s*- \*\*(File|Verifies)\./.test(lines[i])) dependents.other.push(`test spec ${line}`);
+      else if (/^\s*- \*\*Q\d+/.test(lines[i]) || /Question register/i.test(heading)) dependents.register.push(line);
+      else if (/Decisions|collapse-test/i.test(heading) || /D-plan-/.test(lines[i])) dependents.decisions.push(line);
+      else if (/Checkpoint/i.test(heading) || /Checkpoint \d/.test(lines[i])) dependents.checkpoints.push(line);
+      else dependents.other.push(`${heading || 'top'} ${line}`);
+    }
+    report.push({ id, dependents });
+  }
+  return { changed, report };
 }
 
 // ---------- probes: cited evidence must exist, present evidence must be cited ----------
@@ -746,6 +893,8 @@ function selfCheck() {
     ['undeclared consumption of a provided name', base(VALID, 'elements: [R-1]', S0()).replace('Step S1.', 'Step S1 runs `tool run --fast`.'), 'not among S1\'s declared or transitive dependencies'],
     ['missing Plan heading', base(VALID).replace('## 7. Plan', '## 7. Steps'), 'no "Plan" heading found'],
     ['document title is not the Plan section', base(VALID).replace('# t', '# Plan for t').replace('## 7. Plan', '## 7. Steps'), 'no "Plan" heading found'],
+    ['shared call identifier not provided', base(VALID, 'elements: [R-1]', S0()).replace('Step S0.', 'Step S0 exports `run()`.').replace('Step S1.', 'Step S1 calls `run()`.'), 'no step\'s provides: declares it'],
+    ['action item names a later step', base(VALID, 'elements: [R-1]', S0()).replace('Step S0.', 'Step S0.\n\n1. Wire the verb (Step S1 registers it).'.replace('Step S1', 'Step 1')), 'names Step 1, a later step'],
     ['undeclared path under a created directory', base(VALID, 'elements: [R-1]', S0()).replace('Step S1.', 'Step S1 reads `src/nothing.js`.'), "which no step's files: declaration names"],
     ['step-decl outside the Plan section', base(VALID).replace('## 12. Test specifications', '## 7. Plan\n\n## 12. Test specifications').replace('## 7. Plan\n\nStep S1.', '## 6. Foundation corrections\n\nStep S1.'), 'lies outside the Plan section'],
     // M-1: the fence-indentation constraint produced a defect in three
@@ -768,6 +917,8 @@ function selfCheck() {
     ['indented top-level key', base(mut(8, '  depends_on: []')), "must not be indented", 1],
   ];
   const positive = [
+    ['a provided call identifier resolves through the dependency',
+      base(mut(8, 'depends_on: [S0]'), 'elements: [R-1]', S0(['Step S0 exports `run()`.'])).replace('Step S1.', 'Step S1 calls `run()`.').replace('provides: [tool-run]', 'provides: [tool-run, run]')],
     ['a document title beginning with Plan does not capture the anchor',
       base(VALID).replace('# t', '# Plan for t')],
     ['declared consumption of a created path passes',
@@ -801,12 +952,44 @@ const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.arg
 if (isMain) {
   let checkMode = false;
   let selfCheckMode = false;
+  let impactRev = null;
   const operands = [];
-  for (const a of process.argv.slice(2)) {
+  const argv = process.argv.slice(2);
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
     if (a === '--check') checkMode = true;
     else if (a === '--self-check') selfCheckMode = true;
-    else if (a.startsWith('-')) fail(`unknown flag '${a}' — only --check and --self-check are accepted`);
+    else if (a === '--impact') impactRev = argv[++i];
+    else if (a.startsWith('-')) fail(`unknown flag '${a}' — only --check, --self-check, and --impact REV are accepted`);
     else operands.push(a);
+  }
+
+  if (impactRev !== null) {
+    if (!impactRev || operands.length !== 1) fail('usage: derive-plan-sections.mjs --impact REV <plan.md>');
+    const planPath = operands[0];
+    const { execFileSync } = await import('node:child_process');
+    const { relative, resolve: resolvePath } = await import('node:path');
+    const cwd = process.cwd();
+    let baseText = '';
+    try {
+      const root = execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd, encoding: 'utf8' }).trim();
+      const rel = relative(root, resolvePath(planPath)).split('\\').join('/');
+      baseText = execFileSync('git', ['show', `${impactRev}:${rel}`], { cwd: root, encoding: 'utf8', maxBuffer: 1 << 26 });
+    } catch (e) {
+      fail(`cannot read the plan at ${impactRev}: ${e.message}`);
+    }
+    const { changed, report } = impactReport(readFileSync(planPath, 'utf8'), baseText);
+    process.stdout.write(`steps whose text changed since ${impactRev}: ${changed.length ? changed.join(', ') : 'none'}\n`);
+    for (const { id, dependents } of report) {
+      process.stdout.write(`\n== ${id} — surfaces that restate it (re-derive each; a hand-kept copy is where the last rounds regressed)\n`);
+      process.stdout.write(`  tests declared: ${[...dependents.tests].join(', ') || 'none'}\n`);
+      for (const [k, v] of Object.entries(dependents)) {
+        if (k === 'tests' || v.length === 0) continue;
+        process.stdout.write(`  ${k}:\n`);
+        for (const l of v) process.stdout.write(`    ${l}\n`);
+      }
+    }
+    process.exit(0);
   }
 
   if (selfCheckMode) {
