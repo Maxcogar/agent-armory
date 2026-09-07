@@ -1121,9 +1121,11 @@ DAO does business logic; they wrap statements. Where a DAO writes a
 knowledge record, its `create()` method requires provenance parameters
 (TypeScript compile-time enforcement) — the DB CHECK is the runtime
 enforcement of the same rule. The `whisper_audit` DAO's `append()`
-returns the ULID id (Step 41's ULID util) synchronously — Step 15's deny
-emitter depends on this being synchronous per AD-8's audit-log-before-emit
-ordering.
+returns the ULID id (Step 37's ULID util — corrected this fix pass,
+round 6: previously said "Step 41's," Step 41 builds only grep-based
+convention tests with no ID-generation content) synchronously — Step
+15's deny emitter depends on this being synchronous per AD-8's
+audit-log-before-emit ordering.
 
 **Source.** `AD-4`, `AD-5` (schemas); `AD-8` (audit-before-emit ordering
 demands synchronous audit append); `FR-X4` (provenance/trust not
