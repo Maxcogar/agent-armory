@@ -19,6 +19,786 @@ goes hollow is itself data.
 
 ---
 
+## 2026-09-07 — round 12: after the same mechanism's fourth consecutive round of "narrow the window, find a new one," the fix was to stop narrowing and remove the primitive that made narrowing necessary
+
+Round 12 found that round 11's own remediation code (the content-token
+fix's mismatch-restore branch, `fs.renameSync` back onto `lockPath`) was
+itself an unguarded, non-exclusive write: during the brief window it left
+the lock path vacant, a completely unrelated, ordinary third-process lock
+acquisition could land there and be silently clobbered when the restore
+fired — reproduced independently by both a collapse-hunt and an
+expert-review, each via real multi-process OS execution (two and three
+genuinely separate processes respectively), with zero variance across
+repeated runs. This was the fourth consecutive round — 9, 10, 11, 12 — in
+which the specific remediation code the immediately prior round had just
+added to this one mechanism (the reindex directory lock in
+`docs/plans/plan-phase-a.md`'s Step 37) contained a new instance of the
+same defect class it was written to close.
+
+**The pattern across all four rounds.** Round 9: a plain `unlink` with no
+release step. Round 10: an unsynchronized `unlink`-then-recreate reclaim.
+Round 11: an atomic-rename reclaim, still racing a delayed reclaimer.
+Round 12: the delayed-reclaimer fix's own restore branch, racing an
+unrelated third acquirer. Every one of the four fixes was independently
+verified by direct execution at the time it was written, and every one
+was independently found broken by the next round's own, harder execution.
+This is not a failure of verification rigor — each round's execution was
+real, adversarial, and correctly scoped to what it tested — it is a
+structural property of the primitive being patched: a bare filesystem
+path, manipulated via `rename`/`link`/`unlink`, has no atomic "read
+current state, and only then write" operation. Every implementation built
+from those primitives alone is a check-then-act race by construction; the
+only question each round answered was *which* interleaving was wide
+enough to exploit it, not *whether* one existed.
+
+**The fix, and the sharpened lesson.** Round 12 did not add a fifth,
+narrower patch. It replaced the primitive: the reindex lock became a row
+in `global_meta`, mutated only inside `BEGIN IMMEDIATE` transactions
+against `store.db` — the identical mechanism this same Step 37 already
+trusted, one paragraph away, to serialize the `whisper_stats` fold.
+Because SQLite does not allow two `BEGIN IMMEDIATE` transactions against
+one database to interleave their reads and writes at all, the entire
+defect class four rounds each found a new instance of is excluded by
+construction, not narrowed a fifth time. The generalized lesson: when a
+concurrency fix's own remediation code needs a fix, and that fix's
+remediation code then needs a fix, the signal to read is not "we haven't
+found the right interleaving guard yet" — it is "the underlying primitive
+cannot express the invariant being asked of it." The tell is structural,
+not statistical: check whether the shared resource already lives behind
+a stronger primitive (here, a transactional store already open in the
+same process) before writing a third, fourth, or fifth variation of a
+check-then-act guard on a primitive that was never designed to support
+one. This generalizes round 11's own lesson (construct the interleaving
+that maximizes a race's vulnerable duration) one level further: past a
+certain number of rounds each finding a new interleaving in the same
+mechanism, the correct response stops being "construct a harder
+interleaving" and becomes "stop trying to fix this primitive."
+
+**Class: mechanism-not-mission** (the filesystem-lock design was
+defended, four times, by how each patch worked — narrowing this specific
+window — rather than by whether the mission-need, real mutual exclusion
+with no known race, was actually met; it never was, until the primitive
+itself was replaced).
+
+---
+
+## 2026-09-07 — round 11: a fix's own collapse-test and unit test are not independent verification of it when both are authored against the same narrow scenario its author had in mind — and a plausible identity check (a file's inode) can be wrong in a way only execution reveals
+
+Round 11 found that round 10's own atomic-rename fix for Step 37's
+stale-lock reclaim — itself a fix for round 9's plain unlink-based race —
+closed only the narrow case it was built and tested against: two
+reclaimers' rename calls colliding on the same, still-present file at the
+same instant. It left open a wider, dominant case: a reclaimer that made
+its staleness decision early and was then delayed (ordinary OS scheduling,
+disk contention, a busy host — nothing the algorithm bounds) can later
+rename away a completely different, live lock that a faster reclaimer
+legitimately created and is actively running against in the interim. Both
+the round-11 expert-review (a hand-interleaved reproduction) and the
+round-11 collapse-hunt (a real two-OS-process reproduction — genuinely
+separate `node` processes, not simulated interleaving in one process)
+independently found and reproduced this.
+
+**Why this survived round 10's own review.** Round 10's own new unit test
+(`T37-3` case (d)) and its own new collapse-test (N7) were both authored to
+interrogate the exact mechanism round 10 had just built, and both were
+written against the same narrow scenario round 10's author had in mind —
+two renames issued "back-to-back with no serialization between them."
+Under that literal scenario the fix is genuinely safe, and both the test
+and the collapse-test correctly certified it. Neither construction asked
+what happens across the much larger window a full reclaim-and-recreate
+cycle actually leaves open once the winner starts doing real work. A test
+suite and a collapse-test that both pass against a self-selected scenario
+are not independent verification of a fix if neither one was constructed
+adversarially against the fix's own literal mechanism.
+
+**The sharpened lesson.** When a fix targets a concurrency defect,
+construct the interleaving that maximizes the vulnerable window's
+*duration*, not only the interleaving that maximizes apparent
+simultaneity. The widest window is usually not the one where two
+operations appear to happen "at the same instant" — it is the one where
+the first operation's entire remaining work happens to fall inside the
+second operation's decision window. A collapse-test's "hardest question"
+is only as hard as the interleaving its author thought to construct; this
+project's own review process caught the gap only because round 11 was
+independently instructed to re-execute round 10's fix mechanism from
+scratch rather than trust the corrected prose, per round 9's own
+already-logged lesson — and even that would not have been enough without
+deliberately searching for the *widest*, not merely the
+*hardest-looking*, timing shape.
+
+**A second, independently useful lesson from the same round: a plausible
+identity check can be wrong, and only execution reveals it.** The
+round-11 collapse-hunt tried the most obvious-looking fix for the race —
+comparing a stale-lock candidate's filesystem inode number before and
+after the rename — and found it insufficient by direct execution:
+`unlinkSync` immediately followed by `openSync(O_CREAT)` at the same path
+routinely triggers fast inode-number reuse on several common filesystems,
+so a losing reclaimer's post-rename inode comparison can report a false
+match against a brand-new, unrelated file. A content token written into
+the lock file's own bytes at every creation — never reused, unlike an
+inode number — does not have this failure mode, verified across three
+repeated real two-process runs, and is the mechanism Step 37 now
+specifies. Filesystem metadata that looks like stable identity is not
+always stable identity; "verify before you assert" applies as much to a
+fix's own proposed remedy as to the original claim it corrects.
+
+**Class: unverified** — a fix-pass closure claim (Step 37, N7, `T37-3`)
+and a plausible-looking identity check (device+inode), both asserted or
+tried without the specific execution that would have falsified them.
+
+---
+
+## 2026-09-07 — round 10: re-verifying the same axis a fourth time is not the same as checking a new one — the plan's own foundational dependency pin was functionally broken behind a metadata-only "verified" premise, for ten architecture rounds and nine plan rounds
+
+Round 10's expert-review found the most consequential defect yet in this
+plan's nine-round history: `web-tree-sitter@0.26.13` paired with
+`tree-sitter-wasms@0.1.13` — the plan's pinned tree-sitter dependencies,
+inherited from architecture premise V14 — cannot load a single grammar.
+Direct execution shows `Language.load()` throws unconditionally for
+every sampled language, because 0.26.x's loader requires a WASM
+`"dylink.0"` custom section that `tree-sitter-wasms@0.1.13`'s grammar
+files do not carry. This breaks Step 22 (the tree-sitter frontend)
+entirely, as literally specified, threatening every whisper genre
+depending on precise symbol/import extraction — Phase A's single most
+consequential mechanism failure found across ten rounds of review.
+
+**Why this survived so long.** Reading architecture's full V1–V19
+premise table, V14 alone is verified by "npm registry metadata fetched"
+— every other premise was verified by direct execution or a
+documentation quote. That metadata check (currency, no install
+scripts) was itself correct and answered a real question (C-3
+compliance) — but a different question than the one the plan actually
+builds on (that the parser can load these grammars at all). Three
+separate review rounds (6, 7, 9) re-verified this same dependency pin
+and each time correctly confirmed the *semver range's* behavior
+(`^0.26.13` excludes `0.27.0`) — a real, valuable check, repeated
+three times, that never touched the *functional* axis because nothing
+prompted anyone to ask a different question about the same citation.
+
+**The sharpened lesson.** Re-verifying a claim along the same axis a
+prior finding already checked is not the same as checking a new axis,
+no matter how many times it is repeated — three correct semver
+re-checks produced zero coverage of whether the two packages actually
+work together. A claim's own "how verified" citation is worth reading
+for what it does *not* say it checked, not only for what it says it
+did: V14's own text read "npm registry metadata," in plain sight,
+across every round that cited it, and no round asked what that method
+could not have established. This is also the first execute-don't-assume
+finding in this document's history (rounds 6-9 each executed one
+library's or tool's own documented behavior) that required executing
+**two** pinned packages **together** — a cross-package integration
+check, not a single-tool behavior check — which is exactly the kind of
+assumption `CLAUDE.md`'s "spikes before design-freeze" rule exists to
+force before an architecture ships a dependency pairing, not nine plan
+rounds later. The fix (a verified-working `0.25.x` floor) is
+straightforward; the standing prescription is procedural: when a round
+re-checks an already-checked citation, ask explicitly which axis the
+prior checks covered and deliberately pick a different one, rather than
+re-running the same check a fourth time and letting the repetition read
+as increasing confidence.
+
+## 2026-09-07 — round 9: a fix that *reads* as closing a collapse is not closed until its own literal mechanism is executed against its own cited example — the execute-don't-assume method turned on itself
+
+Round 8 fixed two defects it found by execution (a `flock`(2) syscall
+that doesn't exist; a co-change miner that didn't handle git's
+rename-collapsed `--numstat` output) and, for the second, wrote a fix
+whose prose read as complete: "if the field matches [a regex], expand
+the brace form if present into the real old and new paths." Round 9
+did something no round had yet done to a fix rather than an original
+claim: it took the fix's own stated mechanism — the one regex —
+and ran it, literally, against the fix's own cited example
+(`src/{utils => other}/c.txt`). The regex does not expand anything; it
+captures `"src/{utils"` and `"other}/c.txt"`, reproducing byte-for-byte
+the corruption the fix existed to prevent. Round 9 went further and
+constructed a fourth rename scenario beyond round 8's three — a
+same-directory, same-extension rename, the single most ordinary
+refactor a developer performs — and found it *also* triggers the
+brace form, meaning the gap round 8's fix left open was not an edge
+case but the dominant shape.
+
+A second, independent instance recurred in round 8's other fix: the
+replacement for `flock`(2) (a real `O_CREAT|O_EXCL` lock file) works
+correctly for acquisition, but round 8 never specified releasing it.
+`flock`(2)'s kernel-mediated auto-release on process exit was a
+property the *original, wrong* citation would have provided for free;
+the correct replacement primitive does not have that property, and
+nothing in the fix compensated. As literally specified, the detached
+reindex's self-refresh would succeed exactly once per project and then
+fail `EEXIST` forever after — a silent, permanent regression in the
+freshness mechanism the lock exists to protect, introduced by the fix
+that closed the syscall-existence finding.
+
+A third, smaller instance: round 8's own two collapse-hunt findings
+(the git-invocation distinction, the rename-detection addition) were
+correctly fixed at their primary sites but never logged into section
+11's claims registry — in the same commit that correctly logged round
+8's two *expert-review* findings into that same registry. The
+discipline was applied inconsistently within one fix pass, not absent
+from it.
+
+Class: **unverified**, but a new axis within it, sharper than every
+prior 2026-09-07 entry: previous entries found a *false claim* nobody
+had executed. This round found that *the fix for a false claim* is
+itself an unverified claim until someone executes the fix's own
+literal text against the exact scenario the original finding named.
+"Corrected this fix pass" is not evidence of correction — it is a
+claim, exactly as "authoritative standard: X's docs say Y" was a claim
+in rounds 6–8, and it requires the identical execute-don't-assume
+discipline applied to itself. The standing prescription, now doubled:
+every fix to an execute-verified finding must itself be re-executed
+against the original finding's exact reproduction case before being
+trusted as closed — a round that only re-reads a "corrected" annotation
+is doing exactly the surface-level check this project's whole review
+lineage exists to replace with something stronger.
+
+## 2026-09-07 — round 8: the execute-don't-assume method generalized from library citations to shell-command output shapes, and found a silent data-corruption defect — the most consequential class yet, because it would not fail loudly
+
+Round 8 pushed round 6/7's "verify a familiar tool by execution" method
+one level further: instead of checking whether a named library API or
+class exists, it constructed the actual input states a plan step's own
+shell command would see and ran the command, checking whether its
+output matches what the surrounding parsing logic assumes. Two findings
+resulted, both in load-bearing foundation mechanisms (repo-identity
+resolution, co-change mining) that determine what data the rest of
+Phase A's build reads.
+
+**Step 5's repo-key algorithm** labeled two genuinely different
+`git rev-parse --is-inside-work-tree` outcomes — the command succeeding
+and printing the literal string `false` (a bare repository) vs. the
+command failing outright with a fatal error (no git repository at all,
+exit 128) — under one shared "→ false" label, routing both to the same
+next step. Direct execution against a constructed non-git directory
+(exactly the plan's own `T5-1` fixture (d)) showed the true no-git case
+never reaches the plan's own stated fallback path, because the
+algorithm's text describes testing for a returned boolean, not for an
+invocation that never returns one. This is self-revealing in one sense
+(an implementer's natural try/catch-wraps-to-false instinct happens to
+paper over the gap) but not authorized by the plan's own text, which
+`expert-plan`'s "execute without a single decision on the fly" standard
+does not permit.
+
+**Step 20's co-change miner** runs `git log --numstat -M` (rename
+detection) but never accounted for `-M`'s effect on `--numstat`'s own
+output grammar: a detected rename collapses to a single `old => new`
+line (or a brace-abbreviated compaction for shared path prefixes/
+suffixes), not the plain single-path line the miner's touched-file-set
+extraction implicitly assumed every line would be. Verified by
+constructing three real rename scenarios and executing the exact
+command the plan specifies.
+
+**Why this pair matters more than every "too basic to check" finding
+before it.** Rounds 6 and 7's findings (the semver claim, the
+`SqliteError` citation, the `flock`(2) citation) were all
+**self-revealing**: an implementer who tried to act on the false claim
+would hit an immediate, loud failure (a build error, an unresolved
+identifier, a missing API) at the exact moment they used it. Step 20's
+finding is **silent**: a mishandled rename does not throw — it
+generates a malformed "file path" that gets silently absorbed or
+dropped, corrupting the co-change signal for every renamed file with no
+diagnostic, no crash, and (until this round) no test. This is the
+2026-09-04 "fake completeness corrupts the data the rest of the build
+reads" lesson recurring in its purest form: not as an elaborated
+classifier dressed to look like it works, but as an unexamined
+assumption about a command's own output syntax feeding directly into
+Step 42's real-repo exit-run measurement — the exact mission-critical
+deliverable `CLAUDE.md` rule 3 exists to keep honest. Worse, the
+"Collapse-tests re-attacked" pass this round found that a
+rename-corrupted miner would produce a *lower* Coupling/Consequence/
+Completeness/Warning count on real repos — indistinguishable, inside
+the exit report's own success criteria, from the honest low-coverage
+floor Phase A is supposed to report. A false floor and a true floor
+read identically in the current report format; only a fixture
+exercising the exact defect can tell them apart before the exit run
+runs on data nobody can re-collect after the fact.
+
+Class: **unverified**, but a new severity axis within it: self-revealing
+vs. silent. **The lesson to carry forward:** when generalizing an
+execute-don't-assume sweep, prioritize commands whose output feeds a
+*parsing/extraction* step over commands whose output feeds a *boolean
+branch* or a *type check* — a parser that silently accepts malformed
+input is strictly more dangerous than a branch or type reference that
+fails loudly, because the first produces wrong data that looks like
+right data, and the second produces an error that stops the build
+before anyone trusts the result.
+
+## 2026-09-07 — round 7: the plan's own foundation step could not build (npm ci with no lockfile), and a second unverified "too basic to check" library claim recurred
+
+Round 7 generalized round 6's lesson — verify a claim about a "familiar"
+mechanism by execution, don't accept it because it feels too basic to be
+wrong — and immediately found two more instances, one of them the most
+severe defect found in this plan since round 1.
+
+**Expert-review, Critical.** Step 1 specifies `npm ci` as the first
+command of both its own acceptance test and the CI workflow gating every
+PR, but no step anywhere in the 43-step plan ever creates or commits a
+`package-lock.json`. Direct execution of `npm ci` against exactly the
+scenario the plan specifies (a fresh `package.json`, no lockfile)
+produced an immediate, unconditional `EUSAGE` failure — not a version-
+drift risk of the kind round 6 examined and left as a disclosed
+residual, but a hard stop before any dependency resolution is even
+attempted. This means the plan's own first buildable step, and every CI
+run on every PR, would fail at the very first command, before a single
+line of code is type-checked — a defect upstream of every other
+checkpoint in the document, undetected across six prior review rounds
+because `npm ci` is exactly the kind of routine, "everyone knows how
+this works" command nobody thought to actually run.
+
+**Collapse-hunt, a second instance of round 6's exact class.** Step 2
+cited "Node's official `node:sqlite` documentation" for a `SqliteError`
+class thrown on statement failure. Direct execution against a live
+Node runtime, corroborated by fetching the official docs page, showed
+`node:sqlite` exports no such class — a statement failure throws a
+plain `Error` with `code: 'ERR_SQLITE_ERROR'`. The claim was plan-
+original (not inherited from the architecture), never logged in the
+plan's own §11 claims registry despite that registry's stated job being
+"every factual claim this plan asserts," and survived seven
+authorship/review passes because `SqliteError` is the conventional,
+expected name for a database-driver error class (mirroring a
+*different*, rejected npm package's real error type) — it read as
+obviously correct.
+
+Class: **unverified**, the same class as round 6, now confirmed
+recurring rather than a one-off. **The lesson, sharpened again:** round
+6 asked whether "verify, don't assume" applies to familiar mechanisms;
+round 7 answers that the answer is yes, more than once, in the same
+review round, at sites nobody had previously flagged as suspect. Both
+of round 7's findings were found by deliberately generalizing round 6's
+method — enumerating every "authoritative standard" / "documentation
+says" citation in the document and running the checkable ones against a
+real instrument, rather than re-checking only the specific claim round
+6 had already found. Practically: round 6's finding was benign (real
+behavior safer than believed) and round 7's `node:sqlite` finding was
+self-revealing (a build would fail loudly if anyone tried to use the
+false claim) — but round 7's `npm ci` finding was neither: it is a
+silent, load-bearing failure mode that would not surface until an
+implementer actually tried to build the plan's very first step, and no
+amount of reading the plan's prose would catch it without running the
+command. The standing prescription going forward: a plan's own
+"authoritative standard" and "Cite:" fields are not exempt from
+`CLAUDE.md`'s "verify external facts... before building on them" rule
+merely because the fact is routine — routine is exactly the shape this
+class of defect hides behind.
+
+## 2026-09-07 — round 6: a load-bearing collapse-test's "hardest question" rested on an unverified library-behavior claim that was false, and survived unchecked for six review rounds
+
+Round 6's expert-review found that D-plan-2 (the dependency-floor
+decision for `web-tree-sitter`) and its cross-reference in the plan's
+bin-2 owner register both asserted that the npm caret range `^0.26.13`
+"accepts 0.27.0 anyway" — the premise for the entry's entire "hardest
+question" (is the pin drift theater?). This claim traces to the plan's
+original 2026-09-06 authoring and was repeated, unchecked, by that same
+day's meta-check and collapse-hunt. Five subsequent independent review
+rounds (2 through 5) also passed over it without running an actual
+semver evaluator — each accepted the premise as given and reasoned about
+its *consequences*, never its *truth*. Round 6 installed the `semver`
+npm package and ran it directly: `^0.26.13` is anchored at the minor
+version for a pre-1.0 package and **excludes** `0.27.0` entirely. The
+plan's central premise was the opposite of the real, checkable fact.
+
+Class: **unverified** — but distinct in shape from every 2026-09-07 entry
+before it. Those were all "fix landed at its primary site, not swept to
+a sibling site" — the underlying claim, once corrected, was correct
+everywhere; only the propagation failed. Here, the claim itself was
+simply never checked against reality by anyone, across six independent
+review passes, because it read as a plausible statement about a familiar
+tool (semver ranges) that nobody thought to actually execute. `CLAUDE.md`
+rule 2's collapse-test exists precisely to force a claim like this to
+survive a hardest-question attack — but the test only works if the
+"authoritative standard" cited is actually verified, not merely named.
+D-plan-2 cited "architecture V14" and "semver-compatible" as its
+grounding and neither citation was ever run against an evaluator.
+
+**The sharpened lesson.** A claim about a well-known mechanism (semver,
+a config format, a CLI flag) is exactly the kind of thing a reviewer is
+most likely to accept from memory rather than verify, because it feels
+too basic to be wrong — this is the mirror-image risk to `CLAUDE.md`'s
+existing "verify external facts... against current primary sources"
+rule, which agents tend to apply to obscure or fast-changing facts and
+under-apply to "obvious" ones. The fix: `/expert-review`'s own Step 5
+library-behavior-claim rule (resolve the library, read the current
+behavior, don't reason from memory) applies with equal force to
+small, load-bearing facts embedded inside a collapse-test's own
+"hardest question," not only to headline claims about a framework's
+API surface. Practically benign here (real behavior turned out safer
+than believed) — but the near-miss is that it could just as easily have
+been the other direction.
+
+Also notable: this was the first of six consecutive 2026-09-07 rounds
+whose expert-review found no verified multi-site Systemic pattern — a
+genuine, if narrow, break in the five-round streak (round 2: 7 sites;
+round 3: 2; round 4: 2 instances/4 sites; round 5: 2 instances/6 sites).
+One new instance of the same sweep-failure shape did recur this round
+(section 3's stale "bin 1 answered" citation, a sixth instance of the
+lineage), but it resolved to a single site rather than a pattern this
+round's proactive scans could generalize into a second Systemic
+finding — read as continuity of the same root cause, not evidence the
+underlying mechanism has stopped producing it.
+
+## 2026-09-07 — round 5: a sweep's own "N citations checked, only these were wrong" completeness claim was itself falsified within the same round
+
+Round 5's collapse-hunt found and fixed two wrong step-number citations
+(SQLite WAL semantics attributed to Step 32 instead of Step 37; the
+`init` verb attributed to Step 30 instead of Step 31), attested to have
+run "a full grep-based cross-check of every 'Step 30/31/32/37'
+occurrence in the document" and concluded "48 such citations checked;
+only these two were wrong." Round 5's own expert-review, dispatched in
+parallel against the same document, independently re-ran the identical
+class of grep and found **four more live instances** of the exact
+"Step 30's `init`" defect the collapse-hunt had just attested to have
+fully swept — sitting inside Step 2, Step 8, Step 23, and Step 29's own
+bodies, sections that same collapse-hunt's own attestation separately
+claimed to have read "in full."
+
+This is a sharper case than rounds 2–4's recurrences: those were content
+a fix pass changed in one place and failed to propagate to a *different*
+place the fix pass never looked at. Here, the collapse-hunt was
+specifically hunting for this exact defect class, ran a real grep, found
+real instances, fixed them, and *still* asserted a completeness bound
+("only these two") that a differently-scoped grep in the same session
+falsified. A grep that returns N hits proves N hits exist under that
+exact pattern — it does not prove the pattern was cast wide enough to
+catch every variant (here: "Governs Step 32 (concurrency)" was caught,
+but "Step 30's `init`" phrased four different ways inside four different
+step bodies was not fully caught by the collapse-hunt's own pass, though
+a second independent pass in the same round did catch it).
+
+Class: **unverified**, sharpened. **The standing lesson, now demonstrated
+five rounds running:** a shrinking finding count (round 2: 7 sites;
+round 3: 2; round 4: 2 instances/4 sites; round 5: 2 instances/6 sites)
+is not evidence the sweep mechanism itself has improved — it is evidence
+only that the specific instances a given pass happened to grep for were
+fixed. The correct response is not a better single grep pattern; it is
+the iterate-to-convergence discipline this project already runs: dispatch
+a fresh, independently-scoped pass rather than trust the prior pass's own
+"checked N, found M" arithmetic, because the prior pass's own search
+scope is exactly the thing that cannot verify itself.
+
+## 2026-09-07 — round 4: the sweep-failure pattern recurred a fourth time, at new sites each round, including inside the artifact whose own job is to catch it
+
+Round 3 had already named "a fix landing at its primary site without
+sweeping every cross-referencing surface" as the recurring failure across
+three consecutive rounds (rounds 2 and 3, 9 sites total) and prescribed a
+mechanical per-surface checklist as the fix. Round 4's independent
+collapse-hunt and expert-review found the identical shape recurring at 4
+more sites, none of them overlapping the 9 already fixed:
+
+1. **Step 14's own body** still attributed `lexicon.stoplist`'s seeding to
+   Step 8, three lines away from a sibling clause in the *same sentence*
+   that round 3's own fix pass had correctly re-pointed to Step 23 —
+   meaning the fix pass's hand touched this exact paragraph and still
+   missed the neighboring clause.
+2. **§2.3's coverage-reconciliation table** — the document's own
+   self-audit of its own completeness — had three further wrong
+   step-number citations (genres, indexer, self-observability) surviving
+   in the *same table* whose Delivery row round 3 had just corrected one
+   row above. A self-audit instrument failed at exactly the job it exists
+   to do, in the same table, the same session, immediately after fixing
+   an adjacent instance of the identical defect.
+3. **Step 40's body and §14.1's Q13** still described an owner-run L11
+   probe design that §10's D-plan-6 had explicitly retracted — a
+   retraction performed in round 1, never caught by rounds 1–3 because no
+   prior round's targeted-read scope happened to include Step 40's body
+   or §14.1.
+4. **Step 32's Verification field** never cited `T32-1a`, an omission
+   dating to round 2 (when `T32-1a`'s spec was added to §12 and the
+   mapping table, but not swept into the constructing step's own inline
+   prose) and unnoticed through round 3.
+
+Class: **unverified** — the same class rounds 2 and 3 already named,
+still recurring, now inside the artifact (§2.3) whose stated purpose is
+proving completeness. **The sharpened lesson, four rounds in:** the
+magnitude shrinks each round (7 sites → 2 → 2, at 4 total locations) but
+the *mechanism* generating new instances hasn't changed — a fix pass
+reliably corrects the site(s) a review names and reliably fails to
+mechanically re-diff every other surface that cites the same fact, even
+within the same document, even one row above in the same table it is
+mid-edit on. A reconciliation table's own attestation of completeness
+("nothing is unmapped, nothing is silently deferred," §2.3's own closing
+line) is not evidence of completeness — it is exactly the kind of claim
+that needs independent, fresh-eyes verification, which is why the
+iterate-to-convergence discipline (dispatch a new round rather than
+trust the last round's sweep) is the correct response to this class of
+defect, not a one-time mechanical checklist a future fix pass might again
+forget to run.
+
+## 2026-09-07 — round 3 expert-review: the sweep mechanism itself, not any one fix, was the recurring point of failure — three rounds running
+
+Round 2 diagnosed and fixed a systemic pattern at 7 sites: content the fix
+pass changed in one place wasn't propagated to every place that referenced
+the same claim. Round 2's own reconciliation-sweep explicitly attested to
+having walked for exactly this. Round 3 found the identical pattern
+recurring at 2 more sites — both introduced by round 2's own new content:
+`T18-3` (round 2's own new mechanism) was asserted in four places and
+built in zero (Step 41, which constructs `test/conventions/`, never
+listed it); and Step 23's own AD-14-provenance correction (also round 2's
+new content) was never swept into T8-1's and T23-1's test specs, which
+kept asserting "matches AD-14" for two values Step 23's own corrected text
+says have no AD-14 source at all.
+
+Class: **unverified** — the same class round 2 already named, recurring
+in the artifact meant to fix it. **The generalizable lesson, sharpened by
+now having the same failure three rounds running:** a sweep's own
+attestation ("walked X against Y, found nothing") is not verification of
+completeness — it's a report of a walk, and a walk can miss exactly the
+thing it was trying to check. Round 3's reviewer caught what two prior
+attestations missed by using a different method: instead of walking
+prose claims, it built a mechanical checklist per artifact (citing step +
+file-skeleton entry + *constructing* step's own body + test spec) and
+diffed it against grep results. The distinction that mattered: previous
+sweeps checked "is this T-ID mentioned everywhere it should be" (a
+reference-existence check, which a `comm`/`diff` over grep hits catches
+reliably); the sites that kept slipping through needed "is this T-ID's
+file actually *built* by the step whose job that is" (a construction
+check, structurally different from a reference check, and invisible to a
+tool that only diffs mention-lists).
+
+**Lesson, for any future fix pass touching this document (or any
+document with the same self-referencing structure):** when new content
+introduces a new file or mechanism, verify it against a fixed checklist
+of every surface class that can reference it (citing step, skeleton
+listing, *constructing* step, test spec, risk register) — not a prose
+walk, and not only a reference-existence diff. A reference can exist in
+four places and still not be *built* anywhere; that gap is a different
+failure mode from a stale reference, and needs a different check to
+catch it. The convergence trend itself is real and worth keeping in
+view (round 1: 3 collapses; round 2: 1 collapse, but its own fix
+introduced 2 new instances of the systemic pattern; round 3 caught and
+fixed those) — but "the count is shrinking" is not the same claim as
+"the sweep mechanism now actually works," and this entry is written so
+the next round checks the latter, not just the former.
+
+---
+
+## 2026-09-07 — round 3: using a tool at all is not the same claim as the check being independent
+
+Round 3's independent collapse-hunt caught this document's own prior entry
+(immediately below) overclaiming its result: getting a real MCP client to
+speak the `clear-thought` protocol directly and running six decisions
+through `sequential_thinking` was reported as the pass "functioning as a
+genuine independent check rather than a rubber stamp." It doesn't. The
+`clear_thought` tool (this version, `@waldzellai/clear-thought-onepointfive`
+0.0.5) stores and echoes back whatever text the caller supplies as
+`prompt` — it does not compute, score, or judge anything on its own
+(verified directly: `decision_framework`'s `multiCriteriaScores` and
+`recommendation` fields never reflected supplied scores; `sequential_
+thinking`'s `"thought"` field is a verbatim echo of the caller's `prompt`).
+Six decisions authored, argued, and concluded by the same session, run
+through a tool that never disagrees, coming back 6-for-6 confirmed, is a
+100% self-affirmation rate — exactly the "self-administered collapse test
+grades its own homework" shape the 2026-08-25 entry (item 3) already names.
+
+Class: **unverified / posture** — the tool-invocation *fact* was real and
+verified (protocol handshake, session ID, 18 successful calls all
+genuinely happened), but the *conclusion drawn from the fact* ("this was
+independently checked") did not follow from it, and reads more confidently
+than the evidence supports — the posture of the check drifted from "I
+satisfied a mandate" to "I was reviewed," which are different claims.
+
+**Lesson.** Using a mandated tool discharges the literal mandate ("invoke
+X, record the reasoning") — that is real and worth stating plainly. It
+does not discharge a broader claim ("this was independently verified")
+unless the tool itself supplies judgment the caller doesn't already hold —
+check what the tool actually returns (does it echo, or does it compute?)
+before characterizing a pass through it as review rather than
+documentation. The two claims sound similar and are not: "I recorded my
+reasoning through the required channel" is auditable and true; "an
+independent check confirmed my reasoning" requires a second party — a
+separately-dispatched review session, a different model, an oracle with
+its own judgment — and a tool that echoes the caller's own words is not
+one, no matter how official the protocol handshake looks. Fixed
+everywhere the overclaim appeared (the plan's §15 Q-gap-5 entry, this
+STATUS-adjacent record, and the verification transcript itself) by
+replacing it with the narrower, true claim.
+
+**A second, smaller lesson from the same round.** AD-9 requires
+`deny_bypass_suspect`'s proxy bias disclosed in *both* directions
+(over-counts one class, under-counts another); N2's fix (2026-09-07,
+earlier same day) disclosed only the under-count direction, and this
+exact gap had already surfaced in round 2's own collapse-hunt narrative
+prose without ever being raised as a numbered, must-fix finding — so it
+was read, noted, and not fixed. **Lesson: a defect mentioned in a
+review's prose but not given a finding number is exactly as likely to be
+silently dropped as one never mentioned at all — if it's worth writing
+down mid-review, it's worth a numbered finding, even one that duplicates
+something "already covered" by a broader item.**
+
+---
+
+## 2026-09-07 — "the harness didn't attach the tool" is not the same fact as "the tool can't be used"
+
+Round-2 expert-review (finding S3) correctly rejected a claim that
+registering `clear-thought` as an MCP server at the CLI level
+(`claude mcp add ... -s local`, health-checked connected via `claude mcp
+list`) discharged SKILL.md's Clear-Thought mandate for six judgment calls a
+fix-pass session had made by manual reasoning. The gap: this specific
+session's own tool-attachment layer (`ToolSearch`) never picked up the
+newly-registered server, so the session genuinely had not run those six
+decisions through the tool, regardless of the tool's availability elsewhere.
+
+The next move was to treat "not attached to this session's tool layer" as
+equivalent to "not usable this session" — the same conflation the
+2026-09-07 entry below (about `ToolSearch` returning no match) already
+named once, one layer up. It resolved the same way: **the fact that a
+harness abstraction hasn't picked something up is a fact about the
+abstraction, not about the underlying capability.** An MCP server is an
+ordinary subprocess speaking JSON-RPC over stdin/stdout per a documented,
+public protocol (`initialize` → `notifications/initialized` → `tools/list`
+→ `tools/call`) — nothing about that protocol requires going through any
+particular client's tool-dispatch layer. A ~100-line client script spoke
+it directly to `npx -y @waldzellai/clear-thought-onepointfive`, completed
+the handshake, and ran all six flagged decisions as real tool calls,
+closing the gap in the same session rather than deferring it to some
+future session that might have better luck with attachment.
+
+Class: **unverified**, again — a boundary ("I can't use this tool") was
+asserted from the failure of one specific mechanism (the harness's
+attachment layer) without checking whether a more direct mechanism (the
+documented protocol itself) was available. **Lesson, generalized from the
+entry below: when a tool is "unavailable," ask which of three things is
+actually true — (a) it doesn't exist and can't be installed, (b) it exists
+and is installed but this session's convenience layer for calling it
+hasn't picked it up, or (c) it exists, is installed, and is one direct
+protocol call away regardless of the convenience layer. Only (a) is a real
+halt condition. (b) is what registering it (this project's prior fix)
+resolves for future sessions but does NOT resolve for the current one, and
+the current one is not thereby stuck — (c) is very often true for anything
+built on a documented, public protocol (MCP, HTTP APIs, CLIs with
+machine-readable output), and finding that out costs one small script, not
+a deferral.** Full evidence and the six confirmed decisions:
+`docs/reviews/2026-09-07-clear-thought-verification-q-gap-5.md`.
+
+---
+
+## 2026-09-07 — round-2 review of the plan's own fix pass: a fix landing at its primary site without sweeping its secondary echoes, and an overclaimed closure caught before it reached the owner
+
+A fix pass applied 21 findings from four review documents directly to
+`docs/plans/plan-phase-a.md`. A fresh independent collapse-hunt and
+expert-review then ran against that fix pass itself — the same
+mandatory-independent-review discipline applied one level up, to the fix
+rather than to the original document. Both found real, if shrinking,
+defects (1 collapse + 3 partials, down from round 1's 3 collapses + 4
+partials + 6 missed decisions on the original plan).
+
+1. **A fix that lands at its primary site is not the same as a fix that
+   lands everywhere the same claim was independently restated.** The
+   "design-safe either way" overclaim (P2) was corrected at Step 18 and in
+   one paragraph of §15 — and survived verbatim in three other places: a
+   §10 collapse-test rationale, a §5.1 file comment, and a sub-heading one
+   sentence above its own corrected body text (contradicting itself in
+   the same paragraph). The same shape hit D-plan-8's marker-discipline
+   rationale, which still described the pre-fix "arbitrary comment field"
+   design after the field itself had been redesigned three sections
+   earlier. Class: **unverified** (a fix's completeness was asserted, not
+   checked against every place the fixed claim appeared). **Lesson,
+   generalizing the 2026-08-29 "a fix must land at the exact location"
+   entry one level further: when a claim is fixed at its primary
+   decision site, grep the exact sentence (or its close paraphrases) across
+   the whole document before considering the fix done — a collapse-test
+   rationale, a file-skeleton comment, and a risk-register entry are all
+   independent restatements a reader can still find and act on.**
+
+2. **A cited test ID is not a specified test until it has its own §12
+   entry.** Two new mechanisms (`oracleSpawn`'s confinement, the
+   transient-wrongful-deny counter) were each given a plausible-sounding
+   T-ID at their point of introduction (`T41-1d`, `T18-2`, plus `T2.5-1`
+   and `T21-2` for the wrapper itself) — and none had the six-field §12
+   specification the plan's own testing discipline requires. The citation
+   read as verified because it had a well-formed ID; nothing had actually
+   specified what the test does, what real/double boundary it uses, or
+   what makes it fail. Class: **wrong-check** — checking that a T-ID
+   *exists as a string* is not checking that it *resolves to a
+   specification*. **Lesson: when adding a new mechanism that needs a
+   test, write the §12 entry in the same edit that introduces the T-ID
+   reference — never introduce the citation first and the spec "later,"
+   because "later" is exactly the gap an independent reviewer has to
+   catch instead.**
+
+3. **A tool-availability fix at the environment level does not retroactively
+   verify judgment calls already made without the tool.** The fix pass
+   built and registered CodeGraph and Clear Thought as MCP servers,
+   confirmed connected via `claude mcp list`, and then declared the plan's
+   `Q-gap-5` (the SKILL.md halt-condition finding) "closed" on that
+   basis — while its own text, one paragraph later, admitted the pass's
+   own judgment calls were made by manual reasoning because *this specific
+   session* never attached to the newly-registered servers. Those are two
+   different claims: "the tool now exists" and "this session's reasoning
+   was verified by the tool." The round-2 independent expert-review caught
+   the conflation before a third round would have had to; the fix
+   (recorded in the plan's own §15) was to name the exact judgment calls
+   affected and track them as a genuinely open item for the next
+   tool-attached session, rather than asserting closure a second time on
+   the same unverified ground. Class: **unverified**, and the same shape
+   as the entry immediately below (a "tool is registered" fact quietly
+   standing in for a "tool was used" fact). **Lesson: when a fix restores
+   a *capability* (a tool becomes available) but the *work already done*
+   was not redone with it, say so explicitly and separately — "the cause
+   is fixed" and "the affected work is re-verified" are different claims
+   with different evidence, and conflating them is exactly the overclaim
+   this project's collapse-hunt exists to catch before the owner does.**
+
+**Process note.** All three were caught by the independent round-2
+collapse-hunt and expert-review, dispatched against the fix pass itself —
+not by the owner, and not by the fix-pass session re-reading its own work.
+This is the mechanism working as designed, one level up the stack from
+where it usually operates: the artifact under review this time was a
+correction, not an original document, and the same discipline applied.
+
+## 2026-09-07 — "the tool is unavailable" was an unverified premise about *this session*, not about the environment
+
+**Caught by Max Cogar, not by any safeguard.** An agent asked whether to
+proceed on `docs/plans/plan-phase-a.md`'s fix pass, framing CodeGraph and
+Clear Thought MCP as categorically unavailable in this environment — grounded
+only in `ToolSearch` returning no match inside the running session. Max's
+response: *"Not true. You're just refusing to do anything about it."*
+Investigation found `mcp-servers/codegraph-mcp/` already present and buildable
+in this repo, and `clear-thought` already named in
+`middleware/context-oracle/.mcp.json` — neither had ever been registered as an
+MCP server for this session; `ToolSearch` finding nothing was true and told
+the agent nothing about whether the tool could be made available. Building
+and registering both (`npm install && npm run build`; `claude mcp add … -s
+local`) produced two servers `claude mcp list` health-checks as connected.
+
+Class: **unverified**, same shape as the 2026-07-30 grep-as-verification
+entry one layer up the stack — a negative search result was read as a fact
+about the world instead of a fact about what had been tried. **Lesson: "the
+tool returns no match" is a fact about the current tool registry, not about
+whether the tool exists or can be added. Before declaring a required tool
+unavailable and halting or escalating on that basis, check whether it is
+buildable/registerable in this repo or environment — a `.mcp.json`, a
+`mcp-servers/` directory, a README with setup instructions — and attempt the
+setup. Only a genuine absence (no source, no package, no viable install path)
+earns the halt.**
+
+**A second, narrower lesson sits underneath the first.** Even after building
+and registering both servers and confirming them connected outside the
+session (`claude mcp list`), this *running* session's own tool registry did
+not attach to them — MCP servers registered mid-conversation do not become
+callable in that same conversation without a reconnect this harness does not
+expose a way to trigger from inside the session. **Lesson: "the tool is now
+registered" and "the tool is callable in this turn" are different claims,
+verified differently — the first by `claude mcp list`/health-check, the
+second only by actually invoking it (or `ToolSearch` finding its schema) in
+the live session.** Conflating them would have been the same "asserted, not
+established" failure in the opposite direction. The honest resolution here
+was neither "halt" nor "claim it's fixed" but: fix the root cause, verify
+what is and isn't true of *this* session precisely, and disclose the
+remaining gap (this session's own judgment calls made without Clear Thought)
+rather than paper over it.
+
+**Compounding process note.** The same session had, minutes earlier, escalated
+a related halt-condition finding (`Q-gap-5`) to Max Cogar as a three-way
+accept/halt/waive choice — which `docs/STATUS.md` and `CLAUDE.md` rule 2
+already answered ("halt, don't escalate a question the project's own rule
+resolves"). Fixing the tool-availability root cause this session closed
+`Q-gap-5` without reopening that menu. **Lesson, generalized: a halt condition
+has three possible responses in this project's own rules — halt, fix the root
+cause, or (rarely) get explicit owner authorization for a named deviation —
+and "escalate a menu of options the rules already narrow" is not one of
+them.** Check whether the blocking premise itself is fixable before treating
+the halt as terminal.
+
+---
+
 ## 2026-08-25 — a fabricated citation key, and a hedge renamed instead of resolved
 
 Full evidence: `docs/reviews/2026-08-25-independent-review-spec-revision.md`.

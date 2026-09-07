@@ -135,7 +135,7 @@ forward as "prior pass."
 | V11 | `--tools ""` disables all built-in tools | `claude --help` 2026-08-29: `--tools <tools...>` — "Use \"\" to disable all tools" | The tool-disallowed invocation (spec §10) has a current implementing flag. |
 | V12 | Transcript JSONL structure: entries typed `user` / `assistant` / `attachment` / others; assistant entries carry content blocks typed `thinking`/`text`/`tool_use`, plus `uuid`/`parentUuid`/`timestamp`. **String content does NOT imply a human turn**: enumerating a live transcript containing injected turns shows string-content `type:"user"` entries of three kinds — the genuine human turn (`origin.kind:"human"`, `isMeta` absent), task notifications (`origin.kind:"task-notification"` — text partly authored outside the machine), and Stop-hook feedback (`isMeta:true`) — beside list-content tool results | Enumerated **two** transcripts in this environment (2026-08-29): the interactive-session transcript — (string, meta:∅, origin:human)=1, (string, meta:∅, origin:task-notification)=5, (string, meta:true)=2, (list, no markers)=106 — and a `claude -p` probe transcript whose **genuine user prompts carry no `origin` and no `isMeta` at all** (2 of 2) | AD-11's discrimination keys on the **markers**, never on content shape: a question-bearing transcript turn requires `origin.kind === "human"` and not `isMeta`; anything else — including marker-absent string entries — never opens a question from the transcript (skip + diagnostic). **Marker presence is mode-dependent** (the probe transcript proves genuine turns can lack them), so: mid-session enforcement never depends on the markers (intake reads the `prompt` field), the transcript-rebuild path's dependence on them is disclosed (AD-9, L11), and marker presence on the owner's actual interactive transcripts is a named build-time verification (AD-24). The layout is **undocumented** → adapter + version guard + FR-M2 finding on parse failure. |
 | V13 | Repository identity hazards: on this very clone, `git rev-list --max-parents=0 HEAD` returns **4** commits, `--is-shallow-repository` is true, `.git/shallow` has 8 entries | Executed here 2026-08-29 | A shallow clone's "roots" are boundary commits and vary per clone depth (the 2026-07 record measured 6 on a different clone of the same repo). AD-3's rule — never key a store off a shallow history — is re-grounded on fresh evidence. |
-| V14 | `web-tree-sitter` (0.26.13) and `tree-sitter-wasms` (0.1.13) are current, pure-WASM (no native toolchain), with no install scripts in the published manifest | npm registry metadata fetched 2026-08-29 | C-3-compatible parser runtime exists. The exact grammar inventory of `tree-sitter-wasms` is a build-time verification (Limitations L6). |
+| V14 | `web-tree-sitter` (**0.25.10**, corrected — see below) and `tree-sitter-wasms` (0.1.13) are current-enough, pure-WASM (no native toolchain), with no install scripts in the published manifest, **and the two packages actually load and parse together** | npm registry metadata fetched 2026-08-29 (currency, no-install-scripts); **corrected this fix pass, round 10 of the Phase A plan's expert-review lineage, 2026-09-07: the original entry pinned `web-tree-sitter` 0.26.13 and verified only registry metadata, never a functional load — direct execution this session (`Parser.init()` + `Language.load()` against every sampled `tree-sitter-wasms@0.1.13` grammar) shows 0.26.13 throws unconditionally, because 0.26.x's loader requires a WASM `"dylink.0"` custom section that `tree-sitter-wasms@0.1.13`'s grammar files do not carry (they carry the older `"dylink"` section name only — confirmed by direct inspection of the WASM bytes, `WebAssembly.Module.customSections`). `web-tree-sitter@0.25.10` (the current 0.25.x release) loads and parses the identical file successfully — verified by executing `Language.load()` + `parser.parse()` end to end.** | C-3-compatible parser runtime exists **and functions** — the functional half was previously asserted on the strength of a registry-metadata check that never tested it, exactly the gap Limitations L6 already flagged for grammar inventory but had not been generalized to load compatibility itself. The exact grammar inventory of `tree-sitter-wasms` remains a build-time verification (Limitations L6); the load-compatibility premise itself is now execution-verified, not merely inferred from "pure-WASM, current versions." |
 | V15 | `UserPromptSubmit` hooks inject context via plain stdout **or** `hookSpecificOutput.additionalContext` — both "injected as system reminders for Claude" | Current hooks reference + hooks-guide, fetched 2026-08-29 | The Orientation delivery channel (AD-6) is documented; the design uses `hookSpecificOutput.additionalContext` for uniformity with the other events. |
 | V16 | `PostToolUse` hooks inject context via `hookSpecificOutput.additionalContext` ("directly enters Claude's context window"); plain stdout from a successful PostToolUse hook goes **only to the debug log** | Current hooks reference + context-window page, fetched 2026-08-29 | Coupling/Reuse delivery channel (AD-6) documented; stdout is not a delivery channel on tool events. |
 | V17 | `VACUUM INTO '<file>'` executes on `node:sqlite` and round-trips data (SQLite 3.51.2 bundled); the module-level `backup()` API was **added in Node v22.16.0** (official v22.x API docs) | `VACUUM INTO` executed here 2026-08-29 (source→dest copy verified by query); `backup()` version per the v22.x API docs as recorded in the 2026-08-29 expert-review record | Export/import (AD-5) uses `VACUUM INTO` — engine-level, version-immune; with AD-2's floor at 22.16.0 either mechanism is available, and the chosen one does not depend on the floor. |
@@ -1653,9 +1653,28 @@ and nothing here depends on the new channel.
    events), so multiple handler processes may touch one store concurrently:
    WAL + `busy_timeout=100ms` + single-transaction writes per event + retry-once
    on `SQLITE_BUSY`; on second failure the event completes whisper-less
-   (fail-open) with a `store_busy` diagnostic. The detached reindex takes a
-   directory lock; the handler never waits on it (staleness merely lowers
-   confidence meanwhile, `FR-K7`). Audit-before-emit ordering (AD-8) holds per
+   (fail-open) with a `store_busy` diagnostic. The detached reindex takes its
+   mutual-exclusion lock as a row in `global_meta`, acquired and released only
+   inside `BEGIN IMMEDIATE` transactions against `store.db` — **reworded this
+   fix pass, round 12 of the plan's review lineage** (`docs/plans/plan-phase-a.md`
+   Step 37): rounds 9 through 11 each specified and then found a new race in a
+   bare-filesystem-path lock (a plain `unlink`, an unsynchronized
+   `unlink`-then-recreate, an atomic-rename reclaim, a content-token-verified
+   restore), each defect traceable to the same cause — a filesystem path has
+   no atomic "read current state, and only then write" primitive. Representing
+   the lock as a `global_meta` row mutated only inside `BEGIN IMMEDIATE`
+   transactions reuses the identical primitive this same decision already
+   specifies, one paragraph below, for the `whisper_stats` fold: because
+   SQLite does not allow two `BEGIN IMMEDIATE` transactions against one
+   database to interleave their reads and writes, no interleaving — of any
+   width — permits two acquirers to both observe the same pre-write state and
+   both proceed to write. This removes the defect class the four filesystem-lock
+   rounds each found a new instance of, rather than narrowing it further. The
+   handler never waits on this lock; staleness (an elapsed-time heuristic, no
+   PID-liveness check) merely lowers confidence meanwhile, `FR-K7` — and can
+   still misfire against a legitimately slow, not-crashed reindex, a
+   calibration risk unrelated to the mechanism's correctness and tracked at the
+   plan's own §13 R11, not eliminated by this redesign. Audit-before-emit ordering (AD-8) holds per
    process; ids are ULIDs so concurrent writers never collide. The
    `whisper_stats` fold (AD-5) reads its project watermark, aggregates the rows
    newer than it, and advances that watermark inside a **single `BEGIN
@@ -1663,12 +1682,23 @@ and nothing here depends on the new channel.
    read the old mark and double-count the same `sent` rows — the second
    serializes behind the first and sees the advanced watermark.
 2. **Standard.** SQLite WAL semantics (readers don't block the writer; one
-   writer at a time) — engine-documented behaviour exercised by the V8 probe;
-   `FR-O3` for the give-up path.
+   writer at a time; a `BEGIN IMMEDIATE` transaction's reads and writes are
+   indivisible with respect to every other connection) — engine-documented
+   behaviour exercised by the V8 probe; `FR-O3` for the give-up path.
 3. **Why here.** The no-daemon model (AD-1) moves contention to the store; WAL
-   is the mechanism that makes that safe, and the give-up path keeps NF-1.
+   is the mechanism that makes that safe, and the give-up path keeps NF-1. The
+   reindex lock reuses the same mechanism rather than a separate,
+   weaker one, for the same reason.
 4. **What this is NOT.** Not a global write queue (a daemon in disguise). Not
-   long `busy_timeout` (blocks the event path — NF-1).
+   long `busy_timeout` (blocks the event path — NF-1). Not a distributed lock —
+   still explicitly single-host, single-user; a legitimately-slow-but-alive
+   reindex remains reclaimable by the staleness threshold (§13 R11's concern,
+   not a defect in this mechanism). No longer a bare filesystem path at all,
+   as of this fix pass, round 12 — the four rounds of filesystem-lock races
+   this document's plan-review lineage found (rounds 9-12) are eliminated by
+   construction, not narrowed, because the lock is now provably subject to the
+   same single-writer transaction serialization already trusted for the
+   `whisper_stats` fold above.
 5. **Premise verification.** WAL enabled and exercised in V8; `FR-K7`, `FR-O3`
    read at spec §11.1/§8. Addresses: NF-1, `FR-O3`, `FR-K7`.
 
@@ -2033,7 +2063,7 @@ criterion is pinned there and its mechanism lives in the named decisions.)
 | `OWNER-LEDGER.md` CONFIRMED rows | this repo | every owner-attributed claim (OL-2, OL-4, OL-6, OL-7, OL-10, OL-11, OL-C1, OL-C3, OL-C4, OL-C5 cited at their uses) |
 | Claude Code hooks reference (code.claude.com/docs/en/hooks, + hooks-guide, env-vars, agent-sdk pages), fetched 2026-08-29 | V1–V6, V15/V16, V18/V19 | channels, fields, timeouts, lag, the success/failure event split, subagent context scope; AD-6, AD-7, AD-9, AD-11, AD-15, AD-16, AD-23 |
 | Node.js v22.x source (`deps/sqlite/sqlite.gyp`) + local execution | V7, V8 | AD-2's engine choice; the C-2 premise supersession |
-| npm registry metadata (web-tree-sitter 0.26.13, tree-sitter-wasms 0.1.13), fetched 2026-08-29 | V14 | AD-12, AD-25 dependency hygiene |
+| npm registry metadata (currency, no-install-scripts) fetched 2026-08-29, plus direct `Parser.init()`/`Language.load()`/`parser.parse()` execution of web-tree-sitter 0.25.10 + tree-sitter-wasms 0.1.13 together, corrected this fix pass, round 10 (2026-09-07) — the original 0.26.13 pin was metadata-verified only and does not functionally load `tree-sitter-wasms`'s grammars at all (WASM `dylink`-vs-`dylink.0` section mismatch) | V14 | AD-12, AD-25 dependency hygiene |
 | OWASP LLM Top-10 2025 (LLM01, LLM02), Prompt-Injection Cheat Sheet, ASI06, Secrets Cheat Sheet (verification inherited from spec §9, 2026-08-25) | spec §9 | AD-19's controls; threat model |
 | OWASP ASVS 5.0 (applicable subset) | mapping table | input validation, error handling, data protection, dependency hygiene areas |
 | ISO/IEC 25010:2023 | quality table | the characteristic mapping and the analysability arguments (AD-2, AD-10) |

@@ -1,0 +1,41 @@
+=== initialize response ===
+{
+  "result": {
+    "protocolVersion": "2024-11-05",
+    "capabilities": {
+      "tools": {
+        "listChanged": true
+      },
+      "resources": {
+        "listChanged": true
+      }
+    },
+    "serverInfo": {
+      "name": "clear-thought",
+      "version": "0.0.5"
+    }
+  },
+  "jsonrpc": "2.0",
+  "id": 1
+}
+
+=== tools/list response (schema truncated for brevity in this sample) ===
+{
+  "tools": [
+    "clear_thought"
+  ]
+}
+
+=== sample tools/call (C1, thought 1) — full raw response ===
+{
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\n  \"toolOperation\": \"sequential_thinking\",\n  \"selectedPattern\": \"chain\",\n  \"thought\": \"FRAME: D-plan-1's write-time predicate cap (Steps 14/18/23) vs reordering the build (whisper genres before the recognizer). The failure mode to prevent: the 2026-09-04 collapse, where ten review rounds elaborated a recognizer past its safe skeleton scope while chasing green fixtures. Question: which mechanism actually stops that failure from recurring at the build layer, not just relocates it?\",\n  \"thoughtNumber\": 1,\n  \"totalThoughts\": 3,\n  \"nextThoughtNeeded\": true,\n  \"status\": \"success\",\n  \"sessionContext\": {\n    \"sessionId\": \"stdio-session-1788764515744\",\n    \"totalThoughts\": 1,\n    \"remainingThoughts\": 99,\n    \"recentThoughts\": [\n      {\n        \"thoughtNumber\": 1\n      }\n    ]\n  }\n}"
+      }
+    ]
+  },
+  "jsonrpc": "2.0",
+  "id": 3
+}
