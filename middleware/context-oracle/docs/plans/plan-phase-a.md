@@ -240,8 +240,10 @@ except where noted in §11.
   architecture V8. Governs Step 37 (concurrency) — corrected this fix
   pass, round 5: previously cited Step 32 (`deinit`/`index`/`hook`/
   `export`/`import` verbs, no WAL content); Step 37's own `### Step 37 —
-  Concurrency: WAL retry-once + directory locks` heading is the actual
-  subject.
+  Concurrency: WAL retry-once + transactional reindex lock` heading
+  (reworded this fix pass, round 12, when the reindex lock moved from a
+  filesystem path to a `global_meta` row governed by the same
+  `BEGIN IMMEDIATE` WAL primitive) is the actual subject.
 - **Zimmermann et al., IEEE TSE 31(6) 2005 (ROSE)** — via spec §9. Governs
   the confidence computation grounding of Step 24 (bar) and Step 20 (miner),
   with the operating point architect-tunable (Phase A calibration input is
@@ -1986,9 +1988,10 @@ Create `src/index/indexer.ts` — the orchestrator:
 - `refreshIfStale(store, repoPath)`: compares `schema_meta.
   index_head` to `git rev-parse HEAD`; on drift, spawn a detached
   `ctxoracle index` child via `oracleSpawn` (Step 2.5) — never a
-  direct `child_process.spawn` call — with a directory lock in the
-  store dir. `oracleSpawn` sets `CTXORACLE_INTERNAL=1`; this step
-  does not set it by hand.
+  direct `child_process.spawn` call — with a `global_meta`-row-based
+  reindex lock (Step 37, reworded this fix pass, round 12; was a
+  filesystem directory lock through round 11) guarding against
+  concurrent detached reindexes for the same project.
 
 **Source.** `AD-12` (indexer: LanguageFrontend, WASM grammars,
 generic fallback, zone, entry_score, incremental refresh).
@@ -2944,7 +2947,7 @@ under-reports (silence-is-fine surface returns) or over-reports
 
 ---
 
-### Step 37 — Concurrency: WAL retry-once + directory locks
+### Step 37 — Concurrency: WAL retry-once + transactional reindex lock
 
 **What changes.** In `stores/adapter.ts` (Step 3):
 - Every write goes through a single-transaction wrapper with
@@ -2960,154 +2963,176 @@ under-reports (silence-is-fine surface returns) or over-reports
   concurrent writers do not collide.
 
 In `src/index/indexer.ts` (Step 21):
-- The detached reindex takes a directory lock via an atomic
-  exclusive-create lock file — `fs.open(lockPath, fs.constants.O_CREAT
-  | fs.constants.O_EXCL | fs.constants.O_WRONLY)` on
-  `<home>/projects/<key>/.reindex.lock`, throwing `EEXIST` if another
-  process already holds it — corrected this fix pass, round 8
-  (expert-review Serious finding): previously said "via `flock`(2)," a
-  POSIX syscall `node:fs` does not expose (verified: no `fs.flock`, no
-  `LOCK_*`/`O_EXLOCK` constants) and that this plan's no-native-code,
-  two-runtime-dependency constraints (`C-3`, `AD-25`) leave no way to
-  invoke — see §11.4 for the verification entry. **Every successful
-  acquire — the initial one and any reclaim's recreate below — writes
-  a content token into the lock file's own bytes immediately after
-  `open` succeeds and before the fd is closed:
-  `${process.pid}-${crypto.randomUUID()}` (`crypto.randomUUID()` is a
-  Node built-in, introducing no new runtime dependency, consistent
-  with `AD-25`) — added this fix pass, round 11; sub-step 2's identity
-  verification below reads this token back.** **Release and
-  staleness, specified this fix pass, round 9 (expert-review Serious
-  finding: the round-8 fix named a lock primitive but never specified
-  releasing it — `fs.closeSync` does not delete the file, unlike
-  `flock`(2)'s kernel-mediated auto-release on process exit, so
-  without an explicit release the lock would succeed once per project
-  and then fail `EEXIST` on every subsequent reindex attempt,
-  permanently):**
-  1. On completion of the detached reindex (success or failure — a
-     `finally` block), unlink the lock file via
-     `fs.unlinkSync(lockPath)` before the process exits. This is the
-     common-case release path; the case below exists only for a
-     process that crashes before reaching it.
-  2. If lock acquisition fails with `EEXIST`, attempt an
-     identity-verified staleness reclaim — **replaced this fix pass,
-     round 11 (collapse-hunt Serious finding, verified by a real
-     two-OS-process execution of round 10's literal algorithm: an
-     atomic `renameSync` only prevents two reclaimers' rename calls
-     from colliding against the *same, still-present* file at the
-     *same instant*; it does not stop a reclaimer that decided
-     "stale" early and was then delayed — by ordinary OS scheduling,
-     disk contention, or a busy host, with no bound the algorithm
-     enforces — from later renaming away a *different*, live lock
-     that a faster reclaimer legitimately created and is actively
-     running against in the meantime, reproducing the identical "two
-     processes both believe they hold the lock" outcome round 10's
-     fix existed to prevent. A naive device+inode identity check was
-     also directly executed and found insufficient: `unlinkSync`
-     immediately followed by `openSync(O_CREAT)` at the same path
-     routinely triggers fast inode-number reuse on the reclaiming
-     process's own freshly recreated file, so a losing reclaimer's
-     post-rename inode comparison can pass falsely; only re-reading
-     the file's own content token — written fresh at every creation
-     and never reused — reliably distinguishes the stale file from a
-     live one, verified across three repeated real two-process runs
-     with zero false matches):**
-     a. Open the existing lock file for reading —
-        `fs.openSync(lockPath, 'r')` — and read both its mtime (via
-        `fs.fstatSync` on the open descriptor) and its content (the
-        token written at creation). Using the open descriptor rather
-        than a separate `fs.statSync(lockPath)` call avoids adding a
-        further unsynchronized gap between "read" and "act." If the
-        `open` throws `ENOENT`, the lock was already released or
-        reclaimed by another process since the `EEXIST`: skip this
-        reindex attempt silently.
-     b. If the mtime is not older than `reindex.lock_stale_ms`
-        (default 600000ms / 10 minutes — a starting guess, not
-        measured against any real index run's actual duration —
-        reworded this fix pass, round 10, expert-review Moderate
-        finding; see §13 R11 and Step 23's own entry for the honest
-        framing; plan-judgment default, not architecture-sourced),
-        close the descriptor and skip this reindex attempt silently
-        (not stale).
-     c. If stale, attempt the reclaim:
-        `fs.renameSync(lockPath, lockPath + '.reclaiming-' +
-        process.pid)`. If this throws `ENOENT` (another process
-        already renamed or removed it a moment earlier), close the
-        descriptor and skip this reindex attempt silently — lost the
-        race before finalizing, exactly as the "not stale" case
-        already does.
-     d. **Identity verification (closes round 10's gap).** Read the
-        content of the file now at the reclaim path
-        (`lockPath + '.reclaiming-' + process.pid`) and compare it,
-        byte-for-byte, to the token captured in (a):
-        - **Match** — the file just renamed is provably the same
-          file inspected in (a), not a different one that came to
-          occupy `lockPath` in between: delete it (`fs.unlinkSync` on
-          the reclaim path) and retry acquisition once (which writes
-          a fresh token per the acquire bullet above).
-        - **Mismatch** — between (a)'s read and (c)'s rename, some
-          other process replaced `lockPath` with a new, live lock
-          (most plausibly the true owner of the *original* stale lock
-          finishing its own reclaim and recreating it). The file this
-          process just renamed away is that live lock, not the stale
-          one: deleting it would silently evict a live reindex,
-          reproducing the exact defect this mechanism exists to
-          prevent. Instead, restore it —
-          `fs.renameSync(lockPath + '.reclaiming-' + process.pid,
-          lockPath)` — so its true owner's own `finally`-block release
-          still finds it at the path it expects, close the descriptor,
-          and skip this reindex attempt silently: this process lost
-          the race, exactly as the plain `ENOENT` cases above already
-          do — no new failure mode.
-     This narrows the vulnerable window from round 10's "the winner's
-     entire reindex duration" to the gap between step (a)'s read and
-     step (d)'s comparison — a handful of synchronous syscalls, not a
-     multi-minute run — but does not eliminate it: POSIX supplies no
-     true compare-and-swap on `rename`, so this residual is disclosed,
-     not claimed closed — see §13 R11. If the retry acquisition still
-     fails, or the lock is not stale, skip this reindex attempt
-     silently (the next `refreshIfStale` trigger tries again) — no PID
-     liveness check is needed beyond the mtime threshold, since this
-     is a single-host, single-user tool with no cross-machine lock
-     contention to distinguish "still running" from "crashed" more
-     precisely than elapsed time.
-  The lock is advisory, not kernel-enforced, which is sufficient here
-  since the handler never waits on it (staleness merely lowers
-  confidence).
+- The detached reindex takes its mutual-exclusion lock as a row in
+  `global_meta` (`key = 'reindex_lock:<repo-key>'`, `value` a JSON
+  string `{"token":"<pid>-<uuid>","startedAt":<epoch ms>}`), acquired
+  and released inside `BEGIN IMMEDIATE` transactions against
+  `store.db` — **replaced this fix pass, round 12, after three
+  consecutive rounds (9, 10, 11) each found a new race in a
+  bare-filesystem-path lock, and round 12's own collapse-hunt and
+  expert-review each independently found a fourth race in round 11's
+  own remediation code (the mismatch-restore branch could silently
+  clobber an unrelated third process's ordinary lock acquisition,
+  verified by real multi-process execution). Every one of those four
+  defects traced to the same root cause round 12's expert-review named
+  explicitly: a bare filesystem path (`rename`/`link`/`unlink`) has no
+  atomic "read current state, and only then write" primitive, so any
+  implementation built from those primitives alone is a check-then-act
+  race waiting to be found by a wider interleaving than its own author
+  constructed. `store.db` already supplies exactly that primitive, via
+  the same `BEGIN IMMEDIATE` transaction this same step already trusts,
+  one paragraph above, to serialize the `whisper_stats` fold — reusing
+  it here removes the entire defect class rather than narrowing it a
+  fifth time.** No new runtime dependency, no schema migration
+  (`global_meta` already exists per Step 8/`AD-5`), and no filesystem
+  lock file at all:
+  1. **Acquire.** Inside one `BEGIN IMMEDIATE … COMMIT` transaction:
+     `SELECT value FROM global_meta WHERE key =
+     'reindex_lock:<repo-key>'`.
+     - No row, or the row's `startedAt` is older than
+       `reindex.lock_stale_ms` (default 600000ms / 10 minutes — a
+       starting guess, not measured against any real index run's
+       actual duration; see §13 R11 and Step 23's own entry for the
+       honest framing; plan-judgment default, not
+       architecture-sourced): `INSERT … ON CONFLICT(key) DO UPDATE SET
+       value = excluded.value` with a fresh `{token, startedAt}` —
+       `token` is `${process.pid}-${crypto.randomUUID()}`
+       (`crypto.randomUUID()` is a Node built-in, no new dependency,
+       consistent with `AD-25`), kept for diagnostics, not for
+       correctness. Commit. Acquired.
+     - A row exists and its `startedAt` is not older than the
+       threshold: no write; commit (a no-op transaction) and skip this
+       reindex attempt silently — a live reindex already holds it.
+     Because `BEGIN IMMEDIATE` takes `store.db`'s write lock for the
+     whole transaction, no second connection's own `BEGIN IMMEDIATE`
+     can even start until this one commits (WAL semantics, already
+     exercised by architecture V8) — the read of the current row and
+     the decision to write are indivisible from every other
+     connection's point of view. There is no gap between "check" and
+     "act" for anything else to land in, because nothing else can be
+     mid-transaction against this table at the same time. If the
+     transaction itself hits `SQLITE_BUSY` against the shared write
+     lock (another write, of any kind, mid-flight elsewhere in the
+     store), it goes through the same retry-once wrapper Step 3
+     already specifies for every write; a second `SQLITE_BUSY` is
+     treated as "skip this reindex attempt silently, try again next
+     trigger" — not a `store_busy` fault, since failing to win a
+     reindex-lock acquisition is an expected outcome of ordinary
+     contention, not an error.
+  2. **Release.** On completion of the detached reindex (success or
+     failure — a `finally` block), inside one `BEGIN IMMEDIATE …
+     COMMIT` transaction: `SELECT value FROM global_meta WHERE key =
+     'reindex_lock:<repo-key>'`; if the row's `token` still equals
+     this process's own token, `DELETE FROM global_meta WHERE key =
+     'reindex_lock:<repo-key>'`. If the row is missing or its `token`
+     belongs to a different process (this process's own lock was
+     already superseded — see below), the release is a no-op, not a
+     delete of someone else's row: a `WHERE`-guarded `DELETE`
+     naturally does nothing when zero rows match, unlike the
+     round-9-through-11 filesystem design's blind, unconditional
+     `fs.unlinkSync(lockPath)`, which round 12's own expert-review
+     showed can throw an uncaught `ENOENT` or delete an unrelated
+     occupant's file.
+  3. **Staleness "reclaim" is just a second acquire.** Because
+     acquisition is a single atomic transaction, there is no separate
+     reclaim algorithm, no temp/reclaim path, no rename, no
+     content-token, and no restore branch: a second trigger finding a
+     stale row simply overwrites it inside its own `BEGIN IMMEDIATE`,
+     and any other trigger racing at the same moment either commits
+     first (and wins) or blocks behind the write lock and then re-reads
+     the now-fresh row (and correctly sees it as not stale, since the
+     winner's own transaction already committed a fresh `startedAt`
+     before the loser's transaction could even begin its own read) —
+     there is no window in which two transactions can both observe the
+     same stale row and both believe they won, because SQLite does not
+     allow two `BEGIN IMMEDIATE` transactions against the same database
+     to interleave their reads and writes at all.
+  4. **What this does not fix.** A legitimately-running (not crashed)
+     reindex whose real duration exceeds `reindex.lock_stale_ms` is
+     still reclaimed by a later trigger — this is a property of using
+     elapsed time as a liveness heuristic (no PID-liveness or heartbeat
+     mechanism exists, by design, for a single-host, single-user tool
+     with no cross-machine contention to distinguish "still running"
+     from "crashed" any other way) and is unchanged by this fix pass;
+     it remains disclosed at §13 R11, which is about miscalibration of
+     the threshold, not about a race in the acquisition mechanism
+     itself — the race is what this fix pass eliminates.
 
 **Source.** `AD-26` (concurrency: WAL + busy_timeout + retry-once +
-BEGIN IMMEDIATE for the fold; ULIDs); `AD-5` (per-project
-watermark).
+BEGIN IMMEDIATE for the fold; ULIDs — extended this fix pass, round 12,
+to also govern the reindex lock via the same `BEGIN IMMEDIATE`
+primitive); `AD-5` (`global_meta` schema, per-project watermark keying
+convention the reindex-lock key reuses).
 
-**Why this approach (trivial: mechanical from AD-26).**
+**Why this approach (Gate 3 — promoted from "trivial: mechanical from
+AD-26" this fix pass, round 12, because round 12's own findings show
+the prior filesystem-lock design was not a mechanical derivation of
+AD-26 that happened to have a bug — it was a structurally different,
+weaker primitive standing in for the one AD-26 already specifies for
+the adjacent fold, and four rounds of narrowing fixes to it never asked
+why the two mechanisms in the same step used different atomicity
+primitives for the same underlying need):**
+1. **The decision.** Represent "a reindex is in progress for project
+   X" as a row in `global_meta`, mutated only inside `BEGIN IMMEDIATE`
+   transactions, replacing the bare-filesystem-path lock file entirely.
+2. **The authoritative standard.** SQLite's own transaction-isolation
+   guarantees under WAL (one writer at a time; a `BEGIN IMMEDIATE`
+   transaction's reads and writes are indivisible with respect to
+   every other connection) — engine-documented behavior, exercised by
+   architecture V8, and already the standard this same step invokes
+   for the `whisper_stats` fold.
+3. **Why this standard applies here.** Both mechanisms solve the
+   identical problem — let exactly one of several concurrent,
+   uncoordinated actors win a check-then-act decision — and `store.db`
+   is already open in the exact process (the detached reindex) that
+   needs the lock, so reusing its transaction guarantees adds no new
+   dependency, no new file, and no new primitive to reason about; it
+   removes one.
+4. **What this is NOT — and why.** Not a new database engine feature
+   or a new dependency (`AD-25`'s two-runtime-dependency floor is
+   unaffected). Not a distributed lock (still explicitly single-host,
+   single-user, per `AD-26`'s own stated scope — a legitimately-slow-
+   but-alive process is still reclaimable by the staleness threshold,
+   which is `§13 R11`'s concern, not this decision's). Not a
+   retroactive claim that the filesystem design was "wrong to try" —
+   `AD-26`'s underlying requirement (mutual exclusion for the detached
+   reindex) was always correct; only the primitive chosen to implement
+   it lacked the atomicity property the requirement needs, which four
+   rounds of independent, adversarial execution were required to fully
+   expose.
 
-**Dependencies.** Steps 3, 21.
+**Dependencies.** Steps 3, 8, 21.
 
 **Verification.** `T37-1` (concurrent write on the same store:
 one wins the transaction, the other retries once and succeeds;
 after that a third contended write fails-open with `store_busy`),
 `T37-2` (fold correctness: two concurrent same-project folds do
-not double-count), `T37-3` (reindex lock acquire/release/staleness/
-concurrent-reclaim safety — added this fix pass, round 9: neither
-`T37-1` nor `T37-2` previously touched the reindex directory lock at
-all; extended round 10 with the same-instant concurrent-reclaim case;
-extended further round 11 with the delayed-reclaimer case and the
-content-token identity-verification cases, per the reclaim fix
-above).
+not double-count), `T37-3` (reindex lock acquire/release/staleness —
+**rewritten this fix pass, round 12, for the transactional design: the
+filesystem-specific cases this test exercised through round 11
+(rename-based reclaim, content-token identity verification, the
+mismatch-restore branch) no longer exist to test; replaced with cases
+exercising the `global_meta`-row mechanism directly** — see `T37-3`'s
+own spec in §12.1 for the current case list).
 
 **Impact if wrong.** Race conditions and silent double-counts in
 efficacy stats. Caught by `T37-1`/`T37-2`. A missing or wrong lock
 release would silently and permanently disable the automatic
 self-refresh mechanism after its first successful run per project —
-caught by `T37-3`. Two concurrent reclaimers of the same stale lock
-both believing they hold it would let two detached reindexes run
-against `store.db` unlocked and unserialized at the application
-level — silent index corruption, not caught by `T37-1`/`T37-2` (a
-different mechanism) — caught by `T37-3`'s round-11 concurrent-reclaim
-cases (round 10's rename-based reclaim closed the same-instant
-collision but not the wider delayed-reclaimer window; round 11's
-content-token identity verification narrows that window further — see
-§13 R11).
+caught by `T37-3`. Two concurrent acquirers of the reindex lock both
+believing they hold it would let two detached reindexes run against
+`store.db` unlocked and unserialized at the application level — silent
+index corruption, not caught by `T37-1`/`T37-2` (a different
+mechanism) — this is precisely the outcome the `BEGIN IMMEDIATE`-based
+design (this fix pass, round 12) eliminates by construction rather
+than narrows, since SQLite's own write-transaction serialization
+admits no interleaving in which two transactions both observe the same
+pre-write state and both proceed to write, unlike the
+filesystem rename/link/unlink primitives rounds 9–12 successively
+found new ways to defeat — caught by `T37-3`'s round-12 acquire/release
+cases; the one remaining, unchanged risk (a legitimately-running
+reindex reclaimed for exceeding `reindex.lock_stale_ms`) is `§13 R11`'s
+concern, not a race in this mechanism.
 
 ---
 
@@ -4312,80 +4337,91 @@ predates Step 38, the assumed spawn site.
    implementer from editing the globs; the build/grep pair catches it
    fast if they collide.
 
-#### N7 (Step 37 — `reindex.lock_stale_ms` staleness-reclaim mechanism). Added this fix pass, round 10 (collapse-hunt finding: this new mechanism, introduced round 9 to close the "lock never released" gap, shipped with no §10A entry of its own — N3/N4's count was corrected to "seven" tuning defaults but its own Answer field is scoped to the exit-run calibration loop, which this value is explicitly not part of, so it could never have covered this decision even with an updated denominator). **Answer re-corrected round 11** — round 10's own Answer below asserted a closure round 11's independent re-execution disproved; see the Answer field's round-11 replacement.
+#### N7 (Step 37 — reindex lock mutual exclusion and `reindex.lock_stale_ms` staleness reclaim). Added this fix pass, round 10 (collapse-hunt finding: this new mechanism, introduced round 9 to close the "lock never released" gap, shipped with no §10A entry of its own — N3/N4's count was corrected to "seven" tuning defaults but its own Answer field is scoped to the exit-run calibration loop, which this value is explicitly not part of, so it could never have covered this decision even with an updated denominator). **Answer replaced round 11 (content-token fix for round 10's rename-based reclaim), replaced again round 12 (structural fix: the reindex lock moved from a filesystem path to a `global_meta`-row transaction, eliminating the mechanism this entry interrogates rather than patching it a fourth time) — see the round-12 Answer below.**
 
-1. **Job.** Let a crashed process's abandoned reindex lock be reclaimed
-   by a later attempt, so one crash does not permanently disable the
-   automatic self-refresh mechanism for a project.
+1. **Job.** Ensure at most one process ever believes it holds the
+   reindex lock for a given project at a time, and let a crashed
+   process's abandoned lock be reclaimed by a later attempt, so one
+   crash does not permanently disable the automatic self-refresh
+   mechanism for a project.
 2. **Hardest question.** What happens when two reclaim attempts land
    inside the same staleness window, against the same abandoned lock —
-   the one scenario this mechanism's entire job is to arbitrate, and
-   the one question single-process reasoning about the threshold's
-   length does not cover?
-3. **Answer (round 10's answer below proved incomplete — replaced
-   this fix pass, round 11 — collapse-hunt finding, verified by a
-   real two-OS-process execution of round 10's literal algorithm, not
-   a re-read of its prose).** Round 10's atomic rename genuinely
-   closes the sub-case it was tested against — two reclaimers' rename
-   calls colliding on the *same, still-present* stale file at the
-   *same instant* — but the staleness *decision* (reading the mtime)
-   and the rename *action* are two separate syscalls with an unbounded
-   real-world gap between them (OS scheduling, disk contention, a busy
-   host, nothing the algorithm bounds). A reclaimer that decided
-   "stale" early and was then delayed can later rename away a
-   completely different, *live* lock that a faster reclaimer
-   legitimately created and is actively running against in the
-   meantime — `rename(2)` moves whatever currently occupies the source
-   path, with no notion of "the file I mean," only "the path I mean."
-   Reproduced by two real, separately-launched OS processes running
-   round 10's literal text: P1 reclaims, recreates a live lock, and
-   starts its reindex; P2, having checked staleness before P1 acted,
-   renames P1's live lock away believing it is the original stale one;
-   both processes believe they hold the lock; P1's own correct
-   `finally`-block release then deletes P2's lock — the identical
-   consequence round 9's original defect had, now reproduced one level
-   up. This entry's own prior "Steers toward" field named an
-   alternative in passing — "a token-verify-before-unlink satisfies
-   the same job" — without verifying it; this fix pass did, and found
-   the *obvious* reading insufficient: a device+inode identity check
-   fails, because `unlinkSync` immediately followed by
-   `openSync(O_CREAT)` at the same path routinely reuses the
-   just-freed inode number on the reclaiming process's own freshly
-   recreated file, so a losing reclaimer's post-rename inode
-   comparison can report a false match. A **content token** — written
-   into the lock file's own bytes at every creation, never reused, and
-   compared byte-for-byte immediately after the rename — does work,
-   verified across three repeated real two-process runs with zero
-   false matches, and is now Step 37's specified mechanism: a mismatch
-   restores the live lock to its original path and skips silently, the
-   same fallback shape the "not stale" and plain `ENOENT` cases already
-   use, so no new failure mode is introduced. This narrows the
-   vulnerable window from "the winner's entire reindex duration" to
-   the gap between one read-and-fstat and one rename-and-compare — a
-   handful of syscalls — but, per Step 37's own text, does not
-   eliminate it: POSIX supplies no true compare-and-swap on `rename`,
-   so the narrowed residual is disclosed (§13 R11), not claimed closed.
-   `T37-3`'s fixture now also exercises the delayed-reclaimer
-   interleaving and the identity-verification mismatch path directly,
-   not only the same-instant collision round 10's fixture tested. Cite:
-   direct execution, this fix pass and round 10's (§11.4 candidate —
-   the race itself is a plan-original algorithmic gap, not an external
-   library/tool claim, so it is recorded here and in Step 37's own text
-   rather than as a separate §11.4 external-source entry).
-4. **Steers toward.** An implementer treating "staleness reclaim" as
-   requiring the same atomicity discipline as lock acquisition itself
-   — and, after round 11, specifically requiring *content*-based
-   identity verification rather than filesystem metadata: an inode or
-   device number is not reliable identity for a file that was just
-   deleted and recreated at the same path, which this fix pass
-   observed directly rather than assumed. **Guide, not gate** — the
-   content-token comparison is a specific, cheap primitive choice; an
-   implementer using a differently-shaped verification (e.g., a
-   monotonic sequence number persisted elsewhere) satisfies the same
-   job, provided it is checked by direct execution against the
-   delayed-reclaimer interleaving before being trusted, per this
-   entry's own two-round history of an asserted fix not surviving
-   re-execution.
+   the one scenario this mechanism's entire job is to arbitrate — and,
+   sharpened this fix pass, round 12, after three consecutive answers
+   to this exact question (rounds 9, 10, 11) were each independently
+   found wrong by the next round's execution: does the *answering
+   mechanism's own remediation code* introduce a fresh check-then-act
+   gap somewhere else, the way round 11's own restore branch did?
+3. **Answer (rounds 9–11's answers below each proved incomplete —
+   replaced this fix pass, round 12, structurally rather than with a
+   fifth narrower patch — round 12's own independent collapse-hunt and
+   expert-review, verified by real multi-process execution, found that
+   round 11's content-token restore branch could silently clobber an
+   unrelated third process's ordinary lock acquisition during the
+   restore's own brief vacancy window — the fourth consecutive round to
+   find a new race in this exact mechanism, each time in the specific
+   remediation code the immediately prior round had just added).**
+   Every one of the four defects (round 9's missing release; round 10's
+   unsynchronized unlink-then-recreate; round 11's rename-vs-recreate
+   race; round 12's restore-vs-third-party race) traced to the same
+   root cause: a bare filesystem path, manipulated via `rename`/`link`/
+   `unlink`, has no atomic "read current state, and only then write"
+   primitive — every implementation built from those primitives alone
+   is a check-then-act race waiting for a wider interleaving than its
+   own author constructed, no matter how many times the window is
+   narrowed. This fix pass stopped narrowing it and removed the
+   filesystem path entirely: the reindex lock is now a row in
+   `global_meta`, acquired and released only inside `BEGIN IMMEDIATE`
+   transactions against `store.db` — the identical primitive this same
+   Step 37 already trusts, one paragraph above, to serialize the
+   `whisper_stats` fold. Because SQLite does not allow two
+   `BEGIN IMMEDIATE` transactions against the same database to
+   interleave their reads and writes at all, there is no window — of
+   any width — in which two transactions can both observe the same
+   pre-write state and both proceed to write: the defect class rounds
+   9 through 12 each found a new instance of is excluded by
+   construction, not narrowed a fifth time. This is a genuinely
+   different kind of answer than rounds 10 and 11 gave, and is flagged
+   as such rather than asserted with the same confidence those rounds'
+   now-falsified answers used: no execution can prove a mechanism has
+   *no* remaining race (the same epistemic limit this entry's own
+   two-round history of wrong answers demonstrates), but this fix pass
+   can and does cite that the specific *class* of primitive every prior
+   defect exploited (a bare, unsynchronized filesystem path) no longer
+   exists anywhere in the mechanism. What this does not fix: a
+   legitimately-running (not crashed) reindex whose real duration
+   exceeds `reindex.lock_stale_ms` is still reclaimed by a later
+   trigger — an inherent property of using elapsed time as a liveness
+   heuristic on a single-host tool with no PID-liveness check, tracked
+   separately at §13 R11, and unrelated to this entry's own question
+   (R11 is about miscalibrating the threshold; this entry is about
+   whether two transactions can both win an acquisition — they cannot).
+   `T37-3`'s fixture is rewritten this fix pass for the transactional
+   design (see §12.1); the filesystem-specific cases it exercised
+   through round 11 (rename-based reclaim, content-token verification,
+   the mismatch-restore branch) no longer apply to anything the current
+   text specifies. Cite: reasoned from SQLite's own documented WAL
+   transaction-isolation semantics (already exercised and cited by
+   architecture V8, not newly claimed this fix pass) applied to a new
+   site, not a new external claim — recorded here and in Step 37's own
+   text rather than as a separate §11.4 entry, consistent with this
+   entry's own established convention for plan-original mechanism
+   decisions.
+4. **Steers toward.** An implementer reaching for filesystem primitives
+   (`rename`/`link`/`unlink`/`flock`) to implement mutual exclusion
+   when the resource being protected already lives behind a
+   transactional store in the same process — check whether a
+   `BEGIN IMMEDIATE`-style primitive is already available and already
+   trusted elsewhere in the same mechanism before building a
+   parallel, weaker one from OS-level file tricks. **Guide, not
+   gate** — a filesystem-only lock remains the right choice where no
+   transactional store is available; here, one already is, open in the
+   exact process that needs the lock, and reusing it costs nothing this
+   fix pass didn't already have to pay for `global_meta`'s schema. An
+   implementer who nonetheless prefers a filesystem-based design should
+   read this entry's own four-round history first: three prior
+   filesystem-based answers to this exact question were each
+   independently falsified by the next round's direct execution.
 
 **Coverage attestation for the collapse-test (corrected twice now —
 round 1's collapse-hunt found the original version of this paragraph
@@ -4695,7 +4731,12 @@ session (fetched at plan-time, 2026-09-06). Where an entry cites a
   `LOCK_*`/`O_EXLOCK` constants — an advisory directory lock must be
   built from an atomic exclusive-create (`O_CREAT | O_EXCL`) open
   call, not a real `flock`(2) syscall. **Steps.** Step 37 (detached
-  reindex directory lock). **Added this fix pass, round 8** (expert-review
+  reindex lock — historical: this claim motivated Steps 37's original
+  round-8 filesystem-lock design; round 12 replaced the reindex lock
+  with a `global_meta`-row transaction instead, per the current Step
+  37 text, so this claim no longer describes Step 37's *current*
+  mechanism, only the API-surface fact that ruled out `flock`(2) at
+  the time). **Added this fix pass, round 8** (expert-review
   Serious finding — the prior text claimed `flock`(2) with no §11
   entry at all). **Evidence.** Direct execution against Node v22.22.2:
   `Object.keys(require('node:fs')).filter(k => /lock/i.test(k))`
@@ -5546,69 +5587,78 @@ cited at Step 21 and Step 2.5 with no §12 specification.)*
 **T37-3 — Reindex lock: acquire, release, staleness reclaim.** Added
 this fix pass, round 9 (expert-review Serious finding: the round-8
 lock-file replacement for `flock`(2) specified acquisition but no
-release, and no test exercised the lock at all).
+release, and no test exercised the lock at all). **Rewritten this fix
+pass, round 12, for the transactional `global_meta`-row design**
+(collapse-hunt and expert-review Serious finding, both independently
+verified by real multi-process execution: round 11's content-token
+restore branch could silently clobber an unrelated third process's
+ordinary lock acquisition; the filesystem-lock design that finding and
+its three predecessors — rounds 9, 10, 11 — each found a new race in
+was replaced rather than patched a fifth time). Every case below tests
+`global_meta`-row acquire/release/staleness directly; the
+filesystem-specific cases this test exercised through round 11
+(exclusive-create, rename-based reclaim, content-token
+identity-verification, the mismatch-restore branch) no longer apply to
+anything the current Step 37 text specifies.
 - **File.** `test/unit/reindex_lock.test.ts`.
-- **Verifies.** Step 37 — the reindex lock file is created with
-  `O_CREAT|O_EXCL` and a fresh content token, removed on completion, a
-  stale lock (mtime older than `reindex.lock_stale_ms`) is reclaimed
-  via an identity-verified rename by the next attempt rather than
-  blocking forever, two simultaneous reclaimers of the same stale lock
-  never both succeed against a same-instant collision (added round
-  10), and a reclaimer delayed between its own staleness check and its
-  own rename call cannot destroy a different, live lock a faster
-  reclaimer created in the interim — added round 11 (collapse-hunt
-  Serious finding, verified by a real two-OS-process execution: round
-  10's atomic rename closed only the same-instant collision case (d)
-  below, not this wider, delayed-reclaimer case).
-- **Level.** Unit (real filesystem, no store needed).
-- **Real/doubles.** Real `fs` calls against a tempdir. No doubles.
-- **Data.** (a) A completed reindex run — asserts the lock file is
-  absent afterward. (b) A lock file manually created with an mtime set
-  older than the stale threshold — asserts the next acquisition
-  attempt reclaims it (renames, verifies the content token matches,
-  deletes, and succeeds) rather than failing `EEXIST`. (c) A lock file
-  with a fresh mtime (younger than the threshold) — asserts acquisition
-  fails `EEXIST` and is *not* reclaimed (a genuinely live lock must not
-  be stolen). (d) **Same-instant collision.** Two simulated concurrent
-  reclaim attempts against the same stale lock, their `renameSync`
-  calls issued back-to-back with no serialization between them —
-  asserts exactly one succeeds and proceeds to acquisition, the other's
-  rename throws `ENOENT` and it skips silently, and the winner's own
-  lock file survives until its own release (i.e., the loser never
-  deletes the winner's live lock). (e) **Delayed reclaimer (added
-  round 11 — the interleaving round 10's fixture did not construct).**
-  Reclaimer R1 makes its staleness decision, then completes its
-  *entire* reclaim cycle — rename, verify, delete, and recreate a
-  fresh live lock with a fresh content token — and begins its
-  simulated run. Only then does reclaimer R2, which made its own
-  staleness decision *before* R1 acted (against the original stale
-  file, now long gone) and is resuming after a simulated delay,
-  execute its own `renameSync` against `lockPath`. Asserts: R2's
-  rename succeeds (`rename(2)` cannot distinguish R1's live lock from
-  the original stale file by path alone), R2's post-rename content-token
-  comparison reports a mismatch against the token R2 captured at its
-  own staleness check, R2 restores the file to `lockPath` via
-  `renameSync` rather than deleting it, R2 skips its own reindex
-  attempt silently, and R1's lock file — content token included — is
-  unchanged and still present at the scenario's end (R1 is never
-  evicted). Technique: state-transition, extended (no-lock → held →
-  released; held-stale → reclaimed; held-fresh → blocked; held-stale +
-  two same-instant racing reclaimers → exactly one winner (d);
-  held-stale + one delayed reclaimer racing a since-recreated live
-  lock → the delayed reclaimer detects the token mismatch, restores,
-  and stands down (e)).
-- **NOT asserts.** Cross-process contention timing at the SQLite level
-  (that is `T37-1`'s concern for `store.db`'s own writes; this test is
-  filesystem-only, covering the directory lock file itself, including
-  its concurrent-reclaim paths per cases (d) and (e)). **Fails when**
-  the lock file survives a completed reindex, OR a stale lock is not
-  reclaimed, OR a fresh lock is incorrectly reclaimed, OR two
-  same-instant concurrent reclaimers of the same stale lock both
-  believe they hold the lock (case (d)'s core assertion), OR a delayed
-  reclaimer's content-token comparison reports a false match against a
-  live lock it did not originally inspect, or deletes rather than
-  restores that live lock on a genuine mismatch (case (e)'s core
-  assertion).
+- **Verifies.** Step 37 — acquiring the reindex lock inserts a
+  `global_meta` row (`key = 'reindex_lock:<repo-key>'`) inside a
+  `BEGIN IMMEDIATE` transaction; releasing deletes that row only if its
+  `token` still matches the releasing process's own token; a stale row
+  (`startedAt` older than `reindex.lock_stale_ms`) is overwritten by
+  the next acquisition attempt rather than blocking forever; a fresh
+  (non-stale) row blocks acquisition; and two concurrent acquisition
+  attempts against the same store, however they are timed, never both
+  believe they hold the lock, because SQLite does not allow their
+  `BEGIN IMMEDIATE` transactions to interleave.
+- **Level.** Integration (real DB, spawned child processes) — matching
+  `T37-1`/`T37-2`'s own level now that the lock is a `store.db`
+  mechanism rather than a bare filesystem path.
+- **Real/doubles.** Real `node:sqlite`. No doubles.
+- **Data.** (a) A completed reindex run — asserts the `global_meta` row
+  is absent afterward (release deleted it). (b) A row manually inserted
+  with `startedAt` older than the stale threshold — asserts the next
+  acquisition attempt overwrites it and succeeds, rather than skipping.
+  (c) A row with a fresh `startedAt` (younger than the threshold) —
+  asserts acquisition is a no-op skip: the row is left byte-for-byte
+  unchanged, and the caller is told it did not acquire (a genuinely
+  live lock must not be stolen). (d) **Concurrent acquisition, real
+  child processes.** Two spawned child processes both attempt
+  acquisition against the same stale (or absent) row at overlapping
+  times, one's `BEGIN IMMEDIATE` issued while the other's is still
+  open — asserts exactly one succeeds, the other's transaction blocks
+  behind the write lock and then correctly observes the winner's
+  already-committed fresh row as not-stale (never both winners), and
+  the winner's row survives until its own release. (e) **Release
+  ownership check.** Process A acquires (writing token T_A); before A
+  releases, the row is overwritten out-of-band with a different token
+  T_B (simulating a legitimate second acquirer after A's own row went
+  stale) — asserts A's own release is a no-op (the `WHERE token = T_A`
+  guard matches zero rows), leaving T_B's row completely undisturbed —
+  the replacement for round 9–11's blind, unconditional
+  `fs.unlinkSync(lockPath)`, which round 12's own finding showed could
+  throw `ENOENT` or delete an unrelated occupant's file. (f)
+  **`SQLITE_BUSY` exhaustion.** A held write transaction elsewhere in
+  the store forces a reindex-lock acquisition attempt to hit
+  `SQLITE_BUSY` on both the initial attempt and its one retry (Step 3's
+  existing retry-once wrapper) — asserts the caller is told "skip this
+  reindex attempt silently, try again next trigger," not a `store_busy`
+  fault (contended reindex-lock acquisition is an expected outcome, not
+  an error, unlike `T37-1`'s ordinary-write contention case). Technique:
+  state-transition, covering the transactional design's full state
+  space (no-row → held → released; held-stale → overwritten;
+  held-fresh → blocked; two real concurrent acquirers → exactly one
+  winner (d); a superseded holder's own release → no-op (e);
+  `SQLITE_BUSY` exhaustion → silent skip, not a fault (f)).
+- **NOT asserts.** Any filesystem-path-based race (no such path exists
+  in the current design to test). **Fails when** the `global_meta` row
+  survives a completed reindex, OR a stale row is not overwritten by
+  the next attempt, OR a fresh row is incorrectly overwritten, OR two
+  concurrent real acquirers both believe they hold the lock (case (d)'s
+  core assertion), OR a superseded holder's release deletes a row it no
+  longer owns (case (e)'s core assertion), OR `SQLITE_BUSY` exhaustion
+  on lock acquisition raises `store_busy` instead of skipping silently
+  (case (f)'s core assertion).
 
 **T38-1 — Model seam stub returns not-implemented.**
 - **File.** `test/unit/model_invoke_stub.test.ts`.
@@ -6747,12 +6797,25 @@ first.
   measure an actual full-index duration on the largest of Max Cogar's
   real repos during Step 42's exit run and recalibrate
   `reindex.lock_stale_ms` from that data, the same discipline the plan
-  already applies to its bar-tier defaults (Step 23); round 11's
-  content-token identity verification (Step 37) narrows, but per its
-  own text does not eliminate, the window in which this scenario is
-  reachable — until then, the value is disclosed as a guess, not a
-  verified fact, at Step 23's own seeding text (§7) and cross-referenced
-  from Step 37. Self-healing at the lock level once either concurrent
+  already applies to its bar-tier defaults (Step 23) — until then, the
+  value is disclosed as a guess, not a verified fact, at Step 23's own
+  seeding text (§7) and cross-referenced from Step 37. **Updated this
+  fix pass, round 12:** the *acquisition race* that made this scenario
+  reachable via a check-then-act gap in the lock mechanism itself
+  (rounds 9–11's successive filesystem-lock defects) is eliminated by
+  construction now that Step 37's reindex lock is a `global_meta` row
+  mutated only inside `BEGIN IMMEDIATE` transactions — two transactions
+  against the same database cannot interleave their reads and writes,
+  so there is no timing window for two acquirers to both observe a
+  stale row and both believe they won. What remains, unchanged by that
+  fix, is the scenario this entry is actually about: a single,
+  legitimately-running reindex whose real duration exceeds
+  `reindex.lock_stale_ms` is *correctly and unambiguously* reclaimed by
+  the next trigger, because the mechanism has no way to distinguish
+  "still running, just slow" from "crashed" other than elapsed time —
+  that is a calibration risk in the threshold value, not a concurrency
+  defect in the mechanism, and no filesystem-vs-transaction redesign
+  changes it. Self-healing at the lock level once either concurrent
   reindex completes and releases its lock; the plan does not currently
   specify a mechanism that detects or repairs already-double-counted
   `cochange_pairs` evidence after the fact, disclosed here rather than
@@ -7277,6 +7340,41 @@ review plus the meta-check's H1–H8 findings.
   entry for any of rounds 6 through 10's five fix passes, despite the
   document's own established rule that every fix pass gets one — fixed
   by adding Pass M through Pass Q, above, and this entry (Minor).
+- **Pass S (fix pass, round 12 — independent re-review response,
+  instructed to re-execute round 11's own headline fix mechanism from
+  scratch, including interleavings round 11 did not construct).** Both
+  reviews independently confirmed round 11's content-token fix
+  genuinely closes the exact two-actor scenario round 11 built it to
+  close (re-verified by fresh, independent real two- and
+  three-OS-process execution), then both independently found the same
+  new Serious defect: round 11's own mismatch-restore branch
+  (`fs.renameSync` back onto `lockPath`) is an unconditional,
+  non-exclusive write that can silently clobber an entirely unrelated
+  third process's ordinary lock acquisition landing in the restore's
+  brief vacancy window — verified by collapse-hunt with three real
+  two-OS-process runs and by expert-review with three real
+  three-OS-process runs, both independently, with zero variance. This
+  was the fourth consecutive round (9, 10, 11, 12) to find a new race
+  in this exact mechanism, each time inside the specific remediation
+  code the immediately prior round had just added. Rather than patch
+  the filesystem-lock design a fifth time, this fix pass replaced it
+  structurally: the reindex lock is now a row in `global_meta`,
+  acquired and released only inside `BEGIN IMMEDIATE` transactions
+  against `store.db` — the identical primitive Step 37 already trusts
+  for the `whisper_stats` fold, which admits no interleaving in which
+  two transactions can both observe the same pre-write state and both
+  proceed to write. This eliminates the defect class rather than
+  narrowing it again — see Step 37 (retitled "WAL retry-once +
+  transactional reindex lock"), N7 (rewritten), and `T37-3` (rewritten
+  for the transactional design, cases (a)-(f)). Also fixed: §13 R11
+  updated to state that the acquisition race is now eliminated by
+  construction, leaving only the orthogonal, unchanged calibration risk
+  (a legitimately slow reindex reclaimed for exceeding
+  `reindex.lock_stale_ms`) the entry was always actually about;
+  architecture `AD-26` rewritten to describe the transactional
+  mechanism in place of the now-obsolete content-token disclosure; and
+  this entry itself (Minor, self-applied per this section's own
+  discipline).
 
 **Final count.** 14 original bin-1 entries (Q1–Q14, all answered with
 evidence pointers); 2 bin-2 entries open for Max Cogar's optional

@@ -1653,25 +1653,28 @@ and nothing here depends on the new channel.
    events), so multiple handler processes may touch one store concurrently:
    WAL + `busy_timeout=100ms` + single-transaction writes per event + retry-once
    on `SQLITE_BUSY`; on second failure the event completes whisper-less
-   (fail-open) with a `store_busy` diagnostic. The detached reindex takes a
-   directory lock; the handler never waits on it (staleness merely lowers
-   confidence meanwhile, `FR-K7`). **The lock's exclusivity under concurrent
-   reclaim of an already-abandoned lock is narrowed, not absolute — disclosed
-   here per the plan's own Step 37 (`docs/plans/plan-phase-a.md`), corrected
-   round 11 of the plan's review lineage, not previously stated in this
-   document: content-token comparison (write a fresh token into the lock
-   file at every creation, compare it byte-for-byte immediately after a
-   reclaim's rename) prevents two reclaimers of the same stale lock from
-   both believing they hold it, down to the gap between one reclaimer's
-   file-identity read and its own rename call — a handful of synchronous
-   syscalls, not the full duration of a reindex a plain atomic rename alone
-   left open. A device+inode identity check was tried first and found
-   insufficient: filesystem inode reuse on a freshly recreated file at the
-   same path defeats it. POSIX supplies no `rename` primitive that closes
-   the narrowed gap to zero; this residual is accepted, not hidden, for a
-   single-host, single-user tool where two reclaims of the same abandoned
-   lock are already a rare edge (a crashed prior process, not the common
-   path).** Audit-before-emit ordering (AD-8) holds per
+   (fail-open) with a `store_busy` diagnostic. The detached reindex takes its
+   mutual-exclusion lock as a row in `global_meta`, acquired and released only
+   inside `BEGIN IMMEDIATE` transactions against `store.db` — **reworded this
+   fix pass, round 12 of the plan's review lineage** (`docs/plans/plan-phase-a.md`
+   Step 37): rounds 9 through 11 each specified and then found a new race in a
+   bare-filesystem-path lock (a plain `unlink`, an unsynchronized
+   `unlink`-then-recreate, an atomic-rename reclaim, a content-token-verified
+   restore), each defect traceable to the same cause — a filesystem path has
+   no atomic "read current state, and only then write" primitive. Representing
+   the lock as a `global_meta` row mutated only inside `BEGIN IMMEDIATE`
+   transactions reuses the identical primitive this same decision already
+   specifies, one paragraph below, for the `whisper_stats` fold: because
+   SQLite does not allow two `BEGIN IMMEDIATE` transactions against one
+   database to interleave their reads and writes, no interleaving — of any
+   width — permits two acquirers to both observe the same pre-write state and
+   both proceed to write. This removes the defect class the four filesystem-lock
+   rounds each found a new instance of, rather than narrowing it further. The
+   handler never waits on this lock; staleness (an elapsed-time heuristic, no
+   PID-liveness check) merely lowers confidence meanwhile, `FR-K7` — and can
+   still misfire against a legitimately slow, not-crashed reindex, a
+   calibration risk unrelated to the mechanism's correctness and tracked at the
+   plan's own §13 R11, not eliminated by this redesign. Audit-before-emit ordering (AD-8) holds per
    process; ids are ULIDs so concurrent writers never collide. The
    `whisper_stats` fold (AD-5) reads its project watermark, aggregates the rows
    newer than it, and advances that watermark inside a **single `BEGIN
@@ -1679,14 +1682,23 @@ and nothing here depends on the new channel.
    read the old mark and double-count the same `sent` rows — the second
    serializes behind the first and sees the advanced watermark.
 2. **Standard.** SQLite WAL semantics (readers don't block the writer; one
-   writer at a time) — engine-documented behaviour exercised by the V8 probe;
-   `FR-O3` for the give-up path.
+   writer at a time; a `BEGIN IMMEDIATE` transaction's reads and writes are
+   indivisible with respect to every other connection) — engine-documented
+   behaviour exercised by the V8 probe; `FR-O3` for the give-up path.
 3. **Why here.** The no-daemon model (AD-1) moves contention to the store; WAL
-   is the mechanism that makes that safe, and the give-up path keeps NF-1.
+   is the mechanism that makes that safe, and the give-up path keeps NF-1. The
+   reindex lock reuses the same mechanism rather than a separate,
+   weaker one, for the same reason.
 4. **What this is NOT.** Not a global write queue (a daemon in disguise). Not
-   long `busy_timeout` (blocks the event path — NF-1). Not a lock whose
-   exclusivity is absolute under every stale-lock reclaim interleaving —
-   see point 1's disclosed, content-token-narrowed residual.
+   long `busy_timeout` (blocks the event path — NF-1). Not a distributed lock —
+   still explicitly single-host, single-user; a legitimately-slow-but-alive
+   reindex remains reclaimable by the staleness threshold (§13 R11's concern,
+   not a defect in this mechanism). No longer a bare filesystem path at all,
+   as of this fix pass, round 12 — the four rounds of filesystem-lock races
+   this document's plan-review lineage found (rounds 9-12) are eliminated by
+   construction, not narrowed, because the lock is now provably subject to the
+   same single-writer transaction serialization already trusted for the
+   `whisper_stats` fold above.
 5. **Premise verification.** WAL enabled and exercised in V8; `FR-K7`, `FR-O3`
    read at spec §11.1/§8. Addresses: NF-1, `FR-O3`, `FR-K7`.
 

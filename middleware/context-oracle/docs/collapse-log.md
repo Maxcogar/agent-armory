@@ -19,6 +19,69 @@ goes hollow is itself data.
 
 ---
 
+## 2026-09-07 — round 12: after the same mechanism's fourth consecutive round of "narrow the window, find a new one," the fix was to stop narrowing and remove the primitive that made narrowing necessary
+
+Round 12 found that round 11's own remediation code (the content-token
+fix's mismatch-restore branch, `fs.renameSync` back onto `lockPath`) was
+itself an unguarded, non-exclusive write: during the brief window it left
+the lock path vacant, a completely unrelated, ordinary third-process lock
+acquisition could land there and be silently clobbered when the restore
+fired — reproduced independently by both a collapse-hunt and an
+expert-review, each via real multi-process OS execution (two and three
+genuinely separate processes respectively), with zero variance across
+repeated runs. This was the fourth consecutive round — 9, 10, 11, 12 — in
+which the specific remediation code the immediately prior round had just
+added to this one mechanism (the reindex directory lock in
+`docs/plans/plan-phase-a.md`'s Step 37) contained a new instance of the
+same defect class it was written to close.
+
+**The pattern across all four rounds.** Round 9: a plain `unlink` with no
+release step. Round 10: an unsynchronized `unlink`-then-recreate reclaim.
+Round 11: an atomic-rename reclaim, still racing a delayed reclaimer.
+Round 12: the delayed-reclaimer fix's own restore branch, racing an
+unrelated third acquirer. Every one of the four fixes was independently
+verified by direct execution at the time it was written, and every one
+was independently found broken by the next round's own, harder execution.
+This is not a failure of verification rigor — each round's execution was
+real, adversarial, and correctly scoped to what it tested — it is a
+structural property of the primitive being patched: a bare filesystem
+path, manipulated via `rename`/`link`/`unlink`, has no atomic "read
+current state, and only then write" operation. Every implementation built
+from those primitives alone is a check-then-act race by construction; the
+only question each round answered was *which* interleaving was wide
+enough to exploit it, not *whether* one existed.
+
+**The fix, and the sharpened lesson.** Round 12 did not add a fifth,
+narrower patch. It replaced the primitive: the reindex lock became a row
+in `global_meta`, mutated only inside `BEGIN IMMEDIATE` transactions
+against `store.db` — the identical mechanism this same Step 37 already
+trusted, one paragraph away, to serialize the `whisper_stats` fold.
+Because SQLite does not allow two `BEGIN IMMEDIATE` transactions against
+one database to interleave their reads and writes at all, the entire
+defect class four rounds each found a new instance of is excluded by
+construction, not narrowed a fifth time. The generalized lesson: when a
+concurrency fix's own remediation code needs a fix, and that fix's
+remediation code then needs a fix, the signal to read is not "we haven't
+found the right interleaving guard yet" — it is "the underlying primitive
+cannot express the invariant being asked of it." The tell is structural,
+not statistical: check whether the shared resource already lives behind
+a stronger primitive (here, a transactional store already open in the
+same process) before writing a third, fourth, or fifth variation of a
+check-then-act guard on a primitive that was never designed to support
+one. This generalizes round 11's own lesson (construct the interleaving
+that maximizes a race's vulnerable duration) one level further: past a
+certain number of rounds each finding a new interleaving in the same
+mechanism, the correct response stops being "construct a harder
+interleaving" and becomes "stop trying to fix this primitive."
+
+**Class: mechanism-not-mission** (the filesystem-lock design was
+defended, four times, by how each patch worked — narrowing this specific
+window — rather than by whether the mission-need, real mutual exclusion
+with no known race, was actually met; it never was, until the primitive
+itself was replaced).
+
+---
+
 ## 2026-09-07 — round 11: a fix's own collapse-test and unit test are not independent verification of it when both are authored against the same narrow scenario its author had in mind — and a plausible identity check (a file's inode) can be wrong in a way only execution reveals
 
 Round 11 found that round 10's own atomic-rename fix for Step 37's

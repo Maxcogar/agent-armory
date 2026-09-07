@@ -24,7 +24,7 @@ dominating rule 3).
 
 The spec (`docs/specs/spec-context-oracle.md`) is signed off (`OL-C6`). The
 Phase A architecture (`docs/architecture-phase-a.md`) is reviewed to
-convergence. `docs/plans/plan-phase-a.md` has been through **eleven rounds**
+convergence. `docs/plans/plan-phase-a.md` has been through **twelve rounds**
 of fix-and-re-review this session:
 
 **Round 1** fixed every finding across the four review documents that had
@@ -576,9 +576,60 @@ check (a file's inode) can be wrong in a way only execution reveals —
 inode reuse on a freshly recreated file defeated the first candidate fix,
 caught only by directly running it.
 
+**Round 12** dispatched a fresh independent collapse-hunt and
+expert-review against round 11's output, both instructed to independently
+re-execute round 11's own content-token fix from scratch, including
+interleavings round 11 did not construct. Both reconfirmed round 11's fix
+genuinely closes the exact two-actor scenario it targeted, then both
+independently found the same new defect:
+
+- **Serious (both agents independently, one via 3 real two-OS-process
+  runs, one via 3 real three-OS-process runs).** Round 11's own
+  mismatch-restore branch (`fs.renameSync` back onto `lockPath`) is an
+  unconditional, non-exclusive write. During the brief window it leaves
+  the lock path vacant, a completely unrelated, ordinary third process's
+  lock acquisition — the single most common code path in the whole
+  mechanism, requiring no staleness reasoning at all — can legitimately
+  land there and then be silently clobbered when the restore fires. Both
+  a losing reclaimer and an uninvolved third party end up believing they
+  hold the lock, unserialized, with no exception and no diagnostic. This
+  was the **fourth consecutive round** (9, 10, 11, 12) to find a new race
+  in this exact mechanism, each time inside the specific remediation code
+  the immediately prior round had just added — a standing pattern both
+  reviews traced to the same root cause: a bare filesystem path
+  (`rename`/`link`/`unlink`) has no atomic "read current state, and only
+  then write" primitive.
+
+Given that pattern, this fix pass did not add a fifth, narrower patch. It
+replaced the mechanism structurally: **the reindex lock is now a row in
+`global_meta`, acquired and released only inside `BEGIN IMMEDIATE`
+transactions against `store.db`** — the identical primitive Step 37
+already trusted, one paragraph away, to serialize the `whisper_stats`
+fold. Because SQLite does not allow two `BEGIN IMMEDIATE` transactions
+against one database to interleave their reads and writes at all, the
+defect class all four rounds found a new instance of is now excluded by
+construction rather than narrowed again. No new runtime dependency, no
+new file, no filesystem lock path at all. What this does *not* fix (an
+inherent, disclosed, orthogonal limitation, unchanged by the redesign): a
+legitimately-running (not crashed) reindex whose real duration exceeds
+`reindex.lock_stale_ms` is still reclaimed by the next trigger — a
+property of using elapsed time as a liveness heuristic on a single-host
+tool with no PID-liveness check, tracked at §13 R11. Step 37 (retitled
+"WAL retry-once + transactional reindex lock"), N7, `T37-3` (rewritten
+for the new mechanism, cases (a)-(f)), §13 R11, and architecture `AD-26`
+were all updated to match.
+
+Logged in `docs/collapse-log.md`: after a mechanism's fourth consecutive
+round of "narrow the window, find a new one," the fix is to stop
+narrowing and remove the primitive that made narrowing necessary — check
+whether the shared resource already lives behind a stronger primitive
+(here, a transactional store already open in the same process) before
+writing a third, fourth, or fifth check-then-act guard on a primitive
+that structurally cannot support one.
+
 ## What to do next (agent-owned)
 
-1. **Dispatch round 12 of independent collapse-hunt and expert-review.**
+1. **Dispatch round 13 of independent collapse-hunt and expert-review.**
    The finding count across rounds: round 1: 3 collapses/4 partials/6
    missed decisions + 10 expert-review findings; round 2: 1 collapse/3
    partials/1 procedural gap + 9 expert-review findings incl. the
@@ -593,15 +644,17 @@ caught only by directly running it.
    (collapse-hunt); round 10: 1 Critical + 1 Moderate (expert-review) + 1
    Serious collapse + 2 findings (collapse-hunt); round 11: 1 Serious
    collapse (found independently by both agents) + 1 Moderate + 1 Minor
-   (collapse-hunt). All fixed each time. This is the same
-   iterate-to-convergence loop that took the architecture document nine
-   rounds — dispatch the next round rather than assuming round 11's
-   fixes are the last word, and instruct it to independently re-execute
-   round 11's own fix mechanism (the content-token identity verification
-   in Step 37's reclaim, under both the same-instant and
-   delayed-reclaimer interleavings) rather than trust it, per this
-   document's own now-twice-repeated lesson that a fix's own test
-   coverage is not independent verification of it.
+   (collapse-hunt); round 12: 1 Serious finding (found independently by
+   both agents, via real multi-process execution). All fixed each time.
+   This is the same iterate-to-convergence loop that took the
+   architecture document nine rounds — dispatch the next round rather
+   than assuming round 12's structural fix is the last word, and instruct
+   it to independently verify the `global_meta`-row transactional design
+   (not just re-read that it "should" be race-free because `BEGIN
+   IMMEDIATE` is used) by direct execution: real concurrent acquisition
+   attempts against a real `store.db`, per this document's own
+   four-times-repeated lesson that an asserted fix is not verified until
+   the exact scenario is executed against its literal, current text.
 2. **Once a round comes back clean, proceed to implementation** via
    `.claude/skills/expert-implement/` against the fixed plan.
 3. **Two bin-2 items are flagged for Max Cogar's awareness in the plan's
@@ -618,9 +671,9 @@ caught only by directly running it.
 
 ## Open items
 
-- Round 12 of independent review has not yet run — see "What to do next"
-  item 1. Nothing else from rounds 1–11 remains open: all findings from
-  all eleven rounds across both review types, plus Q-gap-5's six judgment
+- Round 13 of independent review has not yet run — see "What to do next"
+  item 1. Nothing else from rounds 1–12 remains open: all findings from
+  all twelve rounds across both review types, plus Q-gap-5's six judgment
   calls (Clear-Thought-verified, independently reproduced by round 3's
   expert-review), are closed.
 - L11(a) — human-marker presence on Max Cogar's real interactive transcript
