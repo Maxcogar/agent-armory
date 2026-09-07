@@ -49,7 +49,6 @@ _SESSION_ISOLATION_STRIP_VARS = [
 DEFAULT_MODEL = os.environ.get("STOP_GATE_MODEL", "claude-sonnet-5")
 MAX_BUDGET_USD = os.environ.get("STOP_GATE_MAX_BUDGET_USD", "0.50")
 TIMEOUT_SECONDS = int(os.environ.get("STOP_GATE_TIMEOUT_SECONDS", "45"))
-STALE_REQUEST_TURN_THRESHOLD = int(os.environ.get("STOP_GATE_STALE_REQUEST_TURN_THRESHOLD", "3"))
 
 JUDGE_INSTRUCTIONS = """You are a strict completeness auditor for an AI coding assistant's turn.
 You are given the user's most recent request and the assistant's final
@@ -84,18 +83,17 @@ abandoned, and not offered as if it were the finished answer).
 The USER'S REQUEST shown below may not be from this exact turn - in an
 extended autonomous work session the user may not have spoken in a while,
 in which case this is simply the most recent thing they actually said,
-carried forward, and a small count of assistant turns elapsed since then is
-given (a large count is filtered out before this prompt is ever built, so
-what you see here is always recent enough to plausibly still apply). Judge
-THIS turn's response on its own merits first: if it is legitimate, in-scope
+carried forward. A count of how many assistant turns have elapsed since
+they said it is given. If that count is greater than zero, judge THIS
+turn's response on its own merits first: if it is legitimate, in-scope
 follow-up work (continuing a task already agreed to, monitoring something
 already set in motion, fixing a bug found along the way) and does not
-contradict or ignore the shown request, that is "complete" - an old request
-is not a standing veto over every unrelated thing that happens afterward,
-and a complaint that was already acted on does not need to be relitigated
-on every later turn. Only apply the shown request against an unrelated
-later turn if the response actually contradicts it or is the same
-unresolved issue recurring.
+contradict or ignore the shown request, that is "complete" - an old
+request is not a standing veto over every unrelated thing that happens
+afterward, and a complaint that was already acted on does not need to be
+re-relitigated on every later turn. Only apply the shown request against
+an unrelated later turn if the response actually contradicts it or is the
+same unresolved issue recurring.
 
 A clarifying question can qualify as "complete" ONLY if proceeding without
 it would require guessing at something irreversible, destructive, or
@@ -325,19 +323,6 @@ def main():
     user_text, turns_since = last_user_text(transcript_path)
     if not user_text:
         degraded(f"could not locate the user's request in transcript {transcript_path!r}")
-        return
-
-    # STALE_REQUEST_TURN_THRESHOLD: telling the judge "this is N turns old,
-    # weigh it accordingly" was tried first and was not reliable - verified
-    # directly in production, this gate blocked a routine PR check-in turn
-    # by applying a complaint from 64 assistant-turns earlier that had
-    # already been resolved, despite that exact count being in the prompt.
-    # Judging staleness is not actually a judgment call: past this many
-    # completed turns with no new human input, there is no live request left
-    # to check THIS turn's response against, so it's decided mechanically
-    # here instead of trusted to the model.
-    if turns_since >= STALE_REQUEST_TURN_THRESHOLD:
-        allow()
         return
 
     raw_output, err = run_judge(user_text, assistant_text, turns_since)

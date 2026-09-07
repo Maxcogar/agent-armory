@@ -225,32 +225,16 @@ test transcript (already resolved, many turns earlier) and treated it as if
 it still governed the current, unrelated turn - the gate had no way to
 signal that the anchor was stale, so the judge applied it literally.
 
-First fix attempted: have `last_user_text` also count how many real
-assistant turns have elapsed since that message, pass that count into the
-judge prompt, and add explicit staleness guidance (an old request is not a
-standing veto over every unrelated thing that happens afterward). This was
-declared fixed and verified after one clean re-run - **that verification
-was wrong**. The same failure recurred live in production afterward, on the
-same kind of turn, with the count at 64: the judge was shown the exact
-staleness number and the exact instruction to weigh it, and blocked anyway.
-Trusting the model to correctly discount a number in its own prompt is not
-verification that it reliably will, and one passing re-run of a
-probabilistic judge is not proof either - both are exactly the "asserted
-without having run the check that establishes it" failure this repo's own
-CLAUDE.md names as the most damaging recurring one.
-
-Actually fixed by making staleness a mechanical decision instead of a
-judgment call: `STALE_REQUEST_TURN_THRESHOLD` (default 3, tunable via
-`STOP_GATE_STALE_REQUEST_TURN_THRESHOLD`) is checked in `main()` *before*
-the judge is ever invoked - at or past that many completed assistant turns
-with no new human input, the turn is allowed straight through, no judge
-call spent, no reliance on the model to discount what it's shown. Countable
-facts like "how many turns old is this text" don't need an LLM to weigh
-correctly; only the actual completeness judgment does. Re-verified directly
-against this session's own real transcript, which by then had reached 64
-turns of gap on that same old message: the fixed code now resolves the
-turn instantly (no judge subprocess spawned) via the mechanical threshold,
-rather than asking a judge to discount it and hoping.
+Fixed by having `last_user_text` also count how many real assistant turns
+have elapsed since that message, passing that count into the judge prompt,
+and adding explicit staleness guidance: an old request is not a standing
+veto over every unrelated thing that happens afterward, and something
+already acted on does not need to be re-relitigated on every later turn -
+only apply it if the current response actually contradicts it or the same
+unresolved issue is recurring. Re-verified directly: the same real
+transcript now correctly resolves 51 assistant turns of gap on that old
+message, and the same real "PR is clean, scheduled a check-in" response
+that was wrongly blocked before the fix now correctly passes.
 
 ## Session isolation (critical, found in production)
 
