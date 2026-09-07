@@ -24,7 +24,7 @@ dominating rule 3).
 
 The spec (`docs/specs/spec-context-oracle.md`) is signed off (`OL-C6`). The
 Phase A architecture (`docs/architecture-phase-a.md`) is reviewed to
-convergence. `docs/plans/plan-phase-a.md` has been through **five rounds** of
+convergence. `docs/plans/plan-phase-a.md` has been through **six rounds** of
 fix-and-re-review this session:
 
 **Round 1** fixed every finding across the four review documents that had
@@ -288,36 +288,77 @@ shrinking" is explicitly not being treated as evidence the underlying
 sweep mechanism now works — only a round that returns zero new findings
 ends the loop.
 
+**Round 6** dispatched a fresh independent collapse-hunt and expert-review
+against round 5's output, both instructed to use search strategies
+independent of round 5's own grep patterns. Both returned real findings,
+all fixed:
+
+- **Collapse-hunt** (1 collapse, at a citation number entirely outside
+  the "Step 30/31/32/37" cluster every prior round's search had
+  concentrated on): Step 9's DAO body cited "Step 41's ULID util" for
+  the `whisper_audit` DAO's `append()` return value; Step 41 builds only
+  grep-based CI convention tests with no ID-generation content, and the
+  ULID generator is actually built at Step 37 (AD-26), confirmed by the
+  file skeleton and Step 37's own body naming the same `whisper_audit`
+  table. Fixed the citation. All of round 5's fixes were independently
+  re-verified as genuinely closed.
+- **Expert-review** (2 Moderate, 2 Minor — no verified multi-site
+  Systemic pattern this round, a genuine break from rounds 2-5): (1) a
+  library-behavior claim was checked against an actual `semver`
+  evaluator for the first time in this document's six-round history —
+  D-plan-2 and section 14.2 both claimed the npm caret range `^0.26.13`
+  "accepts 0.27.0 anyway"; installing and running `semver` (v7.8.5)
+  showed this is false (`^0.26.13` is anchored at the minor version and
+  excludes `0.27.0` entirely) — a claim that had gone unverified since
+  the plan's original 2026-09-06 authoring and survived two intervening
+  review generations unchecked; rewrote D-plan-2's collapse-test and
+  section 14.2's option (a) description around the real semver
+  semantics; (2) section 3's Standards registry still called the
+  web-tree-sitter version-bump question "bin 1 answered" after
+  meta-check H5 reclassified it to bin-2 and section 14.1's Q1 was
+  retracted — a sixth instance of the recurring sweep-failure pattern,
+  fixed to cite the current register state; (3) section 14.4's
+  sweep-record narrative had no "Pass L" entry for round 5's fix pass —
+  added; (4) a garbled `.mcp.json`-registry reference in section 14.2 —
+  fixed to "npm-registry re-check (section 11.4)." All of round 5's
+  findings were independently re-verified as genuinely closed, including
+  the sharpest possible test of round 5's own lesson: a fresh grep
+  across the full current document for the "Step 30's `init`" defect
+  class returned zero hits.
+
 ## What to do next (agent-owned)
 
-1. **Dispatch round 6 of independent collapse-hunt and expert-review.**
+1. **Dispatch round 7 of independent collapse-hunt and expert-review.**
    The finding count across rounds: round 1: 3 collapses/4 partials/6
    missed decisions + 10 expert-review findings; round 2: 1 collapse/3
    partials/1 procedural gap + 9 expert-review findings incl. the
    Q-gap-5 overclaim; round 3: 2 collapses/2 partials + 4 expert-review
    findings; round 4: 2 collapses/0 partials + 1 Systemic pattern
    spanning 2 instances; round 5: 2 collapses (one incomplete) + 1
-   Systemic pattern spanning 2 instances at 6 locations + 1 Minor. All
-   fixed each time. This is the same iterate-to-convergence loop that
-   took the architecture document nine rounds — dispatch the next round
-   rather than assuming round 5's fixes are the last word, and instruct
-   it to independently re-verify round 5's own closure claims rather than
-   trust them, per round 5's own lesson.
+   Systemic pattern spanning 2 instances at 6 locations + 1 Minor; round
+   6: 1 collapse + 2 Moderate/2 Minor (no verified multi-site Systemic
+   pattern — the first round since round 2 without one). All fixed each
+   time. This is the same iterate-to-convergence loop that took the
+   architecture document nine rounds — dispatch the next round rather
+   than assuming round 6's fixes are the last word, and instruct it to
+   independently re-verify round 6's own closure claims rather than
+   trust them.
 2. **Once a round comes back clean, proceed to implementation** via
    `.claude/skills/expert-implement/` against the fixed plan.
 3. **Two bin-2 items are flagged for Max Cogar's awareness in the plan's
    bin-2 register (section 14.2), not blocking anything:** the
-   `web-tree-sitter` dependency-floor pin (currently `^0.26.13`, a defensible
-   default) and the now-largely-resolved D-plan-6 owner-probe workload
-   (L11(a) already measured this session; L11(b) has no probe path and is
-   handled by a runtime counter instead). No response is needed unless he
-   wants either changed.
+   `web-tree-sitter` dependency-floor pin (currently `^0.26.13`, confirmed
+   this round via a real semver check to be locked to the `0.26.x` line
+   with no drift risk to `0.27.0`) and the now-largely-resolved D-plan-6
+   owner-probe workload (L11(a) already measured this session; L11(b)
+   has no probe path and is handled by a runtime counter instead). No
+   response is needed unless he wants either changed.
 
 ## Open items
 
-- Round 6 of independent review has not yet run — see "What to do next"
-  item 1. Nothing else from rounds 1–5 remains open: all findings from all
-  five rounds across both review types, plus Q-gap-5's six judgment
+- Round 7 of independent review has not yet run — see "What to do next"
+  item 1. Nothing else from rounds 1–6 remains open: all findings from all
+  six rounds across both review types, plus Q-gap-5's six judgment
   calls (Clear-Thought-verified, independently reproduced by round 3's
   expert-review), are closed.
 - L11(a) — human-marker presence on Max Cogar's real interactive transcript

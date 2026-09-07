@@ -19,6 +19,61 @@ goes hollow is itself data.
 
 ---
 
+## 2026-09-07 — round 6: a load-bearing collapse-test's "hardest question" rested on an unverified library-behavior claim that was false, and survived unchecked for six review rounds
+
+Round 6's expert-review found that D-plan-2 (the dependency-floor
+decision for `web-tree-sitter`) and its cross-reference in the plan's
+bin-2 owner register both asserted that the npm caret range `^0.26.13`
+"accepts 0.27.0 anyway" — the premise for the entry's entire "hardest
+question" (is the pin drift theater?). This claim traces to the plan's
+original 2026-09-06 authoring and was repeated, unchecked, by that same
+day's meta-check and collapse-hunt. Five subsequent independent review
+rounds (2 through 5) also passed over it without running an actual
+semver evaluator — each accepted the premise as given and reasoned about
+its *consequences*, never its *truth*. Round 6 installed the `semver`
+npm package and ran it directly: `^0.26.13` is anchored at the minor
+version for a pre-1.0 package and **excludes** `0.27.0` entirely. The
+plan's central premise was the opposite of the real, checkable fact.
+
+Class: **unverified** — but distinct in shape from every 2026-09-07 entry
+before it. Those were all "fix landed at its primary site, not swept to
+a sibling site" — the underlying claim, once corrected, was correct
+everywhere; only the propagation failed. Here, the claim itself was
+simply never checked against reality by anyone, across six independent
+review passes, because it read as a plausible statement about a familiar
+tool (semver ranges) that nobody thought to actually execute. `CLAUDE.md`
+rule 2's collapse-test exists precisely to force a claim like this to
+survive a hardest-question attack — but the test only works if the
+"authoritative standard" cited is actually verified, not merely named.
+D-plan-2 cited "architecture V14" and "semver-compatible" as its
+grounding and neither citation was ever run against an evaluator.
+
+**The sharpened lesson.** A claim about a well-known mechanism (semver,
+a config format, a CLI flag) is exactly the kind of thing a reviewer is
+most likely to accept from memory rather than verify, because it feels
+too basic to be wrong — this is the mirror-image risk to `CLAUDE.md`'s
+existing "verify external facts... against current primary sources"
+rule, which agents tend to apply to obscure or fast-changing facts and
+under-apply to "obvious" ones. The fix: `/expert-review`'s own Step 5
+library-behavior-claim rule (resolve the library, read the current
+behavior, don't reason from memory) applies with equal force to
+small, load-bearing facts embedded inside a collapse-test's own
+"hardest question," not only to headline claims about a framework's
+API surface. Practically benign here (real behavior turned out safer
+than believed) — but the near-miss is that it could just as easily have
+been the other direction.
+
+Also notable: this was the first of six consecutive 2026-09-07 rounds
+whose expert-review found no verified multi-site Systemic pattern — a
+genuine, if narrow, break in the five-round streak (round 2: 7 sites;
+round 3: 2; round 4: 2 instances/4 sites; round 5: 2 instances/6 sites).
+One new instance of the same sweep-failure shape did recur this round
+(section 3's stale "bin 1 answered" citation, a sixth instance of the
+lineage), but it resolved to a single site rather than a pattern this
+round's proactive scans could generalize into a second Systemic
+finding — read as continuity of the same root cause, not evidence the
+underlying mechanism has stopped producing it.
+
 ## 2026-09-07 — round 5: a sweep's own "N citations checked, only these were wrong" completeness claim was itself falsified within the same round
 
 Round 5's collapse-hunt found and fixed two wrong step-number citations

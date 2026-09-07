@@ -207,8 +207,13 @@ except where noted in §11.
   scripts, verified 2026-09-06). Architecture V14 verified 0.26.13 / 0.1.13
   on 2026-08-29 — the plan floors at 0.26.13 for `web-tree-sitter` (the
   architecture's tested version) and pins 0.1.13 for `tree-sitter-wasms`;
-  bumping `web-tree-sitter` to 0.27.0 is a Step-1 owner-visible choice
-  (recorded in the plan's Question register as bin 1 answered).
+  bumping `web-tree-sitter` to 0.27.0 is a Step-1 owner-visible choice,
+  recorded as an open bin-2 item at §14.2 (default: keep the caret, per
+  the current recommendation), with the prior bin-1 framing of the
+  question (§14.1 Q1) retracted as not the planner's call to begin with
+  — corrected this fix pass, round 6: previously said "recorded in the
+  plan's Question register as bin 1 answered," matching neither
+  register entry's actual current disposition.
 - **ISO/IEC/IEEE 29119-4:2021** — test design techniques (equivalence
   partitioning, boundary value analysis, decision tables, state-transition,
   error guessing) — the test techniques named in each specification in §12.
@@ -3551,21 +3556,36 @@ confirmation it is a guide, never a gate.
 1. **Job.** Pin the runtime-dependency floor to the exact version
    architecture V14 measured, so plan-time re-verification cannot
    drift the tool onto a version whose behavior V14 did not observe.
-2. **Hardest question.** Pinning at the architecture-verified version
-   is drift theater — the caret in `^0.26.13` accepts 0.27.0 anyway,
-   so the pin protects nothing.
-3. **Answer.** The caret is deliberate: 0.27.0 is semver-compatible
-   and works, but the floor at 0.26.13 makes it possible to
-   reproduce V14's exact-verified surface by `npm install web-tree-
-   sitter@0.26.13` when diagnosing a regression. The pin is not
-   drift-blocking; it is drift-*witnessable*. Cite: architecture V14
-   (measurement date 2026-08-29); plan §11.4 npm-registry evidence
-   (2026-09-06).
+2. **Hardest question (corrected this fix pass, round 6 — expert-
+   review Moderate finding, verified against a real `semver`
+   evaluator: `semver.satisfies('0.27.0', '^0.26.13')` → `false`;
+   `semver.validRange('^0.26.13')` → `>=0.26.13 <0.27.0-0`).** For a
+   pre-1.0 package, `^0.26.13` is anchored at the minor version and
+   locks to the `0.26.x` line — it does not accept `0.27.0` at all.
+   Given the caret and an exact pin at `0.26.13` are therefore
+   behaviorally identical for a default install, does the pin's `^`
+   prefix do anything beyond documentation?
+3. **Answer (corrected this fix pass, round 6: previously claimed the
+   caret "accepts 0.27.0 anyway," the opposite of real semver
+   behavior).** Yes: the caret still permits patch-level movement
+   within `0.26.x` (e.g., a `0.26.14` bugfix) without a `package.json`
+   edit, which an exact pin would block. Reaching `0.27.0` requires an
+   explicit, separate act — an exact version install or a
+   `package.json` edit — never a default `npm install`. The floor at
+   `0.26.13` documents which version V14 measured; the caret's actual
+   job is patch-level flexibility, not minor-version drift protection,
+   because minor-version drift was never possible under this range to
+   begin with. Cite: `node-semver`'s caret-range specification
+   (verified this session via the `semver` npm package, v7.8.5);
+   architecture V14 (measurement date 2026-08-29); plan §11.4
+   npm-registry evidence (2026-09-06).
 4. **Steers toward.** Install times matching V14's tested surface by
-   default, with the option to install 0.27.0 explicitly when the
-   implementer wants its behavior. **Guide, not gate** — the caret
-   means either version resolves; the pin says which one is the
-   audited baseline.
+   default — this is not merely likely but structurally guaranteed by
+   the caret's own range, since `0.27.0` cannot resolve under
+   `^0.26.13` — with the option to install `0.27.0` explicitly when
+   the implementer wants its behavior. **Guide, not gate** — the caret
+   allows patch-level movement within the audited minor version; the
+   exact pin would forbid even that.
 
 #### D-plan-3 (`node:test` as the runner)
 
@@ -6202,15 +6222,20 @@ applies to both):**
 
 - **web-tree-sitter dependency floor (Step 1, D-plan-2).** The
   architecture verified `0.26.13` on 2026-08-29; the current release
-  is `0.27.0`. The plan ships `^0.26.13` (accepts either). Options:
-  (a) keep the caret as written — current behavior, lets `npm
-  install` resolve to whatever's newest-compatible; (b) exact-pin
-  `0.26.13` for reproducibility with V14's tested surface; (c) bump
-  the floor to `^0.27.0` to build against the current release.
-  **Recommendation: (a), unchanged** — the caret is a defensible
-  engineering default (semver-compatible, no known behavioral
-  difference between the two versions was found in this session's
-  `.mcp.json`-registry re-check) and this plan proceeds on it so
+  is `0.27.0`. The plan ships `^0.26.13` — corrected this fix pass,
+  round 6 (expert-review Moderate finding, verified against the
+  `semver` npm package): this caret range is anchored at the minor
+  version and **excludes** `0.27.0`; it does not "accept either."
+  Options: (a) keep the caret as written — current behavior, `npm
+  install` stays locked to the `0.26.x` line, with patch-level
+  movement only; (b) exact-pin `0.26.13` for reproducibility with
+  V14's tested surface (behaviorally identical to (a) for a default
+  install, since the caret already excludes `0.27.0`); (c) bump the
+  floor to `^0.27.0` to build against the current release. **Recommendation:
+  (a), unchanged** — the caret is a defensible engineering default
+  (already locked to the audited minor version, with no behavioral
+  difference from an exact pin for a default install, per the
+  npm-registry re-check at §11.4) and this plan proceeds on it so
   Step 1 is not blocked. **Flagged for Max Cogar:** if you want an
   exact pin or the newer floor instead, say so and Step 1 changes to
   match — nothing downstream depends on which of the three is chosen.
@@ -6412,6 +6437,34 @@ review plus the meta-check's H1–H8 findings.
   §10A's "Test tier split" collapse-test (still describing "probes"
   as a future manual step) found during this pass's own sweep and
   fixed alongside the flagged findings.
+- **Pass L (fix pass, round 5 — independent re-review response, added
+  this fix pass, round 6, per expert-review's Minor finding that this
+  narrative had no entry for round 5's own fix pass).** A fresh
+  independent collapse-hunt and expert-review ran against Pass K's
+  output, both scoped outside the "Step 30/31/32/37" citation cluster
+  every prior round had concentrated its search on. Collapse-hunt: 2
+  collapses — §3's Standards registry attributed SQLite WAL semantics
+  to Step 32 instead of Step 37 (fixed); §5.3 attributed the `init`
+  verb's `settings.json` write to Step 30 instead of Step 31 (fixed)
+  — the collapse-hunt's own report then claimed "48 citations
+  checked, only these two were wrong." Expert-review: independently
+  re-ran the identical search with its own strategy and found that
+  claim false — 4 more sites (Step 2, Step 8, Step 23, Step 29) still
+  misattributed the `init` verb to Step 30, unswept despite the
+  collapse-hunt's attestation to have read those exact step bodies in
+  full — all four fixed (1 Systemic pattern, first instance). A
+  second instance: §10A's "Test tier split" entry had its Answer field
+  corrected at round 4, but its sibling Job and Steers-toward fields —
+  three and twenty-two lines away in the same four-part entry — still
+  called the L11 files "build-time markdown probes," contradicting the
+  corrected Answer; both rewritten. One Minor finding (Step 38's
+  `oracleSpawn` paragraph duplicated verbatim at two locations)
+  resolved by removing the second copy. A tentative finding (§14.2's
+  `(Step 8, ...)` parenthetical on the D-plan-6 bullet) was
+  investigated against `expert-plan` SKILL.md directly and confirmed
+  not a defect — the register's established convention cites SKILL.md's
+  own process-step number with a free-text topic label, not the
+  plan's build-step numbering.
 
 **Final count.** 14 original bin-1 entries (Q1–Q14, all answered with
 evidence pointers); 2 bin-2 entries open for Max Cogar's optional
