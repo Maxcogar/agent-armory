@@ -393,6 +393,7 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/src/identity/layout.ts | create | S4 |
 | middleware/context-oracle/ctxoracle/src/identity/repo_key.ts | create | S5 |
 | middleware/context-oracle/ctxoracle/src/index/frontend.ts | create | S14 |
+| middleware/context-oracle/ctxoracle/src/index/frontends.ts | create | S15 |
 | middleware/context-oracle/ctxoracle/src/index/generic_frontend.ts | create | S15 |
 | middleware/context-oracle/ctxoracle/src/index/indexer.ts | create | S14 |
 | middleware/context-oracle/ctxoracle/src/index/indexer.ts | modify | S30 |
@@ -573,6 +574,7 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/test/unit/genre_reuse.test.ts | create | S18 |
 | middleware/context-oracle/ctxoracle/test/unit/genre_verification.test.ts | create | S18 |
 | middleware/context-oracle/ctxoracle/test/unit/genre_warning.test.ts | create | S18 |
+| middleware/context-oracle/ctxoracle/test/unit/indexer_frontends.test.ts | create | S15 |
 | middleware/context-oracle/ctxoracle/test/unit/indexer_stale.test.ts | create | S14 |
 | middleware/context-oracle/ctxoracle/test/unit/indexer.test.ts | create | S14 |
 | middleware/context-oracle/ctxoracle/test/unit/injection_negative.test.ts | create | S11 |
@@ -2039,10 +2041,15 @@ in the head 2 KB, `dist/`/`build/`/lockfile patterns, `.gitignore`
 membership, `vendor/`/`node_modules/`; the evidence string is redacted and
 injection-flagged at capture — `zone_evidence_suspect`). Create
 `src/index/indexer.ts`:
-- `runIndex(store, repoPath, {full: boolean})`: walks the working tree
-  respecting `.gitignore`; per file resolves the language via
-  `index.ext_to_grammar` (Step 12) with `tuning` overrides; calls the
-  matching frontend or `generic_frontend` (Step 15); writes `files`,
+- `runIndex(store, repoPath, {full: boolean, frontends: LanguageFrontend[]})`:
+  walks the working tree respecting `.gitignore`; per file resolves the
+  language via `index.ext_to_grammar` (Step 12) with `tuning` overrides;
+  hands the file to the member of `frontends` whose `lang` matches, or to
+  the list's generic member when none matches, and indexes a file for which
+  the list holds neither path-only — its `files` row, zone, and FTS path
+  tokens — which is the state every file is in at this step, where the
+  list is empty because no frontend exists yet (Step 15 creates both and
+  the default list); writes `files`,
   `symbols`, `import_edges`; updates `symbol_refs` (per exported symbol,
   the count of other files whose text references its identifier among the
   files that import its file); computes `entry_score` (import in-degree +
@@ -2075,7 +2082,9 @@ read is a bounded file read).
 
 **Why this approach (Gate 3):**
 1. **The decision.** Interface-first so the tree-sitter frontend and the
-   generic fallback are peers; incremental refresh via content-hash +
+   generic fallback are peers, with the frontend list an argument of
+   `runIndex` — AD-12's configurable table as an explicit input
+   (D-plan-29); incremental refresh via content-hash +
    `index_head`; staleness lowers confidence, never blocks; the detached
    refresh is lock-protected and fire-and-forget.
 2. **The authoritative standard.** `AD-12`; `FR-K1` (language-agnostic
@@ -2093,11 +2102,12 @@ read is a bounded file read).
 
 **Dependencies.** Declared above (`depends_on`).
 
-**Verification.** `T-14-1` (skeleton runs on `indexer-small` and
-`over-threshold-file`; `files`/`symbols`/`import_edges`/`test_map`
-populate; the > 1 MB file is path-only with a diagnostic; the planted
-secret is absent from the store; a second run over an unchanged tree
-writes nothing; the lock refuses a second concurrent reindex), `T-14-2`
+**Verification.** `T-14-1` (the skeleton runs on `indexer-small` and
+`over-threshold-file` with an empty frontend list; every file has a
+`files` row with its zone and FTS path tokens and no `symbols` or
+`import_edges` row; the > 1 MB file is path-only with a diagnostic; the
+planted secret is absent from the store; a second run over an unchanged
+tree writes nothing; the lock refuses a second concurrent reindex), `T-14-2`
 (`refreshIfStale`: a moved `HEAD` records `index_stale`, sets the flag, and
 returns `{stale: true}`; an unmoved `HEAD` records nothing and returns
 `{stale: false}`; a completed `runIndex` clears the flag).
@@ -2113,30 +2123,36 @@ Orientation, Reuse, Coupling; visible in `status` per-genre counts.
 step: S15
 covers: [PA-1, PA-3]
 files:
-  create: [middleware/context-oracle/ctxoracle/src/index/tree_sitter_frontend.ts, middleware/context-oracle/ctxoracle/src/index/generic_frontend.ts, middleware/context-oracle/ctxoracle/test/unit/tree_sitter_frontend.test.ts, middleware/context-oracle/ctxoracle/test/unit/generic_frontend.test.ts]
+  create: [middleware/context-oracle/ctxoracle/src/index/tree_sitter_frontend.ts, middleware/context-oracle/ctxoracle/src/index/generic_frontend.ts, middleware/context-oracle/ctxoracle/src/index/frontends.ts, middleware/context-oracle/ctxoracle/test/unit/tree_sitter_frontend.test.ts, middleware/context-oracle/ctxoracle/test/unit/generic_frontend.test.ts, middleware/context-oracle/ctxoracle/test/unit/indexer_frontends.test.ts]
   modify: []
   delete: []
-provides: []
-tests: [T-15-1, T-15-2]
+provides: [treeSitterFrontend, genericFrontend, defaultFrontends]
+tests: [T-15-1, T-15-2, T-15-3]
 depends_on: [S1, S14]
 ```
 
 
-**What changes.** Create `src/index/tree_sitter_frontend.ts` implementing
+**What changes.** Create `src/index/tree_sitter_frontend.ts` exporting
+`treeSitterFrontend(lang): LanguageFrontend`, which implements
 `LanguageFrontend` by loading the grammar `tree-sitter-wasms/out/<lang>.wasm`
 (the package's documented output directory, V14; path resolved with
 `import.meta.resolve`), parsing via `web-tree-sitter`, extracting symbols
 and imports via per-language tree-sitter queries. Grammar loading is lazy
 per `(lang, first use)` and cached; parser instances are pooled inside the
 indexer process only (AD-1: no cross-process state). Create
-`src/index/generic_frontend.ts` — line-based heuristics: identifier-shape
+`src/index/generic_frontend.ts` exporting `genericFrontend: LanguageFrontend`
+— line-based heuristics: identifier-shape
 regexes for definitions (`function`, `class`, `def`, `fn`, shell function
 syntax, …), path-and-word tokenization into FTS. **`import_edges` and
 `symbol_refs` are NOT produced by the generic frontend** — that absence is
 what makes a generic-frontend candidate structurally uncountable in the
-Reuse dominance test (Step 18, L6).
+Reuse dominance test (Step 18, L6). Create `src/index/frontends.ts`
+exporting `defaultFrontends(): LanguageFrontend[]` — one
+`treeSitterFrontend(lang)` per grammar the `index.ext_to_grammar` table
+(Step 12) names, then `genericFrontend` last — the list the `index` verb
+(Step 28) and `init` (Step 31) pass to `runIndex` (D-plan-29).
 
-**Creates.** `src/index/tree_sitter_frontend.ts` — WASM grammars; `src/index/generic_frontend.ts` — line-based fallback.
+**Creates.** `src/index/tree_sitter_frontend.ts` — WASM grammars; `src/index/generic_frontend.ts` — line-based fallback; `src/index/frontends.ts` — `defaultFrontends()`, the list the indexer's callers pass.
 
 **Source.** `AD-12`; V14 (web-tree-sitter 0.26.13 and tree-sitter-wasms
 0.1.13, pure WASM, no install scripts — re-read 2026-09-07, §11.4); L6.
@@ -2160,7 +2176,10 @@ Reuse dominance test (Step 18, L6).
 
 **Verification.** `T-15-1` (TypeScript fixture: symbols with correct spans,
 import edge resolving to the imported file), `T-15-2` (a `.sh` file:
-function-shape symbols, zero `import_edges`).
+function-shape symbols, zero `import_edges`), `T-15-3` (the indexer run
+with `defaultFrontends()` on `indexer-small`: `symbols`, `import_edges`,
+`symbol_refs`, `entry_score`, `test_map` populate; the FTS and `LIKE` hit
+sets agree for symbol-token queries).
 
 **Impact if wrong.** Contained per language — a broken frontend falls back
 to generic (visible in `status` per-language counts).
@@ -3131,7 +3150,7 @@ files:
   delete: []
 provides: [ctxoracle-hook, hook-integrity-check, ctxoracle-index, toInternalEvent, toHookResponse]
 tests: [T-28-1, T-28-2, T-28-3, T-28-4, T-28-5, T-28-6]
-depends_on: [S1, S3, S6, S9, S10, S14, S16, S17, S18, S19, S20, S24, S25, S26, S27]
+depends_on: [S1, S3, S6, S9, S10, S14, S15, S16, S17, S18, S19, S20, S24, S25, S26, S27]
 ```
 
 
@@ -3194,8 +3213,9 @@ Create `src/hook/handler.ts` — the per-event pipeline in AD-8's fixed order:
    reconciliation (Step 20); qa lifetime (Step 27); staleness check →
    `index_stale` (Step 14's `refreshIfStale`) and, when it reports stale, a
    detached reindex child — `<node> <dispatch.js> index`, this step's
-   `index` verb (`src/cli/index.ts`: `index [--full]` → `runIndex`, Step 14;
-   `--full` re-mines from scratch), spawned through Step 5's wrapper and
+   `index` verb (`src/cli/index.ts`: `index [--full]` → `runIndex` (Step 14)
+   with Step 15's `defaultFrontends()`; `--full` re-mines from scratch),
+   spawned through Step 5's wrapper and
    observable by the `.reindex.lock` `runIndex` takes; detached integrity
    child (`hook integrity-check`, this step's other internal verb, via the
    wrapper); no output.
@@ -3237,7 +3257,7 @@ on failure; it is the detached child the `SessionStart` branch above spawns
 through Step 5's wrapper, and the off-path check the `init` and `index` verbs
 (Steps 31, 32) run (AD-17).
 
-**Creates.** `src/cli/dispatch.ts` — verb dispatcher (bin entry: dist/src/cli/dispatch.js); verbs registered by Steps 28, 31–35; `src/cli/hook.ts` — internal `hook <event> [--deadline-ms n]` verb (routes to handler); `src/cli/index.ts` — `index [--full]` verb → runIndex (Step 14), the reindex child the handler spawns; `src/cli/integrity_check.ts` — internal `hook integrity-check` verb (off-path quick_check); `src/hook/adapter.ts` — the ONE file naming Claude Code hook fields (AD-6); `src/hook/handler.ts` — per-event pipeline (AD-7, AD-8); `test/replay/runner.ts` — replay harness (spawns the built handler through the CLI).
+**Creates.** `src/cli/dispatch.ts` — verb dispatcher (bin entry: dist/src/cli/dispatch.js); verbs registered by Steps 28, 31–35; `src/cli/hook.ts` — internal `hook <event> [--deadline-ms n]` verb (routes to handler); `src/cli/index.ts` — `index [--full]` verb → runIndex (Step 14) with Step 15's defaultFrontends(), the reindex child the handler spawns; `src/cli/integrity_check.ts` — internal `hook integrity-check` verb (off-path quick_check); `src/hook/adapter.ts` — the ONE file naming Claude Code hook fields (AD-6); `src/hook/handler.ts` — per-event pipeline (AD-7, AD-8); `test/replay/runner.ts` — replay harness (spawns the built handler through the CLI).
 
 **Source.** `AD-6` (event map, adapter file, `PostToolUseFailure`
 observation-only); `AD-7` (fail-open, exit 0 always); `AD-8` (pipeline
@@ -3454,7 +3474,7 @@ files:
   delete: []
 provides: [ctxoracle-init]
 tests: [T-31-1, T-31-2, T-31-3]
-depends_on: [S1, S2, S3, S4, S5, S7, S8, S12, S14, S28]
+depends_on: [S1, S2, S3, S4, S5, S7, S8, S12, S14, S15, S28]
 ```
 
 
@@ -3506,8 +3526,9 @@ switch. Create `src/cli/init.ts`:
    appended, unrelated entries are never touched. Only the documented entry
    fields are written (§11.4: the hooks reference lists the entry fields and
    makes no promise about unknown ones).
-5. `runIndex(store, repoPath, {full: true})` (Step 14) — the first index —
-   and the off-path `quick_check` (Step 3).
+5. `runIndex(store, repoPath, {full: true, frontends: defaultFrontends()})`
+   (Steps 14, 15) — the first index — and the off-path `quick_check`
+   (Step 3).
 6. Print the plain-language summary: repo key, keying mode and identity
    string, FTS5 state, files indexed, commits mined, tables ready.
 
@@ -4445,13 +4466,16 @@ D-plan-2, 4, 5, 6, 8, 10, 13, 15–26), and
 run: D-plan-24 and D-plan-26 re-derived, D-plan-27, D-plan-28, and the
 amendment to D-plan-5), and `docs/reviews/2026-09-07-plan-tool-traces-4.md`
 (the round-5 correction of issue S1: the amendment to D-plan-26's
-counted-session invocation); where the files disagree on a decision, the
-latest file's chain is the one whose conclusion appears here.
+counted-session invocation), and
+`docs/reviews/2026-09-07-plan-tool-traces-5.md` (the round-5 correction of
+issue S2: D-plan-29); where the files disagree on a decision, the latest
+file's chain is the one whose conclusion appears here.
 The §7 steps that carry plan-level judgment beyond transcribing an
 architecture decision are named against their entry so a reader can find
 every such step: Step 1 (D-plan-2, D-plan-3, D-plan-13), Step 5 (D-plan-14,
 D-plan-15), Step 7 (D-plan-28), Step 9 (D-plan-27), Step 12 (D-plan-7),
-Step 14 (D-plan-28), Step 23 (D-plan-19, D-plan-24), Step 25 (D-plan-9,
+Step 14 (D-plan-28, D-plan-29), Step 15 (D-plan-29), Step 23 (D-plan-19,
+D-plan-24), Step 25 (D-plan-9,
 D-plan-27), Step 26 (D-plan-16, D-plan-27), Step 29 (D-plan-5, D-plan-12),
 Step 31 (D-plan-6, D-plan-25), Step 32 (D-plan-4), Step 33 (D-plan-25),
 Step 36 (D-plan-8),
@@ -4938,6 +4962,29 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   with the runner resolving them from `import.meta.url` means `tsc`, which
   emits no `.sql`, needs no copy step. This is AD-2's own requirement given
   a shape, not a new capability.
+- **D-plan-29 — `runIndex` takes its frontend list as an argument; Step 14
+  builds and tests the indexer skeleton with an empty list, Step 15 creates
+  both frontends and `defaultFrontends()`, and the `index` verb (Step 28)
+  and `init` (Step 31) pass that list.** *Reasoning.* AD-12 puts parsing
+  behind the `LanguageFrontend` interface with the frontends "mapped by a
+  configurable extension→grammar table", so the set of frontends is an
+  input of the indexer, not something it hard-wires; and a step consumes
+  only what exists when it is built (output-contract item 7, D-plan-1),
+  which an indexer that names a module two steps later violates. Reordering
+  the two steps satisfies the same rule but renumbers every `T-14-*`/`T-15-*`
+  id and every "Step 14/15" mention across the plan for no property the
+  argument lacks; leaving the order and moving only the assertions leaves
+  the consumption in place. With the list as an argument, Step 14's test
+  asserts exactly what Step 14 builds (files, zones, path tokens, the size
+  cap, redaction, the lock, the `LIKE`/FTS equivalence over path tokens),
+  Step 15's new `T-15-3` asserts what Step 15 adds (symbols, edges,
+  `symbol_refs`, `entry_score`, `test_map`, the equivalence over symbol
+  tokens), nothing is doubled, and the consumption is visible to the
+  build-order check because `defaultFrontends` is a provided name its two
+  callers consume with S15 declared. Score (every step consumes only what
+  exists; each step's test asserts what it builds; no renumbering; visible
+  to the check; nothing doubled): argument 1.0, reorder 0.8, assertions
+  only 0.5.
 
 ### 10A. Author's collapse-test on each load-bearing decision (`CLAUDE.md` rule 2)
 
@@ -5498,6 +5545,27 @@ collapse-hunt attacks these questions harder and hunts for the ones missing.
    `T-14-1`.
 4. **Steers toward.** One search interface, with the state visible in
    `status`. **Guide, not gate.**
+
+#### D-plan-29 (the frontend list as an argument of `runIndex`)
+
+1. **Job.** Let the indexer be built and verified before any frontend
+   exists, so the structural genres' substrate is real at the step that
+   builds it and the frontends are the configured input AD-12 makes them.
+2. **Hardest question.** *An indexer verified with no frontends verifies a
+   file walker; the property that matters — symbols and edges on real code
+   — is asserted one step later, and a Step 14 build that mishandles what
+   a frontend returns passes its own test.*
+3. **Answer.** That split is the point, not the hole: Step 14's test pins
+   what Step 14 builds and can break (the walk, zones, the size cap,
+   redaction, the lock, incremental hashing, the path-token search), and
+   `T-15-3` runs the same `runIndex` with the real frontends on the same
+   fixture the step after, so a mishandled frontend result is red at Step
+   15 with the frontends in view — the first step at which it could be
+   diagnosed at all. Cite: AD-12 (frontends behind the interface, a
+   configurable table); output-contract item 7; D-plan-1; testing-standards
+   (real collaborators, nothing doubled).
+4. **Steers toward.** Passing the frontend list explicitly at every call
+   site. **Guide, not gate.**
 
 ---
 ## 11. Verification of factual claims
@@ -6162,7 +6230,7 @@ this session; line numbers are of that revision.
 | S12 | T-12-1 |
 | S13 | T-13-1 |
 | S14 | T-14-1, T-14-2 |
-| S15 | T-15-1, T-15-2 |
+| S15 | T-15-1, T-15-2, T-15-3 |
 | S16 | T-16-1 |
 | S17 | T-17-1, T-17-2 |
 | S18 | T-18-1, T-18-2, T-18-3, T-18-4, T-18-5, T-18-6, T-18-7, T-18-8, T-38-10, T-38-11, T-38-12, T-38-13, T-38-14, T-38-28, T-38-29 |
@@ -6621,16 +6689,18 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     `over-threshold-file`; no doubles.
   - **Data.** 3 `.ts` files (one importing another), 1 `.py`, 1 `.sh`, 1
     file > 1 MB carrying a seeded fact, a zone-evidence comment containing a
-    planted secret, a `test/` file importing a source file. Technique:
-    equivalence partitioning over language/size/secret classes;
-    state-transition (run → unchanged re-run → concurrent lock).
-  - **NOT asserts.** Grammar-specific parse quality (T-15-1/2). **Fails when**
-    an expected symbol/edge/`test_map` row is missing, OR the > 1 MB file is
-    not path-only with a diagnostic, OR the secret appears verbatim in the
-    store, OR the second run writes rows, OR two concurrent reindexes both
-    proceed, OR — the whole run repeated on a store migrated with `fts:
-    false` — `symbolSearch` and `pathSearch` return a different hit set
-    than under `fts: true` for the fixture's exact-token queries.
+    planted secret, a `test/` file importing a source file — run with an
+    empty frontend list. Technique: equivalence partitioning over
+    language/size/secret classes; state-transition (run → unchanged re-run
+    → concurrent lock).
+  - **NOT asserts.** Symbol extraction (T-15-3); grammar-specific parse
+    quality (T-15-1/2). **Fails when** any file lacks its `files` row, zone,
+    or FTS path tokens, OR any `symbols` or `import_edges` row exists, OR
+    the > 1 MB file is not path-only with a diagnostic, OR the secret
+    appears verbatim in the store, OR the second run writes rows, OR two
+    concurrent reindexes both proceed, OR — the whole run repeated on a
+    store migrated with `fts: false` — `pathSearch` returns a different hit
+    set than under `fts: true` for the fixture's path-token queries.
 
 - **T-14-2 — `refreshIfStale` records `index_stale`, sets the flag, spawns nothing.**
   - **File.** `test/unit/indexer_stale.test.ts`.
@@ -6648,7 +6718,8 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     `.reindex.lock` under the temp home during the calls (Step 14's lock is
     the trace a reindex child leaves).
   - **Data.** `indexer-small` indexed; then one commit added (`HEAD` moves);
-    `refreshIfStale` twice; then `runIndex`; then `refreshIfStale` again.
+    `refreshIfStale` twice; then `runIndex` (with an empty frontend list —
+    the flag clears regardless); then `refreshIfStale` again.
     Technique: state-transition (fresh → stale → stale → fresh).
   - **NOT asserts.** Who spawns the reindex (T-28-5 observes the handler's
     child). **Fails when** the stale call records no `index_stale` fault or
@@ -6678,6 +6749,23 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     partitioning.
   - **NOT asserts.** Grammar-quality parsing. **Fails when** the symbols are
     missing OR any `import_edge` is emitted.
+
+- **T-15-3 — Indexer with the default frontends on `indexer-small`.**
+  - **File.** `test/unit/indexer_frontends.test.ts`.
+  - **Verifies.** Step 15 — `runIndex` with `defaultFrontends()` populates
+    `symbols`, `import_edges`, `symbol_refs`, `entry_score`, and `test_map`;
+    `symbolSearch` returns the same hit set under `fts: true` and `fts:
+    false` for the fixture's symbol-token queries.
+  - **Level.** Integration.
+  - **Real/doubles.** Real `node:sqlite`; real `web-tree-sitter` +
+    `tree-sitter-wasms` grammars; fixture `indexer-small`; no doubles.
+  - **Data.** The 3 `.ts` files (one importing another), 1 `.py`, 1 `.sh`,
+    and the `test/` file importing a source file. Technique: equivalence
+    partitioning over language, with the FTS flag as a second partition.
+  - **NOT asserts.** Grammar-specific parse quality (T-15-1/2); the skeleton
+    properties (T-14-1). **Fails when** an expected `symbols`,
+    `import_edges`, `symbol_refs`, `entry_score`, or `test_map` row is
+    missing, OR the two flags' hit sets differ for a symbol token.
 
 - **T-16-1 — Bar combinator: conjunction, failed axis, no cap, hazard bypass.**
   - **File.** `test/unit/bar.test.ts`.
@@ -8389,6 +8477,11 @@ bin, and its closed disposition.
   builds it through the real migrations and DAOs into the test's temp
   home, cached per run directory and rebuilt per CI job with its build
   time printed by `T-29-1`; `T-1-3` covers fixture repositories only.
+- **Q53 (Steps 14, 15).** How does the indexer reach frontends a later
+  step creates? **Disposition.** Answered — D-plan-29: `runIndex` takes its
+  frontend list as an argument; Step 14 builds and tests the skeleton with
+  an empty list; Step 15 creates both frontends and `defaultFrontends()`,
+  which the `index` verb (Step 28) and `init` (Step 31) pass.
 
 ### 14.2 Bin 2 — user decisions
 
