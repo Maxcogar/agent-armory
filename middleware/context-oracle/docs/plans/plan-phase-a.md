@@ -941,7 +941,7 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/stores/adapter.ts, middleware/context-oracle/ctxoracle/test/unit/stores_adapter.test.ts, middleware/context-oracle/ctxoracle/test/conventions/sqlite_single_importer.test.ts, middleware/context-oracle/ctxoracle/test/unit/concurrency.test.ts, middleware/context-oracle/ctxoracle/test/unit/fts5_probe.test.ts]
   modify: []
   delete: []
-provides: [Store, StoreBusy, probeFts5]
+provides: [openStore, Store, StoreBusy, probeFts5]
 tests: [T-3-1, T-3-2, T-3-3, T-3-4]
 depends_on: [S1, S2]
 ```
@@ -1596,7 +1596,7 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/stores/dao/files.ts, middleware/context-oracle/ctxoracle/src/stores/dao/symbols.ts, middleware/context-oracle/ctxoracle/src/stores/dao/import_edges.ts, middleware/context-oracle/ctxoracle/src/stores/dao/symbol_refs.ts, middleware/context-oracle/ctxoracle/src/stores/dao/test_map.ts, middleware/context-oracle/ctxoracle/src/stores/dao/commits.ts, middleware/context-oracle/ctxoracle/src/stores/dao/cochange_pairs.ts, middleware/context-oracle/ctxoracle/src/stores/dao/landmines.ts, middleware/context-oracle/ctxoracle/src/stores/dao/invariants.ts, middleware/context-oracle/ctxoracle/src/stores/dao/human_facts.ts, middleware/context-oracle/ctxoracle/src/stores/dao/corrections.ts, middleware/context-oracle/ctxoracle/src/stores/dao/questions.ts, middleware/context-oracle/ctxoracle/src/stores/dao/classify_state.ts, middleware/context-oracle/ctxoracle/src/stores/dao/consumer_state.ts, middleware/context-oracle/ctxoracle/src/stores/dao/session_log.ts, middleware/context-oracle/ctxoracle/src/stores/dao/observed_actions.ts, middleware/context-oracle/ctxoracle/src/stores/dao/whisper_audit.ts, middleware/context-oracle/ctxoracle/src/stores/dao/faults.ts, middleware/context-oracle/ctxoracle/src/stores/dao/regret.ts, middleware/context-oracle/ctxoracle/src/stores/dao/classified_turns.ts, middleware/context-oracle/ctxoracle/src/stores/dao/whisper_stats.ts, middleware/context-oracle/ctxoracle/src/stores/dao/lessons.ts, middleware/context-oracle/ctxoracle/src/stores/dao/global_meta.ts, middleware/context-oracle/ctxoracle/src/stores/dao/schema_meta.ts, middleware/context-oracle/ctxoracle/src/util/ulid.ts, middleware/context-oracle/ctxoracle/test/unit/dao_crud.test.ts, middleware/context-oracle/ctxoracle/test/build/typecheck_provenance.test.ts, middleware/context-oracle/ctxoracle/test/build/fixtures/missing_provenance.ts]
   modify: []
   delete: []
-provides: []
+provides: [schema_meta.get, schema_meta.set, global_meta.get, global_meta.set, files.upsert, files.byPath, files.byId, files.deleteMissing, files.all, symbols.replaceForFile, symbols.byName, symbols.byId, import_edges.replaceForFile, import_edges.inDegree, import_edges.importersOf, symbol_refs.replaceForFile, symbol_refs.refCount, test_map.replaceForFile, test_map.coveringTests, commits.upsert, commits.exists, commits.tsOf, commits.countIncluded, cochange_pairs.bump, cochange_pairs.partnersOf, cochange_pairs.pair, landmines.upsert, landmines.forFile, invariants.create, invariants.forFile, human_facts.create, human_facts.forTarget, corrections.create, corrections.sinceTs, corrections.forDeny, corrections.forWhisper, questions.insertOpen, questions.openFor, questions.closeAll, questions.setStatus, questions.backfill, questions.expireOpen, classify_state.get, classify_state.set, consumer_state.has, consumer_state.add, consumer_state.clear, session_log.append, session_log.forSession, session_log.lastEventTs, session_log.livenessRows, observed_actions.append, observed_actions.okEdits, observed_actions.okReads, observed_actions.runs, observed_actions.pathWrites, observed_actions.firstHash, regret.append, regret.forSession, regret.countsByState, classified_turns.record, classified_turns.sinceQuestionOpened, classified_turns.between, whisper_audit.append, whisper_audit.forSession, whisper_audit.denies, whisper_audit.lastKinds, whisper_audit.deliveredSubjects, faults.append, faults.sinceTs, faults.countByCode, whisper_stats.upsertFold, lessons.create, lessons.all]
 tests: [T-9-1, T-9-2]
 depends_on: [S1, S3, S7, S8]
 ```
@@ -1963,7 +1963,7 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/miner/cochange.ts, middleware/context-oracle/ctxoracle/test/unit/miner.test.ts]
   modify: []
   delete: []
-provides: []
+provides: [mineCochange]
 tests: [T-13-1]
 depends_on: [S1, S9, S12]
 ```
@@ -2338,7 +2338,7 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/genres/orientation.ts, middleware/context-oracle/ctxoracle/src/genres/coupling.ts, middleware/context-oracle/ctxoracle/src/genres/reuse.ts, middleware/context-oracle/ctxoracle/src/genres/consequence.ts, middleware/context-oracle/ctxoracle/src/genres/warning.ts, middleware/context-oracle/ctxoracle/src/genres/completeness.ts, middleware/context-oracle/ctxoracle/src/genres/verification.ts, middleware/context-oracle/ctxoracle/test/unit/genre_orientation.test.ts, middleware/context-oracle/ctxoracle/test/unit/genre_coupling.test.ts, middleware/context-oracle/ctxoracle/test/unit/genre_reuse.test.ts, middleware/context-oracle/ctxoracle/test/unit/genre_consequence.test.ts, middleware/context-oracle/ctxoracle/test/unit/genre_warning.test.ts, middleware/context-oracle/ctxoracle/test/unit/genre_completeness.test.ts, middleware/context-oracle/ctxoracle/test/unit/genre_verification.test.ts, middleware/context-oracle/ctxoracle/test/unit/done_claim_recognizer.test.ts]
   modify: []
   delete: []
-provides: []
+provides: [Generator, orientationGenerator, couplingGenerator, reuseGenerator, consequenceGenerator, warningGenerator, completenessGenerator, verificationGenerator, recognizeDoneClaim]
 tests: [T-18-1, T-18-2, T-18-3, T-18-4, T-18-5, T-18-6, T-18-7, T-18-8, T-38-10, T-38-11, T-38-12, T-38-13, T-38-14, T-38-28, T-38-29]
 depends_on: [S1, S9, S12, S13, S14, S15, S16, S17]
 ```
@@ -2396,8 +2396,14 @@ Per genre:
   clause) — conservative bias (no match → ordinary stop, no whisper; a
   paraphrase outside the lexicon never fires; a negated claim never fires).
 
-Every candidate carries ≥ 1 verifiable pointer; the composer (Step 19)
-re-resolves it (rumor rule, FR-D1).
+Each file exports its generator as a `Generator` value —
+`orientationGenerator`, `couplingGenerator`, `reuseGenerator`,
+`consequenceGenerator`, `warningGenerator`, `completenessGenerator`,
+`verificationGenerator` — and `verification.ts` also exports
+`recognizeDoneClaim(lastAssistantMessage, completionLexicon): boolean`;
+these are the names the handler (Step 28) and the Stop-time line (Step 27)
+call. Every candidate carries ≥ 1 verifiable pointer; the composer (Step
+19) re-resolves it (rumor rule, FR-D1).
 
 **Creates.** `src/genres/orientation.ts` — FR-A2a; `src/genres/coupling.ts` — FR-A2b; `src/genres/reuse.ts` — FR-A2c; `src/genres/consequence.ts` — FR-A2d; `src/genres/warning.ts` — FR-A2e (⚠, FR-A5a); `src/genres/completeness.ts` — FR-A2f; `src/genres/verification.ts` — FR-A2g + done-claim recognizer (D-38).
 
@@ -2442,7 +2448,7 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/hook/compose.ts, middleware/context-oracle/ctxoracle/test/unit/whisper_form.test.ts, middleware/context-oracle/ctxoracle/test/unit/compose_rumor_rule.test.ts]
   modify: []
   delete: []
-provides: []
+provides: [compose]
 tests: [T-19-1, T-19-2, T-38-19]
 depends_on: [S1, S9, S11, S18]
 ```
@@ -2504,7 +2510,7 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/hook/delivery.ts, middleware/context-oracle/ctxoracle/test/unit/delivery_dedup.test.ts, middleware/context-oracle/ctxoracle/test/unit/delivery_stop_channel.test.ts]
   modify: []
   delete: []
-provides: [StopDelivery, deliverStop]
+provides: [perConsumerDedup, reconcileDedupOnSessionStart, updateReadSet, recordDelivered, StopDelivery, deliverStop]
 tests: [T-20-1, T-20-2, T-38-17, T-38-20, T-38-21, T-38-23]
 depends_on: [S1, S9]
 ```
@@ -2657,7 +2663,7 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/qa/state.ts, middleware/context-oracle/ctxoracle/test/unit/qa_state.test.ts]
   modify: []
   delete: []
-provides: [openQuestion, answerQuestions, voidQuestion, getOpenQuestions]
+provides: [openQuestion, answerQuestions, voidQuestion, getOpenQuestions, expireOnStartup, advanceBookmark, getBookmark]
 tests: [T-22-1]
 depends_on: [S1, S7, S9]
 ```
@@ -3027,7 +3033,7 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/blocks/health.ts, middleware/context-oracle/ctxoracle/test/unit/deny_health.test.ts]
   modify: []
   delete: []
-provides: []
+provides: [checkDenyAfterAnswerLag, checkDenyLoop, checkDenyDespiteAnswerText, checkDenyBypassSuspect]
 tests: [T-26-1, T-38-6]
 depends_on: [S1, S9, S23, S25]
 ```
@@ -3109,7 +3115,7 @@ files:
   create: [middleware/context-oracle/ctxoracle/test/unit/question_lifetime.test.ts, middleware/context-oracle/ctxoracle/test/unit/stop_outstanding_line.test.ts]
   modify: [middleware/context-oracle/ctxoracle/src/blocks/answer_drift.ts]
   delete: []
-provides: []
+provides: [handleSessionStart, outstandingQuestionLine]
 tests: [T-27-1, T-27-2, T-38-7, T-38-8, T-38-9]
 depends_on: [S1, S18, S22, S25]
 ```
@@ -3125,7 +3131,7 @@ non-empty transcript, recognizes zero human turns, and emitted
 (L11(a)'s loud failure). qa-state is untouched at `SessionEnd`.
 
 Add `outstandingQuestionLine(store, consumer, doneClaimFired): string |
-null` (`AC-8a`): at a `Stop` where the done-claim recognizer (Step 18)
+null` (`AC-8a`): at a `Stop` where `recognizeDoneClaim` (Step 18)
 fired AND `getOpenQuestions` is non-empty, return the line naming the open
 questions for the composer to append to the Stop-time whisper — delivery,
 not a block. Add the `FR-M4` counter: a done-claim reached with a question
@@ -3235,11 +3241,13 @@ Create `src/hook/handler.ts` — the per-event pipeline in AD-8's fixed order:
 2. Watchdog start (Step 10's `createDeadline`; the check placements per
    AD-23's inventory are verified by Step 29).
 3. Parse stdin JSON → `adapter.toInternalEvent`; derive consumer key
-   `(session_id, agent_id | 'main')`; open the project store.
+   `(session_id, agent_id | 'main')`; open the project store (`openStore`,
+   Step 3).
 4. `SessionStart`: a **liveness row** (`session_log` `event_type =
    'liveness'`, `detail_json` = `{transcriptPath, transcriptBytes}`) —
    AD-17's `hooks_not_firing` input, read by `status` (Step 33); dedup
-   reconciliation (Step 20); qa lifetime (Step 27); staleness check →
+   reconciliation (`reconcileDedupOnSessionStart`, Step 20); qa lifetime
+   (`handleSessionStart`, Step 27); staleness check →
    `index_stale` (Step 14's `refreshIfStale`) and, when it reports stale, a
    detached reindex child — `<node> <dispatch.js> index`, this step's
    `index` verb (`src/cli/index.ts`: `index [--full]` → `runIndex` (Step 14)
@@ -3249,23 +3257,26 @@ Create `src/hook/handler.ts` — the per-event pipeline in AD-8's fixed order:
    child (`hook integrity-check`, this step's other internal verb, via the
    wrapper); no output.
 5. Question intake (`UserPromptSubmit` only; Step 25).
-6. Transcript catch-up (Step 25) + health detectors on classified turns
-   (Step 26).
+6. Transcript catch-up (Step 25) + the health detectors on classified
+   turns — `checkDenyAfterAnswerLag`, `checkDenyLoop`,
+   `checkDenyDespiteAnswerText` (Step 26).
 7. Block check (`PreToolUse`, main consumer only; Step 25): on a verdict →
    `adapter.toHookResponse({deny: verdict})`, diagnostics, exit 0.
 8. `PostToolUse` / `PostToolUseFailure`: `observed_actions` append (`ok` /
    `failed` per V19; `command_class` for Bash rows, Step 17; the path-write
-   predicate sets `path`), read-set update (Step 20), bypass diagnostic
-   (Step 26).
-9. Candidate generation (the Step 18 generators whose `triggerEvents`
-   include this event) → bar (Step 16) → dedup (Step 20) → compose (Step
-   19) → audit-log-then-emit: `whisper_audit.append` must succeed before
-   the response is written; on audit failure nothing is emitted; when the
-   append succeeded and the write of the response to stdout throws
-   (`EPIPE`, serialization error), the handler records
-   `produced_but_undelivered` (AD-17) with the audit id and exits 0.
-   At `Stop`/`SubagentStop`: done-claim recognizer (Step 18), Completeness +
-   Verification candidates, the outstanding-question line (Step 27),
+   predicate sets `path`), read-set update (`updateReadSet`, Step 20),
+   bypass diagnostic (`checkDenyBypassSuspect`, Step 26).
+9. Candidate generation (the Step 18 `Generator`s — `orientationGenerator`
+   … `verificationGenerator` — whose `triggerEvents` include this event) →
+   bar (`passesBar`, Step 16) → dedup (`perConsumerDedup`, Step 20) →
+   compose (`compose`, Step 19) → audit-log-then-emit: `whisper_audit.append`
+   must succeed before the response is written; on audit failure nothing is
+   emitted; when the append succeeded and the write of the response to
+   stdout throws (`EPIPE`, serialization error), the handler records
+   `produced_but_undelivered` (AD-17) with the audit id and exits 0; after
+   a successful emit, `recordDelivered` (Step 20).
+   At `Stop`/`SubagentStop`: `recognizeDoneClaim` (Step 18), Completeness +
+   Verification candidates, `outstandingQuestionLine` (Step 27),
    delivered through `deliverStop` honoring `stop_hook_active` (Step 20).
 10. `SessionEnd`: finalize the session diagnostics row. (The `whisper_stats`
     fold and the regret proxy are added to this branch by the step that
@@ -3510,8 +3521,9 @@ depends_on: [S1, S2, S3, S4, S5, S7, S8, S12, S14, S15, S28]
 
 **What changes.** Register the `init` verb in Step 28's `dispatch.ts`
 switch. Create `src/cli/init.ts`:
-1. `assertRuntime()` (Step 2); open the stores (Step 3) and `probeFts5`;
-   on a failed runtime check print a plain-language error and exit 1. The
+1. `assertRuntime()` (Step 2); open the stores (`openStore`, Step 3) and
+   `probeFts5`; on a failed runtime check print a plain-language error and
+   exit 1. The
    probe's result is not written here — `schema_meta` does not exist
    before migration 001 — it is passed to `applyMigrations` (item 3), which
    records it as `schema_meta.fts_state` once 001 has created the table
