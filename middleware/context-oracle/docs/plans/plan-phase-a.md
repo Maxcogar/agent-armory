@@ -227,7 +227,11 @@ except where noted in §11.
   inherited from architecture's ASVS mapping table. Governs the security-
   adjacent steps (11, 22, 30, 34).
 - **SQLite WAL semantics** — engine-documented behaviour, exercised by
-  architecture V8. Governs Step 32 (concurrency).
+  architecture V8. Governs Step 37 (concurrency) — corrected this fix
+  pass, round 5: previously cited Step 32 (`deinit`/`index`/`hook`/
+  `export`/`import` verbs, no WAL content); Step 37's own `### Step 37 —
+  Concurrency: WAL retry-once + directory locks` heading is the actual
+  subject.
 - **Zimmermann et al., IEEE TSE 31(6) 2005 (ROSE)** — via spec §9. Governs
   the confidence computation grounding of Step 24 (bar) and Step 20 (miner),
   with the operating point architect-tunable (Phase A calibration input is
@@ -523,9 +527,13 @@ and Step 43 leaves that as-is unless one is added later.
 
 - `<owner-repo>/.claude/settings.json` — hook entries added by `ctxoracle
   init`; removed by `ctxoracle deinit`. Not part of *this* plan's file set —
-  it is the runtime effect of Step 30 (the `init` verb) inside the owner's
-  own repository at install time. Recorded here so the reader sees the one
-  in-tree write in the file map.
+  it is the runtime effect of Step 31 (the `init` verb) inside the owner's
+  own repository at install time — corrected this fix pass, round 5:
+  previously cited Step 30 (Delivery: per-consumer dedup, session-boundary
+  reconciliation, Stop-time channel — no settings.json logic), the inverse
+  of the Step 30/31 mix-up §2.3's Delivery row was corrected for at round
+  3. Recorded here so the reader sees the one in-tree write in the file
+  map.
 
 ### 5.4 Dependents that may need verification after changes
 
