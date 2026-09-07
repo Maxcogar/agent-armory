@@ -355,6 +355,9 @@ middleware/context-oracle/ctxoracle/
       log.ts                               # Step 33 — log renderer (FR-M5)
     human/
       regret.ts                            # Step 36 — regret proxy (FR-L4)
+    proc/
+      oracle_spawn.ts                       # Step 2.5 — the ONE legal child_process.spawn call site (AD-21)
+                                            # added this fix pass — round-2 expert-review Systemic finding
     model/
       invoke.ts                            # Step 38 — Phase B seam stub (never called in Phase A)
     types/
@@ -404,6 +407,7 @@ middleware/context-oracle/ctxoracle/
       concurrency.test.ts                  # T37-1
       whisper_stats_fold.test.ts           # T37-2
       model_invoke_stub.test.ts            # T38-1
+      oracle_spawn.test.ts                 # T2.5-1
     build/                                 # compile-time typecheck fixtures
       typecheck_provenance.test.ts         # T9-1 (compile-time)
       typecheck_verdict_shape.test.ts      # T15-1 (two fixtures: updatedInput, updatedToolOutput — M3)
@@ -419,6 +423,7 @@ middleware/context-oracle/ctxoracle/
                                             #   dev and as the CI convention gate)
       permission_decision_confined.test.ts # T41-1c
       oracle_spawn_confined.test.ts        # T41-1d (N5 — see Step 2.5)
+      deny_bypass_predicates_confined.test.ts # T18-3 (C1's write-time cap, mechanized)
     replay/                                # AD-24 tier 2: real handler + real store + captured hook streams
       runner.ts                            # replay harness (spawns real handler)
       hook_stream_fixtures/                # captured hook JSON streams (per T-ID)
@@ -428,6 +433,7 @@ middleware/context-oracle/ctxoracle/
       answer_drift_lag_hold.test.ts                # T17-1
       deny_after_answer_lag.test.ts                # T17-2
       deny_health.test.ts                          # T18-1
+      injected_turn_deny.test.ts                   # T18-2
       session_start_startup.test.ts                # T19-1
       session_start_resume.test.ts                 # T19-2
       stop_outstanding_question_line.test.ts       # T19-3
@@ -440,6 +446,8 @@ middleware/context-oracle/ctxoracle/
       bar_hazard_bypass.test.ts                    # T25-6a
       dedup_read_set.test.ts                       # T25-6b
       corpus_floor.test.ts                         # T25-7
+      verification_headline.test.ts                # T25-8 (S2)
+      warning_headline.test.ts                     # T25-9 (S2)
       rumor_rule.test.ts                           # T27-2
       pipeline_order.test.ts                       # T28-1
       fail_open.test.ts                            # T28-3
@@ -451,6 +459,7 @@ middleware/context-oracle/ctxoracle/
       init_idempotent.test.ts                      # T31-2
       init_keying_change.test.ts                   # T31-3
       deinit_marker.test.ts                        # T32-1
+      deinit_purge.test.ts                         # T32-1a
       export_roundtrip.test.ts                     # T32-2 (AC-19)
       status_renders_all.test.ts                   # T33-1
       log_readback.test.ts                         # T33-2
@@ -494,7 +503,9 @@ middleware/context-oracle/ctxoracle/
     build_time/                            # AD-24 build-time verifications (§15 Q-gap-4 disposition)
       grammar_inventory_check.ts           # L6 — automated at build (Step 40)
       l11_a_measurement.md                 # L11(a) — RESOLVED (§15 Q-gap-4); post-completion doc PR
-      l11_b_disposition.md                 # L11(b) — design-safe both ways (§15 Q-gap-4); no probe
+      l11_b_disposition.md                 # L11(b) — safe against a persistent wrongful deny,
+                                            #   measurably not against a transient one (§15 Q-gap-4,
+                                            #   deny_from_injected_turn counter); no probe
 ```
 
 There is deliberately no `README.md` in the source tree — none exists
@@ -1686,7 +1697,17 @@ induced and asserted to record its fault; corresponds to AC-9's
 "deny outlives its condition" clause); `T18-2`
 (`checkDenyFromInjectedTurn` induced: a `chat:`-provenance row denied
 before the next catch-up voids it, asserted to record
-`deny_from_injected_turn`).
+`deny_from_injected_turn`); `T18-3` (**added this fix pass — the
+concrete enforcement C1's write-time predicate cap named but did not
+mechanize, round-2 collapse-hunt finding**: greps built
+`dist/blocks/health.js` for the `checkDenyBypassSuspect` predicate
+array literal and asserts it contains exactly the 8 patterns N2
+enumerates — `>`, `>>`, `tee`, `sed -i`, `perl -i`, `cp`, `mv`,
+`install` — no more, no fewer. A 9th pattern added to elaborate the
+detector without a corresponding N2/collapse-test update fails this
+test, which is the same "structural confinement over implementer
+discipline" pattern AD-10 (Step 15/T15-2) and N5 (Step 2.5/T41-1d)
+already use, applied to recognizer-growth instead of caller-count).
 
 **Impact if wrong.** Diagnostic-only — a broken detector silently
 degrades observability, caught by `T18-1`'s induction.
@@ -1920,22 +1941,41 @@ falls back to generic (visible in `status` per-language counts).
 - `addToList(store, key, value, source)` / `removeFromList(store,
   key, value)`.
 
-Seed the following defaults. **Corrected framing (collapse-hunt
-N3/N4):** the prior text said these were "verified against AD-14 and
-AD-9" — false. AD-14 states the bar's *structure* (conjunction, no
-caps, hazard bypass) and states explicitly that the *operating point*
-is architect/owner-tunable via `tune`, not a value AD-14 itself
-specifies. These numbers are **plan-seeded starting values with no
-external or owner source**, not standard- or architecture-sourced
-constants — exactly the "numbers without sources don't go in" rule
-this plan's own §3 states, applied honestly to the plan's own defaults
-instead of exempting them:
-- `bar.confidence_floor` = "0.6"
-- `bar.support_min` = "3"
-- `bar.noise_floor_support_min` = "2"
-- `bar.impact_read_min_coupled` = "2"
-- `bar.reuse_dominance_k` = "3"
-- `bar.clear_length_floor` = "40" (characters, post-trim) — the
+Seed the following defaults. **Corrected framing, twice now
+(collapse-hunt N3/N4 first, then round-2 collapse-hunt correcting the
+first correction's overclaim in the opposite direction):** the
+original text said these were "verified against AD-14 and AD-9" —
+false, since AD-14 marks its numbers "illustrative" and tunable, not
+verified. The N3/N4 fix then swung too far and called all six "plan-
+seeded starting values with no external or owner source" — also
+false: four of the six are architecture-sourced, not plan-invented.
+Read precisely against `docs/architecture-phase-a.md` AD-14 (lines
+1104–1110, "Ship-high defaults, all tunable rows in `tuning` …, all
+marked illustrative"): AD-14 itself states `c` floor `0.6` with
+`support ≥ 3`, noise floor `support ≥ 2`, and a read-context impact
+floor requiring blast-radius band ≥ 2 coupled files. That is a
+citable architecture source for four of the six — "illustrative and
+tunable" is a real property of those numbers, but it is not "no
+source." Only `reuse_dominance_k` and `clear_length_floor` (Step 14's
+length floor, added this fix pass for N4) have no architecture
+citation at all — those two, and only those two, are genuinely
+plan-seeded with no external or owner source, exactly the "numbers
+without sources don't go in" rule this plan's own §3 states, applied
+honestly instead of either overclaiming sourcing or overclaiming its
+absence:
+- `bar.confidence_floor` = "0.6" — **sourced:** AD-14 "non-hazard `c`
+  floor 0.6 with support ≥ 3," marked illustrative/tunable there.
+- `bar.support_min` = "3" — **sourced:** same AD-14 line as above.
+- `bar.noise_floor_support_min` = "2" — **sourced:** AD-14 "noise
+  floor `support ≥ 2`."
+- `bar.impact_read_min_coupled` = "2" — **sourced:** AD-14
+  "read-context require blast-radius band ≥ 2 coupled files."
+- `bar.reuse_dominance_k` = "3" — **not sourced.** No AD-14 (or any
+  other architecture) citation names this value; it is a plan-level
+  judgment with no external or owner grounding, calibrated by the
+  exit-run like the truly-unsourced value below.
+- `bar.clear_length_floor` = "40" (characters, post-trim) — **not
+  sourced.** The
   clearing recognizer's (Step 14) length floor, previously
   unspecified entirely (N4): too high and a short-but-substantive
   answer ("no — the null check doesn't fix it", 39 chars) wrongfully
@@ -1954,18 +1994,22 @@ instead of exempting them:
   "implemented", "fixed", "finished"...
 - `deny.despite_answer_text_threshold` = "3"
 
-**Source.** `AD-14` (bar *structure*, and that the operating point is
-tunable — not the values themselves); `AD-9` (stoplists as a
-category, not their exact contents); `AD-15` (command_class lexicons
-as a category); AD-20 (`tune` writer). The numeric values above are
-plan judgment, not architecture-verified constants — recorded
-honestly in §10 Decisions rather than dressed as sourced. **Every
-one of these numbers is a Phase A calibration input, not a finding:
-Step 42's exit-run is what actually calibrates them, and the
+**Source.** `AD-14` for `confidence_floor`, `support_min`,
+`noise_floor_support_min`, and `impact_read_min_coupled` (illustrative
+architect defaults, explicitly named there, explicitly marked
+tunable — a real source, with a real caveat, neither hidden); no
+architecture source for `reuse_dominance_k` or `clear_length_floor`
+(plan-level judgment); `AD-9` (stoplists as a category, not their
+exact contents); `AD-15` (command_class lexicons as a category);
+AD-20 (`tune` writer). **Every one of these six numbers is still a
+Phase A calibration input, not a finding — "illustrative" in AD-14's
+own words means AD-14 never claimed these were final either:** Step
+42's exit-run is what actually calibrates all six, and the
 exit-report's per-genre counts are conditional on these starting
 values until that first real-repo tune runs (collapse-log
 2026-08-13's "a per-trigger number that had no value and no source"
-lesson, applied honestly here instead of repeated).**
+lesson — here, honestly, two of six have no source and four have a
+source that itself says "calibrate me").
 
 **Why this approach (trivial: seeding a plan-judgment starting point,
 disclosed as such, so `init` has values to seed at all — the
@@ -2380,8 +2424,11 @@ active` bounded by the harness at 8 continuations regardless).
 
 ### Step 31 — CLI dispatch + `init` verb
 
-**What changes.** Create `src/cli.ts` — verb dispatcher (yargs-free
-manual switch to keep the dependency count at 2). Verbs:
+**What changes.** Create `src/cli/dispatch.ts` (corrected this fix
+pass — round-2 expert-review Systemic finding: this body still said
+`src/cli.ts` after §5.1's own file skeleton had already renamed the
+file) — verb dispatcher (yargs-free manual switch to keep the
+dependency count at 2). Verbs:
 `init`, `deinit`, `index`, `status`, `log`, `correct`, `note`,
 `tune`, `export`, `import`, `hook <event>` (internal, undocumented
 in `--help`).
@@ -2971,16 +3018,25 @@ correct; a broken fixture undercuts every AC that depends on it.
   to also grep imports of `blocks/verdict.ts` — only
   `blocks/answer_drift.ts` (and, in Phase C, the skill block)
   may import.
+- `oracle_spawn_confined.test.ts`: greps built `dist/**/*.js` for
+  `child_process.spawn`/`execFile`/`fork` call sites, asserts the
+  only match is `dist/proc/oracle_spawn.js` — Step 2.5's `oracleSpawn`
+  confinement, the fourth convention test. **Added this fix pass**
+  (round-2 collapse-hunt finding: Step 2.5 and Step 21/T21-2 both
+  cited a `T41-1d` that this step never actually specified — a fix
+  landing at the decision site, N5, without landing at the mechanical
+  enforcement site, Step 41, that N5's own text pointed to).
 
 **Source.** `AD-10` (structural confinement generalises); `AD-6`
-(adapter isolation).
+(adapter isolation); `AD-21` (recursion-guard confinement, N5).
 
-**Why this approach (trivial: mechanical from AD-6/AD-10).**
+**Why this approach (trivial: mechanical from AD-6/AD-10/AD-21).**
 
-**Dependencies.** Steps 15, 28.
+**Dependencies.** Steps 15, 28, 2.5.
 
-**Verification.** `T41-1` (all three convention tests fail on a
-seeded violation and pass on the current codebase).
+**Verification.** `T41-1` (all four convention tests — including the
+new `T41-1d` — fail on a seeded violation and pass on the current
+codebase).
 
 **Impact if wrong.** Convention drift over time — the checks
 are what keep AD-6's / AD-10's structural properties true through
@@ -3269,14 +3325,24 @@ delegated to the plan.
     `~/.claude/launcher-settings.json`, which the auto-mode
     classifier blocks (not a Max Cogar chore, an environment
     blocker). But the answer changes only which code path is
-    exercised — not whether the design works. If UPS fires for a
+    exercised — not whether the design works, up to a bound
+    **corrected this fix pass (round-2 collapse-hunt found this
+    exact "either way no wrongful deny" sentence still standing here
+    verbatim after the P2 fix landed at Step 18/§15 Q-gap-4 — a fix
+    that lands at its primary site and not at every secondary
+    restatement of the same claim):** if UPS fires for a
     platform-injected turn, intake opens a question row from the
-    `prompt` field and AD-9's voiding guard closes it on the next
-    catch-up when the marker is `task-notification`. If UPS does not
-    fire, intake never sees the injected turn. Either way no
-    wrongful deny is emitted. L11(b) resolves by natural observation
-    on the first real install of the tool; a probe is unnecessary.
-    Recorded in §15 Q-gap-4.
+    `prompt` field, and AD-9's voiding guard closes it once the next
+    catch-up confirms the marker is not `human` — but under V1's
+    documented async transcript lag, a `PreToolUse` deny can fire in
+    the window before that catch-up runs, which is a **transient**
+    wrongful deny, not none. It self-recovers on the following
+    catch-up and is measured by the new `deny_from_injected_turn`
+    counter (Step 18); it is not absent. If UPS does not fire, intake
+    never sees the injected turn and this class does not arise. L11(b)
+    resolves — which code path fires at all — by natural observation
+    on the first real install of the tool; a probe is unnecessary for
+    that part. Recorded in §15 Q-gap-4.
   This retraction removes the owner-run-probe step from the build
   altogether — Step 40's L11 sub-tasks become "record the L11(a)
   measurement in the architecture's L11 disclosure via a
@@ -3291,15 +3357,28 @@ delegated to the plan.
   run. This is a common Test Pyramid discipline: fast unit tests
   every commit, integration tier on demand.
 
-- **D-plan-8 — `.claude/settings.json` writer uses a marker
-  comment/field to enable idempotent init and precise deinit.**
-  *Reasoning.* AD-20 requires deinit to "remove exactly what init
-  wrote, by marker." The Claude Code settings JSON schema allows an
-  arbitrary marker field; the writer adds `"comment": "installed by
-  ctxoracle"` (or a similar recognized field) to each hook entry
-  block, and deinit removes blocks whose marker matches. Alternative
-  — matching by exact-command-string — breaks when the command
-  string is legitimately updated (e.g. an install path change).
+- **D-plan-8 — `.claude/settings.json` writer identifies its own
+  entries by the `command` field's own content, not an invented
+  marker field.** *Reasoning, corrected (P3, this fix pass — the
+  original text below is what P3 replaced; JSON has no comment
+  syntax and an invented marker field is exactly the schema-drift
+  risk a stricter future harness validator could reject, which the
+  author's own compliance review flagged as an unresolved hole).*
+  AD-20 requires deinit to "remove exactly what init wrote, by
+  marker." Every hook entry's `command` field is already required by
+  the schema and already reads `ctxoracle hook <event>`; the writer
+  and deinit both identify ctxoracle-owned entries by `command`
+  starting with the literal `ctxoracle ` prefix — no additional field
+  is written for a stricter validator to reject, because the
+  discipline lives entirely inside a field the harness already
+  requires. *What this replaced (kept for the record — do not
+  re-introduce):* an arbitrary marker field or JSON comment
+  (`"comment": "installed by ctxoracle"`), which a strict-schema
+  harness validating unknown fields could reject, and which the
+  author's own review logged as "attacked, plausibly holds under
+  current harness" — i.e., a hole the original text left open on
+  purpose pending independent review. It is closed now, at the
+  source (Step 31), not patched around.
 
 ### 10A. Author's collapse-test on each load-bearing decision (`CLAUDE.md` rule 2)
 
@@ -3351,15 +3430,32 @@ confirmation it is a guide, never a gate.
    entry — never by silently widening the recognizer to pass. This
    makes restraint a gate on *what may be added*, not a post-hoc
    report flag at Checkpoint 5 after 27 steps of accumulated context.
-   Cite: spec §11.5 ("a skeleton, not 'the block working'"); this
-   plan's own §13 R1; collapse-log 2026-09-04.
+   **Mechanized, not just stated (added in this fix pass's second
+   round — round-2 collapse-hunt found this cap had no CI/grep check,
+   unlike every other "make it structural" decision in this plan):**
+   `T18-3` (Step 18) greps built `dist/blocks/health.js` for
+   `checkDenyBypassSuspect`'s predicate array and asserts it is
+   exactly N2's 8-pattern list — a 9th pattern added without updating
+   this test and N2's disclosure fails CI, converting "requires a new
+   collapse-test before being added" from a written instruction into
+   a check the implementer cannot silently skip. `T14-3` (Step 14)
+   already does the equivalent for the move recognizer's deny-eligible
+   set. Step 23's threshold *values* (not a growable list) are not
+   equivalently mechanizable — a wrong number doesn't fail a count
+   assertion — so that class stays a written-discipline item, honestly
+   left as such rather than dressed as automated. Cite: spec §11.5 ("a
+   skeleton, not 'the block working'"); this plan's own §13 R1;
+   collapse-log 2026-09-04.
 4. **Steers toward.** An implementer building the substrate correctly
    before consumers depend on it, exercising the deny path against
    its own AC-2* fixtures early, and treating any fixture failure that
    seems to need a new predicate as a stop-and-collapse-test moment
-   rather than a quick patch. **Guide, not gate on ordering** — but a
-   real gate on *un-collapse-tested recognizer growth*, which is the
-   actual mechanism the harder question demanded.
+   rather than a quick patch — and, for the predicate-list class
+   specifically, one `T18-3` cannot pass without the implementer
+   consciously touching both the code and this plan. **Guide, not gate
+   on ordering** — but a real, partially-mechanized gate on
+   *un-collapse-tested recognizer growth*, which is the actual
+   mechanism the harder question demanded.
 
 #### D-plan-2 (dependency floor)
 
@@ -3464,30 +3560,28 @@ confirmation it is a guide, never a gate.
    the fixture is source-of-truth for the scenario; the test's
    assertion is a separate artifact.
 
-#### D-plan-6 (L11 verifications as owner-run markdown probes)
+#### D-plan-6 (RETRACTED — L11 resolved without owner-run probes; see §10's D-plan-6 and §15 Q-gap-4)
 
-1. **Job.** Preserve the credential-free property (`OL-7`) — no
-   automated verification of Max Cogar's real interactive environment
-   can run inside the tool's process without either shipping a
-   credential or dropping the OL-7 property.
-2. **Hardest question.** An owner-run markdown probe puts execution
-   burden on Max Cogar (`OL-11`: non-programmer by design) — the exact
-   "the owner cannot catch mistakes" failure (`CLAUDE.md` dominating
-   rule 1), asking him to execute a probe and interpret its result.
-3. **Answer.** Each probe is a copy-and-paste one-liner + a
-   binary-outcome file read (marker present / absent). The
-   alternative — automating it — requires either a credential or a
-   live session tap, both refused by `OL-7`. And the *design does not
-   rest on the probe outcome*: architecture L11 discloses that
-   mid-session enforcement never depends on markers (intake reads
-   the `prompt` field directly), so a failed probe result narrows a
-   disclosed residual, it doesn't invalidate the block. Cite:
-   OWNER-LEDGER `OL-7`, `OL-11`; architecture L11; plan §15 Q-gap-4
-   attempt evidence.
-4. **Steers toward.** Max running two short probes and pasting a
-   two-line result into a follow-up PR that updates L11's
-   disclosure. **Guide, not gate** — the build proceeds regardless
-   of probe outcome; the disclosure narrows.
+**This collapse-test entry is retracted, not answered — corrected this
+fix pass (round-2 expert-review Systemic finding: this entry still
+defended the owner-run-markdown-probe design that §10's D-plan-6
+explicitly retracted in the same fix pass, a fix landing at its
+primary site without sweeping every place the retracted claim was
+independently defended).** The original 1–4 below described a design
+this plan no longer has: L11(a) was resolved by direct transcript
+measurement (no probe run), and L11(b) has no probe path and is
+handled instead by design-safety analysis plus the
+`deny_from_injected_turn` runtime counter (Step 18) — neither
+requires Max Cogar to run anything. There is no owner-run-probe
+collapse-test to defend because there is no owner-run-probe step
+left in §7 to defend it. See §10's D-plan-6 for the current
+disposition and §15 Q-gap-4 for the full resolution record.
+
+*What this entry said before retraction (kept for the record only —
+do not act on it):* it argued a copy-paste markdown probe was the
+credential-free way to verify L11, and that Max Cogar pasting a
+two-line result was an acceptable "guide, not gate" workload. That
+argument is moot now that no probe exists to run.
 
 #### D-plan-7 (CI unit-tier on every PR; fixture-tier on demand)
 
@@ -3513,27 +3607,40 @@ confirmation it is a guide, never a gate.
    **Guide, not gate** — CI does not police mergeability; the
    reviewer does.
 
-#### D-plan-8 (`.claude/settings.json` marker discipline)
+#### D-plan-8 (`.claude/settings.json` marker discipline — corrected this fix pass)
+
+**Corrected (round-2 expert-review Systemic finding): this entry
+still described the pre-P3 "arbitrary comment/marker field" design
+after Step 31's own text replaced it — the same sweep gap as
+D-plan-6 above.** The collapse-test below is rewritten against the
+actual current design.
 
 1. **Job.** Guarantee that `deinit` removes exactly what `init`
    added, so the `AC-7` pristine-tree assertion holds under every
-   install/upgrade ordering.
-2. **Hardest question.** An arbitrary marker field is not part of the
-   Claude Code settings schema; a future harness that validates
-   settings strictly could reject the marker and break `init`
-   permanently for Max Cogar's repos.
-3. **Answer.** The Claude Code settings schema historically accepts
-   arbitrary fields alongside recognized keys (the harness reads the
-   fields it knows, ignores the rest); a future strict-validating
-   harness would be a hooks-contract drift, and the plan's response
-   to that class of drift is the AD-6 single-adapter discipline —
-   the marker field name is a plan detail an implementer migrates
-   in one file. Cite: architecture AD-6 adapter-file discipline;
-   architecture AD-20 init's marker requirement.
+   install/upgrade ordering, without adding a field a future
+   strict-schema harness could reject.
+2. **Hardest question.** An arbitrary marker field or JSON comment is
+   not part of the Claude Code settings schema; a future harness that
+   validates settings strictly could reject it and break `init`
+   permanently for Max Cogar's repos — this was exactly the hole the
+   author's own compliance review flagged and left open pending
+   independent review (P3, collapse-hunt round 1).
+3. **Answer.** The marker is not a separate field at all: `init`
+   identifies its own entries by the `command` field's own content
+   (`ctxoracle hook <event>`, already required by the schema every
+   hook entry must have), and `deinit` matches on the same
+   `ctxoracle ` prefix. No field is added beyond what the schema
+   already mandates, so there is no new surface for a stricter
+   validator to reject — the hole is closed by removing what it would
+   have rejected, not by hoping the harness stays lax. Cite: plan
+   Step 31 "Q-plan-marker (resolved)"; architecture AD-20 init's
+   marker requirement (satisfied by the `command` field itself).
 4. **Steers toward.** Implementer implementing `deinit` by
-   marker-match, not by exact-command-string match (which breaks on
-   legitimate command updates). **Guide, not gate** — the marker
-   field is data; deinit reads it.
+   `command`-prefix match, not by an invented field or an
+   exact-full-command match (which would break on a legitimate
+   command-path update, e.g. an install path change — the prefix
+   match survives that). **Guide, not gate** — the prefix is data;
+   deinit reads it.
 
 #### Plan-level: Checkpoint placement (§9's five checkpoints)
 
@@ -3986,6 +4093,30 @@ test run under `node --test`. Fixtures are real files/DBs in tempdirs
   (verified against V7), OR probe returns true without the virtual
   table actually creating (double-check by re-creating after probe).
 
+**T2.5-1 — `oracleSpawn` sets the recursion guard on every child.**
+*(Added this fix pass — round-2 expert-review Serious finding: this
+T-ID was cited at Step 2.5 with no §12 specification.)*
+- **File.** `test/unit/oracle_spawn.test.ts`.
+- **Verifies.** Step 2.5 — every `oracleSpawn` invocation sets
+  `CTXORACLE_INTERNAL=1` on the child process's environment, merged
+  with `process.env` and any caller-supplied `opts.env`.
+- **Level.** Unit (real process spawn — a mocked `child_process`
+  would verify the mock's wiring, not the guard, per testing-standards
+  Fake-Test #1).
+- **Real/doubles.** Real `child_process.spawn` via `oracleSpawn`,
+  spawning a real short-lived child (e.g. `node -e
+  "process.stdout.write(process.env.CTXORACLE_INTERNAL||'')"`). No
+  doubles.
+- **Data.** Three calls: (a) no `opts`, (b) `opts.env` with an
+  unrelated key, (c) `opts.env` attempting to override
+  `CTXORACLE_INTERNAL` itself. Technique: boundary value (the guard
+  must win in case (c), not the caller's override).
+- **NOT asserts.** That every future spawn site calls `oracleSpawn`
+  (that is `T41-1d`'s structural job, at the build-output level, not
+  this unit test's).
+  **Fails when** the child's observed `CTXORACLE_INTERNAL` is unset,
+  empty, or overridable by caller-supplied `opts.env`.
+
 **T3-1 — Adapter WAL/STRICT round-trip.**
 - **File.** `test/unit/stores_adapter.test.ts`.
 - **Verifies.** Step 3 — `openStore` yields a WAL, STRICT-capable
@@ -4395,6 +4526,30 @@ test run under `node --test`. Fixtures are real files/DBs in tempdirs
   >1MB file is fully indexed instead of path-only, or the
   planted secret appears verbatim in the store.
 
+**T21-2 — `refreshIfStale` spawns only via `oracleSpawn`.** *(Added
+this fix pass — round-2 expert-review Serious finding: this T-ID was
+cited at Step 21 and Step 2.5 with no §12 specification.)*
+- **File.** `test/unit/indexer.test.ts` (same file as T21-1, second
+  `describe` block).
+- **Verifies.** Step 21 — `refreshIfStale`'s detached re-index child
+  is spawned through `oracleSpawn` (Step 2.5), never a direct
+  `child_process.spawn`/`execFile` call.
+- **Level.** Unit (structural/compile-time).
+- **Real/doubles.** A spy on the `oracle_spawn` module's exported
+  `oracleSpawn` function (the one legitimate spy target in this
+  suite — verifying a call site routes through the confinement
+  point, not verifying business behavior, per the testing-standards
+  real/double discipline); real `child_process` otherwise untouched.
+- **Data.** A stale-index fixture (repo HEAD ahead of
+  `schema_meta.index_head`) that triggers `refreshIfStale`'s
+  self-spawn path. Technique: state-transition.
+- **NOT asserts.** That `CTXORACLE_INTERNAL` is actually set on the
+  child's env — that is `T2.5-1`'s job, at the wrapper itself. This
+  test asserts only that Step 21 calls the wrapper and not
+  `child_process.spawn` directly. **Fails when** `refreshIfStale`
+  calls `child_process.spawn`/`execFile` without going through
+  `oracleSpawn`.
+
 **T22-1 — Tree-sitter frontend on a TypeScript fixture.**
 - **File.** `test/unit/tree_sitter_frontend.test.ts`.
 - **Verifies.** Step 22 — the WASM grammar frontend parses
@@ -4525,23 +4680,28 @@ test run under `node --test`. Fixtures are real files/DBs in tempdirs
 - **NOT asserts.** Any model behavior.
   **Fails when** the stub returns anything else.
 
-**T41-1 — Convention grep tests (adapter, verdict, DAO).**
-- **File.** `test/conventions/` (three sub-files:
-  `no_direct_dao_from_handler.test.ts`,
-  `hook_field_names_isolated.test.ts`,
-  `permission_decision_confined.test.ts`).
+**T41-1 — Convention grep tests (adapter, verdict, DAO, spawn).**
+- **File.** `test/conventions/` (four sub-files — corrected this fix
+  pass, round-2 collapse-hunt: the third fix pass added `oracleSpawn`
+  confinement to Step 41 as `T41-1d` but never added its §12 entry,
+  the exact defect this entry now closes):
+  `no_direct_dao_from_handler.test.ts` (T41-1a),
+  `hook_field_names_isolated.test.ts` (T41-1b, also T28-2),
+  `permission_decision_confined.test.ts` (T41-1c),
+  `oracle_spawn_confined.test.ts` (T41-1d).
 - **Verifies.** Step 41 — each convention grep fires on a
   seeded violation and passes on the clean build.
 - **Level.** Unit (build-output grep).
 - **Real/doubles.** Real `dist/`. No doubles.
 - **Data.** Two states per convention: (a) seed a violation
-  (temporary source file that adds a forbidden import), rebuild,
-  assert grep detects it; (b) revert, rebuild, assert grep is
-  clean. Technique: state-transition.
+  (temporary source file that adds a forbidden import or, for
+  T41-1d, a direct `child_process.spawn` call outside
+  `oracle_spawn.ts`), rebuild, assert grep detects it; (b) revert,
+  rebuild, assert grep is clean. Technique: state-transition.
 - **NOT asserts.** Enforcement of the property (that's Step
-  15/AD-10). **Fails when** any convention grep does not
-  detect its seeded violation or false-positives on the clean
-  build.
+  15/AD-10 for T41-1a–c, Step 2.5/AD-21 for T41-1d). **Fails when**
+  any of the four convention greps does not detect its seeded
+  violation or false-positives on the clean build.
 
 **T43-1 — STATUS rewrite passes check_docs.**
 - **File.** `scripts/check-status-post-build.sh` (invoked as a
@@ -4669,6 +4829,51 @@ un-instrumented failure mode.
 - **NOT asserts.** Bypass intent.
   **Fails when** any detector does not fire on its induced
   pattern.
+
+**T18-2 — `deny_from_injected_turn` fires on a transient wrongful
+deny.** *(Added this fix pass — round-2 expert-review Serious
+finding: this T-ID was cited at Step 18 with no §12 specification.)*
+- **File.** `test/replay/injected_turn_deny.test.ts` (fixture repo
+  `injected-turn/`, per §5.1).
+- **Verifies.** Step 18 — `checkDenyFromInjectedTurn` records
+  `deny_from_injected_turn` when a `chat:`-provenance question row
+  (opened from a platform-injected `UserPromptSubmit.prompt`) is
+  denied against before the next transcript catch-up voids it.
+- **Level.** Integration.
+- **Real/doubles.** Real handler; real store; real transcript
+  fixture with controlled write timing (same TOCTOU-fixture
+  technique as `T17-2`(b)). No doubles.
+- **Data.** A hook stream where a non-human-originated
+  `UserPromptSubmit` opens a question row, immediately followed by a
+  `PreToolUse` on `Edit` before the transcript line carrying the
+  turn's `origin.kind` marker has been written. Technique:
+  state-transition.
+- **NOT asserts.** That the deny is prevented (it isn't — this is a
+  detector for a real transient deny, not a fix for it). **Fails
+  when** the fault does not appear on the next event, or appears when
+  the injected turn's marker was already visible at deny-decision
+  time (a false positive on the steady-state case, which `T16-1`'s
+  clean intake-then-deny path already covers negatively).
+
+**T18-3 — `deny_bypass_suspect` predicate-set confinement (built-
+output grep).** *(Added this fix pass, second round — the concrete
+mechanization D-plan-1's write-time cap named but did not specify;
+round-2 collapse-hunt found the cap unenforced.)*
+- **File.** `test/conventions/deny_bypass_predicates_confined.test.ts`.
+- **Verifies.** Step 18 — the built `dist/blocks/health.js` contains
+  the `checkDenyBypassSuspect` predicate array with exactly N2's
+  8 entries (`>`, `>>`, `tee`, `sed -i`, `perl -i`, `cp`, `mv`,
+  `install`) — no more, no fewer.
+- **Level.** Unit (build-output grep).
+- **Real/doubles.** Real `dist/`. No doubles.
+- **Data.** The built `dist/blocks/health.js` source text; extract
+  the predicate array literal, parse it, compare as a set against
+  the plan-specified 8-entry set. Technique: error guessing (any
+  addition or removal is the fault).
+- **NOT asserts.** That the 8 patterns catch every Bash write path
+  (N2 already discloses they don't). **Fails when** the extracted
+  set differs from the plan-specified 8-entry set in either
+  direction — added without a plan/N2 update, or silently dropped.
 
 **T19-1 — SessionStart startup: prior open rows expire.**
 - **File.** `test/replay/session_start_startup.test.ts`.
@@ -5090,6 +5295,24 @@ hazard-bypass bar mechanism, not the emitted headline's shape.)*
   **Fails when** any marker entry survives OR any unrelated
   entry is removed.
 
+**T32-1a — `deinit --purge` removes the project store and
+diagnostics directory.** *(Added this fix pass — round-2 expert-review
+Moderate finding: T32-1a was cited by T32-1's own "NOT asserts" line
+with no §12 specification of its own.)*
+- **File.** `test/replay/deinit_purge.test.ts`.
+- **Verifies.** Step 32 — `deinit --purge` removes the project's
+  SQLite store file and its diagnostics directory, in addition to
+  everything plain `deinit` (T32-1) removes.
+- **Level.** Acceptance.
+- **Real/doubles.** Real `ctxoracle deinit --purge`; real store and
+  diagnostics directory from a prior `init` + `index`. No doubles.
+- **Data.** A fully-initialized project (store populated, at least
+  one diagnostics entry written) before `--purge`. Technique:
+  state-transition.
+- **NOT asserts.** The global store (never purged by a project-scoped
+  `deinit`). **Fails when** the project store file or diagnostics
+  directory survives `--purge`, or the global store is affected.
+
 **T32-2 (AC-19) — Export/import record-identical round-trip.**
 - **File.** `test/replay/export_roundtrip.test.ts`.
 - **Verifies.** Step 32 — AC-19; canonical-order per-table
@@ -5381,6 +5604,7 @@ is the mechanical mapping.
 |---|---|
 | 1 | T1-1 |
 | 2 | T2-1, T2-2 |
+| 2.5 | T2.5-1 (added this fix pass — N5) |
 | 3 | T3-1, T3-2 |
 | 4 | T4-1 |
 | 5 | T5-1 |
@@ -5396,21 +5620,21 @@ is the mechanical mapping.
 | 15 | T15-1, T15-2 |
 | 16 | T16-1, T16-2, T16-3 |
 | 17 | T17-1, T17-2 |
-| 18 | T18-1 |
+| 18 | T18-1, T18-2 (round-2 fix), T18-3 (round-2 fix) |
 | 19 | T19-1, T19-2, T19-3 |
 | 20 | T20-1 |
-| 21 | T21-1 |
+| 21 | T21-1, T21-2 (round-2 fix) |
 | 22 | T22-1, T22-2 |
 | 23 | T23-1 |
 | 24 | T24-1 |
-| 25 | T25-1..T25-7, T25-6a, T25-6b |
+| 25 | T25-1..T25-7, T25-6a, T25-6b, T25-8 (S2), T25-9 (S2) |
 | 26 | T26-1, T26-2 |
 | 27 | T27-1, T27-2 |
 | 28 | T28-1, T28-2, T28-3 |
 | 29 | T29-1, T29-2 |
 | 30 | T30-1, T30-2 |
 | 31 | T31-1, T31-2, T31-3 |
-| 32 | T32-1, T32-2 |
+| 32 | T32-1, T32-1a (round-2 fix), T32-2 |
 | 33 | T33-1, T33-2, T33-3 |
 | 34 | T34-1, T34-2 |
 | 35 | T35-1, T35-2 |
@@ -5437,14 +5661,20 @@ Ordered by potential to cause Phase A to miss its goal, most severe
 first.
 
 - **R1 — The AD-9 recognizer is elaborated beyond its Phase A safe-
-  skeleton scope during Step 14.** The 2026-09-04 collapse is a
+  skeleton scope during Step 14/18.** The 2026-09-04 collapse is a
   standing warning: every reviewer that catches "an edge case the
-  recognizer misses" is applying the trap. Mitigation: Steps 14, 25
-  cite the collapse-log explicitly; the exit report in Step 42
+  recognizer misses" is applying the trap. Mitigation, updated this
+  fix pass (round-2 collapse-hunt found this entry unchanged after
+  D-plan-1's C1 fix landed a write-time cap elsewhere in the
+  document): Steps 14, 18, 25 cite the collapse-log explicitly;
+  `T14-3` and `T18-3` mechanize the cap for the move recognizer's
+  deny-eligible set and the Bash-bypass predicate list respectively —
+  either growing silently fails CI; the exit report in Step 42
   measures the honest floor rather than reviewing to zero-findings;
   Checkpoint 5 explicitly flags a suspiciously-high coverage number
   as a finding, not a success. Recoverability: full — cut the
-  elaboration, revert to the deterministic minimum.
+  elaboration, revert to the deterministic minimum, both CI-checked
+  sets included.
 
 - **R2 — The build passes reviews and passes tests but the exit run
   (Step 42) reveals the block does nothing useful on real repos.**
@@ -5489,13 +5719,26 @@ first.
   grammar becomes a `tune ext_to_grammar` addition or a WASM
   grammar checked into the package.
 
-- **R7 — The exit-run's real-repo set is too small to be
-  informative.** Phase A's exit deliverable IS the measurement;
-  a run against one repo (this one) is thin. Mitigation: the exit
-  script supports a `.ctxoracle-exit-repos` file the owner
-  supplies; the report explicitly states the repo set it
-  measured; Phase B design consumes what exists and asks for more
-  data where needed.
+- **R7 — The exit-run's real-repo set may be too small, or
+  self-referential, to be informative (corrected this fix pass —
+  round-2 collapse-hunt found this entry still stated the pre-C3
+  mitigation the original collapse-hunt review rejected: "Phase B
+  design consumes what exists" accepts a biased measurement rather
+  than labeling it).** Phase A's exit deliverable IS the measurement,
+  and `Maxcogar/agent-armory` alone (the tool's own repo) measures
+  the tool against its own documentation churn, not real application
+  coupling — the process-layer twin of the 2026-09-04 fake-
+  completeness collapse. Mitigation, corrected: Step 42's exit
+  script requires a `.ctxoracle-exit-repos` file naming at least one
+  repo that is not `Maxcogar/agent-armory` itself; if none is
+  available in the build environment, the exit report is generated
+  with an explicit `SINGLE-REPO / SELF-REFERENTIAL — NOT
+  REPRESENTATIVE` label as its first line, and Step 43's Phase B
+  hand-off states the real-repo floor as unmeasured rather than
+  citing the labeled numbers as Phase A's honest floor. Phase B
+  design does not silently consume a biased number — it consumes
+  either a real measurement or an explicit "unmeasured," never the
+  two conflated.
 
 - **R8 — The `whisper_stats` fold's per-project watermark logic has
   a subtle race under concurrent same-project handlers.**
@@ -5712,10 +5955,15 @@ where it arose, and a pointer to the §15 disposition.
 - **Q-gap-5 (§14.4 sweep, added post-sweep):** *"Given Q-gap-1
   and Q-gap-2 are halt conditions per the skill, is the plan
   deliverable at all under the skill's own rules?"* Disposition:
-  §15 Q-gap-5 — RESOLVED by fixing the halt condition's root cause
-  (CodeGraph and Clear Thought are now registered and connected in
-  this environment) rather than escalating a three-way choice to Max
-  Cogar; see §15 for the full disposition.
+  §15 Q-gap-5 — PARTIALLY RESOLVED (corrected a second time per
+  round-2 expert-review S3, which correctly rejected this entry's
+  first "closed" claim). The root cause is fixed for future sessions
+  (CodeGraph and Clear Thought are registered and connected in this
+  environment); six specific judgment calls this fix pass made
+  without Clear Thought are named and tracked as a bin-3 gap pending
+  a tool-attached session's re-check, not escalated to Max Cogar as
+  a three-way choice. See §15 for the full disposition and the list
+  of six.
 
 ### 14.4 Reconciliation sweep
 
@@ -5760,19 +6008,49 @@ review plus the meta-check's H1–H8 findings.
   D-plan-2 (Q1) and D-plan-6 (Q6, Q13) surface as owner scope
   calls, not engineering derivations — retraction propagated through
   §10, §14, and §15 disposition in batch 1.
-- **Pass F (final walk after H1.3 escalation).** Walked to confirm
-  Q-gap-5 (skill halt-condition violation) properly escalates and
-  is not hidden as bin-1. Confirmed — Q-gap-5 is bin-2 (owner
-  decision: accept / halt / waive).
+- **Pass F (final walk after H1.3 escalation, pre-fix-pass state —
+  kept for the record).** Walked to confirm Q-gap-5 (skill
+  halt-condition violation) properly escalates and is not hidden as
+  bin-1. Confirmed at the time — Q-gap-5 was bin-2 (owner decision:
+  accept / halt / waive). **Superseded by the fix-pass passes below.**
+- **Pass G (fix pass, round 1 — mechanical/root-cause corrections).**
+  Fixed all 21 named findings across the author-gates review,
+  meta-check, collapse-hunt, and expert-review. Reclassified two
+  bin-1 dispositions to bin-2 per meta-check H5 (the `web-tree-sitter`
+  dependency floor and the D-plan-6 owner-probe workload — §14.2)
+  with stated defaults so nothing blocks. Attempted to close Q-gap-5
+  by fixing CodeGraph/Clear-Thought availability at the environment
+  level; this session's own attachment to those tools remained
+  unverified at the time.
+- **Pass H (fix pass, round 2 — independent re-review response).**
+  A fresh independent collapse-hunt and expert-review both ran
+  against Pass G's output. Collapse-hunt: 1 collapse, 3 partials, one
+  overclaim, all fixed in this pass (T18-3/T41-1d mechanization, the
+  "design-safe either way" sweep, §13 R7/R1 sync, the AD-14 provenance
+  correction). Expert-review: 9 of 10 prior findings verified closed;
+  S3 correctly rejected this document's Q-gap-5 "closed" claim as
+  overclaiming Clear-Thought compliance for six specific judgment
+  calls; three test IDs (`T2.5-1`, `T18-2`, `T21-2`) and one
+  (`T32-1a`) were cited with no §12 spec, now added; a Systemic
+  pattern (fix content not swept to every cross-reference) found and
+  fixed at 7 sites. Q-gap-5 is now honestly PARTIALLY RESOLVED, not
+  closed (see §15) — six judgment calls are named and tracked as a
+  bin-3 gap for the next tool-attached session, not hidden and not
+  escalated to Max Cogar as a menu.
 
-**Final count.** 14 bin-1 entries (Q1–Q14, all answered with
-evidence pointers); 1 bin-2 entry (Q-gap-5 escalated to Max Cogar
-for accept/halt/waive decision on the skill halt-condition
-violation); 5 bin-3 entries (Q-gap-1 through Q-gap-5) closed into
-§15 with attempt evidence. **Zero bin-1, bin-2, or bin-3 entries
-open.** Q-gap-5 is RESOLVED (see §15) — the halt-condition's root
-cause (CodeGraph/Clear Thought unavailability) is fixed at the
-environment level, not escalated to Max Cogar as a three-way choice.
+**Final count.** 14 original bin-1 entries (Q1–Q14, all answered with
+evidence pointers); 2 bin-2 entries open for Max Cogar's optional
+override, blocking nothing (§14.2: `web-tree-sitter` dependency floor,
+D-plan-6 workload — both already resolved with a stated default);
+6 bin-3 entries closed into §15 with attempt evidence (Q-gap-1
+through Q-gap-4, Q-gap-6) plus 1 bin-3 entry **still open** — Q-gap-5's
+six flagged judgment calls, pending a Clear-Thought re-check in a
+session where the registered tools attach. This is the honest count
+after two independent re-review rounds, not a claim of zero open
+items: two bin-2 items await Max Cogar's optional input (non-blocking)
+and one bin-3 item awaits a tool-attached session (also non-blocking
+— every decision it covers is disclosed with reasoning in the
+document now, not hidden pending the re-check).
 
 Per the skill: *"A plan with any open register entry is not
 deliverable."* With Q-gap-5 open, this plan is **not deliverable
@@ -5928,7 +6206,12 @@ required to close it.
     Step 43 post-completion documentation task, not a build task.
   - **L11(b) — whether `UserPromptSubmit` fires for
     platform-injected turns: EMPIRICALLY UNRESOLVABLE INSIDE THIS
-    CONTAINER, DESIGN-SAFE EITHER WAY.** Attempt: the empirical
+    CONTAINER; SAFE AGAINST A PERSISTENT WRONGFUL DENY, MEASURABLY
+    NOT AGAINST A TRANSIENT ONE (heading corrected this fix pass —
+    round-2 collapse-hunt: the heading still said "design-safe either
+    way" one sentence above the corrected body text below, the exact
+    contradiction the P2 fix was supposed to remove).** Attempt: the
+    empirical
     probe requires wiring a probe hook into
     `~/.claude/launcher-settings.json`; the auto-mode classifier
     blocked that write with an explicit denial (not Max Cogar's
@@ -6014,9 +6297,61 @@ required to close it.
   environment — for Phase B's architecture-to-plan step, or any
   future plan — runs with CodeGraph and Clear Thought genuinely
   available, so Q-gap-1/Q-gap-2's underlying cause does not recur by
-  default. **Disposition:** closed. No further owner ruling is
-  requested on this entry; the halt condition is resolved at its
-  root cause (tool availability) rather than waived around.
+  default.
+
+  **Disposition, corrected a second time (round-2 expert-review
+  Serious finding S3, and it is right): "closed" above overclaimed.**
+  Fixing tool *availability* at the environment level is real and
+  verified (`claude mcp list`: both Connected) — but it does not by
+  itself discharge SKILL.md's "no fallbacks" rule for *this pass's
+  own* judgment calls, which were made without Clear Thought because
+  this session's tool registry never attached to the newly-registered
+  servers (re-verified at round-2 fix time: `ToolSearch` for both
+  still returns no match in this session). SKILL.md draws no
+  exception for a correction pass, and the round-2 reviewer is right
+  that my argument for one is my own construction, not the skill's
+  text. Rather than re-asserting "closed" a third time on the same
+  unverified ground, the honest disposition is:
+
+  1. **The following specific decisions in this fix pass were made by
+     manual reasoning, not Clear Thought, and are the ones SKILL.md
+     Step 6 would have required it for** (choice among multiple valid
+     approaches, or dependency-ordering with cascading-failure risk):
+     D-plan-1's write-time predicate cap (C1); Step 2.5's placement
+     ahead of Step 21 (N5) — a dependency-ordering call by name; the
+     exit-run repo-set disclosure mechanism (C3); the `command`-field
+     marker redesign (P3); the `ModelInvocation` interface widening
+     (P4); `T18-3`'s mechanization approach (round-2). Each is written
+     into this plan's own Decisions/§10A sections with its reasoning
+     in the open — not hidden as derivation — but disclosure is not
+     the same claim as Clear-Thought verification, and this entry no
+     longer conflates the two.
+  2. **These six decisions are flagged, not silently trusted.** The
+     next session that opens in this environment has both tools
+     genuinely attached (verified outside this session via `claude mcp
+     list`) and should re-run each of the six listed decisions through
+     Clear Thought as a first action, before further plan changes —
+     confirming the existing conclusion or revising it. This is a
+     bin-3 gap (attempt made and evidenced, genuinely blocked by this
+     session's own tool-attachment lifecycle, not by tool absence),
+     not a bin-2 owner question — Max Cogar is not being asked to rule
+     on anything; the next session's own tool-verified re-check is
+     the resolution path, per the same distinction Q-gap-1/Q-gap-2
+     already draw between "tool doesn't exist" (owner-relevant) and
+     "tool exists but isn't attached this turn" (a session mechanic,
+     not a decision for Max Cogar).
+  3. Every OTHER fix in this pass (S1, S2, N1–N4, N6, M1–M5, m1–m2,
+     C2, and every mechanical text correction) is not in this list —
+     those are direct textual/structural corrections against an
+     already-fully-specified finding, not a "choice among multiple
+     valid approaches" in SKILL.md Step 6's sense, and are not flagged
+     as pending re-verification.
+
+  **Disposition:** partially resolved. The root cause (tool
+  unavailability) is fixed for future sessions; this session's own six
+  judgment calls remain open pending a Clear-Thought re-check in a
+  session where the tools attach, tracked here rather than closed
+  prematurely.
 
 **No other gaps.** Every other decision in this plan was grounded
 in a named standard from §3 (spec, architecture decisions,

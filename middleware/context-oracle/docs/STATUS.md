@@ -24,12 +24,35 @@ dominating rule 3).
 
 The spec (`docs/specs/spec-context-oracle.md`) is signed off (`OL-C6`). The
 Phase A architecture (`docs/architecture-phase-a.md`) is reviewed to
-convergence. `docs/plans/plan-phase-a.md` has been through a full fix pass this
-session against all four review documents that had accumulated on it: the
-author-gates review, the meta-check, and the two 2026-09-06 independent
-reviews (collapse-hunt: DOES NOT SURVIVE, 3 collapses/4 partials/6 missed
-decisions; expert-review: NEEDS FIXES, 10 findings). Every named finding across
-all four documents was applied directly in `docs/plans/plan-phase-a.md`:
+convergence. `docs/plans/plan-phase-a.md` has been through **two rounds** of
+fix-and-re-review this session:
+
+**Round 1** fixed every finding across the four review documents that had
+accumulated by 2026-09-06: the author-gates review, the meta-check, and the
+two 2026-09-06 independent reviews (collapse-hunt: DOES NOT SURVIVE, 3
+collapses/4 partials/6 missed decisions; expert-review: NEEDS FIXES, 10
+findings).
+
+**Round 2** dispatched a fresh independent collapse-hunt
+(`docs/reviews/2026-09-07-round-2-plan-collapse-hunt.md`) and a fresh
+independent expert-review (`docs/reviews/2026-09-07-round-2-plan-expert-review.md`)
+against round 1's output — both came back with real findings, both were
+fixed directly in the plan. Collapse-hunt: 1 collapse (a cited test ID,
+`T41-1d`, was never actually specified), 3 partials (a "design-safe either
+way" overclaim survived at three secondary locations after its primary fix;
+the plan's risk register (section 13) entries R1/R7 weren't synced to their Step fixes; four of Step
+23's six "unsourced" defaults are actually AD-14-sourced, an overclaim in the
+opposite direction from round 1's original mis-framing). Expert-review: 9 of
+10 round-1 findings verified genuinely closed; one (S3/Q-gap-5) correctly
+rejected as an overclaim — see below; a Systemic pattern (fix content not
+swept to every cross-reference — a stale `D-plan-6`/`D-plan-8` collapse-test,
+a stale `src/cli.ts` reference, a missing `src/proc/` skeleton entry) found
+at 7 sites and fixed; 4 test IDs cited with no test specification (plan
+section 12), now added
+(`T2.5-1`, `T18-2`, `T21-2`, `T32-1a`).
+
+All findings from both rounds, across all six review documents total, were
+applied directly in `docs/plans/plan-phase-a.md`:
 
 - **Collapses (C1–C3):** C1 — the build-order collapse-test's answer was
   irrelevant to the harder question; fixed with a write-time predicate cap on
@@ -88,53 +111,63 @@ all four documents was applied directly in `docs/plans/plan-phase-a.md`:
   Step 43's post-completion doc-sync so they run for real once Phase A's code
   exists.
 
-**Q-gap-5 (the skill halt-condition escalation) is resolved, not waived.** The
-prior session's disposition — asking Max Cogar to rule accept/halt/waive on
-the CodeGraph/Clear Thought unavailability — was itself wrong; `CLAUDE.md`
-rule 2 already answers a genuine halt condition with "halt," not "escalate."
-This session fixed the root cause instead: `mcp-servers/codegraph-mcp/` (already
-present in this repo) was built (`npm install && npm run build`, clean) and
-registered as a local MCP server (`claude mcp add codegraph -s local -- node
-.../dist/index.js`); `clear-thought` (`@waldzellai/clear-thought-onepointfive`,
-already named in `middleware/context-oracle/.mcp.json`) was registered the
-same way. `claude mcp list` health-checks both as connected. **This means any
-future session that opens fresh in this environment has both tools available
-for a genuinely skill-compliant `/expert-plan` or `/expert-architecture`
-pass.** This fix-pass session's own tool registry was loaded before the
-registration and did not attach mid-session (verified: `ToolSearch` for
-`codegraph_scan` and Clear Thought's tools still returned no match after
-registration) — so this pass's own judgment calls (the write-time restraint
-mechanism, the wrapper placement, the repo-set disclosure, the interface
-widening) are disclosed as manual reasoning in the plan's own Decisions
-sections, not run through Clear Thought. That is the honest disclosure
-SKILL.md itself asks for when a mandatory tool is degraded, not a repeat of
-the original halt-condition violation — this pass corrected already-diagnosed,
-independently-cited findings; it did not author new architecture from a blank
-codebase survey.
+**Q-gap-5 (the skill halt-condition) is partially resolved — not closed, and
+not waived.** The original session's disposition — asking Max Cogar to rule
+accept/halt/waive on CodeGraph/Clear Thought unavailability — was wrong;
+`CLAUDE.md` rule 2 already answers a genuine halt condition with "halt," not
+"escalate." Round 1 fixed the root cause: `mcp-servers/codegraph-mcp/`
+(already present in this repo) was built and registered as a local MCP
+server, and `clear-thought` (already named in
+`middleware/context-oracle/.mcp.json`) was registered alongside it —
+`claude mcp list` health-checks both as connected. **Any future session that
+opens fresh in this environment has both tools available.** Round 1 then
+called Q-gap-5 "closed" on that basis — **round 2's independent expert-review
+correctly rejected that as an overclaim (finding S3):** fixing tool
+*availability* does not retroactively make round 1's own judgment calls
+Clear-Thought-verified, since this fix-pass session's tool registry never
+attached to the newly-registered servers (re-verified at round 2: still no
+match). The plan's own Q-gap-5 entry (section 15) now names the six specific judgment calls
+made by manual reasoning instead of Clear Thought (the write-time restraint
+mechanism, the `oracleSpawn` placement, the repo-set disclosure, the
+`command`-field marker redesign, the seam-interface widening, `T18-3`'s
+mechanization) and tracks them as an open bin-3 gap — not an owner question,
+a task for the next tool-attached session to re-verify each one through
+Clear Thought before further plan changes. Every other fix in both rounds is
+a direct correction against an already-fully-specified, independently-cited
+finding, not a "choice among alternatives," and is not part of that list.
 
 ## What to do next (agent-owned)
 
-1. **Dispatch a fresh independent collapse-hunt and a fresh independent
-   expert-review against the current `docs/plans/plan-phase-a.md`.** This is
-   mandatory per `CLAUDE.md` rule 2 and the project lifecycle — a fix pass is
-   not self-certifying, and the next review runs with CodeGraph and Clear
-   Thought genuinely available in this environment (the tools this fix pass
-   could not attach to). If the round finds anything, fix and re-review again
-   — the same iterate-to-convergence loop that took the architecture document
-   nine rounds, not a reason to discard the plan.
-2. **If that round is clean, proceed to implementation** via
-   `.claude/skills/expert-implement/` against the now-fixed plan.
-3. **Two bin-2 items are flagged for Max Cogar's awareness in the plan's
-   bin-2 register (section 14.2), not blocking anything:** the `web-tree-sitter` dependency-floor pin
-   (currently `^0.26.13`, a defensible default) and the now-largely-resolved
-   D-plan-6 owner-probe workload (L11(a) already measured this session;
-   L11(b) has no probe path and is handled by a runtime counter instead). No
-   response is needed unless he wants either changed.
+1. **In a session where the registered `codegraph` and `clear-thought` MCP
+   servers actually attach** (this fix-pass session's own registry never
+   picked them up mid-conversation — a fresh session should), re-verify the
+   six judgment calls named in the plan's Q-gap-5 entry (section 15) through Clear Thought:
+   confirm each conclusion or revise it. This is the one open item from round
+   2 that isn't already closed.
+2. **Dispatch round 3 of independent collapse-hunt and expert-review** if
+   item 1 changes anything; if it doesn't, round 2's clean-except-Q-gap-5
+   result plus item 1's re-check is sufficient to call the plan converged.
+   This is the same iterate-to-convergence loop that took the architecture
+   document nine rounds — round 2 found real but shrinking findings (1
+   collapse + 3 partials, down from round 1's 3 collapses + 4 partials + 6
+   missed decisions), which is what convergence looks like in progress, not
+   a reason to discard the plan.
+3. **Once converged, proceed to implementation** via
+   `.claude/skills/expert-implement/` against the fixed plan.
+4. **Two bin-2 items are flagged for Max Cogar's awareness in the plan's
+   bin-2 register (section 14.2), not blocking anything:** the
+   `web-tree-sitter` dependency-floor pin (currently `^0.26.13`, a defensible
+   default) and the now-largely-resolved D-plan-6 owner-probe workload
+   (L11(a) already measured this session; L11(b) has no probe path and is
+   handled by a runtime counter instead). No response is needed unless he
+   wants either changed.
 
 ## Open items
 
-- Round 2 of independent review on the fixed plan has not yet run — see "What
-  to do next" item 1.
+- Q-gap-5's six flagged judgment calls await a Clear-Thought re-check in a
+  tool-attached session — see "What to do next" item 1. Not an owner
+  question; not blocking implementation planning, since each call is already
+  disclosed with its reasoning in the plan.
 - L11(a) — human-marker presence on Max Cogar's real interactive transcript
   was resolved by direct measurement of
   `/root/.claude/projects/-home-user-agent-armory/dc9955b4-2023-5a97-b6a3-47796382cb94.jsonl`

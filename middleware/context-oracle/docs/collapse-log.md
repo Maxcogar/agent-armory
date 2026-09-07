@@ -19,6 +19,80 @@ goes hollow is itself data.
 
 ---
 
+## 2026-09-07 — round-2 review of the plan's own fix pass: a fix landing at its primary site without sweeping its secondary echoes, and an overclaimed closure caught before it reached the owner
+
+A fix pass applied 21 findings from four review documents directly to
+`docs/plans/plan-phase-a.md`. A fresh independent collapse-hunt and
+expert-review then ran against that fix pass itself — the same
+mandatory-independent-review discipline applied one level up, to the fix
+rather than to the original document. Both found real, if shrinking,
+defects (1 collapse + 3 partials, down from round 1's 3 collapses + 4
+partials + 6 missed decisions on the original plan).
+
+1. **A fix that lands at its primary site is not the same as a fix that
+   lands everywhere the same claim was independently restated.** The
+   "design-safe either way" overclaim (P2) was corrected at Step 18 and in
+   one paragraph of §15 — and survived verbatim in three other places: a
+   §10 collapse-test rationale, a §5.1 file comment, and a sub-heading one
+   sentence above its own corrected body text (contradicting itself in
+   the same paragraph). The same shape hit D-plan-8's marker-discipline
+   rationale, which still described the pre-fix "arbitrary comment field"
+   design after the field itself had been redesigned three sections
+   earlier. Class: **unverified** (a fix's completeness was asserted, not
+   checked against every place the fixed claim appeared). **Lesson,
+   generalizing the 2026-08-29 "a fix must land at the exact location"
+   entry one level further: when a claim is fixed at its primary
+   decision site, grep the exact sentence (or its close paraphrases) across
+   the whole document before considering the fix done — a collapse-test
+   rationale, a file-skeleton comment, and a risk-register entry are all
+   independent restatements a reader can still find and act on.**
+
+2. **A cited test ID is not a specified test until it has its own §12
+   entry.** Two new mechanisms (`oracleSpawn`'s confinement, the
+   transient-wrongful-deny counter) were each given a plausible-sounding
+   T-ID at their point of introduction (`T41-1d`, `T18-2`, plus `T2.5-1`
+   and `T21-2` for the wrapper itself) — and none had the six-field §12
+   specification the plan's own testing discipline requires. The citation
+   read as verified because it had a well-formed ID; nothing had actually
+   specified what the test does, what real/double boundary it uses, or
+   what makes it fail. Class: **wrong-check** — checking that a T-ID
+   *exists as a string* is not checking that it *resolves to a
+   specification*. **Lesson: when adding a new mechanism that needs a
+   test, write the §12 entry in the same edit that introduces the T-ID
+   reference — never introduce the citation first and the spec "later,"
+   because "later" is exactly the gap an independent reviewer has to
+   catch instead.**
+
+3. **A tool-availability fix at the environment level does not retroactively
+   verify judgment calls already made without the tool.** The fix pass
+   built and registered CodeGraph and Clear Thought as MCP servers,
+   confirmed connected via `claude mcp list`, and then declared the plan's
+   `Q-gap-5` (the SKILL.md halt-condition finding) "closed" on that
+   basis — while its own text, one paragraph later, admitted the pass's
+   own judgment calls were made by manual reasoning because *this specific
+   session* never attached to the newly-registered servers. Those are two
+   different claims: "the tool now exists" and "this session's reasoning
+   was verified by the tool." The round-2 independent expert-review caught
+   the conflation before a third round would have had to; the fix
+   (recorded in the plan's own §15) was to name the exact judgment calls
+   affected and track them as a genuinely open item for the next
+   tool-attached session, rather than asserting closure a second time on
+   the same unverified ground. Class: **unverified**, and the same shape
+   as the entry immediately below (a "tool is registered" fact quietly
+   standing in for a "tool was used" fact). **Lesson: when a fix restores
+   a *capability* (a tool becomes available) but the *work already done*
+   was not redone with it, say so explicitly and separately — "the cause
+   is fixed" and "the affected work is re-verified" are different claims
+   with different evidence, and conflating them is exactly the overclaim
+   this project's collapse-hunt exists to catch before the owner does.**
+
+**Process note.** All three were caught by the independent round-2
+collapse-hunt and expert-review, dispatched against the fix pass itself —
+not by the owner, and not by the fix-pass session re-reading its own work.
+This is the mechanism working as designed, one level up the stack from
+where it usually operates: the artifact under review this time was a
+correction, not an original document, and the same discipline applied.
+
 ## 2026-09-07 — "the tool is unavailable" was an unverified premise about *this session*, not about the environment
 
 **Caught by Max Cogar, not by any safeguard.** An agent asked whether to
