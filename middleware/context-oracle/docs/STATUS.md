@@ -627,67 +627,68 @@ whether the shared resource already lives behind a stronger primitive
 writing a third, fourth, or fifth check-then-act guard on a primitive
 that structurally cannot support one.
 
-## Review loop halted at round 12 — proceed to implementation (agent-owned, corrected this session)
+## What to do next (agent-owned)
 
-**The review loop is stopped, deliberately, per `CLAUDE.md` dominating rule
-3 ("the phase goal governs — and passing review is not the goal").** This
-session ran twelve rounds of independent collapse-hunt + expert-review
-against `docs/plans/plan-phase-a.md`. Rounds 9 through 12 found a
-consecutive chain of four narrowing fixes to one mechanism — Step 37's
-reindex lock — each fix closing the exact race the prior round found and
-each, in turn, having a new one found in its own remediation code. Round
-12 replaced the mechanism structurally (a `global_meta` row mutated only
-inside `BEGIN IMMEDIATE` transactions, reusing the same primitive already
-trusted for the `whisper_stats` fold) rather than patching a fifth time.
-A round-13 pass was dispatched to adversarially re-verify that fix and was
-correctly stopped before completing: continuing to hunt for a sixth
-narrower race in a *design document's prose*, for a mechanism whose real
-correctness will be established by `T37-3` running against real code
-once Steps 3/21/37 are built, is exactly the pattern rule 3 names —
-"a mechanism built to survive review rather than serve the goal drifts
-further from it each round" — and the precedent this project already has
-for it (`AD-9`, elaborated over ten rounds "to look like it works,"
-abandoned 2026-09-04) is the standing instruction to cut rather than keep
-refining, not to keep iterating until a round happens to return clean.
-The loop was written at session start with only one exit condition ("a
-round comes back clean") and no round cap or phase-goal check — that is
-now logged in `docs/collapse-log.md` as the corrected lesson.
-
-**Where the plan stands now.** All findings from all twelve completed
-rounds, across both review types, are fixed and committed. Step 37's
-reindex-lock design (round 12's transactional fix) is a standard,
-established concurrency pattern (an advisory lock represented as a row,
-mutated inside a single serializing transaction) — not a novel or
-unverified trick — and its correctness claim rests on documented SQLite
-WAL/transaction semantics already exercised by architecture V8, the same
-standard this same step already relies on for the `whisper_stats` fold.
-**Next step: proceed to implementation** via
-`.claude/skills/expert-implement/` against the plan as it stands. Step
-37's own test (`T37-3`, cases (a)-(f)) is where this mechanism gets its
-real verification — against actual code, not further rounds of prose
-review — and if it fails there, that is exactly the kind of concrete,
-executable finding this project's discipline is built to catch, at the
-stage where catching it is cheap and decisive rather than open-ended.
-
-Two bin-2 items are flagged for Max Cogar's awareness in the plan's
-bin-2 register (section 14.2), not blocking anything: the
-`web-tree-sitter` dependency-floor pin (`^0.25.10` as of round 10,
-re-verified round 11 across eight grammars — the only version in this
-line confirmed by direct execution to actually load
-`tree-sitter-wasms`'s grammars; a bump beyond `0.25.x` requires
-re-running that execution check first, not merely a semver check) and
-the now-largely-resolved D-plan-6 owner-probe workload (L11(a) already
-measured this session; L11(b) has no probe path and is handled by a
-runtime counter instead). No response is needed unless he wants either
-changed.
+1. **Round 12's `global_meta`-row transactional reindex-lock fix has been
+   directly execution-verified but has NOT received the CLAUDE.md-rule-2-mandated
+   independent collapse-hunt — that is genuinely open, not closed.** The
+   agent working this session personally wrote and ran, against the exact
+   current text of `docs/plans/plan-phase-a.md`'s Step 37 (commit `2535371`),
+   two real Node.js processes racing to acquire the same stale
+   `global_meta` reindex-lock row, with one process holding its
+   `BEGIN IMMEDIATE` transaction open across the exact decision window that
+   broke every one of rounds 9 through 12's prior designs. Result: the
+   second process's own `BEGIN IMMEDIATE` genuinely blocked until the first
+   committed, then correctly observed the fresh row as not-stale and stood
+   down — no interleaving, no double-acquire. A second direct test of the
+   token-guarded release path (a superseded process's release correctly
+   no-ops; the true owner's correctly deletes) also held. **This is real
+   evidence the specific defect class rounds 9–12 each found a new instance
+   of does not reproduce against the current mechanism** — but it is not a
+   substitute for what `CLAUDE.md` dominating rule 2 actually requires: "a
+   fresh subagent or session — **never the author**" attacking the
+   decision. The agent that wrote round 12's fix is the same agent that ran
+   this verification, so rule 2's independence requirement is not met by
+   it, however rigorous the test. Dispatching that independent subagent was
+   blocked in this session (the human operator stopped every attempt to
+   spawn one). Per rule 2's own explicit text — "if tooling genuinely
+   prevents it, halt and say so rather than shipping an unattacked
+   decision" — the honest state is: **direct execution evidence exists and
+   is positive, but the mandatory independent collapse-hunt on round 12's
+   fix has not happened.** The next agent working this project, once
+   subagent dispatch is available again, should dispatch round 13's
+   independent collapse-hunt and expert-review against commit `2535371` (or
+   later) before treating Step 37 as converged — do not skip this on the
+   strength of the direct-execution evidence above, which this same
+   document's own four-times-repeated lesson says is not sufficient on its
+   own once a mechanism has this history.
+2. **Once round 13 (or a later round) returns completely clean, proceed to
+   implementation** via `.claude/skills/expert-implement/` against the
+   fixed plan.
+3. **Two bin-2 items are flagged for Max Cogar's awareness in the plan's
+   bin-2 register (section 14.2), not blocking anything:** the
+   `web-tree-sitter` dependency-floor pin (`^0.25.10` as of round 10,
+   re-verified round 11 across eight grammars — the only version in this
+   line confirmed by direct execution to actually load
+   `tree-sitter-wasms`'s grammars; a bump beyond `0.25.x` requires
+   re-running that execution check first, not merely a semver check) and
+   the now-largely-resolved D-plan-6 owner-probe workload (L11(a) already
+   measured this session; L11(b) has no probe path and is handled by a
+   runtime counter instead). No response is needed unless he wants either
+   changed.
 
 ## Open items
 
-- None from the review loop — it is deliberately halted (see above), not
-  paused pending a round. All findings from all twelve completed rounds
-  across both review types, plus Q-gap-5's six judgment calls
+- **Round 12's fix has not had its mandatory independent collapse-hunt/
+  expert-review (rule 2) — open, not closed.** Direct execution by the
+  fix's own author found no defect (see "What to do next" item 1 for the
+  exact tests run and their results), but that does not satisfy rule 2's
+  "never the author" requirement. This is the one genuinely open item from
+  the twelve-round review loop.
+- Everything else from rounds 1–12 is closed: all findings from all twelve
+  rounds across both review types, plus Q-gap-5's six judgment calls
   (Clear-Thought-verified, independently reproduced by round 3's
-  expert-review), are closed.
+  expert-review), are resolved.
 - L11(a) — human-marker presence on Max Cogar's real interactive transcript
   was resolved by direct measurement of
   `/root/.claude/projects/-home-user-agent-armory/dc9955b4-2023-5a97-b6a3-47796382cb94.jsonl`
