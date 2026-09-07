@@ -50,7 +50,7 @@ all four documents was applied directly in `docs/plans/plan-phase-a.md`:
   rather than an invented field a stricter future schema could reject; the
   Phase B model-invocation seam (P4, Step 38) now carries every field the
   verified V9 command actually returns instead of an invented narrower shape.
-- **New load-bearing decisions §10A missed (N1–N6):** all six resolved —
+- **New load-bearing decisions the plan's collapse-test section (10A) missed (N1–N6):** all six resolved —
   Step 5's URL normalization axes enumerated explicitly (SSH-vs-HTTPS
   unification declared out of scope, `status` now shows the full normalized
   key, not just the mode); Step 18's `deny_bypass_suspect` coverage bound
@@ -67,7 +67,8 @@ all four documents was applied directly in `docs/plans/plan-phase-a.md`:
   resolved — S1's Step 31→32 circular dependency fixed by having `init` call
   `runIndex` (Step 21) directly; S2's missing Verification-genre acceptance
   test closed with new `T25-8`/`T25-9` (also fixes the plan's inaccurate "one
-  per genre" claim, m2); M1's fixture repos now enumerated in §5.1; M2's
+  per genre" claim, m2); M1's fixture repos now enumerated in the plan's file
+  skeleton (section 5.1); M2's
   duplicated `hook_field_names_isolated.test.ts` reduced to one file at one
   path; M3's `T15-1` now covers both mutation fields; M4's Step 39
   Dependencies field now states its real scope; M5's `AC-2c` over-fire mapping
@@ -76,12 +77,13 @@ all four documents was applied directly in `docs/plans/plan-phase-a.md`:
   covers all three non-replay test tiers.
 - **Meta-check H5/H6:** H5 — two decisions (the `web-tree-sitter` dependency
   floor, and the now-largely-moot D-plan-6 owner-probe workload) were
-  reclassified from bin-1 to bin-2 in §14.2, given a stated default so nothing
-  is blocked, and flagged for Max Cogar's optional override — no action is
-  required from him. H6 — the CodeGraph-dependent checks SKILL.md names
-  (`codegraph_find_related_docs`, `codegraph_diff_surface`, the symbol tools,
-  the foundation probes, the dependency-list builder) were never run against
-  this plan; recorded honestly as a new gap (§15 Q-gap-6) with bounded impact
+  reclassified from bin-1 to bin-2 in the plan's bin-2 register (section
+  14.2), given a stated default so nothing is blocked, and flagged for Max
+  Cogar's optional override — no action is required from him. H6 — the
+  CodeGraph-dependent checks SKILL.md names (`codegraph_find_related_docs`,
+  `codegraph_diff_surface`, the symbol tools, the foundation probes, the
+  dependency-list builder) were never run against this plan; recorded
+  honestly as a new gap (the plan's Q-gap-6) with bounded impact
   (the plan is greenfield, so most would return empty today) and wired into
   Step 43's post-completion doc-sync so they run for real once Phase A's code
   exists.
@@ -122,8 +124,8 @@ codebase survey.
    nine rounds, not a reason to discard the plan.
 2. **If that round is clean, proceed to implementation** via
    `.claude/skills/expert-implement/` against the now-fixed plan.
-3. **Two bin-2 items are flagged for Max Cogar's awareness in §14.2 of the
-   plan, not blocking anything:** the `web-tree-sitter` dependency-floor pin
+3. **Two bin-2 items are flagged for Max Cogar's awareness in the plan's
+   bin-2 register (section 14.2), not blocking anything:** the `web-tree-sitter` dependency-floor pin
    (currently `^0.26.13`, a defensible default) and the now-largely-resolved
    D-plan-6 owner-probe workload (L11(a) already measured this session;
    L11(b) has no probe path and is handled by a runtime counter instead). No
