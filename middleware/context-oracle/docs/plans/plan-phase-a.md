@@ -6001,17 +6001,21 @@ this session; line numbers are of that revision.
 - **Claim.** Type stripping is enabled by default from Node v22.18.0 and is
   experimental behind `--experimental-strip-types` from v22.6.0; v22.16.0
   was released 2025-05-21 and v22.18.0 on 2025-07-31. **Steps.** 1.
-  **Evidence.** Fetched
+  **Evidence.** Executed `probe:12_node_changelog_type_strip.optional`
+  2026-09-07, which fetches
   `https://raw.githubusercontent.com/nodejs/node/main/doc/changelogs/CHANGELOG_V22.md`
-  and read lines 1200–1218 ("## 2025-07-31, Version 22.18.0 … #### Type
-  stripping is enabled by default … This feature is experimental and is
-  subject to change. Disable it by passing `--no-experimental-strip-types`")
-  and line 1697 ("## 2025-05-21, Version 22.16.0") — `probe:12_node_changelog_type_strip.optional`. Documentation read via
-  Context7 `/websites/nodejs_latest-v22_x_api` (`cli` page): "Type stripping
-  is enabled by default as of v22.18.0. This flag was added in v22.6.0";
-  (`typescript` page): enums, parameter properties, and namespaces with
-  runtime code require `--experimental-transform-types`; Node does not read
-  `tsconfig.json`.
+  and prints the three headings it finds there, sorted: `## 2025-05-21,
+  Version 22.16.0`, `## 2025-07-31, Version 22.18.0`, `#### Type stripping
+  is enabled by default` (the file is `main`'s, so the probe asserts the
+  headings, not their line numbers). Documentation reads, not asserted by
+  the probe: the same changelog's 22.18.0 entry, read 2026-09-07 ("This
+  feature is experimental and is subject to change. Disable it by passing
+  `--no-experimental-strip-types`"); Context7
+  `/websites/nodejs_latest-v22_x_api` (`cli` page, read 2026-09-07): "Type
+  stripping is enabled by default as of v22.18.0. This flag was added in
+  v22.6.0"; (`typescript` page): enums, parameter properties, and
+  namespaces with runtime code require `--experimental-transform-types`;
+  Node does not read `tsconfig.json`.
 - **Claim.** `node --test` accepts quoted glob patterns; by default it
   searches JavaScript files and adds TypeScript files only when type
   stripping is enabled. **Steps.** 1. **Evidence.** Context7
@@ -6050,9 +6054,12 @@ this session; line numbers are of that revision.
   as Step 3 states; `VACUUM INTO` round-trips a row;
   `DatabaseSync.prototype.backup` is undefined while the module-level
   `backup` is a function. The exact library version is a property of the
-  Node build, not of the plan (3.51.2 under v22.22.2 in this sandbox,
-  3.51.3 under v22.23.2 on the `ubuntu-24.04` runner), so the probe reports
-  it on stderr and asserts only the floor. **Steps.** 2, 3, 32.
+  Node build, not of the plan — the probe writes it to stderr, which the
+  runner does not compare (`sqlite_version (informational, not compared):
+  3.51.2` on this sandbox's v22.22.2; the `check-plan` job's log on the
+  `ubuntu-24.04` runner showed 3.51.3 under v22.23.2, a log read that is
+  what moved the probe from an exact version to the floor) — and asserts
+  only the floor. **Steps.** 2, 3, 32.
   **Evidence.** Executed `probe:02_sqlite_features` on Node v22.22.2,
   2026-09-07, which prints exactly: `fts5 MATCH rows: 1`, `sqlite_version
   >= 3.37 (STRICT since 3.37, VACUUM INTO since 3.27): true`, `ENABLE_FTS5
@@ -6060,55 +6067,77 @@ this session; line numbers are of that revision.
   text-into-INT: rejected`, `VACUUM INTO round-trip rows: 1`,
   `DatabaseSync.prototype.backup: undefined | module-level backup:
   function`.
-- **Claim.** The hooks reference documents the settings hook entry fields
-  (`type`, `command`, `args`, `timeout`, `statusMessage`, `if`, `once`,
-  `async`, `asyncRewake`, `shell`; `url`/`headers`/`allowedEnvVars` for
-  http; `server`/`tool`/`input` for mcp_tool; `prompt`/`model` for prompt/
-  agent), makes no statement that unknown fields are tolerated, lists three
-  settings-file locations (`~/.claude/settings.json`,
-  `.claude/settings.json`, `.claude/settings.local.json`), documents
-  `UserPromptSubmit`'s `prompt` field and describes the event as "When you
-  submit a prompt, before Claude processes it" (silent on injected turns),
-  states the timeout semantics, states the event cadences (once per
-  session: `SessionStart`, `SessionEnd`; once per turn: `UserPromptSubmit`,
-  `Stop`, `StopFailure`; on every tool call: `PreToolUse`, `PostToolUse`),
-  states, in its "Workspace trust" section, the settings-file rule — "Interactive
-  session: Claude Code holds back hooks from every settings file … until
-  you accept the workspace trust dialog for the folder"; "-p or SDK
-  session: Claude Code never shows the dialog and treats the folder as
-  trusted, so hooks committed in a repository's .claude/settings.json run
-  in a folder you've never trusted" — while the sentence "A -p session
-  doesn't count as accepting it" belongs to a different, stricter rule in
-  the "Hooks in skills and agents" section (project *subagent frontmatter*
-  hooks), and states the Stop `additionalContext` loop protection
-  (`stop_hook_active` and the 8-consecutive-continuation cap). **Steps.**
-  §4, 20, 25, 28, 29, 31, 39.
-  **Evidence.** Fetched `https://code.claude.com/docs/en/hooks` 2026-09-07
-  (2,821,561 bytes; each passage re-fetched and asserted inside its own
-  section by `probe:13_hooks_reference.optional`) and read the timeout and common-fields passages
-  verbatim: "a `command`, `http`, or `mcp_tool` hook that reaches its
-  `timeout`, discarding the hook's output, so on most events a timed-out
-  hook renders no decision"; "On `PreToolUse`, by contrast, a timed-out
-  command hook lets the tool call continue"; "`transcript_path` … The
-  transcript file is written asynchronously and may lag the in-memory
-  conversation, so it may not yet include the current turn's most recent
-  messages when a hook fires."
-- **Claim.** `web-tree-sitter` 0.26.13 was published 2026-08-23 and 0.27.0
-  (current) on 2026-08-30; 0.26.13 declares no runtime dependencies and
-  only build/lint/test/prepack/postpack/prepublishOnly scripts (no
-  install-phase script). `tree-sitter-wasms` 0.1.13 (current) was published
-  2025-10-07, has a `build` script only, and declares a dependency on
-  itself (`tree-sitter-wasms: ^0.1.11`, satisfied by the package itself on
-  install). **Steps.** 1, 15. **Evidence.** `npm view web-tree-sitter@0.26.13
-  version dependencies scripts dist.tarball` and `npm view web-tree-sitter
-  time --json`; `npm view tree-sitter-wasms@0.1.13 …`; read 2026-09-07
-  (`probe:17_npm_registry_versions.optional`).
-- **Claim.** `typescript` 5.9.3 (2025-09-30) is the last 5.x release;
-  7.0.2 was published 2026-07-08 and is current; `@types/node` 22.20.1 is
-  the current 22.x line. **Steps.** 1. **Evidence.** `npm view typescript
-  time --json` (entries "5.9.3": "2025-09-30…", "7.0.2": "2026-07-08…";
-  later entries are `7.1.0-dev.*`); `npm view @types/node@22 version`
-  (last: 22.20.1); read 2026-09-07 (`probe:17_npm_registry_versions.optional`).
+- **Claim.** The hooks reference states, each inside the section named:
+  the timeout clause (a timed-out hook "doesn't block the tool call") and
+  the "discarding the hook's output" sentence inside "Timeouts"; the
+  cadence lines "once per turn: UserPromptSubmit, Stop, and StopFailure"
+  and "once per session", and the `UserPromptSubmit` description "When you
+  submit a prompt", inside "Hook lifecycle"; the `transcript_path` lag
+  sentence ("written asynchronously") inside "Common input fields"; the
+  settings-file workspace-trust rule — "Interactive session: Claude Code
+  holds back hooks from every settings file"; "-p or SDK session: Claude
+  Code never shows the dialog and treats the folder as trusted" — inside
+  "Workspace trust"; the sentence "A -p session doesn't count as accepting
+  it" inside "Hooks in skills and agents" (the stricter rule for project
+  subagent-frontmatter hooks, a different rule); the contrast sentence "On
+  PreToolUse, by contrast" inside "PreModelSwitch decision control" (not
+  the timeout section); the Stop loop protection ("the stop_hook_active
+  input and the 8-consecutive-continuation cap") inside "Stop decision
+  control"; `.claude/settings.local.json` among the locations inside "Hook
+  locations"; and the entry fields `statusMessage` (inside "Common
+  fields"), `asyncRewake` (inside "Command hook fields") and
+  `allowedEnvVars` (inside "HTTP hook fields"). **Steps.** §4, 20, 25, 28,
+  29, 31, 39. **Evidence.** Executed `probe:13_hooks_reference.optional`
+  2026-09-07, which fetches `https://code.claude.com/docs/en/hooks`, splits
+  it at its headings, and prints one `present under '<section>': <needle>`
+  line per passage above — fifteen lines, every one `present`.
+  Documentation reads from the same fetch (2026-09-07), not asserted by the
+  probe: the full entry-field list (`type`, `command`, `args`, `timeout`,
+  `statusMessage`, `if`, `once`, `async`, `asyncRewake`, `shell`;
+  `url`/`headers`/`allowedEnvVars` for http; `server`/`tool`/`input` for
+  mcp_tool; `prompt`/`model` for prompt/agent) with no statement that
+  unknown fields are tolerated; the three settings-file locations
+  (`~/.claude/settings.json`, `.claude/settings.json`,
+  `.claude/settings.local.json`); the cadences in full (once per session:
+  `SessionStart`, `SessionEnd`; once per turn: `UserPromptSubmit`, `Stop`,
+  `StopFailure`; on every tool call: `PreToolUse`, `PostToolUse`); the
+  `UserPromptSubmit` description in full, "When you submit a prompt,
+  before Claude processes it" (silent on injected turns); the timeout
+  sentences in full ("a `command`, `http`, or `mcp_tool` hook that reaches
+  its `timeout`, discarding the hook's output, so on most events a
+  timed-out hook renders no decision"; "On `PreToolUse`, by contrast, a
+  timed-out command hook lets the tool call continue"); the workspace-trust
+  sentences in full ("… until you accept the workspace trust dialog for
+  the folder"; "… so hooks committed in a repository's
+  .claude/settings.json run in a folder you've never trusted"); and the
+  `transcript_path` sentence in full ("The transcript file is written
+  asynchronously and may lag the in-memory conversation, so it may not yet
+  include the current turn's most recent messages when a hook fires").
+- **Claim.** `web-tree-sitter` 0.26.13 was published 2026-08-23 and
+  declares no runtime dependencies; `tree-sitter-wasms` 0.1.13 has a
+  `build` script only (no install-phase script). **Steps.** 1, 15.
+  **Evidence.** Executed `probe:17_npm_registry_versions.optional`
+  2026-09-07, which prints, among its lines: `web-tree-sitter 0.26.13
+  dependencies: ; 0.26.13 published 2026-08-23` and `tree-sitter-wasms
+  0.1.13 scripts: {"build":"ts-nodebuild.ts"}`. Registry reads of the same
+  date, not asserted by the probe (`npm view web-tree-sitter time --json`;
+  `npm view web-tree-sitter@0.26.13 scripts`; `npm view
+  tree-sitter-wasms@0.1.13 time dependencies`): 0.27.0 (current) was
+  published 2026-08-30; 0.26.13's scripts are build/lint/test/prepack/
+  postpack/prepublishOnly only; `tree-sitter-wasms` 0.1.13 (current) was
+  published 2025-10-07 and declares a dependency on itself
+  (`tree-sitter-wasms: ^0.1.11`, satisfied by the package itself on
+  install).
+- **Claim.** `typescript` 5.9.3 exists and was published 2025-09-30; the
+  current `typescript` major is 7; `@types/node` 22.20.1 is the current
+  22.x line. **Steps.** 1. **Evidence.** Executed
+  `probe:17_npm_registry_versions.optional` 2026-09-07, which prints, among
+  its lines: `typescript 5.9.3 exists: 5.9.3; published 2025-09-30`,
+  `typescript latest major: 7`, `@types/node 22.x latest: 22.20.1`.
+  Registry reads of the same date, not asserted by the probe (`npm view
+  typescript time --json`): 5.9.3 is the last 5.x release, 7.0.2 was
+  published 2026-07-08 and is current, and the entries after it are
+  `7.1.0-dev.*`.
 - **Claim.** TypeScript 7.0 is a native (Go) port that removed `baseUrl`,
   `moduleResolution: node/node10/classic`, `module: amd/umd/systemjs/none`,
   `target: es5`, `downlevelIteration`, and disabling `esModuleInterop`/
@@ -6261,12 +6290,14 @@ this session; line numbers are of that revision.
   `/websites/nodejs_latest-v22_x_api` (`cli` page, read 2026-09-07): "When
   `NODE_USE_ENV_PROXY` is enabled (set to '1'), Node.js parses `HTTP_PROXY`,
   `HTTPS_PROXY`, and `NO_PROXY` … can also be enabled with the
-  `--use-env-proxy` command-line flag". Executed 2026-09-07 on v22.22.2: a
-  `net` listener on 127.0.0.1 with `HTTP_PROXY`/`HTTPS_PROXY` pointed at it
-  and `fetch('http://198.51.100.1:80/')` → `TimeoutError`, listener never
-  contacted; the same with `NODE_USE_ENV_PROXY=1` → `[UNDICI-EHPA]`
-  experimental warning, `TimeoutError`, listener never contacted
-  (`probe:08_node_proxy_env`). `unshare -rn node -e
+  `--use-env-proxy` command-line flag". Executed `probe:08_node_proxy_env`
+  2026-09-07 on v22.22.2 — a `net` listener on 127.0.0.1 with
+  `HTTP_PROXY`/`HTTPS_PROXY` pointed at it and
+  `fetch('http://198.51.100.1:80/')` under a 1.5 s abort, run without and
+  with `NODE_USE_ENV_PROXY=1` (Node warnings suppressed so the output is
+  comparable) — which prints exactly: `default: fetch: TimeoutError
+  listener contacted: false` and `NODE_USE_ENV_PROXY=1: fetch:
+  TimeoutError listener contacted: false`. `unshare -rn node -e
   "fetch('http://example.com')…"` → `no network: EAI_AGAIN`
   (`probe:09_unshare_no_network.optional`).
 - **Claim.** `unshare -rn` is refused on the `ubuntu-24.04` GitHub Actions
@@ -6291,17 +6322,21 @@ this session; line numbers are of that revision.
   with no `exports` map, resolvable by `import.meta.resolve`;
   `web-tree-sitter` 0.26.13 exposes `Parser.init`, `Parser#setLanguage`,
   `Parser#parse`, and `Language.load`. **Steps.** 15, 38. **Evidence.**
-  Read `node_modules/tree-sitter-wasms/package.json` in the layout
-  reproduction (`"files": ["/out"]`, `"main": "bindings/node"`, no
-  `exports`); `ls node_modules/tree-sitter-wasms/out` lists
-  `tree-sitter-bash.wasm`, `tree-sitter-c.wasm`, … (36 grammars);
-  `import.meta.resolve('tree-sitter-wasms/out/tree-sitter-typescript.wasm')`
-  → `file:///…/node_modules/tree-sitter-wasms/out/tree-sitter-typescript.wasm`;
-  read `node_modules/web-tree-sitter/web-tree-sitter.d.ts` lines 151–317:
-  `export class Parser { … static init(moduleOptions?):
-  Promise<void>; … setLanguage(language: Language | null): this; …}` and
+  Executed `probe:11_web_tree_sitter_layout` 2026-09-07 in the layout
+  reproduction, which prints exactly: `tree-sitter-wasms 0.1.13 files
+  ["/out"] exports null scripts ["build"]`, `web-tree-sitter 0.26.13
+  dependencies {} install-scripts []`, `wasm grammars: 36`, `native .node
+  files: 0`, `API declarations (init,load,setLanguage) present: 3`; and
+  `probe:10_readdir_import_meta_resolve`, whose module inside the package
+  prints `import.meta.resolve grammar from inside the package: true` (the
+  resolved URL ends with
+  `/node_modules/tree-sitter-wasms/out/tree-sitter-typescript.wasm`).
+  Documentation read from the same layout, 2026-09-07, not asserted by the
+  probes: `node_modules/web-tree-sitter/web-tree-sitter.d.ts` declares
+  `export class Parser { … static init(moduleOptions?): Promise<void>; …
+  setLanguage(language: Language | null): this; … parse(…) … }` and
   `export class Language { … static load(input: string | Uint8Array):
-  Promise<Language>; }` (`probe:11_web_tree_sitter_layout`).
+  Promise<Language>; }`.
 - **Claim.** On a Claude Code on the web session transcript, Max Cogar's
   prompt carries `origin.kind:"human"` and no `isMeta`. **Steps.** 38, 39
   (the expectation `marker_presence` tests). **Evidence.** Enumerated
