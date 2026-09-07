@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/stop-instruction-adherence-gate/stop_instruction_adherence_gate.py"],
+            "timeout": 90
+          }
+        ]
+      }
+    ]
+  }
+}
