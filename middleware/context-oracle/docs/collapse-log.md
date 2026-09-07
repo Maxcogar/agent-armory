@@ -19,6 +19,45 @@ goes hollow is itself data.
 
 ---
 
+## 2026-09-07 — round 5: a sweep's own "N citations checked, only these were wrong" completeness claim was itself falsified within the same round
+
+Round 5's collapse-hunt found and fixed two wrong step-number citations
+(SQLite WAL semantics attributed to Step 32 instead of Step 37; the
+`init` verb attributed to Step 30 instead of Step 31), attested to have
+run "a full grep-based cross-check of every 'Step 30/31/32/37'
+occurrence in the document" and concluded "48 such citations checked;
+only these two were wrong." Round 5's own expert-review, dispatched in
+parallel against the same document, independently re-ran the identical
+class of grep and found **four more live instances** of the exact
+"Step 30's `init`" defect the collapse-hunt had just attested to have
+fully swept — sitting inside Step 2, Step 8, Step 23, and Step 29's own
+bodies, sections that same collapse-hunt's own attestation separately
+claimed to have read "in full."
+
+This is a sharper case than rounds 2–4's recurrences: those were content
+a fix pass changed in one place and failed to propagate to a *different*
+place the fix pass never looked at. Here, the collapse-hunt was
+specifically hunting for this exact defect class, ran a real grep, found
+real instances, fixed them, and *still* asserted a completeness bound
+("only these two") that a differently-scoped grep in the same session
+falsified. A grep that returns N hits proves N hits exist under that
+exact pattern — it does not prove the pattern was cast wide enough to
+catch every variant (here: "Governs Step 32 (concurrency)" was caught,
+but "Step 30's `init`" phrased four different ways inside four different
+step bodies was not fully caught by the collapse-hunt's own pass, though
+a second independent pass in the same round did catch it).
+
+Class: **unverified**, sharpened. **The standing lesson, now demonstrated
+five rounds running:** a shrinking finding count (round 2: 7 sites;
+round 3: 2; round 4: 2 instances/4 sites; round 5: 2 instances/6 sites)
+is not evidence the sweep mechanism itself has improved — it is evidence
+only that the specific instances a given pass happened to grep for were
+fixed. The correct response is not a better single grep pattern; it is
+the iterate-to-convergence discipline this project already runs: dispatch
+a fresh, independently-scoped pass rather than trust the prior pass's own
+"checked N, found M" arithmetic, because the prior pass's own search
+scope is exactly the thing that cannot verify itself.
+
 ## 2026-09-07 — round 4: the sweep-failure pattern recurred a fourth time, at new sites each round, including inside the artifact whose own job is to catch it
 
 Round 3 had already named "a fix landing at its primary site without

@@ -680,8 +680,10 @@ plain-language `Error` naming the current version and the required version
 on mismatch. Create a stub `probeFts5(db: DatabaseSync): boolean` in
 `src/stores/adapter.ts` that attempts `CREATE VIRTUAL TABLE _fts5_probe USING
 fts5(x); DROP TABLE _fts5_probe;` inside a transaction, rolling back on
-throw. Both are called from Step 30's `init` verb; Step 2 delivers the
-functions and their unit tests, not the wiring.
+throw. Both are called from Step 31's `init` verb — corrected this fix pass,
+round 5: previously said "Step 30's," Step 30 is Delivery, unrelated
+to `init`. Step 2 delivers the functions and their unit tests, not
+the wiring.
 
 **Source.** `AD-2` (floor at 22.16.0 chosen for FTS5 arriving in
 `node:sqlite` per V7 and `backup()` per V17; FTS5 probed at `init` as
@@ -1085,9 +1087,11 @@ comment, `WRITER: seeded at init, changed via ctxoracle tune (AD-20)`.
 Seeding at migration-apply time (before any `init` runs) duplicates Step
 23's separate "Tuning DAO + defaults seeding" step, which is the actual
 seeding mechanism per its own Gate-3 rationale ("the alternative, seeding
-nothing, blocks Step 30's `init` entirely"). `tuning` ships empty from
-this migration; Step 23's `seedDefaults` (invoked from `init`, Step 31
-item 3) is the only inserter.
+nothing, blocks Step 31's `init` entirely" — corrected this fix pass,
+round 5: the quoted text originally said "Step 30's," itself wrong at
+its Step 23 source; see that correction below). `tuning` ships empty
+from this migration; Step 23's `seedDefaults` (invoked from `init`,
+Step 31 item 3) is the only inserter.
 
 **Source.** `AD-5` (global store schema; per-project watermarks; VACUUM
 INTO export; no `env_capabilities` yet; `tuning`'s WRITER designation —
@@ -2048,7 +2052,10 @@ source that itself says "calibrate me").
 
 **Why this approach (trivial: seeding a plan-judgment starting point,
 disclosed as such, so `init` has values to seed at all — the
-alternative, seeding nothing, blocks Step 30's `init` entirely).**
+alternative, seeding nothing, blocks Step 31's `init` entirely —
+corrected this fix pass, round 5: previously said "Step 30's," the
+origin of the same misattribution quoted at Step 8; Step 30 is
+Delivery, unrelated to `init`).**
 
 **Dependencies.** Steps 8, 9.
 
@@ -2373,9 +2380,10 @@ Create `src/hook/guard.ts` — checked first: if
 All processes the oracle spawns (reindex, future model calls) set
 this env var (AD-21).
 
-Update the wired hook commands (via Step 30's `init`) to set
-`"timeout": 5` (seconds) so the harness watchdog is above the
-cooperative one, keeping fail-open-with-diagnostic reachable.
+Update the wired hook commands (via Step 31's `init` — corrected this
+fix pass, round 5: previously said "Step 30's") to set `"timeout": 5`
+(seconds) so the harness watchdog is above the cooperative one,
+keeping fail-open-with-diagnostic reachable.
 
 **Source.** `AD-23` (cooperative watchdog + blocking-call
 inventory); `AD-21` (recursion guard, `CTXORACLE_INTERNAL`); V6
@@ -2923,13 +2931,9 @@ does not affect Phase A behavior; caught at Phase B by then. If the
 shape is wrong, Phase B revises this one file — no other Phase A
 module imports it (verified: `src/model/invoke.ts` has zero Phase A
 importers by construction, since Step 38's own text states no Phase A
-caller exists).
-
-Every process this interface's real (Phase B) implementation spawns
-MUST go through the `oracleSpawn` wrapper (**Step 2.5**, placed early
-because Step 20/21's indexer already needs it — see Step 2.5) so the
-recursion guard cannot be forgotten at the first real spawn site this
-seam introduces.
+caller exists). The `oracleSpawn` wrapper requirement is stated once,
+in "What changes" above — removed a verbatim-duplicate restatement
+here this fix pass, round 5 (expert-review Minor finding).
 
 ---
 
@@ -3757,8 +3761,14 @@ actual current design.
 1. **Job.** Distribute verification across the Test Pyramid so each
    defect class has a fast, cheap tier that catches it — unit for
    recognizer correctness, fixture-replay for orchestrated AC
-   behavior, build-time markdown probes for the two owner-environment
-   premises the tool cannot probe from inside its own process.
+   behavior, build-time static records for the two owner-environment
+   premises the tool cannot verify from inside its own process at
+   build time (L11(a) already measured; L11(b) resolved by
+   design-safety analysis plus a runtime counter — neither is an
+   owner-run probe, per D-plan-6/§15 Q-gap-4) — corrected this fix
+   pass, round 5: previously said "build-time markdown probes...
+   the tool cannot probe," left unswept by round 4's fix to this
+   entry's own Answer field below.
 2. **Hardest question.** The build-time tier was originally scoped as
    a *manual*, owner-run step; Fake-Test Anti-Pattern #10 (Flake-
    tolerated) is what a manual test becomes when nobody runs it.
@@ -3779,9 +3789,12 @@ actual current design.
    `references/testing-standards.md` Anti-Pattern #10; architecture
    L11; plan §10 D-plan-6; plan §15 Q-gap-4.
 4. **Steers toward.** Implementer running unit + convention on every
-   commit; fixture-replay on demand; build-time probes as one-shot
-   pre-exit tasks. **Guide, not gate** — the tiers are performance
-   ordering, not permission gates.
+   commit; fixture-replay on demand; the two L11 static records
+   referenced as resolved evidence, not run as pre-exit tasks —
+   corrected this fix pass, round 5: previously said "build-time
+   probes as one-shot pre-exit tasks," left unswept by round 4's fix
+   to this entry's own Answer field above. **Guide, not gate** — the
+   tiers are performance ordering, not permission gates.
 
 #### Plan-level: Exit-run report shape (Step 42's mandatory metrics)
 

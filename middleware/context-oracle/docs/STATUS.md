@@ -24,7 +24,7 @@ dominating rule 3).
 
 The spec (`docs/specs/spec-context-oracle.md`) is signed off (`OL-C6`). The
 Phase A architecture (`docs/architecture-phase-a.md`) is reviewed to
-convergence. `docs/plans/plan-phase-a.md` has been through **four rounds** of
+convergence. `docs/plans/plan-phase-a.md` has been through **five rounds** of
 fix-and-re-review this session:
 
 **Round 1** fixed every finding across the four review documents that had
@@ -236,18 +236,73 @@ completeness is not verification of completeness, however many times the
 same fix pass has already caught one instance of the pattern in the same
 session.
 
+**Round 5** dispatched a fresh independent collapse-hunt and expert-review
+against round 4's output. Both returned real findings, all fixed:
+
+- **Collapse-hunt** (2 collapses, at sites outside every prior round's
+  targeted-read scope — section 3's Standards registry and section 5.3's
+  file-modification note): (1) section 3 attributed SQLite WAL semantics
+  to Step 32 (`deinit`/`index`/`hook`/`export`/`import` verbs, no WAL
+  content); fixed to Step 37, the actual concurrency step; (2) section 5.3
+  attributed the `init` verb's `settings.json` write to Step 30
+  (Delivery, no `settings.json` logic); fixed to Step 31, the actual
+  `init` step — the mirror image of a mix-up section 2.3's Delivery row
+  was already corrected for at round 3. The collapse-hunt's own report
+  claimed "48 such citations checked... only these two were wrong."
+- **Expert-review** (1 Systemic pattern spanning 2 instances at 6
+  locations, 1 Minor): independently re-verified round 4's fixes and the
+  round-5 collapse-hunt's own two fixes, and found the collapse-hunt's
+  "only these two were wrong" claim itself false — **four more sites**
+  carrying the identical "Step 30's `init`" misattribution survived
+  inside Step 2, Step 8, Step 23, and Step 29's own bodies, sections the
+  collapse-hunt's own attestation claimed to have read in full. All four
+  fixed (Step 23's own text is the origin the other three quote or
+  parallel). A second instance: section 10A's "Test tier split"
+  collapse-test had its Answer field corrected at round 4, but its
+  sibling Job and Steers-toward fields — three and twenty-two lines away
+  in the same four-part entry — still called the L11 files "build-time
+  markdown probes," directly contradicting the entry's own corrected
+  Answer; both fields rewritten to match. One Minor finding (Step 38's
+  `oracleSpawn` paragraph duplicated verbatim at two locations) resolved
+  by removing the second copy. A tentative finding (whether section 14.2's
+  `(Step 8, ...)` parenthetical on the D-plan-6 bullet is a
+  misattribution) was investigated against `expert-plan` SKILL.md
+  directly this session: SKILL.md's own Step 8 is "Write the plan," and
+  the register's established convention (Q-gap-1's "Step 2 — codebase
+  survey," Q-gap-3's "Step 2 — premise currency") is to cite SKILL.md's
+  process-step number with a free-text topic label, not the step's
+  heading verbatim — under that convention, both the D-plan-6 bullet's
+  "(Step 8, ...)" and Q-gap-4's "(Step 8 — L11 architecture-flagged
+  verifications)" are consistent (the L11 verification question surfaced
+  while writing the plan, SKILL.md Step 8). **Confirmed not a defect; no
+  plan change made.**
+
+Five consecutive rounds have now found the "fix landed at its primary
+site, not swept to every cross-referencing surface" pattern recurring at
+new sites each time (round 2: 7 sites; round 3: 2 sites; round 4: 2
+instances/4 sites; round 5: 2 instances/6 sites, including a same-round
+collapse-hunt's own completeness claim being independently falsified by
+that same round's expert-review). The count has not strictly shrunk to
+zero and, per `docs/collapse-log.md`'s round-5 entry, "the count is
+shrinking" is explicitly not being treated as evidence the underlying
+sweep mechanism now works — only a round that returns zero new findings
+ends the loop.
+
 ## What to do next (agent-owned)
 
-1. **Dispatch round 5 of independent collapse-hunt and expert-review.**
-   The finding count kept shrinking each round (round 1: 3
-   collapses/4 partials/6 missed decisions + 10 expert-review findings;
-   round 2: 1 collapse/3 partials/1 procedural gap + 9 expert-review
-   findings incl. the Q-gap-5 overclaim; round 3: 2 collapses/2 partials +
-   4 expert-review findings; round 4: 2 collapses/0 partials + 1 Systemic
-   pattern spanning 2 instances) and all were fixed each time. This is the
-   same iterate-to-convergence loop that took the architecture document
-   nine rounds — dispatch the next round rather than assuming round 4's
-   fixes are the last word.
+1. **Dispatch round 6 of independent collapse-hunt and expert-review.**
+   The finding count across rounds: round 1: 3 collapses/4 partials/6
+   missed decisions + 10 expert-review findings; round 2: 1 collapse/3
+   partials/1 procedural gap + 9 expert-review findings incl. the
+   Q-gap-5 overclaim; round 3: 2 collapses/2 partials + 4 expert-review
+   findings; round 4: 2 collapses/0 partials + 1 Systemic pattern
+   spanning 2 instances; round 5: 2 collapses (one incomplete) + 1
+   Systemic pattern spanning 2 instances at 6 locations + 1 Minor. All
+   fixed each time. This is the same iterate-to-convergence loop that
+   took the architecture document nine rounds — dispatch the next round
+   rather than assuming round 5's fixes are the last word, and instruct
+   it to independently re-verify round 5's own closure claims rather than
+   trust them, per round 5's own lesson.
 2. **Once a round comes back clean, proceed to implementation** via
    `.claude/skills/expert-implement/` against the fixed plan.
 3. **Two bin-2 items are flagged for Max Cogar's awareness in the plan's
@@ -260,9 +315,9 @@ session.
 
 ## Open items
 
-- Round 5 of independent review has not yet run — see "What to do next"
-  item 1. Nothing else from rounds 1–4 remains open: all findings from all
-  four rounds across both review types, plus Q-gap-5's six judgment
+- Round 6 of independent review has not yet run — see "What to do next"
+  item 1. Nothing else from rounds 1–5 remains open: all findings from all
+  five rounds across both review types, plus Q-gap-5's six judgment
   calls (Clear-Thought-verified, independently reproduced by round 3's
   expert-review), are closed.
 - L11(a) — human-marker presence on Max Cogar's real interactive transcript
