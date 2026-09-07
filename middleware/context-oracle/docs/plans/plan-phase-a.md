@@ -6641,15 +6641,21 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     flag to `'0'`.
   - **Level.** Integration (real store, real git fixture).
   - **Real/doubles.** Real `node:sqlite`; real `git`; no doubles — no child
-    process is expected, and the test asserts that none was spawned by
-    observing the spawn wrapper's audit (Step 5) is empty for the call.
+    process is expected, and the test establishes that none can be started
+    by an import scan of `dist/src/index/indexer.js` (it imports neither
+    `dist/src/util/spawn.js` nor `child_process` under either spelling, the
+    same scan `T-5-3` runs) and that none was started by the absence of any
+    `.reindex.lock` under the temp home during the calls (Step 14's lock is
+    the trace a reindex child leaves).
   - **Data.** `indexer-small` indexed; then one commit added (`HEAD` moves);
     `refreshIfStale` twice; then `runIndex`; then `refreshIfStale` again.
     Technique: state-transition (fresh → stale → stale → fresh).
   - **NOT asserts.** Who spawns the reindex (T-28-5 observes the handler's
     child). **Fails when** the stale call records no `index_stale` fault or
-    leaves the flag unset, OR any call spawns a child, OR the fresh call
-    records a fault, OR `runIndex` does not clear the flag.
+    leaves the flag unset, OR `dist/src/index/indexer.js` imports the spawn
+    wrapper or `child_process`, OR a `.reindex.lock` appears during the
+    calls, OR the fresh call records a fault, OR `runIndex` does not clear
+    the flag.
 
 - **T-15-1 — Tree-sitter frontend on a TypeScript fixture.**
   - **File.** `test/unit/tree_sitter_frontend.test.ts`.
