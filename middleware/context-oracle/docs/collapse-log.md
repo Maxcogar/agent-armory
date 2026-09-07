@@ -19,6 +19,55 @@ goes hollow is itself data.
 
 ---
 
+## 2026-09-07 — round 10: re-verifying the same axis a fourth time is not the same as checking a new one — the plan's own foundational dependency pin was functionally broken behind a metadata-only "verified" premise, for ten architecture rounds and nine plan rounds
+
+Round 10's expert-review found the most consequential defect yet in this
+plan's nine-round history: `web-tree-sitter@0.26.13` paired with
+`tree-sitter-wasms@0.1.13` — the plan's pinned tree-sitter dependencies,
+inherited from architecture premise V14 — cannot load a single grammar.
+Direct execution shows `Language.load()` throws unconditionally for
+every sampled language, because 0.26.x's loader requires a WASM
+`"dylink.0"` custom section that `tree-sitter-wasms@0.1.13`'s grammar
+files do not carry. This breaks Step 22 (the tree-sitter frontend)
+entirely, as literally specified, threatening every whisper genre
+depending on precise symbol/import extraction — Phase A's single most
+consequential mechanism failure found across ten rounds of review.
+
+**Why this survived so long.** Reading architecture's full V1–V19
+premise table, V14 alone is verified by "npm registry metadata fetched"
+— every other premise was verified by direct execution or a
+documentation quote. That metadata check (currency, no install
+scripts) was itself correct and answered a real question (C-3
+compliance) — but a different question than the one the plan actually
+builds on (that the parser can load these grammars at all). Three
+separate review rounds (6, 7, 9) re-verified this same dependency pin
+and each time correctly confirmed the *semver range's* behavior
+(`^0.26.13` excludes `0.27.0`) — a real, valuable check, repeated
+three times, that never touched the *functional* axis because nothing
+prompted anyone to ask a different question about the same citation.
+
+**The sharpened lesson.** Re-verifying a claim along the same axis a
+prior finding already checked is not the same as checking a new axis,
+no matter how many times it is repeated — three correct semver
+re-checks produced zero coverage of whether the two packages actually
+work together. A claim's own "how verified" citation is worth reading
+for what it does *not* say it checked, not only for what it says it
+did: V14's own text read "npm registry metadata," in plain sight,
+across every round that cited it, and no round asked what that method
+could not have established. This is also the first execute-don't-assume
+finding in this document's history (rounds 6-9 each executed one
+library's or tool's own documented behavior) that required executing
+**two** pinned packages **together** — a cross-package integration
+check, not a single-tool behavior check — which is exactly the kind of
+assumption `CLAUDE.md`'s "spikes before design-freeze" rule exists to
+force before an architecture ships a dependency pairing, not nine plan
+rounds later. The fix (a verified-working `0.25.x` floor) is
+straightforward; the standing prescription is procedural: when a round
+re-checks an already-checked citation, ask explicitly which axis the
+prior checks covered and deliberately pick a different one, rather than
+re-running the same check a fourth time and letting the repetition read
+as increasing confidence.
+
 ## 2026-09-07 — round 9: a fix that *reads* as closing a collapse is not closed until its own literal mechanism is executed against its own cited example — the execute-don't-assume method turned on itself
 
 Round 8 fixed two defects it found by execution (a `flock`(2) syscall

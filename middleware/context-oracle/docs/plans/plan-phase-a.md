@@ -204,16 +204,21 @@ except where noted in §11.
 - **npm packages** — `web-tree-sitter` (latest 0.27.0, no runtime deps, no
   install scripts, verified 2026-09-06 via npm registry) and
   `tree-sitter-wasms` (latest 0.1.13, published 2025-10-07, no install
-  scripts, verified 2026-09-06). Architecture V14 verified 0.26.13 / 0.1.13
-  on 2026-08-29 — the plan floors at 0.26.13 for `web-tree-sitter` (the
-  architecture's tested version) and pins 0.1.13 for `tree-sitter-wasms`;
-  bumping `web-tree-sitter` to 0.27.0 is a Step-1 owner-visible choice,
-  recorded as an open bin-2 item at §14.2 (default: keep the caret, per
-  the current recommendation), with the prior bin-1 framing of the
-  question (§14.1 Q1) retracted as not the planner's call to begin with
-  — corrected this fix pass, round 6: previously said "recorded in the
-  plan's Question register as bin 1 answered," matching neither
-  register entry's actual current disposition.
+  scripts, verified 2026-09-06). Architecture V14 originally verified
+  0.26.13 / 0.1.13 on 2026-08-29 by registry metadata alone —
+  **corrected this fix pass, round 10 (expert-review Critical finding):
+  `web-tree-sitter@0.26.13` cannot load any `tree-sitter-wasms@0.1.13`
+  grammar at all (a WASM `dylink`-vs-`dylink.0` custom-section format
+  mismatch, verified by direct `Language.load()` execution across six
+  sampled grammars); V14 is corrected to `web-tree-sitter@0.25.10`,
+  verified this fix pass by executing `Language.load()` +
+  `parser.parse()` end to end against the identical grammar file — the
+  plan now floors at 0.25.10 for `web-tree-sitter` and pins 0.1.13 for
+  `tree-sitter-wasms`.** Bumping `web-tree-sitter` beyond the verified
+  0.25.x line is a Step-1 owner-visible choice requiring a fresh
+  `Language.load()` re-verification before any bump, recorded as an
+  open bin-2 item at §14.2, with the prior bin-1 framing of the
+  question (§14.1 Q1) retracted as not the planner's call to begin with.
 - **ISO/IEC/IEEE 29119-4:2021** — test design techniques (equivalence
   partitioning, boundary value analysis, decision tables, state-transition,
   error guessing) — the test techniques named in each specification in §12.
@@ -413,7 +418,7 @@ middleware/context-oracle/ctxoracle/
       verdict_confinement.test.ts          # T15-2 (AD-10 structural)
       miner.test.ts                        # T20-1
       indexer.test.ts                      # T21-1
-      tree_sitter_frontend.test.ts         # T22-1
+      tree_sitter_frontend.test.ts         # T22-1, T22-3 — T22-3 added round 10
       generic_frontend.test.ts             # T22-2
       tuning_dao.test.ts                   # T23-1
       bar.test.ts                          # T24-1
@@ -635,7 +640,11 @@ step; every unit test also traces to the step it verifies.
 **What changes.** Create `middleware/context-oracle/ctxoracle/package.json`
 with `"type": "module"`, `"bin": {"ctxoracle": "dist/cli.js"}`,
 `"engines": {"node": ">=22.16.0"}`, and dependencies exactly
-`{"web-tree-sitter": "^0.26.13", "tree-sitter-wasms": "0.1.13"}` (dev deps:
+`{"web-tree-sitter": "^0.25.10", "tree-sitter-wasms": "0.1.13"}` — corrected
+this fix pass, round 10 (expert-review Critical finding): previously
+pinned `^0.26.13`, which cannot load any `tree-sitter-wasms@0.1.13`
+grammar at all (verified false by direct execution — see §11.4 and
+architecture V14's correction) — (dev deps:
 `typescript`, `@types/node`); explicitly NO `scripts.install`,
 `scripts.postinstall`, or `scripts.preinstall`. Run `npm install` once
 against this `package.json` and commit the resulting
@@ -2022,6 +2031,20 @@ grammar from `tree-sitter-wasms/out/<lang>.wasm` (path resolved
 dynamically), parsing via `web-tree-sitter`, extracting symbols via
 tree-sitter queries per language. Grammar loading is lazy per
 `(lang, first-use)` and cached; parser instances are pooled per lang.
+**Grammar-load failure handling, specified this fix pass, round 10
+(expert-review Critical finding: the prior text specified no
+try/catch around `Language.load()`, so a load failure for any
+language — the exact failure this fix pass's own §11.4/V14 correction
+shows was previously unconditional for the pinned versions — would
+throw uncaught and abort the entire indexing pass, not merely disable
+the tree-sitter path for that language):** `Language.load()` is
+wrapped in a try/catch at first-use per language; a thrown error is
+recorded as a diagnostic (`tree_sitter_grammar_load_failed`, naming
+the language and the WASM path) and that language's `LanguageFrontend`
+falls back to `generic_frontend.ts` for the remainder of the run —
+exactly the same `structurally uncountable` treatment a language with
+no configured grammar at all already receives. A load failure never
+aborts `runIndex` for the whole repository.
 
 Create `src/index/generic_frontend.ts` — line-based heuristics:
 identifier-shape regexes for definitions (function keywords, class
@@ -2030,9 +2053,11 @@ into FTS. **`import_edges` and `symbol_refs` are NOT produced by the
 generic frontend** — this is what makes a generic-frontend candidate
 `structurally uncountable` in the Reuse dominance test (Step 25).
 
-**Source.** `AD-12`; V14 (web-tree-sitter 0.26.13, tree-sitter-wasms
-0.1.13 verified; latest 0.27.0 for `web-tree-sitter` verified
-2026-09-06 — the plan floors at 0.26.13 per §3).
+**Source.** `AD-12`; V14 (web-tree-sitter 0.25.10, tree-sitter-wasms
+0.1.13, execution-verified this fix pass, round 10 — corrected from
+the original 0.26.13 pin, which does not load `tree-sitter-wasms`'s
+grammars at all; see §11.4). Grammar-load failure handling: this fix
+pass, round 10 (expert-review Critical finding).
 
 **Why this approach (Gate 3):**
 1. **The decision.** Tree-sitter frontend where a grammar exists; a
@@ -2053,8 +2078,11 @@ generic frontend** — this is what makes a generic-frontend candidate
 
 **Verification.** `T22-1` (tree-sitter frontend parses a small
 TypeScript fixture, emits symbols with correct spans and imports
-resolving to correct files), `T22-2` (generic frontend runs on a
-`.sh` file, emits function-shape symbols but zero `import_edges`).
+resolving to correct files — including that `Language.load()` itself
+succeeds under the pinned version), `T22-2` (generic frontend runs on a
+`.sh` file, emits function-shape symbols but zero `import_edges`),
+`T22-3` (a forced grammar-load failure falls back to the generic
+frontend rather than aborting `runIndex` — added round 10).
 
 **Impact if wrong.** Contained per language — a broken frontend
 falls back to generic (visible in `status` per-language counts).
@@ -2123,13 +2151,20 @@ absence:
 - `lexicon.completion_claim` (list): "done", "complete",
   "implemented", "fixed", "finished"...
 - `deny.despite_answer_text_threshold` = "3"
-- `reindex.lock_stale_ms` = "600000" (10 minutes) — **not sourced.**
-  Added this fix pass, round 9 (expert-review Serious finding, Step
-  37): the reindex lock's staleness threshold, distinguishing a
-  crashed process's abandoned lock from a genuinely still-running
-  reindex; well beyond any real index run's duration, a plan-level
-  judgment with no external or owner grounding, calibrated by the
-  exit-run like the other unsourced values below.
+- `reindex.lock_stale_ms` = "600000" (10 minutes) — **not sourced, and
+  not yet measured against anything — reworded this fix pass, round
+  10 (expert-review Moderate finding): previously stated as "well
+  beyond any real index run's duration," a confident magnitude claim
+  with zero measurement anywhere in the plan or architecture to
+  support it (Phase A's indexer, Steps 20-22, does not exist yet to
+  time directly — the claim's truth genuinely cannot be settled before
+  the exit run).** Added this fix pass, round 9 (expert-review Serious
+  finding, Step 37): the reindex lock's staleness threshold,
+  distinguishing a crashed process's abandoned lock from a genuinely
+  still-running reindex. A starting guess, plan-judgment, no external
+  or owner grounding, to be measured against a real full-index
+  duration on Max Cogar's largest real repo and recalibrated before
+  Step 42's exit run — see §13 R11.
 
 **Source.** `AD-14` for `confidence_floor`, `support_min`,
 `noise_floor_support_min`, and `impact_read_min_coupled` (illustrative
@@ -2949,8 +2984,11 @@ In `src/index/indexer.ts` (Step 21):
      process that crashes before reaching it.
   2. If lock acquisition fails with `EEXIST`, read the existing lock
      file's mtime. If it is older than `reindex.lock_stale_ms`
-     (default 600000ms / 10 minutes — well beyond any real index run,
-     plan-judgment default, not architecture-sourced), treat it as
+     (default 600000ms / 10 minutes — a starting guess, not measured
+     against any real index run's actual duration — reworded this
+     fix pass, round 10, expert-review Moderate finding; see §13 R11
+     and Step 23's own entry for the honest framing; plan-judgment
+     default, not architecture-sourced), treat it as
      abandoned by a crashed process and attempt to reclaim it — **made
      race-safe this fix pass, round 10 (collapse-hunt Serious finding:
      a plain `unlinkSync`-then-recreate reclaim is an unsynchronized
@@ -3518,21 +3556,29 @@ delegated to the plan.
   previously pointed to §15 as still-open; it is resolved, not
   open.**
 
-- **D-plan-2 — Package deps floor: `web-tree-sitter@^0.26.13` (caret
-  floor, locked to the `0.26.x` line), `tree-sitter-wasms@0.1.13`
-  (exact) — corrected this fix pass, round 7: previously labeled
-  `web-tree-sitter` "(exact)" here, contradicting Step 1's own
-  `package.json` (a caret range) and this same entry's own
-  round-6-corrected collapse-test below, which is entirely about the
-  caret's non-exact behavior.** *Reasoning.* Not a plan
-  decision — the architecture's V14 verified exactly these versions
-  on 2026-08-29 and signed off (`OL-C6`). The plan uses what the
-  architecture verified; version selection is not the planner's to
-  make. Any bump is architecture work (V14 re-run against the new
-  version) and belongs in a Phase B or maintenance PR, not here.
+- **D-plan-2 — Package deps floor: `web-tree-sitter@^0.25.10` (caret
+  floor, locked to the `0.25.x` line), `tree-sitter-wasms@0.1.13`
+  (exact) — corrected this fix pass, round 10 (expert-review Critical
+  finding): the version previously named here, `^0.26.13`, cannot
+  load any `tree-sitter-wasms@0.1.13` grammar at all (a WASM
+  `dylink`-vs-`dylink.0` custom-section mismatch, verified by direct
+  `Language.load()` execution) — verified false after surviving ten
+  architecture-review rounds and nine plan-review rounds, none of
+  which executed the two pinned packages together, only the semver
+  *range's* own behavior (rounds 6, 7, 9). `web-tree-sitter@0.25.10`
+  is verified this fix pass to load and parse the identical grammar
+  file successfully; V14 is corrected to match — see §11.4.** *Reasoning.* Not a plan
+  decision — the architecture's V14 verified these versions on
+  2026-08-29 and signed off (`OL-C6`); V14 itself is now corrected per
+  the finding above, and the plan uses what the corrected architecture
+  verifies. Version selection is not the planner's to make. Any future
+  bump is architecture work (V14 re-run against the new version,
+  including an actual `Language.load()` execution, not registry
+  metadata alone) and belongs in a Phase B or maintenance PR, not here.
   (Prior wording of this entry proposed choosing between `^0.26.13`
   and `^0.27.0`; retracted — that would have been the planner
-  re-deciding what the architecture already decided.)
+  re-deciding what the architecture already decided, and both were
+  built on the same unexecuted premise this fix pass corrects.)
 
 - **D-plan-3 — Use `node:test` (built into Node ≥22) as the test
   runner.** *Reasoning.* Zero-dependency runner (C-3 preserves); no
@@ -3716,39 +3762,54 @@ confirmation it is a guide, never a gate.
 
 #### D-plan-2 (dependency floor)
 
-1. **Job.** Pin the runtime-dependency floor to the exact version
-   architecture V14 measured, so plan-time re-verification cannot
-   drift the tool onto a version whose behavior V14 did not observe.
-2. **Hardest question (corrected this fix pass, round 6 — expert-
-   review Moderate finding, verified against a real `semver`
-   evaluator: `semver.satisfies('0.27.0', '^0.26.13')` → `false`;
-   `semver.validRange('^0.26.13')` → `>=0.26.13 <0.27.0-0`).** For a
-   pre-1.0 package, `^0.26.13` is anchored at the minor version and
-   locks to the `0.26.x` line — it does not accept `0.27.0` at all.
-   Given the caret and an exact pin at `0.26.13` are therefore
-   behaviorally identical for a default install, does the pin's `^`
-   prefix do anything beyond documentation?
-3. **Answer (corrected this fix pass, round 6: previously claimed the
-   caret "accepts 0.27.0 anyway," the opposite of real semver
-   behavior).** Yes: the caret still permits patch-level movement
-   within `0.26.x` (e.g., a `0.26.14` bugfix) without a `package.json`
-   edit, which an exact pin would block. Reaching `0.27.0` requires an
-   explicit, separate act — an exact version install or a
-   `package.json` edit — never a default `npm install`. The floor at
-   `0.26.13` documents which version V14 measured; the caret's actual
-   job is patch-level flexibility, not minor-version drift protection,
-   because minor-version drift was never possible under this range to
-   begin with. Cite: `node-semver`'s caret-range specification
-   (verified this session via the `semver` npm package, v7.8.5);
-   architecture V14 (measurement date 2026-08-29); plan §11.4
-   npm-registry evidence (2026-09-06).
-4. **Steers toward.** Install times matching V14's tested surface by
-   default — this is not merely likely but structurally guaranteed by
-   the caret's own range, since `0.27.0` cannot resolve under
-   `^0.26.13` — with the option to install `0.27.0` explicitly when
-   the implementer wants its behavior. **Guide, not gate** — the caret
-   allows patch-level movement within the audited minor version; the
-   exact pin would forbid even that.
+1. **Job.** Pin the runtime-dependency floor to a version architecture
+   V14 has verified — both that plan-time re-verification cannot drift
+   the tool onto an unobserved version, **and, corrected this fix
+   pass, round 10 (expert-review Critical finding), that the pinned
+   version actually works**: loads and parses a real grammar together
+   with the pinned `tree-sitter-wasms` version, not merely that its
+   registry metadata looks current.
+2. **Hardest question (sharpened this fix pass, round 10 — the
+   original hardest question, corrected round 6, interrogated only the
+   semver *range's* behavior; it never asked whether the two pinned
+   packages actually function together, which is the question that
+   matters).** Does `web-tree-sitter@^0.25.10` actually load and parse
+   a grammar from `tree-sitter-wasms@0.1.13`, end to end — not "is the
+   caret range written correctly" (already verified three times over,
+   rounds 6/7/9, against `^0.26.13`), but "does `Language.load()`
+   succeed at all against this exact pinned combination"?
+3. **Answer (corrected this fix pass, round 10: the previous pin,
+   `web-tree-sitter@^0.26.13`, answered the semver question correctly
+   but never answered this one — direct execution shows it fails
+   unconditionally).** No, not for `^0.26.13`: `Language.load()`
+   throws for every sampled `tree-sitter-wasms@0.1.13` grammar under
+   `web-tree-sitter@0.26.13`, because 0.26.x's loader requires a WASM
+   `"dylink.0"` custom section that `tree-sitter-wasms@0.1.13`'s
+   grammar files do not carry (they carry the older `"dylink"` name).
+   Yes, for the corrected pin: `web-tree-sitter@0.25.10` loads and
+   parses the identical grammar file successfully, verified this fix
+   pass by executing `Parser.init()` + `Language.load()` +
+   `parser.parse()` end to end. The semver-range reasoning below still
+   holds, now anchored to the working version: for a pre-1.0 package,
+   `^0.25.10` is anchored at the minor version and locks to the
+   `0.25.x` line (`semver.validRange('^0.25.10')` →
+   `>=0.25.10 <0.26.0-0`, re-verified this session) — the caret still
+   permits patch-level movement within `0.25.x` without a
+   `package.json` edit, which an exact pin would block, while
+   structurally excluding `0.26.x` (the incompatible line) from ever
+   resolving by default. Cite: direct `Language.load()`/`parser.parse()`
+   execution, this fix pass (§11.4); `node-semver`'s caret-range
+   specification (verified via the `semver` npm package, v7.8.5);
+   architecture V14, corrected this fix pass.
+4. **Steers toward.** Install times matching a version that is both
+   semver-stable (the caret excludes the next minor line by
+   construction) and functionally verified to work with its paired
+   dependency — not one checked on only one of those two axes. **Guide,
+   not gate** — the caret allows patch-level movement within the
+   audited, working minor version; the exact pin would forbid even
+   that. Any future re-floor of either package requires re-running
+   both checks (range *and* function), per D-plan-2's own Reasoning
+   above.
 
 #### D-plan-3 (`node:test` as the runner)
 
@@ -4394,14 +4455,20 @@ session (fetched at plan-time, 2026-09-06). Where an entry cites a
   commits, --is-shallow-repository is true, .git/shallow has 8
   entries."
 
-- **Claim.** V14 confirms `web-tree-sitter` 0.26.13 and
-  `tree-sitter-wasms` 0.1.13 are current, pure-WASM, no install
-  scripts. **Steps.** Step 1 (deps), Step 22. **Evidence.** Read
-  `docs/architecture-phase-a.md:138` (V14 row, 2026-09-06). V14
-  records: "web-tree-sitter (0.26.13) and tree-sitter-wasms (0.1.13)
-  are current, pure-WASM (no native toolchain), with no install
-  scripts in the published manifest." Corroborated this session by
-  direct npm registry reads (see §11.4).
+- **Claim.** V14 confirms `web-tree-sitter` 0.25.10 and
+  `tree-sitter-wasms` 0.1.13 are current-enough, pure-WASM, no install
+  scripts, **and actually load and parse together**. **Steps.** Step 1
+  (deps), Step 22. **Evidence.** Read `docs/architecture-phase-a.md:138`
+  (V14 row) — **corrected this fix pass, round 10 (expert-review
+  Critical finding): the row previously named `web-tree-sitter`
+  0.26.13 and verified only registry metadata; direct execution this
+  fix pass shows 0.26.13 cannot load any `tree-sitter-wasms@0.1.13`
+  grammar at all (WASM `dylink`-vs-`dylink.0` section mismatch), and
+  V14 is now corrected to `0.25.10`, execution-verified to load and
+  parse successfully.** Corroborated this session by direct npm
+  registry reads (currency, no install scripts — see §11.4) and by
+  direct `Language.load()`/`parser.parse()` execution (functional
+  compatibility — see §11.4).
 
 - **Claim.** V17 confirms `VACUUM INTO` round-trips data on
   `node:sqlite` and `backup()` API is v22.16.0+. **Steps.** Step 32.
@@ -4479,6 +4546,39 @@ session (fetched at plan-time, 2026-09-06). Where an entry cites a
   **Evidence.** WebFetch `https://registry.npmjs.org/tree-sitter-wasms`
   (2026-09-06): "Version: 0.1.13… Published: October 7, 2025… no
   install, postinstall, or preinstall scripts defined."
+
+- **Claim.** `web-tree-sitter@0.26.13` cannot load any
+  `tree-sitter-wasms@0.1.13` grammar — `Language.load()` throws
+  unconditionally because 0.26.x's loader requires a WASM
+  `"dylink.0"` custom section that `tree-sitter-wasms@0.1.13`'s
+  grammar files do not carry (they carry the older `"dylink"` name
+  only); `web-tree-sitter@0.25.10` loads and parses the identical
+  file successfully. **Steps.** Step 1 (dependency pin), Step 22
+  (tree-sitter frontend), D-plan-2, architecture V14. **Added this fix
+  pass, round 10** (expert-review Critical finding — this claim was
+  the *only* premise among architecture V1–V19 verified by registry
+  metadata alone rather than execution, and it survived ten
+  architecture-review rounds and nine plan-review rounds unexecuted).
+  **Evidence.** Direct execution, fresh install in a scratch
+  directory: `npm install web-tree-sitter@0.26.13
+  tree-sitter-wasms@0.1.13`, then `Parser.init()` +
+  `Language.load('node_modules/tree-sitter-wasms/out/tree-sitter-typescript.wasm')`
+  → throws `Error` at `getDylinkMetadata` (`web-tree-sitter.cjs:459`,
+  `failIf(name2 !== "dylink.0")`), reproduced across six sampled
+  grammars (`javascript`, `typescript`, `python`, `go`, `java`,
+  `c_sharp`). Direct WASM inspection:
+  `WebAssembly.Module.customSections(mod, 'dylink.0').length` → `0`;
+  `customSections(mod, 'dylink').length` → `1`, for every sampled
+  grammar file. Installing `web-tree-sitter@0.25.10` (the current
+  0.25.x release) and repeating the identical `Language.load()` +
+  `parser.parse('const x: number = 1;')` call against the same file:
+  succeeds, root node type `program`. `npm view tree-sitter-wasms
+  versions`: `0.1.13` is the package's current and only recent
+  release (no newer rebuild already fixes the format). `npm view
+  "web-tree-sitter@^0.25.10" version`: resolves to `0.25.10`, the
+  version tested; `semver.validRange('^0.25.10')` →
+  `>=0.25.10 <0.26.0-0`, confirmed to exclude the incompatible 0.26.x
+  line.
 
 - **Claim.** `node:sqlite`'s `DatabaseSync.exec()` throws a plain
   `Error` (carrying `code: 'ERR_SQLITE_ERROR'` and `errcode`/`errstr`
@@ -5195,9 +5295,38 @@ cited at Step 21 and Step 2.5 with no §12 specification.)*
 - **Data.** Two `.ts` files (one imports a named symbol from
   the other). Technique: state-transition (source → parse → DB).
 - **NOT asserts.** Every symbol kind (that's covered as the
-  frontend adds languages). **Fails when** the parse loses a
-  symbol, emits a wrong span, or the import edge does not
+  frontend adds languages). **Fails when** `Language.load()` throws
+  for `typescript.wasm` under the pinned `web-tree-sitter` version
+  (added this fix pass, round 10, expert-review Critical finding: the
+  prior pin, `0.26.13`, would have failed this exact assertion — this
+  test is the CI-enforced guard against that exact class of
+  incompatibility recurring on a future version bump), OR the parse
+  loses a symbol, emits a wrong span, or the import edge does not
   resolve.
+
+**T22-3 — Grammar-load failure falls back to the generic frontend, not an uncaught abort.** Added this fix pass, round 10 (expert-review Critical finding: Step 22's prior text specified no error handling around `Language.load()`).
+- **File.** `test/unit/tree_sitter_frontend.test.ts` (same file as
+  `T22-1`, a sibling case).
+- **Verifies.** Step 22 — a `Language.load()` failure for one
+  language is caught, recorded as a `tree_sitter_grammar_load_failed`
+  diagnostic naming the language, and that language's files fall back
+  to `generic_frontend.ts`; `runIndex` completes for the rest of the
+  repository rather than aborting.
+- **Level.** Unit (a doubled `Language.load` forced to reject).
+- **Real/doubles.** A doubled `Language.load` for this test only
+  (forcing the failure path deterministically — the real grammar
+  loading correctly for the pinned version is `T22-1`'s job); real
+  `generic_frontend.ts` for the fallback assertion.
+- **Data.** A repository containing one file in a language whose
+  `Language.load()` is forced to reject. Technique: error guessing
+  (force the one failure mode Step 22's fix specifically added
+  handling for).
+- **NOT asserts.** Which languages are actually affected (that is a
+  build-time fact, Limitations L6; this test forces the failure path
+  synthetically). **Fails when** the forced load failure throws
+  uncaught (aborting `runIndex`), OR no diagnostic is recorded, OR the
+  affected file's symbols are missing rather than produced via the
+  generic fallback.
 
 **T22-2 — Generic frontend on a shell file.**
 - **File.** `test/unit/generic_frontend.test.ts`.
@@ -6322,7 +6451,7 @@ is the mechanical mapping.
 | 19 | T19-1, T19-2, T19-3 |
 | 20 | T20-1 |
 | 21 | T21-1, T21-2 (round-2 fix) |
-| 22 | T22-1, T22-2 |
+| 22 | T22-1, T22-2, T22-3 (added round 10) |
 | 23 | T23-1 |
 | 24 | T24-1 |
 | 25 | T25-1..T25-7, T25-6a, T25-6b, T25-8 (S2), T25-9 (S2) |
@@ -6456,6 +6585,26 @@ first.
   by date + subject, not by number; the review file names are
   stable per `CLAUDE.md` ("written once, never edited").
 
+- **R11 — `reindex.lock_stale_ms`'s 10-minute default is an
+  unmeasured guess; a real full-index run on a large repo could
+  exceed it.** Added this fix pass, round 10 (expert-review Moderate
+  finding): the value cannot be measured against the actual mechanism
+  it governs because Steps 20–22 (the indexer) do not exist yet
+  (Phase A is greenfield). If a legitimately-running (not crashed)
+  reindex exceeds the threshold, a concurrent `refreshIfStale` trigger
+  would reclaim its lock and start a second, redundant reindex — not
+  data corruption (Step 37's own WAL/`busy_timeout`/retry-once
+  discipline, a separate mechanism, keeps the underlying `store.db`
+  writes safe under concurrent contention; the manual `ctxoracle
+  index` verb bypasses this lock entirely and is unaffected).
+  Mitigation: measure an actual full-index duration on the largest of
+  Max Cogar's real repos during Step 42's exit run and recalibrate
+  `reindex.lock_stale_ms` from that data, the same discipline the plan
+  already applies to its bar-tier defaults (Step 23); until then, the
+  value is disclosed as a guess, not a verified fact, at Step 23's own
+  seeding text (§7) and cross-referenced from Step 37. Self-healing
+  once either concurrent reindex completes.
+
 **Hardest step.** Step 14 (recognizers). Not because it is technically
 complex — it is the opposite: the recognizers are small — but because
 the temptation to elaborate them into "correctness" is exactly the
@@ -6480,13 +6629,17 @@ disposition. **Zero entries open at delivery.**
   0.26.13 or the current 0.27.0? **Bin.** Was posed as bin-1
   (engineering derivable from semver + registry reading); on review
   it is not a plan-level question at all — the architecture V14
-  verified 0.26.13 and signed off (`OL-C6`); the plan uses what the
+  verified a version and signed off (`OL-C6`); the plan uses what the
   architecture verified. **Disposition.** Retracted at D-plan-2:
   version selection is not the planner's to make. Both packages fixed
   to their architecture-verified versions (`web-tree-sitter` via a
-  caret floor locked to `0.26.x`; `tree-sitter-wasms` via an exact
-  pin) — corrected this fix pass, round 7: previously said "pinned,"
-  ambiguous with an exact pin for both.
+  caret floor locked to `0.25.x` — corrected this fix pass, round 10,
+  expert-review Critical finding: V14's original 0.26.13 verification
+  was registry-metadata-only and does not functionally load
+  `tree-sitter-wasms`'s grammars at all; `0.25.10` is the
+  execution-verified corrected floor, see §11.4; `tree-sitter-wasms`
+  via an exact pin) — corrected this fix pass, round 7: previously
+  said "pinned," ambiguous with an exact pin for both.
 
 - **Q2 (Step 1).** Which test runner? **Bin.** 1. **Disposition.**
   Answered: `node:test` per D-plan-3.
@@ -6587,24 +6740,32 @@ defensible answers exist and the choice belongs to the owner" —
 applies to both):**
 
 - **web-tree-sitter dependency floor (Step 1, D-plan-2).** The
-  architecture verified `0.26.13` on 2026-08-29; the current release
-  is `0.27.0`. The plan ships `^0.26.13` — corrected this fix pass,
-  round 6 (expert-review Moderate finding, verified against the
-  `semver` npm package): this caret range is anchored at the minor
-  version and **excludes** `0.27.0`; it does not "accept either."
-  Options: (a) keep the caret as written — current behavior, `npm
-  install` stays locked to the `0.26.x` line, with patch-level
-  movement only; (b) exact-pin `0.26.13` for reproducibility with
-  V14's tested surface (behaviorally identical to (a) for a default
-  install, since the caret already excludes `0.27.0`); (c) bump the
-  floor to `^0.27.0` to build against the current release. **Recommendation:
-  (a), unchanged** — the caret is a defensible engineering default
-  (already locked to the audited minor version, with no behavioral
-  difference from an exact pin for a default install, per the
-  npm-registry re-check at §11.4) and this plan proceeds on it so
-  Step 1 is not blocked. **Flagged for Max Cogar:** if you want an
-  exact pin or the newer floor instead, say so and Step 1 changes to
-  match — nothing downstream depends on which of the three is chosen.
+  architecture originally verified `0.26.13` on 2026-08-29 by registry
+  metadata alone; the current release is `0.27.0`. **Corrected this
+  fix pass, round 10 (expert-review Critical finding): `0.26.13`
+  cannot load any `tree-sitter-wasms@0.1.13` grammar at all —
+  verified false by direct `Language.load()` execution (a WASM
+  `dylink`-vs-`dylink.0` custom-section mismatch) — so options (a) and
+  (b) below, as they were originally framed against `0.26.13`, would
+  both have shipped a non-functional tree-sitter frontend. The plan
+  now ships `^0.25.10`, execution-verified this fix pass to load and
+  parse successfully (see §11.4).** This caret range is anchored at
+  the minor version and excludes `0.26.x` entirely (re-verified via
+  the `semver` npm package: `>=0.25.10 <0.26.0-0`). Options, restated
+  against the corrected, working floor: (a) keep the caret as
+  written — current behavior, `npm install` stays locked to the
+  working `0.25.x` line, with patch-level movement only; (b)
+  exact-pin `0.25.10` for reproducibility (behaviorally identical to
+  (a) for a default install); (c) bump to `^0.26.x` or `^0.27.0` only
+  after re-running V14's `Language.load()` execution against the new
+  version and confirming it also loads `tree-sitter-wasms`'s grammars
+  — `0.26.13` specifically is now known not to. **Recommendation:
+  (a), unchanged in shape but now resting on a verified-working
+  version** — the caret is a defensible engineering default and this
+  plan proceeds on it so Step 1 is not blocked. **Flagged for Max
+  Cogar:** if you want an exact pin instead, say so and Step 1 changes
+  to match; a bump beyond `0.25.x` requires re-verification first and
+  is not a same-day change.
 - **D-plan-6's L11 verification workload (Step 8, already-run this
   session).** The plan's original disposition required Max Cogar to
   run two shell one-liners and paste results into a follow-up PR,

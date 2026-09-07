@@ -24,7 +24,7 @@ dominating rule 3).
 
 The spec (`docs/specs/spec-context-oracle.md`) is signed off (`OL-C6`). The
 Phase A architecture (`docs/architecture-phase-a.md`) is reviewed to
-convergence. `docs/plans/plan-phase-a.md` has been through **nine rounds** of
+convergence. `docs/plans/plan-phase-a.md` has been through **ten rounds** of
 fix-and-re-review this session:
 
 **Round 1** fixed every finding across the four review documents that had
@@ -460,9 +460,60 @@ fix-diff-specific sharpening of the execute-don't-assume method, now
 shown to apply with equal force to a round's own closure claims about
 itself, not only to fresh claims about the document's older content.
 
+**Round 10** dispatched a fresh independent collapse-hunt and expert-review
+against round 9's output, instructed to re-execute round 9's own fix
+mechanisms rather than trust the corrected prose. Both returned real
+findings, all fixed:
+
+- **Collapse-hunt** (1 Serious collapse, 1 missing-collapse-test finding,
+  1 Minor): independently re-verified round 9's two fixes hold for every
+  scenario they were built to close, then found that round 9's own new
+  staleness-reclaim step introduced a race condition round 9 did not
+  test for: two concurrent triggers can both pass the staleness check on
+  the same abandoned lock, both reclaim, and both believe they hold
+  exclusive ownership — reproduced by direct hand-interleaved execution
+  of round 9's own described algorithm. Fixed with an atomic
+  rename-based reclaim. Also found the new `reindex.lock_stale_ms`
+  decision shipped with no section-10A collapse-test of its own, whose
+  absence is plausibly why the race went unasked at write time — added
+  N7, whose hardest question is exactly that race. A Minor residual
+  (a filename containing literal brace characters can mis-parse the
+  round-9 rename fix) was disclosed rather than fixed, as genuinely rare.
+- **Expert-review** (1 Critical, 1 Moderate): after confirming round 9's
+  two fixes hold under independent re-implementation, a full-document
+  regression scan found that the plan's foundational dependency pin —
+  `web-tree-sitter@0.26.13` paired with `tree-sitter-wasms@0.1.13`,
+  inherited from architecture premise V14 and re-cited across ten
+  architecture-review rounds and nine plan-review rounds — is
+  functionally false: direct execution shows `Language.load()` throws
+  for every grammar in `tree-sitter-wasms@0.1.13` under
+  `web-tree-sitter@0.26.13` (a WASM `dylink`-vs-`dylink.0` format
+  mismatch). Every prior re-check (rounds 6, 7, 9) verified only the
+  semver *range's* behavior, never whether the two pinned packages
+  actually work together — the first execute-don't-assume finding in
+  this document's history to require executing two packages together,
+  not one. Fixed by re-floor to `web-tree-sitter@^0.25.10`, verified
+  this round to load and parse successfully; architecture V14 corrected
+  to match; a grammar-load-failure fallback to the generic frontend
+  added (the prior text specified no error handling, so a load failure
+  would have aborted indexing for the whole repository); a new CI-
+  enforced test (`T22-3`) added so a future version bump cannot
+  reintroduce this silently. Also fixed: `reindex.lock_stale_ms`'s
+  10-minute default (added round 9) was asserted as "well beyond any
+  real index run's duration" with zero measurement anywhere — reworded
+  to the same honest, calibration-pending framing the plan already uses
+  for its sibling unsourced defaults, with a new §13 risk entry (R11).
+
+Logged in `docs/collapse-log.md`: a claim re-verified only along the
+axis a prior finding already checked (here: the semver range, checked
+three times) can still harbor a false premise on a different,
+uninspected axis (here: functional cross-package compatibility) — and a
+claim's own "how verified" citation is worth reading for what it does
+*not* say it checked, not only for what it says it did.
+
 ## What to do next (agent-owned)
 
-1. **Dispatch round 10 of independent collapse-hunt and expert-review.**
+1. **Dispatch round 11 of independent collapse-hunt and expert-review.**
    The finding count across rounds: round 1: 3 collapses/4 partials/6
    missed decisions + 10 expert-review findings; round 2: 1 collapse/3
    partials/1 procedural gap + 9 expert-review findings incl. the
@@ -474,32 +525,34 @@ itself, not only to fresh claims about the document's older content.
    (expert-review) + 1 collapse + 3 Minor (collapse-hunt); round 8: 1
    Serious + 1 Moderate (expert-review) + 2 collapses (collapse-hunt);
    round 9: 2 Serious (expert-review) + 1 collapse + 2 findings
-   (collapse-hunt). All fixed each time. This is the same
-   iterate-to-convergence loop that took the architecture document nine
-   rounds — dispatch the next round rather than assuming round 9's fixes
-   are the last word, and instruct it to independently re-execute round
-   9's own fix mechanisms (the corrected brace-detection regex against
-   both a same-directory and a cross-directory rename; the lock
-   acquire/release/staleness sequence) rather than trust the corrected
-   prose. Round 9's own collapse-hunt suggests exactly this as round 10's
-   method.
+   (collapse-hunt); round 10: 1 Critical + 1 Moderate (expert-review) + 1
+   Serious collapse + 2 findings (collapse-hunt). All fixed each time.
+   This is the same iterate-to-convergence loop that took the
+   architecture document nine rounds — dispatch the next round rather
+   than assuming round 10's fixes are the last word, and instruct it to
+   independently re-execute round 10's own fix mechanisms (the atomic
+   rename-based lock reclaim under a concurrent-reclaim race; the actual
+   `Language.load()`/`parser.parse()` call against `web-tree-sitter@
+   0.25.10` + `tree-sitter-wasms@0.1.13`; the grammar-load-failure
+   fallback path) rather than trust them.
 2. **Once a round comes back clean, proceed to implementation** via
    `.claude/skills/expert-implement/` against the fixed plan.
 3. **Two bin-2 items are flagged for Max Cogar's awareness in the plan's
    bin-2 register (section 14.2), not blocking anything:** the
-   `web-tree-sitter` dependency-floor pin (currently `^0.26.13`, confirmed
-   via a real semver check to be locked to the `0.26.x` line with no
-   drift risk to `0.27.0`, and now correctly committed alongside a
-   `package-lock.json` per round 7's fix) and the now-largely-resolved
-   D-plan-6 owner-probe workload (L11(a) already measured this session;
-   L11(b) has no probe path and is handled by a runtime counter instead).
-   No response is needed unless he wants either changed.
+   `web-tree-sitter` dependency-floor pin (now `^0.25.10` as of round 10
+   — the only version in this line confirmed by direct execution to
+   actually load `tree-sitter-wasms`'s grammars; a bump beyond `0.25.x`
+   requires re-running that execution check first, not merely a semver
+   check) and the now-largely-resolved D-plan-6 owner-probe workload
+   (L11(a) already measured this session; L11(b) has no probe path and
+   is handled by a runtime counter instead). No response is needed
+   unless he wants either changed.
 
 ## Open items
 
-- Round 10 of independent review has not yet run — see "What to do next"
-  item 1. Nothing else from rounds 1–9 remains open: all findings from all
-  nine rounds across both review types, plus Q-gap-5's six judgment
+- Round 11 of independent review has not yet run — see "What to do next"
+  item 1. Nothing else from rounds 1–10 remains open: all findings from
+  all ten rounds across both review types, plus Q-gap-5's six judgment
   calls (Clear-Thought-verified, independently reproduced by round 3's
   expert-review), are closed.
 - L11(a) — human-marker presence on Max Cogar's real interactive transcript
