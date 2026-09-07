@@ -212,6 +212,30 @@ against this session's own real (still-polluted) transcript file after the
 fix: `last_user_text` now correctly resolves to the actual most recent real
 human message, skipping past dozens of synthetic entries to find it.
 
+## Stale requests during extended autonomous work (found in production)
+
+Even once the transcript-pollution fix above made `last_user_text` reliably
+find the true most recent human message, that message can still be many
+turns old: in a long autonomous stretch (fixing bugs found along the way,
+driving a PR to green, background monitoring) the user may not speak for
+dozens of turns. Found live: after this gate's own transcript-pollution fix
+was already shipped, a routine "PR is clean, scheduled a check-in" response
+was blocked because the judge was shown an old complaint about a fabricated
+test transcript (already resolved, many turns earlier) and treated it as if
+it still governed the current, unrelated turn - the gate had no way to
+signal that the anchor was stale, so the judge applied it literally.
+
+Fixed by having `last_user_text` also count how many real assistant turns
+have elapsed since that message, passing that count into the judge prompt,
+and adding explicit staleness guidance: an old request is not a standing
+veto over every unrelated thing that happens afterward, and something
+already acted on does not need to be re-relitigated on every later turn -
+only apply it if the current response actually contradicts it or the same
+unresolved issue is recurring. Re-verified directly: the same real
+transcript now correctly resolves 51 assistant turns of gap on that old
+message, and the same real "PR is clean, scheduled a check-in" response
+that was wrongly blocked before the fix now correctly passes.
+
 ## Session isolation (critical, found in production)
 
 The judge subprocess is spawned with `env = os.environ.copy()`, which

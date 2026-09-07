@@ -80,6 +80,21 @@ asked with no admitted gap, OR if the response is a truthful, non-hedged
 progress update on work that is still genuinely in progress (not being
 abandoned, and not offered as if it were the finished answer).
 
+The USER'S REQUEST shown below may not be from this exact turn - in an
+extended autonomous work session the user may not have spoken in a while,
+in which case this is simply the most recent thing they actually said,
+carried forward. A count of how many assistant turns have elapsed since
+they said it is given. If that count is greater than zero, judge THIS
+turn's response on its own merits first: if it is legitimate, in-scope
+follow-up work (continuing a task already agreed to, monitoring something
+already set in motion, fixing a bug found along the way) and does not
+contradict or ignore the shown request, that is "complete" - an old
+request is not a standing veto over every unrelated thing that happens
+afterward, and a complaint that was already acted on does not need to be
+re-relitigated on every later turn. Only apply the shown request against
+an unrelated later turn if the response actually contradicts it or is the
+same unresolved issue recurring.
+
 A clarifying question can qualify as "complete" ONLY if proceeding without
 it would require guessing at something irreversible, destructive, or
 genuinely unknowable to the assistant (a real fact only the user has, or a
@@ -183,36 +198,57 @@ def _extract_text(content):
 def last_user_text(transcript_path):
     """Scan the transcript JSONL backward for the most recent real user
     message: skips tool_result-only entries (also type "user"), and skips
-    synthetic Stop-hook-feedback re-injections (also type "user", also
-    plain text - see _HOOK_FEEDBACK_PREFIX)."""
+    synthetic entries that aren't something a human typed (see
+    _NOT_A_REAL_USER_MESSAGE_PREFIXES). Also returns how many real assistant
+    text turns have happened since that message, so the judge can tell a
+    fresh request from one that's been sitting for a while during a long
+    autonomous stretch with no new human input - see the staleness note in
+    JUDGE_INSTRUCTIONS. Returns (text, turns_since) or (None, 0)."""
     if not transcript_path or not os.path.isfile(transcript_path):
-        return None
+        return None, 0
     try:
         with open(transcript_path, "r", encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
     except OSError:
-        return None
-    for line in reversed(lines):
+        return None, 0
+    entries = []
+    for line in lines:
         line = line.strip()
         if not line:
             continue
         try:
-            entry = json.loads(line)
+            entries.append(json.loads(line))
         except json.JSONDecodeError:
             continue
+    for i in range(len(entries) - 1, -1, -1):
+        entry = entries[i]
         if entry.get("type") != "user":
             continue
         message = entry.get("message") or {}
         text = _extract_text(message.get("content"))
-        if text and not text.startswith(_NOT_A_REAL_USER_MESSAGE_PREFIXES):
-            return text
-    return None
+        if not text or text.startswith(_NOT_A_REAL_USER_MESSAGE_PREFIXES):
+            continue
+        turns_since = 0
+        for later in entries[i + 1:]:
+            if later.get("type") != "assistant":
+                continue
+            later_text = _extract_text((later.get("message") or {}).get("content"))
+            if later_text:
+                turns_since += 1
+        return text, turns_since
+    return None, 0
 
 
-def build_prompt(user_text, assistant_text):
+def build_prompt(user_text, assistant_text, turns_since):
+    staleness_note = (
+        f"(This request is from {turns_since} assistant turn(s) ago - the "
+        "user has not spoken since. See the staleness guidance above.)\n"
+        if turns_since > 0 else ""
+    )
     return (
         JUDGE_INSTRUCTIONS
         + "\n--- USER'S REQUEST ---\n"
+        + staleness_note
         + user_text.strip()
         + "\n--- ASSISTANT'S RESPONSE ---\n"
         + assistant_text.strip()
@@ -220,8 +256,8 @@ def build_prompt(user_text, assistant_text):
     )
 
 
-def run_judge(user_text, assistant_text):
-    prompt = build_prompt(user_text, assistant_text)
+def run_judge(user_text, assistant_text, turns_since):
+    prompt = build_prompt(user_text, assistant_text, turns_since)
     env = os.environ.copy()
     for var in _SESSION_ISOLATION_STRIP_VARS:
         env.pop(var, None)
@@ -284,12 +320,12 @@ def main():
         allow()  # paused on background work, not claiming to be "done"
 
     transcript_path = data.get("transcript_path")
-    user_text = last_user_text(transcript_path)
+    user_text, turns_since = last_user_text(transcript_path)
     if not user_text:
         degraded(f"could not locate the user's request in transcript {transcript_path!r}")
         return
 
-    raw_output, err = run_judge(user_text, assistant_text)
+    raw_output, err = run_judge(user_text, assistant_text, turns_since)
     if err:
         degraded(err)
         return
