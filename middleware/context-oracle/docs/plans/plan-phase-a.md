@@ -1220,11 +1220,14 @@ the architecture names, verbatim: from AD-17
 `transcript_layout_changed`, `unrecognized_user_entry`, and the two reserved
 codes `model_path_down` and `missed_skill_block` (used only by the `status`
 renderer to say "not yet measured (Phase B/C)"); from AD-26 `store_busy`;
-and two codes this plan names: `whisper_dropped_stale` for AD-15's
-compose-time drop (a candidate whose pointer failed re-resolution) and
+and three codes this plan names: `whisper_dropped_stale` for AD-15's
+compose-time drop (a candidate whose pointer failed re-resolution),
 `tuning_missing` for a `tuning` key read that finds no row (Step 12's
 `TuningReader` re-seeds the key from its seed module and records this code
-with the key in `detail`).
+with the key in `detail`), and `head_unresolved` for a `HEAD` whose ref the
+resolver Step 14 creates finds neither loose nor packed (recorded instead
+of `index_stale`, with the reason in `detail`, so an unreadable layout
+never spawns a reindex — D-plan-30).
 
 Create `src/security/trust.ts` — the `Trust` type (`'untrusted_repo' |
 'human' | 'mechanical'`, mirroring the DB CHECK of Step 7) and
@@ -1298,7 +1301,7 @@ rule (shared types precede every user).
 
 **Verification.** `T-6-1` (`FAULT_CODES` equals exactly the set enumerated in this
 step — the AD-17 list, `store_busy`, `whisper_dropped_stale`,
-`tuning_missing`; a snapshot whose expected value is that list), `T-6-2` (JSONL writer: appends survive a
+`tuning_missing`, `head_unresolved`; a snapshot whose expected value is that list), `T-6-2` (JSONL writer: appends survive a
 writer restart; mode is `0o600`).
 
 **Impact if wrong.** Diagnostic-only — a broken JSONL writer loses fault
@@ -2034,7 +2037,7 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/index/indexer.ts, middleware/context-oracle/ctxoracle/src/index/frontend.ts, middleware/context-oracle/ctxoracle/src/index/zone.ts, middleware/context-oracle/ctxoracle/test/unit/indexer.test.ts, middleware/context-oracle/ctxoracle/test/unit/indexer_stale.test.ts, middleware/context-oracle/ctxoracle/src/index/search.ts]
   modify: []
   delete: []
-provides: [LanguageFrontend, runIndex, refreshIfStale, symbolSearch, pathSearch]
+provides: [LanguageFrontend, runIndex, resolveHead, refreshIfStale, symbolSearch, pathSearch]
 tests: [T-14-1, T-14-2]
 depends_on: [S1, S5, S9, S10, S11, S12, S13]
 ```
@@ -2077,14 +2080,34 @@ injection-flagged at capture — `zone_evidence_suspect`). Create
   files); files > 1 MB or > 20k lines are indexed path-only with a
   diagnostic; every ingested string passes through `redact` (Step 11);
   incremental by `content_hash`, deletions cascade; records
-  `schema_meta.index_head`. Then calls `mineCochange` (Step 13).
+  `schema_meta.index_head` as the commit `resolveHead` returns. Then calls
+  `mineCochange` (Step 13).
+- `resolveHead(repoPath): { commit: string } | { unresolved: string }`: the
+  bounded reads AD-23 names, in order — `<repoPath>/.git` (a directory, or
+  a file whose `gitdir: <path>` line names the git directory, resolved
+  relative to the repository — a linked worktree or a submodule); the
+  common directory, `<gitdir>` or the path in `<gitdir>/commondir` when
+  that file exists (a linked worktree keeps `HEAD` in its own gitdir and
+  its refs in the common one); `<gitdir>/HEAD` — a 40- or 64-hex line is
+  the commit (a detached `HEAD`), `ref: <refpath>` is looked up first as
+  the loose file `<commondir>/<refpath>` and, when absent, in
+  `<commondir>/packed-refs` by a line-by-line scan for `<hash> <refpath>`
+  (one read bounded by the repository's ref count); a ref found nowhere
+  (an unborn branch, a layout the resolver does not understand) is
+  `{unresolved: <reason>}`. Every read is a bounded file read, never a
+  subprocess (AD-23), and `runIndex` records `schema_meta.index_head`
+  through this same function so the two sides compare like with like
+  (D-plan-30).
 - `refreshIfStale(store, repoPath): { stale: boolean }`: compares
-  `schema_meta.index_head` to `HEAD` read from the `.git` directory (a
-  bounded file read, not a subprocess — AD-23); on drift records the
-  `index_stale` fault (AD-17's detector, through Step 10's writer), writes
-  `schema_meta.index_stale = '1'` (cleared to `'0'` by the next completed
-  `runIndex`), and returns `{stale: true}`; it spawns nothing — the caller
-  that owns a binary (the handler, Step 28) starts the detached reindex.
+  `schema_meta.index_head` to the commit `resolveHead` returns; on a
+  differing commit records the `index_stale` fault (AD-17's detector,
+  through Step 10's writer), writes `schema_meta.index_stale = '1'`
+  (cleared to `'0'` by the next completed `runIndex`), and returns
+  `{stale: true}`; on `{unresolved}` records the plan-named
+  `head_unresolved` diagnostic (Step 6) with the reason and returns
+  `{stale: false}` — an unreadable layout never spawns a reindex; it
+  spawns nothing — the caller that owns a binary (the handler, Step 28)
+  starts the detached reindex.
   `acquireReindexLock(home, key)`: the exclusive advisory lock on
   `<home>/projects/<key>/.reindex.lock` (`fs.openSync` with `wx`, pid
   written, stale-lock detection by pid liveness) that `runIndex` takes; a
@@ -2096,16 +2119,19 @@ injection-flagged at capture — `zone_evidence_suspect`). Create
 **Source.** `AD-12` (indexer: LanguageFrontend, zone, `entry_score`,
 `import_edges`, `symbol_refs`, `test_map`, incremental refresh, size caps,
 detached refresh with a lock file and `CTXORACLE_INTERNAL=1`); `AD-26`
-(the reindex directory lock; the handler never waits); `AD-23` (`HEAD`
-read is a bounded file read).
+(the reindex directory lock; the handler never waits); `AD-23` (the `HEAD`
+resolution is bounded file reads — `.git`, `commondir`, `HEAD`, a loose ref
+or one `packed-refs` scan — never a subprocess; D-plan-30).
 
 **Why this approach (Gate 3):**
 1. **The decision.** Interface-first so the tree-sitter frontend and the
    generic fallback are peers, with the frontend list an argument of
    `runIndex` — AD-12's configurable table as an explicit input
    (D-plan-29); incremental refresh via content-hash +
-   `index_head`; staleness lowers confidence, never blocks; the detached
-   refresh is lock-protected and fire-and-forget.
+   `index_head`, with `HEAD` resolved in-process through the named reads
+   and an unresolvable ref a diagnostic, never stale (D-plan-30);
+   staleness lowers confidence, never blocks; the detached refresh is
+   lock-protected and fire-and-forget.
 2. **The authoritative standard.** `AD-12`; `FR-K1` (language-agnostic
    seam); `C-6` (broad and extensible, no fixed list); OWASP ASVS 5.0 V5
    (File Handling) for the size caps; `AD-23`'s blocking-call inventory
@@ -2128,8 +2154,11 @@ read is a bounded file read).
 planted secret is absent from the store; a second run over an unchanged
 tree writes nothing; the lock refuses a second concurrent reindex), `T-14-2`
 (`refreshIfStale`: a moved `HEAD` records `index_stale`, sets the flag, and
-returns `{stale: true}`; an unmoved `HEAD` records nothing and returns
-`{stale: false}`; a completed `runIndex` clears the flag).
+returns `{stale: true}`, and an unmoved `HEAD` records nothing and returns
+`{stale: false}`, on an ordinary checkout, with the branch ref packed, on a
+detached `HEAD`, and in a linked worktree; an unborn branch records
+`head_unresolved` and returns `{stale: false}`; a completed `runIndex`
+clears the flag).
 
 **Impact if wrong.** Contained per genre — a broken indexer starves
 Orientation, Reuse, Coupling; visible in `status` per-genre counts.
@@ -4526,13 +4555,15 @@ issue S2: D-plan-29), and
 `docs/reviews/2026-09-07-plan-tool-traces-6.md` (the round-5 correction of
 issue S-2: the re-derivation of D-plan-24), and
 `docs/reviews/2026-09-07-plan-tool-traces-7.md` (the round-5 correction of
-issue M1: the amendment to D-plan-28); where the files disagree on a
-decision, the latest file's chain is the one whose conclusion appears here.
+issue M1: the amendment to D-plan-28), and
+`docs/reviews/2026-09-07-plan-tool-traces-8.md` (the round-5 correction of
+issue M3: D-plan-30); where the files disagree on a decision, the latest
+file's chain is the one whose conclusion appears here.
 The §7 steps that carry plan-level judgment beyond transcribing an
 architecture decision are named against their entry so a reader can find
 every such step: Step 1 (D-plan-2, D-plan-3, D-plan-13), Step 5 (D-plan-14,
 D-plan-15), Step 7 (D-plan-28), Step 9 (D-plan-27), Step 12 (D-plan-7, D-plan-24),
-Step 14 (D-plan-28, D-plan-29), Step 15 (D-plan-29), Step 23 (D-plan-19,
+Step 14 (D-plan-28, D-plan-29, D-plan-30), Step 15 (D-plan-29), Step 23 (D-plan-19,
 D-plan-24), Step 25 (D-plan-9,
 D-plan-27), Step 26 (D-plan-16, D-plan-27), Step 29 (D-plan-5, D-plan-12),
 Step 31 (D-plan-6, D-plan-25, D-plan-28), Step 32 (D-plan-4), Step 33 (D-plan-25),
@@ -5080,6 +5111,38 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   exists; each step's test asserts what it builds; no renumbering; visible
   to the check; nothing doubled): argument 1.0, reorder 0.8, assertions
   only 0.5.
+- **D-plan-30 — `refreshIfStale` resolves `HEAD` in-process through named
+  bounded reads — `.git` (directory or `gitdir:` file), the common
+  directory (`commondir` when present), `HEAD`, then the loose ref or one
+  `packed-refs` scan — and a ref it cannot resolve is a `head_unresolved`
+  diagnostic, never stale; `runIndex` records `index_head` through the same
+  resolver.** *Reasoning.* AD-23 places the staleness check on the event
+  path as "a bounded `.git` file read, not a subprocess", and AD-17's
+  detector is `index_head ≠ HEAD` where `index_head` is a commit; on every
+  ordinary checkout `.git/HEAD` is the symbolic line `ref:
+  refs/heads/<branch>`, so reading `HEAD` alone compares a hash to that
+  line and reports stale at every `SessionStart` — a reindex every
+  session, the storm the detached, lock-protected refresh exists to avoid.
+  Git's documented layout fixes what the bounded reads are: the `.git`
+  entry (a directory, or a file naming `gitdir` for a linked worktree or
+  submodule), the worktree's own `HEAD`, the common directory its refs
+  live in, a loose ref file or the `packed-refs` line. A `git rev-parse
+  HEAD` subprocess resolves every case but is outside AD-23's inventory;
+  comparing the raw `HEAD` text misses a branch that advanced — the case
+  `index_stale` exists for; treating a symbolic or unresolvable `HEAD` as
+  stale makes the storm policy. Resolving in-process names every read with
+  its bound (each file a single bounded read; `packed-refs` bounded by the
+  ref count), detects the moved branch on an ordinary checkout, a detached
+  `HEAD`, and a linked worktree alike, and files the case it cannot read
+  as a visible diagnostic (`head_unresolved`, Step 6) instead of a silent
+  reindex; `runIndex` recording `index_head` through the same function
+  keeps the two sides comparable. `T-14-2` runs the four layouts on the
+  real fixture with real `git` and the unborn-branch case. Score (inside
+  AD-23's inventory; detects an advanced branch on an ordinary checkout;
+  handles detached, worktree, packed; an unresolvable layout cannot cause
+  a reindex every session; testable on the real fixture): in-process
+  resolution 1.0, `git rev-parse` 0.8, raw-text comparison 0.7,
+  symbolic-means-stale 0.5.
 
 ### 10A. Author's collapse-test on each load-bearing decision (`CLAUDE.md` rule 2)
 
@@ -5670,6 +5733,31 @@ collapse-hunt attacks these questions harder and hunts for the ones missing.
    (real collaborators, nothing doubled).
 4. **Steers toward.** Passing the frontend list explicitly at every call
    site. **Guide, not gate.**
+
+#### D-plan-30 (in-process `HEAD` resolution)
+
+1. **Job.** Let the staleness check tell a moved branch from an unchanged
+   one on the owner's real checkouts — ordinary, detached, worktree,
+   packed — without a subprocess on the event path and without a reindex
+   every session.
+2. **Hardest question.** *A hand-written reader of git's internal layout
+   is a second implementation of `rev-parse` that will be wrong the day
+   git changes `packed-refs`, reftable, or the worktree layout — and the
+   failure mode is silent under-detection dressed as a diagnostic.*
+3. **Answer.** The reader covers the on-disk layout git documents and has
+   kept across its major versions (loose refs, `packed-refs`, `gitdir:`
+   files, `commondir`), and its failure is not silent: a layout it cannot
+   read produces `head_unresolved` on every `SessionStart`, which `status`
+   shows by code and the exit report carries, so a reftable-format
+   repository is reported the first time the oracle meets one rather than
+   reindexed forever or never; the alternative inside the inventory does
+   not exist (a subprocess is outside it, AD-23), and staleness only
+   lowers confidence (`FR-K7`), so under-detection costs a confidence
+   flag, never a wrong deny. Cite: AD-23 (the inventory; no `git`
+   subprocess on the event path); AD-17 (`index_stale` = `index_head` ≠
+   `HEAD`); AD-12; `FR-K7`; `T-14-2`.
+4. **Steers toward.** Reading the named files and reporting what cannot
+   be read. **Guide, not gate.**
 
 ---
 ## 11. Verification of factual claims
@@ -6635,7 +6723,8 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Level.** Unit.
   - **Real/doubles.** None.
   - **Data.** The literal list in Step 6 (AD-17's codes, `store_busy`,
-    `whisper_dropped_stale`, `tuning_missing`). Technique: equivalence
+    `whisper_dropped_stale`, `tuning_missing`, `head_unresolved`).
+    Technique: equivalence
     partitioning (in-set/out-of-set).
   - **NOT asserts.** Runtime emission (T-10-1). **Fails when** `FAULT_CODES`
     holds a code not in the list OR lacks one, OR a value assignable to
@@ -6876,10 +6965,11 @@ rules 1 and 2); fixture repositories are real git repositories produced by
 - **T-14-2 — `refreshIfStale` records `index_stale`, sets the flag, spawns nothing.**
   - **File.** `test/unit/indexer_stale.test.ts`.
   - **Verifies.** Step 14 — AD-17's `index_stale` detector as a pure store
-    effect: a moved `HEAD` yields an `index_stale` fault,
-    `schema_meta.index_stale = '1'`, and `{stale: true}`; an unmoved `HEAD`
-    yields nothing and `{stale: false}`; a completed `runIndex` clears the
-    flag to `'0'`.
+    effect, in every `HEAD` layout `resolveHead` names: a moved `HEAD`
+    yields an `index_stale` fault, `schema_meta.index_stale = '1'`, and
+    `{stale: true}`; an unmoved `HEAD` yields nothing and `{stale: false}`;
+    an unresolvable ref yields `head_unresolved` and `{stale: false}`; a
+    completed `runIndex` clears the flag to `'0'`.
   - **Level.** Integration (real store, real git fixture).
   - **Real/doubles.** Real `node:sqlite`; real `git`; no doubles — no child
     process is expected, and the test establishes that none can be started
@@ -6890,14 +6980,23 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     the trace a reindex child leaves).
   - **Data.** `indexer-small` indexed; then one commit added (`HEAD` moves);
     `refreshIfStale` twice; then `runIndex` (with an empty frontend list —
-    the flag clears regardless); then `refreshIfStale` again.
-    Technique: state-transition (fresh → stale → stale → fresh).
+    the flag clears regardless); then `refreshIfStale` again — the sequence
+    run in four layouts of the same fixture: the ordinary checkout; after
+    `git pack-refs --all` (the branch ref packed, its loose file gone);
+    after `git checkout --detach`; and from a linked worktree made by `git
+    worktree add` (`.git` a `gitdir:` file, refs in the common directory);
+    plus an unborn branch (`git init` with no commit) → `head_unresolved`
+    with its reason, `{stale: false}`, no `index_stale`. Technique:
+    state-transition (fresh → stale → stale → fresh) × equivalence
+    partitioning over `HEAD` layouts.
   - **NOT asserts.** Who spawns the reindex (T-28-5 observes the handler's
     child). **Fails when** the stale call records no `index_stale` fault or
     leaves the flag unset, OR `dist/src/index/indexer.js` imports the spawn
     wrapper or `child_process`, OR a `.reindex.lock` appears during the
     calls, OR the fresh call records a fault, OR `runIndex` does not clear
-    the flag.
+    the flag, OR any layout's stale call misses the moved `HEAD` or any
+    layout's fresh call records a fault, OR the unborn-branch case records
+    `index_stale`, returns `{stale: true}`, or records no `head_unresolved`.
 
 - **T-15-1 — Tree-sitter frontend on a TypeScript fixture.**
   - **File.** `test/unit/tree_sitter_frontend.test.ts`.
@@ -8575,8 +8674,9 @@ bin, and its closed disposition.
   AD-5 regardless.
 - **Q30 (Step 6).** Does the fault-code set include codes the architecture
   names outside AD-17? **Disposition.** Answered: `store_busy` (AD-26) and
-  the plan-named `whisper_dropped_stale` (AD-15's compose-time drop) are
-  added and listed explicitly in Step 6 and T-6-1.
+  the plan-named `whisper_dropped_stale` (AD-15's compose-time drop),
+  `tuning_missing` (Step 12), and `head_unresolved` (Step 14, D-plan-30)
+  are added and listed explicitly in Step 6 and T-6-1.
 - **Q31 (Step 6).** Can `T-6-1` enumerate a `const enum` at runtime under
   the Step 1 tsconfig? **Disposition.** Answered: no — `TS2475` on
   `Object.values` of a `const enum` in the same compilation (executed,
@@ -8708,6 +8808,13 @@ bin, and its closed disposition.
   frontend list as an argument; Step 14 builds and tests the skeleton with
   an empty list; Step 15 creates both frontends and `defaultFrontends()`,
   which the `index` verb (Step 28) and `init` (Step 31) pass.
+- **Q54 (Step 14).** What does `refreshIfStale` read to obtain `HEAD`'s
+  commit, and what happens when the ref cannot be resolved?
+  **Disposition.** Answered — D-plan-30: `.git` (directory or `gitdir:`
+  file), the common directory, `HEAD`, then the loose ref or one
+  `packed-refs` scan, all bounded reads; a ref found nowhere records
+  `head_unresolved` and returns `{stale: false}`; `T-14-2` covers the
+  ordinary, packed, detached, worktree, and unborn-branch layouts.
 
 ### 14.2 Bin 2 — user decisions
 
