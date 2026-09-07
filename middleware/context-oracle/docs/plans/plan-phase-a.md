@@ -280,6 +280,9 @@ test file listed corresponds exactly to one T-ID's `File.` field in
 ```
 middleware/context-oracle/ctxoracle/
   package.json                             # Step 1 (AD-25)
+  package-lock.json                        # Step 1 — npm-generated, not hand-authored;
+                                            #   added this fix pass, round 7 (expert-review
+                                            #   Critical finding: npm ci requires one)
   tsconfig.json                            # Step 1 (AD-25)
   scripts/
     check-cold-container.sh                # Step 40 T40-4 / AC-20
@@ -370,11 +373,15 @@ middleware/context-oracle/ctxoracle/
     model/
       invoke.ts                            # Step 38 — Phase B seam stub (never called in Phase A)
     types/
-      events.ts                            # internal event type; only consumer of adapter.ts output
-      verdict.ts                           # response shape (re-exports blocks/verdict.ts's type)
+      events.ts                            # Step 28 — internal event type (adapter.ts's output type),
+                                            #   attribution added this fix pass, round 7
+      verdict.ts                           # Step 15 — response shape (re-exports blocks/verdict.ts's
+                                            #   type), attribution added this fix pass, round 7
     util/
       env.ts                               # Step 2 — runtime floor check
-      hash.ts                              # SHA-256 helpers (Step 5 uses)
+      hash.ts                              # Step 5 — SHA-256 helpers, attribution added this
+                                            #   fix pass, round 7 (previously "Step 5 uses," a
+                                            #   usage note, not a construction attribution)
       ulid.ts                              # Step 37 — ULID generator (AD-26)
   test/
     unit/                                  # AD-24 tier 1 (each file matches a §12 T-ID's File field)
@@ -629,7 +636,14 @@ with `"type": "module"`, `"bin": {"ctxoracle": "dist/cli.js"}`,
 `"engines": {"node": ">=22.16.0"}`, and dependencies exactly
 `{"web-tree-sitter": "^0.26.13", "tree-sitter-wasms": "0.1.13"}` (dev deps:
 `typescript`, `@types/node`); explicitly NO `scripts.install`,
-`scripts.postinstall`, or `scripts.preinstall`. Create `tsconfig.json` with
+`scripts.postinstall`, or `scripts.preinstall`. Run `npm install` once
+against this `package.json` and commit the resulting
+`package-lock.json` alongside it — added this fix pass, round 7
+(expert-review Critical finding): `npm ci` (used below and by `T1-1`)
+refuses to run at all without a pre-existing lockfile
+(`npm error code EUSAGE`, verified this fix pass by direct execution),
+so a lockfile must exist from Step 1 onward for every later step's
+`npm ci` to succeed. Create `tsconfig.json` with
 `"strict": true`, `"target": "ES2022"`, `"module": "NodeNext"`,
 `"moduleResolution": "NodeNext"`, `"outDir": "dist"`, `"rootDir": "src"`,
 `"declaration": false`. Create a second config `tsconfig.test.json`
@@ -661,7 +675,8 @@ package, verified 2026-09-06 via npm registry).
 
 **Dependencies.** None (first step).
 
-**Verification.** `T1-1` (Step-1 build test): from a clean checkout, `cd
+**Verification.** `T1-1` (Step-1 build test): from a clean checkout —
+`package-lock.json` present, committed in this step — `cd
 middleware/context-oracle/ctxoracle && npm ci && npx tsc --noEmit && npx
 tsc -p tsconfig.test.json` exits 0 with no warnings, `dist-test/` is
 created; `node --test "dist-test/test/**/*.test.js"` reports 0 tests
@@ -671,9 +686,12 @@ existing but failing to load, which later steps' T-IDs cover). Verify
 no install/postinstall/preinstall script ran by capturing `npm ci`
 output.
 
-**Impact if wrong.** Contained — a broken package skeleton fails Step 1's
-own verification; every subsequent step's `npm ci` also fails, so the mistake
-is visible immediately. No blast radius outside this directory.
+**Impact if wrong.** Contained — a broken package skeleton or a missing/
+stale `package-lock.json` fails Step 1's own verification immediately
+(`npm ci` exits non-zero without a valid lockfile, verified this fix
+pass, round 7, by direct execution); every subsequent step's `npm ci`
+also fails, so the mistake is visible immediately. No blast radius
+outside this directory.
 
 ---
 
@@ -698,8 +716,14 @@ defense-in-depth against non-standard builds).
 1. **The decision.** Fail-loud at `init` with a plain-language message; probe
    FTS5 as a real create-table statement, not a version-string comparison.
 2. **The authoritative standard.** `AD-2` (architecture); Node's official
-   `node:sqlite` documentation for `DatabaseSync.exec()` behaviour (throws
-   `SqliteError` on statement failure).
+   `node:sqlite` documentation and direct runtime verification (Node
+   v22.22.2) for `DatabaseSync.exec()` behaviour — corrected this fix
+   pass, round 7 (collapse-hunt finding, verified against a live
+   runtime and the official docs page): a statement-execution failure
+   throws a plain `Error` instance carrying `code: 'ERR_SQLITE_ERROR'`
+   and `errcode`/`errstr` properties; `node:sqlite` exports no distinct
+   `SqliteError` class (previously claimed here, false — see §11.4 for
+   the verification entry).
 3. **Why this standard applies here.** The floor rule exists precisely to
    catch the 22.13–22.15 case where a semver-loose check would silently pass
    and land the owner on degraded search — the architecture states this as
@@ -3360,8 +3384,13 @@ delegated to the plan.
   previously pointed to §15 as still-open; it is resolved, not
   open.**
 
-- **D-plan-2 — Package deps floor: `web-tree-sitter@0.26.13` (exact),
-  `tree-sitter-wasms@0.1.13` (exact).** *Reasoning.* Not a plan
+- **D-plan-2 — Package deps floor: `web-tree-sitter@^0.26.13` (caret
+  floor, locked to the `0.26.x` line), `tree-sitter-wasms@0.1.13`
+  (exact) — corrected this fix pass, round 7: previously labeled
+  `web-tree-sitter` "(exact)" here, contradicting Step 1's own
+  `package.json` (a caret range) and this same entry's own
+  round-6-corrected collapse-test below, which is entirely about the
+  caret's non-exact behavior.** *Reasoning.* Not a plan
   decision — the architecture's V14 verified exactly these versions
   on 2026-08-29 and signed off (`OL-C6`). The plan uses what the
   architecture verified; version selection is not the planner's to
@@ -4267,6 +4296,21 @@ session (fetched at plan-time, 2026-09-06). Where an entry cites a
   (2026-09-06): "Version: 0.1.13… Published: October 7, 2025… no
   install, postinstall, or preinstall scripts defined."
 
+- **Claim.** `node:sqlite`'s `DatabaseSync.exec()` throws a plain
+  `Error` (carrying `code: 'ERR_SQLITE_ERROR'` and `errcode`/`errstr`
+  properties) on statement failure, not a distinct `SqliteError`
+  class. **Steps.** Step 2 (`probeFts5`'s rollback-on-throw). **Added
+  this fix pass, round 7** (collapse-hunt finding — the prior text
+  claimed a `SqliteError` class with no §11 entry at all). **Evidence.**
+  Direct execution against Node v22.22.2: `Object.keys(require('node:
+  sqlite'))` → `['DatabaseSync', 'StatementSync', 'constants',
+  'backup']` (no `SqliteError` export); a duplicate-`CREATE TABLE`
+  statement failure threw an object with `constructor.name === 'Error'`
+  and `code === 'ERR_SQLITE_ERROR'`. Corroborated by `WebFetch
+  https://nodejs.org/api/sqlite.html`: the page documents
+  `ERR_INVALID_ARG_VALUE`/`ERR_OUT_OF_RANGE`/`ERR_INVALID_STATE` as the
+  module's named error codes and defines no `SqliteError` class.
+
 ### 11.5 Claims from the collapse-log
 
 - **Claim.** The 2026-09-04 entry names Phase A's "fake completeness"
@@ -4361,9 +4405,12 @@ test run under `node --test`. Fixtures are real files/DBs in tempdirs
 - **Real/doubles.** Real `npm` and `tsc`; no doubles. Justification:
   the test's whole point is that these real tools succeed on the
   real package; a doubled `npm` would test the double.
-- **Data.** The `package.json` + `tsconfig.json` files committed
-  in Step 1. Technique: error guessing (attempt an install and
-  compile; anything not going through cleanly is the case).
+- **Data.** The `package.json`, `tsconfig.json`, and
+  `package-lock.json` files committed in Step 1 — corrected this fix
+  pass, round 7 (expert-review Critical finding): previously omitted
+  the lockfile, without which `npm ci` cannot run at all. Technique:
+  error guessing (attempt an install and compile; anything not going
+  through cleanly is the case).
 - **NOT asserts.** Not that specific test files exist yet (Step 1
   has none). **Fails when** `npm ci` exits non-zero, OR `npx tsc
   --noEmit` errors, OR any install/postinstall/preinstall script
@@ -5927,7 +5974,7 @@ is the mechanical mapping.
 | AC-18 | T40-6 (as part of Step 42 exit run) | A |
 | AC-19 | T32-2 | A |
 | AC-20 | T40-4 | A |
-| AC-21 (full) | — | B (deferred; guard mechanism ships and is unit-tested at T29-2) | A/B |
+| AC-21 (full) | T29-2 (guard mechanism only) | A/B (guard: A; full exercise: B, deferred) |
 | AC-22 | T40-5 | A |
 | AC-23 | T34-1, T35-1, T35-2 | A |
 | AC-24 | T36-1 | A |
@@ -6119,8 +6166,11 @@ disposition. **Zero entries open at delivery.**
   it is not a plan-level question at all — the architecture V14
   verified 0.26.13 and signed off (`OL-C6`); the plan uses what the
   architecture verified. **Disposition.** Retracted at D-plan-2:
-  version selection is not the planner's to make. Both packages
-  pinned to their architecture-verified versions.
+  version selection is not the planner's to make. Both packages fixed
+  to their architecture-verified versions (`web-tree-sitter` via a
+  caret floor locked to `0.26.x`; `tree-sitter-wasms` via an exact
+  pin) — corrected this fix pass, round 7: previously said "pinned,"
+  ambiguous with an exact pin for both.
 
 - **Q2 (Step 1).** Which test runner? **Bin.** 1. **Disposition.**
   Answered: `node:test` per D-plan-3.

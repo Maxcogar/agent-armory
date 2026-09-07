@@ -24,7 +24,7 @@ dominating rule 3).
 
 The spec (`docs/specs/spec-context-oracle.md`) is signed off (`OL-C6`). The
 Phase A architecture (`docs/architecture-phase-a.md`) is reviewed to
-convergence. `docs/plans/plan-phase-a.md` has been through **six rounds** of
+convergence. `docs/plans/plan-phase-a.md` has been through **seven rounds** of
 fix-and-re-review this session:
 
 **Round 1** fixed every finding across the four review documents that had
@@ -326,9 +326,52 @@ all fixed:
   across the full current document for the "Step 30's `init`" defect
   class returned zero hits.
 
+**Round 7** dispatched a fresh independent collapse-hunt and expert-review
+against round 6's output, instructed to generalize round 6's "verify a
+familiar-tool claim by execution" discipline to the rest of the document
+rather than only re-checking the semver fix. Both returned real findings,
+all fixed:
+
+- **Expert-review** (1 Critical, 1 Moderate): (1) Step 1 specifies `npm
+  ci` as the first command of both its own acceptance test (`T1-1`) and
+  the CI workflow gating every PR, but no step anywhere in the plan ever
+  creates a `package-lock.json` — verified by direct execution that `npm
+  ci` refuses to run at all without one (`npm error code EUSAGE`),
+  meaning the plan's own foundation step and every CI run would fail
+  unconditionally on a fresh checkout, before a single line of code is
+  type-checked. Fixed by having Step 1 run `npm install` once and commit
+  the resulting `package-lock.json`, added to the file skeleton and
+  `T1-1`'s spec. (2) D-plan-2's own decision heading (section 10, not the
+  section 10A collapse-test round 6 fixed) still labeled `web-tree-sitter`
+  "(exact)," contradicting Step 1's actual caret range and D-plan-2's own
+  corrected collapse-test three sections below it — fixed, plus a
+  softened secondary echo at Q1's disposition.
+- **Collapse-hunt** (1 collapse, 3 Minor): Step 2 cited "Node's official
+  `node:sqlite` documentation" for a `SqliteError` class that does not
+  exist — verified false by direct execution against a live Node runtime
+  (a statement failure throws a plain `Error` with `code:
+  'ERR_SQLITE_ERROR'`, not a distinct class) and by fetching the official
+  docs page, which names no such class; this claim was plan-original,
+  never logged in the plan's own claims registry, and survived seven
+  rounds because "SqliteError" reads as too plausible a name to check —
+  the identical shape to round 6's semver finding, at a site round 6's
+  semver-specific search never touched. Fixed and logged in section 11.4.
+  Three Minor findings also fixed: the file skeleton's three missing
+  step-attribution comments (`hash.ts`, `events.ts`, `verdict.ts`); a
+  duplicate confirmation of the D-plan-2 "(exact)" mislabeling (already
+  fixed by this round's expert-review pass); and a malformed four-cell
+  row in section 12.5's AC→T-ID table for AC-21.
+
+Round 7 marks the first round whose highest-severity finding (Critical)
+exceeded every round since round 2 — not because the plan regressed, but
+because round 6 and round 7 both generalized a new verification method
+(execute a "too basic to check" claim against a real instrument) that no
+prior round applied, and each application found something the previous
+six rounds' methods structurally could not see.
+
 ## What to do next (agent-owned)
 
-1. **Dispatch round 7 of independent collapse-hunt and expert-review.**
+1. **Dispatch round 8 of independent collapse-hunt and expert-review.**
    The finding count across rounds: round 1: 3 collapses/4 partials/6
    missed decisions + 10 expert-review findings; round 2: 1 collapse/3
    partials/1 procedural gap + 9 expert-review findings incl. the
@@ -337,28 +380,35 @@ all fixed:
    spanning 2 instances; round 5: 2 collapses (one incomplete) + 1
    Systemic pattern spanning 2 instances at 6 locations + 1 Minor; round
    6: 1 collapse + 2 Moderate/2 Minor (no verified multi-site Systemic
-   pattern — the first round since round 2 without one). All fixed each
-   time. This is the same iterate-to-convergence loop that took the
-   architecture document nine rounds — dispatch the next round rather
-   than assuming round 6's fixes are the last word, and instruct it to
-   independently re-verify round 6's own closure claims rather than
-   trust them.
+   pattern); round 7: 1 Critical + 1 Moderate (expert-review) + 1
+   collapse + 3 Minor (collapse-hunt). All fixed each time. This is the
+   same iterate-to-convergence loop that took the architecture document
+   nine rounds — dispatch the next round rather than assuming round 7's
+   fixes are the last word, and instruct it to independently re-verify
+   round 7's own closure claims (including re-executing the `npm ci`/
+   lockfile fix and the `node:sqlite` error-shape claim against a real
+   instrument) rather than trust them. Round 7's own collapse-hunt
+   suggests a next method: execute the plan's other illustrative shell
+   commands (the `git log` invocation, the `sqlite3 .dump` pipeline, the
+   `npm pack --dry-run` grammar check) against a real shell to confirm
+   each output shape matches what a step or test assumes.
 2. **Once a round comes back clean, proceed to implementation** via
    `.claude/skills/expert-implement/` against the fixed plan.
 3. **Two bin-2 items are flagged for Max Cogar's awareness in the plan's
    bin-2 register (section 14.2), not blocking anything:** the
    `web-tree-sitter` dependency-floor pin (currently `^0.26.13`, confirmed
-   this round via a real semver check to be locked to the `0.26.x` line
-   with no drift risk to `0.27.0`) and the now-largely-resolved D-plan-6
-   owner-probe workload (L11(a) already measured this session; L11(b)
-   has no probe path and is handled by a runtime counter instead). No
-   response is needed unless he wants either changed.
+   via a real semver check to be locked to the `0.26.x` line with no
+   drift risk to `0.27.0`, and now correctly committed alongside a
+   `package-lock.json` per round 7's fix) and the now-largely-resolved
+   D-plan-6 owner-probe workload (L11(a) already measured this session;
+   L11(b) has no probe path and is handled by a runtime counter instead).
+   No response is needed unless he wants either changed.
 
 ## Open items
 
-- Round 7 of independent review has not yet run — see "What to do next"
-  item 1. Nothing else from rounds 1–6 remains open: all findings from all
-  six rounds across both review types, plus Q-gap-5's six judgment
+- Round 8 of independent review has not yet run — see "What to do next"
+  item 1. Nothing else from rounds 1–7 remains open: all findings from all
+  seven rounds across both review types, plus Q-gap-5's six judgment
   calls (Clear-Thought-verified, independently reproduced by round 3's
   expert-review), are closed.
 - L11(a) — human-marker presence on Max Cogar's real interactive transcript

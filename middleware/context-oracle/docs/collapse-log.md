@@ -19,6 +19,64 @@ goes hollow is itself data.
 
 ---
 
+## 2026-09-07 — round 7: the plan's own foundation step could not build (npm ci with no lockfile), and a second unverified "too basic to check" library claim recurred
+
+Round 7 generalized round 6's lesson — verify a claim about a "familiar"
+mechanism by execution, don't accept it because it feels too basic to be
+wrong — and immediately found two more instances, one of them the most
+severe defect found in this plan since round 1.
+
+**Expert-review, Critical.** Step 1 specifies `npm ci` as the first
+command of both its own acceptance test and the CI workflow gating every
+PR, but no step anywhere in the 43-step plan ever creates or commits a
+`package-lock.json`. Direct execution of `npm ci` against exactly the
+scenario the plan specifies (a fresh `package.json`, no lockfile)
+produced an immediate, unconditional `EUSAGE` failure — not a version-
+drift risk of the kind round 6 examined and left as a disclosed
+residual, but a hard stop before any dependency resolution is even
+attempted. This means the plan's own first buildable step, and every CI
+run on every PR, would fail at the very first command, before a single
+line of code is type-checked — a defect upstream of every other
+checkpoint in the document, undetected across six prior review rounds
+because `npm ci` is exactly the kind of routine, "everyone knows how
+this works" command nobody thought to actually run.
+
+**Collapse-hunt, a second instance of round 6's exact class.** Step 2
+cited "Node's official `node:sqlite` documentation" for a `SqliteError`
+class thrown on statement failure. Direct execution against a live
+Node runtime, corroborated by fetching the official docs page, showed
+`node:sqlite` exports no such class — a statement failure throws a
+plain `Error` with `code: 'ERR_SQLITE_ERROR'`. The claim was plan-
+original (not inherited from the architecture), never logged in the
+plan's own §11 claims registry despite that registry's stated job being
+"every factual claim this plan asserts," and survived seven
+authorship/review passes because `SqliteError` is the conventional,
+expected name for a database-driver error class (mirroring a
+*different*, rejected npm package's real error type) — it read as
+obviously correct.
+
+Class: **unverified**, the same class as round 6, now confirmed
+recurring rather than a one-off. **The lesson, sharpened again:** round
+6 asked whether "verify, don't assume" applies to familiar mechanisms;
+round 7 answers that the answer is yes, more than once, in the same
+review round, at sites nobody had previously flagged as suspect. Both
+of round 7's findings were found by deliberately generalizing round 6's
+method — enumerating every "authoritative standard" / "documentation
+says" citation in the document and running the checkable ones against a
+real instrument, rather than re-checking only the specific claim round
+6 had already found. Practically: round 6's finding was benign (real
+behavior safer than believed) and round 7's `node:sqlite` finding was
+self-revealing (a build would fail loudly if anyone tried to use the
+false claim) — but round 7's `npm ci` finding was neither: it is a
+silent, load-bearing failure mode that would not surface until an
+implementer actually tried to build the plan's very first step, and no
+amount of reading the plan's prose would catch it without running the
+command. The standing prescription going forward: a plan's own
+"authoritative standard" and "Cite:" fields are not exempt from
+`CLAUDE.md`'s "verify external facts... before building on them" rule
+merely because the fact is routine — routine is exactly the shape this
+class of defect hides behind.
+
 ## 2026-09-07 — round 6: a load-bearing collapse-test's "hardest question" rested on an unverified library-behavior claim that was false, and survived unchecked for six review rounds
 
 Round 6's expert-review found that D-plan-2 (the dependency-floor
