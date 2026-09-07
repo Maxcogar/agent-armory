@@ -4186,8 +4186,15 @@ agent can accept. Per repository, the protocol is:
    Three is the minimum because one session cannot separate a lag hold
    from a steady-state deny; three gives each detector at least two
    chances to fire. The driver reads `permission_denials` from every
-   turn's JSON envelope and records it per session; a session with any
-   denial on `Edit` or `Write` is not counted.
+   turn's JSON envelope and records it per session; a settings-file hook
+   deny lands there exactly as a permission-system refusal does (§11.4),
+   so each entry is reconciled against the session's `kind='deny'`
+   `whisper_audit` rows (Step 25; the entry's `tool_input.file_path`
+   against the row's `evidence_json` target): an entry with a matching row
+   is the block firing on a mutation — what this leg measures — and an
+   entry without one is a permission-system refusal, listed per session in
+   the report; whether the session counts is decided by the validity rule
+   below.
 3. **Collection.** Every counted session's store and transcript are
    already on the report machine (`~/.ctxoracle` and the session's
    `~/.claude/projects/<slug>/` file, located through Step 21's
@@ -5970,7 +5977,10 @@ this session; line numbers are of that revision.
   `Write` (`PreToolUse` and `PostToolUse` fire, the file exists,
   `permission_denials` is empty), reports a `session_id` that is not the
   driving session's, continues under `--resume` with `SessionStart
-  {source: resume}`, and leaves a transcript at
+  {source: resume}`, has a settings-file `PreToolUse` deny honoured on a
+  later `Write` (no `PostToolUse` fires, the file never exists, the turn's
+  `permission_denials` names the call, and the transcript's tool result
+  carries the hook's reason verbatim), and leaves a transcript at
   `~/.claude/projects/<slug>/<session_id>.jsonl` whose human turns carry
   no `origin` and no `isMeta`. **Steps.** 21, 39. **Evidence.** Executed
   once 2026-09-07 from inside this session (no probe, by the owner's
@@ -5989,7 +5999,51 @@ this session; line numbers are of that revision.
   `is_error=False result='ok' same_session_id=True`; hook events
   `SessionStart resume, Stop`. The transcript existed at
   `~/.claude/projects/<slug>/<session_id>.jsonl` with human string turns by
-  `(origin.kind, isMeta)` = `[((None, None), 2)]`.
+  `(origin.kind, isMeta)` = `[((None, None), 2)]`. A second two-turn
+  session, same driver environment and flags, in a fresh folder whose
+  `.claude/settings.local.json` `PreToolUse` hook (the same logging command
+  hook on every event) returns `permissionDecision: "deny"` for a `Write`
+  whose target is `blocked.txt` and allows every other `Write`: turn 1
+  (the same create-`hello.txt` prompt) → exit 0, `is_error=False
+  num_turns=2 subtype=success result='done' permission_denials=[]
+  session_id_equals_parent=False`; turn 2, `claude -p --resume
+  <session_id> "Use the Write tool to create a file named blocked.txt in
+  the current directory containing the single word no. Use no other tool.
+  If the write is refused, reply with the single word refused; otherwise
+  reply with the single word done." …` (same flags) → exit 0,
+  `is_error=False num_turns=2 subtype=success result='refused'`,
+  `permission_denials=[{tool_name: 'Write', tool_use_id: …, tool_input:
+  {file_path: '<cwd>/blocked.txt', content: 'no'}}]`,
+  `same_session_id=True`; `hello.txt exists: yes`, `blocked.txt exists:
+  no`; hook events in order `SessionStart startup, PreToolUse Write
+  hello.txt, PostToolUse Write hello.txt, Stop, SessionStart resume,
+  PreToolUse Write blocked.txt, Stop` — no `PostToolUse` for the denied
+  call; the transcript's second `Write` tool result carries the hook's
+  reason verbatim, and its two human turns carry no `origin` and no
+  `isMeta`. The four observables the leg-2 protocol (Step 39) rests on — a
+  `session_id` that is the child's own, `SessionStart {source: resume}` on
+  turn 2, a `Write` that ran, and a `PreToolUse` deny whose mutation never
+  executed — were observed in this one session; and a settings-file hook
+  deny is reported in `permission_denials` exactly as a permission-system
+  refusal would be, which is why Step 39's driver reconciles that field
+  against the store's `kind='deny'` rows.
+- **Claim.** The CLI reference documents `--allowedTools` as "Tools that
+  execute without prompting for permission … To restrict which tools are
+  available, use `--tools` instead"; `--permission-mode` as "Begin in a
+  specified permission mode. Accepts `default`, `acceptEdits`, `plan`,
+  `auto`, `dontAsk`, `bypassPermissions` … Without this flag or
+  `--dangerously-skip-permissions`, a new session starts in the permission
+  mode described in which permission mode a session starts in. For `-p`,
+  that's `default` when nothing is configured"; `--max-turns` as "Limit the
+  number of agentic turns (print mode only). Exits with an error when the
+  limit is reached. No limit by default"; and `--resume`, `-r` as "Resume a
+  specific session by ID or name". **Steps.** 36, 39. **Evidence.** Fetched
+  `https://code.claude.com/docs/en/cli-reference` 2026-09-07 and read the
+  four rows verbatim; a `-p` session with nothing configured is therefore
+  in `default` mode with no prompt to answer, which is why a counted
+  session (Step 39) pre-approves its edits with `--permission-mode
+  acceptEdits` and an `--allowedTools` list, continues with `--resume`, and
+  never carries the model seam's `--max-turns 1` (Step 36, V9).
 - **Claim.** A must-fail TypeScript fixture inside the project's `include`
   turns `tsc -p` red; with `"exclude": ["test/build/fixtures"]` the build
   is green and a per-fixture `tsc --noEmit` invocation still fails on the
