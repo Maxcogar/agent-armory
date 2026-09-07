@@ -1205,23 +1205,30 @@ symptom is not "the corrections were applied carelessly"; it is that the
 author's pre-review verification was structurally weaker than the review it
 was preparing for.
 
-**Standing lesson — the external fix.** Correction passes are gated by
-mechanism, not by the author's attention: (1) `tools/check_plan.py` runs
-before every review dispatch — temporal availability (no step consumes a
-module, verb, script, or fixture a later step creates), creation annotations,
-test-ID reconciliation, attestation and count consistency, sweep-record
-termination, narration — and joins CI from the pull request that first makes
-the plan pass it; run on the round-3 artifact it reproduces the round-3
-build-order and attestation findings, and on the round-2 artifact it flags
-two pre-existing inversions round 2 did not name. (2) A correction that
-states an executable claim — a timeline, a compiler or runtime behaviour, a
-package layout — is executed before it is written and the execution is
-recorded in the plan's evidence section; a reviewer's prescription is a
-hypothesis to execute, never a sentence to transcribe. (3) A dry-run
-implementer pass — a fresh subagent that walks the steps in order and states,
-per step, what the step needs and whether it exists yet — runs before every
-review dispatch, because that walk is what found every temporal defect and
-the author's scripts cannot make it. (4) The self-check re-enumerates every
-convention test's allow/deny set against every module the file tree places in
-its scope. Evidence: the two round-2 and two round-3 reviews, and the gate's
-own docstring.
+**Standing lesson — the fix, and what did not count as one.** The first
+proposed fix — a plan-local gate script, a written execute-before-write
+rule, and a dry-run implementer pass before each review — was rejected by
+Max Cogar: a rule is not a mechanism, another review is not a fix, and
+tooling that works for one plan has no value. The fix that stands is in the
+expert-plan skill, where every plan written under it inherits it
+(`claude-plugins/expert-dev-tools/skills/expert-plan/`, `SKILL-CHANGELOG.md`
+entry 18; synced to this project's `.claude/skills/expert-plan/`): (1) each
+structural fact is declared once — a `step-decl` block per step — and every
+surface that restates it (the file table, the coverage table, the step→test
+table) is generated from the declarations, so a second copy cannot drift;
+(2) build order is checked from the declarations — a step's text may name
+only artifacts it or a declared or transitive dependency creates or provides,
+and a path no step declares is an error — so the class behind eleven of
+round 3's findings fails a check before it reaches a reviewer; (3) an
+executed claim is kept as a probe beside the plan with its recorded output
+and re-run by the gate, so a transcription of a one-off run cannot outlive
+the environment it was true in; (4) CI runs the gate on every pull request
+that touches the plan. Run on the round-3 text, the build-order check
+reproduced every round-3 build-order finding and two the round did not
+name. The general principle: when a correction loop regresses, the
+mechanism that verifies the corrections is the defect; the fix is a check
+that fails on the class, installed where every future artifact of that kind
+inherits it — never a rule, never another pass, never a check that knows one
+document's shape. Evidence: the round-2 and round-3 reviews, the skill's
+changelog entry, and `docs/reviews/2026-09-07-round-4-author-gates-review.md`
+§1.
