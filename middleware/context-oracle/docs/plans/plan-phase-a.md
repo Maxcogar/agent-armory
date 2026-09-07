@@ -1442,7 +1442,7 @@ CREATE TABLE faults(id TEXT PRIMARY KEY, ts INTEGER NOT NULL,
 CREATE TABLE classified_turns(consumer TEXT NOT NULL, uuid TEXT NOT NULL,
   ts INTEGER NOT NULL, clears INTEGER NOT NULL CHECK(clears IN (0,1)),
   reason TEXT CHECK(reason IN ('below_length_floor','deferral_only')),
-  PRIMARY KEY(consumer, uuid)) STRICT;   -- plan table: the per-turn record
+  PRIMARY KEY(consumer, uuid)) STRICT;   -- plan table (D-plan-27): the per-turn record
   -- AD-9's deny_loop and deny_despite_answer_text detectors read across
   -- events (each event is a fresh process, AD-1); written by the catch-up
   -- (Step 25), read by the detectors (Step 26)
@@ -1451,7 +1451,8 @@ CREATE INDEX symbols_name ON symbols(name);
 CREATE INDEX files_path ON files(path);
 ```
 
-The two FTS5 virtual tables are a **separate, conditional** migration,
+The two FTS5 virtual tables are a **separate, conditional** migration
+(D-plan-28),
 `src/stores/migrations/001b_phase_a_fts.sql`, which the runner applies only
 when `schema_meta.fts_state = 'fts5'` (Step 3's `probeFts5` returned true
 at `init`); on `'fallback'` it is skipped and never retried, and the search
@@ -2026,7 +2027,7 @@ interface LanguageFrontend {
     { symbols: SymbolRow[]; imports: ImportEdge[] };
 }
 ```
-Create `src/index/search.ts` — the one search interface (AD-2):
+Create `src/index/search.ts` — the one search interface (AD-2, D-plan-28):
 `symbolSearch(store, terms): SymbolHit[]` and `pathSearch(store, terms):
 PathHit[]`, each with two implementations chosen by `schema_meta.fts_state`
 at call time — `MATCH` over `fts_symbols`/`fts_paths` when `'fts5'`, and
@@ -2892,8 +2893,8 @@ depends_on: [S1, S12, S21, S22, S23, S24]
   (`voidQuestion(..., 'intake_invalidated', denyFired)` + fault);
   `assistant_text` → `recognizeClearing`; every classified turn is
   recorded (`classified_turns.record(consumer, uuid, ts, clears, reason)`,
-  Step 9 — the record AD-9's `deny_loop` and `deny_despite_answer_text`
-  detectors read across events), and on `clears`
+  Step 9; D-plan-27 — the record AD-9's `deny_loop` and
+  `deny_despite_answer_text` detectors read across events), and on `clears`
   `answerQuestions(store, consumer, entry.uuid, 'generic_text_all_prior')`;
   `skip` with `unknown_shape` → `unrecognized_user_entry` fault. The
   bookmark advances only over completed lines; if the deadline fires
@@ -3003,8 +3004,8 @@ handler calls after every deny emission and every catch-up:
   is correct, never a wrongful-deny component; a deferral the stoplist does
   not recognize is human-channel-caught, AD-9. The classified turns both
   detectors read are the `classified_turns` rows the catch-up writes (Step
-  25; the table is Step 7's, the DAO Step 9's), so the detectors see turns
-  from earlier events — each event is a fresh process (AD-1).
+  25; the table is Step 7's, the DAO Step 9's; D-plan-27), so the detectors
+  see turns from earlier events — each event is a fresh process (AD-1).
 - `checkDenyBypassSuspect(store, consumer, postToolUseBashRow)` — on an
   `outcome='ok'` Bash row whose command matches the **enumerated path-write
   predicate** — redirection `>`/`>>`, `tee`, `sed -i`, `perl -i`, and
@@ -3297,13 +3298,14 @@ depends_on: [S1, S6, S28]
 
 **What changes.** Nothing new in `src/`. Create
 `test/fixtures/generate_large_store.ts`: builds the `large-store` *store*
-(not a repository) through the real migrations (Step 7) and DAOs (Step 9)
+(not a repository; D-plan-5) through the real migrations (Step 7) and DAOs (Step 9)
 — ≈400 MB of the AD-23/V8 class, ≈2 M `cochange_pairs` rows and ≈1 M
 `symbols` rows, the population that made one statement take 543 ms in V8
 — into the test's temp home, once per run directory and cached there by
 the generator's content hash; on CI, where no run directory survives, it
-is rebuilt per job and its build time is measured and printed by Step 37's
-run (the number is stated in the exit report, not assumed here). This
+is rebuilt per job and its build time is measured and printed by
+`T-29-1`'s run in the replay tier (the number is stated in the exit report,
+not assumed here). This
 step verifies, through the built handler, the two Step 10 modules the
 Step 28 pipeline placed first
 (`isInternal` before any store is opened; `createDeadline` started before
@@ -4042,7 +4044,10 @@ exits 0 with every replay test executed — `T-38-1`–`T-38-24`,
 `T-38-26`–`T-38-31`, plus the replay tests of Steps 28–35 — the runner's
 count guard covers `test/replay` too; `grammar_inventory_check` passes for
 the default table (`T-38-33`); `marker_presence` passes its self-test
-(`T-38-32`); the `cold-container` job passes (`T-38-25`).
+(`T-38-32`); the `cold-container` job passes (`T-38-25`). The replay
+tier's wall time on the every-PR job and the `large-store` build time
+`T-29-1` prints are read from this run's log and stated in the exit report
+(§16 item 2); the plan assumes no number for either.
 
 **Impact if wrong.** The acceptance suite is what proves Phase A correct; a
 broken fixture undercuts every AC that depends on it.
@@ -4409,14 +4414,19 @@ options competed, `decision_framework` multi-criteria scoring). The captured
 stdio logs are `docs/reviews/2026-09-07-plan-tool-traces.md` (the planning
 run: D-plan-1, 3, 7, 9, 11, 12, 14, and the first chains for 6, 8, 10) and
 `docs/reviews/2026-09-07-plan-tool-traces-2.md` (the corrections run:
-D-plan-2, 4, 5, 6, 8, 10, 13, 15–26); where the two disagree on a decision,
-the second file's chain is the one whose conclusion appears here.
+D-plan-2, 4, 5, 6, 8, 10, 13, 15–26), and
+`docs/reviews/2026-09-07-plan-tool-traces-3.md` (the round-4 corrections
+run: D-plan-24 and D-plan-26 re-derived, D-plan-27, D-plan-28, and the
+amendment to D-plan-5); where the files disagree on a decision, the latest
+file's chain is the one whose conclusion appears here.
 The §7 steps that carry plan-level judgment beyond transcribing an
 architecture decision are named against their entry so a reader can find
 every such step: Step 1 (D-plan-2, D-plan-3, D-plan-13), Step 5 (D-plan-14,
-D-plan-15), Step 12 (D-plan-7), Step 23 (D-plan-19, D-plan-24), Step 25
-(D-plan-9), Step 26 (D-plan-16), Step 29 (D-plan-12), Step 31 (D-plan-6,
-D-plan-25), Step 32 (D-plan-4), Step 33 (D-plan-25), Step 36 (D-plan-8),
+D-plan-15), Step 7 (D-plan-28), Step 9 (D-plan-27), Step 12 (D-plan-7),
+Step 14 (D-plan-28), Step 23 (D-plan-19, D-plan-24), Step 25 (D-plan-9,
+D-plan-27), Step 26 (D-plan-16, D-plan-27), Step 29 (D-plan-5, D-plan-12),
+Step 31 (D-plan-6, D-plan-25), Step 32 (D-plan-4), Step 33 (D-plan-25),
+Step 36 (D-plan-8),
 Step 38 (D-plan-5, D-plan-11, D-plan-17), Step 39 (D-plan-10, D-plan-11,
 D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
 
@@ -4497,7 +4507,12 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   (commit sequence, file changes, merge patterns); every assertion is on
   the tool's response to that scenario, never on a value the fixture
   wrote, so the data is forward-derived (testing-standards: not
-  backward-fabricated).
+  backward-fabricated). The `large-store` fixture is a *store*, not a
+  repository: Step 29's `test/fixtures/generate_large_store.ts` builds it
+  through the real migrations (Step 7) and DAOs (Step 9) into the test's
+  temp home, cached per run directory by content hash and rebuilt per CI
+  job, because nothing before Step 7 can create its tables; Step 1's
+  generator and `T-1-3` cover fixture repositories only.
 
 - **D-plan-6 — The `init`/`deinit` marker is the documented `command` field:
   `init` writes `"<node>" "<real path of dist/src/cli/dispatch.js>" hook
@@ -4795,20 +4810,21 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   no other vocabulary and no clause grammar.** *Reasoning.* AD-9 states two
   conditions — above a small floor, not a recognized content-free deferral
   — and FR-B5 sets the lean: toward clearing on a substantive answer, with
-  only an empty deferral failing to clear. Every richer rule the plan tried
-  held on an answer: a sentence-level discard held on "No — …, though I'll
-  get to the rest later"; a clause-level discard with an acknowledgement
-  lexicon held on "Sure." and "Understood." as whole answers and, with a
-  bare `later` in the stoplist, on a causal sentence — an elaboration in
-  the hold direction, the wrong error for the clear axis, and one the
-  detector exclusion of Step 26 made invisible to the exit report. Under
-  phrase-strip-then-floor the twelve direct answers the round-4 review
-  executed all clear, the deferral-only turns do not, and a dressed dodge
+  only an empty deferral failing to clear. Each rule richer than AD-9's two
+  conditions holds on an answer (executed, `probe:16_clear_rule_cases`): a
+  sentence-level discard holds on "No — …, though I'll get to the rest
+  later"; a clause-level discard with an acknowledgement lexicon holds on
+  "Sure." and "Understood." as whole answers and, with a bare `later` in
+  the stoplist, on a causal sentence — an elaboration in the hold
+  direction, the wrong error for the clear axis, and one the detector
+  exclusion of Step 26 would make invisible to the exit report. Under
+  phrase-strip-then-floor the twelve direct answers of the `T-23-2` case
+  table all clear, the deferral-only turns do not, and a dressed dodge
   ("Sure, I'll get to that after the refactor.") clears — the skeleton's
   designed under-hold, counted by Step 39's escape fraction and corrected
   through the human channel, exactly as AD-9 files the deferral-false-match
-  miss. The rule was executed over the spec's examples, the direct-answer
-  class, and the deferral cases before it was written here (§11.4).
+  miss. The rule is executed over the spec's examples, the direct-answer
+  class, and the deferral cases by `probe:16_clear_rule_cases` (§11.4).
 - **D-plan-25 — `hooks_not_firing` has two detectors — the stale-session
   half (a liveness row whose transcript keeps growing without events) and
   the totally-dead half (transcripts for this repository's slug newer than
@@ -4851,6 +4867,40 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   reported per leg. A corpus's origin is a fact about where it came from,
   unknowable from its contents (V12), so it is declared by the run. The
   indirect ask is the intake-miss class the floor exists to measure.
+- **D-plan-27 — Every assistant text turn the catch-up classifies is
+  recorded in a `classified_turns` table (`consumer`, `uuid`, `ts`,
+  `clears`, `reason`), written by Step 25's catch-up beside the clearing
+  path and read by Step 26's `deny_loop` and `deny_despite_answer_text`
+  detectors.** *Reasoning.* AD-9 defines the two detectors over intervening
+  assistant text turns and their rejection reasons across events, while
+  each hook event is a fresh process (AD-1) and no Phase A table held a
+  classified turn, so a detector in event N could not see a rejection that
+  happened in event N−2. Two shapes were weighed: passing the current
+  catch-up's classified turns to the detectors and bounding their windows
+  to one event loses the cross-event case the detectors are defined over;
+  recording each classified turn is one small row per assistant text turn,
+  has a same-phase writer (AD-4's uniform-table criterion), and is the only
+  shape under which the detectors read state the store actually holds.
+  `T-26-1` carries a case whose below-floor turn was recorded two events
+  earlier.
+- **D-plan-28 — The FTS5 DDL lives in its own migration,
+  `001b_phase_a_fts.sql`, applied only when `schema_meta.fts_state =
+  'fts5'`; the `LIKE` path's indexes (`symbols_name`, `files_path`) are
+  always created by 001; one module, `src/index/search.ts`, exposes
+  `symbolSearch` and `pathSearch` with the implementation chosen by
+  `fts_state` at call time; the migration runner reads the `.sql` files
+  from the package's shipped `src/` tree.** *Reasoning.* AD-2 mandates that
+  when the FTS5 probe fails, search falls back to indexed `LIKE`/token-prefix
+  queries behind the same interface and `status` says so; a migration that
+  creates the virtual tables unconditionally makes `init` fail on a runtime
+  without FTS5 after announcing the fallback, and a caller that knows which
+  implementation ran is a second interface. Under this shape no caller (the
+  indexer, the Orientation and Reuse genres) knows which ran; `T-7-1` runs
+  the migrations under both flags and `T-14-1` asserts the same hit set
+  under both; shipping the `.sql` files in `src/` (Step 1's `files` list)
+  with the runner resolving them from `import.meta.url` means `tsc`, which
+  emits no `.sql`, needs no copy step. This is AD-2's own requirement given
+  a shape, not a new capability.
 
 ### 10A. Author's collapse-test on each load-bearing decision (`CLAUDE.md` rule 2)
 
@@ -5309,8 +5359,8 @@ collapse-hunt attacks these questions harder and hunts for the ones missing.
 3. **Answer.** Yes — by design, and measured. The spec assigns the clear
    axis its error direction: FR-B5 says err toward clearing, only an empty
    deferral fails to clear, and §11.5 asks Phase A to measure how little
-   the conservative recognizer catches; every attempt to catch the dressed
-   dodge with vocabulary held on real answers (the round-4 executions). A
+   the conservative recognizer catches; every vocabulary rule that catches
+   the dressed dodge holds on real answers (`probe:16_clear_rule_cases`). A
    deny escaped by a text turn is a report field (Step 39), and the human
    channel (`ctxoracle correct`) is where the dodge that matters is filed,
    as AD-9 files the deferral-false-match miss. Cite: FR-B1, FR-B5, P3;
@@ -5364,6 +5414,49 @@ collapse-hunt attacks these questions harder and hunts for the ones missing.
    V9; G3; OL-C5; V12; collapse-log 2026-08-25 item 1.
 4. **Steers toward.** Reporting inputs beside outputs and never counting a
    session the hooks did not see. **Guide, not gate.**
+
+#### D-plan-27 (`classified_turns` record)
+
+1. **Job.** Let the deny-health detectors see what the block did across
+   hook events, so a wrongful-deny pattern that spans invocations is
+   measured rather than lost between processes.
+2. **Hardest question.** *A table that records every assistant turn's
+   classification is the recognizer keeping a diary about itself; the
+   detectors then grade the block on the block's own record, and the
+   escape the exit run reports is whatever the recognizer chose to write
+   down.*
+3. **Answer.** The rows are the recognizer's outputs, and AD-9 defines the
+   two detectors over exactly those outputs — a deny with no intervening
+   rejected turn, a deny after a turn rejected below the floor — so they
+   detect the block's misbehaviour from what it did, which only its own
+   record holds. The independent grade is elsewhere: Step 39's labelled
+   sample, drawn per leg and labelled blind, measures the recognizer
+   against human labels and never against this table. Cite: AD-9
+   (`deny_loop`, `deny_despite_answer_text`); AD-1; AD-4; spec §11.5;
+   D-plan-26.
+4. **Steers toward.** Writing the record where the classification happens
+   and reading it where the health is judged. **Guide, not gate.**
+
+#### D-plan-28 (conditional FTS migration, one search interface)
+
+1. **Job.** Keep the oracle useful on a runtime whose SQLite lacks FTS5 —
+   the same whisper genres over a slower search — so the deterministic
+   foundation never fails to initialise on a machine the owner uses.
+2. **Hardest question.** *A fallback no machine in the exit run exercises
+   is a code path with a test and no user; the conditional migration
+   doubles the schema surface for a case AD-2 could have refused
+   outright.*
+3. **Answer.** AD-2 chose the fallback over the refusal, and this is the
+   smallest shape that honours it: one extra migration applied by one
+   flag, two indexes that cost nothing under FTS5, one interface with the
+   choice made in one place. `T-7-1` and `T-14-1` run both paths in every
+   CI run, so the path has a user on every pull request whether or not
+   the exit run's machines lack FTS5, and `status` names the state so the
+   owner knows which path he is on. Cite: AD-2;
+   `probe:02_sqlite_features` (this runtime's FTS5 state); `T-7-1`,
+   `T-14-1`.
+4. **Steers toward.** One search interface, with the state visible in
+   `status`. **Guide, not gate.**
 
 ---
 ## 11. Verification of factual claims
@@ -5886,14 +5979,19 @@ this session; line numbers are of that revision.
   attempts=2`, `C StoreBusy attempts=2`, `rows ["A","B"]`; the same output
   on five consecutive runs through `run-plan-probes.mjs --repeat 5 --load
   3` (three CPU-bound sibling processes for the whole run).
-- **Claim.** `node:22-bookworm` is built `FROM buildpack-deps:bookworm`,
-  which is built `FROM buildpack-deps:bookworm-scm`, whose Dockerfile
-  installs `git`; `node:22-bookworm-slim` installs no `git`. **Steps.** 38.
-  **Evidence.** Executed `probe:14_docker_node_git.optional` 2026-09-07:
-  fetched the four Dockerfiles from `nodejs/docker-node` and
-  `docker-library/buildpack-deps` on GitHub and grepped their `FROM` and
-  package lines — `buildpack-deps:bookworm-scm installs git: yes`,
-  `node:22-bookworm-slim installs git: no`.
+- **Claim.** The `22/bookworm` Dockerfile of `nodejs/docker-node` at
+  commit `d073523fcb78049b965f76d813627eb59ffb7a58` sets `NODE_VERSION
+  22.16.0` — it is the Dockerfile of `node:22.16.0-bookworm` — and is
+  `FROM buildpack-deps:bookworm`, which is `FROM buildpack-deps:bookworm-scm`,
+  whose Dockerfile installs `git`; `node:22-bookworm-slim` installs no
+  `git`. **Steps.** 38. **Evidence.** Executed
+  `probe:14_docker_node_git.optional` 2026-09-07: fetched that pinned
+  Dockerfile and the three others from `nodejs/docker-node` and
+  `docker-library/buildpack-deps` on GitHub and grepped their `ENV
+  NODE_VERSION`, `FROM` and package lines — `22/bookworm Dockerfile at
+  d073523: ENV NODE_VERSION 22.16.0`, `node:22.16.0-bookworm FROM: FROM
+  buildpack-deps:bookworm`, `buildpack-deps:bookworm-scm installs git:
+  yes`, `node:22-bookworm-slim installs git: no`.
 - **Claim.** The phrase-strip-then-floor clear rule — strip fenced code
   and tool blocks, remove every deferral-stoplist phrase, clear when the
   remaining text is at least the floor (2) — classifies the T-23-2 case
@@ -8161,17 +8259,19 @@ bin, and its closed disposition.
   (§11.4); leg 1's reconstruction emits one `Stop` after the last assistant
   entry that precedes the next human turn (D-plan-10).
 - **Q45 (Step 38).** Does the cold-container image carry `git`?
-  **Disposition.** Answered: `node:22-bookworm` does (its
-  `buildpack-deps` scm layer installs it) and `-slim` does not
+  **Disposition.** Answered: `node:22.16.0-bookworm` does — its
+  Dockerfile, the `22/bookworm` one at the `docker-node` commit that sets
+  `NODE_VERSION 22.16.0`, derives from `buildpack-deps:bookworm`, whose
+  scm layer installs it — and `-slim` does not
   (`probe:14_docker_node_git.optional`); the job runs on
   `node:22.16.0-bookworm`.
 - **Q46 (Step 3).** Does T-3-3's contention schedule produce its asserted
   outcomes every time, including on a loaded runner? **Disposition.**
-  Answered: a timed schedule did not (a 50 ms process-start shift flipped
-  B's outcome under load); the schedule is now forced by observables —
-  each child starts or proceeds only after the previous child's reported
-  state — and reproduces under `--repeat 5 --load 3`
-  (`probe:07_sqlite_busy_schedule`, §11.4).
+  Answered: yes, because the schedule is forced by observables — each
+  child starts or proceeds only after the previous child's reported state —
+  rather than by timing (a 50 ms process-start shift flips a timed
+  schedule's outcome for B under load); it reproduces under `--repeat 5
+  --load 3` (`probe:07_sqlite_busy_schedule`, §11.4).
 - **Q47 (Step 24).** Does the `unique symbol` brand prevent every
   construction of a `DenyVerdict` outside its module? **Disposition.**
   Answered: no — an `as` assertion compiles; an annotated construction
@@ -8183,6 +8283,29 @@ bin, and its closed disposition.
   totally-dead half compares transcripts for the repository's slug against
   the newest liveness row, and `init`/`status` print the pinned interpreter
   with an existence check (D-plan-25; `T-33-4` case (c)).
+- **Q49 (Steps 32, 38).** Does `unshare -rn` run on the `ubuntu-24.04`
+  GitHub Actions runner? **Disposition.** Answered: no — writing the
+  unprivileged user namespace's `uid_map` is refused there (§11.4, the
+  `check-plan` job's run of `probe:09_unshare_no_network.optional`);
+  `T-32-2` and `T-38-22` record the refusal instead of failing, AC-11's
+  no-egress clause rests on the structural scan (`T-32-3`) there, and the
+  runtime leg executes wherever `unshare` is permitted.
+- **Q50 (Steps 21, 33).** How is a repository's transcript directory
+  derived from its path? **Disposition.** Answered: `projectTranscriptDir`
+  in `locate.ts` returns `~/.claude/projects/<slug>/` with `<slug>` the
+  realpath of `cwd` with every `/` replaced by `-` (one observation,
+  §11.4); the totally-dead detector calls it, so `locate.ts` stays the one
+  module that knows the layout (AD-11).
+- **Q51 (Steps 7, 14).** What do `init` and search do on a runtime whose
+  SQLite lacks FTS5? **Disposition.** Answered — D-plan-28: `init` applies
+  001 and skips 001b, `symbolSearch`/`pathSearch` take the indexed `LIKE`
+  path behind the same interface, `status` prints `fts_state`; `T-7-1` and
+  `T-14-1` run both paths.
+- **Q52 (Step 29).** Where and when is the ≈400 MB `large-store` built?
+  **Disposition.** Answered — D-plan-5 as amended: Step 29's generator
+  builds it through the real migrations and DAOs into the test's temp
+  home, cached per run directory and rebuilt per CI job with its build
+  time printed by `T-29-1`; `T-1-3` covers fixture repositories only.
 
 ### 14.2 Bin 2 — user decisions
 
@@ -8206,7 +8329,7 @@ no exclusion or deferral beyond the spec's own phasing was proposed.
 
 ### 14.4 Reconciliation sweep
 
-Five passes over the assembled document, 2026-09-07.
+Seven passes over the assembled document, 2026-09-07.
 
 - **Pass 1 (mechanical + read).** A script over the plan reconciled every
   T-ID defined in §12 against every step's Verification field, every
@@ -8233,8 +8356,21 @@ Five passes over the assembled document, 2026-09-07.
 - **Pass 5 (whole-document re-read).** The same checks re-run on the pass-4
   text, plus a read of every register entry against the step it names and
   of every §10 decision against its trace file. Zero reconciliation
-  defects; added zero entries. Bin 2 remains empty; bins 1 and 3 are fully
-  dispositioned.
+  defects; added zero entries.
+- **Pass 6 (round-4 corrections, mechanical re-check + impact walk).**
+  After the round-4 findings were applied: `--check` and the probe run
+  under `--repeat 3 --load 2`; the derivation script's `--impact` report
+  against the round-4 text listed the 37 steps whose text changed and
+  every register entry, decision, checkpoint, and step sentence that
+  restates each, and each listed surface was read against its step.
+  Register entries added: Q49–Q52, each closed; Q22, Q37, Q40, Q41, Q43,
+  Q46 re-derived from the changed decisions; D-plan-27 and D-plan-28 added
+  and D-plan-5 amended, each with its §10A entry and its trace chain.
+- **Pass 7 (whole-document re-read).** The same checks re-run on the
+  pass-6 text, plus a read of every register entry against the step it
+  names and of every §10 decision against the trace file that carries its
+  chain. Zero reconciliation defects; added zero entries. Bin 2 remains
+  empty; bins 1 and 3 are fully dispositioned.
 
 ---
 
