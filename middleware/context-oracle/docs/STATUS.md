@@ -627,54 +627,66 @@ whether the shared resource already lives behind a stronger primitive
 writing a third, fourth, or fifth check-then-act guard on a primitive
 that structurally cannot support one.
 
-## What to do next (agent-owned)
+## Review loop halted at round 12 — proceed to implementation (agent-owned, corrected this session)
 
-1. **Dispatch round 13 of independent collapse-hunt and expert-review.**
-   The finding count across rounds: round 1: 3 collapses/4 partials/6
-   missed decisions + 10 expert-review findings; round 2: 1 collapse/3
-   partials/1 procedural gap + 9 expert-review findings incl. the
-   Q-gap-5 overclaim; round 3: 2 collapses/2 partials + 4 expert-review
-   findings; round 4: 2 collapses/0 partials + 1 Systemic pattern
-   spanning 2 instances; round 5: 2 collapses (one incomplete) + 1
-   Systemic pattern spanning 2 instances at 6 locations + 1 Minor; round
-   6: 1 collapse + 2 Moderate/2 Minor; round 7: 1 Critical + 1 Moderate
-   (expert-review) + 1 collapse + 3 Minor (collapse-hunt); round 8: 1
-   Serious + 1 Moderate (expert-review) + 2 collapses (collapse-hunt);
-   round 9: 2 Serious (expert-review) + 1 collapse + 2 findings
-   (collapse-hunt); round 10: 1 Critical + 1 Moderate (expert-review) + 1
-   Serious collapse + 2 findings (collapse-hunt); round 11: 1 Serious
-   collapse (found independently by both agents) + 1 Moderate + 1 Minor
-   (collapse-hunt); round 12: 1 Serious finding (found independently by
-   both agents, via real multi-process execution). All fixed each time.
-   This is the same iterate-to-convergence loop that took the
-   architecture document nine rounds — dispatch the next round rather
-   than assuming round 12's structural fix is the last word, and instruct
-   it to independently verify the `global_meta`-row transactional design
-   (not just re-read that it "should" be race-free because `BEGIN
-   IMMEDIATE` is used) by direct execution: real concurrent acquisition
-   attempts against a real `store.db`, per this document's own
-   four-times-repeated lesson that an asserted fix is not verified until
-   the exact scenario is executed against its literal, current text.
-2. **Once a round comes back clean, proceed to implementation** via
-   `.claude/skills/expert-implement/` against the fixed plan.
-3. **Two bin-2 items are flagged for Max Cogar's awareness in the plan's
-   bin-2 register (section 14.2), not blocking anything:** the
-   `web-tree-sitter` dependency-floor pin (`^0.25.10` as of round 10,
-   re-verified round 11 across eight grammars — the only version in this
-   line confirmed by direct execution to actually load
-   `tree-sitter-wasms`'s grammars; a bump beyond `0.25.x` requires
-   re-running that execution check first, not merely a semver check) and
-   the now-largely-resolved D-plan-6 owner-probe workload (L11(a) already
-   measured this session; L11(b) has no probe path and is handled by a
-   runtime counter instead). No response is needed unless he wants either
-   changed.
+**The review loop is stopped, deliberately, per `CLAUDE.md` dominating rule
+3 ("the phase goal governs — and passing review is not the goal").** This
+session ran twelve rounds of independent collapse-hunt + expert-review
+against `docs/plans/plan-phase-a.md`. Rounds 9 through 12 found a
+consecutive chain of four narrowing fixes to one mechanism — Step 37's
+reindex lock — each fix closing the exact race the prior round found and
+each, in turn, having a new one found in its own remediation code. Round
+12 replaced the mechanism structurally (a `global_meta` row mutated only
+inside `BEGIN IMMEDIATE` transactions, reusing the same primitive already
+trusted for the `whisper_stats` fold) rather than patching a fifth time.
+A round-13 pass was dispatched to adversarially re-verify that fix and was
+correctly stopped before completing: continuing to hunt for a sixth
+narrower race in a *design document's prose*, for a mechanism whose real
+correctness will be established by `T37-3` running against real code
+once Steps 3/21/37 are built, is exactly the pattern rule 3 names —
+"a mechanism built to survive review rather than serve the goal drifts
+further from it each round" — and the precedent this project already has
+for it (`AD-9`, elaborated over ten rounds "to look like it works,"
+abandoned 2026-09-04) is the standing instruction to cut rather than keep
+refining, not to keep iterating until a round happens to return clean.
+The loop was written at session start with only one exit condition ("a
+round comes back clean") and no round cap or phase-goal check — that is
+now logged in `docs/collapse-log.md` as the corrected lesson.
+
+**Where the plan stands now.** All findings from all twelve completed
+rounds, across both review types, are fixed and committed. Step 37's
+reindex-lock design (round 12's transactional fix) is a standard,
+established concurrency pattern (an advisory lock represented as a row,
+mutated inside a single serializing transaction) — not a novel or
+unverified trick — and its correctness claim rests on documented SQLite
+WAL/transaction semantics already exercised by architecture V8, the same
+standard this same step already relies on for the `whisper_stats` fold.
+**Next step: proceed to implementation** via
+`.claude/skills/expert-implement/` against the plan as it stands. Step
+37's own test (`T37-3`, cases (a)-(f)) is where this mechanism gets its
+real verification — against actual code, not further rounds of prose
+review — and if it fails there, that is exactly the kind of concrete,
+executable finding this project's discipline is built to catch, at the
+stage where catching it is cheap and decisive rather than open-ended.
+
+Two bin-2 items are flagged for Max Cogar's awareness in the plan's
+bin-2 register (section 14.2), not blocking anything: the
+`web-tree-sitter` dependency-floor pin (`^0.25.10` as of round 10,
+re-verified round 11 across eight grammars — the only version in this
+line confirmed by direct execution to actually load
+`tree-sitter-wasms`'s grammars; a bump beyond `0.25.x` requires
+re-running that execution check first, not merely a semver check) and
+the now-largely-resolved D-plan-6 owner-probe workload (L11(a) already
+measured this session; L11(b) has no probe path and is handled by a
+runtime counter instead). No response is needed unless he wants either
+changed.
 
 ## Open items
 
-- Round 13 of independent review has not yet run — see "What to do next"
-  item 1. Nothing else from rounds 1–12 remains open: all findings from
-  all twelve rounds across both review types, plus Q-gap-5's six judgment
-  calls (Clear-Thought-verified, independently reproduced by round 3's
+- None from the review loop — it is deliberately halted (see above), not
+  paused pending a round. All findings from all twelve completed rounds
+  across both review types, plus Q-gap-5's six judgment calls
+  (Clear-Thought-verified, independently reproduced by round 3's
   expert-review), are closed.
 - L11(a) — human-marker presence on Max Cogar's real interactive transcript
   was resolved by direct measurement of
