@@ -42,7 +42,10 @@ fixed directly in the plan. Collapse-hunt: 1 collapse (a cited test ID,
 way" overclaim survived at three secondary locations after its primary fix;
 the plan's risk register (section 13) entries R1/R7 weren't synced to their Step fixes; four of Step
 23's six "unsourced" defaults are actually AD-14-sourced, an overclaim in the
-opposite direction from round 1's original mis-framing). Expert-review: 9 of
+opposite direction from round 1's original mis-framing), plus a procedural
+finding that N1–N6 had inline rationale but no formal four-part collapse-test
+— now added for all six, each attacked with a harder question than its
+Step's inline text posed. Expert-review: 9 of
 10 round-1 findings verified genuinely closed; one (S3/Q-gap-5) correctly
 rejected as an overclaim — see below; a Systemic pattern (fix content not
 swept to every cross-reference — a stale `D-plan-6`/`D-plan-8` collapse-test,

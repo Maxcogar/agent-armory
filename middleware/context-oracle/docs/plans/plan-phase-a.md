@@ -3718,26 +3718,185 @@ actual current design.
    not gate** — the report shape is a template; the recognizer and
    the reviewer are the checks.
 
-**Coverage attestation for the collapse-test (corrected — collapse-
-hunt found the original version of this paragraph to be the
-strongest instance of the very shape it declared immune).** Every
-D-plan-* decision above has a §10A entry. Not every §7 step is a
-transcription of an architecture decision: N1 (Step 5 URL
+#### N1 (Step 5 — URL normalization axes for shallow-clone keying)
+
+*(Added this fix pass, second round — round-2 collapse-hunt finding
+6: N1–N6 had inline Gate-3 rationale but no formal four-part
+`CLAUDE.md`-rule-2 collapse-test. Formalized here from that
+rationale, attacked with a harder question than the inline text
+posed.)*
+
+1. **Job.** Keep a shallow-clone's URL-derived repo key stable enough
+   that the owner's own knowledge about one repository is never
+   silently split into two stores.
+2. **Hardest question.** The enumerated normalization axes (host
+   case, userinfo, `.git` suffix, port, path case) leave *scheme*
+   unnormalized — an SSH clone and an HTTPS clone of the same physical
+   repository key to two different stores in shallow mode. If store
+   stability is the whole point of the URL fallback, why leave the
+   single biggest real-world variance (how people actually clone: SSH
+   at the desk, HTTPS in CI) unaddressed?
+3. **Answer.** Scheme is not folded because it is not always
+   provably the same remote: a fork, a mirror, or a credential-scoped
+   proxy can sit behind a different scheme for the same nominal
+   project, and unifying them would risk merging two *actually
+   different* repositories' knowledge — a worse failure than the
+   split this fix addresses, because a merge is silent and
+   unrecoverable while a split is visible and reconcilable. Phase A's
+   mission (§11.5) is honest disclosure of the floor, not elimination
+   of every residual; the fix already shipped (full normalized-key
+   display in `status`) converts the scheme-split case from
+   *invisible* to *owner-visible*, which is the achievable honesty
+   bar here, not zero residual. Cite: spec §11.5 ("never fake
+   completeness"); collapse-log 2026-09-04 (padding vs. honest floor).
+4. **Steers toward.** An implementer normalizing what is provably safe
+   (case, port, `.git` suffix) and treating scheme differences as a
+   disclosed, owner-visible residual rather than force-unifying on an
+   unverifiable assumption. **Guide, not gate** — `status` informs;
+   nothing blocks a scheme-split repo from working, just from sharing
+   a key.
+
+#### N2 (Step 18 — `deny_bypass_suspect` coverage bound)
+
+1. **Job.** Give the exit report a falsifiable, improvable signal for
+   how bypassable the answer-drift block is via `Bash`, instead of
+   either an absent counter or a silently-padded one.
+2. **Hardest question.** The detector's known blind spots (`dd`,
+   `rsync`, `python -c`, etc.) are comparable in size to its covered
+   set — is a partial, disclosed-incomplete counter actually different
+   in mission value from having no counter at all?
+3. **Answer.** Yes, on two axes an absent counter cannot provide:
+   (a) it is *falsifiable* — `T18-3` (this fix pass, round 2) greps
+   the built predicate array and fails CI if it silently drifts from
+   the disclosed set, so the boundary itself is audited, not merely
+   asserted in prose; (b) it is a *backlog*, not a dead end — N2's own
+   enumerated omissions (`dd`, `rsync`, `xargs cp/mv`, language-native
+   writers) are the exact list Phase B's model-assisted disambiguation
+   (which has the surface area a deterministic grep does not) consumes
+   first. An absent counter gives zero signal and no backlog; a
+   disclosed-partial one gives both. Cite: spec §11.5 (measure the
+   floor honestly); `T18-3` (mechanized bound, round-2 fix).
+4. **Steers toward.** An implementer reading the omitted-pattern list
+   as the current floor and escalating any expansion through a new
+   collapse-test (C1's write-time cap) rather than silently padding
+   the array. **Guide, not gate** — `T18-3` gates *silent* drift, not
+   deliberate, collapse-tested expansion.
+
+#### N3/N4 (Step 23 — bar defaults and clearing length floor)
+
+1. **Job.** Give `init` seedable starting values for the bar and the
+   clearing recognizer, so Phase A has something to run and measure
+   from, without pretending those values are validated.
+2. **Hardest question.** Four of six numbers are AD-14 "illustrative"
+   defaults and two (`reuse_dominance_k`, `clear_length_floor`) have
+   no source at all — if the exit-run's per-genre counts are a
+   function of six largely-unvalidated constants, how is Phase A's
+   measurement anything other than an artifact of arbitrary starting
+   values dressed as a finding?
+3. **Answer.** It isn't a finding yet, and the plan says so explicitly
+   (P1's exit-report requirement, Step 23's corrected framing): the
+   exit-run's per-genre counts are stated as *conditional on these
+   starting values* until the first real-repo tune, not as Phase A's
+   settled floor. The mission needs a starting point to observe *from*
+   — seeding zero values blocks `init` entirely — and the honesty
+   safeguard is not a better starting number, it is the explicit,
+   load-bearing caveat attached to every number the exit report
+   produces. Cite: collapse-log 2026-08-13 (an unsourced number
+   presented as final is the defect; an unsourced number presented as
+   provisional and calibration-pending is not); spec §11.5 (Phase A
+   measures its own floor, including the floor's own uncertainty).
+4. **Steers toward.** An implementer treating Step 42's exit-run as
+   the actual calibration event and never citing Step 23's seed values
+   as validated inputs to a downstream decision before that run
+   happens. **Guide, not gate** — `tune` can change any of the six
+   at any time; nothing enforces the seed values past `init`.
+
+#### N5 (Step 2.5 — `oracleSpawn` wrapper placement and confinement)
+
+1. **Job.** Make the `CTXORACLE_INTERNAL` recursion guard true by
+   construction, not by every future spawn site remembering to set an
+   environment variable.
+2. **Hardest question.** A single wrapper function is still bypassable
+   by a future contributor who reaches for `child_process.spawn` out
+   of habit — doesn't this just relocate the same implementer-
+   discipline risk one level down (remembering to use the wrapper)
+   rather than eliminating it?
+3. **Answer.** The risk is relocated, but relocated onto a
+   CI-enforced surface instead of a runtime one: `T41-1d` greps built
+   `dist/**/*.js` for direct `child_process.spawn`/`execFile`/`fork`
+   calls outside `dist/proc/oracle_spawn.js` and fails the PR on any
+   match — the same AD-10 pattern already trusted for the
+   higher-stakes deny-confinement property (Step 15/`T15-2`). A
+   contributor who forgets the wrapper gets a red PR before merge, not
+   a silent recursion in production; that is the exact shift from
+   "trust the implementer" to "trust the CI gate" AD-10 already
+   validated. Cite: `AD-10` (structural confinement precedent);
+   `AD-21` (the guard's own requirement); `T41-1d` (this fix pass).
+4. **Steers toward.** An implementer routing every spawn through
+   `oracleSpawn` by default, because the alternative fails CI
+   immediately rather than because they remembered a written rule.
+   **Guide, not gate on the wrapper's use** — but a real gate on
+   *undetected* bypass, which is the property that matters.
+
+#### N6 (Step 15 — confinement-grep scope vs. the new `dist-test/` compile target)
+
+1. **Job.** Ensure `T15-2`'s AC-2 structural confinement grep targets
+   exactly the production build, producing neither a false positive
+   from a legitimate test fixture nor a false negative from an
+   unpopulated `dist/`.
+2. **Hardest question.** C2's fix introduced a second compile target
+   (`dist-test/`, from `tsconfig.test.json`) to make `node:test`
+   actually load `.ts` tests — doesn't adding a second build output
+   double the surface for a configuration mistake that could
+   re-collapse N6 through the seam between C2's fix and N6's own,
+   i.e. did fixing one collapse quietly reopen the other?
+3. **Answer.** No, because the two targets are partitioned
+   structurally, not by convention: `tsconfig.json` (production,
+   `dist/`) includes `src/` only; `tsconfig.test.json` (`dist-test/`)
+   includes `src/`+`test/`. `T15-2` greps `dist/` exclusively; `T15-1`'s
+   deliberately-failing fixtures compile only under `dist-test/`. A
+   file appearing in the wrong tree would be a `tsconfig` `include`
+   misconfiguration — caught by `T1-1`'s build verification at Step 1,
+   which checks both configs compile cleanly — not a silent grep-scope
+   defect specific to `T15-2`. The seam is real but it fails loudly
+   (a build error) rather than silently (a wrong grep result). Cite:
+   Step 1 (both `tsconfig`s and `T1-1`); Step 15 (`T15-2`'s explicit
+   `dist/`-only scope, this fix pass).
+4. **Steers toward.** An implementer keeping the two `tsconfig`
+   `include` globs disjoint in intent (production-only vs.
+   everything) and re-running `T1-1` and `T15-2` together whenever
+   either config changes. **Guide, not gate** — nothing prevents an
+   implementer from editing the globs; the build/grep pair catches it
+   fast if they collide.
+
+**Coverage attestation for the collapse-test (corrected twice now —
+round 1's collapse-hunt found the original version of this paragraph
+to be the strongest instance of the shape it declared immune; round
+2's collapse-hunt then found N1–N6 still had no *formal* four-part
+collapse-test despite round 1's correction naming them as plan-level
+judgments — finding 6, "disclosed, not hidden, by the plan itself,"
+its own words).** Every D-plan-* decision, and now every N1–N6
+decision, has a full four-part §10A entry — N1 through N6 formalized
+in round 2 directly above, each attacked with a harder question than
+its originating Step's inline Gate-3 rationale posed. Not every §7
+step is a transcription of an architecture decision: N1 (Step 5 URL
 normalization), N2 (Step 18 `deny_bypass_suspect` coverage bound), N3
-and N4 (Step 23/14's unsourced bar defaults and length floor), N5
-(Step 2.5's `oracleSpawn` wrapper), and the C1/C3/P1–P4 corrections
-above are plan-level judgments the architecture did not decide and
-that this fix pass added or corrected with their own reasoning,
-in the open, above and in this section — not silently absorbed under
-"transcription." Steps whose content genuinely is a direct
-transcription of an architecture decision (the majority of §7) still
-do not require re-doing the architecture's own collapse-tests. If the
-reader disagrees about the load-bearing scope — believes a specific
-§7 step still contains an untested plan-level judgment — that is
-exactly the kind of finding the independent collapse-hunt (STATUS
-Step 4 of this fix pass) is dispatched to raise, and this paragraph's
-own history (collapse-hunt round 1 caught it being wrong) is why it
-is checked again rather than trusted on its own attestation.
+and N4 (Step 23/14's bar defaults and length floor), N5 (Step 2.5's
+`oracleSpawn` wrapper), N6 (Step 15's confinement-grep scope), and
+the C1/C3/P1–P4 corrections above are plan-level judgments the
+architecture did not decide and that this fix pass added or corrected
+with their own reasoning, in the open — not silently absorbed under
+"transcription," and no longer resting on inline rationale alone.
+Steps whose content genuinely is a direct transcription of an
+architecture decision (the majority of §7) still do not require
+re-doing the architecture's own collapse-tests. If the reader
+disagrees about the load-bearing scope — believes a specific §7 step
+still contains an untested plan-level judgment, or that one of the
+N1–N6 answers above doesn't survive a still-harder question — that is
+exactly the kind of finding the independent collapse-hunt is
+dispatched to raise, and this paragraph's own history (wrong in
+round 1, incomplete in round 2) is why it is checked again rather
+than trusted on its own attestation a third time.
 
 ---
 
