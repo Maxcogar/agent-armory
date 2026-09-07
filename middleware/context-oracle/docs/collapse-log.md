@@ -1243,3 +1243,38 @@ house it was reverted on the owner's instruction, because nothing this
 project needs may be done outside it. Evidence: the round-2, round-3, and
 round-4 reviews and `docs/reviews/2026-09-07-round-4-author-gates-review.md`
 §1.
+
+**The third stop (round 5, the cap) — where the regressions went once the
+mechanism could see structure.** Round 5's independent collapse-hunt
+(`docs/reviews/2026-09-07-round-5-collapse-hunt.md`) verified eight
+findings as introduced by the round-4 corrections. Every one of them lies
+inside the four decisions that pass *re-derived* rather than reconciled —
+the clear rule (D-plan-24: the stoplist phrase strips and the remainder
+"later" clears; executed), the leg-2 protocol (D-plan-26: the counted
+session's invocation was attributed to a tool-less single-turn run and the
+scrub and permission posture the plan's own §11.4 evidence requires were
+never stated), the `classified_turns` record (D-plan-27: a primary key that
+the designed rebuild re-inserts), and the conditional FTS migration
+(D-plan-28: a state key with no writer on the main path). The extended
+mechanism found none of them, and could not: it checks declarations and
+re-executes probes whose case tables the author wrote. A re-derived
+decision is new design, and the author's executed case table tests the
+author's imagination — the reviewer's nineteen extra inputs were the
+spec's own class ("I'll get to that" plus one word), which the author's
+twenty-three cases never contained. Across the three stops the class the
+mechanism catches moved outward (identifier reconciliation → build order →
+declarations and executions), and the regressions moved with it into the
+class it still cannot see: the semantics of a decision made under
+correction pressure. The lesson that outlives this plan: **a correction
+pass that re-derives a decision must not also be the pass that applies it
+to its dependents.** A re-derived decision needs what the original
+decision got — the independent collapse-hunt on that decision alone, with
+inputs the author did not choose — *before* its consequences are written
+into steps, tests and register entries; applying and reviewing in the same
+pass is how five rounds produced three regression rounds. The mechanical
+form this can take (a rule probe whose cases are generated from the
+spec's stated class rather than hand-listed; a re-derived decision marked
+in its `step-decl` so the gate refuses the plan until a review file names
+it) is not built; the loop stopped at the owner's five-round cap with the
+plan not accepted, and the choice of how to continue is recorded in
+`docs/STATUS.md`.
