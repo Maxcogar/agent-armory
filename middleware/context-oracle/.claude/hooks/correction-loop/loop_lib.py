@@ -24,7 +24,17 @@ import time
 HOOK_DIR = os.path.dirname(os.path.abspath(__file__))
 STATE_DIR = os.path.join(HOOK_DIR, "state")
 PROJECT_DIR = os.path.abspath(os.path.join(HOOK_DIR, "..", "..", ".."))  # middleware/context-oracle
-SETTINGS_PATH = os.path.join(PROJECT_DIR, ".claude", "settings.json")
+def _repo_root(start):
+    d = start
+    while d and d != os.path.dirname(d):
+        if os.path.isdir(os.path.join(d, ".git")) or os.path.isfile(os.path.join(d, ".git")):
+            return d
+        d = os.path.dirname(d)
+    return start
+
+
+ROOT_DIR = _repo_root(PROJECT_DIR)
+SETTINGS_PATH = os.path.join(ROOT_DIR, ".claude", "settings.json")  # the settings file that loads (the repository root's)
 DERIVE_SCRIPT = os.path.join(PROJECT_DIR, ".claude", "skills", "expert-plan", "scripts", "derive-plan-sections.mjs")
 PLAN_PATH = None  # resolved from the reviews of the active round (see plan_path_from_reviews)
 

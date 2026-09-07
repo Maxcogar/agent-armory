@@ -19,6 +19,11 @@ token a finding or a step's Source line cites is looked up as a heading, bullet,
 row across every markdown document under the project (plans, reviews and this loop
 excluded), documents ordered by how often the plan cites them.
 
+**Where the wiring lives.** A `.claude/settings.json` loads only from the repository root, so the
+three entries are in the repository-root settings file (added 2026-09-07 on the owner's
+instruction, beside the existing Stop gates); the scripts and their state stay here. The
+project-level settings file does not load in a session rooted at the repository.
+
 **Events and why** (behaviour per the hooks reference, verified 2026-09-07 against the skill's
 transcription of the official page):
 - `PostToolUse` matched on `Agent` (`serve.py`): a review subagent returning is the moment the

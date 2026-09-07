@@ -6,7 +6,9 @@
           {
             "type": "command",
             "command": "python3",
-            "args": ["${CLAUDE_PROJECT_DIR}/hooks/stop-completeness-gate/stop_completeness_gate.py"],
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/hooks/stop-completeness-gate/stop_completeness_gate.py"
+            ],
             "timeout": 60
           }
         ]
@@ -16,8 +18,51 @@
           {
             "type": "command",
             "command": "python3",
-            "args": ["${CLAUDE_PROJECT_DIR}/hooks/stop-instruction-adherence-gate/stop_instruction_adherence_gate.py"],
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/hooks/stop-instruction-adherence-gate/stop_instruction_adherence_gate.py"
+            ],
             "timeout": 90
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/middleware/context-oracle/.claude/hooks/correction-loop/judge.py"
+            ],
+            "timeout": 400
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/middleware/context-oracle/.claude/hooks/correction-loop/guard.py"
+            ],
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/middleware/context-oracle/.claude/hooks/correction-loop/serve.py"
+            ],
+            "timeout": 60
           }
         ]
       }
