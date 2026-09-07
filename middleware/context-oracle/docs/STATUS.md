@@ -24,8 +24,8 @@ dominating rule 3).
 
 The spec (`docs/specs/spec-context-oracle.md`) is signed off (`OL-C6`). The
 Phase A architecture (`docs/architecture-phase-a.md`) is reviewed to
-convergence. `docs/plans/plan-phase-a.md` has been through **ten rounds** of
-fix-and-re-review this session:
+convergence. `docs/plans/plan-phase-a.md` has been through **eleven rounds**
+of fix-and-re-review this session:
 
 **Round 1** fixed every finding across the four review documents that had
 accumulated by 2026-09-06: the author-gates review, the meta-check, and the
@@ -511,9 +511,74 @@ uninspected axis (here: functional cross-package compatibility) — and a
 claim's own "how verified" citation is worth reading for what it does
 *not* say it checked, not only for what it says it did.
 
+**Round 11** dispatched a fresh independent collapse-hunt and
+expert-review against round 10's output, both instructed to independently
+re-execute round 10's own two headline fix mechanisms from scratch rather
+than trust the corrected prose. Round 10's dependency-floor fix
+(`web-tree-sitter@^0.25.10` + `tree-sitter-wasms@0.1.13`) was re-derived
+independently by both agents (expert-review sampled eight grammars, two
+more than round 10, and separately re-confirmed `0.26.13` still fails
+identically) and is genuinely, robustly closed. Round 10's atomic-rename
+lock-reclaim fix (Step 37) was not:
+
+- **Serious (both agents independently, one via hand-interleaved
+  execution, one via a real two-OS-process reproduction).** Round 10's
+  `fs.renameSync`-based reclaim prevents two reclaimers' rename calls
+  from colliding only at the *same instant* against the *same,
+  still-present* stale file — exactly what round 10's own `T37-3` case
+  (d) and N7 collapse-test constructed and both correctly passed. It does
+  not stop a reclaimer that decided "stale" early and was then delayed —
+  by ordinary OS scheduling, disk contention, or a busy host, with no
+  bound the algorithm enforces — from later renaming away a completely
+  different, *live* lock a faster reclaimer legitimately created and is
+  actively running against in the meantime: `rename(2)` moves whatever
+  currently occupies the source path, with no notion of "the file I
+  mean." Reproduced by direct execution both ways, including two
+  genuinely separate `node` processes. Fixed with content-token identity
+  verification: every lock creation now writes a fresh token into the
+  lock file's own bytes; a reclaim's rename is followed by a
+  byte-for-byte comparison against the token captured at the staleness
+  check, and a mismatch restores the live lock to its path and skips
+  silently rather than deleting it. A device+inode identity check was
+  tried first and found insufficient by direct execution — `unlinkSync`
+  immediately followed by `openSync(O_CREAT)` at the same path routinely
+  reuses the just-freed inode number, producing false-positive matches —
+  verified across three repeated real two-process runs that the content
+  token does not have this failure mode. This narrows the vulnerable
+  window from "the winner's entire reindex duration" to a handful of
+  syscalls but, per POSIX's lack of a true rename compare-and-swap, does
+  not eliminate it; the residual is now disclosed in Step 37, N7, `§13
+  R11`, and architecture `AD-26` (new this round — was silent on this
+  before). `T37-3` gained a new case (e) constructing the wider,
+  delayed-reclaimer interleaving directly.
+- **Moderate (collapse-hunt).** `§13 R11` ("not data corruption… a
+  redundant reindex") directly contradicted Step 37's own "Impact if
+  wrong" text ("silent index corruption") for the identical scenario,
+  both added in round 10's same fix pass and never reconciled. Fixed by
+  correcting R11 to match Step 37's harsher, more accurate framing:
+  two concurrent `mineCochange` passes reading the same unadvanced
+  watermark would double-count co-change evidence (`AD-13`'s
+  accumulation logic), not merely duplicate idempotent work — reasoned
+  from the miner's own stated design, not executed, since Steps 20–22
+  don't exist yet, and disclosed as such.
+- **Minor (collapse-hunt).** `§14.4`'s reconciliation-sweep-record
+  narrative had no entry for any of rounds 6 through 10's five fix
+  passes, despite the document's own rule (added at round 6) that every
+  fix pass gets one. Fixed by adding Pass M through Pass Q (rounds 6–10)
+  and Pass R (round 11, this pass).
+
+Logged in `docs/collapse-log.md`: a fix's own unit test and collapse-test
+are not independent verification of it when both are authored against the
+same narrow scenario its author had in mind — construct the interleaving
+that maximizes a race's vulnerable *duration*, not only the one that
+maximizes apparent simultaneity. Also logged: a plausible-looking identity
+check (a file's inode) can be wrong in a way only execution reveals —
+inode reuse on a freshly recreated file defeated the first candidate fix,
+caught only by directly running it.
+
 ## What to do next (agent-owned)
 
-1. **Dispatch round 11 of independent collapse-hunt and expert-review.**
+1. **Dispatch round 12 of independent collapse-hunt and expert-review.**
    The finding count across rounds: round 1: 3 collapses/4 partials/6
    missed decisions + 10 expert-review findings; round 2: 1 collapse/3
    partials/1 procedural gap + 9 expert-review findings incl. the
@@ -526,33 +591,36 @@ claim's own "how verified" citation is worth reading for what it does
    Serious + 1 Moderate (expert-review) + 2 collapses (collapse-hunt);
    round 9: 2 Serious (expert-review) + 1 collapse + 2 findings
    (collapse-hunt); round 10: 1 Critical + 1 Moderate (expert-review) + 1
-   Serious collapse + 2 findings (collapse-hunt). All fixed each time.
-   This is the same iterate-to-convergence loop that took the
-   architecture document nine rounds — dispatch the next round rather
-   than assuming round 10's fixes are the last word, and instruct it to
-   independently re-execute round 10's own fix mechanisms (the atomic
-   rename-based lock reclaim under a concurrent-reclaim race; the actual
-   `Language.load()`/`parser.parse()` call against `web-tree-sitter@
-   0.25.10` + `tree-sitter-wasms@0.1.13`; the grammar-load-failure
-   fallback path) rather than trust them.
+   Serious collapse + 2 findings (collapse-hunt); round 11: 1 Serious
+   collapse (found independently by both agents) + 1 Moderate + 1 Minor
+   (collapse-hunt). All fixed each time. This is the same
+   iterate-to-convergence loop that took the architecture document nine
+   rounds — dispatch the next round rather than assuming round 11's
+   fixes are the last word, and instruct it to independently re-execute
+   round 11's own fix mechanism (the content-token identity verification
+   in Step 37's reclaim, under both the same-instant and
+   delayed-reclaimer interleavings) rather than trust it, per this
+   document's own now-twice-repeated lesson that a fix's own test
+   coverage is not independent verification of it.
 2. **Once a round comes back clean, proceed to implementation** via
    `.claude/skills/expert-implement/` against the fixed plan.
 3. **Two bin-2 items are flagged for Max Cogar's awareness in the plan's
    bin-2 register (section 14.2), not blocking anything:** the
-   `web-tree-sitter` dependency-floor pin (now `^0.25.10` as of round 10
-   — the only version in this line confirmed by direct execution to
-   actually load `tree-sitter-wasms`'s grammars; a bump beyond `0.25.x`
-   requires re-running that execution check first, not merely a semver
-   check) and the now-largely-resolved D-plan-6 owner-probe workload
-   (L11(a) already measured this session; L11(b) has no probe path and
-   is handled by a runtime counter instead). No response is needed
-   unless he wants either changed.
+   `web-tree-sitter` dependency-floor pin (`^0.25.10` as of round 10,
+   re-verified round 11 across eight grammars — the only version in this
+   line confirmed by direct execution to actually load
+   `tree-sitter-wasms`'s grammars; a bump beyond `0.25.x` requires
+   re-running that execution check first, not merely a semver check) and
+   the now-largely-resolved D-plan-6 owner-probe workload (L11(a) already
+   measured this session; L11(b) has no probe path and is handled by a
+   runtime counter instead). No response is needed unless he wants either
+   changed.
 
 ## Open items
 
-- Round 11 of independent review has not yet run — see "What to do next"
-  item 1. Nothing else from rounds 1–10 remains open: all findings from
-  all ten rounds across both review types, plus Q-gap-5's six judgment
+- Round 12 of independent review has not yet run — see "What to do next"
+  item 1. Nothing else from rounds 1–11 remains open: all findings from
+  all eleven rounds across both review types, plus Q-gap-5's six judgment
   calls (Clear-Thought-verified, independently reproduced by round 3's
   expert-review), are closed.
 - L11(a) — human-marker presence on Max Cogar's real interactive transcript

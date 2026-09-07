@@ -19,6 +19,72 @@ goes hollow is itself data.
 
 ---
 
+## 2026-09-07 — round 11: a fix's own collapse-test and unit test are not independent verification of it when both are authored against the same narrow scenario its author had in mind — and a plausible identity check (a file's inode) can be wrong in a way only execution reveals
+
+Round 11 found that round 10's own atomic-rename fix for Step 37's
+stale-lock reclaim — itself a fix for round 9's plain unlink-based race —
+closed only the narrow case it was built and tested against: two
+reclaimers' rename calls colliding on the same, still-present file at the
+same instant. It left open a wider, dominant case: a reclaimer that made
+its staleness decision early and was then delayed (ordinary OS scheduling,
+disk contention, a busy host — nothing the algorithm bounds) can later
+rename away a completely different, live lock that a faster reclaimer
+legitimately created and is actively running against in the interim. Both
+the round-11 expert-review (a hand-interleaved reproduction) and the
+round-11 collapse-hunt (a real two-OS-process reproduction — genuinely
+separate `node` processes, not simulated interleaving in one process)
+independently found and reproduced this.
+
+**Why this survived round 10's own review.** Round 10's own new unit test
+(`T37-3` case (d)) and its own new collapse-test (N7) were both authored to
+interrogate the exact mechanism round 10 had just built, and both were
+written against the same narrow scenario round 10's author had in mind —
+two renames issued "back-to-back with no serialization between them."
+Under that literal scenario the fix is genuinely safe, and both the test
+and the collapse-test correctly certified it. Neither construction asked
+what happens across the much larger window a full reclaim-and-recreate
+cycle actually leaves open once the winner starts doing real work. A test
+suite and a collapse-test that both pass against a self-selected scenario
+are not independent verification of a fix if neither one was constructed
+adversarially against the fix's own literal mechanism.
+
+**The sharpened lesson.** When a fix targets a concurrency defect,
+construct the interleaving that maximizes the vulnerable window's
+*duration*, not only the interleaving that maximizes apparent
+simultaneity. The widest window is usually not the one where two
+operations appear to happen "at the same instant" — it is the one where
+the first operation's entire remaining work happens to fall inside the
+second operation's decision window. A collapse-test's "hardest question"
+is only as hard as the interleaving its author thought to construct; this
+project's own review process caught the gap only because round 11 was
+independently instructed to re-execute round 10's fix mechanism from
+scratch rather than trust the corrected prose, per round 9's own
+already-logged lesson — and even that would not have been enough without
+deliberately searching for the *widest*, not merely the
+*hardest-looking*, timing shape.
+
+**A second, independently useful lesson from the same round: a plausible
+identity check can be wrong, and only execution reveals it.** The
+round-11 collapse-hunt tried the most obvious-looking fix for the race —
+comparing a stale-lock candidate's filesystem inode number before and
+after the rename — and found it insufficient by direct execution:
+`unlinkSync` immediately followed by `openSync(O_CREAT)` at the same path
+routinely triggers fast inode-number reuse on several common filesystems,
+so a losing reclaimer's post-rename inode comparison can report a false
+match against a brand-new, unrelated file. A content token written into
+the lock file's own bytes at every creation — never reused, unlike an
+inode number — does not have this failure mode, verified across three
+repeated real two-process runs, and is the mechanism Step 37 now
+specifies. Filesystem metadata that looks like stable identity is not
+always stable identity; "verify before you assert" applies as much to a
+fix's own proposed remedy as to the original claim it corrects.
+
+**Class: unverified** — a fix-pass closure claim (Step 37, N7, `T37-3`)
+and a plausible-looking identity check (device+inode), both asserted or
+tried without the specific execution that would have falsified them.
+
+---
+
 ## 2026-09-07 — round 10: re-verifying the same axis a fourth time is not the same as checking a new one — the plan's own foundational dependency pin was functionally broken behind a metadata-only "verified" premise, for ten architecture rounds and nine plan rounds
 
 Round 10's expert-review found the most consequential defect yet in this

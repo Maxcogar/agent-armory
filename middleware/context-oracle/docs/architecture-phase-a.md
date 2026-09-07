@@ -1655,7 +1655,23 @@ and nothing here depends on the new channel.
    on `SQLITE_BUSY`; on second failure the event completes whisper-less
    (fail-open) with a `store_busy` diagnostic. The detached reindex takes a
    directory lock; the handler never waits on it (staleness merely lowers
-   confidence meanwhile, `FR-K7`). Audit-before-emit ordering (AD-8) holds per
+   confidence meanwhile, `FR-K7`). **The lock's exclusivity under concurrent
+   reclaim of an already-abandoned lock is narrowed, not absolute — disclosed
+   here per the plan's own Step 37 (`docs/plans/plan-phase-a.md`), corrected
+   round 11 of the plan's review lineage, not previously stated in this
+   document: content-token comparison (write a fresh token into the lock
+   file at every creation, compare it byte-for-byte immediately after a
+   reclaim's rename) prevents two reclaimers of the same stale lock from
+   both believing they hold it, down to the gap between one reclaimer's
+   file-identity read and its own rename call — a handful of synchronous
+   syscalls, not the full duration of a reindex a plain atomic rename alone
+   left open. A device+inode identity check was tried first and found
+   insufficient: filesystem inode reuse on a freshly recreated file at the
+   same path defeats it. POSIX supplies no `rename` primitive that closes
+   the narrowed gap to zero; this residual is accepted, not hidden, for a
+   single-host, single-user tool where two reclaims of the same abandoned
+   lock are already a rare edge (a crashed prior process, not the common
+   path).** Audit-before-emit ordering (AD-8) holds per
    process; ids are ULIDs so concurrent writers never collide. The
    `whisper_stats` fold (AD-5) reads its project watermark, aggregates the rows
    newer than it, and advances that watermark inside a **single `BEGIN
@@ -1668,7 +1684,9 @@ and nothing here depends on the new channel.
 3. **Why here.** The no-daemon model (AD-1) moves contention to the store; WAL
    is the mechanism that makes that safe, and the give-up path keeps NF-1.
 4. **What this is NOT.** Not a global write queue (a daemon in disguise). Not
-   long `busy_timeout` (blocks the event path — NF-1).
+   long `busy_timeout` (blocks the event path — NF-1). Not a lock whose
+   exclusivity is absolute under every stale-lock reclaim interleaving —
+   see point 1's disclosed, content-token-narrowed residual.
 5. **Premise verification.** WAL enabled and exercised in V8; `FR-K7`, `FR-O3`
    read at spec §11.1/§8. Addresses: NF-1, `FR-O3`, `FR-K7`.
 
