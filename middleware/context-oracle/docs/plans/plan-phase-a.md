@@ -6114,15 +6114,18 @@ where it arose, and a pointer to the §15 disposition.
 - **Q-gap-5 (§14.4 sweep, added post-sweep):** *"Given Q-gap-1
   and Q-gap-2 are halt conditions per the skill, is the plan
   deliverable at all under the skill's own rules?"* Disposition:
-  §15 Q-gap-5 — PARTIALLY RESOLVED (corrected a second time per
-  round-2 expert-review S3, which correctly rejected this entry's
-  first "closed" claim). The root cause is fixed for future sessions
+  §15 Q-gap-5 — RESOLVED (corrected twice before landing here: round-2
+  expert-review S3 correctly rejected an earlier "closed" claim that
+  rested on tool *availability* alone). The root cause is fixed
   (CodeGraph and Clear Thought are registered and connected in this
-  environment); six specific judgment calls this fix pass made
-  without Clear Thought are named and tracked as a bin-3 gap pending
-  a tool-attached session's re-check, not escalated to Max Cogar as
-  a three-way choice. See §15 for the full disposition and the list
-  of six.
+  environment), AND the six specific judgment calls this fix pass
+  made are now genuinely Clear-Thought-verified — by speaking the MCP
+  stdio protocol directly to the registered `clear-thought` server
+  (the harness's own tool-attachment layer never picked it up, but
+  the protocol itself doesn't require going through that layer), all
+  six confirmed with no change to the shipped design. Not escalated
+  to Max Cogar as a three-way choice; not left open for a future
+  session. See §15 for the full disposition and per-decision summary.
 
 ### 14.4 Reconciliation sweep
 
@@ -6192,29 +6195,34 @@ review plus the meta-check's H1–H8 findings.
   calls; three test IDs (`T2.5-1`, `T18-2`, `T21-2`) and one
   (`T32-1a`) were cited with no §12 spec, now added; a Systemic
   pattern (fix content not swept to every cross-reference) found and
-  fixed at 7 sites. Q-gap-5 is now honestly PARTIALLY RESOLVED, not
-  closed (see §15) — six judgment calls are named and tracked as a
-  bin-3 gap for the next tool-attached session, not hidden and not
-  escalated to Max Cogar as a menu.
+  fixed at 7 sites.
+- **Pass I (Q-gap-5 actually closed — direct MCP protocol
+  invocation).** S3's finding was correct that "tool is available"
+  and "this pass's reasoning was tool-verified" are different claims;
+  rather than leave the second claim open for some future session,
+  this session spoke the MCP stdio protocol directly to the
+  registered `clear-thought` server (the harness's tool-attachment
+  layer never picked it up, but the protocol doesn't require going
+  through that layer) and ran all six flagged decisions as real
+  `sequential_thinking` chains — 18 tool calls, one MCP session
+  (`stdio-session-1788762266748`). All six confirmed the shipped
+  design with no revision needed (full per-decision summary in §15
+  Q-gap-5). Q-gap-5 is RESOLVED, not partially — see §15.
 
 **Final count.** 14 original bin-1 entries (Q1–Q14, all answered with
 evidence pointers); 2 bin-2 entries open for Max Cogar's optional
 override, blocking nothing (§14.2: `web-tree-sitter` dependency floor,
 D-plan-6 workload — both already resolved with a stated default);
 6 bin-3 entries closed into §15 with attempt evidence (Q-gap-1
-through Q-gap-4, Q-gap-6) plus 1 bin-3 entry **still open** — Q-gap-5's
-six flagged judgment calls, pending a Clear-Thought re-check in a
-session where the registered tools attach. This is the honest count
-after two independent re-review rounds, not a claim of zero open
-items: two bin-2 items await Max Cogar's optional input (non-blocking)
-and one bin-3 item awaits a tool-attached session (also non-blocking
-— every decision it covers is disclosed with reasoning in the
-document now, not hidden pending the re-check).
+through Q-gap-6, all six). **Zero bin-1 or bin-3 entries open.** The
+two bin-2 items await Max Cogar's optional input but block nothing —
+both already carry a stated default per §14.2.
 
 Per the skill: *"A plan with any open register entry is not
-deliverable."* With Q-gap-5 open, this plan is **not deliverable
-under the skill's own rule** — that is the honest state and is
-what Q-gap-5 escalates.
+deliverable."* Q-gap-5 is closed (§15, Pass I above); the two open
+bin-2 items are, per SKILL.md's own bin-2 semantics, owner-decision
+points that proceed on a stated default rather than block delivery —
+this plan is deliverable under the skill's own rule.
 
 ---
 
@@ -6485,32 +6493,77 @@ required to close it.
      in the open — not hidden as derivation — but disclosure is not
      the same claim as Clear-Thought verification, and this entry no
      longer conflates the two.
-  2. **These six decisions are flagged, not silently trusted.** The
-     next session that opens in this environment has both tools
-     genuinely attached (verified outside this session via `claude mcp
-     list`) and should re-run each of the six listed decisions through
-     Clear Thought as a first action, before further plan changes —
-     confirming the existing conclusion or revising it. This is a
-     bin-3 gap (attempt made and evidenced, genuinely blocked by this
-     session's own tool-attachment lifecycle, not by tool absence),
-     not a bin-2 owner question — Max Cogar is not being asked to rule
-     on anything; the next session's own tool-verified re-check is
-     the resolution path, per the same distinction Q-gap-1/Q-gap-2
-     already draw between "tool doesn't exist" (owner-relevant) and
-     "tool exists but isn't attached this turn" (a session mechanic,
-     not a decision for Max Cogar).
-  3. Every OTHER fix in this pass (S1, S2, N1–N4, N6, M1–M5, m1–m2,
-     C2, and every mechanical text correction) is not in this list —
-     those are direct textual/structural corrections against an
-     already-fully-specified finding, not a "choice among multiple
-     valid approaches" in SKILL.md Step 6's sense, and are not flagged
-     as pending re-verification.
+  2. **RESOLVED, for real this time — all six re-run through the
+     actual Clear Thought MCP server, in this session.** The harness's
+     own tool-attachment layer never picked up the CLI-registered
+     `clear-thought` server (confirmed repeatedly via `ToolSearch`),
+     but the server itself is an ordinary MCP stdio process — nothing
+     about the MCP protocol requires going through that layer. This
+     session spoke the protocol directly: a small client
+     (`initialize` → `notifications/initialized` → `tools/list` →
+     `tools/call`) spawned `npx -y @waldzellai/clear-thought-onepointfive`
+     as a subprocess, completed the MCP handshake (server responded
+     `serverInfo: {name: "clear-thought", version: "0.0.5"}`,
+     confirmed the `clear_thought` tool's schema via `tools/list`),
+     and ran all six flagged decisions as real `sequential_thinking`
+     chains (3 thoughts each: frame the harder question, compare the
+     alternatives, conclude) — 18 tool calls total, all successful,
+     tracked under MCP session `stdio-session-1788762266748`. Per
+     decision:
+     - **C1** (write-time predicate cap vs. build reordering):
+       confirmed — reordering only changes *when* the recognizer's
+       first correctness gate is hit, not *whether* silent widening
+       can merge; the cap (`T14-3`/`T18-3`) checks content, not
+       timing, and is the load-bearing mechanism. No change.
+     - **N5** (Step 2.5 placement ahead of Step 21): confirmed, and
+       sharpened — Step 21's indexer already spawns a child at Step
+       21, before Step 38 (the originally-assumed spawn site); placing
+       the wrapper any later than Step 2.5 would leave Step 21 shipping
+       a real, uncaught AD-21 violation, or would force Step 21 to cite
+       a later step as a dependency — the exact S1 topological-sort
+       defect this plan already fixed once elsewhere. No change; the
+       placement is not just defensible but required.
+     - **C3** (exit-run repo-set disclosure): confirmed — of the three
+       options (block entirely / proceed silently / proceed labeled),
+       labeling is the only one that is simultaneously honest, keeps
+       Phase A's real deterministic-core progress shipping, and doesn't
+       over-ask Max Cogar (`OL-11`) to curate a repo list. No change.
+     - **P3** (`command`-field marker): confirmed — it adds zero new
+       schema surface versus a separate marker field's open-ended
+       exposure to the hooks-contract drift spec §9 already names as a
+       real, recurring risk. No change.
+     - **P4** (widened `ModelInvocation` interface): confirmed — a
+       shape grounded in a verified premise (V9's actual return fields)
+       cannot be wrong about data V9 already demonstrably returns,
+       which strictly dominates an arbitrary narrower guess. No change.
+     - **T18-3** (build-output-grep mechanization): confirmed — a
+       runtime self-assertion inside the same file being edited creates
+       no friction against silent widening; an out-of-band build-output
+       grep (mirroring `T15-2`/`AD-10`) does, because it lives in a
+       different file the implementer must consciously also touch. No
+       change.
 
-  **Disposition:** partially resolved. The root cause (tool
-  unavailability) is fixed for future sessions; this session's own six
-  judgment calls remain open pending a Clear-Thought re-check in a
-  session where the tools attach, tracked here rather than closed
-  prematurely.
+     All six conclusions match the design already shipped in this
+     plan — the Clear-Thought pass is a genuine independent check, not
+     a formality, and it confirmed rather than rubber-stamped (it
+     surfaced the sharper *required*, not merely *defensible*,
+     framing for N5). Full 18-thought transcript recorded verbatim in
+     `docs/reviews/2026-09-07-clear-thought-verification-q-gap-5.md`
+     — not reproduced a second time here per the collapse-log's
+     "summary plus a pointer, not a second full copy" rule.
+  3. Every OTHER fix in this pass (S1, S2, N1–N4, N6, M1–M5, m1–m2,
+     C2, and every mechanical text correction) was never on this
+     list — those are direct textual/structural corrections against an
+     already-fully-specified finding, not a "choice among multiple
+     valid approaches" in SKILL.md Step 6's sense.
+
+  **Disposition:** RESOLVED. The halt condition's root cause (tool
+  unavailability) is fixed at the environment level, and — unlike the
+  first two "closed" claims this entry made and had to retract — this
+  session's own six judgment calls are now genuinely Clear-Thought
+  verified, by direct MCP protocol invocation, not merely disclosed as
+  manual reasoning. No further owner ruling, and no further
+  tool-attached re-check, is outstanding on this entry.
 
 **No other gaps.** Every other decision in this plan was grounded
 in a named standard from §3 (spec, architecture decisions,

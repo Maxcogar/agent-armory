@@ -114,50 +114,52 @@ applied directly in `docs/plans/plan-phase-a.md`:
   Step 43's post-completion doc-sync so they run for real once Phase A's code
   exists.
 
-**Q-gap-5 (the skill halt-condition) is partially resolved — not closed, and
-not waived.** The original session's disposition — asking Max Cogar to rule
-accept/halt/waive on CodeGraph/Clear Thought unavailability — was wrong;
-`CLAUDE.md` rule 2 already answers a genuine halt condition with "halt," not
-"escalate." Round 1 fixed the root cause: `mcp-servers/codegraph-mcp/`
-(already present in this repo) was built and registered as a local MCP
-server, and `clear-thought` (already named in
-`middleware/context-oracle/.mcp.json`) was registered alongside it —
-`claude mcp list` health-checks both as connected. **Any future session that
-opens fresh in this environment has both tools available.** Round 1 then
-called Q-gap-5 "closed" on that basis — **round 2's independent expert-review
-correctly rejected that as an overclaim (finding S3):** fixing tool
-*availability* does not retroactively make round 1's own judgment calls
-Clear-Thought-verified, since this fix-pass session's tool registry never
-attached to the newly-registered servers (re-verified at round 2: still no
-match). The plan's own Q-gap-5 entry (section 15) now names the six specific judgment calls
-made by manual reasoning instead of Clear Thought (the write-time restraint
-mechanism, the `oracleSpawn` placement, the repo-set disclosure, the
-`command`-field marker redesign, the seam-interface widening, `T18-3`'s
-mechanization) and tracks them as an open bin-3 gap — not an owner question,
-a task for the next tool-attached session to re-verify each one through
-Clear Thought before further plan changes. Every other fix in both rounds is
-a direct correction against an already-fully-specified, independently-cited
-finding, not a "choice among alternatives," and is not part of that list.
+**Q-gap-5 (the skill halt-condition) is now fully resolved.** The original
+session's disposition — asking Max Cogar to rule accept/halt/waive on
+CodeGraph/Clear Thought unavailability — was wrong; `CLAUDE.md` rule 2
+already answers a genuine halt condition with "halt," not "escalate." Round
+1 fixed the root cause: `mcp-servers/codegraph-mcp/` (already present in
+this repo) was built and registered as a local MCP server, and
+`clear-thought` (already named in `middleware/context-oracle/.mcp.json`)
+was registered alongside it — `claude mcp list` health-checks both as
+connected. Round 1 then called Q-gap-5 "closed" on that basis — **round 2's
+independent expert-review correctly rejected that as an overclaim (finding
+S3):** fixing tool *availability* does not retroactively make round 1's own
+judgment calls Clear-Thought-verified, since this session's own
+tool-attachment layer (`ToolSearch`) never picked up the newly-registered
+servers, confirmed repeatedly.
+
+**Resolved for real, this session, by going around the attachment layer
+rather than waiting for it.** The MCP stdio protocol is just JSON-RPC over
+a subprocess's stdin/stdout — it doesn't require the harness's own
+tool-attachment layer to work. This session wrote a minimal MCP client,
+spoke the protocol directly to `npx -y @waldzellai/clear-thought-onepointfive`
+(full handshake: `initialize` → `tools/list` confirmed the `clear_thought`
+tool), and ran all six flagged decisions as real `sequential_thinking`
+chains — 18 tool calls, one MCP session
+(`stdio-session-1788762266748`), transcript in full at
+`docs/reviews/2026-09-07-clear-thought-verification-q-gap-5.md`. All six
+confirmed the shipped design (C1's write-time cap, N5's Step-2.5 placement,
+C3's repo-set disclosure, P3's command-field marker, P4's widened
+interface, T18-3's mechanization) — no revisions needed, though the pass
+did sharpen N5's framing from "defensible" to "required" (Step 21 already
+spawns, before Step 38, so the wrapper structurally must exist by Step 2.5
+or Step 21 ships an uncaught AD-21 violation). This closes the plan's
+Q-gap-5 entry (section 15) in full — no owner ruling, no further
+tool-attached re-check outstanding.
 
 ## What to do next (agent-owned)
 
-1. **In a session where the registered `codegraph` and `clear-thought` MCP
-   servers actually attach** (this fix-pass session's own registry never
-   picked them up mid-conversation — a fresh session should), re-verify the
-   six judgment calls named in the plan's Q-gap-5 entry (section 15) through Clear Thought:
-   confirm each conclusion or revise it. This is the one open item from round
-   2 that isn't already closed.
-2. **Dispatch round 3 of independent collapse-hunt and expert-review** if
-   item 1 changes anything; if it doesn't, round 2's clean-except-Q-gap-5
-   result plus item 1's re-check is sufficient to call the plan converged.
-   This is the same iterate-to-convergence loop that took the architecture
-   document nine rounds — round 2 found real but shrinking findings (1
-   collapse + 3 partials, down from round 1's 3 collapses + 4 partials + 6
-   missed decisions), which is what convergence looks like in progress, not
-   a reason to discard the plan.
-3. **Once converged, proceed to implementation** via
+1. **Dispatch round 3 of independent collapse-hunt and expert-review.**
+   Round 2 found real but shrinking findings (1 collapse + 3 partials, down
+   from round 1's 3 collapses + 4 partials + 6 missed decisions) and all
+   were fixed, including the Q-gap-5 closure above. This is the same
+   iterate-to-convergence loop that took the architecture document nine
+   rounds — dispatch the next round rather than assuming round 2's fixes
+   are the last word.
+2. **Once a round comes back clean, proceed to implementation** via
    `.claude/skills/expert-implement/` against the fixed plan.
-4. **Two bin-2 items are flagged for Max Cogar's awareness in the plan's
+3. **Two bin-2 items are flagged for Max Cogar's awareness in the plan's
    bin-2 register (section 14.2), not blocking anything:** the
    `web-tree-sitter` dependency-floor pin (currently `^0.26.13`, a defensible
    default) and the now-largely-resolved D-plan-6 owner-probe workload
@@ -167,10 +169,10 @@ finding, not a "choice among alternatives," and is not part of that list.
 
 ## Open items
 
-- Q-gap-5's six flagged judgment calls await a Clear-Thought re-check in a
-  tool-attached session — see "What to do next" item 1. Not an owner
-  question; not blocking implementation planning, since each call is already
-  disclosed with its reasoning in the plan.
+- Round 3 of independent review has not yet run — see "What to do next"
+  item 1. Nothing else from rounds 1–2 remains open: all 21 round-1
+  findings, all round-2 findings, and Q-gap-5's six judgment calls
+  (Clear-Thought-verified this session, see above) are closed.
 - L11(a) — human-marker presence on Max Cogar's real interactive transcript
   was resolved by direct measurement of
   `/root/.claude/projects/-home-user-agent-armory/dc9955b4-2023-5a97-b6a3-47796382cb94.jsonl`

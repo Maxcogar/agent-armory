@@ -19,6 +19,51 @@ goes hollow is itself data.
 
 ---
 
+## 2026-09-07 — "the harness didn't attach the tool" is not the same fact as "the tool can't be used"
+
+Round-2 expert-review (finding S3) correctly rejected a claim that
+registering `clear-thought` as an MCP server at the CLI level
+(`claude mcp add ... -s local`, health-checked connected via `claude mcp
+list`) discharged SKILL.md's Clear-Thought mandate for six judgment calls a
+fix-pass session had made by manual reasoning. The gap: this specific
+session's own tool-attachment layer (`ToolSearch`) never picked up the
+newly-registered server, so the session genuinely had not run those six
+decisions through the tool, regardless of the tool's availability elsewhere.
+
+The next move was to treat "not attached to this session's tool layer" as
+equivalent to "not usable this session" — the same conflation the
+2026-09-07 entry below (about `ToolSearch` returning no match) already
+named once, one layer up. It resolved the same way: **the fact that a
+harness abstraction hasn't picked something up is a fact about the
+abstraction, not about the underlying capability.** An MCP server is an
+ordinary subprocess speaking JSON-RPC over stdin/stdout per a documented,
+public protocol (`initialize` → `notifications/initialized` → `tools/list`
+→ `tools/call`) — nothing about that protocol requires going through any
+particular client's tool-dispatch layer. A ~100-line client script spoke
+it directly to `npx -y @waldzellai/clear-thought-onepointfive`, completed
+the handshake, and ran all six flagged decisions as real tool calls,
+closing the gap in the same session rather than deferring it to some
+future session that might have better luck with attachment.
+
+Class: **unverified**, again — a boundary ("I can't use this tool") was
+asserted from the failure of one specific mechanism (the harness's
+attachment layer) without checking whether a more direct mechanism (the
+documented protocol itself) was available. **Lesson, generalized from the
+entry below: when a tool is "unavailable," ask which of three things is
+actually true — (a) it doesn't exist and can't be installed, (b) it exists
+and is installed but this session's convenience layer for calling it
+hasn't picked it up, or (c) it exists, is installed, and is one direct
+protocol call away regardless of the convenience layer. Only (a) is a real
+halt condition. (b) is what registering it (this project's prior fix)
+resolves for future sessions but does NOT resolve for the current one, and
+the current one is not thereby stuck — (c) is very often true for anything
+built on a documented, public protocol (MCP, HTTP APIs, CLIs with
+machine-readable output), and finding that out costs one small script, not
+a deferral.** Full evidence and the six confirmed decisions:
+`docs/reviews/2026-09-07-clear-thought-verification-q-gap-5.md`.
+
+---
+
 ## 2026-09-07 — round-2 review of the plan's own fix pass: a fix landing at its primary site without sweeping its secondary echoes, and an overclaimed closure caught before it reached the owner
 
 A fix pass applied 21 findings from four review documents directly to
