@@ -167,15 +167,15 @@ what broke, never an invented lower ceiling and never a silent pass.
   as repeating an already-denied narrowed plan instead of the demanded
   deliverable, and quoted the actual prior denial from the transcript.
 
-Not tested: a clean `violating: false` end-to-end run against real data.
-This session's own transcript — used deliberately instead of a fabricated
-one, since it's a real record of exactly the failure pattern this hook
-targets — did not offer an uncontested clean final turn late enough in the
-conversation to isolate for that case; the ones tried either fell inside
-the still-open task or were later confirmed as real violations by the
-sibling hook. That is a gap in the test *evidence*, not a known defect in
-the logic, and should be closed by exercising the hook on a genuinely
-clean, fully-compliant turn before relying on it to never false-positive.
-Also not tested: firing through an actual live `Stop` event inside an
+- True-negative check: this session's own transcript did not offer an
+  uncontested clean final turn to isolate (every candidate either fell
+  inside the still-open task or was later confirmed as a real violation by
+  the sibling hook), so this case was run against a constructed transcript
+  instead — a user instruction with no ambiguity (rename a function, update
+  every call site, run the tests), an action log that does exactly that and
+  nothing else, and a final response that accurately reports it. The judge
+  correctly returned `violating: false` (silent allow, no false positive).
+
+Not tested: firing through an actual live `Stop` event inside an
 interactive session (only direct script invocation was tested), and
 Windows.
