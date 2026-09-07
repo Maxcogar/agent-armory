@@ -183,6 +183,21 @@ what broke, never an invented lower ceiling and never a silent pass.
   actual rule text and noting the missing tool call — grounded, specific,
   and not a leftover artifact of the isolation bug.
 
+## Transcript pollution and a self-sustaining feedback loop (critical, found in production)
+
+Shares the exact bug and fix described in detail in
+stop-completeness-gate's README: this hook's own judge-prompt text
+(`"You are a strict compliance auditor..."`) also leaked into the live
+session transcript on every real firing before the session-isolation fix
+below, and `find_last_user_index`/`build_conversation_history` had no way
+to tell that apart from a real user statement - nor from the harness's own
+`"Stop hook feedback:"` re-injections, which fed a self-sustaining quote
+loop across real, live blocks in this actual session. Fixed identically
+here: `_NOT_A_REAL_USER_MESSAGE_PREFIXES` excludes both hooks' judge-prompt
+openers, the hook-feedback prefix, and `"<task-notification>"` from both
+functions. Re-verified against this session's own real (still-polluted)
+transcript after the fix.
+
 ## Session isolation (critical, found in production)
 
 Shares the exact bug described in stop-completeness-gate's README: the

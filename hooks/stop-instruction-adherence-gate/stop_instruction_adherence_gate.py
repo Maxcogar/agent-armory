@@ -178,6 +178,25 @@ def _extract_text(content):
     return None
 
 
+# Prefixes of "user"-typed transcript text that are NOT something a human
+# typed, and must never be treated as "something the user explicitly
+# stated" - see the matching, more detailed comment in the sibling
+# stop-completeness-gate/stop_completeness_gate.py; both were found and
+# fixed together after this exact failure occurred in production (a
+# self-sustaining quote loop with no human in it, followed by discovering
+# every real judge firing before the session-isolation fix had leaked its
+# own prompt into this transcript).
+_NOT_A_REAL_USER_MESSAGE_PREFIXES = (
+    "Stop hook feedback:",
+    "You are a strict completeness auditor",
+    "You are a strict compliance auditor",
+    "<task-notification>",
+    # One-off historical artifact - see the sibling file's comment. Will not
+    # recur, but sits in this session's history.
+    "List the files in the current directory using a tool call, then report what you found.",
+)
+
+
 def read_transcript_lines(transcript_path):
     if not transcript_path or not os.path.isfile(transcript_path):
         return None
@@ -213,6 +232,8 @@ def build_conversation_history(entries):
         message = entry.get("message") or {}
         text = _extract_text(message.get("content"))
         if not text:
+            continue
+        if etype == "user" and text.startswith(_NOT_A_REAL_USER_MESSAGE_PREFIXES):
             continue
         speaker = "USER" if etype == "user" else "ASSISTANT"
         turns.append(f"{speaker}: {text}")
@@ -281,7 +302,8 @@ def find_last_user_index(entries):
         if entry.get("type") != "user":
             continue
         message = entry.get("message") or {}
-        if _extract_text(message.get("content")):
+        text = _extract_text(message.get("content"))
+        if text and not text.startswith(_NOT_A_REAL_USER_MESSAGE_PREFIXES):
             return i
     return None
 
