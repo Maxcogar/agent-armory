@@ -1880,8 +1880,17 @@ could go wrong?`, `right?`, `you know?`, `isn't it?`, `see?`, `ok?`),
 `lexicon.deferral_stoplist` (`i'll get to that`, `i will get to that`,
 `i'll come back to`, `i'll get back to you`, `will look into that`, `first
 let me`, `before i answer` — multi-word phrases of AD-9's "I'll get to
-that" class only; a bare common word such as `later` is never a member,
-because it would hold on an answer that contains it, Step 23). The three
+that" class only; a bare common word such as `later` is never a member —
+the hold requires a recognized phrase, Step 23), `lexicon.deferral_filler`
+(`later`, `soon`, `now`, `next`, `then`, `first`, `shortly`, `afterwards`,
+`momentarily`, `moment`, `sec`, `second`, `minute`, `bit`, `while`, `i`,
+`we`, `you`, `it`, `that`, `this`, `them`, `one`, `a`, `an`, `the`, `on`,
+`to`, `in`, `for`, `not`, `yet`, `just` — the closed set of words a
+deferral phrase licenses beside it without adding content: temporal
+adverbs, duration nouns, pronouns, and the function words the phrases
+attach; a turn holding a stoplist phrase and nothing outside this set is
+the content-free deferral AD-9 names, and a word outside it anywhere in
+the turn is content and clears, Step 23, D-plan-24). The three
 command-class and completion lexicons are `plan_seed` lists as well — the
 architecture names the classes and a few members (AD-15's `ls`, `cd`,
 `cat`, `git status`, `grep`/`rg`, "…"), and every member beyond those is
@@ -2725,39 +2734,49 @@ conservative recognizers, each a small pure function:
   opens a question**: an indirect ask ("tell me whether …"), an imperative
   ("explain the failure"), or a question without `?` is not recognized —
   L1's documented low coverage, measured at exit, never classified around.
-- `recognizeClearing(assistantText, deferralStoplist, lengthFloorChars):
-  {clears: boolean; reason?: 'below_length_floor' | 'deferral_only'}` —
-  AD-9's two conditions and nothing else: strip tool-noise blocks and code
-  fences; remove every occurrence of a deferral-stoplist phrase (the
-  "I'll get to that"-class phrases Step 12 seeds — never a bare common
-  word); the turn clears when the text that remains, punctuation and
-  whitespace aside, is at least `lengthFloorChars` characters (a "small
-  floor", AD-9 — the seeded value 2 rejects an empty or one-mark turn and
-  nothing else). A turn that does not clear reports `deferral_only` when a
-  phrase was removed and `below_length_floor` otherwise. So "No.", "Yes,
-  line 12.", and the one-word direct answers "Sure.", "Ok.", "Right.",
-  "Understood." clear (FR-B5: the recognizer errs toward clearing — a
-  direct answer is never held for being short); a causal answer that
-  happens to contain the word "later" clears (no bare word is a phrase); a
-  deferral beside an answer, in either order and in one sentence or two
-  ("I'll get to that. The null check does not fix it, see line 12."; "No —
-  the null check does not fix it, see line 12, though I'll get to the rest
-  later."), clears on what remains; "I'll get to that." and an empty turn
-  do not. A dodge dressed in extra words ("Sure, I'll get to that after the
-  refactor.") clears — the skeleton errs toward clearing, the exit report
-  measures every deny escaped by a text turn (Step 39), and the human
-  channel corrects the ones that matter (AD-9's deferral-false-match
-  class) — never a vocabulary of acknowledgements or a clause grammar that
-  would hold on an answer because of where it sat (D-plan-24; the rule was
-  executed over the spec's examples, the direct answers, and the deferral
-  cases, §11.4). The function takes no question text: it cannot match a
-  turn to a specific question, which is the Phase B comprehension judgment
-  (`AC-2a-ii`).
+- `recognizeClearing(assistantText, deferralStoplist, deferralFiller,
+  lengthFloorChars): {clears: boolean; reason?: 'below_length_floor' |
+  'deferral_only'}` — AD-9's two conditions, each a predicate on the turn,
+  and nothing else. Strip tool-noise blocks and code fences. *Substance*:
+  the remaining text, punctuation and whitespace aside, is at least
+  `lengthFloorChars` characters (a "small floor", AD-9 — the seeded value
+  2 rejects an empty or one-mark turn and nothing else). *Deferral*: a
+  deferral-stoplist phrase (the "I'll get to that"-class phrases Step 12
+  seeds — never a bare common word) is present, and every token outside
+  the phrases belongs to the deferral-filler set (Step 12: the temporal
+  adverbs, duration nouns, pronouns, and function words a deferral phrase
+  licenses beside it without adding content). The turn clears when it has
+  substance and is not a deferral; one that does not clear reports
+  `deferral_only` when the deferral predicate held and `below_length_floor`
+  otherwise. So "No.", "Yes, line 12.", and the one-word direct answers
+  "Sure.", "Ok.", "Right.", "Understood." clear (FR-B5: the recognizer
+  errs toward clearing — a direct answer is never held for being short); a
+  causal answer that happens to contain the word "later" clears (it
+  carries content tokens; no bare word is a phrase); a deferral beside an
+  answer, in either order and in one sentence or two ("I'll get to that.
+  The null check does not fix it, see line 12."; "No — the null check does
+  not fix it, see line 12, though I'll get to the rest later."), clears on
+  the answer's tokens; "I'll get to that.", "I'll get to that later.",
+  "I'll come back to it.", "I'll get back to you on that.", "Before I
+  answer, one sec." and an empty turn do not clear — the phrase plus
+  nothing but filler is FR-B1's content-free deferral, with any number of
+  filler words. A dodge dressed in content words ("Sure, I'll get to that
+  after the refactor.") clears, and so does a deferral the stoplist does
+  not recognize ("Later.", "Not now.", "One moment.") — the skeleton errs
+  toward clearing, the exit report measures every deny escaped by a text
+  turn (Step 39), and the human channel corrects the ones that matter
+  (AD-9's deferral-false-match class) — never a vocabulary of
+  acknowledgements or a clause grammar that would hold on an answer
+  because of where it sat (D-plan-24; the rule is executed over the spec's
+  examples, the direct answers, the reviewer-supplied deferral inputs, and
+  the generated phrase × filler class, §11.4). The function takes no
+  question text: it cannot match a turn to a specific question, which is
+  the Phase B comprehension judgment (`AC-2a-ii`).
 - `recognizeMove(toolName): boolean` — `true` exactly for `Write`, `Edit`,
   `NotebookEdit`; every other tool name is `false` (`D-39`: reads, searches,
   `Bash`, `Task`, MCP and web tools are never denied in Phase A).
-The stoplists and the length floor are read from `tuning` by the caller
-(Step 25) and passed in; the functions hold no configuration.
+The stoplists, the filler set, and the length floor are read from `tuning`
+by the caller (Step 25) and passed in; the functions hold no configuration.
 
 **Creates.** `src/qa/classify.ts` — recognizers (Phase B replaces this file).
 
@@ -4476,12 +4495,14 @@ amendment to D-plan-5), and `docs/reviews/2026-09-07-plan-tool-traces-4.md`
 (the round-5 correction of issue S1: the amendment to D-plan-26's
 counted-session invocation), and
 `docs/reviews/2026-09-07-plan-tool-traces-5.md` (the round-5 correction of
-issue S2: D-plan-29); where the files disagree on a decision, the latest
-file's chain is the one whose conclusion appears here.
+issue S2: D-plan-29), and
+`docs/reviews/2026-09-07-plan-tool-traces-6.md` (the round-5 correction of
+issue S-2: the re-derivation of D-plan-24); where the files disagree on a
+decision, the latest file's chain is the one whose conclusion appears here.
 The §7 steps that carry plan-level judgment beyond transcribing an
 architecture decision are named against their entry so a reader can find
 every such step: Step 1 (D-plan-2, D-plan-3, D-plan-13), Step 5 (D-plan-14,
-D-plan-15), Step 7 (D-plan-28), Step 9 (D-plan-27), Step 12 (D-plan-7),
+D-plan-15), Step 7 (D-plan-28), Step 9 (D-plan-27), Step 12 (D-plan-7, D-plan-24),
 Step 14 (D-plan-28, D-plan-29), Step 15 (D-plan-29), Step 23 (D-plan-19,
 D-plan-24), Step 25 (D-plan-9,
 D-plan-27), Step 26 (D-plan-16, D-plan-27), Step 29 (D-plan-5, D-plan-12),
@@ -4613,7 +4634,8 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   (AD-9 asks for "a small floor" to exclude noise and FR-B5 says "only an
   empty deferral fails to clear": 2 rejects an empty or single-mark turn
   and lets "No." — OL-C5's direct answer — clear; content-free deferrals
-  are the stoplist's job, not the floor's; both miss directions are
+  are the job of the stoplist and the filler set (D-plan-24), not the
+  floor's; both miss directions are
   measured by `deny_despite_answer_text` and human corrections);
   `bar.recency_half_life_days` = 365 and `bar.stale_index_factor` = 0.8
   (AD-13 names a recency dampener and FR-K7 a staleness reduction without
@@ -4863,28 +4885,48 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   network call at all (AD-1, spec §10), so the structural scan is the
   property itself; `unshare -rn` on the Linux CI runners gives a runtime
   check the process cannot bypass.
-- **D-plan-24 — "Content-free deferral" is operationalized as phrase-strip
-  then floor: remove every deferral-stoplist phrase from the stripped turn
-  and clear when what remains meets the small floor; the stoplist holds
-  multi-word phrases of AD-9's "I'll get to that" class only, and there is
-  no other vocabulary and no clause grammar.** *Reasoning.* AD-9 states two
-  conditions — above a small floor, not a recognized content-free deferral
-  — and FR-B5 sets the lean: toward clearing on a substantive answer, with
-  only an empty deferral failing to clear. Each rule richer than AD-9's two
-  conditions holds on an answer (executed, `probe:16_clear_rule_cases`): a
-  sentence-level discard holds on "No — …, though I'll get to the rest
+- **D-plan-24 — "Content-free deferral" is AD-9's two conditions as two
+  predicates on the turn: the turn clears iff it has substance (the
+  stripped text meets the small floor) and is not a deferral (a
+  deferral-stoplist phrase present with nothing but deferral-filler words
+  outside it); the stoplist holds multi-word phrases of AD-9's "I'll get
+  to that" class only, the filler set is a closed `plan_seed` list of the
+  words such a phrase licenses beside it without adding content, and there
+  is no other vocabulary and no clause grammar.** *Reasoning.* AD-9 states
+  two conditions — above a small floor, not a recognized content-free
+  deferral — and FR-B1 names the class ("I'll get to that" — a
+  content-free deferral does not clear); FR-B5 sets the lean: toward
+  clearing on a substantive answer, with only an empty deferral failing to
+  clear. Collapsing the two conditions into one measurement of the
+  remainder (remove the phrase, clear when what is left meets the floor —
+  the round-4 shape) makes any leftover characters substance, so "I'll get
+  to that later." clears and the hold fires only on the bare phrase
+  (executed, the round-5 collapse-hunt's nineteen inputs; three of the
+  seven stoplist members could never hold). Each rule richer than AD-9's
+  two conditions holds on an answer (executed, `probe:16_clear_rule_cases`):
+  a sentence-level discard holds on "No — …, though I'll get to the rest
   later"; a clause-level discard with an acknowledgement lexicon holds on
-  "Sure." and "Understood." as whole answers and, with a bare `later` in
-  the stoplist, on a causal sentence — an elaboration in the hold
-  direction, the wrong error for the clear axis, and one the detector
-  exclusion of Step 26 would make invisible to the exit report. Under
-  phrase-strip-then-floor the twelve direct answers of the `T-23-2` case
-  table all clear, the deferral-only turns do not, and a dressed dodge
-  ("Sure, I'll get to that after the refactor.") clears — the skeleton's
-  designed under-hold, counted by Step 39's escape fraction and corrected
-  through the human channel, exactly as AD-9 files the deferral-false-match
-  miss. The rule is executed over the spec's examples, the direct-answer
-  class, and the deferral cases by `probe:16_clear_rule_cases` (§11.4).
+  "Sure." and "Understood." as whole answers; a content-token predicate
+  over the whole turn holds on "Later." and "Not now." with no recognized
+  phrase — beyond AD-9's *recognized* class and onto one-word answers to a
+  when-question. Under the two predicates the direct answers of the
+  `T-23-2` case table all clear, FR-B1's class holds with any number of
+  filler words, every stoplist member can hold, a dressed or plan-stating
+  dodge ("Sure, I'll get to that after the refactor.") clears on its
+  content words, and an unrecognized deferral ("Later.") clears — the
+  skeleton's designed under-hold, counted by Step 39's escape fraction and
+  corrected through the human channel, exactly as AD-9 files the
+  deferral-false-match miss; the filler set's own miss directions are
+  stated with it (a filler word that was the answer is a wrongful hold
+  escaped by one more word; a delay word outside the set is an escape the
+  report counts). The rule is executed over the spec's examples, the
+  direct-answer class, the reviewer-supplied deferral inputs, and the
+  generated phrase × filler class by `probe:16_clear_rule_cases` (§11.4).
+  Score (holds on FR-B1's class; clears every direct answer, one-word
+  included; the hold requires a recognized phrase; no acknowledgement
+  vocabulary or clause grammar; both miss directions named and measured):
+  two predicates 1.0, content-token predicate on the whole turn 0.7,
+  phrase-strip-then-floor described honestly 0.7.
 - **D-plan-25 — `hooks_not_firing` has two detectors — the stale-session
   half (a liveness row whose transcript keeps growing without events) and
   the totally-dead half (transcripts for this repository's slug newer than
@@ -5439,25 +5481,32 @@ collapse-hunt attacks these questions harder and hunts for the ones missing.
 4. **Steers toward.** Asserting the absence at the import graph. **Guide,
    not gate.**
 
-#### D-plan-24 (phrase-strip-then-floor clear rule)
+#### D-plan-24 (two-predicate clear rule: substance, and not a recognized deferral)
 
 1. **Job.** Let every answer clear the block, including a one-word one,
-   while an empty deferral never does.
-2. **Hardest question.** *Stripping the phrase and measuring what is left
-   means "Sure, I'll get to that after the refactor" clears on "Sure, after
-   the refactor" — the dodge OL-C3 named, dressed in five extra words, walks
-   through; the recognizer is now blind exactly where the owner asked it to
-   look.*
-3. **Answer.** Yes — by design, and measured. The spec assigns the clear
-   axis its error direction: FR-B5 says err toward clearing, only an empty
-   deferral fails to clear, and §11.5 asks Phase A to measure how little
-   the conservative recognizer catches; every vocabulary rule that catches
-   the dressed dodge holds on real answers (`probe:16_clear_rule_cases`). A
-   deny escaped by a text turn is a report field (Step 39), and the human
-   channel (`ctxoracle correct`) is where the dodge that matters is filed,
-   as AD-9 files the deferral-false-match miss. Cite: FR-B1, FR-B5, P3;
-   AD-9 ("not a recognized content-free deferral"); spec §11.5; `AC-2a-ii`.
-4. **Steers toward.** Clearing on any answer and counting the escapes.
+   while a recognized deferral carrying nothing but filler never does.
+2. **Hardest question.** *The filler set is a vocabulary — the thing the
+   previous shape refused — and it cuts both ways: "I'll get to that
+   later" is held even when "later" answers a when-question, while "Sure,
+   I'll get to that after the refactor" still walks through on "sure"; the
+   recognizer now holds on a word it cannot understand and releases on one
+   it cannot judge.*
+3. **Answer.** Yes — and each direction is the one the spec assigns. The
+   filler set names no answer word: it is closed, printed as a
+   `plan_seed`, and holds only beside a recognized phrase, so an answer
+   clears on any token outside it (FR-B5's lean) and the one wrongful hold
+   it can produce — a filler word that was the answer — is escaped by one
+   more word and filed where AD-9 files the deferral-false-match miss, the
+   human channel. The dressed dodge clears because a content word is what
+   the skeleton cannot judge (`AC-2a-ii`, Phase B); §11.5 asks Phase A to
+   measure how little the conservative recognizer catches, a deny escaped
+   by a text turn is a report field (Step 39), and `ctxoracle correct` is
+   where the dodge that matters is filed. What the rule no longer does is
+   call the bare phrase "the class": FR-B1's deferral with any number of
+   filler words holds, which is the owner's case (OL-C3). Cite: FR-B1,
+   FR-B5, P3; AD-9 ("not a recognized content-free deferral"; the two miss
+   classes); spec §11.5; `AC-2a-ii`; L1.
+4. **Steers toward.** Clearing on any content and counting the escapes.
    **Guide, not gate.**
 
 #### D-plan-25 (totally-dead detector and interpreter pin)
@@ -6189,18 +6238,32 @@ this session; line numbers are of that revision.
   d073523: ENV NODE_VERSION 22.16.0`, `node:22.16.0-bookworm FROM: FROM
   buildpack-deps:bookworm`, `buildpack-deps:bookworm-scm installs git:
   yes`, `node:22-bookworm-slim installs git: no`.
-- **Claim.** The phrase-strip-then-floor clear rule — strip fenced code
-  and tool blocks, remove every deferral-stoplist phrase, clear when the
-  remaining text is at least the floor (2) — classifies the T-23-2 case
-  table as stated: the empty and one-mark turns and the tool-noise-only
-  turn do not clear (`below_length_floor`); `I'll get to that.` does not
-  clear (`deferral_only`); `No.`, `Yes.`, `Sure.`, `Ok.`, `Right.`,
+- **Claim.** The two-predicate clear rule — strip fenced code and tool
+  blocks; *substance*: the remaining text is at least the floor (2);
+  *deferral*: a deferral-stoplist phrase is present and every token
+  outside the phrases is in the deferral-filler set; clear iff substance
+  and not deferral — classifies the T-23-2 case table as stated: the empty
+  and one-mark turns and the tool-noise-only turn do not clear
+  (`below_length_floor`); `I'll get to that.`, `I'll get to that later.`,
+  `I'll get to that soon.`, `I'll get to that next.`, `I'll come back to
+  it.`, `I'll come back to that.`, `I'll get back to you on that.`, `I'll
+  get back to you.`, `Will look into that.`, `I will look into that.`,
+  `Before I answer, one sec.`, and `I'll get to that, I'll get to that.`
+  do not clear (`deferral_only`); `No.`, `Yes.`, `Sure.`, `Ok.`, `Right.`,
   `Understood.`, `Got it, will do.`, the causal sentences containing
-  `later`, `First let me check: …`, the deferral-beside-answer turns, and
-  `Sure, I'll get to that after the refactor.` clear. **Steps.** 12, 23.
-  **Evidence.** Executed `probe:16_clear_rule_cases` 2026-09-07 (a reference
-  implementation of the rule over the twenty-three cases): every case
-  prints `ok`.
+  `later`, `First let me check: …`, `First let me finish this.`, the
+  deferral-beside-answer turns, `Sure, I'll get to that after the
+  refactor.`, `I'll get to that after the refactor.`, `Let me look into
+  that first.`, `Later.`, `Not now.`, `One moment.`, `Hmm.` and `Hm`
+  clear; and the generated class — every seeded stoplist phrase × every
+  seeded filler word, after and before the phrase — does not clear
+  (`deferral_only`) while each of those turns with one content word
+  appended clears. **Steps.** 12, 23. **Evidence.** Executed
+  `probe:16_clear_rule_cases` 2026-09-07 (a reference implementation of
+  the rule over the forty-two listed cases and the generated class): every
+  listed case prints `ok`, and the probe prints the generated counts — 7
+  phrases × 33 filler words × 2 placements = 462 hold cases and 462 clear
+  cases, all `ok`.
 
 ### 11.5 Claims from the collapse-log (`docs/collapse-log.md`)
 
@@ -7112,27 +7175,42 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **File.** `test/unit/recognizer_clear.test.ts`.
   - **Verifies.** Step 23.
   - **Level.** Unit.
-  - **Real/doubles.** Real function; floor and deferral list read from the
-    seeded table.
+  - **Real/doubles.** Real function; floor, deferral list, and filler set
+    read from the seeded table.
   - **Data.** An empty turn and a one-mark turn "." (no clear,
     `below_length_floor` — below the seeded floor of 2); "No.", "Yes, line
     12.", "Sure.", "Ok.", "Right.", "Understood.", "Got it, will do." (clear
     — direct answers are never held for being short); "Because the fixture
     is written later than the assertion reads it." and "First let me check:
     the null check is not the cause." (clear — a bare word is no phrase, and
-    a phrase beside an answer is stripped, not the answer); "I'll get to
-    that." and "I'll get to that!" (no clear, `deferral_only`); "I'll get
-    to that. The null check does not fix it, see line 12." and "No — the
-    null check does not fix it, see line 12, though I'll get to the rest
-    later." (clear on what remains); "Sure, I'll get to that after the
-    refactor." (clears — the dressed dodge the skeleton lets through and
-    the exit report counts); a turn that is only tool-noise blocks (no
-    clear, `below_length_floor`); a turn of a code fence plus "No."
+    a phrase beside an answer's tokens is not the answer); "I'll get to
+    that.", "I'll get to that!", "I'll get to that later.", "I'll get to
+    that soon.", "I'll get to that next.", "I'll come back to it.", "I'll
+    come back to that.", "I'll get back to you on that.", "I'll get back to
+    you.", "Will look into that.", "I will look into that.", "Before I
+    answer, one sec.", "I'll get to that, I'll get to that." (no clear,
+    `deferral_only` — a recognized phrase with nothing but filler beside
+    it); "I'll get to that. The null check does not fix it, see line 12."
+    and "No — the null check does not fix it, see line 12, though I'll get
+    to the rest later." (clear on the answer's tokens); "Sure, I'll get to
+    that after the refactor.", "I'll get to that after the refactor." and
+    "First let me finish this." (clear — a content word beside the phrase:
+    the dressed or plan-stating dodge the skeleton lets through and the
+    exit report counts); "Later.", "Not now.", "One moment.", "Let me look
+    into that first.", "Hmm.", "Hm" (clear — no recognized phrase: the
+    under-fire the exit run measures, never held by an acknowledgement
+    vocabulary); a turn that is only tool-noise blocks (no clear,
+    `below_length_floor`); a turn of a code fence plus "No." (clears); and
+    the **generated class**: every seeded stoplist phrase × every seeded
+    filler word, the word placed after and before the phrase (no clear,
+    `deferral_only`), and each such turn with one content word appended
     (clears). The function's signature carries no question text (asserted
-    at compile time by calling it with the seeded list, the seeded floor,
+    at compile time by calling it with the seeded lists, the seeded floor,
     and a string only). Technique: boundary value + decision table over
-    the spec's examples and the direct-answer class (the cases executed by
-    §11.4's reference implementation, `probe:16_clear_rule_cases`).
+    the spec's examples, the direct-answer class, and the reviewer-supplied
+    deferral inputs, plus the rule's class as a generating rule (the cases
+    executed by §11.4's reference implementation,
+    `probe:16_clear_rule_cases`).
   - **NOT asserts.** Answer correctness; per-question matching (Phase B —
     the recognizer cannot see a question). **Fails when** any case behaves
     opposite to its class, OR the boundary is not at the seeded floor, OR
@@ -7673,12 +7751,14 @@ and are stated on each entry.
     repositories and transcript files. No doubles.
   - **Data.** Fixture `answer-drift-clearly-off`; stream: `UserPromptSubmit
     {prompt: "why is the deploy failing?"}` → `PreToolUse Edit` → `PreToolUse
-    Read` → `PreToolUse Bash npm test` → `PreToolUse Edit`. Technique:
-    state-transition.
+    Read` → `PreToolUse Bash npm test` → the assistant text turn `I'll get
+    to that later.` appended to the transcript by the runner → `PreToolUse
+    Edit`. Technique: state-transition.
   - **NOT asserts.** Agent behaviour after the deny. **Fails when** either
-    `Edit` is not denied with the question in the reason, OR `Read` or `Bash`
-    is denied, OR a `stop_hook_active`/continuation field appears in any
-    response.
+    `Edit` is not denied with the question in the reason (the second after
+    the content-free deferral — FR-B1: it does not clear, `deferral_only`),
+    OR `Read` or `Bash` is denied, OR a `stop_hook_active`/continuation
+    field appears in any response.
 
 - **T-38-2 — Reconciliation backfills `asked_uuid`.**
   - **File.** `test/replay/answer_drift_reconciliation.test.ts`.
@@ -8490,12 +8570,15 @@ bin, and its closed disposition.
   `permissionDecision` (`T-28-2`).
 - **Q41 (Step 23).** Where may a deferral phrase sit in a turn for the
   turn not to clear? **Disposition.** Answered: the phrase's position is
-  irrelevant — every deferral phrase is removed and the turn clears when
-  what remains meets the floor (Step 23; `T-23-2`; D-plan-24 — executed
-  over the spec's examples and the direct-answer class, §11.4); AD-9's
-  "not a recognized content-free deferral" carries no positional
-  restriction, and FR-B5 forbids holding on an answer for being short or
-  for sitting beside a deferral.
+  irrelevant — a turn is a content-free deferral when a deferral-stoplist
+  phrase is present and every token outside the phrases is a
+  deferral-filler word, wherever the phrase sits; one content token
+  anywhere clears (Step 23; `T-23-2`; D-plan-24 — executed over the spec's
+  examples, the direct-answer class, the reviewer-supplied deferral
+  inputs, and the generated phrase × filler class, §11.4); AD-9's "not a
+  recognized content-free deferral" carries no positional restriction,
+  and FR-B5 forbids holding on an answer for being short or for sitting
+  beside a deferral.
 - **Q42 (Step 30).** Is a fact no generator ever produced a candidate for
   inside the regret population? **Disposition.** Answered: yes — FR-L4
   says "below-bar, or never triggered"; the population is store-held
