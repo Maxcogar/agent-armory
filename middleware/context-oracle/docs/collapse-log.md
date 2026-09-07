@@ -19,6 +19,76 @@ goes hollow is itself data.
 
 ---
 
+## 2026-09-07 — round 8: the execute-don't-assume method generalized from library citations to shell-command output shapes, and found a silent data-corruption defect — the most consequential class yet, because it would not fail loudly
+
+Round 8 pushed round 6/7's "verify a familiar tool by execution" method
+one level further: instead of checking whether a named library API or
+class exists, it constructed the actual input states a plan step's own
+shell command would see and ran the command, checking whether its
+output matches what the surrounding parsing logic assumes. Two findings
+resulted, both in load-bearing foundation mechanisms (repo-identity
+resolution, co-change mining) that determine what data the rest of
+Phase A's build reads.
+
+**Step 5's repo-key algorithm** labeled two genuinely different
+`git rev-parse --is-inside-work-tree` outcomes — the command succeeding
+and printing the literal string `false` (a bare repository) vs. the
+command failing outright with a fatal error (no git repository at all,
+exit 128) — under one shared "→ false" label, routing both to the same
+next step. Direct execution against a constructed non-git directory
+(exactly the plan's own `T5-1` fixture (d)) showed the true no-git case
+never reaches the plan's own stated fallback path, because the
+algorithm's text describes testing for a returned boolean, not for an
+invocation that never returns one. This is self-revealing in one sense
+(an implementer's natural try/catch-wraps-to-false instinct happens to
+paper over the gap) but not authorized by the plan's own text, which
+`expert-plan`'s "execute without a single decision on the fly" standard
+does not permit.
+
+**Step 20's co-change miner** runs `git log --numstat -M` (rename
+detection) but never accounted for `-M`'s effect on `--numstat`'s own
+output grammar: a detected rename collapses to a single `old => new`
+line (or a brace-abbreviated compaction for shared path prefixes/
+suffixes), not the plain single-path line the miner's touched-file-set
+extraction implicitly assumed every line would be. Verified by
+constructing three real rename scenarios and executing the exact
+command the plan specifies.
+
+**Why this pair matters more than every "too basic to check" finding
+before it.** Rounds 6 and 7's findings (the semver claim, the
+`SqliteError` citation, the `flock`(2) citation) were all
+**self-revealing**: an implementer who tried to act on the false claim
+would hit an immediate, loud failure (a build error, an unresolved
+identifier, a missing API) at the exact moment they used it. Step 20's
+finding is **silent**: a mishandled rename does not throw — it
+generates a malformed "file path" that gets silently absorbed or
+dropped, corrupting the co-change signal for every renamed file with no
+diagnostic, no crash, and (until this round) no test. This is the
+2026-09-04 "fake completeness corrupts the data the rest of the build
+reads" lesson recurring in its purest form: not as an elaborated
+classifier dressed to look like it works, but as an unexamined
+assumption about a command's own output syntax feeding directly into
+Step 42's real-repo exit-run measurement — the exact mission-critical
+deliverable `CLAUDE.md` rule 3 exists to keep honest. Worse, the
+"Collapse-tests re-attacked" pass this round found that a
+rename-corrupted miner would produce a *lower* Coupling/Consequence/
+Completeness/Warning count on real repos — indistinguishable, inside
+the exit report's own success criteria, from the honest low-coverage
+floor Phase A is supposed to report. A false floor and a true floor
+read identically in the current report format; only a fixture
+exercising the exact defect can tell them apart before the exit run
+runs on data nobody can re-collect after the fact.
+
+Class: **unverified**, but a new severity axis within it: self-revealing
+vs. silent. **The lesson to carry forward:** when generalizing an
+execute-don't-assume sweep, prioritize commands whose output feeds a
+*parsing/extraction* step over commands whose output feeds a *boolean
+branch* or a *type check* — a parser that silently accepts malformed
+input is strictly more dangerous than a branch or type reference that
+fails loudly, because the first produces wrong data that looks like
+right data, and the second produces an error that stops the build
+before anyone trusts the result.
+
 ## 2026-09-07 — round 7: the plan's own foundation step could not build (npm ci with no lockfile), and a second unverified "too basic to check" library claim recurred
 
 Round 7 generalized round 6's lesson — verify a claim about a "familiar"

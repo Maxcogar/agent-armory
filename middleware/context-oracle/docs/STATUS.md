@@ -24,7 +24,7 @@ dominating rule 3).
 
 The spec (`docs/specs/spec-context-oracle.md`) is signed off (`OL-C6`). The
 Phase A architecture (`docs/architecture-phase-a.md`) is reviewed to
-convergence. `docs/plans/plan-phase-a.md` has been through **seven rounds** of
+convergence. `docs/plans/plan-phase-a.md` has been through **eight rounds** of
 fix-and-re-review this session:
 
 **Round 1** fixed every finding across the four review documents that had
@@ -369,9 +369,53 @@ because round 6 and round 7 both generalized a new verification method
 prior round applied, and each application found something the previous
 six rounds' methods structurally could not see.
 
+**Round 8** dispatched a fresh independent collapse-hunt and expert-review
+against round 7's output, instructed to continue generalizing the
+execute-don't-assume method. Both returned real findings, all fixed:
+
+- **Expert-review** (1 Serious, 1 Moderate): (1) Step 37 stated the
+  detached reindex "takes a directory lock via `flock`(2)" — verified by
+  direct execution that `node:fs` exposes no `flock` wrapper and no
+  `LOCK_*`/`O_EXLOCK` constants at all, and the plan's own no-native-code,
+  two-dependency constraints leave no way to invoke the real syscall.
+  Fixed by replacing it with an atomic exclusive-create lock file
+  (`O_CREAT | O_EXCL`), which needs no dependency. (2) Step 1 and
+  D-plan-3's collapse-test both claimed, as a blanket fact across the
+  plan's entire `>=22.16.0` Node floor, that `node:test` cannot execute
+  `.ts` source without an experimental flag — verified false for the
+  `>=22.18.0` sub-range, where TypeScript type stripping is enabled by
+  default. The plan's chosen fix (a real `tsc` compile step) remains
+  necessary regardless, for an unstated reason: Step 6's `const enum`
+  requires transformation that even default-on stripping refuses — fixed
+  both sites to state the real, version-bounded fact and the actual
+  reason the compile step is needed.
+- **Collapse-hunt** (2 collapses, generalizing round 7's method from
+  library citations to shell-command *output-shape* claims specifically):
+  (1) Step 5's repo-identity algorithm labeled two genuinely different
+  `git rev-parse --is-inside-work-tree` outcomes — command succeeds and
+  prints `false` (a bare repository) vs. command fails outright with a
+  fatal error (no git at all, exit 128) — under one "→ false" label,
+  routing both to the same next step; verified by direct execution that
+  the true no-git case (exactly `T5-1`'s own fixture (d)) fails outright
+  rather than printing `false`, so the plan's own routing never actually
+  reaches the fallback path its own text names for that case. Fixed by
+  making the algorithm explicitly distinguish "invocation failed" from
+  "invocation succeeded and returned false." (2) Step 20's co-change
+  miner runs `git log --numstat -M` (rename detection) but never
+  accounted for `-M`'s own output syntax — a detected rename collapses
+  `--numstat`'s per-file line to a single `old => new` (or
+  brace-abbreviated) line, not a plain path; verified by constructing
+  three rename scenarios and executing the exact command. Unlike every
+  prior round's findings, this one is silent, not self-revealing: it
+  would corrupt or drop coupling evidence for every renamed file in real
+  commit history, feeding directly into four of the seven Phase A
+  genres' data on the exit run, with no fixture catching it first. Fixed
+  by adding explicit rename-parsing to Step 20 and a renamed-file
+  scenario to `T20-1`'s fixture.
+
 ## What to do next (agent-owned)
 
-1. **Dispatch round 8 of independent collapse-hunt and expert-review.**
+1. **Dispatch round 9 of independent collapse-hunt and expert-review.**
    The finding count across rounds: round 1: 3 collapses/4 partials/6
    missed decisions + 10 expert-review findings; round 2: 1 collapse/3
    partials/1 procedural gap + 9 expert-review findings incl. the
@@ -379,19 +423,19 @@ six rounds' methods structurally could not see.
    findings; round 4: 2 collapses/0 partials + 1 Systemic pattern
    spanning 2 instances; round 5: 2 collapses (one incomplete) + 1
    Systemic pattern spanning 2 instances at 6 locations + 1 Minor; round
-   6: 1 collapse + 2 Moderate/2 Minor (no verified multi-site Systemic
-   pattern); round 7: 1 Critical + 1 Moderate (expert-review) + 1
-   collapse + 3 Minor (collapse-hunt). All fixed each time. This is the
-   same iterate-to-convergence loop that took the architecture document
-   nine rounds — dispatch the next round rather than assuming round 7's
-   fixes are the last word, and instruct it to independently re-verify
-   round 7's own closure claims (including re-executing the `npm ci`/
-   lockfile fix and the `node:sqlite` error-shape claim against a real
-   instrument) rather than trust them. Round 7's own collapse-hunt
-   suggests a next method: execute the plan's other illustrative shell
-   commands (the `git log` invocation, the `sqlite3 .dump` pipeline, the
-   `npm pack --dry-run` grammar check) against a real shell to confirm
-   each output shape matches what a step or test assumes.
+   6: 1 collapse + 2 Moderate/2 Minor; round 7: 1 Critical + 1 Moderate
+   (expert-review) + 1 collapse + 3 Minor (collapse-hunt); round 8: 1
+   Serious + 1 Moderate (expert-review) + 2 collapses (collapse-hunt).
+   All fixed each time. This is the same iterate-to-convergence loop
+   that took the architecture document nine rounds — dispatch the next
+   round rather than assuming round 8's fixes are the last word, and
+   instruct it to independently re-verify round 8's own closure claims
+   (re-executing the corrected git-command algorithms, not merely
+   re-reading the corrected prose) rather than trust them. Round 8's own
+   collapse-hunt names untested candidates for round 9: the `PRAGMA
+   quick_check`/`journal_mode`/`busy_timeout` claims (Step 3/T3-1) and
+   the `git config --get remote.origin.url` normalization claims (Step
+   5's URL-fallback branch, N1).
 2. **Once a round comes back clean, proceed to implementation** via
    `.claude/skills/expert-implement/` against the fixed plan.
 3. **Two bin-2 items are flagged for Max Cogar's awareness in the plan's
@@ -406,9 +450,9 @@ six rounds' methods structurally could not see.
 
 ## Open items
 
-- Round 8 of independent review has not yet run — see "What to do next"
-  item 1. Nothing else from rounds 1–7 remains open: all findings from all
-  seven rounds across both review types, plus Q-gap-5's six judgment
+- Round 9 of independent review has not yet run — see "What to do next"
+  item 1. Nothing else from rounds 1–8 remains open: all findings from all
+  eight rounds across both review types, plus Q-gap-5's six judgment
   calls (Clear-Thought-verified, independently reproduced by round 3's
   expert-review), are closed.
 - L11(a) — human-marker presence on Max Cogar's real interactive transcript

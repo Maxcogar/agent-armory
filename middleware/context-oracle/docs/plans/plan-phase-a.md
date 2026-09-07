@@ -649,10 +649,19 @@ so a lockfile must exist from Step 1 onward for every later step's
 `"declaration": false`. Create a second config `tsconfig.test.json`
 (`extends: "./tsconfig.json"`, `include: ["src/**/*.ts", "test/**/*.ts"]`,
 `compilerOptions: {"outDir": "dist-test", "rootDir": "."}`, no
-`noEmit`) — this is the resolved answer to collapse-hunt C2: `node:test`
-on Node 22.16.0 cannot execute `.ts` source directly (no
-`--experimental-strip-types` is assumed or relied on anywhere in this
-plan), so test files and the `src/` they import are compiled together
+`noEmit`) — this is the resolved answer to collapse-hunt C2, restated
+with the correct reason this fix pass, round 8 (expert-review Moderate
+finding: the prior text claimed "Node 22.16.0's `node:test` cannot
+execute `.ts` source directly" as a blanket fact across this plan's
+`>=22.16.0` floor — false for the `>=22.18.0` sub-range, where
+TypeScript type stripping is enabled by default with no flag; see
+§11.4). Independent of that version boundary, Step 6's
+`const enum FaultCode` (`src/diag/fault_codes.ts`) requires real code
+transformation, which even default-on type stripping explicitly
+refuses (`ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`, verified this session) —
+so any test file that imports it fails to load under plain `node
+--test` on every Node version this plan targets, stripping or not.
+Test files and the `src/` they import are therefore compiled together
 to real `.js` under `dist-test/` before `node --test` ever runs. `dist/`
 (the production `tsconfig.json` outDir) never contains a test file —
 tests compile to the separate `dist-test/` tree — which is also what
@@ -926,8 +935,24 @@ resolved, `init` writes to the wrong place (owner sees no data in
 
 **What changes.** Create `src/identity/repo_key.ts` exporting `resolveRepoKey
 (repoPath: string): { key: string; mode: 'commit'|'url'|'path'; evidence:
-string }`:
-1. `git rev-parse --is-inside-work-tree` → false → fall through to (3).
+string }`. Every `git rev-parse`/`git rev-list` invocation below is run
+through a helper returning `{ok: true, value: string} | {ok: false}` —
+`ok: false` covers a non-zero exit (git reports "fatal: not a git
+repository", the genuinely-no-`.git` case) or any other invocation
+failure, distinct from `ok: true, value: 'false'` (the command
+succeeded and printed the literal string `false`) — corrected this fix
+pass, round 8 (collapse-hunt finding): previously conflated both under
+one "→ false" label, but `git rev-parse --is-inside-work-tree` does not
+print `false` for a genuinely non-git directory (`T5-1` fixture (d)) —
+it fails outright, exit 128, no stdout; the literal string `false` is
+printed only in the narrower bare-repository/`.git`-directory case,
+where `git rev-list` can still read real commits:
+1. `git rev-parse --is-inside-work-tree`: if it fails outright
+   (`ok: false` — no `.git` anywhere), skip directly to step 4
+   (`mode='path'`) — the repository does not exist at all. If it
+   succeeds and returns `'false'` (the bare-repository case), fall
+   through to (3), since a bare repo's commits remain queryable by
+   `git rev-list`.
 2. `git rev-parse --is-shallow-repository` → true → derive key from
    normalized origin URL (`git config --get remote.origin.url`).
    **Normalization axes, enumerated explicitly (collapse-hunt N1 —
@@ -1844,16 +1869,28 @@ question silently drops it; guarded by `rebuild_recovered_nothing`
 **What changes.** Create `src/miner/cochange.ts` exposing
 `mineCochange(store, repoPath, opts)` — reads `schema_meta.
 last_mined_commit` watermark; runs `git log --no-merges --numstat -M
---format=%H%x00%at%x00 <watermark>..HEAD` streamed line-by-line;
-per commit: records the commit in `commits` with `entity_count`,
-excludes if `entity_count > opts.maxTransactionEntities` (default 30,
-tunable via `tuning`); for included commits, generates all
-canonical-ordered file pairs from the touched-file set, accumulates
-`cochange_pairs` counts (with `INSERT ... ON CONFLICT DO UPDATE`).
-Records recency via `last_ts` per pair. Detects history rewrite
-(watermark hash not reachable from HEAD) → full re-mine + diagnostic
-fault. Corpus floor: only report pairs when total non-excluded
-commits ≥ opts.corpusFloor (default 30, tunable).
+--format=%H%x00%at%x00 <watermark>..HEAD` streamed line-by-line; for
+each `--numstat` line, if the third (path) field matches `^(.*) => (.*)$`
+(a `-M`-detected rename, with or without brace-abbreviated
+shared-prefix/suffix compaction, e.g. `src/{utils => other}/c.txt`),
+expand the brace form if present into the real old and new paths and
+add **both** to that commit's touched-file set; otherwise the field is
+a plain path, added as-is — corrected this fix pass, round 8
+(collapse-hunt finding): `-M`'s own `--numstat` output was previously
+assumed to always be a plain path, but a detected rename collapses to
+a single `old => new` (or brace-abbreviated) line, which the prior
+text's touched-file-set extraction would have ingested as a garbage
+compound string or silently dropped, corrupting coupling evidence for
+every renamed file on real repos; per commit: records the commit in
+`commits` with `entity_count`, excludes if `entity_count >
+opts.maxTransactionEntities` (default 30, tunable via `tuning`); for
+included commits, generates all canonical-ordered file pairs from the
+(rename-expanded) touched-file set, accumulates `cochange_pairs`
+counts (with `INSERT ... ON CONFLICT DO UPDATE`). Records recency via
+`last_ts` per pair. Detects history rewrite (watermark hash not
+reachable from HEAD) → full re-mine + diagnostic fault. Corpus floor:
+only report pairs when total non-excluded commits ≥ opts.corpusFloor
+(default 30, tunable).
 
 **Source.** `AD-13` (miner: git log stream, hygiene filters, canonical
 pairs, watermark); `FR-K2` (hygiene); `FR-A6` (corpus floor, no
@@ -2854,10 +2891,20 @@ under-reports (silence-is-fine surface returns) or over-reports
   concurrent writers do not collide.
 
 In `src/index/indexer.ts` (Step 21):
-- The detached reindex takes a directory lock via
-  `flock`(2) on a file `<home>/projects/<key>/.reindex.lock`;
-  the handler never waits on this lock (staleness merely lowers
-  confidence).
+- The detached reindex takes a directory lock via an atomic
+  exclusive-create lock file — `fs.open(lockPath, fs.constants.O_CREAT
+  | fs.constants.O_EXCL | fs.constants.O_WRONLY)` on
+  `<home>/projects/<key>/.reindex.lock`, throwing `EEXIST` if another
+  process already holds it, with an mtime/PID staleness check so a
+  crashed process's stale lock does not permanently block future
+  reindex attempts — corrected this fix pass, round 8 (expert-review
+  Serious finding): previously said "via `flock`(2)," a POSIX syscall
+  `node:fs` does not expose (verified: no `fs.flock`, no `LOCK_*`/
+  `O_EXLOCK` constants) and that this plan's no-native-code,
+  two-runtime-dependency constraints (`C-3`, `AD-25`) leave no way to
+  invoke — see §11.4 for the verification entry. The lock is advisory,
+  not kernel-enforced, which is sufficient here since the handler
+  never waits on it (staleness merely lowers confidence).
 
 **Source.** `AD-26` (concurrency: WAL + busy_timeout + retry-once +
 BEGIN IMMEDIATE for the fold; ULIDs); `AD-5` (per-project
@@ -3628,21 +3675,30 @@ confirmation it is a guide, never a gate.
    features (mocking, watch, snapshot) that a mature runner
    provides for free.
 3. **Answer (revised — collapse-hunt C2 found the original answer
-   assumed the tests execute, which they did not).** `node:test` has
-   `describe`/`it`, parallel execution, subtest reporting,
-   `mock`/`spy` primitives, and a JSON reporter — enough for the
-   plan's §12 unit tier as specified, but Node 22.16.0's `node:test`
-   cannot load a `.ts` file directly (no `--experimental-strip-types`
-   is used or relied on anywhere in this plan) — the original plan
+   assumed the tests execute, which they did not; the version claim
+   itself corrected this fix pass, round 8, expert-review Moderate
+   finding).** `node:test` has `describe`/`it`, parallel execution,
+   subtest reporting, `mock`/`spy` primitives, and a JSON reporter —
+   enough for the plan's §12 unit tier as specified, but a compile
+   step is still required across this plan's entire `>=22.16.0` floor:
+   TypeScript type stripping became enabled by default only at
+   v22.18.0 (not at 22.16.0 as previously stated here — see §11.4),
+   so below that sub-version `node:test` cannot load a `.ts` file
+   without `--experimental-strip-types`, which this plan does not
+   adopt; and independent of that boundary, Step 6's `const enum
+   FaultCode` requires real code transformation that even default-on
+   stripping explicitly refuses, so a compile step is required on
+   every Node version in the floor either way. The original plan
    named no compile step, so `node --test test/unit/**/*.test.ts`
    found zero loadable files and exited 0, a silent false-green. Fixed
    in Step 1: a second config, `tsconfig.test.json`, compiles `src/`
    + `test/` together to `dist-test/` before `node --test` runs
    against the compiled `.js` output — `node:test` itself is
    unchanged as the runner; what changed is that it now has files to
-   run. Cite: Node ≥ 22.16 `node:test` API (executes `.js`, not
-   `.ts`, without an experimental flag this plan does not adopt);
-   plan §12 unit-tier test specifications; Step 1 (C2 fix).
+   run. Cite: Node's official TypeScript type-stripping docs
+   (`nodejs.org/api/typescript.html`, verified this session: default-on
+   since v22.18.0, `const enum` unsupported in strip-only mode at any
+   version); plan §12 unit-tier test specifications; Step 1 (C2 fix).
 4. **Steers toward.** An implementer running `npx tsc -p
    tsconfig.test.json && node --test "dist-test/test/**/*.test.js"`
    and getting the same result CI gets, with no installed runner and
@@ -4311,6 +4367,39 @@ session (fetched at plan-time, 2026-09-06). Where an entry cites a
   `ERR_INVALID_ARG_VALUE`/`ERR_OUT_OF_RANGE`/`ERR_INVALID_STATE` as the
   module's named error codes and defines no `SqliteError` class.
 
+- **Claim.** `node:fs` exposes no `flock`(2) wrapper and no
+  `LOCK_*`/`O_EXLOCK` constants — an advisory directory lock must be
+  built from an atomic exclusive-create (`O_CREAT | O_EXCL`) open
+  call, not a real `flock`(2) syscall. **Steps.** Step 37 (detached
+  reindex directory lock). **Added this fix pass, round 8** (expert-review
+  Serious finding — the prior text claimed `flock`(2) with no §11
+  entry at all). **Evidence.** Direct execution against Node v22.22.2:
+  `Object.keys(require('node:fs')).filter(k => /lock/i.test(k))`
+  returned an empty array; `require('node:fs').constants` contains no
+  `LOCK_SH`/`LOCK_EX`/`LOCK_UN`/`O_EXLOCK`/`O_SHLOCK` — Node's `fs`
+  module has never wrapped `flock(2)` in any released version, since
+  it is a Linux/BSD-specific syscall with no cross-platform libuv
+  implementation.
+
+- **Claim.** Node's TypeScript type stripping is enabled by default
+  only from v22.18.0 onward — not across the plan's entire
+  `>=22.16.0` floor — and `const enum` declarations are unsupported in
+  strip-only mode at any version. **Steps.** Step 1 (`tsconfig.test.json`
+  compile step); Step 6 (`const enum FaultCode`); D-plan-3 (`node:test`
+  as the runner). **Added this fix pass, round 8** (expert-review
+  Moderate finding — the prior text claimed the version-agnostic
+  "Node 22.16.0's `node:test` cannot execute `.ts` source directly"
+  with no §11 entry). **Evidence.** Direct execution against Node
+  v22.22.2 (inside the plan's own floor): `node --test sample.test.ts`
+  with a plain type-annotated file ran with zero flags, no error;
+  `node enum_test.ts` against a file containing `const enum FaultCode`
+  threw `SyntaxError [ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX]: TypeScript
+  enum is not supported in strip-only mode`. Corroborated by `WebFetch
+  https://nodejs.org/api/typescript.html`: "v23.6.0, v22.18.0: Type
+  stripping is enabled by default," and enum declarations are named
+  among the features "that require transformation" and are therefore
+  rejected in strip-only mode regardless of version.
+
 ### 11.5 Claims from the collapse-log
 
 - **Claim.** The 2026-09-04 entry names Phase A's "fake completeness"
@@ -4534,7 +4623,11 @@ T-ID was cited at Step 2.5 with no §12 specification.)*
   a git-format-specific SHA). **Fails when** (a) and (b) yield the
   same key (the V13 splitting bug), OR (a) yields different keys
   across repeat runs, OR the fallback path is not taken when git is
-  absent, OR the returned `mode` field mismatches the input case.
+  absent (fixture (d) — asserts step 1's `git rev-parse
+  --is-inside-work-tree` invocation fails outright, exit non-zero,
+  not that it succeeds and prints `'false'` — corrected this fix
+  pass, round 8: the distinction Step 5's own algorithm now makes
+  explicit), OR the returned `mode` field mismatches the input case.
 
 **T6-1 — Fault code enum matches AD-17.**
 - **File.** `test/unit/fault_codes.test.ts`.
@@ -4862,12 +4955,19 @@ T-ID was cited at Step 2.5 with no §12 specification.)*
   pair (5 commits touching two cross-directory files); 1 merge
   commit (must be excluded); 1 commit with 45 files touched
   (must be excluded); 1 commit older than the horizon (must be
-  excluded). Deterministic seed. Technique: decision table over
-  exclusion rules.
+  excluded); 1 commit containing a git-detected file rename
+  (partway through the planted coupling history) — added this fix
+  pass, round 8 (collapse-hunt finding): the miner's rename handling
+  was previously unexercised by any fixture. Deterministic seed.
+  Technique: decision table over exclusion rules.
 - **NOT asserts.** Recency-weighted confidence values (that's
   bar-tier logic, T24-1). **Fails when** any excluded commit
   contributes to counts, OR the non-obvious pair does not
-  appear with the expected count.
+  appear with the expected count, OR the renamed commit's
+  touched-file set omits either the pre-rename or post-rename path
+  (i.e., the `old => new`/brace-abbreviated `--numstat` line was
+  ingested as a literal path or silently dropped instead of being
+  expanded to both paths).
 
 **T21-1 — Indexer skeleton on a small fixture repo.**
 - **File.** `test/unit/indexer.test.ts`.
