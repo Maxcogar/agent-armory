@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": ["${CLAUDE_PROJECT_DIR}/hooks/stop-completeness-gate/stop_completeness_gate.py"],
+            "timeout": 60
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": ["${CLAUDE_PROJECT_DIR}/hooks/stop-instruction-adherence-gate/stop_instruction_adherence_gate.py"],
+            "timeout": 90
+          }
+        ]
+      }
+    ]
+  }
+}
