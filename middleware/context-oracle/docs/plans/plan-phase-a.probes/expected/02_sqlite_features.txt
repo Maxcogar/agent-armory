@@ -1,5 +1,5 @@
 fts5 MATCH rows: 1
-sqlite_version: 3.51.2
+sqlite_version >= 3.37 (STRICT since 3.37, VACUUM INTO since 3.27): true
 ENABLE_FTS5 compiled: true
 journal_mode: wal busy_timeout: 100
 STRICT text-into-INT: rejected

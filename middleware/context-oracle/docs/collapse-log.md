@@ -1224,8 +1224,11 @@ counts (a bare call-shaped identifier shared between steps must be
 provided), an action item may not name a later step, and a path no step
 declares is an error; (3) an executed claim is kept as a probe beside the
 plan with its recorded output, re-run by the gate, repeated under CPU
-load, and scoped to the section of a page it cites, so a transcription of
-a one-off run cannot outlive the environment it was true in; (4) after a
+load, scoped to the section of a page it cites, and asserting the
+property the claim rests on rather than an incidental value of the
+runtime it ran in (a recorded SQLite patch version failed the gate on the
+first runner whose Node build bundled the next patch), so a transcription
+of a one-off run cannot outlive the environment it was true in; (4) after a
 correction pass, `--impact <rev>` lists every authored surface that
 restates a changed step, so re-derivation is a checklist rather than
 memory; (5) CI runs the gate on every pull request that touches the plan.

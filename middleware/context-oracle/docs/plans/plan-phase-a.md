@@ -5743,13 +5743,18 @@ this session; line numbers are of that revision.
   package). The 22.16.0 floor is not executed in this environment; CI's
   floor entry (Step 1) is the check that establishes it.
 - **Claim.** On this runtime an FTS5 virtual table creates and answers a
-  `MATCH` query; `ENABLE_FTS5` is in `PRAGMA compile_options`; the SQLite
-  library is 3.51.2; WAL, `busy_timeout` 100, and STRICT rejection behave
+  `MATCH` query; `ENABLE_FTS5` is in `PRAGMA compile_options`; the bundled
+  SQLite library is at or above 3.37, the floor for STRICT tables (VACUUM
+  INTO needs 3.27); WAL, `busy_timeout` 100, and STRICT rejection behave
   as Step 3 states; `VACUUM INTO` round-trips a row;
   `DatabaseSync.prototype.backup` is undefined while the module-level
-  `backup` is a function. **Steps.** 2, 3, 32. **Evidence.** Executed
-  `probe:02_sqlite_features` on Node v22.22.2, 2026-09-07, which prints
-  exactly: `fts5 MATCH rows: 1`, `sqlite_version: 3.51.2`, `ENABLE_FTS5
+  `backup` is a function. The exact library version is a property of the
+  Node build, not of the plan (3.51.2 under v22.22.2 in this sandbox,
+  3.51.3 under v22.23.2 on the `ubuntu-24.04` runner), so the probe reports
+  it on stderr and asserts only the floor. **Steps.** 2, 3, 32.
+  **Evidence.** Executed `probe:02_sqlite_features` on Node v22.22.2,
+  2026-09-07, which prints exactly: `fts5 MATCH rows: 1`, `sqlite_version
+  >= 3.37 (STRICT since 3.37, VACUUM INTO since 3.27): true`, `ENABLE_FTS5
   compiled: true`, `journal_mode: wal busy_timeout: 100`, `STRICT
   text-into-INT: rejected`, `VACUUM INTO round-trip rows: 1`,
   `DatabaseSync.prototype.backup: undefined | module-level backup:
