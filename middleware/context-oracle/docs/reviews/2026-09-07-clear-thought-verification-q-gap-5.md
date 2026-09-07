@@ -26,6 +26,26 @@ completed the full MCP handshake:
   parameters `thoughtNumber`/`totalThoughts`/`nextThoughtNeeded`, tracked
   by a server-assigned `sessionId`).
 
+**Checked-in evidence (added per round-3 expert-review's Minor finding —
+"paste the actual command and its output," `CLAUDE.md` rule 1, not
+satisfied by a prior version of this document that described the
+invocation without preserving reproducible artifacts):**
+`docs/reviews/evidence-2026-09-07-clear-thought-verification-q-gap-5/`
+contains `mcp_client.py` (the minimal MCP stdio client), `run_decisions.py`
+(the driver that runs all six decision chains verbatim as sent), and
+`raw_mcp_handshake_sample.txt` (one full, untruncated `initialize` +
+`tools/list` + `tools/call` exchange, unedited). Run with
+`python3 run_decisions.py` from that directory (requires `npx` and network
+access to the npm registry) to reproduce. **Note on reproducibility:** the
+`clear-thought` server assigns a fresh `sessionId` (`stdio-session-<epoch-
+ms>`) on every process start, so re-running produces a *different* session
+ID than `stdio-session-1788762266748` cited below — this is expected and
+does not affect the argued content, which is hard-coded in
+`run_decisions.py` and therefore identical on every run; round 3's own
+independent reproduction (a separately-written client, not this one)
+confirmed the same handshake shape and behavior under its own, again
+different, session ID.
+
 All six flagged decisions were then run as real `sequential_thinking`
 chains — three thoughts each (frame the harder question, compare the
 alternatives, conclude with a decision) — 18 `tools/call` invocations

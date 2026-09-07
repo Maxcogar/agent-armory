@@ -162,7 +162,7 @@ in-scope list maps to at least one plan step in §7. Reconciled at delivery:
 | Deterministic core: seven model-free genres | Steps 21–28 (Orientation, Coupling, Reuse, Consequence, Warning, Completeness, Verification/completion-check) |
 | Answer-drift block's safe skeleton (deny plumbing + conservative recognizer) | Steps 12–15 (deny confinement, qa state, recognizers, block wiring); Step 18 (deny health detectors); Step 19 (lag-window hold + backstop) |
 | Stores / index / miner | Steps 3–9 (packaging, adapter, schemas, identity, dirs); Steps 20 (miner), 22 (indexer) |
-| Delivery | Step 30 (delivery + dedup); Step 31 (Stop-time additionalContext + outstanding-question line) |
+| Delivery | Step 30 (delivery + dedup + Stop-time `additionalContext`); Step 19 (outstanding-question line) — corrected this fix pass, round 3: previously misattributed to Step 31 (CLI/`init`, unrelated), contradicting Step 30's own body, §9 Checkpoint 3, and §12.5's own AC-8a mapping (`T19-3`, `T30-2`) |
 | Self-observability (correct silence, denies, wrongful-deny, missed skill-block reserved) | Steps 10 (diagnostic writer), 33 (regret at SessionEnd), 36 (status), 37 (log) |
 | Security | Step 11 (redactor + injection flagger); Steps 4 (0700 dirs) and 22 (redaction at indexer ingress) reference it |
 | Human-correction calibration channel | Step 34 (`correct` verb + `--missed-question` routing); Step 35 (`note` verb) |
@@ -1067,27 +1067,37 @@ assertions.
 
 **What changes.** Create `src/stores/migrations/002_phase_a_global.sql`
 with `global_meta`, `whisper_stats`, `tuning`, `lessons` — the four Phase
-A tables per AD-5. `global_meta` includes the per-project fold watermarks
-(rows keyed `whisper_stats_watermark:<repo-key>`). Do NOT create
-`env_capabilities` (Phase B writer). Seed `tuning` with the ship-high
-defaults AD-14 names, all marked with `source='architecture_default'` for
-audit.
+A tables per AD-5, schema only, **no rows inserted by the migration
+itself.** `global_meta` includes the per-project fold watermarks (rows
+keyed `whisper_stats_watermark:<repo-key>`). Do NOT create
+`env_capabilities` (Phase B writer). **Corrected this fix pass (round-3
+expert-review Systemic finding):** the prior text had this migration seed
+`tuning` with AD-14's defaults — that contradicts AD-14's own schema
+comment, `WRITER: seeded at init, changed via ctxoracle tune (AD-20)`.
+Seeding at migration-apply time (before any `init` runs) duplicates Step
+23's separate "Tuning DAO + defaults seeding" step, which is the actual
+seeding mechanism per its own Gate-3 rationale ("the alternative, seeding
+nothing, blocks Step 30's `init` entirely"). `tuning` ships empty from
+this migration; Step 23's `seedDefaults` (invoked from `init`, Step 31
+item 3) is the only inserter.
 
 **Source.** `AD-5` (global store schema; per-project watermarks; VACUUM
-INTO export; no `env_capabilities` yet); `AD-14` (ship-high default
-values).
+INTO export; no `env_capabilities` yet; `tuning`'s WRITER designation —
+seeded at `init`, not at migration).
 
-**Why this approach (trivial: mechanical from AD-5 + AD-14).**
+**Why this approach (trivial: mechanical from AD-5).**
 
 **Dependencies.** Step 7.
 
 **Verification.** `T8-1` (global migration applies cleanly; the four
-tables exist and no fifth Phase A table is created; `tuning` seeds match
-AD-14's stated defaults).
+tables exist and no fifth Phase A table is created; `tuning` is empty
+immediately after migration — seeding is Step 23's assertion, not this
+step's).
 
-**Impact if wrong.** Contained — a missing tuning row causes downstream
-bar computations to use hard-coded defaults with a diagnostic; caught by
-`T8-1`.
+**Impact if wrong.** Contained — if `tuning` is non-empty after this
+migration alone, Step 23's `init`-time seed would either duplicate rows
+or hit an insert conflict; caught by `T8-1`'s empty-table assertion
+before Step 23 ever runs.
 
 ---
 
@@ -1739,11 +1749,15 @@ V5's enumeration:
   disclosure, L11 (a)).
 
 Do NOT change qa-state on `SessionEnd`. Add the Stop-time
-outstanding-question line (AC-8a): at `Stop`, if the Step 26
+outstanding-question line (AC-8a): at `Stop`, if the Step 25
 done-claim recognizer fires AND `getOpenQuestions(store, consumer)`
 returns a non-empty set, append the outstanding-question text as an
-extra line on the composed Stop-time whisper (Step 31 handles the
-delivery channel).
+extra line on the composed Stop-time whisper (Step 30 handles the
+delivery channel). **Corrected this fix pass, round 3:** this
+sentence previously cited "Step 26" (the unrelated Bash command
+classifier; the done-claim recognizer is built in Step 25's
+`verification.ts`) and "Step 31" (CLI/`init`; delivery is Step 30's
+`deliverStop`).
 
 **Source.** `AD-9` (Question lifetime across session boundaries;
 `AC-8a` outstanding-question line, best-effort backstop); V5
@@ -3047,17 +3061,28 @@ correct; a broken fixture undercuts every AC that depends on it.
   cited a `T41-1d` that this step never actually specified — a fix
   landing at the decision site, N5, without landing at the mechanical
   enforcement site, Step 41, that N5's own text pointed to).
+- `deny_bypass_predicates_confined.test.ts`: greps built
+  `dist/blocks/health.js` for `checkDenyBypassSuspect`'s predicate
+  array literal, asserts it matches N2's declared 8-item set exactly
+  — `T18-3`, C1's write-time predicate cap mechanized, the fifth
+  convention test. **Added this fix pass, round 3** (round-3
+  expert-review Systemic finding: `T18-3` was cited in Step 18, §5.1,
+  §12, and §13 as CI-enforced, and specified in full in §12, but this
+  step — the one that actually builds `test/conventions/` — never
+  listed it, the identical shape as the `T41-1d` omission round 2
+  already fixed for a different file, recurring for the next one).
 
 **Source.** `AD-10` (structural confinement generalises); `AD-6`
-(adapter isolation); `AD-21` (recursion-guard confinement, N5).
+(adapter isolation); `AD-21` (recursion-guard confinement, N5); `AD-9`
+(the deny-bypass-suspect detector `T18-3` confines, C1).
 
-**Why this approach (trivial: mechanical from AD-6/AD-10/AD-21).**
+**Why this approach (trivial: mechanical from AD-6/AD-10/AD-21/AD-9).**
 
-**Dependencies.** Steps 15, 28, 2.5.
+**Dependencies.** Steps 15, 18, 28, 2.5.
 
-**Verification.** `T41-1` (all four convention tests — including the
-new `T41-1d` — fail on a seeded violation and pass on the current
-codebase).
+**Verification.** `T41-1` (all five convention tests — including
+`T41-1d` and `T18-3` — fail on a seeded violation and pass on the
+current codebase).
 
 **Impact if wrong.** Convention drift over time — the checks
 are what keep AD-6's / AD-10's structural properties true through
@@ -4440,21 +4465,26 @@ T-ID was cited at Step 2.5 with no §12 specification.)*
   CHECK does not reject its negative case, or the dedup index
   behaviour deviates from the state-transition table.
 
-**T8-1 — Global migration + defaults.**
+**T8-1 — Global migration schema, no seed rows.**
 - **File.** `test/unit/migrations_global.test.ts`.
 - **Verifies.** Step 8 — the four Phase A global tables exist;
   no Phase B/C table (`env_capabilities`, `exemplars`, `recipes`,
-  `deferred_queue`, `genre_state`) exists; seed tuning matches
-  AD-14 defaults.
+  `deferred_queue`, `genre_state`) exists; `tuning` is **empty**
+  immediately after migration 002 alone. **Corrected this fix pass
+  (round-3 expert-review Systemic finding):** the prior text asserted
+  seed values here, duplicating Step 23's own seeding assertion
+  (`T23-1`) for a seeding step (Step 23, at `init`) this migration no
+  longer performs.
 - **Level.** Integration (real DB).
 - **Real/doubles.** Real `node:sqlite`; no doubles.
-- **Data.** Empty database → migration 002. Query `sqlite_master`
-  for the exact table set. Query `tuning` for each seeded key.
-  Technique: decision table (present vs absent per table; expected
-  value per key).
-- **NOT asserts.** Not runtime tuning changes (T23-1 does).
+- **Data.** Empty database → migration 002 only (no `init`, no Step
+  23). Query `sqlite_master` for the exact table set. Query `tuning`
+  for row count. Technique: decision table (present vs absent per
+  table; zero rows in `tuning`).
+- **NOT asserts.** Runtime tuning changes or seed values (T23-1 does,
+  after `init` runs Step 23's `seedDefaults`).
   **Fails when** any expected table is missing, any forbidden
-  table is present, or any seed value differs from AD-14.
+  table is present, or `tuning` has any row before Step 23 seeds it.
 
 **T9-1 — Per-DAO CRUD + compile-time provenance enforcement.**
 - **File.** `test/unit/dao_crud.test.ts` (per-DAO round-trips)
@@ -4790,19 +4820,31 @@ cited at Step 21 and Step 2.5 with no §12 specification.)*
   `import_edge` is emitted (the deliberate absence is what makes
   L6's incomparable-set silence work).
 
-**T23-1 — Tuning DAO round-trips.**
+**T23-1 — Tuning DAO round-trips + seeding split.**
 - **File.** `test/unit/tuning_dao.test.ts`.
-- **Verifies.** Step 23 — scalar and list-valued keys
-  round-trip; defaults present after migration.
+- **Verifies.** Step 23 — `seedDefaults` (called at `init`, not at
+  migration — T8-1 asserts `tuning` is empty before this runs) inserts
+  all six defaults; scalar and list-valued keys round-trip.
+  **Corrected this fix pass (round-3 expert-review Systemic finding):**
+  the prior text asserted "every seeded key from AD-14," which is
+  false for two of the six (`reuse_dominance_k`, `clear_length_floor`
+  have no AD-14 citation — Step 23's own corrected text, this same fix
+  pass, already says so).
 - **Level.** Integration (real DB).
 - **Real/doubles.** Real `node:sqlite`. No doubles.
-- **Data.** After migration: assert every seeded key from AD-14
-  is present with its seeded value. Then: set a scalar, add a
+- **Data.** After migration + `seedDefaults`: assert the four
+  AD-14-sourced keys (`confidence_floor`, `support_min`,
+  `noise_floor_support_min`, `impact_read_min_coupled`) match AD-14's
+  stated values exactly; assert `reuse_dominance_k` (`3`) and
+  `clear_length_floor` (`40`) match Step 23's own plan-seeded values,
+  with no AD-14 comparison for either. Then: set a scalar, add a
   list member, remove a list member, re-read. Technique:
   state-transition.
-- **NOT asserts.** Bar-computation correctness (T24-1).
-  **Fails when** any seeded default is missing, or any
-  round-trip loses/mutates a value.
+- **NOT asserts.** Bar-computation correctness (T24-1); that
+  `tuning` was pre-seeded by migration (T8-1 asserts the opposite).
+  **Fails when** any of the six defaults is missing after
+  `seedDefaults` runs, any AD-14-sourced key's value differs from
+  AD-14, or any round-trip loses/mutates a value.
 
 **T24-1 — Bar combinator: conjunction + hazard bypass.**
 - **File.** `test/unit/bar.test.ts`.
@@ -4891,28 +4933,30 @@ cited at Step 21 and Step 2.5 with no §12 specification.)*
 - **NOT asserts.** Any model behavior.
   **Fails when** the stub returns anything else.
 
-**T41-1 — Convention grep tests (adapter, verdict, DAO, spawn).**
-- **File.** `test/conventions/` (four sub-files — corrected this fix
-  pass, round-2 collapse-hunt: the third fix pass added `oracleSpawn`
-  confinement to Step 41 as `T41-1d` but never added its §12 entry,
-  the exact defect this entry now closes):
+**T41-1 — Convention grep tests (adapter, verdict, DAO, spawn, deny-bypass predicates).**
+- **File.** `test/conventions/` (five sub-files, `deny_bypass_
+  predicates_confined.test.ts` added round 3 — Step 41's own body now
+  lists all five as of the round-3 expert-review fix):
   `no_direct_dao_from_handler.test.ts` (T41-1a),
   `hook_field_names_isolated.test.ts` (T41-1b, also T28-2),
   `permission_decision_confined.test.ts` (T41-1c),
-  `oracle_spawn_confined.test.ts` (T41-1d).
+  `oracle_spawn_confined.test.ts` (T41-1d),
+  `deny_bypass_predicates_confined.test.ts` (`T18-3`, built here but
+  numbered under Step 18 since it verifies Step 18's mechanism).
 - **Verifies.** Step 41 — each convention grep fires on a
   seeded violation and passes on the clean build.
 - **Level.** Unit (build-output grep).
 - **Real/doubles.** Real `dist/`. No doubles.
 - **Data.** Two states per convention: (a) seed a violation
-  (temporary source file that adds a forbidden import or, for
-  T41-1d, a direct `child_process.spawn` call outside
-  `oracle_spawn.ts`), rebuild, assert grep detects it; (b) revert,
-  rebuild, assert grep is clean. Technique: state-transition.
+  (temporary source file that adds a forbidden import, a direct
+  `child_process.spawn` call outside `oracle_spawn.ts` for T41-1d, or
+  a 9th predicate string for `T18-3`), rebuild, assert grep detects
+  it; (b) revert, rebuild, assert grep is clean. Technique:
+  state-transition.
 - **NOT asserts.** Enforcement of the property (that's Step
-  15/AD-10 for T41-1a–c, Step 2.5/AD-21 for T41-1d). **Fails when**
-  any of the four convention greps does not detect its seeded
-  violation or false-positives on the clean build.
+  15/AD-10 for T41-1a–c, Step 2.5/AD-21 for T41-1d, Step 18/AD-9 for
+  `T18-3`). **Fails when** any of the five convention greps does not
+  detect its seeded violation or false-positives on the clean build.
 
 **T43-1 — STATUS rewrite passes check_docs.**
 - **File.** `scripts/check-status-post-build.sh` (invoked as a

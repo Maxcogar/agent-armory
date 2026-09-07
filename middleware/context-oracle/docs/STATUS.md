@@ -157,28 +157,52 @@ entry (section 15) in full — no owner ruling, no further tool-attached
 re-check outstanding.
 
 **Round 3** dispatched a fresh independent collapse-hunt and expert-review
-against round 2's output. Collapse-hunt: 2 collapses, 2 partials, both
-fixed — (1) the "independent check" overclaim above, corrected everywhere
-it appeared (the plan, STATUS, and the verification transcript); (2)
-`deny_bypass_suspect`'s bias disclosure (Step 18, Step 33/`T33-1`) named
-only the under-count direction; AD-9 requires both directions stated in
-`status` — the over-count direction (a same-turn, same-path Bash write
-following a deny isn't necessarily a deliberate bypass) is now disclosed
-verbatim alongside the under-count residual; (3) a stale cross-reference
-in the plan's D-plan-1 entry (section 10) still pointed at Clear Thought
-as unresolved after the Q-gap-5 entry (section 15) resolved it — fixed;
-(4) the sharpened N5 framing was claimed to be in N5's own collapse-test
-entry (section 10A) but wasn't — now actually added there.
+against round 2's output. Both returned real, shrinking findings, all
+fixed:
+
+- **Collapse-hunt** (2 collapses, 2 partials): (1) the "independent check"
+  overclaim above, corrected everywhere it appeared (the plan, STATUS, and
+  the verification transcript) to the narrower true claim (SKILL.md Step
+  6's literal mandate satisfied; independent checking comes from the
+  dispatched review rounds); (2) `deny_bypass_suspect`'s bias disclosure
+  (Step 18, Step 33/`T33-1`) named only the under-count direction; AD-9
+  requires both directions stated in `status` — the over-count direction
+  is now disclosed verbatim alongside the under-count residual; (3) a
+  stale cross-reference in the plan's D-plan-1 entry (section 10) still
+  pointed at Clear Thought as unresolved after Q-gap-5 (section 15)
+  resolved it — fixed; (4) the sharpened N5 framing was claimed to be in
+  N5's own collapse-test entry (section 10A) but wasn't — now added there.
+- **Expert-review** (1 Systemic pattern spanning 2 instances, 2 Moderate,
+  1 Minor): independently reproduced the Q-gap-5 MCP protocol claim from
+  scratch (its own client, matched the exact server version string and
+  session-ID shape) and confirmed it genuine, not asserted. Found the
+  same 7-site systemic pattern round 2 fixed recurring at 2 new sites this
+  fix pass itself introduced: Step 41 never actually built
+  `deny_bypass_predicates_confined.test.ts` (`T18-3`) despite four other
+  surfaces asserting it exists — fixed, added as Step 41's fifth
+  convention file; and Step 8's migration seeded `tuning` at
+  migration-apply time, contradicting AD-5's own "seeded at `init`"
+  WRITER designation and duplicating Step 23 — removed the seeding claim
+  from Step 8, corrected T8-1/T23-1's test specs to match Step 23's actual
+  4-AD-14-sourced/2-plan-judgment split. Two Moderate citation errors
+  (§2.3's Delivery row misattributing Step 31 instead of Step 30/19; Step
+  19 citing "Step 26" instead of Step 25 for the done-claim recognizer)
+  also fixed. One Minor finding (no checked-in script/transcript for the
+  Q-gap-5 MCP evidence) resolved by committing the actual client script
+  and a raw transcript sample to
+  `docs/reviews/evidence-2026-09-07-clear-thought-verification-q-gap-5/`.
 
 ## What to do next (agent-owned)
 
-1. **Dispatch round 3 of independent collapse-hunt and expert-review.**
-   Round 2 found real but shrinking findings (1 collapse + 3 partials, down
-   from round 1's 3 collapses + 4 partials + 6 missed decisions) and all
-   were fixed, including the Q-gap-5 closure above. This is the same
-   iterate-to-convergence loop that took the architecture document nine
-   rounds — dispatch the next round rather than assuming round 2's fixes
-   are the last word.
+1. **Dispatch round 4 of independent collapse-hunt and expert-review.**
+   The finding count kept shrinking each round (round 1: 3
+   collapses/4 partials/6 missed decisions + 10 expert-review findings;
+   round 2: 1 collapse/3 partials/1 procedural gap + 9 expert-review
+   findings incl. the Q-gap-5 overclaim; round 3: 2 collapses/2 partials +
+   4 expert-review findings) and all were fixed each time. This is the
+   same iterate-to-convergence loop that took the architecture document
+   nine rounds — dispatch the next round rather than assuming round 3's
+   fixes are the last word.
 2. **Once a round comes back clean, proceed to implementation** via
    `.claude/skills/expert-implement/` against the fixed plan.
 3. **Two bin-2 items are flagged for Max Cogar's awareness in the plan's
@@ -191,10 +215,11 @@ entry (section 10A) but wasn't — now actually added there.
 
 ## Open items
 
-- Round 3 of independent review has not yet run — see "What to do next"
-  item 1. Nothing else from rounds 1–2 remains open: all 21 round-1
-  findings, all round-2 findings, and Q-gap-5's six judgment calls
-  (Clear-Thought-verified this session, see above) are closed.
+- Round 4 of independent review has not yet run — see "What to do next"
+  item 1. Nothing else from rounds 1–3 remains open: all findings from all
+  three rounds across both review types, plus Q-gap-5's six judgment
+  calls (Clear-Thought-verified, independently reproduced by round 3's
+  expert-review), are closed.
 - L11(a) — human-marker presence on Max Cogar's real interactive transcript
   was resolved by direct measurement of
   `/root/.claude/projects/-home-user-agent-armory/dc9955b4-2023-5a97-b6a3-47796382cb94.jsonl`

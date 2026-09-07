@@ -19,6 +19,54 @@ goes hollow is itself data.
 
 ---
 
+## 2026-09-07 — round 3 expert-review: the sweep mechanism itself, not any one fix, was the recurring point of failure — three rounds running
+
+Round 2 diagnosed and fixed a systemic pattern at 7 sites: content the fix
+pass changed in one place wasn't propagated to every place that referenced
+the same claim. Round 2's own reconciliation-sweep explicitly attested to
+having walked for exactly this. Round 3 found the identical pattern
+recurring at 2 more sites — both introduced by round 2's own new content:
+`T18-3` (round 2's own new mechanism) was asserted in four places and
+built in zero (Step 41, which constructs `test/conventions/`, never
+listed it); and Step 23's own AD-14-provenance correction (also round 2's
+new content) was never swept into T8-1's and T23-1's test specs, which
+kept asserting "matches AD-14" for two values Step 23's own corrected text
+says have no AD-14 source at all.
+
+Class: **unverified** — the same class round 2 already named, recurring
+in the artifact meant to fix it. **The generalizable lesson, sharpened by
+now having the same failure three rounds running:** a sweep's own
+attestation ("walked X against Y, found nothing") is not verification of
+completeness — it's a report of a walk, and a walk can miss exactly the
+thing it was trying to check. Round 3's reviewer caught what two prior
+attestations missed by using a different method: instead of walking
+prose claims, it built a mechanical checklist per artifact (citing step +
+file-skeleton entry + *constructing* step's own body + test spec) and
+diffed it against grep results. The distinction that mattered: previous
+sweeps checked "is this T-ID mentioned everywhere it should be" (a
+reference-existence check, which a `comm`/`diff` over grep hits catches
+reliably); the sites that kept slipping through needed "is this T-ID's
+file actually *built* by the step whose job that is" (a construction
+check, structurally different from a reference check, and invisible to a
+tool that only diffs mention-lists).
+
+**Lesson, for any future fix pass touching this document (or any
+document with the same self-referencing structure):** when new content
+introduces a new file or mechanism, verify it against a fixed checklist
+of every surface class that can reference it (citing step, skeleton
+listing, *constructing* step, test spec, risk register) — not a prose
+walk, and not only a reference-existence diff. A reference can exist in
+four places and still not be *built* anywhere; that gap is a different
+failure mode from a stale reference, and needs a different check to
+catch it. The convergence trend itself is real and worth keeping in
+view (round 1: 3 collapses; round 2: 1 collapse, but its own fix
+introduced 2 new instances of the systemic pattern; round 3 caught and
+fixed those) — but "the count is shrinking" is not the same claim as
+"the sweep mechanism now actually works," and this entry is written so
+the next round checks the latter, not just the former.
+
+---
+
 ## 2026-09-07 — round 3: using a tool at all is not the same claim as the check being independent
 
 Round 3's independent collapse-hunt caught this document's own prior entry
