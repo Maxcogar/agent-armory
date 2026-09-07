@@ -60,6 +60,3 @@ implementation-plan-agent/docs/patterns/
 
 # skill-creator eval scratch (run transcripts, benchmark outputs, review HTML)
 skills/*-workspace/
-
-# review-correction-convergence-gate hook state (per-repo runtime ledger/locks)
-.claude/hook-state/
