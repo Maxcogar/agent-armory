@@ -19,6 +19,61 @@ goes hollow is itself data.
 
 ---
 
+## 2026-09-07 — round 3: using a tool at all is not the same claim as the check being independent
+
+Round 3's independent collapse-hunt caught this document's own prior entry
+(immediately below) overclaiming its result: getting a real MCP client to
+speak the `clear-thought` protocol directly and running six decisions
+through `sequential_thinking` was reported as the pass "functioning as a
+genuine independent check rather than a rubber stamp." It doesn't. The
+`clear_thought` tool (this version, `@waldzellai/clear-thought-onepointfive`
+0.0.5) stores and echoes back whatever text the caller supplies as
+`prompt` — it does not compute, score, or judge anything on its own
+(verified directly: `decision_framework`'s `multiCriteriaScores` and
+`recommendation` fields never reflected supplied scores; `sequential_
+thinking`'s `"thought"` field is a verbatim echo of the caller's `prompt`).
+Six decisions authored, argued, and concluded by the same session, run
+through a tool that never disagrees, coming back 6-for-6 confirmed, is a
+100% self-affirmation rate — exactly the "self-administered collapse test
+grades its own homework" shape the 2026-08-25 entry (item 3) already names.
+
+Class: **unverified / posture** — the tool-invocation *fact* was real and
+verified (protocol handshake, session ID, 18 successful calls all
+genuinely happened), but the *conclusion drawn from the fact* ("this was
+independently checked") did not follow from it, and reads more confidently
+than the evidence supports — the posture of the check drifted from "I
+satisfied a mandate" to "I was reviewed," which are different claims.
+
+**Lesson.** Using a mandated tool discharges the literal mandate ("invoke
+X, record the reasoning") — that is real and worth stating plainly. It
+does not discharge a broader claim ("this was independently verified")
+unless the tool itself supplies judgment the caller doesn't already hold —
+check what the tool actually returns (does it echo, or does it compute?)
+before characterizing a pass through it as review rather than
+documentation. The two claims sound similar and are not: "I recorded my
+reasoning through the required channel" is auditable and true; "an
+independent check confirmed my reasoning" requires a second party — a
+separately-dispatched review session, a different model, an oracle with
+its own judgment — and a tool that echoes the caller's own words is not
+one, no matter how official the protocol handshake looks. Fixed
+everywhere the overclaim appeared (the plan's §15 Q-gap-5 entry, this
+STATUS-adjacent record, and the verification transcript itself) by
+replacing it with the narrower, true claim.
+
+**A second, smaller lesson from the same round.** AD-9 requires
+`deny_bypass_suspect`'s proxy bias disclosed in *both* directions
+(over-counts one class, under-counts another); N2's fix (2026-09-07,
+earlier same day) disclosed only the under-count direction, and this
+exact gap had already surfaced in round 2's own collapse-hunt narrative
+prose without ever being raised as a numbered, must-fix finding — so it
+was read, noted, and not fixed. **Lesson: a defect mentioned in a
+review's prose but not given a finding number is exactly as likely to be
+silently dropped as one never mentioned at all — if it's worth writing
+down mid-review, it's worth a numbered finding, even one that duplicates
+something "already covered" by a broader item.**
+
+---
+
 ## 2026-09-07 — "the harness didn't attach the tool" is not the same fact as "the tool can't be used"
 
 Round-2 expert-review (finding S3) correctly rejected a claim that

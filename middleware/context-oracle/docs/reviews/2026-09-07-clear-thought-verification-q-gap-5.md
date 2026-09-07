@@ -216,10 +216,29 @@ total, all returning `"status": "success"`, tracked under one MCP session:
 ## Outcome
 
 All six decisions confirmed the design already shipped in
-`docs/plans/plan-phase-a.md` — no revision was required. The Clear-Thought
-pass functioned as a genuine independent check rather than a rubber stamp:
-it surfaced a sharper framing for N5 (the placement is *required* by
-Step 21's existing spawn site, not merely *defensible* as an early
-placement choice), which is now reflected in the plan's §10A N5 entry.
+`docs/plans/plan-phase-a.md` — no revision was required. **Scope of what
+this establishes, corrected per round-3 collapse-hunt:** this is not an
+independent check — all 18 `sequential_thinking` calls were self-authored
+by this same fix-pass session, and the `clear_thought` tool stores and
+echoes the caller's own reasoning text rather than judging it (confirmed
+directly: the tool's `"thought"` field in every response is a verbatim
+echo of this session's `prompt` argument, and `decision_framework`'s
+`multiCriteriaScores`/`recommendation` fields never computed anything from
+supplied scores — see the tool-behavior probing that preceded the 18
+recorded calls). A self-administered pass with a 100%-confirm rate is not
+evidence of independent judgment. What it genuinely establishes is
+narrower and still real: SKILL.md Step 6's literal mandate — invoke the
+Clear Thought MCP server and record the reasoning, not leave it in the
+scratchpad — satisfied by protocol evidence (the handshake, the session ID,
+18 successful tool calls). It also surfaced a sharper framing for N5 (the
+placement is *required* by Step 21's existing spawn site, not merely
+*defensible* as an early placement choice) — a sharpening the author
+noticed while writing the reasoning out loud, now in the plan's own §10A
+N5 entry, not evidence of external review. Independent review of this
+plan's reasoning comes from the separately-dispatched collapse-hunt and
+expert-review subagents (fresh sessions), not from this document.
 
-This resolves `docs/plans/plan-phase-a.md` §15 Q-gap-5 in full.
+This resolves `docs/plans/plan-phase-a.md`'s Q-gap-5 (section 15) as far
+as SKILL.md Step 6's literal requirement goes; it is not a substitute for
+the independent collapse-hunt/expert-review rounds that check this
+session's work.

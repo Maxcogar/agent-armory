@@ -141,12 +141,34 @@ chains — 18 tool calls, one MCP session
 `docs/reviews/2026-09-07-clear-thought-verification-q-gap-5.md`. All six
 confirmed the shipped design (C1's write-time cap, N5's Step-2.5 placement,
 C3's repo-set disclosure, P3's command-field marker, P4's widened
-interface, T18-3's mechanization) — no revisions needed, though the pass
-did sharpen N5's framing from "defensible" to "required" (Step 21 already
-spawns, before Step 38, so the wrapper structurally must exist by Step 2.5
-or Step 21 ships an uncaught AD-21 violation). This closes the plan's
-Q-gap-5 entry (section 15) in full — no owner ruling, no further
-tool-attached re-check outstanding.
+interface, T18-3's mechanization), and the pass sharpened N5's framing from
+"defensible" to "required" (Step 21 already spawns, before Step 38, so the
+wrapper structurally must exist by Step 2.5 or Step 21 ships an uncaught
+AD-21 violation). This satisfies SKILL.md Step 6's literal mandate (invoke
+the server, record the reasoning) — round 3's collapse-hunt correctly
+caught this document initially overclaiming that as "independent
+verification": it isn't (this session both wrote the original reasoning
+and fed it through a tool that echoes rather than judges), and the
+overclaim is corrected everywhere it appeared. Independent checking of
+this session's work is what the separately-dispatched collapse-hunt/
+expert-review rounds provide, and they did: round 3 caught the overclaim,
+plus a real AD-9 compliance gap (below). This closes the plan's Q-gap-5
+entry (section 15) in full — no owner ruling, no further tool-attached
+re-check outstanding.
+
+**Round 3** dispatched a fresh independent collapse-hunt and expert-review
+against round 2's output. Collapse-hunt: 2 collapses, 2 partials, both
+fixed — (1) the "independent check" overclaim above, corrected everywhere
+it appeared (the plan, STATUS, and the verification transcript); (2)
+`deny_bypass_suspect`'s bias disclosure (Step 18, Step 33/`T33-1`) named
+only the under-count direction; AD-9 requires both directions stated in
+`status` — the over-count direction (a same-turn, same-path Bash write
+following a deny isn't necessarily a deliberate bypass) is now disclosed
+verbatim alongside the under-count residual; (3) a stale cross-reference
+in the plan's D-plan-1 entry (section 10) still pointed at Clear Thought
+as unresolved after the Q-gap-5 entry (section 15) resolved it — fixed;
+(4) the sharpened N5 framing was claimed to be in N5's own collapse-test
+entry (section 10A) but wasn't — now actually added there.
 
 ## What to do next (agent-owned)
 

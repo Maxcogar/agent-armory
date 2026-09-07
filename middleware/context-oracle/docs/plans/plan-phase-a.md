@@ -1644,18 +1644,28 @@ called after every deny emission (Step 16) and every catch-up (Step
   a path); if a same-turn `whisper_audit.kind='deny'` exists whose
   `evidence_json` records a target path that matches the Bash
   command's target → record `deny_bypass_suspect`. **Coverage bound,
-  stated explicitly (collapse-hunt N2):** this predicate list is the
-  full detector — it is not an approximation of a larger intended
-  set. Known Bash file-writing patterns it does NOT catch: `dd`,
-  `rsync`, `ln -sf`, `xargs cp`/`xargs mv`, `git add && git commit`,
-  and language-native writers invoked from Bash (`python -c
-  "open(...).write(...)"`, `node -e "fs.writeFileSync(...)"`). Phase
-  A's mission (§11.5) is an honest floor, not maximum coverage; the
-  honest choice is naming the gap, not silently under-measuring it.
-  `status`'s residuals section lists this omitted-pattern set
-  verbatim so the exit-report's `deny_bypass_suspect` count is read
-  as "coverage of the enumerated pattern set," never as "how
-  bypassable the block is via Bash" in general.
+  stated explicitly (collapse-hunt N2), both directions per AD-9
+  (round-3 collapse-hunt fix — the prior text stated only the
+  under-count direction; AD-9 requires both "stated in `status`"):**
+  this predicate list is the full detector — it is not an
+  approximation of a larger intended set, and it is a proxy, not a
+  measurement, in *both* directions. **Under-count:** known Bash
+  file-writing patterns it does NOT catch — `dd`, `rsync`, `ln -sf`,
+  `xargs cp`/`xargs mv`, `git add && git commit`, and language-native
+  writers invoked from Bash (`python -c "open(...).write(...)"`,
+  `node -e "fs.writeFileSync(...)"`). **Over-count:** a same-turn
+  Bash write to the same path following a deny does not prove the
+  Bash command was a *deliberate bypass* of that specific deny — an
+  unrelated, legitimate same-file shell rewrite that happens to land
+  in the same turn produces the identical signal, so the count is an
+  upper bound on suspicion, not a confirmed-bypass count. Phase A's
+  mission (§11.5) is an honest floor, not maximum coverage; the
+  honest choice is naming both gaps, not silently under- or
+  over-measuring. Step 33's `status` renders both directions verbatim
+  (AD-9's own wording) plus this omitted-pattern set, so the
+  exit-report's `deny_bypass_suspect` count is read as "coverage of
+  the enumerated pattern set, upper-bound not confirmed-bypass,"
+  never as "how bypassable the block is via Bash" in general.
 - `checkDenyFromInjectedTurn(store, consumer, event)`: the P2
   counterpart to `deny_after_answer_lag` — same async-transcript-lag
   root cause, opposite trigger. If a `PreToolUse` deny fires against
@@ -2574,7 +2584,16 @@ export/import — mitigated by `T32-2`'s record-identical check.
   measured live", denies issued, wrongful-deny rate,
   done-claims-with-outstanding-question with the Phase A
   structural-limit label, `deny_loop` and `deny_bypass_suspect`
-  signals, active suppressing conditions (store corrupt,
+  signals **rendered with the bias disclosure AD-9 requires in both
+  directions, not just one (round-3 collapse-hunt: the prior text
+  named the signal but not this required disclosure) — `status`
+  states explicitly that `deny_bypass_suspect` is "a proxy, not a
+  measurement: it over-counts an unrelated same-file shell rewrite
+  that happens to follow a denied action, and under-counts a bypass
+  to a different path" (AD-9, verbatim), and lists N2's omitted
+  Bash-writer pattern set (`dd`, `rsync`, `xargs cp`/`mv`, `git add
+  && commit`, language-native writers) as the concrete under-count
+  residual**, active suppressing conditions (store corrupt,
   transcript layout changed, FTS fallback), correct-silence
   announcement (FR-M3, owner-facing only), repo key + keying mode
   (Step 5), invariant count, and — for Phase B/C-reserved codes
@@ -2609,9 +2628,11 @@ rendered only here per D-22); `AD-20` (CLI verbs); `FR-M4`, `FR-M5`,
 **Dependencies.** Steps 9, 10, 23.
 
 **Verification.** `T33-1` (`status` renders every FR-M4 signal;
-Phase-B-reserved codes show as "not yet measured"), `T33-2` (`log`
-renders per-session; evidence/pointers included), `T33-3` (`tune`
-round-trips scalar and list values).
+Phase-B-reserved codes show as "not yet measured"; the
+`deny_bypass_suspect` bias disclosure names both the over-count and
+under-count directions verbatim per AD-9, round-3 collapse-hunt fix),
+`T33-2` (`log` renders per-session; evidence/pointers included),
+`T33-3` (`tune` round-trips scalar and list values).
 
 **Impact if wrong.** Owner-blind — a broken `status` is exactly the
 FR-M2 failure `OL-10` was raised to prevent. Caught by `T33-1`.
@@ -3262,9 +3283,16 @@ delegated to the plan.
   suites are built alongside the modules they cover (Step 39 lists
   them as "populate," not "author for the first time" — the individual
   test files are added as their target module is built), while
-  fixture/replay tests aggregate after Step 30. Reasoned without
-  Clear Thought MCP (unavailable this session — see §15 Gaps); reasoning
-  captured in this entry so the choice is auditable.
+  fixture/replay tests aggregate after Step 30. Originally reasoned
+  without Clear Thought MCP (unavailable to this session's tool layer
+  at the time); the underlying decision (C1's write-time predicate
+  cap, not a build reorder) was subsequently run through the actual
+  Clear Thought MCP server via direct protocol invocation and
+  confirmed — see §15 Q-gap-5 for the resolution and
+  `docs/reviews/2026-09-07-clear-thought-verification-q-gap-5.md` for
+  the full trace. **Corrected (round-3 collapse-hunt): this sentence
+  previously pointed to §15 as still-open; it is resolved, not
+  open.**
 
 - **D-plan-2 — Package deps floor: `web-tree-sitter@0.26.13` (exact),
   `tree-sitter-wasms@0.1.13` (exact).** *Reasoning.* Not a plan
@@ -3764,18 +3792,30 @@ posed.)*
 2. **Hardest question.** The detector's known blind spots (`dd`,
    `rsync`, `python -c`, etc.) are comparable in size to its covered
    set — is a partial, disclosed-incomplete counter actually different
-   in mission value from having no counter at all?
-3. **Answer.** Yes, on two axes an absent counter cannot provide:
-   (a) it is *falsifiable* — `T18-3` (this fix pass, round 2) greps
-   the built predicate array and fails CI if it silently drifts from
-   the disclosed set, so the boundary itself is audited, not merely
-   asserted in prose; (b) it is a *backlog*, not a dead end — N2's own
-   enumerated omissions (`dd`, `rsync`, `xargs cp/mv`, language-native
-   writers) are the exact list Phase B's model-assisted disambiguation
-   (which has the surface area a deterministic grep does not) consumes
-   first. An absent counter gives zero signal and no backlog; a
-   disclosed-partial one gives both. Cite: spec §11.5 (measure the
-   floor honestly); `T18-3` (mechanized bound, round-2 fix).
+   in mission value from having no counter at all? **Sharpened
+   (round-3 collapse-hunt):** AD-9 requires the detector's bias
+   disclosed in *both* directions — it also over-counts (a same-turn,
+   same-path Bash write following a deny is recorded as a suspected
+   bypass even when it's an unrelated legitimate rewrite) — and the
+   original N2 text named only the under-count direction. Does an
+   under-count-only disclosure quietly turn a two-sided proxy into a
+   one-sided "coverage" number the reader over-trusts on the side
+   that was never named?
+3. **Answer.** Yes to the original question, on two axes an absent
+   counter cannot provide: (a) it is *falsifiable* — `T18-3` (round 2)
+   greps the built predicate array and fails CI if it silently drifts
+   from the disclosed set; (b) it is a *backlog*, not a dead end —
+   N2's enumerated omissions are the exact list Phase B's
+   model-assisted disambiguation consumes first. And yes to the
+   sharpened question — that risk was real until this fix pass: Step
+   18 and Step 33's `status` (round-3 fix) now state AD-9's exact
+   both-direction wording verbatim ("over-counts an unrelated
+   same-file shell rewrite… and under-counts a bypass to a different
+   path"), so the reader gets the full two-sided proxy disclosure, not
+   half of it. Cite: `AD-9` (both-direction requirement, verbatim);
+   spec §11.5 (measure the floor honestly); `T18-3` (mechanized
+   under-count bound); Step 33 (both-direction disclosure, round-3
+   fix).
 4. **Steers toward.** An implementer reading the omitted-pattern list
    as the current floor and escalating any expansion through a new
    collapse-test (C1's write-time cap) rather than silently padding
@@ -3837,6 +3877,18 @@ posed.)*
    immediately rather than because they remembered a written rule.
    **Guide, not gate on the wrapper's use** — but a real gate on
    *undetected* bypass, which is the property that matters.
+
+**Sharpened by the Clear-Thought pass (§15 Q-gap-5, decision N5):**
+placement at Step 2.5 is not merely *defensible* as an early-and-safe
+choice — it is *required*. Step 21's indexer already spawns a
+detached child in `refreshIfStale`, and Step 21 is built before Step
+38 (the seam this decision was originally framed around). Placing the
+wrapper any later than Step 2.5 would leave Step 21 shipping a real,
+uncaught AD-21 violation (no wrapper yet to call), or force Step 21
+to cite a later step as a dependency — the same topological-sort
+defect S1 fixed at Step 31/32. The single fact making this required
+rather than a style choice: Step 21 is an existing spawner that
+predates Step 38, the assumed spawn site.
 
 #### N6 (Step 15 — confinement-grep scope vs. the new `dist-test/` compile target)
 
@@ -5502,7 +5554,13 @@ with no §12 specification of its own.)*
 - **File.** `test/replay/status_renders_all.test.ts`.
 - **Verifies.** Step 33 — every FR-M4 signal appears in
   `status` output, including the two Phase-B/C-reserved codes
-  rendered as "not yet measured", per AC-9.
+  rendered as "not yet measured", per AC-9. **Added this fix pass
+  (round-3 collapse-hunt):** the `deny_bypass_suspect` line's bias
+  disclosure names AD-9's *both* directions verbatim — "over-counts
+  an unrelated same-file shell rewrite… and under-counts a bypass to
+  a different path" — not only the under-count direction N2's
+  coverage-bound text describes, plus the omitted-pattern list from
+  N2 as the concrete under-count residual.
 - **Level.** Acceptance.
 - **Real/doubles.** Real `ctxoracle status`; real store seeded
   with each fault code, one whisper, one deny, one correction.
@@ -5510,8 +5568,10 @@ with no §12 specification of its own.)*
 - **Data.** Seeded store + real CLI invocation. Technique:
   decision table (each signal present vs absent in output).
 - **NOT asserts.** Rendering aesthetics.
-  **Fails when** any FR-M4 signal is missing OR the reserved
-  codes render as 0 instead of "not yet measured".
+  **Fails when** any FR-M4 signal is missing, the reserved codes
+  render as 0 instead of "not yet measured", or the
+  `deny_bypass_suspect` disclosure omits either the over-count or the
+  under-count direction.
 
 **T33-2 — `log` renders per-session audit trail.**
 - **File.** `test/replay/log_readback.test.ts`.
@@ -6544,10 +6604,32 @@ required to close it.
        change.
 
      All six conclusions match the design already shipped in this
-     plan — the Clear-Thought pass is a genuine independent check, not
-     a formality, and it confirmed rather than rubber-stamped (it
-     surfaced the sharper *required*, not merely *defensible*,
-     framing for N5). Full 18-thought transcript recorded verbatim in
+     plan. **Corrected (round-3 collapse-hunt):** the prior text here
+     called this pass "a genuine independent check, not a formality"
+     — that overclaims what happened. All 18 `sequential_thinking`
+     calls were self-authored by this same fix-pass session, feeding
+     its own comparative reasoning into a tool that stores and echoes
+     the caller's text rather than judging it independently (verified
+     against the tool's actual behavior in
+     `docs/reviews/2026-09-07-clear-thought-verification-q-gap-5.md`
+     — no external model call, no scoring, no dissent possible from
+     the tool itself). A 100%-confirm rate from a self-administered
+     check is the "grades its own homework" shape this project's own
+     collapse-log (2026-08-25, item 3) already names. **What this
+     pass genuinely establishes:** SKILL.md Step 6's literal
+     mandate — invoke the Clear Thought MCP server to work through
+     each decision point explicitly, with the reasoning recorded, not
+     left in the scratchpad — is satisfied, verifiably, by protocol
+     evidence (session ID, handshake, 18 successful tool calls). What
+     it does NOT establish is that an independent party checked this
+     session's reasoning; only the separately-dispatched round-2/
+     round-3 collapse-hunt and expert-review subagents (fresh
+     sessions, not this one) provide that. It surfaced a sharper
+     *required*, not merely *defensible*, framing for N5 (now in
+     N5's own §10A entry above) — worth keeping, but a sharpening the
+     author noticed while writing out the reasoning, not evidence of
+     independent judgment. Full 18-thought transcript recorded
+     verbatim in
      `docs/reviews/2026-09-07-clear-thought-verification-q-gap-5.md`
      — not reproduced a second time here per the collapse-log's
      "summary plus a pointer, not a second full copy" rule.
