@@ -4121,12 +4121,22 @@ repository holds no grammar-covered code file at run time, or cannot be
 cloned with the implementing agent's repository access, the next
 repository in that listing's push-date order replaces it, and the report
 records the replacement. **Every counted session is a `claude -p`
-conversation the implementing agent drives from its own environment** —
-the same invocation shape the model seam verified (V9, Step 36), as a
-child process of the agent's session, with `CTXORACLE_INTERNAL` absent
-from the child's environment (the driver prints the child's environment
-filtered for `CTXORACLE_*` and the report carries that output, which must
-be empty). The hooks reference's settings-file rule makes this the
+conversation the implementing agent drives from its own environment**, as
+a child process of the agent's session, started with `--permission-mode
+acceptEdits` and an `--allowedTools` list naming the read tools, `Edit`,
+`Write`, and the Bash prefixes the protocol's tasks use (the report carries
+the list verbatim) — a `-p` session can show no permission prompt, so an
+`Edit` or `Write` that is not pre-approved is denied and never executes
+(§11.4) — never with `--tools ""` (V11: that disables every tool; the model
+seam's V9 run used it and verified authentication and the envelope shape,
+nothing about a tool-enabled conversation); with Step 5's `SCRUBBED_ENV`
+session-identity set removed from the child's environment by the driver,
+so that each session is its own (the child's `session_id` must differ from
+the agent's own session, §11.4); with `CTXORACLE_INTERNAL` absent (the
+driver prints the child's environment filtered for `CTXORACLE_*` and the
+report carries that output, which must be empty); and continued turn by
+turn with `--resume <session_id>`, which fires `SessionStart {source:
+resume}` (§11.4). The hooks reference's settings-file rule makes this the
 executable session kind: a `-p` or SDK session never shows the trust
 dialog and treats the folder as trusted, so the hooks `init` wrote to the
 clone's `.claude/settings.json` run from the session's first event
@@ -4153,13 +4163,24 @@ agent can accept. Per repository, the protocol is:
    interactive sessions (below) are where it is expected to be observed.
    Three is the minimum because one session cannot separate a lag hold
    from a steady-state deny; three gives each detector at least two
-   chances to fire.
+   chances to fire. The driver reads `permission_denials` from every
+   turn's JSON envelope and records it per session; a session with any
+   denial on `Edit` or `Write` is not counted.
 3. **Collection.** Every counted session's store and transcript are
    already on the report machine (`~/.ctxoracle` and the session's
    `~/.claude/projects/<slug>/` file, located through Step 21's
    `projectTranscriptDir`); `exit-run.sh` reads `status` and `log` per
    session and computes. No transfer step exists for agent-driven
    sessions.
+4. **Mode.** A `-p` transcript's human turns carry no `origin` and no
+   `isMeta` (V12; §11.4), so every `--resume` turn's qa-state rebuild
+   (Step 27) recovers nothing and raises `rebuild_recovered_nothing` —
+   expected in this mode and labelled so in the report, never counted as
+   a fault of the reader; mid-session enforcement in leg 2 rests on intake
+   from the `prompt` field alone (L11). Leg 2's transcripts are passed to
+   `marker_presence` under their own declared origin,
+   `report-machine/claude-p`, whose marker row is expected to be all-zero
+   and never counts toward L11(a).
 
 Max Cogar may additionally drive sessions in his own interactive
 environment (`OL-11`: he speeds up testing); those reach the report
@@ -4177,8 +4198,11 @@ three-session minimum on at least one of its target repositories, the
 `CTXORACLE_*` environment check was empty in every leg-2 session, and
 **every counted session's store holds a `SessionStart` liveness row for
 that session** (a session whose hooks never fired — wiring dead, a
-settings file not read — can never count, and is listed as such); the
-tool's own repository never counts toward the minimum. The report states
+settings file not read — can never count, and is listed as such) **and at
+least one `outcome='ok'` `Edit` or `Write` row in `observed_actions`** (a
+session whose edits were all permission-denied exercised the block on no
+mutation, and is listed as such); the tool's own repository never counts
+toward the minimum. The report states
 the rule and whether it was met.
 
 **The recognizer floor number and its denominator.** Separately for the
@@ -4208,7 +4232,9 @@ lines, not folded into recall.
 **Report** (`docs/reviews/<date>-phase-a-exit-run.md` — D-plan-21): per-leg
 inputs (repository set with any replacement, transcript count per origin
 and repository class, session count and driver per repository, the
-`CTXORACLE_*` check output, the liveness-row check per counted session);
+`CTXORACLE_*` check output, the counted-session flags, the
+`permission_denials` line and the liveness-row and edit-row checks per
+counted session);
 **every number below is given per leg, never as a total across legs**:
 per-genre whisper counts (leg 1's Stop-time genres depend on the
 reconstruction rule above and are labelled so); denies issued — for leg 1
@@ -4242,7 +4268,7 @@ and transcripts, "including how little the conservative recognizer
 catches"); `docs/IDEAS.md` #14 (discovery-mode replay: what replay can and
 cannot measure — outcome validation needs real closed-loop sessions);
 `AD-24` (the two build-time verifications executed here); `AC-18`; `CLAUDE.md`
-dominating rule 3.
+dominating rule 3; §11.4 (the counted-session execution).
 
 **Why this approach (Gate 3):**
 1. **The decision.** Three legs, a validity rule that excludes measuring
@@ -4417,8 +4443,10 @@ run: D-plan-1, 3, 7, 9, 11, 12, 14, and the first chains for 6, 8, 10) and
 D-plan-2, 4, 5, 6, 8, 10, 13, 15–26), and
 `docs/reviews/2026-09-07-plan-tool-traces-3.md` (the round-4 corrections
 run: D-plan-24 and D-plan-26 re-derived, D-plan-27, D-plan-28, and the
-amendment to D-plan-5); where the files disagree on a decision, the latest
-file's chain is the one whose conclusion appears here.
+amendment to D-plan-5), and `docs/reviews/2026-09-07-plan-tool-traces-4.md`
+(the round-5 correction of issue S1: the amendment to D-plan-26's
+counted-session invocation); where the files disagree on a decision, the
+latest file's chain is the one whose conclusion appears here.
 The §7 steps that carry plan-level judgment beyond transcribing an
 architecture decision are named against their entry so a reader can find
 every such step: Step 1 (D-plan-2, D-plan-3, D-plan-13), Step 5 (D-plan-14,
@@ -4840,7 +4868,9 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   falsely reported success `CLAUDE.md` rule 1 forbids.
 - **D-plan-26 — Leg 2's counted sessions are `claude -p` conversations the
   implementing agent drives from its own environment on clones it
-  initialised beforehand; nothing is installed inside a session; stores
+  initialised beforehand, each started with a permission mode and tool
+  list that let it edit and with the driver's session-identity scrub;
+  nothing is installed inside a session; stores
   and transcripts are local to the report; a counted session must hold a
   `SessionStart` liveness row; each counted session asks one
   `?`-terminated and one indirect question; the floor sample is labelled
@@ -4853,12 +4883,19 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   session created by remote session tooling lives in its own container,
   where a wiring written in one session is not there for the next (G3) and
   a hook written mid-session is undocumented behaviour the plan may not
-  assume. A `claude -p` child of the agent's own session is the invocation
-  the model seam already verified (V9) and needs neither premise: `init`
-  runs before the session, the hooks load at its start, and the store and
-  transcript it produces are on the machine that writes the report. The
-  liveness row is then a genuine observable of live hooks, not a
-  precondition no session can meet. OL-C5 states the trigger ("if i ask a
+  assume. A `claude -p` child of the agent's own session, started with
+  `--permission-mode acceptEdits` and an `--allowedTools` list (a `-p`
+  session can show no permission prompt, so an unapproved edit is denied),
+  with Step 5's session-identity set removed by the driver and continued
+  with `--resume`, is a session whose hooks are live at its first event,
+  that can edit, and whose `session_id` is its own — executed once, §11.4
+  — and it needs neither premise: `init` runs before the session, the
+  hooks load at its start, and the store and transcript it produces are on
+  the machine that writes the report. The liveness row is then a genuine
+  observable of live hooks, not a precondition no session can meet. It
+  runs in the marker-less transcript mode (V12), so its rebuild path
+  recovers nothing and the leg's corpus is declared as its own origin;
+  mid-session enforcement there rests on intake (L11). OL-C5 states the trigger ("if i ask a
   question"), not a definition of a question, so the label rule is the
   plan's and is attributed as such; a labeller who can read the store is
   not independent of what it measures; and pooling leg-1 (real) and leg-2
@@ -5409,9 +5446,13 @@ collapse-hunt attacks these questions harder and hunts for the ones missing.
    sessions, listed separately, are where L11(b) is expected to be
    observed. What the agent cannot script is the block's behaviour on a
    real repository's index and the recognizer's floor on turns it did not
-   write (leg 1), which is why the two legs are never pooled. Cite: spec
-   §11.5; the hooks reference's settings-file workspace-trust rule (§11.4);
-   V9; G3; OL-C5; V12; collapse-log 2026-08-25 item 1.
+   write (leg 1), which is why the two legs are never pooled. The sessions
+   edit for real — `acceptEdits` and the tool list are what make the deny
+   on a mutation and the Completeness genre reachable — and every counted
+   session must show an `ok` edit row, so a session the permission system
+   silenced never counts. Cite: spec §11.5; the hooks reference's
+   settings-file workspace-trust rule (§11.4); §11.4 (the counted-session
+   execution); V11; G3; OL-C5; V12; L11; collapse-log 2026-08-25 item 1.
 4. **Steers toward.** Reporting inputs beside outputs and never counting a
    session the hooks did not see. **Guide, not gate.**
 
@@ -5852,6 +5893,34 @@ this session; line numbers are of that revision.
   CLAUDE_*/ANTHROPIC_* removed: is_error=False session=fresh` — the wider
   scrub also authenticates here, which is why D-plan-8 keeps the narrower
   set that the piggyback's routing variables survive.
+- **Claim.** A leg-2 counted session — `claude -p` with `--permission-mode
+  acceptEdits --allowedTools "Write,Read"`, the six-variable
+  session-identity set removed, in a folder never trusted whose
+  `.claude/settings.local.json` carries logging hooks — runs the
+  settings-file hooks from `SessionStart {source: startup}`, executes a
+  `Write` (`PreToolUse` and `PostToolUse` fire, the file exists,
+  `permission_denials` is empty), reports a `session_id` that is not the
+  driving session's, continues under `--resume` with `SessionStart
+  {source: resume}`, and leaves a transcript at
+  `~/.claude/projects/<slug>/<session_id>.jsonl` whose human turns carry
+  no `origin` and no `isMeta`. **Steps.** 21, 39. **Evidence.** Executed
+  once 2026-09-07 from inside this session (no probe, by the owner's
+  instruction), the driver's environment being `env -u CLAUDECODE -u
+  CLAUDE_CODE_SESSION_ID -u CLAUDE_CODE_REMOTE_SESSION_ID -u
+  CLAUDE_CODE_CHILD_SESSION -u CLAUDE_PID -u CLAUDE_CODE_ENTRYPOINT`:
+  `claude -p "Create a file named hello.txt in the current directory
+  containing the single word hi, then reply with the single word done."
+  --model claude-haiku-4-5-20251001 --permission-mode acceptEdits
+  --allowedTools "Write,Read" --max-turns 4 --output-format json` → exit
+  0, `is_error=False num_turns=2 subtype=success result='done'
+  permission_denials=[] session_id_equals_parent=False`; `hello.txt
+  exists: yes, content='hi'`; hook events in order `SessionStart startup,
+  PreToolUse Write, PostToolUse Write, Stop`. Then `claude -p --resume
+  <session_id> "Reply with the single word ok." …` (same flags) → exit 0,
+  `is_error=False result='ok' same_session_id=True`; hook events
+  `SessionStart resume, Stop`. The transcript existed at
+  `~/.claude/projects/<slug>/<session_id>.jsonl` with human string turns by
+  `(origin.kind, isMeta)` = `[((None, None), 2)]`.
 - **Claim.** A must-fail TypeScript fixture inside the project's `include`
   turns `tsc -p` red; with `"exclude": ["test/build/fixtures"]` the build
   is green and a per-fixture `tsc --noEmit` invocation still fails on the
@@ -8258,7 +8327,10 @@ bin, and its closed disposition.
   `probe:13_hooks_reference.optional` asserting the sentence inside that
   section); mid-session loading is undocumented and is not relied on — the
   leg-2 protocol runs `init` before any session and drives `claude -p`
-  sessions, with the liveness row as the observable (D-plan-26).
+  sessions, with the liveness row as the observable (D-plan-26); a counted
+  session runs with `--permission-mode acceptEdits` and an `--allowedTools`
+  list, because a `-p` session can show no permission prompt and would
+  otherwise deny every `Edit`/`Write` (§11.4).
 - **Q44 (Step 39).** How many `Stop` events does one turn produce?
   **Disposition.** Answered: one — the reference's once-per-turn cadence
   (§11.4); leg 1's reconstruction emits one `Stop` after the last assistant
