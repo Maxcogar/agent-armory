@@ -159,14 +159,14 @@ in-scope list maps to at least one plan step in §7. Reconciled at delivery:
 
 | Requested Phase A element | Plan step(s) |
 |---|---|
-| Deterministic core: seven model-free genres | Steps 21–28 (Orientation, Coupling, Reuse, Consequence, Warning, Completeness, Verification/completion-check) |
+| Deterministic core: seven model-free genres | Step 25 (Orientation, Coupling, Reuse, Consequence, Warning, Completeness, Verification/completion-check — all seven generator modules); Steps 21–24, 26–28 (indexer, frontend, tuning DAO, bar, command classifier, compose/audit, handler pipeline — the supporting substrate) — corrected this fix pass, round 4: previously cited "Steps 21–28" as if all eight steps built the seven genres; only Step 25 does, per its own `### Step 25 — Genre modules (the seven Phase A generators)` heading and §12.5's own Step→T-ID table |
 | Answer-drift block's safe skeleton (deny plumbing + conservative recognizer) | Steps 12–15 (deny confinement, qa state, recognizers, block wiring); Step 18 (deny health detectors); Step 19 (lag-window hold + backstop) |
-| Stores / index / miner | Steps 3–9 (packaging, adapter, schemas, identity, dirs); Steps 20 (miner), 22 (indexer) |
+| Stores / index / miner | Steps 3–9 (packaging, adapter, schemas, identity, dirs); Steps 20 (miner), 21 (indexer), 22 (frontend) — corrected this fix pass, round 4: previously cited "22 (indexer)" alone; Step 21's own `### Step 21 — Structural indexer skeleton and LanguageFrontend interface` heading builds `indexer.ts`/`runIndex`, and Step 22 is the tree-sitter frontend, not the indexer |
 | Delivery | Step 30 (delivery + dedup + Stop-time `additionalContext`); Step 19 (outstanding-question line) — corrected this fix pass, round 3: previously misattributed to Step 31 (CLI/`init`, unrelated), contradicting Step 30's own body, §9 Checkpoint 3, and §12.5's own AC-8a mapping (`T19-3`, `T30-2`) |
-| Self-observability (correct silence, denies, wrongful-deny, missed skill-block reserved) | Steps 10 (diagnostic writer), 33 (regret at SessionEnd), 36 (status), 37 (log) |
+| Self-observability (correct silence, denies, wrongful-deny, missed skill-block reserved) | Steps 10 (diagnostic writer), 36 (regret at SessionEnd), 33 (status, log) — corrected this fix pass, round 4: previously read "33 (regret at SessionEnd), 36 (status), 37 (log)," swapping Step 33's (status/log verbs) and Step 36's (regret) actual roles and citing Step 37 (WAL concurrency, unrelated to self-observability) in place of Step 33 for `log` |
 | Security | Step 11 (redactor + injection flagger); Steps 4 (0700 dirs) and 22 (redaction at indexer ingress) reference it |
 | Human-correction calibration channel | Step 34 (`correct` verb + `--missed-question` routing); Step 35 (`note` verb) |
-| The two seams (Phase B, Phase C) | Step 13 (qa/state.ts interface + module-replace test); Step 15 (deny confinement structural test — second caller point for Phase C); Step 39 (`model/invoke.ts` interface stub committed but not called) |
+| The two seams (Phase B, Phase C) | Step 13 (qa/state.ts interface + module-replace test); Step 15 (deny confinement structural test — second caller point for Phase C); Step 38 (`model/invoke.ts` interface stub committed but not called) — corrected this fix pass, round 4: previously cited Step 39 (unit test suites), which does not build `model/invoke.ts`; Step 38's own `### Step 38 — Model invocation seam stub (never called in Phase A)` heading does |
 | Exit measurement on real repos | Step 42 (discovery-mode replay + exit report against AC-18 seeded coverage) |
 
 Nothing is unmapped; nothing is silently deferred.
@@ -1378,8 +1378,11 @@ recognizers, deliberately conservative:
   contentHash: string; matchedStopword?: string }`. A sentence is a
   question when (i) it ends with `?`, (ii) it is outside code fences and
   quoted blocks, (iii) it is not matched by the `lexicon.stoplist`
-  (tunable, seeded with rhetorical/idiom phrases at Step 8). Multiple
-  questions in one turn produce multiple recognizer results.
+  (tunable, seeded with rhetorical/idiom phrases at Step 23, invoked at
+  `init` — corrected this fix pass, round 4: previously said "at Step
+  8," contradicting Step 8's own round-3 correction that the migration
+  seeds nothing). Multiple questions in one turn produce multiple
+  recognizer results.
 - `recognizeClearing(assistantText, deferralStoplist, lengthFloor)`:
   returns `{ clears: boolean; reason?: 'below_length_floor' |
   'deferral_matched' }`. A turn clears when its substance length (after
@@ -2579,9 +2582,15 @@ Non-trivial (export/import):
 **Dependencies.** Steps 3, 5, 20, 21, 28.
 
 **Verification.** `T32-1` (deinit removes exactly marker-tagged
-entries; `--purge` removes the store), `T32-2` (export/import
-record-identical: dump both stores before, export, import into
-fresh location, dump, diff — zero rows differ).
+entries), `T32-1a` (`--purge` additionally removes the project store
+and diagnostics directory), `T32-2` (export/import record-identical:
+dump both stores before, export, import into fresh location, dump,
+diff — zero rows differ) — corrected this fix pass, round 4
+(expert-review Systemic Instance B): previously attributed `--purge`
+to `T32-1` alone, contradicting T32-1's own §12 spec ("NOT asserts:
+`--purge` behavior (T32-1a)") and omitting `T32-1a` entirely, though
+it was already cited in §5.1's skeleton and §12.5's mapping table
+since round 2.
 
 **Impact if wrong.** Owner recovery is the main risk on
 export/import — mitigated by `T32-2`'s record-identical check.
@@ -2993,24 +3002,37 @@ Create build-time verification tasks:
   pack --dry-run` on `tree-sitter-wasms`, enumerates shipped
   `.wasm` grammar files, asserts every language in the ext→grammar
   default table has a matching grammar.
-- `test/build_time/real_transcript_marker_probe.md` (L11 (a)):
-  owner-run instructions to capture an interactive transcript
-  from Max Cogar's real environment and run the marker-presence
-  probe; the doc records what to look for and where to send the
-  probe result.
-- `test/build_time/user_prompt_submit_provenance.md` (L11 (b)):
-  owner-run steps to induce a platform-injected turn (task
-  notification, scheduled wake) and observe whether
-  `UserPromptSubmit` fires.
+- `test/build_time/l11_a_measurement.md` (L11(a)): a completed
+  record of the direct measurement already taken (§15 Q-gap-4,
+  §10 D-plan-6) — no owner action. States the result ("no residual
+  on this transcript mode") and points to the follow-up
+  documentation PR (Step 43) that updates AD-24's L11(a) disclosure
+  from "assumption pending build-time verification" to "measured."
+- `test/build_time/l11_b_disposition.md` (L11(b)): the design-
+  safety analysis already performed (§15 Q-gap-4, §10 D-plan-6) —
+  safe against a persistent wrongful deny, measurably not against a
+  transient one — plus a pointer to the `deny_from_injected_turn`
+  runtime counter (Step 18) that measures the transient case's rate
+  at first install. No owner action; which code path fires at all
+  is left to natural observation on first install (Step 42's exit
+  run), not a scheduled probe.
+
+**Corrected this fix pass (round 4 — expert-review Systemic
+Instance A):** the prior text here described two owner-run markdown
+probes (`real_transcript_marker_probe.md`,
+`user_prompt_submit_provenance.md`) that §10's D-plan-6 explicitly
+retracted and that never matched §5.1's actual skeleton — this step
+now matches D-plan-6/§15 Q-gap-4's resolved disposition and §5.1's
+real file names.
 
 **Source.** `AD-24` (fixtures + replay + build-time
-verifications); L11 (both).
+verifications); L11 (both, resolved per §10 D-plan-6/§15 Q-gap-4).
 
 **Why this approach (Gate 3):**
 1. **The decision.** Real git repos + spawned real handler binary
-   for replay; two of the three build-time verifications are
-   owner-run because the runtime environment cannot generate them
-   from inside a container.
+   for replay; the two L11 build-time files record an already-
+   resolved measurement and an already-performed safety analysis —
+   neither requires the owner to run anything.
 2. **The authoritative standard.** `AD-24`; testing-standards
    (real implementations preferred; the doubled-subject
    anti-pattern is avoided by using the real handler binary).
@@ -3020,19 +3042,19 @@ verifications); L11 (both).
 4. **What this is NOT — and why.** Not in-process handler calls
    (loses the process-boundary contract — AD-1's whole point).
    Not synthetic hook JSON that skips the adapter (bypasses the
-   one CC-field-name file — AD-6). Not skipping the owner-run
-   verifications because "the container cannot" (the disclosure
-   L11 makes and this step schedules is the honest replacement).
+   one CC-field-name file — AD-6). Not an owner-run probe for L11
+   (D-plan-6 retracted that design specifically to avoid over-
+   asking a non-programmer owner — `OL-11`); the two `.md` files
+   here are records of resolution already reached, not open tasks.
 
 **Dependencies.** Steps 1, 28 (handler must build to be spawn-
 able), 22 (grammar frontend).
 
 **Verification.** `T40-*` (each fixture asserts its AC — full
-mapping in §12); the two owner-run verifications produce
-markdown reports that update AD-24's L11 disclosure into
-"verified/measured" or "confirmed unavailable in mode X" — a
-result recorded in a follow-up documentation PR after the build
-lands.
+mapping in §12); the two L11 files are static records checked in
+with the build, cross-referenced against AD-24's L11 disclosure by
+Step 43's post-completion documentation pass — no owner-run
+verification is scheduled.
 
 **Impact if wrong.** The acceptance suite is what proves Phase A
 correct; a broken fixture undercuts every AC that depends on it.
@@ -3729,18 +3751,25 @@ actual current design.
    recognizer correctness, fixture-replay for orchestrated AC
    behavior, build-time markdown probes for the two owner-environment
    premises the tool cannot probe from inside its own process.
-2. **Hardest question.** The build-time tier is a *manual* step;
-   Fake-Test Anti-Pattern #10 (Flake-tolerated) is what a manual
-   test becomes when nobody runs it.
-3. **Answer.** The build-time tier is not a routine test — it is two
-   named preconditions of specific L11 disclosures, executed once at
-   Step 40 and recorded as the deliverable of that step. The plan
-   marks Step 40 as unfinished until the probes are executed;
-   `docs/STATUS.md` will not report "Phase A complete" until Step 40
-   is closed. This is the honest form of "coverage the tool cannot
-   generate itself" — recorded as a gap (§15 Q-gap-4), not hidden as
-   a passing "test." Cite: `references/testing-standards.md`
-   Anti-Pattern #10; architecture L11; plan §15 Q-gap-4.
+2. **Hardest question.** The build-time tier was originally scoped as
+   a *manual*, owner-run step; Fake-Test Anti-Pattern #10 (Flake-
+   tolerated) is what a manual test becomes when nobody runs it.
+3. **Answer (corrected this fix pass, round 4 — swept alongside
+   Step 40's own Systemic-Instance-A fix): both L11 preconditions are
+   now resolved, not scheduled as manual probes.** L11(a) was
+   resolved by direct measurement (§10 D-plan-6, §15 Q-gap-4); L11(b)
+   is resolved by design-safety analysis plus the
+   `deny_from_injected_turn` runtime counter (Step 18), with which
+   code path fires at all left to natural observation at first
+   install (Step 42), not a scheduled probe. Step 40's two
+   `test/build_time/*.md` files are static records of these
+   resolutions, checked in with the build — there is no manual step
+   left for anyone to skip. This is the honest form of "coverage the
+   tool cannot generate itself" — recorded as a gap (§15 Q-gap-4),
+   not hidden as a passing "test," and not disguised as an
+   outstanding manual chore either. Cite:
+   `references/testing-standards.md` Anti-Pattern #10; architecture
+   L11; plan §10 D-plan-6; plan §15 Q-gap-4.
 4. **Steers toward.** Implementer running unit + convention on every
    commit; fixture-replay on demand; build-time probes as one-shot
    pre-exit tasks. **Guide, not gate** — the tiers are performance
@@ -6124,14 +6153,22 @@ disposition. **Zero entries open at delivery.**
   is done post-Step 31 (init works), so the initial exit runs may
   be against captured streams from Max's later use.
 
-- **Q13 (Step 40).** How does the L11 (b) verification (whether
+- **Q13 (Step 40) — SUPERSEDED BY §14.3'S Q-GAP-4 (corrected this
+  fix pass, round 4: expert-review Systemic Instance A).** Prior
+  wording asked how the L11(b) verification (whether
   `UserPromptSubmit` fires on task notifications / scheduled wakes)
-  actually get performed? **Bin.** 1 (docs). **Disposition.**
-  Documented in `test/build_time/user_prompt_submit_provenance.md`:
-  the owner installs a hook that logs every `UserPromptSubmit`
-  invocation, then triggers task notifications via
-  `ScheduleWakeup`/`send_later`; the log shows whether the event
-  fired.
+  actually gets performed, and answered that it is documented in
+  `test/build_time/user_prompt_submit_provenance.md` via an owner-
+  run hook — a design §10's D-plan-6 explicitly retracted and that
+  directly contradicted this same document's own Q-gap-4 entry
+  (§14.3) on the identical question. That prior answer is wrong:
+  L11(b) has no owner-run probe. It is resolved by design-safety
+  analysis (safe against a persistent wrongful deny, measurably not
+  against a transient one, per the `deny_from_injected_turn`
+  counter added at Step 18) plus natural observation of which code
+  path fires at all on first install (Step 42's exit run) — see
+  §14.3's Q-gap-4 for the full disposition, which this entry now
+  points to rather than duplicating.
 
 ### 14.2 Bin 2 — user decisions
 
@@ -6312,6 +6349,46 @@ review plus the meta-check's H1–H8 findings.
   (`stdio-session-1788762266748`). All six confirmed the shipped
   design with no revision needed (full per-decision summary in §15
   Q-gap-5). Q-gap-5 is RESOLVED, not partially — see §15.
+- **Pass J (fix pass, round 3 — independent re-review response,
+  added this fix pass, round 4, per expert-review's tentative
+  finding that this narrative had no entry for it).** A fresh
+  independent collapse-hunt and expert-review ran against Pass I's
+  output. Collapse-hunt: 2 collapses, 2 partials — the "genuine
+  independent check" overclaim in §15 Q-gap-5's disposition and the
+  standalone verification document; `deny_bypass_suspect`'s missing
+  over-count disclosure (Step 18, Step 33, T33-1, N2); D-plan-1's
+  stale §10 sentence still pointing at §15 as open; N5's "sharpened
+  by the Clear-Thought pass" claim missing from N5's own §10A entry
+  — all four fixed in this pass. Expert-review: 1 Systemic pattern
+  spanning 2 instances (Step 41 not building
+  `deny_bypass_predicates_confined.test.ts`/T18-3; Step 8/T8-1/T23-1
+  claiming the migration seeds `tuning`, contradicting AD-5's WRITER
+  designation) plus 2 Moderate citation errors (§2.3's Delivery row;
+  Step 19's "Step 26"→"Step 25" citation) and 1 Minor finding (the
+  Q-gap-5 evidence directory not checked in) — all fixed in this
+  pass, including creating
+  `docs/reviews/evidence-2026-09-07-clear-thought-verification-q-gap-5/`
+  with the real MCP client, driver script, and raw response sample.
+- **Pass K (fix pass, round 4 — independent re-review response).** A
+  fresh independent collapse-hunt and expert-review ran against Pass
+  J's output. Collapse-hunt: 2 collapses — Step 14's own body still
+  attributed `lexicon.stoplist`'s seeding to Step 8 after Pass J's
+  Step 8 correction (fixed to Step 23); §2.3's coverage table had
+  three further wrong step-number citations beyond the Delivery row
+  Pass J fixed (genres misattributed to "Steps 21–28" instead of
+  Step 25 alone; the indexer misattributed to Step 22 instead of
+  Step 21; Self-observability's status/regret/log roles swapped
+  across Steps 33/36/37) — all fixed in this pass. Expert-review: 1
+  Systemic pattern spanning 2 instances — Step 40's body and §14.1's
+  Q13 still described the owner-run L11 probe design §10's D-plan-6
+  had already retracted (fixed to match §5.1's actual
+  `l11_a_measurement.md`/`l11_b_disposition.md` files and no owner
+  action); Step 32's Verification field never cited `T32-1a` and
+  misattributed `--purge` to `T32-1` (split into separate citations)
+  — both fixed in this pass, along with a related stale reference in
+  §10A's "Test tier split" collapse-test (still describing "probes"
+  as a future manual step) found during this pass's own sweep and
+  fixed alongside the flagged findings.
 
 **Final count.** 14 original bin-1 entries (Q1–Q14, all answered with
 evidence pointers); 2 bin-2 entries open for Max Cogar's optional

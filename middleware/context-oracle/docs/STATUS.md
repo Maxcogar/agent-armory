@@ -24,7 +24,7 @@ dominating rule 3).
 
 The spec (`docs/specs/spec-context-oracle.md`) is signed off (`OL-C6`). The
 Phase A architecture (`docs/architecture-phase-a.md`) is reviewed to
-convergence. `docs/plans/plan-phase-a.md` has been through **two rounds** of
+convergence. `docs/plans/plan-phase-a.md` has been through **four rounds** of
 fix-and-re-review this session:
 
 **Round 1** fixed every finding across the four review documents that had
@@ -192,16 +192,61 @@ fixed:
   and a raw transcript sample to
   `docs/reviews/evidence-2026-09-07-clear-thought-verification-q-gap-5/`.
 
+**Round 4** dispatched a fresh independent collapse-hunt and expert-review
+against round 3's output. Both returned real, shrinking findings, all
+fixed:
+
+- **Collapse-hunt** (2 collapses, 0 partials): (1) Step 14's own body still
+  said `lexicon.stoplist` is "seeded... at Step 8," a literal contradiction
+  of round 3's own Step 8 correction three lines above in the same
+  paragraph — fixed to "at Step 23 (invoked at `init`)"; (2) §2.3's
+  coverage-reconciliation table — the same table whose Delivery row round
+  3 corrected — had three further wrong step-number citations: the seven
+  genres attributed to "Steps 21–28" instead of Step 25 alone, the indexer
+  attributed to Step 22 instead of Step 21, and Self-observability's
+  status/regret/log roles swapped across Steps 33/36/37 (with Step 37 —
+  concurrency, unrelated — cited in place of Step 33 for `log`). All four
+  rows rewritten to match the step bodies and §12.5's own Step→T-ID table.
+- **Expert-review** (1 Systemic pattern spanning 2 instances): Step 40's
+  body and §14.1's Q13 still described the owner-run L11 probe design
+  that the plan's D-plan-6 entry retracted back in round 1 — files
+  (`real_transcript_marker_probe.md`, `user_prompt_submit_provenance.md`)
+  that never matched the plan's actual file skeleton (`l11_a_measurement.md`,
+  `l11_b_disposition.md`); rewritten to match D-plan-6/Q-gap-4's
+  resolved disposition (no owner action for either L11(a), already
+  measured, or L11(b), resolved by design-safety analysis plus the
+  `deny_from_injected_turn` runtime counter). Step 32's Verification field
+  never cited `T32-1a` (added at round 2 to §12 and the mapping table, but
+  never swept into Step 32's own inline prose) and misattributed `--purge`
+  to `T32-1` alone, contradicting T32-1's own "NOT asserts: `--purge`"
+  spec — split into separate `T32-1`/`T32-1a` citations. A related stale
+  reference in §10A's "Test tier split" collapse-test (still describing
+  the L11 preconditions as unexecuted manual probes) was found during this
+  pass's own sweep and fixed alongside the two flagged findings. The
+  sweep-record narrative (section 14.4) also got two missing entries —
+  Pass J (round 3) and Pass K (round 4) — per expert-review's tentative
+  finding that it had no entry for round 3's own substantial fix pass.
+
+Four consecutive rounds have now found this same "fix landed at its
+primary site, not swept to every cross-referencing surface" pattern
+recurring at new sites each time (round 2: 7 sites; round 3: 2 sites;
+round 4: 2 instances at 4 locations) — logged in `docs/collapse-log.md`
+as a standing lesson: a reconciliation sweep's own attestation of
+completeness is not verification of completeness, however many times the
+same fix pass has already caught one instance of the pattern in the same
+session.
+
 ## What to do next (agent-owned)
 
-1. **Dispatch round 4 of independent collapse-hunt and expert-review.**
+1. **Dispatch round 5 of independent collapse-hunt and expert-review.**
    The finding count kept shrinking each round (round 1: 3
    collapses/4 partials/6 missed decisions + 10 expert-review findings;
    round 2: 1 collapse/3 partials/1 procedural gap + 9 expert-review
    findings incl. the Q-gap-5 overclaim; round 3: 2 collapses/2 partials +
-   4 expert-review findings) and all were fixed each time. This is the
+   4 expert-review findings; round 4: 2 collapses/0 partials + 1 Systemic
+   pattern spanning 2 instances) and all were fixed each time. This is the
    same iterate-to-convergence loop that took the architecture document
-   nine rounds — dispatch the next round rather than assuming round 3's
+   nine rounds — dispatch the next round rather than assuming round 4's
    fixes are the last word.
 2. **Once a round comes back clean, proceed to implementation** via
    `.claude/skills/expert-implement/` against the fixed plan.
@@ -215,9 +260,9 @@ fixed:
 
 ## Open items
 
-- Round 4 of independent review has not yet run — see "What to do next"
-  item 1. Nothing else from rounds 1–3 remains open: all findings from all
-  three rounds across both review types, plus Q-gap-5's six judgment
+- Round 5 of independent review has not yet run — see "What to do next"
+  item 1. Nothing else from rounds 1–4 remains open: all findings from all
+  four rounds across both review types, plus Q-gap-5's six judgment
   calls (Clear-Thought-verified, independently reproduced by round 3's
   expert-review), are closed.
 - L11(a) — human-marker presence on Max Cogar's real interactive transcript

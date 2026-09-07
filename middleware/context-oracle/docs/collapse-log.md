@@ -19,6 +19,54 @@ goes hollow is itself data.
 
 ---
 
+## 2026-09-07 — round 4: the sweep-failure pattern recurred a fourth time, at new sites each round, including inside the artifact whose own job is to catch it
+
+Round 3 had already named "a fix landing at its primary site without
+sweeping every cross-referencing surface" as the recurring failure across
+three consecutive rounds (rounds 2 and 3, 9 sites total) and prescribed a
+mechanical per-surface checklist as the fix. Round 4's independent
+collapse-hunt and expert-review found the identical shape recurring at 4
+more sites, none of them overlapping the 9 already fixed:
+
+1. **Step 14's own body** still attributed `lexicon.stoplist`'s seeding to
+   Step 8, three lines away from a sibling clause in the *same sentence*
+   that round 3's own fix pass had correctly re-pointed to Step 23 —
+   meaning the fix pass's hand touched this exact paragraph and still
+   missed the neighboring clause.
+2. **§2.3's coverage-reconciliation table** — the document's own
+   self-audit of its own completeness — had three further wrong
+   step-number citations (genres, indexer, self-observability) surviving
+   in the *same table* whose Delivery row round 3 had just corrected one
+   row above. A self-audit instrument failed at exactly the job it exists
+   to do, in the same table, the same session, immediately after fixing
+   an adjacent instance of the identical defect.
+3. **Step 40's body and §14.1's Q13** still described an owner-run L11
+   probe design that §10's D-plan-6 had explicitly retracted — a
+   retraction performed in round 1, never caught by rounds 1–3 because no
+   prior round's targeted-read scope happened to include Step 40's body
+   or §14.1.
+4. **Step 32's Verification field** never cited `T32-1a`, an omission
+   dating to round 2 (when `T32-1a`'s spec was added to §12 and the
+   mapping table, but not swept into the constructing step's own inline
+   prose) and unnoticed through round 3.
+
+Class: **unverified** — the same class rounds 2 and 3 already named,
+still recurring, now inside the artifact (§2.3) whose stated purpose is
+proving completeness. **The sharpened lesson, four rounds in:** the
+magnitude shrinks each round (7 sites → 2 → 2, at 4 total locations) but
+the *mechanism* generating new instances hasn't changed — a fix pass
+reliably corrects the site(s) a review names and reliably fails to
+mechanically re-diff every other surface that cites the same fact, even
+within the same document, even one row above in the same table it is
+mid-edit on. A reconciliation table's own attestation of completeness
+("nothing is unmapped, nothing is silently deferred," §2.3's own closing
+line) is not evidence of completeness — it is exactly the kind of claim
+that needs independent, fresh-eyes verification, which is why the
+iterate-to-convergence discipline (dispatch a new round rather than
+trust the last round's sweep) is the correct response to this class of
+defect, not a one-time mechanical checklist a future fix pass might again
+forget to run.
+
 ## 2026-09-07 — round 3 expert-review: the sweep mechanism itself, not any one fix, was the recurring point of failure — three rounds running
 
 Round 2 diagnosed and fixed a systemic pattern at 7 sites: content the fix
