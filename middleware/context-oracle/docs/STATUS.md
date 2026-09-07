@@ -24,7 +24,7 @@ dominating rule 3).
 
 The spec (`docs/specs/spec-context-oracle.md`) is signed off (`OL-C6`). The
 Phase A architecture (`docs/architecture-phase-a.md`) is reviewed to
-convergence. `docs/plans/plan-phase-a.md` has been through **eight rounds** of
+convergence. `docs/plans/plan-phase-a.md` has been through **nine rounds** of
 fix-and-re-review this session:
 
 **Round 1** fixed every finding across the four review documents that had
@@ -413,9 +413,56 @@ execute-don't-assume method. Both returned real findings, all fixed:
   by adding explicit rename-parsing to Step 20 and a renamed-file
   scenario to `T20-1`'s fixture.
 
+**Round 9** dispatched a fresh independent collapse-hunt and expert-review
+against round 8's output, instructed to verify round 8's fixes by
+re-execution rather than re-reading and to keep prioritizing silent
+defects. Both returned real findings, all fixed:
+
+- **Expert-review** (2 Serious): both found by re-executing round 8's own
+  fix mechanisms against the exact scenarios round 8's own findings named
+  — not merely re-reading the corrected prose. (1) Round 8's Step 20 fix
+  claimed to "expand the brace form if present into the real old and new
+  paths," but its only supplied mechanism (a single regex) does not do
+  that: applied to the fix's own cited example, `src/{utils => other}/
+  c.txt`, it produces two malformed strings containing stray brace
+  characters, reproducing the exact silent corruption the fix was
+  supposed to close. Fixed with a proper two-step detector (brace form
+  first, plain form as fallback) and a cross-directory rename fixture
+  added to `T20-1`. (2) Round 8's Step 37 fix replaced the nonexistent
+  `flock`(2) call with a real atomic exclusive-create lock file, but
+  specified no release step — `fs.closeSync` does not delete the lock
+  file, unlike `flock`(2)'s kernel-mediated auto-release, so the
+  detached reindex's self-refresh would succeed once per project and
+  then fail `EEXIST` forever after, silently and permanently disabling
+  automatic re-indexing with no diagnostic. Fixed with an explicit
+  unlink-on-completion, a named staleness threshold (`reindex.
+  lock_stale_ms`, a new seeded `tuning` default), and a new test (`T37-3`).
+- **Collapse-hunt** (1 collapse, 2 further findings): independently
+  confirmed the same Step 20 brace-expansion gap (Collapse 1) and went
+  further — constructing a fourth rename scenario (a same-directory,
+  same-extension rename, the single most ordinary refactor) and showing
+  the brace-compaction form is not a rare edge case but the *dominant*
+  shape for real renames, making the gap more consequential than round
+  8's own framing suggested. Also found that round 8's own two
+  collapse-hunt findings (the Step 5 git-invocation fix, the original
+  Step 20 rename-detection fix) were fixed at their primary sites but
+  never logged in section 11's claims registry, in the same fix pass
+  that correctly logged round 8's sibling expert-review findings —
+  fixed by adding both entries. A third, Minor finding (Step 37's
+  staleness check being unspecified and untested) was resolved by the
+  same fix as the expert-review's Serious Finding 2.
+
+Logged in `docs/collapse-log.md`: a fix-pass annotation claiming a prior
+finding is "corrected" is itself an unverified claim until the exact
+scenario the original finding named is re-executed against the fix's
+literal text — not merely re-read for plausibility. This is a
+fix-diff-specific sharpening of the execute-don't-assume method, now
+shown to apply with equal force to a round's own closure claims about
+itself, not only to fresh claims about the document's older content.
+
 ## What to do next (agent-owned)
 
-1. **Dispatch round 9 of independent collapse-hunt and expert-review.**
+1. **Dispatch round 10 of independent collapse-hunt and expert-review.**
    The finding count across rounds: round 1: 3 collapses/4 partials/6
    missed decisions + 10 expert-review findings; round 2: 1 collapse/3
    partials/1 procedural gap + 9 expert-review findings incl. the
@@ -425,17 +472,17 @@ execute-don't-assume method. Both returned real findings, all fixed:
    Systemic pattern spanning 2 instances at 6 locations + 1 Minor; round
    6: 1 collapse + 2 Moderate/2 Minor; round 7: 1 Critical + 1 Moderate
    (expert-review) + 1 collapse + 3 Minor (collapse-hunt); round 8: 1
-   Serious + 1 Moderate (expert-review) + 2 collapses (collapse-hunt).
-   All fixed each time. This is the same iterate-to-convergence loop
-   that took the architecture document nine rounds — dispatch the next
-   round rather than assuming round 8's fixes are the last word, and
-   instruct it to independently re-verify round 8's own closure claims
-   (re-executing the corrected git-command algorithms, not merely
-   re-reading the corrected prose) rather than trust them. Round 8's own
-   collapse-hunt names untested candidates for round 9: the `PRAGMA
-   quick_check`/`journal_mode`/`busy_timeout` claims (Step 3/T3-1) and
-   the `git config --get remote.origin.url` normalization claims (Step
-   5's URL-fallback branch, N1).
+   Serious + 1 Moderate (expert-review) + 2 collapses (collapse-hunt);
+   round 9: 2 Serious (expert-review) + 1 collapse + 2 findings
+   (collapse-hunt). All fixed each time. This is the same
+   iterate-to-convergence loop that took the architecture document nine
+   rounds — dispatch the next round rather than assuming round 9's fixes
+   are the last word, and instruct it to independently re-execute round
+   9's own fix mechanisms (the corrected brace-detection regex against
+   both a same-directory and a cross-directory rename; the lock
+   acquire/release/staleness sequence) rather than trust the corrected
+   prose. Round 9's own collapse-hunt suggests exactly this as round 10's
+   method.
 2. **Once a round comes back clean, proceed to implementation** via
    `.claude/skills/expert-implement/` against the fixed plan.
 3. **Two bin-2 items are flagged for Max Cogar's awareness in the plan's
@@ -450,9 +497,9 @@ execute-don't-assume method. Both returned real findings, all fixed:
 
 ## Open items
 
-- Round 9 of independent review has not yet run — see "What to do next"
-  item 1. Nothing else from rounds 1–8 remains open: all findings from all
-  eight rounds across both review types, plus Q-gap-5's six judgment
+- Round 10 of independent review has not yet run — see "What to do next"
+  item 1. Nothing else from rounds 1–9 remains open: all findings from all
+  nine rounds across both review types, plus Q-gap-5's six judgment
   calls (Clear-Thought-verified, independently reproduced by round 3's
   expert-review), are closed.
 - L11(a) — human-marker presence on Max Cogar's real interactive transcript

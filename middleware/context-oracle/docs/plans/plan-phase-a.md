@@ -422,6 +422,7 @@ middleware/context-oracle/ctxoracle/
       whisper_form.test.ts                 # T27-1
       concurrency.test.ts                  # T37-1
       whisper_stats_fold.test.ts           # T37-2
+      reindex_lock.test.ts                 # T37-3 — added round 9
       model_invoke_stub.test.ts            # T38-1
       oracle_spawn.test.ts                 # T2.5-1
     build/                                 # compile-time typecheck fixtures
@@ -1870,18 +1871,28 @@ question silently drops it; guarded by `rebuild_recovered_nothing`
 `mineCochange(store, repoPath, opts)` — reads `schema_meta.
 last_mined_commit` watermark; runs `git log --no-merges --numstat -M
 --format=%H%x00%at%x00 <watermark>..HEAD` streamed line-by-line; for
-each `--numstat` line, if the third (path) field matches `^(.*) => (.*)$`
-(a `-M`-detected rename, with or without brace-abbreviated
-shared-prefix/suffix compaction, e.g. `src/{utils => other}/c.txt`),
-expand the brace form if present into the real old and new paths and
-add **both** to that commit's touched-file set; otherwise the field is
-a plain path, added as-is — corrected this fix pass, round 8
-(collapse-hunt finding): `-M`'s own `--numstat` output was previously
-assumed to always be a plain path, but a detected rename collapses to
-a single `old => new` (or brace-abbreviated) line, which the prior
-text's touched-file-set extraction would have ingested as a garbage
-compound string or silently dropped, corrupting coupling evidence for
-every renamed file on real repos; per commit: records the commit in
+each `--numstat` line, the third (path) field is parsed by a two-step
+detector — corrected this fix pass, round 9 (expert-review Serious
+finding): round 8's single regex, `^(.*) => (.*)$`, was previously
+claimed to "expand the brace form if present," but applied to git's
+own brace-abbreviated output (e.g. `src/{utils => other}/c.txt`) it
+captures `"src/{utils"` and `"other}/c.txt"` — neither a real path;
+brace expansion requires a dedicated first check:
+1. First check the brace-abbreviated form specifically:
+   `^(.*)\{(.*) => (.*)\}(.*)$` — if it matches, the real old path is
+   `prefix + oldPart + suffix` and the real new path is
+   `prefix + newPart + suffix` (`prefix`/`suffix` may be empty
+   strings), and **both** real paths are added to that commit's
+   touched-file set.
+2. Only if that does not match, check the plain-rename form
+   `^(.*) => (.*)$` — if it matches (a same-directory rename with no
+   brace compaction), both captured paths are added as-is.
+3. Otherwise the field is a plain, non-rename path, added as-is.
+
+This handles the general case round 8's own collapse-hunt named
+(`-M`'s output collapses a detected rename to a single line, not a
+plain path) for both rename shapes git actually produces, not only the
+same-directory case; per commit: records the commit in
 `commits` with `entity_count`, excludes if `entity_count >
 opts.maxTransactionEntities` (default 30, tunable via `tuning`); for
 included commits, generates all canonical-ordered file pairs from the
@@ -2100,23 +2111,34 @@ absence:
 - `lexicon.completion_claim` (list): "done", "complete",
   "implemented", "fixed", "finished"...
 - `deny.despite_answer_text_threshold` = "3"
+- `reindex.lock_stale_ms` = "600000" (10 minutes) — **not sourced.**
+  Added this fix pass, round 9 (expert-review Serious finding, Step
+  37): the reindex lock's staleness threshold, distinguishing a
+  crashed process's abandoned lock from a genuinely still-running
+  reindex; well beyond any real index run's duration, a plan-level
+  judgment with no external or owner grounding, calibrated by the
+  exit-run like the other unsourced values below.
 
 **Source.** `AD-14` for `confidence_floor`, `support_min`,
 `noise_floor_support_min`, and `impact_read_min_coupled` (illustrative
 architect defaults, explicitly named there, explicitly marked
 tunable — a real source, with a real caveat, neither hidden); no
-architecture source for `reuse_dominance_k` or `clear_length_floor`
-(plan-level judgment); `AD-9` (stoplists as a category, not their
-exact contents); `AD-15` (command_class lexicons as a category);
-AD-20 (`tune` writer). **Every one of these six numbers is still a
-Phase A calibration input, not a finding — "illustrative" in AD-14's
-own words means AD-14 never claimed these were final either:** Step
-42's exit-run is what actually calibrates all six, and the
-exit-report's per-genre counts are conditional on these starting
-values until that first real-repo tune runs (collapse-log
-2026-08-13's "a per-trigger number that had no value and no source"
-lesson — here, honestly, two of six have no source and four have a
-source that itself says "calibrate me").
+architecture source for `reuse_dominance_k`, `clear_length_floor`, or
+`reindex.lock_stale_ms` (plan-level judgment); `AD-9` (stoplists as a
+category, not their exact contents); `AD-15` (command_class lexicons
+as a category); AD-20 (`tune` writer). **Every one of these seven
+numbers is still a Phase A calibration input, not a finding —
+"illustrative" in AD-14's own words means AD-14 never claimed these
+were final either — corrected this fix pass, round 9: previously said
+"six numbers," now seven with `reindex.lock_stale_ms` added:** Step
+42's exit-run is what actually calibrates the four bar-tier values
+subject to real-repo tuning (`reindex.lock_stale_ms` is an operational
+timeout, not a bar-tier signal, and is not part of that calibration
+loop), and the exit-report's per-genre counts are conditional on
+those bar-tier starting values until that first real-repo tune runs
+(collapse-log 2026-08-13's "a per-trigger number that had no value and
+no source" lesson — here, honestly, three of seven have no source and
+four have a source that itself says "calibrate me").
 
 **Why this approach (trivial: seeding a plan-judgment starting point,
 disclosed as such, so `init` has values to seed at all — the
@@ -2895,16 +2917,38 @@ In `src/index/indexer.ts` (Step 21):
   exclusive-create lock file — `fs.open(lockPath, fs.constants.O_CREAT
   | fs.constants.O_EXCL | fs.constants.O_WRONLY)` on
   `<home>/projects/<key>/.reindex.lock`, throwing `EEXIST` if another
-  process already holds it, with an mtime/PID staleness check so a
-  crashed process's stale lock does not permanently block future
-  reindex attempts — corrected this fix pass, round 8 (expert-review
-  Serious finding): previously said "via `flock`(2)," a POSIX syscall
-  `node:fs` does not expose (verified: no `fs.flock`, no `LOCK_*`/
-  `O_EXLOCK` constants) and that this plan's no-native-code,
+  process already holds it — corrected this fix pass, round 8
+  (expert-review Serious finding): previously said "via `flock`(2)," a
+  POSIX syscall `node:fs` does not expose (verified: no `fs.flock`, no
+  `LOCK_*`/`O_EXLOCK` constants) and that this plan's no-native-code,
   two-runtime-dependency constraints (`C-3`, `AD-25`) leave no way to
-  invoke — see §11.4 for the verification entry. The lock is advisory,
-  not kernel-enforced, which is sufficient here since the handler
-  never waits on it (staleness merely lowers confidence).
+  invoke — see §11.4 for the verification entry. **Release and
+  staleness, specified this fix pass, round 9 (expert-review Serious
+  finding: the round-8 fix named a lock primitive but never specified
+  releasing it — `fs.closeSync` does not delete the file, unlike
+  `flock`(2)'s kernel-mediated auto-release on process exit, so
+  without an explicit release the lock would succeed once per project
+  and then fail `EEXIST` on every subsequent reindex attempt,
+  permanently):**
+  1. On completion of the detached reindex (success or failure — a
+     `finally` block), unlink the lock file via
+     `fs.unlinkSync(lockPath)` before the process exits. This is the
+     common-case release path; the case below exists only for a
+     process that crashes before reaching it.
+  2. If lock acquisition fails with `EEXIST`, read the existing lock
+     file's mtime. If it is older than `reindex.lock_stale_ms`
+     (default 600000ms / 10 minutes — well beyond any real index run,
+     plan-judgment default, not architecture-sourced), treat it as
+     abandoned by a crashed process: unlink it and retry acquisition
+     once. If the retry also fails, or the lock is not stale, skip
+     this reindex attempt silently (the next `refreshIfStale` trigger
+     tries again) — no PID liveness check is needed beyond the mtime
+     threshold, since this is a single-host, single-user tool with no
+     cross-machine lock contention to distinguish "still running" from
+     "crashed" more precisely than elapsed time.
+  The lock is advisory, not kernel-enforced, which is sufficient here
+  since the handler never waits on it (staleness merely lowers
+  confidence).
 
 **Source.** `AD-26` (concurrency: WAL + busy_timeout + retry-once +
 BEGIN IMMEDIATE for the fold; ULIDs); `AD-5` (per-project
@@ -2918,10 +2962,15 @@ watermark).
 one wins the transaction, the other retries once and succeeds;
 after that a third contended write fails-open with `store_busy`),
 `T37-2` (fold correctness: two concurrent same-project folds do
-not double-count).
+not double-count), `T37-3` (reindex lock acquire/release/staleness —
+added this fix pass, round 9: neither `T37-1` nor `T37-2` previously
+touched the reindex directory lock at all).
 
 **Impact if wrong.** Race conditions and silent double-counts in
-efficacy stats. Caught by `T37-1`/`T37-2`.
+efficacy stats. Caught by `T37-1`/`T37-2`. A missing or wrong lock
+release would silently and permanently disable the automatic
+self-refresh mechanism after its first successful run per project —
+caught by `T37-3`.
 
 ---
 
@@ -4400,6 +4449,38 @@ session (fetched at plan-time, 2026-09-06). Where an entry cites a
   among the features "that require transformation" and are therefore
   rejected in strip-only mode regardless of version.
 
+- **Claim.** `git rev-parse --is-inside-work-tree` (and
+  `--is-shallow-repository`, `git rev-list --max-parents=0 HEAD`) fail
+  outright (non-zero exit, no stdout) against a directory with no
+  `.git` anywhere in its ancestry; they do not print the literal string
+  `false` for that case — `false` is printed only when the command
+  succeeds inside a bare repository or a `.git` directory. **Steps.**
+  Step 5 (repo-identity resolver); `T5-1`. **Added this fix pass,
+  round 9** (collapse-hunt Finding 2 — round 8's own collapse-hunt
+  established this fact by direct execution but never logged it in
+  §11, despite logging round 8's sibling expert-review findings).
+  **Evidence.** Direct execution against git 2.43: a genuinely non-git
+  directory produces `fatal: not a git repository (or any of the
+  parent directories): .git`, exit 128, for all three commands; a bare
+  repository (`git init --bare`) produces stdout `false`, exit 0, for
+  `--is-inside-work-tree`.
+
+- **Claim.** `git log --numstat -M` collapses a detected rename's
+  `--numstat` line to a single `old => new` line, or — when the old and
+  new paths share a directory prefix and/or suffix — a brace-abbreviated
+  compaction (e.g. `src/{utils => other}/c.txt`), never a plain
+  single-path line; this compaction is triggered even by the single
+  most ordinary same-directory rename, not only cross-directory moves.
+  **Steps.** Step 20 (co-change miner); `T20-1`. **Added this fix pass,
+  round 9** (collapse-hunt Finding 2 — round 8's own collapse-hunt
+  established this fact by direct execution but never logged it in
+  §11). **Evidence.** Direct execution against constructed repositories:
+  a same-directory, same-extension rename (`src/foo.ts` → `src/bar.ts`)
+  produced `0	0	src/{foo.ts => bar.ts}`; a cross-directory rename
+  produced `0	0	src/{utils => other}/e.txt`; a rename between two
+  dissimilarly-named files with no shared prefix/suffix produced the
+  plain form, `0	0	aaa_file.txt => bbb_file.txt`.
+
 ### 11.5 Claims from the collapse-log
 
 - **Claim.** The 2026-09-04 entry names Phase A's "fake completeness"
@@ -4955,19 +5036,33 @@ T-ID was cited at Step 2.5 with no §12 specification.)*
   pair (5 commits touching two cross-directory files); 1 merge
   commit (must be excluded); 1 commit with 45 files touched
   (must be excluded); 1 commit older than the horizon (must be
-  excluded); 1 commit containing a git-detected file rename
-  (partway through the planted coupling history) — added this fix
-  pass, round 8 (collapse-hunt finding): the miner's rename handling
-  was previously unexercised by any fixture. Deterministic seed.
-  Technique: decision table over exclusion rules.
+  excluded); 1 commit containing a rename between two dissimilarly-
+  named files with no shared prefix/suffix (e.g. `aaa_file.txt` →
+  `bbb_file.txt`), deliberately chosen to produce `--numstat`'s
+  **plain** `old => new` form, not the brace-abbreviated one — added
+  this fix pass, round 8 (collapse-hunt finding): the miner's rename
+  handling was previously unexercised by any fixture; 1 commit
+  containing a rename between two files sharing a directory prefix
+  and/or filename segment (e.g. `src/foo.ts` → `src/bar.ts`, or a move
+  to a sibling directory), deliberately chosen to produce `--numstat`'s
+  **brace-abbreviated** compaction (e.g. `src/{foo.ts => bar.ts}` or
+  `src/{utils => other}/file.ts`) — corrected this fix pass, round 9
+  (collapse-hunt finding): previously claimed a same-directory rename
+  "produces only the plain form," which direct execution disproved —
+  git's brace compaction triggers on the single most ordinary
+  same-directory rename shape, not only cross-directory moves, so the
+  fixture must deliberately verify both `--numstat` shapes by
+  filename choice rather than assuming directory structure alone
+  determines which form appears. Deterministic seed. Technique:
+  decision table over exclusion rules.
 - **NOT asserts.** Recency-weighted confidence values (that's
   bar-tier logic, T24-1). **Fails when** any excluded commit
   contributes to counts, OR the non-obvious pair does not
-  appear with the expected count, OR the renamed commit's
-  touched-file set omits either the pre-rename or post-rename path
-  (i.e., the `old => new`/brace-abbreviated `--numstat` line was
-  ingested as a literal path or silently dropped instead of being
-  expanded to both paths).
+  appear with the expected count, OR either renamed commit's
+  touched-file set omits its pre-rename or post-rename path (i.e.,
+  the `old => new`/brace-abbreviated `--numstat` line was ingested
+  as a literal path or silently dropped instead of being expanded to
+  both real paths).
 
 **T21-1 — Indexer skeleton on a small fixture repo.**
 - **File.** `test/unit/indexer.test.ts`.
@@ -5043,25 +5138,27 @@ cited at Step 21 and Step 2.5 with no §12 specification.)*
 - **File.** `test/unit/tuning_dao.test.ts`.
 - **Verifies.** Step 23 — `seedDefaults` (called at `init`, not at
   migration — T8-1 asserts `tuning` is empty before this runs) inserts
-  all six defaults; scalar and list-valued keys round-trip.
+  all seven defaults (six through round 8; `reindex.lock_stale_ms`
+  added round 9 — see Step 37); scalar and list-valued keys round-trip.
   **Corrected this fix pass (round-3 expert-review Systemic finding):**
   the prior text asserted "every seeded key from AD-14," which is
-  false for two of the six (`reuse_dominance_k`, `clear_length_floor`
-  have no AD-14 citation — Step 23's own corrected text, this same fix
-  pass, already says so).
+  false for three of the seven (`reuse_dominance_k`,
+  `clear_length_floor`, `reindex.lock_stale_ms` have no AD-14
+  citation — Step 23's own corrected text, this same fix pass, already
+  says so).
 - **Level.** Integration (real DB).
 - **Real/doubles.** Real `node:sqlite`. No doubles.
 - **Data.** After migration + `seedDefaults`: assert the four
   AD-14-sourced keys (`confidence_floor`, `support_min`,
   `noise_floor_support_min`, `impact_read_min_coupled`) match AD-14's
-  stated values exactly; assert `reuse_dominance_k` (`3`) and
-  `clear_length_floor` (`40`) match Step 23's own plan-seeded values,
-  with no AD-14 comparison for either. Then: set a scalar, add a
-  list member, remove a list member, re-read. Technique:
-  state-transition.
+  stated values exactly; assert `reuse_dominance_k` (`3`),
+  `clear_length_floor` (`40`), and `reindex.lock_stale_ms` (`600000`)
+  match Step 23's own plan-seeded values, with no AD-14 comparison for
+  any of the three. Then: set a scalar, add a list member, remove a
+  list member, re-read. Technique: state-transition.
 - **NOT asserts.** Bar-computation correctness (T24-1); that
   `tuning` was pre-seeded by migration (T8-1 asserts the opposite).
-  **Fails when** any of the six defaults is missing after
+  **Fails when** any of the seven defaults is missing after
   `seedDefaults` runs, any AD-14-sourced key's value differs from
   AD-14, or any round-trip loses/mutates a value.
 
@@ -5141,6 +5238,32 @@ cited at Step 21 and Step 2.5 with no §12 specification.)*
 - **NOT asserts.** Absolute ordering.
   **Fails when** the resulting `whisper_stats` counts differ
   from N and M (double-count).
+
+**T37-3 — Reindex lock: acquire, release, staleness reclaim.** Added
+this fix pass, round 9 (expert-review Serious finding: the round-8
+lock-file replacement for `flock`(2) specified acquisition but no
+release, and no test exercised the lock at all).
+- **File.** `test/unit/reindex_lock.test.ts`.
+- **Verifies.** Step 37 — the reindex lock file is created with
+  `O_CREAT|O_EXCL`, removed on completion, and a stale lock (mtime
+  older than `reindex.lock_stale_ms`) is reclaimed by the next
+  attempt rather than blocking forever.
+- **Level.** Unit (real filesystem, no store needed).
+- **Real/doubles.** Real `fs` calls against a tempdir. No doubles.
+- **Data.** (a) A completed reindex run — asserts the lock file is
+  absent afterward. (b) A lock file manually created with an mtime set
+  older than the stale threshold — asserts the next acquisition
+  attempt reclaims it (unlinks and succeeds) rather than failing
+  `EEXIST`. (c) A lock file with a fresh mtime (younger than the
+  threshold) — asserts acquisition fails `EEXIST` and is *not*
+  reclaimed (a genuinely live lock must not be stolen). Technique:
+  state-transition (no-lock → held → released; held-stale →
+  reclaimed; held-fresh → blocked).
+- **NOT asserts.** Cross-process contention timing (that is `T37-1`'s
+  concern for the SQLite-level lock; this test is filesystem-only).
+  **Fails when** the lock file survives a completed reindex, OR a
+  stale lock is not reclaimed, OR a fresh lock is incorrectly
+  reclaimed.
 
 **T38-1 — Model seam stub returns not-implemented.**
 - **File.** `test/unit/model_invoke_stub.test.ts`.
@@ -6121,7 +6244,7 @@ is the mechanical mapping.
 | 34 | T34-1, T34-2 |
 | 35 | T35-1, T35-2 |
 | 36 | T36-1 |
-| 37 | T37-1, T37-2 |
+| 37 | T37-1, T37-2, T37-3 (added round 9) |
 | 38 | T38-1 |
 | 39 | (all §12.1 unit tests) |
 | 40 | T40-1..T40-6, plus L11 build-time verifications (§15 Q-gap-4 disposition) |

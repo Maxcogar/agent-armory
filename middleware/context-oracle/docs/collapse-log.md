@@ -19,6 +19,60 @@ goes hollow is itself data.
 
 ---
 
+## 2026-09-07 — round 9: a fix that *reads* as closing a collapse is not closed until its own literal mechanism is executed against its own cited example — the execute-don't-assume method turned on itself
+
+Round 8 fixed two defects it found by execution (a `flock`(2) syscall
+that doesn't exist; a co-change miner that didn't handle git's
+rename-collapsed `--numstat` output) and, for the second, wrote a fix
+whose prose read as complete: "if the field matches [a regex], expand
+the brace form if present into the real old and new paths." Round 9
+did something no round had yet done to a fix rather than an original
+claim: it took the fix's own stated mechanism — the one regex —
+and ran it, literally, against the fix's own cited example
+(`src/{utils => other}/c.txt`). The regex does not expand anything; it
+captures `"src/{utils"` and `"other}/c.txt"`, reproducing byte-for-byte
+the corruption the fix existed to prevent. Round 9 went further and
+constructed a fourth rename scenario beyond round 8's three — a
+same-directory, same-extension rename, the single most ordinary
+refactor a developer performs — and found it *also* triggers the
+brace form, meaning the gap round 8's fix left open was not an edge
+case but the dominant shape.
+
+A second, independent instance recurred in round 8's other fix: the
+replacement for `flock`(2) (a real `O_CREAT|O_EXCL` lock file) works
+correctly for acquisition, but round 8 never specified releasing it.
+`flock`(2)'s kernel-mediated auto-release on process exit was a
+property the *original, wrong* citation would have provided for free;
+the correct replacement primitive does not have that property, and
+nothing in the fix compensated. As literally specified, the detached
+reindex's self-refresh would succeed exactly once per project and then
+fail `EEXIST` forever after — a silent, permanent regression in the
+freshness mechanism the lock exists to protect, introduced by the fix
+that closed the syscall-existence finding.
+
+A third, smaller instance: round 8's own two collapse-hunt findings
+(the git-invocation distinction, the rename-detection addition) were
+correctly fixed at their primary sites but never logged into section
+11's claims registry — in the same commit that correctly logged round
+8's two *expert-review* findings into that same registry. The
+discipline was applied inconsistently within one fix pass, not absent
+from it.
+
+Class: **unverified**, but a new axis within it, sharper than every
+prior 2026-09-07 entry: previous entries found a *false claim* nobody
+had executed. This round found that *the fix for a false claim* is
+itself an unverified claim until someone executes the fix's own
+literal text against the exact scenario the original finding named.
+"Corrected this fix pass" is not evidence of correction — it is a
+claim, exactly as "authoritative standard: X's docs say Y" was a claim
+in rounds 6–8, and it requires the identical execute-don't-assume
+discipline applied to itself. The standing prescription, now doubled:
+every fix to an execute-verified finding must itself be re-executed
+against the original finding's exact reproduction case before being
+trusted as closed — a round that only re-reads a "corrected" annotation
+is doing exactly the surface-level check this project's whole review
+lineage exists to replace with something stronger.
+
 ## 2026-09-07 — round 8: the execute-don't-assume method generalized from library citations to shell-command output shapes, and found a silent data-corruption defect — the most consequential class yet, because it would not fail loudly
 
 Round 8 pushed round 6/7's "verify a familiar tool by execution" method
