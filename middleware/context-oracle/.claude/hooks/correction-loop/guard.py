@@ -39,8 +39,14 @@ def loop_file_allowed(path):
     return base in ALLOWED_STATE or re.match(r"^current-issue\.part\d+\.md$", base) is not None
 
 
+def plan_path():
+    cur = L.read_json(L.CURRENT, {}) or {}
+    return cur.get("plan_path") or ""
+
+
 def mentions_plan(s):
-    return os.path.basename(L.PLAN_PATH) in s
+    pp = plan_path()
+    return bool(pp) and os.path.basename(pp) in s
 
 
 WRITE_TOKENS = re.compile(r"sed -i|perl -i|\btee\b|>{1,2}\s*\S|\bmv\b|\bcp\b|python3?\b|\bnode\b|\bopen\(|\bwrite|\btruncate\b|\brm\b")
@@ -70,7 +76,7 @@ def main():
         target = str(inp.get("file_path") or inp.get("notebook_path") or "")
         if is_loop_file(target) and not loop_file_allowed(target):
             deny("the loop tooling and the settings file are not editable while the loop is active")
-        if os.path.abspath(target) == L.PLAN_PATH and not proposal_exists:
+        if plan_path() and os.path.abspath(target) == plan_path() and not proposal_exists:
             deny("the plan is not editable until state/proposal.md exists")
         sys.exit(0)
 

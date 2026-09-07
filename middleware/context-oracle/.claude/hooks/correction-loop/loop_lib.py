@@ -25,12 +25,8 @@ HOOK_DIR = os.path.dirname(os.path.abspath(__file__))
 STATE_DIR = os.path.join(HOOK_DIR, "state")
 PROJECT_DIR = os.path.abspath(os.path.join(HOOK_DIR, "..", "..", ".."))  # middleware/context-oracle
 SETTINGS_PATH = os.path.join(PROJECT_DIR, ".claude", "settings.json")
-PLAN_PATH = os.path.join(PROJECT_DIR, "docs", "plans", "plan-phase-a.md")
-REVIEWS_DIR = os.path.join(PROJECT_DIR, "docs", "reviews")
-SPEC_PATH = os.path.join(PROJECT_DIR, "docs", "specs", "spec-context-oracle.md")
-ARCH_PATH = os.path.join(PROJECT_DIR, "docs", "architecture-phase-a.md")
-LEDGER_PATH = os.path.join(PROJECT_DIR, "OWNER-LEDGER.md")
 DERIVE_SCRIPT = os.path.join(PROJECT_DIR, ".claude", "skills", "expert-plan", "scripts", "derive-plan-sections.mjs")
+PLAN_PATH = None  # resolved from the reviews of the active round (see plan_path_from_reviews)
 
 QUEUE = os.path.join(STATE_DIR, "queue.json")          # never readable by the agent
 CURRENT = os.path.join(STATE_DIR, "current.json")      # served issue metadata
@@ -133,18 +129,57 @@ FINDING_HEAD = re.compile(r"^(?:###\s+|\*\*)(S|SY|M|m|T)(-?)(\d+)\s+—\s+(.*)$"
 SEVERITY_ORDER = {"S": 0, "SY": 0, "M": 1, "m": 2, "T": 3}
 
 
-def find_round_pair(reviews_dir=REVIEWS_DIR):
-    """Newest N with both <date>-round-N-expert-review.md and <date>-round-N-collapse-hunt.md."""
+REVIEW_NAME = re.compile(r"round-(\d+)-(expert-review|collapse-hunt)\.md$")
+
+
+def markdown_files(root=PROJECT_DIR):
+    out = []
+    for r, dirs, files in os.walk(root):
+        dirs[:] = [d for d in dirs if d not in ("node_modules", ".git", "state", "__pycache__")]
+        for fn in files:
+            if fn.endswith(".md"):
+                out.append(os.path.join(r, fn))
+    return out
+
+
+def find_round_pair(root=PROJECT_DIR):
+    """Newest N with both a `…round-N-expert-review.md` and a `…round-N-collapse-hunt.md`
+    anywhere under the project (the reviewer skills' file names)."""
     rounds = {}
-    for fn in os.listdir(reviews_dir) if os.path.isdir(reviews_dir) else []:
-        m = re.match(r"^(\d{4}-\d{2}-\d{2})-round-(\d+)-(expert-review|collapse-hunt)\.md$", fn)
+    for path in markdown_files(root):
+        m = REVIEW_NAME.search(os.path.basename(path))
         if m:
-            rounds.setdefault(int(m.group(2)), {})[m.group(3)] = os.path.join(reviews_dir, fn)
+            rounds.setdefault(int(m.group(1)), {})[m.group(2)] = path
     complete = [n for n, d in rounds.items() if "expert-review" in d and "collapse-hunt" in d]
     if not complete:
         return None, None
     n = max(complete)
     return n, rounds[n]
+
+
+PLAN_REF = re.compile(r"`?((?:[\w.-]+/)*[\w.-]+\.md):(\d+)")
+
+
+def plan_path_from_reviews(round_files, root=PROJECT_DIR):
+    """The plan under review is the markdown file the reviews cite by `path:line` most often."""
+    counts = {}
+    for path in round_files.values():
+        for m in PLAN_REF.finditer(read_text(path)):
+            rel = m.group(1)
+            if "plan" not in rel.lower():
+                continue
+            counts[rel] = counts.get(rel, 0) + 1
+    if not counts:
+        return None
+    rel = max(counts, key=counts.get)
+    for cand in (os.path.join(root, rel), os.path.join(os.path.dirname(root), rel)):
+        if os.path.isfile(cand):
+            return os.path.abspath(cand)
+    base = os.path.basename(rel)
+    for path in markdown_files(root):
+        if os.path.basename(path) == base:
+            return path
+    return None
 
 
 def extract_findings(path, source_tag):
@@ -458,16 +493,23 @@ def units_for_finding(plan, finding_text):
 
 # ---------------------------------------------------------------- sources by ID
 
-ID_RE = re.compile(r"\b(AD-\d+|V\d+|L\d+(?:\([a-z]\))?|FR-[A-Z]\d+[a-z]*|AC-\d+[a-z]*(?:-[a-z]+)?|NF-\d+|D-\d+|OL-[A-Z]?\d+|P\d+)\b")
+# An identifier is a short letter prefix, optional dash, digits, optional suffix: AD-9,
+# FR-B5, AC-2a, V12, L11, OL-C3, D-9, NF-1, P8, R-4 … — whatever vocabulary the project's
+# documents use. It is cited by a finding or a step's Source line, and defined where a
+# document carries it as a heading, a bullet, or a table row.
+ID_RE = re.compile(r"(?<![\w-])([A-Z]{1,4}-?[A-Z]?\d{1,3}[a-z]?(?:-[a-z]+)?)(?![\w-])")
+PLAN_INTERNAL = re.compile(r"^(T-?\d+|S-?\d+|M-?\d+|m-?\d+|SY-?\d+|Q\d+|D-plan-\d+)$")
 
 
 def collect_ids(*texts):
+    """Identifier-shaped tokens, excluding the plan's own vocabulary (steps, tests,
+    register entries, decisions) and review finding ids, which are units, not sources."""
     ids = []
     for t in texts:
         for m in ID_RE.finditer(t):
             i = m.group(1)
-            if re.match(r"^L\d+\(", i):
-                i = i.split("(")[0]
+            if PLAN_INTERNAL.match(i):
+                continue
             if i not in ids:
                 ids.append(i)
     return ids
@@ -492,48 +534,58 @@ def _paragraph(lines, i):
     return "\n".join(lines[a:b]).rstrip()
 
 
-def source_section(ident, cache={}):
-    """Extract the section/entry for an ID from the architecture, spec, or ledger."""
-    if ident in cache:
-        return cache[ident]
+def source_documents(plan_path, root=PROJECT_DIR):
+    """Every markdown document under the project except plans, reviews, and this loop,
+    ordered by how often the plan cites each one (its basename), so an identifier that
+    several documents carry resolves from the document the plan actually rests on."""
+    plan_text = read_text(plan_path) if plan_path and os.path.isfile(plan_path) else ""
+    docs = []
+    for path in markdown_files(root):
+        low = path.lower()
+        if path == plan_path or "/plans/" in low or REVIEW_NAME.search(os.path.basename(path)) or "/reviews/" in low or "correction-loop" in low or "/.claude/" in low:
+            continue
+        docs.append(path)
+    return sorted(docs, key=lambda p: (-plan_text.count(os.path.basename(p)), p))
+
+
+_SRC_CACHE = {}
+
+
+def source_section(ident, docs):
+    """Find where a document defines an identifier: a heading `### ID …`, a bullet
+    `- **ID …`, a bold paragraph `**ID …`, or a table row `| ID |` / `| **ID …`."""
+    key = (ident, tuple(docs))
+    if key in _SRC_CACHE:
+        return _SRC_CACHE[key]
+    esc = re.escape(ident)
+    head = re.compile(r"^(#{1,4})\s+%s\b" % esc)
+    bullet = re.compile(r"^- \*\*%s\b" % esc)
+    bold = re.compile(r"^\*\*%s\b" % esc)
+    row = re.compile(r"^\|\s*(?:\*\*)?%s\b" % esc)
     out = None
-    if os.path.isfile(ARCH_PATH):
-        A = read_text(ARCH_PATH).split("\n")
-        if ident.startswith("AD-"):
-            for i, l in enumerate(A):
-                if re.match(r"^### %s\b" % re.escape(ident), l):
-                    out = ("architecture", _block_from(A, i, re.compile(r"^#{2,3} ")))
-                    break
-        elif re.match(r"^V\d+$", ident):
-            for i, l in enumerate(A):
-                if re.match(r"^\|\s*%s\s*\|" % re.escape(ident), l):
-                    out = ("architecture (verified premise)", l)
-                    break
-        elif re.match(r"^L\d+$", ident):
-            for i, l in enumerate(A):
-                if re.match(r"^- \*\*%s\b" % re.escape(ident), l):
-                    out = ("architecture (limitation)", _block_from(A, i, re.compile(r"^- \*\*L\d+\b|^#{2,3} ")))
-                    break
-    if out is None and os.path.isfile(SPEC_PATH):
-        S = read_text(SPEC_PATH).split("\n")
-        for i, l in enumerate(S):
-            if re.search(r"\*\*%s\b" % re.escape(ident), l) or re.match(r"^\|\s*\*\*%s\b" % re.escape(ident), l):
-                if l.startswith("- **"):
-                    out = ("spec", _block_from(S, i, re.compile(r"^- \*\*|^#{2,3} |^\s*$")))
-                else:
-                    out = ("spec", _paragraph(S, i))
+    for path in docs:
+        L = read_text(path).split("\n")
+        rel = os.path.relpath(path, PROJECT_DIR)
+        for i, l in enumerate(L):
+            hm = head.match(l)
+            if hm:
+                lvl = len(hm.group(1))
+                out = (rel, _block_from(L, i, re.compile(r"^#{1,%d}\s" % lvl)))
                 break
-    if out is None and os.path.isfile(LEDGER_PATH) and ident.startswith("OL-"):
-        for l in read_text(LEDGER_PATH).split("\n"):
-            if re.match(r"^\|\s*%s\s*\|" % re.escape(ident), l):
-                out = ("owner ledger", l)
+            if bullet.match(l):
+                out = (rel, _block_from(L, i, re.compile(r"^- \*\*|^#{1,4}\s|^\s*$")))
                 break
-    cache[ident] = out
+            if bold.match(l) or row.match(l):
+                out = (rel, _paragraph(L, i))
+                break
+        if out:
+            break
+    _SRC_CACHE[key] = out
     return out
 
 # ---------------------------------------------------------------- packet
 
-def build_packet(plan, finding, issue_no, total):
+def build_packet(plan, finding, issue_no, total, docs):
     units, cross, steps = units_for_finding(plan, finding["text"])
     src_text = finding["text"] + "\n" + "\n".join(plan.step_sources(n) for n in steps)
     ids = collect_ids(src_text)
@@ -561,13 +613,14 @@ def build_packet(plan, finding, issue_no, total):
     body += ["## 3. Spec, architecture and ledger material cited by the finding and the touched steps", ""]
     missing = []
     for ident in ids:
-        s = source_section(ident)
+        s = source_section(ident, docs)
         if s is None:
             missing.append(ident)
             continue
-        body += [f"### {ident} ({s[0]})", "", s[1], ""]
+        body += [f"### {ident} (from {s[0]})", "", s[1], ""]
+    missing = [i for i in missing if "-" in i or re.match(r"^[A-Z]\d+$", i)]  # report id-shaped tokens only
     if missing:
-        body += ["Identifiers with no extractable section (cited but not found by ID): " + ", ".join(missing), ""]
+        body += ["Identifiers cited but defined in no project document under that name: " + ", ".join(missing), ""]
     body += [
         "## 4. What the loop requires for this issue",
         "",
@@ -604,10 +657,10 @@ def transcript_line_count(transcript_path):
         return 0
 
 
-def serve_issue(queue, index, transcript_path):
-    plan = Plan(read_text(PLAN_PATH))
+def serve_issue(queue, index, transcript_path, plan_path):
+    plan = Plan(read_text(plan_path))
     finding = queue[index]
-    parts, unit_labels, ids, missing = build_packet(plan, finding, index + 1, len(queue))
+    parts, unit_labels, ids, missing = build_packet(plan, finding, index + 1, len(queue), source_documents(plan_path))
     paths = write_packet(parts)
     with open(PLAN_SNAPSHOT, "w", encoding="utf-8") as f:
         f.write(plan.text)
@@ -615,6 +668,7 @@ def serve_issue(queue, index, transcript_path):
         if os.path.isfile(p):
             os.remove(p)
     write_json(CURRENT, {
+        "plan_path": plan_path,
         "index": index,
         "total": len(queue),
         "finding_id": finding["id"],
@@ -673,17 +727,17 @@ def packet_read_whole(tool_uses, part_path):
 
 # ---------------------------------------------------------------- gate command
 
-def run_derive_check():
+def run_derive_check(plan_path):
     try:
-        p = subprocess.run(["node", DERIVE_SCRIPT, PLAN_PATH, "--check"], capture_output=True, text=True, timeout=120, cwd=PROJECT_DIR)
+        p = subprocess.run(["node", DERIVE_SCRIPT, plan_path, "--check"], capture_output=True, text=True, timeout=120, cwd=PROJECT_DIR)
         return p.returncode, (p.stdout + p.stderr).strip()
     except (OSError, subprocess.TimeoutExpired) as e:
         return 99, repr(e)
 
 
-def plan_diff():
+def plan_diff(plan_path):
     try:
-        p = subprocess.run(["git", "diff", "--no-index", "--", PLAN_SNAPSHOT, PLAN_PATH], capture_output=True, text=True, timeout=60)
+        p = subprocess.run(["git", "diff", "--no-index", "--", PLAN_SNAPSHOT, plan_path], capture_output=True, text=True, timeout=60)
         return p.stdout
     except (OSError, subprocess.TimeoutExpired) as e:
         return f"(diff unavailable: {e!r})"

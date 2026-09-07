@@ -28,11 +28,12 @@ def start_loop(transcript_path):
     if n is None or n in done.get("rounds", []):
         return None
     queue = L.build_queue(files)
-    if not queue:
+    plan_path = L.plan_path_from_reviews(files)
+    if not queue or not plan_path:
         return None
-    L.write_json(L.QUEUE, {"round": n, "files": files, "items": queue})
+    L.write_json(L.QUEUE, {"round": n, "files": files, "plan_path": plan_path, "items": queue})
     L.record_hashes()
-    paths, units = L.serve_issue(queue, 0, transcript_path)
+    paths, units = L.serve_issue(queue, 0, transcript_path, plan_path)
     L.log(f"loop started for round {n}: {len(queue)} findings")
     return n, len(queue), queue[0], paths, units
 
@@ -56,11 +57,15 @@ def main():
         os.makedirs(out, exist_ok=True)
         n, files = L.find_round_pair()
         queue = L.build_queue(files)
-        plan = L.Plan(L.read_text(L.PLAN_PATH))
+        plan_path = L.plan_path_from_reviews(files)
+        print("plan under review:", plan_path)
+        plan = L.Plan(L.read_text(plan_path))
+        docs = L.source_documents(plan_path)
+        print("source documents:", [os.path.relpath(d, L.PROJECT_DIR) for d in docs])
         with open(os.path.join(out, "queue.json"), "w") as f:
             json.dump({"round": n, "items": [{k: v for k, v in q.items() if k != "text"} for q in queue]}, f, indent=2)
         for idx, finding in enumerate(queue):
-            parts, units, ids, missing = L.build_packet(plan, finding, idx + 1, len(queue))
+            parts, units, ids, missing = L.build_packet(plan, finding, idx + 1, len(queue), docs)
             with open(os.path.join(out, f"packet-{idx + 1:02d}-{finding['id']}.md"), "w") as f:
                 f.write("\n\n".join(parts))
             print(f"{idx + 1:2d} {finding['source']:14s} {finding['id']:6s} units={len(units):2d} ids={len(ids):2d} missing={','.join(missing) or '-'} lines={sum(p.count(chr(10)) for p in parts)}")

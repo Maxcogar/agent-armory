@@ -116,7 +116,7 @@ def serve_next_or_finish(queue_obj, cur, transcript_path):
     done.setdefault("issues", []).append({"round": queue_obj["round"], "id": cur["finding_id"], "source": cur["source"], "passed_at": time.time()})
     if nxt < len(items):
         L.write_json(L.DONE, done)
-        paths, units = L.serve_issue(items, nxt, transcript_path)
+        paths, units = L.serve_issue(items, nxt, transcript_path, cur.get("plan_path") or queue_obj.get("plan_path"))
         emit_block(f"PASSED issue {cur['index'] + 1} of {len(items)}. Issue {nxt + 1} of {len(items)} ({items[nxt]['id']}, {items[nxt]['source']}) is served; its packet is "
                    + ", ".join(os.path.relpath(p, L.PROJECT_DIR) for p in paths)
                    + f" ({len(paths)} part(s), read each whole; {len(units)} units). The same requirements apply: proposal.md before any plan edit, then the edits, then selfcheck.md.")
@@ -151,11 +151,12 @@ def main():
         if n is None or n in done.get("rounds", []) or dry:
             allow()
         queue = L.build_queue(files)
-        if not queue:
+        plan_path = L.plan_path_from_reviews(files)
+        if not queue or not plan_path:
             allow()
-        L.write_json(L.QUEUE, {"round": n, "files": files, "items": queue})
+        L.write_json(L.QUEUE, {"round": n, "files": files, "plan_path": plan_path, "items": queue})
         L.record_hashes()
-        paths, units = L.serve_issue(queue, 0, transcript_path)
+        paths, units = L.serve_issue(queue, 0, transcript_path, plan_path)
         L.log(f"loop started at Stop for round {n}: {len(queue)} findings")
         emit_block(f"Correction loop is active for review round {n}: {len(queue)} findings are queued and served one at a time. Issue 1 of {len(queue)} ({queue[0]['id']}, {queue[0]['source']}) is served; its packet is "
                    + ", ".join(os.path.relpath(p, L.PROJECT_DIR) for p in paths)
@@ -194,9 +195,10 @@ def main():
             return
         emit_block("FAILED at step 2")
 
-    diff = L.plan_diff()
+    plan_path = cur.get("plan_path") or queue_obj.get("plan_path")
+    diff = L.plan_diff(plan_path)
     selfcheck = L.read_text(L.SELFCHECK) if os.path.isfile(L.SELFCHECK) else ""
-    check_rc, check_out = L.run_derive_check()
+    check_rc, check_out = L.run_derive_check(plan_path)
     packet_text = "\n\n".join(L.read_text(p) for p in cur.get("packet_parts", []))
     prompt = build_prompt(cur, packet_text, proposal, diff, selfcheck, check_rc, check_out)
     verdict, err = run_judge(prompt)

@@ -9,6 +9,16 @@ turn until a judge rules that the packet was read whole, the proposal covers eve
 re-derives from the sources, the edits implement the proposal exactly, and the self-check is
 complete. A failure names the step number only. Static rules were tried first and did not hold.
 
+**Nothing here is specific to one plan or one project.** The plan under review is taken
+from the reviews' own `path:line` citations; the review round is discovered anywhere under
+the project by the reviewer skills' file names (`…round-N-expert-review.md`,
+`…round-N-collapse-hunt.md`); plan units are located by the expert-plan output contract's
+structure (numbered steps, `T-<step>-<n>` specs, `D-plan-<n>` decisions and their collapse
+tests, `Q<n>` register entries, section-11 claims, checkpoints); and any identifier-shaped
+token a finding or a step's Source line cites is looked up as a heading, bullet, or table
+row across every markdown document under the project (plans, reviews and this loop
+excluded), documents ordered by how often the plan cites them.
+
 **Events and why** (behaviour per the hooks reference, verified 2026-09-07 against the skill's
 transcription of the official page):
 - `PostToolUse` matched on `Agent` (`serve.py`): a review subagent returning is the moment the
@@ -42,7 +52,8 @@ record of the hook files and the settings file, re-checked on every Stop, is the
 any block from any Stop hook keeps the turn going. `session-end-check.sh` is unchanged.
 
 **Tested (2026-09-07).** Queue and packets built from the round-5 reviews (24 findings; packets
-5–113 units); guard against 25 sample calls (review reads, loop-file reads/edits, git checkout
+5–113 units; every cited identifier resolved from the Phase A architecture, the spec, or the
+ledger, one noise token reported); guard against 25 sample calls (review reads, loop-file reads/edits, git checkout
 of the hook dir, plan edits before/after proposal, read-only derivation calls); read-check
 against Read/cat/head/sed forms; judge dry-run on fabricated state: step 1 (nothing read),
 step 2 (no proposal), step 2 by the model on a one-line proposal (opus-5, 9 s). Not tested:
