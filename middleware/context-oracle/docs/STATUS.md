@@ -26,70 +26,100 @@ A architecture (`docs/architecture-phase-a.md`) is reviewed to convergence, with
 `AD-9` rebuilt to the honest Phase A skeleton the spec mandates.
 
 **The Phase A implementation plan (`docs/plans/plan-phase-a.md`) was re-authored
-on 2026-09-07** from every finding of the 2026-09-06 review set
-(`docs/reviews/2026-09-06-plan-collapse-hunt.md`,
-`2026-09-06-plan-expert-review.md`, `2026-09-06-author-gates-review.md`,
-`2026-09-06-meta-check-skipped-steps.md`), with the expert-plan skill's required
-tools actually run over stdio (CodeGraph scan of the project as the
-pre-implementation baseline; Clear Thought passes for every plan decision) and
-every factual premise re-read or re-executed on 2026-09-07 (§11 of the plan).
+on 2026-09-07 and has been through two more independent review rounds. It is
+not accepted.** The correction loop was stopped after round 3 under Max Cogar's
+rule — two consecutive rounds in which the corrections themselves introduced
+defects — and the session's remaining work went into diagnosing that and
+shipping an external fix, not into a fourth correction pass.
 
-What the re-authored plan is:
+What is true of the plan now (commit `d667534` is the reviewed text):
 
-- 40 topologically ordered steps; every non-trivial step carries the Gate 3
-  four-part reasoning; no option sets, no deferred choices, no owner
-  questions (bin 2 is empty and says why).
-- The answer-drift block stays the spec §11.5 **safe skeleton**: deny plumbing
-  plus a `?`-only recognizer with negative-coverage tests that fail on any
-  elaboration; the lag hold is read-to-EOF plus deny-on-open with no
-  heuristic; coverage is a number the exit run measures, never designed
-  around.
-- 113 test specifications, each with File / Verifies / Level / Real-doubles /
-  Data / Fails-when, compiled with the sources and run through a runner that
-  refuses an empty or mismatched test set (the 22.16.0 floor cannot execute
-  `.ts` tests and `node --test` exits 0 on an empty glob — both executed).
-- Pins unchanged from the architecture (`web-tree-sitter` 0.26.13,
-  `tree-sitter-wasms` 0.1.13, Node ≥ 22.16.0); the one premise drift found
-  (the hooks reference now lets a timed-out `PreToolUse` hook's tool
-  continue) is recorded as the plan's §4 spec issue and changes no
-  requirement.
-- An exit run (Step 39) with three legs, a validity rule that refuses a
-  reflection-only measurement, and a report whose fields include the honest
-  floor numbers.
+- **On the mission axis it holds.** Four independent passes (rounds 2 and 3,
+  both kinds) read Steps 21–27 line by line against `AD-9` and found the
+  answer-drift block is the spec §11.5 safe skeleton and nothing more; the
+  package pins and the Node floor are the architecture's; no scope was added
+  or dropped. The exit run now hands the handler a per-event transcript
+  prefix and measures the recognizer against a labelled sample, not against
+  itself.
+- **On the build/test-mechanics axis it does not.** Round 3
+  (`docs/reviews/2026-09-07-round-3-expert-review.md`: NEEDS FIXES, 20
+  findings; `docs/reviews/2026-09-07-round-3-collapse-hunt.md`: DOES NOT
+  SURVIVE, 23 findings) found, among others: the handler step consumes modules
+  and a CLI verb that later steps create, so its checkpoint cannot run where
+  placed; a convention test forbids words the plan's own modules must use; a
+  concurrency test's timeline produces the opposite of its asserted outcome
+  (executed by both reviewers); the cold-container CI job runs a script
+  created thirty-seven steps later, on an image without `git`; the exit run's
+  remote sessions leave their stores where the report cannot read them; a
+  deny-health detector now counts correct denies; the Clear Thought attestation
+  is contradicted by the trace file that was added to prove it. Every finding
+  carries line numbers and the source it contradicts; 23 of the 43 are tagged
+  as introduced by the round-2 corrections.
+- **The diagnosis** is `docs/collapse-log.md` 2026-09-07 (the last entry): the
+  author validated corrections with an identifier-reconciliation script while
+  the reviewers validated by walking the build in order and executing claims;
+  every regression class lay outside the author's check. The external fix is
+  `tools/check_plan.py` — a mechanical gate for the plan (temporal
+  availability of every module, verb, script, and fixture a step names;
+  creation annotations; test-ID reconciliation; attestation and count
+  consistency; sweep-record termination; narration). Run on the current plan
+  it reports 19 problems that reproduce round 3's build-order and attestation
+  findings; run on the round-2 artifact it flags two inversions round 2 did
+  not name. It is not yet wired into CI, on purpose: it joins the workflow in
+  the pull request that first makes the plan pass it, so it never lands as a
+  red check on a plan that predates it.
 
-The author's Gate A/B/C walk for this version is
-`docs/reviews/2026-09-07-author-gates-review.md`; it names the check run for
-each gate item and the seven defects closed before the independent reviews.
-
-**Review state.** The round-2 independent collapse-hunt and expert-review
-(`docs/reviews/2026-09-07-round-2-collapse-hunt.md`,
-`2026-09-07-round-2-expert-review.md`) are being run in the same session that
-re-authored the plan, by fresh subagents over the entire document. The plan is
-**not accepted** until both converge; this file is rewritten with their verdicts
-before the session ends.
+The other evidence files this session added, all under `docs/reviews/`:
+`2026-09-07-author-gates-review.md` and `2026-09-07-round-3-author-gates-review.md`
+(the author's written self-checks before rounds 2 and 3, with the round-2
+closure table), `2026-09-07-round-2-collapse-hunt.md`,
+`2026-09-07-round-2-expert-review.md`, and `2026-09-07-plan-tool-traces.md` (the
+captured CodeGraph and Clear Thought stdio logs from the planning run — round 3
+found that the current decisions D-plan-6, 8, 10 and 20–23 are not covered by
+them, which is one of the open findings).
 
 ## What to do next (agent-owned)
 
-1. **Apply every round-2 finding** in `docs/plans/plan-phase-a.md`, with the
-   dependent sections re-derived (a finding is not a fix list — trace what
-   depends on the changed decision and correct it there too). Then re-run
-   the author's Gate A/B/C walk in writing and dispatch the next round.
-   Convergence rule from the owner: two consecutive rounds where the
-   corrections themselves introduced defects means stop and diagnose the
-   correction process externally; five rounds without convergence means stop.
-2. **When the reviews converge,** rewrite this file to say so, route any
-   generalisable lesson to `docs/collapse-log.md` (one line plus a pointer),
-   and the plan becomes the build contract for `/expert-implement`.
+1. **Apply every round-3 finding — all 43, both reviews — under the new
+   discipline, not the old one.** The discipline, from the collapse-log entry:
+   run `python3 middleware/context-oracle/tools/check_plan.py` and get it green
+   before anything else; execute every executable claim a correction states (a
+   timeline, a compiler or runtime behaviour, a package layout) before writing
+   it, and record the execution in the plan's evidence section — a reviewer's
+   "required change" is a hypothesis to execute, not text to transcribe;
+   re-enumerate every convention test's allow/deny set against every module
+   the file tree places in its scope; then dispatch a **dry-run implementer**
+   subagent that walks Steps 1–40 in order and states, per step, what the step
+   needs and whether it exists yet — and only when that pass is clean, dispatch
+   round 4 (independent collapse-hunt and expert-review, fresh subagents, whole
+   document). Write the author's Gate A/B/C self-check before dispatch as
+   before. Round-4 arithmetic the expert-review series records: the review
+   tripwire fires if round 4's new + regression count ≥ its closed count or its
+   total ≥ 20; Max Cogar's rule is unchanged — corrections that introduce
+   defects in round 4 means stop again, and five rounds without convergence
+   means stop.
+2. **Wire `tools/check_plan.py` into `.github/workflows/context-oracle-docs.yml`
+   in the same pull request** that makes the plan pass it, beside
+   `check_docs.py`, so no later session can skip it.
+3. **When the reviews converge,** rewrite this file to say so, route any
+   further generalisable lesson to `docs/collapse-log.md`, and the plan becomes
+   the build contract for `/expert-implement`.
+
+There is no owner question open. The stop was the owner's own rule applied;
+the diagnosis and the external fix are recorded; the next session resumes with
+them in place.
 
 ## Open items
 
-- L11(a) — human-marker presence was measured on a real interactive
-  transcript (11 `origin.kind:"human"` entries, markers present as V12 and
-  AD-9 assume); the plan re-measured it on 2026-09-07 and carries
-  `T38-32` to measure it over the exit corpus. The architecture's L11(a)
-  wording moves from "assumption" to "measured" in a documentation change
-  after Phase A completes (the plan's Post-completion section).
+- The 43 round-3 findings (item 1 above). The plan is not deliverable until
+  they are closed and a round returns no correction-induced defects.
+- The round-3 tentative items: behaviour at the Node 22.16.0 floor is executed
+  only by CI's matrix entry; whether `unshare -rn` works on the GitHub Actions
+  runner image the plan uses is unverified (the plan must name the image or
+  handle the refusal).
+- L11(a) — human-marker presence is measured on interactive transcripts; the
+  plan reports it *verified* only when an owner-local interactive transcript is
+  in the exit corpus, otherwise *not observed*.
 - L11(b) — whether `UserPromptSubmit` fires for platform-injected turns is
-  undocumented (plan gap G2); the plan resolves it by live induction inside
-  the exit run's closed-loop leg and records fires / does not fire / not
-  observed. Design-safe either way per AD-9's voiding guard.
+  undocumented; the plan resolves it by live induction inside the exit run's
+  closed-loop leg. Design-safe either way per `AD-9`'s voiding guard.

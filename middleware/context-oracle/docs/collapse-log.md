@@ -1154,3 +1154,74 @@ phase goal is slop — cut the machinery, log it as a finding. Phase A's goal: a
 honest deterministic foundation that measures its own floor with clean seams for
 later phases, never fake completeness. `AD-9` returns to the architecture layer
 to be rebuilt to that goal, then re-reviewed.
+
+## 2026-09-07 — two consecutive correction rounds regressed: the author's verification was weaker than the reviewers'
+
+**What happened.** The Phase A implementation plan was re-authored from the
+2026-09-06 reviews. Round 2 (independent collapse-hunt + expert-review,
+`docs/reviews/2026-09-07-round-2-*.md`) returned 49 findings, 14 of them
+defects the rewrite itself introduced. Every finding was applied, dependents
+re-derived, a written self-check done. Round 3
+(`docs/reviews/2026-09-07-round-3-*.md`) returned 43 findings, 23 of them
+defects the round-2 corrections introduced. Second consecutive
+correction-induced round: the loop stopped, per the owner's rule, before a
+fourth pass.
+
+**Class: wrong-check, at the process layer.** The author validated each
+correction pass with a script that reconciled identifiers — test IDs ↔ file
+tree ↔ step Verification fields, "Dependencies name earlier steps only". The
+reviewers validated by walking the build in step order and executing claims.
+Every regression class lay outside the author's check and inside the
+reviewers':
+
+- *A step consuming an artifact a later step creates* — the handler (Step 28)
+  calling the guard and watchdog (Step 29) and a verb registered at Step 32;
+  the indexer (Step 14) spawning a verb from Step 32; a CI job at Step 1
+  running a script from Step 38. The Dependencies fields were topologically
+  clean; the prose consumed the future.
+- *An executable claim written from arithmetic instead of execution* — a
+  concurrency test's timeline that both round-3 reviewers executed and found
+  produces the opposite outcome; a "cannot be written" claim about a branded
+  type that a type assertion defeats.
+- *A rule closed at the named instance while a sibling instance stayed or was
+  created* — a convention test's forbidden-word list closed for the response
+  fields and left open for the input fields, then given a third collision by
+  the very correction that added the liveness row.
+- *An attestation left stale by an edit elsewhere* — a trivial-steps list, a
+  "three replay tests" count, a Clear Thought attestation contradicted by the
+  trace file supplied to prove it, a sweep record ending on a pass that added
+  entries.
+- *A reviewer's "required change" transcribed rather than re-derived* — the
+  round-3 collapse-hunt's phrase: "reviewer prescriptions transcribed one
+  decision short of correct, never attacked as author text".
+
+**Why the standing rules did not hold.** "Apply all findings and re-derive
+the dependents" was followed; re-derivation was done by grep and memory over
+a 7,000-line document, and the checks that would have caught the new
+instances did not exist. A correction process that closes ~47 items and
+injects ~12 per pass does not converge below the reviewers' detection floor;
+it converts old defects into new ones at a quarter of the closure rate. The
+symptom is not "the corrections were applied carelessly"; it is that the
+author's pre-review verification was structurally weaker than the review it
+was preparing for.
+
+**Standing lesson — the external fix.** Correction passes are gated by
+mechanism, not by the author's attention: (1) `tools/check_plan.py` runs
+before every review dispatch — temporal availability (no step consumes a
+module, verb, script, or fixture a later step creates), creation annotations,
+test-ID reconciliation, attestation and count consistency, sweep-record
+termination, narration — and joins CI from the pull request that first makes
+the plan pass it; run on the round-3 artifact it reproduces the round-3
+build-order and attestation findings, and on the round-2 artifact it flags
+two pre-existing inversions round 2 did not name. (2) A correction that
+states an executable claim — a timeline, a compiler or runtime behaviour, a
+package layout — is executed before it is written and the execution is
+recorded in the plan's evidence section; a reviewer's prescription is a
+hypothesis to execute, never a sentence to transcribe. (3) A dry-run
+implementer pass — a fresh subagent that walks the steps in order and states,
+per step, what the step needs and whether it exists yet — runs before every
+review dispatch, because that walk is what found every temporal defect and
+the author's scripts cannot make it. (4) The self-check re-enumerates every
+convention test's allow/deny set against every module the file tree places in
+its scope. Evidence: the two round-2 and two round-3 reviews, and the gate's
+own docstring.
