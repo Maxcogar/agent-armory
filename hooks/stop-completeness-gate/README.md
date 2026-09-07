@@ -174,6 +174,33 @@ rate-limited or billing-blocked rather than absent (should hit the same
 fail-closed diagnostic path via a non-zero exit code, but wasn't
 exercised).
 
+## Session isolation (critical, found in production)
+
+The judge subprocess is spawned with `env = os.environ.copy()`, which
+inherits Claude Code's own session-identity variables
+(`CLAUDE_CODE_SESSION_ID` and related) from the calling process. Verified
+directly: a `claude -p` call made without stripping these reported the
+*same* `session_id` as the live interactive session that spawned it, and
+its answer came back contaminated with content from an unrelated call made
+earlier in that same session — a completely different conversation's
+`{"violating": ...}` JSON (a different hook's schema) leaking into what
+should have been an isolated `{"complete": ...}` judgment. This was caught
+because it produced an unparseable verdict in real production use, not by
+inspection.
+
+Fix: `run_judge()` now strips `CLAUDE_CODE_SESSION_ID`,
+`CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_CODE_REMOTE_SESSION_ID`,
+`CLAUDE_SESSION_INGRESS_TOKEN_FILE`, `CLAUDE_CODE_MESSAGING_SOCKET`,
+`CLAUDE_CODE_MESSAGING_TOKEN`, `CLAUDE_CODE_SYNC_SESSION_REFS`, and
+`SESSION_INGRESS_URL` from the subprocess environment before spawning the
+judge, on every call. Re-verified after the fix with a fresh scenario
+(a hedged, admitted-partial fix, and separately a genuinely root-caused
+one): both produced correctly-scoped, uncontaminated verdicts using the
+right schema, with no cross-talk from unrelated content. Every result in
+"Testing performed" above that predates this fix was produced before the
+bug was known to exist; the two re-checks after the fix are the ones to
+trust for whether the isolation actually works.
+
 ## History
 
 The first version of this gate let a "clarifying question" count as

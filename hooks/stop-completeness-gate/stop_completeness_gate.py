@@ -28,6 +28,24 @@ import sys
 # subprocess sees it and returns immediately.
 _RECURSION_GUARD_ENV = "STOP_COMPLETENESS_GATE_JUDGE_RUN"
 
+# Session isolation: the calling process's environment carries Claude Code's
+# own session identity (CLAUDE_CODE_SESSION_ID and friends). Left in place,
+# a spawned `claude -p` judge attaches to THIS session instead of starting a
+# fresh, isolated one - verified directly: an unstripped call reported the
+# same session_id as the live interactive session, and its answer was
+# contaminated with unrelated content from elsewhere in that session. These
+# must be stripped from the judge subprocess's environment on every call.
+_SESSION_ISOLATION_STRIP_VARS = [
+    "CLAUDE_CODE_SESSION_ID",
+    "CLAUDE_CODE_CHILD_SESSION",
+    "CLAUDE_CODE_REMOTE_SESSION_ID",
+    "CLAUDE_SESSION_INGRESS_TOKEN_FILE",
+    "CLAUDE_CODE_MESSAGING_SOCKET",
+    "CLAUDE_CODE_MESSAGING_TOKEN",
+    "CLAUDE_CODE_SYNC_SESSION_REFS",
+    "SESSION_INGRESS_URL",
+]
+
 DEFAULT_MODEL = os.environ.get("STOP_GATE_MODEL", "claude-sonnet-5")
 MAX_BUDGET_USD = os.environ.get("STOP_GATE_MAX_BUDGET_USD", "0.50")
 TIMEOUT_SECONDS = int(os.environ.get("STOP_GATE_TIMEOUT_SECONDS", "45"))
@@ -173,6 +191,8 @@ def build_prompt(user_text, assistant_text):
 def run_judge(user_text, assistant_text):
     prompt = build_prompt(user_text, assistant_text)
     env = os.environ.copy()
+    for var in _SESSION_ISOLATION_STRIP_VARS:
+        env.pop(var, None)
     env[_RECURSION_GUARD_ENV] = "1"
     try:
         proc = subprocess.run(

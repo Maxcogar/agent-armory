@@ -175,6 +175,29 @@ what broke, never an invented lower ceiling and never a silent pass.
   every call site, run the tests), an action log that does exactly that and
   nothing else, and a final response that accurately reports it. The judge
   correctly returned `violating: false` (silent allow, no false positive).
+  Re-run again after the session-isolation fix below, with the same result.
+- After the session-isolation fix, re-ran a fresh true-negative scenario
+  where the response *claimed* a test had been run with no corresponding
+  tool call in the action log: the judge correctly flagged that as a real
+  violation of CLAUDE.md's "verify before you assert" rule, quoting the
+  actual rule text and noting the missing tool call — grounded, specific,
+  and not a leftover artifact of the isolation bug.
+
+## Session isolation (critical, found in production)
+
+Shares the exact bug described in stop-completeness-gate's README: the
+judge subprocess inherited Claude Code's own session-identity environment
+variables (`CLAUDE_CODE_SESSION_ID` and related), so it was never actually
+an isolated call — it attached to the live calling session and its answers
+could be contaminated by unrelated content from elsewhere in that session.
+Caught via the sibling hook's production output, not by inspection here.
+Fixed identically: `run_judge()` strips `CLAUDE_CODE_SESSION_ID`,
+`CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_CODE_REMOTE_SESSION_ID`,
+`CLAUDE_SESSION_INGRESS_TOKEN_FILE`, `CLAUDE_CODE_MESSAGING_SOCKET`,
+`CLAUDE_CODE_MESSAGING_TOKEN`, `CLAUDE_CODE_SYNC_SESSION_REFS`, and
+`SESSION_INGRESS_URL` before spawning the judge, every call. Both the
+true-positive and true-negative cases above were re-verified after this
+fix; treat any result from before it as unreliable.
 
 Not tested: firing through an actual live `Stop` event inside an
 interactive session (only direct script invocation was tested), and

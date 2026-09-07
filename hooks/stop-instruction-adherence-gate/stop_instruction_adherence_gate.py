@@ -44,6 +44,24 @@ import sys
 _OWN_GUARD_ENV = "STOP_ADHERENCE_GATE_JUDGE_RUN"
 _SIBLING_GUARD_ENV = "STOP_COMPLETENESS_GATE_JUDGE_RUN"  # from stop-completeness-gate
 
+# Session isolation: the calling process's environment carries Claude Code's
+# own session identity (CLAUDE_CODE_SESSION_ID and friends). Left in place,
+# a spawned `claude -p` judge attaches to THIS session instead of starting a
+# fresh, isolated one - verified directly: an unstripped call reported the
+# same session_id as the live interactive session, and its answer was
+# contaminated with unrelated content from elsewhere in that session. These
+# must be stripped from the judge subprocess's environment on every call.
+_SESSION_ISOLATION_STRIP_VARS = [
+    "CLAUDE_CODE_SESSION_ID",
+    "CLAUDE_CODE_CHILD_SESSION",
+    "CLAUDE_CODE_REMOTE_SESSION_ID",
+    "CLAUDE_SESSION_INGRESS_TOKEN_FILE",
+    "CLAUDE_CODE_MESSAGING_SOCKET",
+    "CLAUDE_CODE_MESSAGING_TOKEN",
+    "CLAUDE_CODE_SYNC_SESSION_REFS",
+    "SESSION_INGRESS_URL",
+]
+
 DEFAULT_MODEL = os.environ.get("STOP_ADHERENCE_GATE_MODEL", "claude-sonnet-5")
 MAX_BUDGET_USD = os.environ.get("STOP_ADHERENCE_GATE_MAX_BUDGET_USD", "0.50")
 TIMEOUT_SECONDS = int(os.environ.get("STOP_ADHERENCE_GATE_TIMEOUT_SECONDS", "60"))
@@ -319,6 +337,8 @@ def build_prompt(instructions_text, history_text, action_log, assistant_text):
 
 def run_judge(prompt):
     env = os.environ.copy()
+    for var in _SESSION_ISOLATION_STRIP_VARS:
+        env.pop(var, None)
     env[_OWN_GUARD_ENV] = "1"
     env[_SIBLING_GUARD_ENV] = "1"
     try:
