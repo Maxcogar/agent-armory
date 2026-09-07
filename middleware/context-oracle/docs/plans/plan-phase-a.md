@@ -401,20 +401,24 @@ middleware/context-oracle/ctxoracle/
       command_class.test.ts                # T26-1
       command_class_compound.test.ts       # T26-2
       whisper_form.test.ts                 # T27-1
-      hook_field_names_isolated.test.ts    # T28-2 (AD-6 structural)
       concurrency.test.ts                  # T37-1
       whisper_stats_fold.test.ts           # T37-2
       model_invoke_stub.test.ts            # T38-1
     build/                                 # compile-time typecheck fixtures
       typecheck_provenance.test.ts         # T9-1 (compile-time)
-      typecheck_verdict_shape.test.ts      # T15-1
+      typecheck_verdict_shape.test.ts      # T15-1 (two fixtures: updatedInput, updatedToolOutput — M3)
       fixtures/
         missing_provenance.ts              # T9-1 fixture (must fail tsc)
-        verdict_shape_mutation.ts          # T15-1 fixture (must fail tsc)
+        verdict_shape_mutation_input.ts    # T15-1 fixture a (must fail tsc)
+        verdict_shape_mutation_output.ts   # T15-1 fixture b (must fail tsc)
     conventions/                           # convention greps (Step 41)
       no_direct_dao_from_handler.test.ts   # T41-1a
-      hook_field_names_isolated.test.ts    # T41-1b (also referenced as T28-2)
+      hook_field_names_isolated.test.ts    # T28-2 AND T41-1b (single file, single location —
+                                            #   expert-review M2: was duplicated under test/unit/ too;
+                                            #   this is the only copy, run both as a unit check during
+                                            #   dev and as the CI convention gate)
       permission_decision_confined.test.ts # T41-1c
+      oracle_spawn_confined.test.ts        # T41-1d (N5 — see Step 2.5)
     replay/                                # AD-24 tier 2: real handler + real store + captured hook streams
       runner.ts                            # replay harness (spawns real handler)
       hook_stream_fixtures/                # captured hook JSON streams (per T-ID)
@@ -463,7 +467,30 @@ middleware/context-oracle/ctxoracle/
       seeded_facts_exit.test.ts                    # T40-6 (AC-18; runs as part of Step 42)
     fixtures/                              # AD-24 tier 2 fixture repos (deterministic generators, D-plan-5)
       generate.ts                          # entry point for all fixture-repo generators
-      repos/                               # (git repos generated at test time; see §12 for the full set)
+      repos/                               # git repos generated at test time — enumerated below
+                                            # (expert-review M1: previously deferred to §12 only)
+        full-shallow-noorigin-nogit/       # T5-1's four sub-repos (repo-key resolution modes)
+        answer-drift-clearly-off/          # T16-1
+        answer-drift-reconciliation/       # T16-2 (reuses answer-drift-clearly-off's shape + reconciled entry)
+        answer-drift-subagent/             # T16-3
+        answer-drift-lag/                  # T17-1, T17-2 (shared: lag-window timing fixtures)
+        injected-turn/                     # T18-2 (deny_from_injected_turn)
+        deny-health/                       # T18-1
+        coupling-nonobvious/               # T25-1
+        orientation-mixed-shape/           # T25-2
+        reuse-mixed-language/              # T25-3 (sub-repos A, B, C)
+        consequence-coupled-tests/         # T25-4
+        completeness-paired-change/        # T25-5
+        verification-headline/             # T25-8
+        warning-hazard/                    # T25-9
+        corpus-floor-boundary/             # T25-7
+        pristine-tree/                     # T31-1
+        secret-injection/                  # T40-1
+        subagent-delivery/                 # T40-2
+        language-config-added/             # T40-3
+        seeded-facts/                      # T40-6
+        regret-true-positive/              # T36-1
+        regret-no-inflate/                 # T36-1
     build_time/                            # AD-24 build-time verifications (§15 Q-gap-4 disposition)
       grammar_inventory_check.ts           # L6 — automated at build (Step 40)
       l11_a_measurement.md                 # L11(a) — RESOLVED (§15 Q-gap-4); post-completion doc PR
@@ -581,9 +608,21 @@ with `"type": "module"`, `"bin": {"ctxoracle": "dist/cli.js"}`,
 `scripts.postinstall`, or `scripts.preinstall`. Create `tsconfig.json` with
 `"strict": true`, `"target": "ES2022"`, `"module": "NodeNext"`,
 `"moduleResolution": "NodeNext"`, `"outDir": "dist"`, `"rootDir": "src"`,
-`"declaration": false`. Add a GitHub Actions workflow
-`.github/workflows/context-oracle-ctxoracle.yml` that runs `npm ci && npx
-tsc --noEmit && node --test test/unit/**/*.test.ts` on every PR touching
+`"declaration": false`. Create a second config `tsconfig.test.json`
+(`extends: "./tsconfig.json"`, `include: ["src/**/*.ts", "test/**/*.ts"]`,
+`compilerOptions: {"outDir": "dist-test", "rootDir": "."}`, no
+`noEmit`) — this is the resolved answer to collapse-hunt C2: `node:test`
+on Node 22.16.0 cannot execute `.ts` source directly (no
+`--experimental-strip-types` is assumed or relied on anywhere in this
+plan), so test files and the `src/` they import are compiled together
+to real `.js` under `dist-test/` before `node --test` ever runs. `dist/`
+(the production `tsconfig.json` outDir) never contains a test file —
+tests compile to the separate `dist-test/` tree — which is also what
+keeps Step 15's `T15-2` confinement grep meaningful (see Step 15).
+Add a GitHub Actions workflow
+`.github/workflows/context-oracle-ctxoracle.yml` that runs `npm ci &&
+npx tsc --noEmit && npx tsc -p tsconfig.test.json && node --test
+"dist-test/test/**/*.test.js"` on every PR touching
 `middleware/context-oracle/ctxoracle/**`.
 
 **Source.** `AD-25` (packaging: two deps, no postinstall, no native code,
@@ -599,10 +638,14 @@ package, verified 2026-09-06 via npm registry).
 **Dependencies.** None (first step).
 
 **Verification.** `T1-1` (Step-1 build test): from a clean checkout, `cd
-middleware/context-oracle/ctxoracle && npm ci && npx tsc --noEmit` exits 0
-with no warnings; `node --test` reports 0 tests found (expected — no tests
-yet). Verify no install/postinstall/preinstall script ran by capturing `npm
-ci` output.
+middleware/context-oracle/ctxoracle && npm ci && npx tsc --noEmit && npx
+tsc -p tsconfig.test.json` exits 0 with no warnings, `dist-test/` is
+created; `node --test "dist-test/test/**/*.test.js"` reports 0 tests
+found (expected — no test files exist yet at Step 1, so the glob
+matches nothing; this is distinct from the C2 failure mode of files
+existing but failing to load, which later steps' T-IDs cover). Verify
+no install/postinstall/preinstall script ran by capturing `npm ci`
+output.
 
 **Impact if wrong.** Contained — a broken package skeleton fails Step 1's
 own verification; every subsequent step's `npm ci` also fails, so the mistake
@@ -654,6 +697,72 @@ falsely rejects a good runtime (loud, easy to fix) or falsely accepts a bad
 one (caught by the FTS5 probe or by a downstream statement failure in
 subsequent steps). No agent-visible failure — this only runs at `init`, not
 on the hook path.
+
+---
+
+### Step 2.5 — `oracleSpawn` wrapper (recursion-guard enforcement, AD-21)
+
+**Placed here, not later, per S1's topological-sort lesson applied to
+this plan's own fix pass:** Step 20/21's indexer (`refreshIfStale`)
+already spawns a detached `ctxoracle index` child directly; a wrapper
+introduced only at Step 38 (alongside the Phase B model seam) would
+leave that earlier, real spawn site unguarded by construction — the
+same "cited a later step as a dependency" shape S1 found in Step 31.
+This step has no dependency but Step 1, so nothing is lost by building
+it this early, and everything that spawns depends on it correctly.
+
+**What changes.** Create `src/proc/oracle_spawn.ts` exporting
+`oracleSpawn(cmd: string, args: string[], opts?: SpawnOptionsWithoutStdio)`
+— the ONLY function in the codebase permitted to call
+`child_process.spawn`/`execFile`/`fork`. It sets
+`env: { ...process.env, ...opts?.env, CTXORACLE_INTERNAL: '1' }` on
+every invocation before delegating to `child_process.spawn`, so the
+recursion guard AD-21 declares structural ("all processes the oracle
+spawns … set this env var") cannot be lost by a future spawn site
+forgetting to set it by hand — collapse-hunt N5's finding is that
+AD-21's guarantee had no enforcement mechanism; this is that
+mechanism. Step 20/21's `refreshIfStale` and Step 38's
+`ModelInvocation` (Phase B) are both required to call `oracleSpawn`,
+never `child_process.spawn`/`execFile` directly.
+
+**Source.** `AD-21` (recursion guard: `CTXORACLE_INTERNAL` env-var
+checked first in the handler; all spawned processes must set it);
+`AD-10`'s single-producer pattern, applied to spawns instead of
+denies (the collapse-log 2026-08-25 lesson: a structural property
+needs a structural confinement, not implementer discipline).
+
+**Why this approach (Gate 3):**
+1. **The decision.** One wrapper function is the only legal spawn
+   site; a CI grep enforces it (Step 41).
+2. **The authoritative standard.** `AD-21`; the same ISO/IEC 25010
+   analysability argument Step 15 makes for `blocks/verdict.ts`,
+   applied to the recursion guard.
+3. **Why this standard applies here.** Step 20/21's indexer is
+   already a spawner and Step 38's `ModelInvocation` will be a
+   second one; a guard that depends on every spawn site remembering a
+   flag by hand is exactly the implementer-discipline failure mode
+   AD-10 already rejected for denies. The same fix generalizes.
+4. **What this is NOT — and why.** Not a runtime assertion inside
+   each spawn call site (still relies on the implementer remembering
+   to add the assertion — no better than the bare env-var). Not a
+   process-wide `NODE_OPTIONS` env injection (affects processes
+   outside the oracle's control, a wider blast radius than AD-21
+   requires).
+
+**Dependencies.** Step 1.
+
+**Verification.** `T2.5-1` (`oracleSpawn` sets `CTXORACLE_INTERNAL=1`
+on the child's env; a child process reading `process.env` sees it);
+`T41-1d` (CI convention grep: `dist/**/*.js` contains no
+`child_process.spawn`/`execFile`/`fork` call outside
+`dist/proc/oracle_spawn.js` — added to Step 41's existing convention
+suite alongside `T41-1a`–`T41-1c`).
+
+**Impact if wrong.** A spawn site that bypasses the wrapper silently
+loses the recursion guard; the indexer's self-refresh or the Phase B
+piggyback model call would then re-trigger the oracle's own hooks
+recursively. `T41-1d` is a CI-blocking structural check, so the
+failure mode is a red PR, not a production recursion.
 
 ---
 
@@ -770,9 +879,26 @@ resolved, `init` writes to the wrong place (owner sees no data in
 string }`:
 1. `git rev-parse --is-inside-work-tree` → false → fall through to (3).
 2. `git rev-parse --is-shallow-repository` → true → derive key from
-   normalized origin URL (`git config --get remote.origin.url`, normalized
-   by lowercasing scheme+host, stripping trailing `.git`, stripping user
-   info); if no origin, fall to (3). `mode='url'`.
+   normalized origin URL (`git config --get remote.origin.url`).
+   **Normalization axes, enumerated explicitly (collapse-hunt N1 —
+   the prior text named three axes and left the rest silently
+   unhandled):** (a) host — lowercased; (b) userinfo
+   (`user@`/`user:pass@`) — stripped; (c) trailing `.git` suffix —
+   stripped; (d) trailing slash — stripped; (e) default port
+   (`:443` for https, `:22` for ssh) — stripped, non-default ports
+   preserved (a different port is a different remote); (f) path —
+   **preserved verbatim, case-sensitive** (GitHub/GitLab paths are
+   case-sensitive; folding case would collide distinct repos); (g)
+   scheme (`https://`, `ssh://`, `git://`, the scp-like
+   `git@host:path` form) — **NOT unified across schemes.** Declared
+   open, per N1's option (b): an SSH remote and an HTTPS remote for
+   the same physical repository normalize to two different keys in
+   shallow mode. This is a stated Phase A limitation, not a silent
+   gap — `status` displays the full normalized identity string (not
+   just the `mode` label), so two shallow clones of the same repo
+   keying differently is visible to whoever runs `status`, closing
+   the "owner can't tell" hole the review named. If no origin, fall
+   to (3). `mode='url'`.
 3. `git rev-parse --is-shallow-repository` → false → run `git rev-list
    --max-parents=0 HEAD`, sort the returned hashes lexicographically, take
    the smallest; `mode='commit'`.
@@ -812,10 +938,13 @@ never commit; init performs no fetch — `FR-X5`).
 origin, shallow without origin, no git).
 
 **Impact if wrong.** Systemic within one repo — a wrong key silently splits
-data. Mitigated by `status` displaying the key + mode (so a re-init after
-external repo changes visibly changes the mode; unrecoverable-by-merge is
-covered by AD-20's plain-language "would change keying mode" prompt on
-re-init).
+data. Mitigated by `status` displaying the **full normalized identity
+string** (not only the `key`/`mode` pair — collapse-hunt N1: the mode
+label alone reads identically for two clones that key differently) so
+a re-init after external repo changes, or a second clone via a
+different URL scheme, is visibly distinguishable; unrecoverable-by-
+merge is covered by AD-20's plain-language "would change keying mode"
+prompt on re-init.
 
 ---
 
@@ -826,6 +955,8 @@ FaultCode` with every code the architecture names, verbatim: `hooks_not_
 firing`, `latency_breach`, `store_corrupt`, `index_stale`,
 `produced_but_undelivered`, `deny_after_answer_lag`,
 `deny_despite_answer_text`, `deny_loop`, `deny_bypass_suspect`,
+`deny_from_injected_turn` (added this fix pass — collapse-hunt P2's
+transient-wrongful-deny counter, Step 18),
 `catchup_incomplete`, `intake_invalidated`, `rebuild_recovered_nothing`,
 `transcript_layout_changed`, `unrecognized_user_entry`, `store_busy`, and
 the two Phase-B/C reserved codes `model_path_down` and
@@ -1233,7 +1364,14 @@ recognizers, deliberately conservative:
   'deferral_matched' }`. A turn clears when its substance length (after
   stripping tool noise: `<thinking>` etc.) is above the length floor
   AND it is not a recognized content-free deferral
-  (`lexicon.deferral_stoplist`).
+  (`lexicon.deferral_stoplist`). `lengthFloor` is read from
+  `bar.clear_length_floor` (Step 23's seeded default, 40 characters —
+  disclosed there as a plan judgment, not a sourced constant; N4's
+  finding was that this plan omitted a value for it entirely). Step
+  18's `checkDenyDespiteAnswerText` is the paired FR-M2 sanity check
+  N4 asked for: it fires when denies accumulate despite non-deferral
+  assistant text, which is the observable symptom of `lengthFloor`
+  being set too high.
 - `recognizeMove(toolName)`: returns `true` when the tool is in the
   deny-eligible set `{'Write', 'Edit', 'NotebookEdit'}`, else `false`.
   **Nothing else is denied in Phase A** (`D-39`).
@@ -1291,11 +1429,22 @@ constructs a `permissionDecision: "deny"` field. Exports:
   places `permissionDecision` into a response.
 
 Create `test/unit/verdict_confinement.test.ts` (AC-2's structural
-assertion, made mechanical): walks the compiled `dist/` output and
-asserts no file except `blocks/verdict.ts` contains the string literal
-`"permissionDecision"` OR the identifier `emit` imported from another
-file. This runs in CI (Step 1's workflow) and fails the PR on any
-second caller path.
+assertion, made mechanical): walks the **production** compiled output
+under `dist/` (Step 1's `tsconfig.json` outDir — `src/` only) and
+asserts no file except `dist/blocks/verdict.js` contains the string
+literal `"permissionDecision"` OR the identifier `emit` imported from
+another file. The scope is `dist/**/*.js` specifically, not
+`dist-test/**` (Step 1's separate test-compile tree, which also
+contains `src/`'s compiled output alongside test files) — this is
+deliberate: `dist-test/` is where `T15-1`'s own fixture constructs a
+`permissionDecision` literal to prove it fails `tsc`, and that fixture
+must never be mistaken for a second production caller. Resolves
+collapse-hunt N6: grepping `dist/` (not `dist-test/`) means a
+test-only construction of a deny can never produce a false positive,
+and because `dist/` only ever contains `src/`'s output, the grep
+cannot silently pass vacuously the way it would if `dist/` were never
+populated at all (fixed by C2's compile step above). This runs in CI
+(Step 1's workflow) and fails the PR on any second caller path.
 
 The response type in `src/types/verdict.ts` deliberately does NOT expose
 `updatedInput` or `updatedToolOutput` — `FR-B3`'s no-mutation clause is
@@ -1324,12 +1473,17 @@ mechanises).
 
 **Dependencies.** Steps 3, 9, 10.
 
-**Verification.** `T15-1` (compile-time: `updatedInput` and
-`updatedToolOutput` are absent from every response-related type — a
-`typecheck_verdict_shape.test.ts` fixture asserts this fails to
-compile if attempted); `T15-2` (`verdict_confinement.test.ts`
-runtime: build `dist/`, grep for `permissionDecision`, assert only
-`dist/blocks/verdict.js` matches).
+**Verification.** `T15-1` (compile-time: two fixtures under
+`test/build/fixtures/` — one attempting `{ updatedInput: 'x' }`, one
+attempting `{ updatedToolOutput: 'x' }` as a `HookResponse` literal —
+each asserted to fail `tsc -p tsconfig.test.json`; both fields are
+exercised because the review's M3 finding is correct that they are
+independent literal positions in the type, not one code path);
+`T15-2` (`verdict_confinement.test.ts` runtime: build `dist/` via a
+real emit — `npx tsc` against `tsconfig.json` with no `--noEmit`
+override, the production build distinct from the `tsconfig.test.json`
+build `T15-1`'s fixtures compile under — grep `dist/**/*.js` for
+`permissionDecision`, assert only `dist/blocks/verdict.js` matches).
 
 **Impact if wrong.** Systemic and owner-visible — a second deny caller
 violates `FR-B1`'s "exactly two blocks" absolute in a way owner
@@ -1478,7 +1632,30 @@ called after every deny emission (Step 16) and every catch-up (Step
   `>>`, `tee`, `sed -i`, `perl -i`, `cp`, `mv`, `install` writing to
   a path); if a same-turn `whisper_audit.kind='deny'` exists whose
   `evidence_json` records a target path that matches the Bash
-  command's target → record `deny_bypass_suspect`.
+  command's target → record `deny_bypass_suspect`. **Coverage bound,
+  stated explicitly (collapse-hunt N2):** this predicate list is the
+  full detector — it is not an approximation of a larger intended
+  set. Known Bash file-writing patterns it does NOT catch: `dd`,
+  `rsync`, `ln -sf`, `xargs cp`/`xargs mv`, `git add && git commit`,
+  and language-native writers invoked from Bash (`python -c
+  "open(...).write(...)"`, `node -e "fs.writeFileSync(...)"`). Phase
+  A's mission (§11.5) is an honest floor, not maximum coverage; the
+  honest choice is naming the gap, not silently under-measuring it.
+  `status`'s residuals section lists this omitted-pattern set
+  verbatim so the exit-report's `deny_bypass_suspect` count is read
+  as "coverage of the enumerated pattern set," never as "how
+  bypassable the block is via Bash" in general.
+- `checkDenyFromInjectedTurn(store, consumer, event)`: the P2
+  counterpart to `deny_after_answer_lag` — same async-transcript-lag
+  root cause, opposite trigger. If a `PreToolUse` deny fires against
+  a question row whose `provenance` is `chat:<date>` (opened from a
+  live `UserPromptSubmit.prompt`, per Step 16's `intakeFromPrompt`)
+  AND the very next transcript catch-up voids that same row because
+  the matching turn's `origin.kind` is not `"human"` → record
+  `deny_from_injected_turn`. This is the transient wrongful-deny case
+  named in §15 Q-gap-4's corrected L11(b) disposition: a
+  platform-injected turn opened a question row before catch-up could
+  see its non-human marker.
 
 **Source.** `AD-9` (deny-loop, deny-bypass-suspect, and the two
 `deny_after_answer_lag`/`deny_despite_answer_text` detectors);
@@ -1504,9 +1681,12 @@ called after every deny emission (Step 16) and every catch-up (Step
 
 **Dependencies.** Steps 16, 17.
 
-**Verification.** `T18-1` (each detector induced and asserted to
-record its fault; corresponds to AC-9's "deny outlives its
-condition" clause).
+**Verification.** `T18-1` (each of the three original detectors
+induced and asserted to record its fault; corresponds to AC-9's
+"deny outlives its condition" clause); `T18-2`
+(`checkDenyFromInjectedTurn` induced: a `chat:`-provenance row denied
+before the next catch-up voids it, asserted to record
+`deny_from_injected_turn`).
 
 **Impact if wrong.** Diagnostic-only — a broken detector silently
 degrades observability, caught by `T18-1`'s induction.
@@ -1645,8 +1825,10 @@ Create `src/index/indexer.ts` — the orchestrator:
   the diagnostic. Redacts every ingested string via Step 11.
 - `refreshIfStale(store, repoPath)`: compares `schema_meta.
   index_head` to `git rev-parse HEAD`; on drift, spawn a detached
-  `ctxoracle index` child with `CTXORACLE_INTERNAL=1` and a directory
-  lock in the store dir.
+  `ctxoracle index` child via `oracleSpawn` (Step 2.5) — never a
+  direct `child_process.spawn` call — with a directory lock in the
+  store dir. `oracleSpawn` sets `CTXORACLE_INTERNAL=1`; this step
+  does not set it by hand.
 
 **Source.** `AD-12` (indexer: LanguageFrontend, WASM grammars,
 generic fallback, zone, entry_score, incremental refresh).
@@ -1667,11 +1849,14 @@ generic fallback, zone, entry_score, incremental refresh).
    size" (V5 governs; the caps prevent a 100MB generated file from
    blowing the indexer).
 
-**Dependencies.** Steps 7, 9, 11.
+**Dependencies.** Steps 7, 9, 11, 2.5 (`oracleSpawn` — `refreshIfStale`'s
+self-spawn goes through it, never a direct `child_process.spawn`).
 
 **Verification.** `T21-1` (indexer skeleton runs on a small fixture
 repo; `files`/`symbols`/`import_edges` populate; large-file caps
-respected; redaction applied at ingress).
+respected; redaction applied at ingress); `T21-2` (`refreshIfStale`'s
+spawn call is `oracleSpawn`, not `child_process.spawn` directly —
+compile-time/structural, paired with `T41-1d`).
 
 **Impact if wrong.** Contained per genre — a broken indexer starves
 Orientation, Reuse, Coupling; visible in `status` per-genre counts.
@@ -1735,12 +1920,30 @@ falls back to generic (visible in `status` per-language counts).
 - `addToList(store, key, value, source)` / `removeFromList(store,
   key, value)`.
 
-Seed the following defaults (verified against AD-14 and AD-9):
+Seed the following defaults. **Corrected framing (collapse-hunt
+N3/N4):** the prior text said these were "verified against AD-14 and
+AD-9" — false. AD-14 states the bar's *structure* (conjunction, no
+caps, hazard bypass) and states explicitly that the *operating point*
+is architect/owner-tunable via `tune`, not a value AD-14 itself
+specifies. These numbers are **plan-seeded starting values with no
+external or owner source**, not standard- or architecture-sourced
+constants — exactly the "numbers without sources don't go in" rule
+this plan's own §3 states, applied honestly to the plan's own defaults
+instead of exempting them:
 - `bar.confidence_floor` = "0.6"
 - `bar.support_min` = "3"
 - `bar.noise_floor_support_min` = "2"
 - `bar.impact_read_min_coupled` = "2"
 - `bar.reuse_dominance_k` = "3"
+- `bar.clear_length_floor` = "40" (characters, post-trim) — the
+  clearing recognizer's (Step 14) length floor, previously
+  unspecified entirely (N4): too high and a short-but-substantive
+  answer ("no — the null check doesn't fix it", 39 chars) wrongfully
+  fails to clear; too low and a single-token deferral outside the
+  stoplist clears wrongfully. 40 is set as the shortest canonical
+  non-deferral sample in T27-1's whisper-form fixture set minus
+  margin — an internally-consistent starting point, not an externally
+  sourced one, and named as such.
 - `lexicon.stoplist` (list): rhetorical/idiom seeds
 - `lexicon.deferral_stoplist` (list): "I'll get to that"-class seeds
 - `lexicon.command_class_test_runners` (list): `npm test`, `pytest`,
@@ -1751,11 +1954,22 @@ Seed the following defaults (verified against AD-14 and AD-9):
   "implemented", "fixed", "finished"...
 - `deny.despite_answer_text_threshold` = "3"
 
-**Source.** `AD-14` (bar defaults); `AD-9` (stoplists);
-`AD-15` (command_class lexicons); AD-20 (`tune` writer).
+**Source.** `AD-14` (bar *structure*, and that the operating point is
+tunable — not the values themselves); `AD-9` (stoplists as a
+category, not their exact contents); `AD-15` (command_class lexicons
+as a category); AD-20 (`tune` writer). The numeric values above are
+plan judgment, not architecture-verified constants — recorded
+honestly in §10 Decisions rather than dressed as sourced. **Every
+one of these numbers is a Phase A calibration input, not a finding:
+Step 42's exit-run is what actually calibrates them, and the
+exit-report's per-genre counts are conditional on these starting
+values until that first real-repo tune runs (collapse-log
+2026-08-13's "a per-trigger number that had no value and no source"
+lesson, applied honestly here instead of repeated).**
 
-**Why this approach (trivial: seeding from architecture-named
-defaults).**
+**Why this approach (trivial: seeding a plan-judgment starting point,
+disclosed as such, so `init` has values to seed at all — the
+alternative, seeding nothing, blocks Step 30's `init` entirely).**
 
 **Dependencies.** Steps 8, 9.
 
@@ -1885,8 +2099,17 @@ guarantees); `FR-A2a`–`FR-A2g`, `FR-D1`–`FR-D5`, `P5`.
 
 **Dependencies.** Steps 20, 21, 22, 23, 24, 9.
 
-**Verification.** `T25-1` through `T25-7` (one per genre —
-per-genre unit tests + AC-1..AC-1d fixture assertions in §12).
+**Verification (corrected — expert-review m2 found "one per genre"
+factually false).** `T25-1` (Coupling), `T25-2` (Orientation), `T25-3`
+(Reuse), `T25-4` (Consequence), `T25-5` (Completeness) — five
+per-genre acceptance tests; `T25-6`, `T25-6a`, `T25-6b`, `T25-7` —
+four cross-cutting mechanism tests (bar no-cap, hazard bypass, dedup,
+corpus floor), not per-genre; `T25-8` (Verification genre — new,
+closes S2) and `T25-9` (Warning genre — new, closes S2's "one per
+genre" gap for the seventh genre) added by this fix pass so all
+seven Phase A genres (Orientation, Coupling, Reuse, Consequence,
+Warning, Completeness, Verification) have a dedicated whisper-content
+acceptance test.
 
 **Impact if wrong.** Contained per genre; each per-AC fixture pins
 its headline.
@@ -2173,13 +2396,34 @@ Implement `init` (`src/cli/init.ts`):
    (Step 7). Open global store; apply migration 002 (Step 8);
    seed defaults (Step 23) if empty.
 4. Write hook entries into `<repoPath>/.claude/settings.json` for
-   the 8 events per AD-6, each marked with `"ctxoracle"` in a comment
-   or a marker field, `"command": "ctxoracle hook <event>"`,
-   `"timeout": 5`. Idempotent — repeated init re-repairs wiring
-   without duplicating markers.
-5. Run first `index` (Step 32).
+   the 8 events per AD-6. The marker is the entry's own
+   `"command": "ctxoracle hook <event>"` string, not a separate
+   comment or marker field (JSON has no comment syntax, and an
+   invented marker field is a schema-drift risk a stricter future
+   harness validator could reject — Q-plan-marker below). `deinit`
+   (Step 32) and the AD-6 adapter both identify ctxoracle-owned
+   entries by `command` starting with the literal `ctxoracle `
+   prefix — a field every hook entry already requires, so no
+   schema surface is added. `"timeout": 5` on each entry.
+   Idempotent — repeated init re-repairs wiring without duplicating
+   entries (matched by the same `command`-prefix rule).
+5. Run first index by calling `runIndex` (Step 21) directly as a
+   function import — not by invoking the `ctxoracle index` CLI verb
+   (Step 32), which would make init depend on a step defined after
+   it. `index` (Step 32) and `init`'s first-run both call the same
+   `runIndex` function; the CLI verb is for subsequent manual runs.
 6. Print plain-language summary: repo key, keying mode, files
    indexed, tables ready.
+
+**Q-plan-marker (resolved).** Collapse-hunt P3 / author-gates review
+flagged that a `settings.json` marker field or comment would not
+survive a future strict-schema harness validator, and that the AD-6
+adapter (which mediates *hook input parsing*, not `settings.json`
+*writes*) was cited as the mitigation for the wrong write path. Fixed
+above: the marker is the `command` field's own required content, so
+there is no separate field for a stricter validator to reject in the
+first place — the open hole is closed by removing the surface it
+would have opened on, not by hardening a discipline around it.
 
 **Source.** `AD-20` (init spec: environment checks, key derivation,
 plain-language on re-init keying-mode change, hook wiring, first
@@ -2201,7 +2445,9 @@ settings location); `D-9` (init is the one in-tree write).
    Not blocking on missing FTS5 (falls back to LIKE with `status`
    note, per AD-2).
 
-**Dependencies.** Steps 2, 4, 5, 7, 8, 23, 32 (first-index invocation).
+**Dependencies.** Steps 2, 4, 5, 7, 8, 21 (`runIndex`, called directly
+— not Step 32's CLI verb; see item 5 above, S1 in
+`2026-09-06-plan-expert-review.md`), 23.
 
 **Verification.** `T31-1` (init on a fresh repo: settings.json
 receives 8 marked entries, stores created at 0700, first index
@@ -2218,10 +2464,12 @@ key, orphaned store) is the risk `T31-3` guards.
 ### Step 32 — `deinit`, `index`, `hook`, `export`, `import` verbs
 
 **What changes.**
-- `deinit`: remove marker-tagged entries from
-  `.claude/settings.json`; on `--purge`, delete the project store
-  and its diagnostics directory.
-- `index [--full]`: call `runIndex` (Step 21); with `--full`
+- `deinit`: remove every `.claude/settings.json` entry whose
+  `command` starts with `ctxoracle ` (the marker discipline fixed
+  in Step 31, item 4); on `--purge`, delete the project store and
+  its diagnostics directory.
+- `index [--full]`: call `runIndex` (Step 21) — the same function
+  Step 31's init calls directly for its first run; with `--full`
   re-mine from scratch; otherwise incremental.
 - `hook <event>`: the handler entry point (Step 28) — routes stdin
   JSON to the pipeline. Undocumented in `--help`.
@@ -2496,16 +2744,43 @@ efficacy stats. Caught by `T37-1`/`T37-2`.
 
 **What changes.** Create `src/model/invoke.ts` with the interface
 Phase B will implement, but every call in Phase A throws or
-returns a "not-called-in-phase-a" sentinel:
+returns a "not-called-in-phase-a" sentinel. Per collapse-hunt P4, the
+shape below carries every field the V9-verified command's
+`--output-format json` already returns, rather than an invented
+narrower shape — a Phase A guess is grounded in the verified command's
+actual surface, not in what Phase A happens to need (which is
+nothing):
 ```ts
+export interface ModelInvocationResult {
+  ok: true;
+  text: string;
+  costUsd: number;
+  usage: { inputTokens: number; outputTokens: number };
+  model: string;
+  stopReason: string;
+}
+export interface ModelInvocationOpts {
+  model?: string;
+  systemPrompt?: string;
+  maxTurns?: number;
+  timeoutMs?: number;
+}
 export interface ModelInvocation {
-  invoke(prompt: string, opts?: {maxTurns?: number}):
-    Promise<{ok: true, text: string} | {ok: false, reason: string}>;
+  invoke(prompt: string, opts?: ModelInvocationOpts):
+    Promise<ModelInvocationResult | {ok: false, reason: string}>;
 }
 export const phaseANotImplemented: ModelInvocation = {
   invoke: async () => ({ ok: false, reason: 'phase_a_no_model' }),
 };
 ```
+Every process this interface's real (Phase B) implementation spawns
+MUST go through the `oracleSpawn` wrapper (Step 2.5) so the
+recursion guard (`CTXORACLE_INTERNAL`) cannot be forgotten at the
+first real spawn site this seam introduces — `invoke()`'s
+implementation is required to call `oracleSpawn`, never
+`child_process.spawn`/`execFile` directly; Step 41's convention test
+enforces this structurally.
+
 Also record the V9-verified invocation in a comment as the Phase B
 target: `claude -p --model <small> --tools "" --max-turns 1
 --output-format json` (verified by architecture V9 on 2026-08-29;
@@ -2529,15 +2804,33 @@ criterion).
 4. **What this is NOT — and why.** Not a stub that returns fake
    answers (would be exactly the fake-completeness collapse-log
    warns against). Not a probe that runs at Phase A init (no
-   caller — nothing to probe).
+   caller — nothing to probe). Not a claim that this shape is
+   Phase-B-approved — §10 records this as Phase A's best-effort seam
+   guess grounded in V9's verified command surface, not a contract
+   Phase B's own architecture has reviewed; if Phase B needs a
+   different shape it revises this file, and no Phase A caller
+   breaks because there are none (P4's residual risk is contained,
+   not corrected away).
 
 **Dependencies.** Step 1.
 
 **Verification.** `T38-1` (interface compiles; invoking the Phase
-A stub returns `phase_a_no_model`).
+A stub returns `phase_a_no_model`; `ModelInvocationResult`'s fields
+match V9's `--output-format json` field names exactly, checked by a
+compile-time fixture against a captured V9 sample response).
 
 **Impact if wrong.** Contained — no Phase A caller, so a bug here
-does not affect Phase A behavior; caught at Phase B by then.
+does not affect Phase A behavior; caught at Phase B by then. If the
+shape is wrong, Phase B revises this one file — no other Phase A
+module imports it (verified: `src/model/invoke.ts` has zero Phase A
+importers by construction, since Step 38's own text states no Phase A
+caller exists).
+
+Every process this interface's real (Phase B) implementation spawns
+MUST go through the `oracleSpawn` wrapper (**Step 2.5**, placed early
+because Step 20/21's indexer already needs it — see Step 2.5) so the
+recursion guard cannot be forgotten at the first real spawn site this
+seam introduces.
 
 ---
 
@@ -2571,10 +2864,27 @@ testing only where the interaction IS the behavior).
    schemas via migrations — Fake-Test #3). Not tests that cannot
    fail (every T*-* names its failure condition in §12).
 
-**Dependencies.** Steps 3, 9, 11, 12, 14, 22, 24, 26.
+**Dependencies.** Step 39 is a per-step consolidation, not an
+independent build unit (expert-review M4): its real dependency set is
+every step in §5.1's `test/unit/` listing (currently Steps 1–15, 20,
+21, 22, 23, 24, 26, 27, 28, 37, 38, 2.5 — each producing its own
+test file alongside its own module per D-plan-1), not a curated
+subset. The 8-item list this field previously named was
+under-specified against what §5.1 actually populates; Steps 3, 9, 11,
+12, 14, 22, 24, 26 are called out here only because their T-IDs are
+the ones exercised by this step's own Gate-3 rationale above (real
+store, real temp-file reader) — every other listed module's test file
+is built alongside that module per its own step, not consolidated
+here.
 
-**Verification.** All T*-* unit tests in §12 pass under
-`node --test test/unit/**/*.test.ts`.
+**Verification.** All T*-* unit-tier tests in §12 pass under `npx tsc
+--noEmit && npx tsc -p tsconfig.test.json && node --test
+"dist-test/test/unit/**/*.test.js" "dist-test/test/build/**/*.test.js"
+"dist-test/test/conventions/**/*.test.js"` — the full non-replay
+glob (expert-review m1: the original `test/unit/**/*.test.ts` glob
+missed the `test/build/` compile-time fixtures and `test/conventions/`
+CI-gate files; C2's Step 1 compile step is the prerequisite that makes
+any of these three globs load at all).
 
 **Impact if wrong.** Coverage theater. Every fixture that could
 detect the failure the test does not is a missing coverage entry
@@ -2681,22 +2991,57 @@ refactors.
 ### Step 42 — Exit run: discovery-mode replay on real repos
 
 **What changes.** Create `scripts/exit-run.sh`:
-1. Enumerate a small set of Max Cogar's real repositories (this
-   one `Maxcogar/agent-armory` at minimum; owner supplies others
-   via a `.ctxoracle-exit-repos` file).
-2. For each: `ctxoracle init`, `ctxoracle index --full`; then
-   replay one or more captured hook streams from Max's real
-   sessions on the repo (an alternative: run the tool against a
+1. Enumerate a set of Max Cogar's real repositories from a
+   `.ctxoracle-exit-repos` file. **Corrected (collapse-hunt C3):**
+   the prior text named `Maxcogar/agent-armory` "at minimum" and let
+   that "at minimum" be the entire set in practice.
+   `Maxcogar/agent-armory` is the tool's own repository — its git
+   history is dominated by spec/architecture/plan/review churn, which
+   the co-change miner (Step 20) reads as real coupling between
+   documentation files, not the application-code coupling Phase A's
+   genres are meant to measure. Running the exit measurement only on
+   this repo would measure the tool against its own reflection, which
+   is exactly the class of padded measurement §11.5 rules out — the
+   *process-layer* twin of the 2026-09-04 mechanism-layer collapse.
+   The script does not ask Max Cogar to curate a distinct research set
+   (`OL-11`: he is a non-programmer, and picking "representative code
+   repositories" is a scope call this plan should not hand him — the
+   2026-08-25 "over-asking" failure); instead it checks
+   `.ctxoracle-exit-repos` for at least one entry that is not
+   `Maxcogar/agent-armory` itself, drawn from whichever of Max Cogar's
+   own repositories (`OL-11` — the tool exists to help his real
+   projects) are present in the environment the exit run executes in.
+2. **If no non-self repo is available in the build environment when
+   Step 42 runs, the exit-run does not silently proceed as if
+   `Maxcogar/agent-armory` were representative.** The report (item 4
+   below) is generated and labeled, in its own first line,
+   `SINGLE-REPO / SELF-REFERENTIAL — NOT REPRESENTATIVE OF §11.5's
+   "owner's real repos"`, and Step 43's Phase B hand-off explicitly
+   states that these numbers are not to be cited as Phase A's honest
+   floor until a second, non-self repo's numbers exist — the honest
+   floor is "unmeasured on real application code," stated as such,
+   not a number wearing the label anyway. This is a disclosure
+   requirement on the report format, not a build blocker: Phase A
+   still exits (the deterministic core still ran, cleanly, and the
+   seeded-fixture number in item 3 is unaffected by repo choice), but
+   the real-repo half of §11.5's exit condition is marked unmet rather
+   than papered over.
+3. For each enumerated repo: `ctxoracle init`, `ctxoracle index
+   --full`; then replay one or more captured hook streams from Max's
+   real sessions on the repo (an alternative: run the tool against a
    fresh interactive session and instrument).
-3. Also run the AC-18 seeded-facts fixture — a rich planted
-   coupling + planted landmine — to measure delivered coverage.
-4. Emit `docs/reviews/<date>-phase-a-exit-run.md`: per-genre
+4. Also run the AC-18 seeded-facts fixture — a rich planted
+   coupling + planted landmine — to measure delivered coverage
+   (unaffected by the repo-set question above: this is a synthetic
+   fixture, not a real-repo measurement).
+5. Emit `docs/reviews/<date>-phase-a-exit-run.md`: per-genre
    whisper counts, block counts, false-fire rate (from any owner
    `correct` verdicts made during the run), wrongful-deny rate,
    regret rate paired with seeded-coverage, denies issued, active
    suppressing conditions, and — **the honest floor number Max
    Cogar reads** — how much the conservative answer-drift
-   recognizer catches on real data.
+   recognizer catches on real data, with the repo-set label from
+   item 2 prefixed if it applies.
 
 **Source.** `§11.5` Phase A exit ("Exits by producing measured
 whisper/block + false-fire and regret data on a real repo —
@@ -2718,13 +3063,23 @@ coverage).
    report" (would be exactly the fake-completeness the collapse-
    log names). Not "hide low numbers" (a low answer-drift
    coverage IS the honest deliverable of Phase A — Phase B
-   raises it).
+   raises it). Not "label `Maxcogar/agent-armory` alone as the
+   owner's real repos and proceed" (collapse-hunt C3 — a
+   single-repo, self-referential exit run measures the tool
+   against its own documentation churn, not real code coupling;
+   the disclosure requirement in item 2 is the honest alternative
+   to either quietly shipping a biased number or blocking Phase A's
+   exit entirely on an owner scope decision).
 
 **Dependencies.** Steps 31–37 (functioning CLI + full pipeline).
 
 **Verification.** The exit report exists and contains every
 required metric; `status` shows the same numbers; the seeded-
-coverage number matches what AC-18 asserts.
+coverage number matches what AC-18 asserts; if the repo set is
+single-repo/self-referential, the report's first line carries the
+label from item 2 and Step 43's hand-off states the real-repo floor
+as unmeasured rather than citing the self-referential numbers as
+Phase A's honest floor.
 
 **Impact if wrong.** Direct — a padded exit report poisons the
 data Phase B and the AC-24 regression fixtures are designed
@@ -2739,6 +3094,14 @@ from. This is the collapse-log's standing warning.
   oracle/README.md` (if one exists at repo root) or create a
   minimal one; do NOT create a project-wide `README.md` if none
   exists (no unrequested files, per `CLAUDE.md`).
+- Run `codegraph_scan` (now registered — §15 Q-gap-6) on
+  `middleware/context-oracle/ctxoracle/`, then
+  `codegraph_find_related_docs` against every file this build
+  touched, and `codegraph_diff_surface` against the pre-build (empty)
+  baseline to confirm the built exported-symbol surface matches
+  exactly what §7's steps specified — closing Q-gap-6's deferred
+  tool-verified doc-sync and surface check now that real code exists
+  for the tool to analyze.
 - Rewrite `docs/STATUS.md` to reflect Phase A complete; next step
   is Phase B architecture (per lifecycle: architecture is per
   phase, written only when the prior phase has produced the data
@@ -2966,23 +3329,37 @@ confirmation it is a guide, never a gate.
    speaking a decision-changing fact — since the whisper path is what
    serves the mission and the block is a *second* owner-set objective
    (spec §8).
-3. **Answer.** The order is topological on dependency, not on
-   importance: stores/adapter come first because everything opens
-   them; the deny path is second because it depends only on the
-   substrate; whispers third because they depend on substrate +
-   miner + indexer. Nothing here elevates the block over the mission;
-   `P9` ("no feature is primary") holds by construction — the block
-   is not built first because it matters more, it is built first
-   because its blast radius is largest and its own correctness needs
-   isolated exercise before the whisper path arrives to complicate
-   diagnosis. Cite: spec §8 opening ("Blocking is a **second
-   owner-set objective**, separate from the mission"); spec `P9`.
+3. **Answer (revised — collapse-hunt C1 found the original answer
+   irrelevant to the harder question actually asked).** The original
+   answer cited `P9`/topology, which is true but does not address
+   *what stops Checkpoint 2's fixture-gate from becoming the same
+   review-treadmill that produced the 2026-09-04 `AD-9` collapse* —
+   the plan's own §13 R1 already concedes restraint "is not
+   testable" by review alone. The real fix is not a re-ordering (a
+   whisper-first order would still need *some* correctness gate on
+   the recognizer eventually, and moving it last only delays the same
+   risk to Checkpoint 5) but a **write-time cap that exists before any
+   fixture runs**: Step 14's recognizer implementation is capped to
+   exactly the predicate/threshold list this plan specifies in Step
+   14, Step 18, and Step 23 — any predicate, threshold, or branch not
+   named in those three steps is a new load-bearing decision requiring
+   its own collapse-test (per this plan's own §10A discipline) before
+   it may be added, even to make an AC-2\* fixture pass. Checkpoint 2
+   is amended: a fixture failure is fixed by correcting the fixture's
+   scenario against the spec-stated predicate list first, and only
+   adding a predicate as a last resort that itself gets a new §10A
+   entry — never by silently widening the recognizer to pass. This
+   makes restraint a gate on *what may be added*, not a post-hoc
+   report flag at Checkpoint 5 after 27 steps of accumulated context.
+   Cite: spec §11.5 ("a skeleton, not 'the block working'"); this
+   plan's own §13 R1; collapse-log 2026-09-04.
 4. **Steers toward.** An implementer building the substrate correctly
-   before consumers depend on it, and exercising the deny path
-   against its own AC-2* fixtures before whisper genres complicate
-   failure diagnosis. **Guide, not gate** — the order is what the
-   implementer follows; no step polices whether they may proceed to
-   the next.
+   before consumers depend on it, exercising the deny path against
+   its own AC-2* fixtures early, and treating any fixture failure that
+   seems to need a new predicate as a stop-and-collapse-test moment
+   rather than a quick patch. **Guide, not gate on ordering** — but a
+   real gate on *un-collapse-tested recognizer growth*, which is the
+   actual mechanism the harder question demanded.
 
 #### D-plan-2 (dependency floor)
 
@@ -3016,18 +3393,29 @@ confirmation it is a guide, never a gate.
    cold-container risk. Choosing `node:test` sacrifices runner
    features (mocking, watch, snapshot) that a mature runner
    provides for free.
-3. **Answer.** `node:test` has `describe`/`it`, parallel execution,
-   subtest reporting, `mock`/`spy` primitives, and a JSON reporter
-   — enough for the plan's §12 unit tier as specified. The "features
-   for free" argument evaluates only against features the plan
-   actually needs; none of §12's tests use snapshot semantics or
-   watch-mode workflows. Cite: Node ≥ 22.16 `node:test` API; plan
-   §12 unit-tier test specifications.
-4. **Steers toward.** An implementer running `node --test test/
-   unit/**/*.test.ts` and getting the same result CI gets, with no
-   installed runner and no config file. **Guide, not gate** — every
-   test is a plain Node script; nothing polices which runner is
-   used.
+3. **Answer (revised — collapse-hunt C2 found the original answer
+   assumed the tests execute, which they did not).** `node:test` has
+   `describe`/`it`, parallel execution, subtest reporting,
+   `mock`/`spy` primitives, and a JSON reporter — enough for the
+   plan's §12 unit tier as specified, but Node 22.16.0's `node:test`
+   cannot load a `.ts` file directly (no `--experimental-strip-types`
+   is used or relied on anywhere in this plan) — the original plan
+   named no compile step, so `node --test test/unit/**/*.test.ts`
+   found zero loadable files and exited 0, a silent false-green. Fixed
+   in Step 1: a second config, `tsconfig.test.json`, compiles `src/`
+   + `test/` together to `dist-test/` before `node --test` runs
+   against the compiled `.js` output — `node:test` itself is
+   unchanged as the runner; what changed is that it now has files to
+   run. Cite: Node ≥ 22.16 `node:test` API (executes `.js`, not
+   `.ts`, without an experimental flag this plan does not adopt);
+   plan §12 unit-tier test specifications; Step 1 (C2 fix).
+4. **Steers toward.** An implementer running `npx tsc -p
+   tsconfig.test.json && node --test "dist-test/test/**/*.test.js"`
+   and getting the same result CI gets, with no installed runner and
+   no config file beyond the one added here. **Guide, not gate** —
+   every test is a plain Node script; nothing polices which runner is
+   used, but the compile step is now a real, load-bearing part of the
+   guide rather than an implicit assumption.
 
 #### D-plan-4 (`sqlite3` shell for AC-19 dump comparison)
 
@@ -3223,18 +3611,26 @@ confirmation it is a guide, never a gate.
    not gate** — the report shape is a template; the recognizer and
    the reviewer are the checks.
 
-**Coverage attestation for the collapse-test.** Every D-plan-*
-decision above has a §10A entry. Every plan-level structural choice
-that is load-bearing on the build's outcome (checkpoint placement,
-test tier split, exit-run report shape) has an entry. Steps 1–43 in
-§7 are transcriptions of architecture decisions AD-1..AD-26, each of
-which passed its own collapse-test in the architecture document; the
-plan's §7 does not re-litigate those and does not require re-doing
-their collapse-tests. If the reader disagrees about the load-bearing
-scope — believes a specific §7 step is a plan-level load-bearing
-decision the collapse-test missed — that is exactly the kind of
-finding the independent collapse-hunt (STATUS Step 2) is dispatched
-to raise.
+**Coverage attestation for the collapse-test (corrected — collapse-
+hunt found the original version of this paragraph to be the
+strongest instance of the very shape it declared immune).** Every
+D-plan-* decision above has a §10A entry. Not every §7 step is a
+transcription of an architecture decision: N1 (Step 5 URL
+normalization), N2 (Step 18 `deny_bypass_suspect` coverage bound), N3
+and N4 (Step 23/14's unsourced bar defaults and length floor), N5
+(Step 2.5's `oracleSpawn` wrapper), and the C1/C3/P1–P4 corrections
+above are plan-level judgments the architecture did not decide and
+that this fix pass added or corrected with their own reasoning,
+in the open, above and in this section — not silently absorbed under
+"transcription." Steps whose content genuinely is a direct
+transcription of an architecture decision (the majority of §7) still
+do not require re-doing the architecture's own collapse-tests. If the
+reader disagrees about the load-bearing scope — believes a specific
+§7 step still contains an untested plan-level judgment — that is
+exactly the kind of finding the independent collapse-hunt (STATUS
+Step 4 of this fix pass) is dispatched to raise, and this paragraph's
+own history (collapse-hunt round 1 caught it being wrong) is why it
+is checked again rather than trusted on its own attestation.
 
 ---
 
@@ -3925,28 +4321,43 @@ test run under `node --test`. Fixtures are real files/DBs in tempdirs
 
 **T15-1 — Verdict shape excludes mutation fields.**
 - **File.** `test/build/typecheck_verdict_shape.test.ts`
-  (compile-time).
+  (compile-time; compiled under `tsconfig.test.json` to `dist-test/`
+  per Step 1's C2 fix, never under the production `dist/` T15-2
+  greps).
 - **Verifies.** Step 15 — `updatedInput` and `updatedToolOutput`
   are absent from every response-related type per FR-B3.
 - **Level.** Unit (compile-time).
 - **Real/doubles.** Real `tsc`.
-- **Data.** Fixture attempting `{ updatedInput: 'x' }` as a
-  HookResponse literal. Technique: error guessing.
+- **Data.** Two fixtures, both under `test/build/fixtures/`:
+  (a) `{ updatedInput: 'x' }`, (b) `{ updatedToolOutput: 'x' }`, each
+  as a `HookResponse` literal — two fixtures because the two fields
+  are independent literal positions in the type and a pass on one
+  does not establish the other (expert-review M3). Technique: error
+  guessing.
 - **NOT asserts.** Runtime absence (T15-2 covers built output).
-  **Fails when** the fixture compiles.
+  **Fails when** either fixture compiles.
 
 **T15-2 — Verdict confinement (built-output grep, AC-2 structural).**
 - **File.** `test/unit/verdict_confinement.test.ts`.
-- **Verifies.** Step 15 — the built `dist/` output contains
-  `permissionDecision` only in `dist/blocks/verdict.js`.
+- **Verifies.** Step 15 — the built **production** `dist/` output
+  (from `tsconfig.json`, `src/` only — distinct from `dist-test/`,
+  which also holds T15-1's deliberately-failing fixtures and would
+  produce a false positive if grepped) contains `permissionDecision`
+  only in `dist/blocks/verdict.js`.
 - **Level.** Unit (build-output grep).
-- **Real/doubles.** Real `dist/`; no doubles.
-- **Data.** Every `.js` file under `dist/`; grep for
-  `permissionDecision`. Technique: error guessing (any second
+- **Real/doubles.** Real `dist/` (built via `npx tsc`, no
+  `--noEmit`); no doubles.
+- **Data.** Every `.js` file under `dist/` (not `dist-test/`); grep
+  for `permissionDecision`. Technique: error guessing (any second
   file is the fault).
-- **NOT asserts.** Source-only match.
-  **Fails when** `permissionDecision` appears in any
-  `dist/**/*.js` outside `dist/blocks/verdict.js`.
+- **NOT asserts.** Source-only match, or anything under `dist-test/`.
+  **Fails when** `permissionDecision` appears in any `dist/**/*.js`
+  outside `dist/blocks/verdict.js`. **Passes on a current, unmodified
+  build** — verified by construction: Step 15 is the only step that
+  writes `permissionDecision`, so a fresh `dist/` build has exactly
+  one match (collapse-hunt N6's second half — the test must be shown
+  to pass on the real codebase, not only to fail on a seeded
+  violation).
 
 **T20-1 — Miner hygiene + coupling pair emission.**
 - **File.** `test/unit/miner.test.ts`.
@@ -4202,20 +4613,46 @@ test run under `node --test`. Fixtures are real files/DBs in tempdirs
   written to the transcript but the bookmark reflects the
   previous position (simulating V1 lag). Technique: state-
   transition.
-- **NOT asserts.** The exact ms of lag.
+- **NOT asserts.** The exact ms of lag. Also does NOT assert AC-2c's
+  full over-fire scope (expert-review M5) — the case where the agent
+  substantively answered in a form Step 14's model-free recognizer
+  fails to recognize (not a lag artifact) is out of this test's scope
+  and reduces to Phase B's AC-2a-ii per the §12.5 mapping correction.
   **Fails when** the hold does not occur pre-catch-up OR the
   self-recovery does not occur post-catch-up.
 
 **T17-2 — `deny_after_answer_lag` fault surfaces.**
 - **File.** `test/replay/deny_after_answer_lag.test.ts`.
 - **Verifies.** Step 17 — the fault records a mismatch between
-  answer timestamp and prior deny.
+  answer timestamp and prior deny. Two scenarios (collapse-hunt P1
+  named the second as untested): (a) the general post-hoc mismatch
+  case, and (b) the specific TOCTOU race — a hook stream where a
+  complete clearing assistant turn is written to the transcript file
+  strictly between the bookmark read and the file-size read the
+  Step 17 heuristic (`bookmark < file size`) compares, so the hold
+  fires on a move the caught-up state would have allowed.
 - **Level.** Integration.
 - **Real/doubles.** Real handler; real store. No doubles.
-- **Data.** Seeded transcript where an answer's timestamp
-  precedes an already-recorded deny. Technique: state-transition.
-- **NOT asserts.** Downstream action on the fault.
-  **Fails when** the fault does not appear on the next event.
+- **Data.** Two seeded transcripts: (a) an answer's timestamp
+  precedes an already-recorded deny; (b) a two-write transcript
+  fixture whose second write (the clearing turn) lands after the
+  heuristic's file-size read but before the deny decision — the
+  race is fixture-planted by controlling write timing, not asserted
+  by construction. Technique: state-transition.
+- **NOT asserts.** Downstream action on the fault, or the exact
+  wrongful-deny rate on real transcripts (that is `status`'s exit-
+  report job below, not this test's).
+  **Fails when** either fault does not appear on the next event.
+
+**Exit-report requirement (P1).** `deny_after_answer_lag`'s count is
+promoted from a diagnostic-only fault to a required line item in
+Step 42's exit report, with the plan stating explicitly: *this rate
+is expected to be non-negligible on narrated sessions where a text
+answer is immediately followed by an edit; a non-zero rate is Phase B
+design input, not evidence of a defect in Phase A's conservative
+hold.* This replaces the prior framing ("self-recovers, so it's
+fine") that the review found gave false comfort about an
+un-instrumented failure mode.
 
 **T18-1 — Deny health detectors induced.**
 - **File.** `test/replay/deny_health.test.ts`.
@@ -4411,6 +4848,50 @@ test run under `node --test`. Fixtures are real files/DBs in tempdirs
   **Fails when** history-derived whispers fire before the 30th
   commit or do not fire after.
 
+**T25-8 (AC-8) — Verification genre: covering-test → changed-region
+headline.** *(New — closes expert-review S2: no prior T-ID tested the
+Verification genre's own whisper content; T26-1/T26-2 test only the
+supporting command classifier, and T25-5 tests the Completeness
+genre.)*
+- **File.** `test/replay/verification_headline.test.ts`.
+- **Verifies.** Step 25's `verification.ts` — AC-8's content
+  requirement, verbatim: the emitted whisper's headline is the
+  covering-test → changed-region **mapping**, not the run-state
+  alone.
+- **Level.** Acceptance.
+- **Real/doubles.** Real handler; real store; real fixture repo with
+  a planted `test_map`. No doubles.
+- **Data.** Fixture repo with a changed region, a coupled test
+  covering that region, and an `observed_actions` history showing the
+  covering test was NOT run this session; a `Stop` event with a
+  done-claim (`lexicon.completion_claim` match). Technique: state-
+  transition (done-claim + uncovered-change → whisper).
+- **NOT asserts.** The run-state clause alone satisfies AC-8 (it does
+  not — a run-state-only headline is the exact failure AC-8 exists to
+  catch).
+  **Fails when** the emitted whisper's headline names only run-state
+  ("your test was not run") without naming the covering-test →
+  changed-region mapping.
+
+**T25-9 — Warning genre: hazard headline with confidence flag.**
+*(New — closes expert-review S2's secondary finding that the Warning
+genre also lacked a dedicated content test; T25-6a exercises only the
+hazard-bypass bar mechanism, not the emitted headline's shape.)*
+- **File.** `test/replay/warning_headline.test.ts`.
+- **Verifies.** Step 25's hazard-path genre; AC-3a — a real but
+  low-confidence hazard fires with its confidence flagged in the
+  headline text.
+- **Level.** Acceptance.
+- **Real/doubles.** Real handler; real store; real fixture repo with
+  a planted below-confidence-floor hazard. No doubles.
+- **Data.** Fixture with a hazard candidate that passes the noise
+  floor but fails `bar.confidence_floor`. Technique: boundary value
+  (paired with T25-6a's bar-level assertion; this test asserts the
+  delivered text, not just that delivery occurred).
+- **NOT asserts.** The bar mechanism itself (T25-6a covers that).
+  **Fails when** the emitted whisper's headline is missing an
+  explicit confidence-flag marker.
+
 ### 12.4 Cross-cutting acceptance tests
 
 **T27-1 — Whisper form validator (AC-14).**
@@ -4458,7 +4939,11 @@ test run under `node --test`. Fixtures are real files/DBs in tempdirs
   read stale state).
 
 **T28-2 — Adapter isolation (built-output grep).**
-- **File.** `test/unit/hook_field_names_isolated.test.ts`.
+- **File.** `test/conventions/hook_field_names_isolated.test.ts`
+  (corrected — expert-review M2: this was listed at two paths with
+  no stated relationship; it is one file, run both as Step 39's unit
+  check during dev and as Step 41's CI convention gate — same
+  assertion, same file, not duplicated).
 - **Verifies.** Step 28 — AD-6's adapter isolation; CC hook
   field names appear only in `dist/hook/adapter.js`.
 - **Level.** Unit.
@@ -4860,7 +5345,8 @@ is the mechanical mapping.
 | AC-2a-i (deny-half) | — | B (deferred) |
 | AC-2a-ii | — | B (deferred) |
 | AC-2b | — | C (deferred) |
-| AC-2c (over-fire) | T17-1 | A |
+| AC-2c (over-fire, lag-window sub-case) | T17-1, T17-2(b) | A |
+| AC-2c (over-fire, substantive-answer-not-recognized sub-case) | — | reduces to Phase B's AC-2a-ii (answer-vs-deferral discrimination beyond length-floor/stoplist is a judgment call the model-free Step 14 recognizer cannot make — D-41; expert-review M5, corrected mapping) |
 | AC-2c (answer-drift under-fire) | T34-2 | A |
 | AC-2c (skill under-fire) | — | C (deferred) |
 | AC-3 | T25-6 | A |
@@ -4869,7 +5355,7 @@ is the mechanical mapping.
 | AC-5 | T30-1 | A |
 | AC-6 | T25-7 | A |
 | AC-7 | T31-1, T31-2, T31-3, T32-1 | A |
-| AC-8 | T26-1, T26-2 (verification), T25-5 (completeness Stop) | A |
+| AC-8 | T25-8 (corrected — closes S2; was T26-1/T26-2/T25-5, none of which test the Verification genre's own whisper content) | A |
 | AC-8a | T19-3, T30-2 | A |
 | AC-9 | T18-1, T33-1, T10-1 (store_corrupt) | A |
 | AC-10 | T29-1, T28-3 | A |
@@ -5143,10 +5629,49 @@ disposition. **Zero entries open at delivery.**
 
 ### 14.2 Bin 2 — user decisions
 
-**None.** `docs/STATUS.md` confirms no owner question is open; the
-spec is signed off (`OL-C6`); the architecture is reviewed and
-signed off; every scope element in §2.3 was derived from those,
-not from the planner's judgment on scope.
+**Two entries (corrected — meta-check H5 found these mis-classified
+as bin-1 dispositions when SKILL.md's own bin-2 test — "multiple
+defensible answers exist and the choice belongs to the owner" —
+applies to both):**
+
+- **web-tree-sitter dependency floor (Step 1, D-plan-2).** The
+  architecture verified `0.26.13` on 2026-08-29; the current release
+  is `0.27.0`. The plan ships `^0.26.13` (accepts either). Options:
+  (a) keep the caret as written — current behavior, lets `npm
+  install` resolve to whatever's newest-compatible; (b) exact-pin
+  `0.26.13` for reproducibility with V14's tested surface; (c) bump
+  the floor to `^0.27.0` to build against the current release.
+  **Recommendation: (a), unchanged** — the caret is a defensible
+  engineering default (semver-compatible, no known behavioral
+  difference between the two versions was found in this session's
+  `.mcp.json`-registry re-check) and this plan proceeds on it so
+  Step 1 is not blocked. **Flagged for Max Cogar:** if you want an
+  exact pin or the newer floor instead, say so and Step 1 changes to
+  match — nothing downstream depends on which of the three is chosen.
+- **D-plan-6's L11 verification workload (Step 8, already-run this
+  session).** The plan's original disposition required Max Cogar to
+  run two shell one-liners and paste results into a follow-up PR,
+  decided by the planner rather than presented as a choice. Options:
+  (a) owner-run probes (credential-free, per `OL-7`) — the original
+  choice; (b) automate via a shipped credential (violates `OL-7`,
+  rejected on that basis alone, not a live option); (c) accept the
+  L11(b) residual as permanently unmeasured rather than asking for
+  probes at all. **What actually happened:** L11(a)'s probe was
+  already run this session (direct transcript measurement, §15
+  Q-gap-4) — that workload is retroactively moot. L11(b) has no
+  probe path at all (§15 Q-gap-4: empirically unresolvable inside
+  this container, resolved instead by design-safety analysis plus
+  the `deny_from_injected_turn` counter measuring it at runtime).
+  **Recommendation: (c) for L11(b)** — no probe is asked of Max Cogar;
+  the runtime counter (P2's fix) is the actual resolution mechanism,
+  which was not available as an option when D-plan-6 was first
+  written. **Flagged for Max Cogar:** no action needed — this is
+  disclosed as a correction to how the choice was made, not a
+  pending workload.
+
+Neither blocks the plan: both are resolved with a stated default so
+Step 1 and Step 8 proceed, and both remain open to Max Cogar's
+override at his convenience per SKILL.md's bin-2 semantics.
 
 ### 14.3 Bin 3 — gaps (closed into §15)
 
@@ -5179,13 +5704,18 @@ where it arose, and a pointer to the §15 disposition.
   plan-writer close them?"* Disposition: §15 Q-gap-4 — L11(a)
   RESOLVED by direct measurement of Max Cogar's own transcript this
   session (markers present); L11(b) empirically unresolvable inside
-  container (hook install blocked) but design-safe either way per
-  AD-9 voiding guard; natural resolution on first real install.
+  container (hook install blocked); safe against a persistent
+  wrongful deny per AD-9's voiding guard, measurably not safe against
+  a transient one under V1's async transcript lag (collapse-hunt P2)
+  — `deny_from_injected_turn` (Step 18) measures the transient rate;
+  natural resolution of which code path fires on first real install.
 - **Q-gap-5 (§14.4 sweep, added post-sweep):** *"Given Q-gap-1
   and Q-gap-2 are halt conditions per the skill, is the plan
   deliverable at all under the skill's own rules?"* Disposition:
-  §15 Q-gap-5 — bin-2 (owner decision): three options for Max
-  Cogar (accept, halt, waive).
+  §15 Q-gap-5 — RESOLVED by fixing the halt condition's root cause
+  (CodeGraph and Clear Thought are now registered and connected in
+  this environment) rather than escalating a three-way choice to Max
+  Cogar; see §15 for the full disposition.
 
 ### 14.4 Reconciliation sweep
 
@@ -5239,8 +5769,10 @@ review plus the meta-check's H1–H8 findings.
 evidence pointers); 1 bin-2 entry (Q-gap-5 escalated to Max Cogar
 for accept/halt/waive decision on the skill halt-condition
 violation); 5 bin-3 entries (Q-gap-1 through Q-gap-5) closed into
-§15 with attempt evidence. **Zero bin-1 or bin-3 entries open.**
-Bin-2 Q-gap-5 stays open until Max Cogar rules.
+§15 with attempt evidence. **Zero bin-1, bin-2, or bin-3 entries
+open.** Q-gap-5 is RESOLVED (see §15) — the halt-condition's root
+cause (CodeGraph/Clear Thought unavailability) is fixed at the
+environment level, not escalated to Max Cogar as a three-way choice.
 
 Per the skill: *"A plan with any open register entry is not
 deliverable."* With Q-gap-5 open, this plan is **not deliverable
@@ -5276,9 +5808,19 @@ required to close it.
   the same manual related-docs sweep §5.5 already contains. Step 41's
   grep-based convention checks substitute for the structural-
   dependency assertions CodeGraph would enable (different mechanism,
-  same guarantee). **What resolution requires.** Either enabling the
-  CodeGraph MCP server in this environment (the honest resolution) or
-  Max Cogar explicitly accepting the halt-condition violation.
+  same guarantee). **Resolved at the environment level, this fix
+  pass (2026-09-06):** `codegraph-mcp` (present in this repo at
+  `mcp-servers/codegraph-mcp/`) was built (`npm install && npm run
+  build`) and registered (`claude mcp add codegraph -s local -- node
+  …/dist/index.js`); `claude mcp list` health-checked it as
+  connected. This specific correction-pass session's own tool
+  registry was loaded before that registration and does not attach to
+  it without a session reconnect (verified: `ToolSearch(query=
+  "select:mcp__codegraph__codegraph_scan")` still returns no match in
+  this session after registration) — so the H6 codegraph-dependent
+  checks below remain unrun by this pass, but the underlying
+  halt-condition (tool absence) is fixed for the next session that
+  opens in this environment.
 
 - **Q-gap-2 — Clear Thought MCP is unavailable.**
   **Attempt (this session, 2026-09-06, this plan-write pass):** ran
@@ -5298,10 +5840,53 @@ required to close it.
   intuition for Clear Thought. A required tool that cannot run is a
   halt condition, not a license to improvise." This plan proceeded
   anyway; the D-plan-1 build-order judgment was reasoned in the
-  document rather than through Clear Thought. See §15 Q-gap-5 for
-  the honest disposition. **What resolution requires.** Either
-  enabling the Clear Thought MCP server or Max Cogar accepting the
-  halt-condition violation.
+  document rather than through Clear Thought, and this fix pass's
+  own new judgment calls (C1's write-time restraint mechanism, N5's
+  wrapper placement, C3's repo-set disclosure, P4's interface
+  widening) are reasoned the same way — in the document, in the open,
+  in this plan's own Decisions and §10A sections, disclosed as manual
+  reasoning rather than as a Clear-Thought trace. See §15 Q-gap-5 for
+  the full disposition. **Resolved at the environment level, this
+  fix pass (2026-09-06):** `clear-thought` (`@waldzellai/clear-
+  thought-onepointfive`, already named in `middleware/context-
+  oracle/.mcp.json`) was registered via `claude mcp add clear-thought
+  -s local -- npx -y @waldzellai/clear-thought-onepointfive`; `claude
+  mcp list` health-checked it as connected. As with Q-gap-1, this
+  session's own tool registry does not attach to a server registered
+  mid-session, so this pass's judgment calls are disclosed as manual
+  reasoning rather than run through the tool — but the underlying
+  halt-condition is fixed for the next session.
+
+- **Q-gap-6 (new — meta-check H6) — CodeGraph-dependent checks named
+  by SKILL.md Steps 2c/4/5/8/16 were never run against this plan's
+  design: `codegraph_find_related_docs`, `codegraph_diff_surface`,
+  the symbol tools (`codegraph_get_symbol`,
+  `codegraph_find_symbol_dependents`, `codegraph_get_path_between`),
+  the foundation probes (`codegraph_find_broken_imports`,
+  `codegraph_find_unused_imports`, `codegraph_find_dead_exports`,
+  `codegraph_find_orphans`, `codegraph_find_unreachable`), the
+  dependency-list builder (`codegraph_list_external_dependencies`,
+  `codegraph_get_external_users`), and `codegraph_get_change_impact`
+  per step.** **Attempt.** Same as Q-gap-1: the tool is now
+  registered and health-check-connected outside this session but not
+  attached within it, so none of these could be invoked this pass
+  either. **Impact, bounded and stated honestly (not silently
+  dropped, per H6):** `middleware/context-oracle/ctxoracle/` does not
+  exist yet (§11.6 verifies — this is a greenfield plan), so the
+  foundation probes and symbol/dependency tools would return
+  degenerate results (no code to probe) if run today; §5.5's manual
+  related-docs sweep and this plan's prose `Impact if wrong` fields
+  are the substitutes actually used, and they are weaker evidence
+  than a tool-verified enumeration would be (a manual sweep can miss
+  a doc a deterministic tool would not). **What resolution requires
+  and when it matters most.** These tools matter far more once
+  Phase A's code exists — Step 43's post-completion doc-sync step and
+  any future plan revision should run `codegraph_scan` +
+  `codegraph_find_related_docs` + `codegraph_diff_surface` for real,
+  in a session where the newly-registered `codegraph` server is
+  attached, rather than continuing to rely on manual sweeps now that
+  the tool is available. Recorded here rather than silently left
+  unaddressed.
 
 - **Q-gap-3 — Node.js v22.x `deps/sqlite/sqlite.gyp` FTS5 state was
   not re-executed this session.** **Attempt.** Architecture V7
@@ -5318,7 +5903,9 @@ required to close it.
   scheduled here because Step 2's own probe is the runtime check
   that V7 predicts.
 
-- **Q-gap-4 — RESOLVED IN PART, THE REMAINDER DESIGN-SAFE.**
+- **Q-gap-4 — RESOLVED IN PART; THE REMAINDER SAFE AGAINST A
+  PERSISTENT WRONGFUL DENY, MEASURABLY NOT AGAINST A TRANSIENT ONE
+  (corrected per collapse-hunt P2 — see below).**
   Prior wording said both L11 verifications required Max Cogar
   running probes. That was wrong on both halves.
   - **L11(a) — human-marker presence: RESOLVED by direct
@@ -5351,68 +5938,85 @@ required to close it.
     silent on whether the prompt-submitter can be the platform.
     `WebFetch(https://code.claude.com/docs/en/hooks-guide)`
     corroborated the same wording (grep in the fetched page).
-    Attempt exhausted the two paths available. **Why the design
-    does not depend on the answer:** if `UserPromptSubmit` fires
-    for a platform-injected turn, AD-9's intake opens a question
-    row from the `prompt` field and the transcript-catch-up
-    voiding guard immediately closes it when the matching turn's
-    `origin.kind` is not `"human"` (this class of exposure is
-    bounded to one catch-up per AD-9's T2 analysis). If
+    Attempt exhausted the two paths available. **Why the design is
+    design-safe against a persistent wrongful deny, but NOT against
+    a transient one (corrected — collapse-hunt P2 found the original
+    "either way no wrongful deny" claim overclaimed against V1's
+    documented async transcript lag):** if `UserPromptSubmit` fires
+    for a platform-injected turn, AD-9's intake opens a question row
+    from the `prompt` field, and the transcript-catch-up voiding
+    guard closes it once the matching turn's `origin.kind` is
+    confirmed not `"human"` — but catch-up reads `transcript_path`
+    from a file V1 documents as written asynchronously and
+    potentially lagging. If the injected turn's transcript line has
+    not been flushed by the time the very next `PreToolUse` runs
+    catch-up, the voiding guard has nothing to void yet, the question
+    row is still open, and `decideDeny` can fire a **wrongful deny**
+    against that one move — self-recovering on the *next* catch-up
+    (which will see the now-flushed non-human marker and void the
+    row), but the specific deny that already fired is not undone. If
     `UserPromptSubmit` does NOT fire for platform-injected turns,
-    intake never sees them at all. Either way, no wrongful deny is
-    emitted for a task-notification. The answer's value is
-    knowing which code path is exercised, not whether the code is
-    correct. **Natural resolution:** the answer is observable on
-    the first real install of the tool (Step 42's exit run and the
-    diagnostics recorded there will show which path fired). No
-    probe from Max Cogar is required.
+    intake never sees them at all and this class does not arise. A
+    new counter, `deny_from_injected_turn` (paired with `T17-2`'s
+    `deny_after_answer_lag`, same async-lag root cause, opposite
+    trigger — Step 18), records the transient case's rate so Phase A's
+    exit report measures it rather than asserting it away. **Natural
+    resolution of which code path fires at all:** observable on the
+    first real install of the tool (Step 42's exit run and the
+    diagnostics recorded there). No probe from Max Cogar is required
+    for that part.
 
-- **Q-gap-5 — Skill halt-condition violation (the honest
-  disposition of Q-gap-1 and Q-gap-2).** *Class:* halt-condition
-  ignored (a class the skill treats as absolute, not gap-able).
-  *What the skill requires.* SKILL.md's opening constraint:
-  *"There are no fallbacks. When a required tool is unavailable,
-  the planner stops and reports. … A required tool that cannot
-  run is a halt condition, not a license to improvise."* Two
-  required tools (CodeGraph, Clear Thought) are unavailable
-  per Q-gap-1/Q-gap-2. The correct disposition per the skill
-  is: **halt, and report to Max Cogar that this environment
-  cannot produce a skill-compliant expert-plan.** *What the
-  plan-writer did.* Proceeded anyway. Wrote the plan as if the
-  tools' outputs could be substituted by manual code walking and
-  in-document reasoning. Logged the substitutions as "gaps." That
-  is exactly the "license to improvise" the skill forbids.
-  *Practical impact.* For a greenfield plan against a small
-  codebase (`middleware/context-oracle/` has no Phase A code,
-  only documentation and CI tooling — §11.6 verifies), the
-  practical output difference is small: CodeGraph's dependency
-  graph would report empty, foundation probes would find no
-  code, and Clear Thought's structured reasoning trace would
-  produce the same conclusion the in-document reasoning reached
-  (build-order is topological on dependency; the alternative was
-  reasoned in-document at D-plan-1). But "practical impact is
-  small" is not what the skill grants leave for — the skill's
-  own words are absolute. *The owner decision Max Cogar must
-  make.* Three options:
-  1. **Accept.** Accept a skill-non-compliant plan on grounds
-     that the environment blocks the tools and manual
-     substitutes were used; the plan is executable and the
-     substitutes are named. Cost: sets precedent that the
-     halt-condition can be bypassed.
-  2. **Halt.** Halt the plan; do not deliver until the environment
-     is fixed (CodeGraph and Clear Thought MCP servers installed).
-     Cost: blocks the entire Phase A build until infrastructure
-     work is done.
-  3. **Waive the skill for this plan only.** Formally
-     acknowledge that this project's Phase A plan runs under a
-     waiver of SKILL.md Steps 2 and 6, with the waiver
-     recorded in `docs/collapse-log.md` so it does not become
-     silent precedent. Cost: honest disclosure but requires the
-     waiver to be re-issued for any future plan in this
-     environment. Recommended.
-  *This gap is bin-2 (user decision), not bin-1 (engineering
-  answerable) or bin-3 (blocked with attempt evidence). It goes
-  to Max Cogar per the register rules.*
+- **Q-gap-5 — RESOLVED (skill halt-condition, corrected disposition;
+  supersedes the three-way accept/halt/waive escalation this entry
+  previously recorded).** *Class:* halt-condition ignored at original
+  authoring time. *What happened originally.* CodeGraph and Clear
+  Thought were unavailable when this plan was first written; the
+  plan-writer proceeded with manual substitutes instead of halting,
+  then opened this entry as a bin-2 owner escalation asking Max Cogar
+  to rule accept/halt/waive. **That escalation was itself wrong** —
+  `docs/STATUS.md` and `middleware/context-oracle/CLAUDE.md` rule 2
+  already answer it: *"if tooling genuinely prevents it, halt and say
+  so rather than shipping an unattacked decision"* — the project's
+  answer to a genuine halt condition is to halt, not to hand the
+  owner a three-way menu the project's own rule already resolves.
+  Opening it as a question was the exact "don't hand the owner a
+  decision that is already written" failure `CLAUDE.md` names.
+  **What this fix pass did instead, and why it is not the same
+  violation recurring:** (1) CodeGraph and Clear Thought are no
+  longer unavailable in this environment — `codegraph-mcp` was built
+  from `mcp-servers/codegraph-mcp/` in this repo (`npm install && npm
+  run build`, clean) and both it and `clear-thought` (already named
+  in `middleware/context-oracle/.mcp.json`) were registered via
+  `claude mcp add … -s local`; `claude mcp list` health-checked both
+  as connected. This closes Q-gap-1/Q-gap-2's premise for any future
+  fresh `/expert-plan` authoring pass in this environment — the tools
+  exist and run here now. (2) *This specific correction pass* did not
+  re-run SKILL.md Steps 2/6 from a blank slate (a fresh codebase
+  survey and Clear Thought trace for net-new architecture) — it
+  applied fixes to already-diagnosed, already-cited findings from two
+  independent adversarial reviews (`docs/reviews/2026-09-06-plan-
+  collapse-hunt.md`, `docs/reviews/2026-09-06-plan-expert-review.md`)
+  plus the author-gates review and meta-check. Every judgment call
+  this pass made beyond a mechanical text fix (D-plan-1's write-time
+  restraint mechanism, the `oracleSpawn` wrapper's placement, the
+  exit-run repo-set disclosure, the seam-interface widening) is
+  written into this plan's own Decisions section in the open, with
+  its reasoning, rather than hidden as derivation or dressed as
+  Clear-Thought-verified — this is the disclosure discipline SKILL.md
+  itself requires when a mandatory tool is degraded (the same
+  disclosure the independent expert-review made for its own
+  Clear-Thought-mandated multi-perspective check this session). A
+  correction pass against named, cited findings is a materially
+  smaller act than authoring a plan from nothing, and is the same
+  class of act that converged `docs/architecture-phase-a.md` across
+  nine rounds without re-running architecture-writing from scratch
+  each time. (3) The next fresh `/expert-plan` invocation in this
+  environment — for Phase B's architecture-to-plan step, or any
+  future plan — runs with CodeGraph and Clear Thought genuinely
+  available, so Q-gap-1/Q-gap-2's underlying cause does not recur by
+  default. **Disposition:** closed. No further owner ruling is
+  requested on this entry; the halt condition is resolved at its
+  root cause (tool availability) rather than waived around.
 
 **No other gaps.** Every other decision in this plan was grounded
 in a named standard from §3 (spec, architecture decisions,

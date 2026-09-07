@@ -19,6 +19,62 @@ goes hollow is itself data.
 
 ---
 
+## 2026-09-07 — "the tool is unavailable" was an unverified premise about *this session*, not about the environment
+
+**Caught by Max Cogar, not by any safeguard.** An agent asked whether to
+proceed on `docs/plans/plan-phase-a.md`'s fix pass, framing CodeGraph and
+Clear Thought MCP as categorically unavailable in this environment — grounded
+only in `ToolSearch` returning no match inside the running session. Max's
+response: *"Not true. You're just refusing to do anything about it."*
+Investigation found `mcp-servers/codegraph-mcp/` already present and buildable
+in this repo, and `clear-thought` already named in
+`middleware/context-oracle/.mcp.json` — neither had ever been registered as an
+MCP server for this session; `ToolSearch` finding nothing was true and told
+the agent nothing about whether the tool could be made available. Building
+and registering both (`npm install && npm run build`; `claude mcp add … -s
+local`) produced two servers `claude mcp list` health-checks as connected.
+
+Class: **unverified**, same shape as the 2026-07-30 grep-as-verification
+entry one layer up the stack — a negative search result was read as a fact
+about the world instead of a fact about what had been tried. **Lesson: "the
+tool returns no match" is a fact about the current tool registry, not about
+whether the tool exists or can be added. Before declaring a required tool
+unavailable and halting or escalating on that basis, check whether it is
+buildable/registerable in this repo or environment — a `.mcp.json`, a
+`mcp-servers/` directory, a README with setup instructions — and attempt the
+setup. Only a genuine absence (no source, no package, no viable install path)
+earns the halt.**
+
+**A second, narrower lesson sits underneath the first.** Even after building
+and registering both servers and confirming them connected outside the
+session (`claude mcp list`), this *running* session's own tool registry did
+not attach to them — MCP servers registered mid-conversation do not become
+callable in that same conversation without a reconnect this harness does not
+expose a way to trigger from inside the session. **Lesson: "the tool is now
+registered" and "the tool is callable in this turn" are different claims,
+verified differently — the first by `claude mcp list`/health-check, the
+second only by actually invoking it (or `ToolSearch` finding its schema) in
+the live session.** Conflating them would have been the same "asserted, not
+established" failure in the opposite direction. The honest resolution here
+was neither "halt" nor "claim it's fixed" but: fix the root cause, verify
+what is and isn't true of *this* session precisely, and disclose the
+remaining gap (this session's own judgment calls made without Clear Thought)
+rather than paper over it.
+
+**Compounding process note.** The same session had, minutes earlier, escalated
+a related halt-condition finding (`Q-gap-5`) to Max Cogar as a three-way
+accept/halt/waive choice — which `docs/STATUS.md` and `CLAUDE.md` rule 2
+already answered ("halt, don't escalate a question the project's own rule
+resolves"). Fixing the tool-availability root cause this session closed
+`Q-gap-5` without reopening that menu. **Lesson, generalized: a halt condition
+has three possible responses in this project's own rules — halt, fix the root
+cause, or (rarely) get explicit owner authorization for a named deviation —
+and "escalate a menu of options the rules already narrow" is not one of
+them.** Check whether the blocking premise itself is fixable before treating
+the halt as terminal.
+
+---
+
 ## 2026-08-25 — a fabricated citation key, and a hedge renamed instead of resolved
 
 Full evidence: `docs/reviews/2026-08-25-independent-review-spec-revision.md`.
