@@ -60,3 +60,7 @@ implementation-plan-agent/docs/patterns/
 
 # skill-creator eval scratch (run transcripts, benchmark outputs, review HTML)
 skills/*-workspace/
+
+# Correction-loop hook runtime state (Context Oracle) — proposals, self-checks,
+# judge verdicts, hashes; regenerated every run, not source
+middleware/context-oracle/.claude/hooks/correction-loop/state/
