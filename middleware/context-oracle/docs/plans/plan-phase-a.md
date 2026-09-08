@@ -1353,7 +1353,9 @@ AD-4 puts on every knowledge table:
 CREATE TABLE schema_meta(key TEXT PRIMARY KEY, value TEXT) STRICT;
   -- keys: schema_version, repo_key, keying_mode, identity, last_mined_commit,
   -- index_head, fts_state ('fts5'|'fallback'), settings_created_by_init,
-  -- claude_dir_created_by_init
+  -- claude_dir_created_by_init, regret_index_ts (Step 30: the watermark
+  -- the index-time regret pass advances past, so a cross-session revert
+  -- is reported once)
 CREATE TABLE files(id INTEGER PRIMARY KEY, path TEXT NOT NULL UNIQUE,
   lang TEXT NOT NULL, zone TEXT NOT NULL CHECK(zone IN
     ('source','generated','vendored','build_output','unknown')),
@@ -1607,7 +1609,7 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/stores/dao/files.ts, middleware/context-oracle/ctxoracle/src/stores/dao/symbols.ts, middleware/context-oracle/ctxoracle/src/stores/dao/import_edges.ts, middleware/context-oracle/ctxoracle/src/stores/dao/symbol_refs.ts, middleware/context-oracle/ctxoracle/src/stores/dao/test_map.ts, middleware/context-oracle/ctxoracle/src/stores/dao/commits.ts, middleware/context-oracle/ctxoracle/src/stores/dao/cochange_pairs.ts, middleware/context-oracle/ctxoracle/src/stores/dao/landmines.ts, middleware/context-oracle/ctxoracle/src/stores/dao/invariants.ts, middleware/context-oracle/ctxoracle/src/stores/dao/human_facts.ts, middleware/context-oracle/ctxoracle/src/stores/dao/corrections.ts, middleware/context-oracle/ctxoracle/src/stores/dao/questions.ts, middleware/context-oracle/ctxoracle/src/stores/dao/classify_state.ts, middleware/context-oracle/ctxoracle/src/stores/dao/consumer_state.ts, middleware/context-oracle/ctxoracle/src/stores/dao/session_log.ts, middleware/context-oracle/ctxoracle/src/stores/dao/observed_actions.ts, middleware/context-oracle/ctxoracle/src/stores/dao/whisper_audit.ts, middleware/context-oracle/ctxoracle/src/stores/dao/faults.ts, middleware/context-oracle/ctxoracle/src/stores/dao/regret.ts, middleware/context-oracle/ctxoracle/src/stores/dao/classified_turns.ts, middleware/context-oracle/ctxoracle/src/stores/dao/whisper_stats.ts, middleware/context-oracle/ctxoracle/src/stores/dao/lessons.ts, middleware/context-oracle/ctxoracle/src/stores/dao/global_meta.ts, middleware/context-oracle/ctxoracle/src/stores/dao/schema_meta.ts, middleware/context-oracle/ctxoracle/src/util/ulid.ts, middleware/context-oracle/ctxoracle/test/unit/dao_crud.test.ts, middleware/context-oracle/ctxoracle/test/build/typecheck_provenance.test.ts, middleware/context-oracle/ctxoracle/test/build/fixtures/missing_provenance.ts]
   modify: []
   delete: []
-provides: [schema_meta.get, schema_meta.set, global_meta.get, global_meta.set, files.upsert, files.byPath, files.byId, files.deleteMissing, files.all, symbols.replaceForFile, symbols.byName, symbols.byId, import_edges.replaceForFile, import_edges.inDegree, import_edges.importersOf, symbol_refs.replaceForFile, symbol_refs.refCount, test_map.replaceForFile, test_map.coveringTests, commits.upsert, commits.exists, commits.tsOf, commits.countIncluded, cochange_pairs.bump, cochange_pairs.partnersOf, cochange_pairs.pair, landmines.upsert, landmines.forFile, invariants.create, invariants.forFile, human_facts.create, human_facts.forTarget, corrections.create, corrections.sinceTs, corrections.forDeny, corrections.forWhisper, questions.insertOpen, questions.openFor, questions.closeAll, questions.setStatus, questions.backfill, questions.expireOpen, classify_state.get, classify_state.set, consumer_state.has, consumer_state.add, consumer_state.clear, session_log.append, session_log.forSession, session_log.lastEventTs, session_log.livenessRows, observed_actions.append, observed_actions.okEdits, observed_actions.okReads, observed_actions.runs, observed_actions.pathWrites, observed_actions.firstHash, regret.append, regret.forSession, regret.countsByState, classified_turns.record, classified_turns.sinceQuestionOpened, classified_turns.between, whisper_audit.append, whisper_audit.forSession, whisper_audit.denies, whisper_audit.lastKinds, whisper_audit.deliveredSubjects, faults.append, faults.sinceTs, faults.countByCode, whisper_stats.upsertFold, lessons.create, lessons.all]
+provides: [schema_meta.get, schema_meta.set, global_meta.get, global_meta.set, files.upsert, files.byPath, files.byId, files.deleteMissing, files.all, symbols.replaceForFile, symbols.byName, symbols.byId, import_edges.replaceForFile, import_edges.inDegree, import_edges.importersOf, symbol_refs.replaceForFile, symbol_refs.refCount, test_map.replaceForFile, test_map.coveringTests, commits.upsert, commits.exists, commits.tsOf, commits.countIncluded, cochange_pairs.bump, cochange_pairs.partnersOf, cochange_pairs.pair, landmines.upsert, landmines.forFile, invariants.create, invariants.forFile, human_facts.create, human_facts.forTarget, corrections.create, corrections.sinceTs, corrections.forDeny, corrections.forWhisper, questions.insertOpen, questions.openFor, questions.closeAll, questions.setStatus, questions.backfill, questions.expireOpen, classify_state.get, classify_state.set, consumer_state.has, consumer_state.add, consumer_state.clear, session_log.append, session_log.forSession, session_log.lastEventTs, session_log.livenessRows, observed_actions.append, observed_actions.okEdits, observed_actions.okReads, observed_actions.runs, observed_actions.pathWrites, observed_actions.firstHash, observed_actions.writtenSince, regret.append, regret.forSession, regret.countsByState, classified_turns.record, classified_turns.sinceQuestionOpened, classified_turns.between, whisper_audit.append, whisper_audit.forSession, whisper_audit.denies, whisper_audit.lastKinds, whisper_audit.deliveredSubjects, faults.append, faults.sinceTs, faults.countByCode, whisper_stats.upsertFold, lessons.create, lessons.all]
 tests: [T-9-1, T-9-2]
 depends_on: [S1, S3, S7, S8]
 ```
@@ -1637,7 +1639,7 @@ returning typed rows or void — the surface later steps call:
 | `classify_state` | `get(consumer)`, `set(consumer, offset, uuid)` |
 | `consumer_state` | `has(consumer, kind, key)`, `add(consumer, kind, key)`, `clear(consumer, kind)` |
 | `session_log` | `append(row)` (returns the ULID), `forSession(session)`, `lastEventTs(session)`, `livenessRows(open = true)` |
-| `observed_actions` | `append(row)`, `okEdits(session)`, `okReads(session)`, `runs(session)`, `pathWrites(session, sinceSeq)`, `firstHash(session, path)` |
+| `observed_actions` | `append(row)`, `okEdits(session)`, `okReads(session)`, `runs(session)`, `pathWrites(session, sinceSeq)`, `firstHash(session, path)`, `writtenSince(path, sinceTs)` — whether any `'ok'` Edit/Write row exists for `path` with `ts > sinceTs`, across every session (Step 30's cross-session revert check: churn happened since the watermark) |
 | `regret` | `append(row)`, `forSession(session)`, `countsByState()` |
 | `classified_turns` | `record(consumer, uuid, ts, clears, reason): 'new' \| 'updated'` — `INSERT … ON CONFLICT(consumer, uuid) DO UPDATE SET clears, reason` (`ts` unchanged), so the `resume`/`fork`/`compact` re-read of a recorded turn updates its row instead of throwing (D-plan-27); `sinceQuestionOpened(consumer)` (the assistant text turns since the newest open question, in order), `between(consumer, fromTs, toTs)` |
 | `whisper_audit` | `append(row)` (returns the ULID synchronously), `forSession(session)`, `denies(consumer, sinceTs)`, `lastKinds(consumer, n)`, `deliveredSubjects(session)` |
@@ -3562,56 +3564,116 @@ Run points: `SessionEnd` — this step adds the call to the handler's
 `modify:`) — and the `correct` verb, whose step calls it (Step 34); never
 on tool events.
 
-Create `src/diag/regret.ts` exporting `recordRegret(store, session)`: the
+Create `src/diag/regret.ts` exporting `recordRegret(store, session?)`: the
 population is every **store-held fact** — `cochange_pairs` rows,
 `landmines`, `human_facts`, and `invariant_members` — whose subject file or
 direct pair partner was **re-edited** — a second `outcome='ok'` Edit/Write
 row on the same path in the session after the first (for a pair fact: an
-edit of the partner after an edit of the subject) — or **reverted** — the
-path's post-write `content_hash` (Step 7) equals a hash the path held
-earlier in the session (a first edit alone is the decision moment, not
-evidence the decision was wrong; the cross-session case is the miner's
-`revert_chain` class, Step 13) — or whose covering
-test failed (`outcome='failed'` `command_class`-1 rows), minus the subjects
-`whisper_audit.deliveredSubjects(session)` shows were spoken (FR-L4: "below-
-bar, **or never triggered**" — a fact no generator ever produced a candidate
-for is in the population; AD-18's relevance test is the subject / direct-
-partner bound). A regret row names the fact, the churn, and whether a
-candidate existed (`held_below_bar`, `held_dedup`, `never_triggered`) so
-`status` can show the split. This step adds the two call sites: the
-handler's `SessionEnd` branch (`src/hook/handler.ts`, Step 28) and the end
-of `runIndex` (`src/index/indexer.ts`, Step 14) so a between-session revert
-is caught; both files are declared under `modify:`. The rate is rendered by `status` under
-its mandated label, with the note that the designed silence at a
-run-and-failed done-claim is self-counted here (AD-18).
+edit of the partner after an edit of the subject) — or **reverted**, or
+whose covering test failed (`outcome='failed'` `command_class`-1 rows),
+minus the subjects `whisper_audit.deliveredSubjects(session)` shows were
+spoken (FR-L4: "below-bar, **or never triggered**" — a fact no generator
+ever produced a candidate for is in the population; AD-18's relevance test
+is the subject / direct-partner bound). A regret row names the fact, the
+churn, and whether a candidate existed (`held_below_bar`, `held_dedup`,
+`never_triggered`) so `status` can show the split. AD-18 names two run
+points — "at `SessionEnd` (and at index refresh)" — and this step wires
+both, each with its own **reverted** definition, so together they cover a
+revert wherever it happens without double-counting one that spans both
+(D-plan-31):
+
+- **`SessionEnd`** (`src/hook/handler.ts`, Step 28; `modify:`) calls
+  `recordRegret(store, session)`: **reverted** here means the path's
+  post-write `content_hash` (Step 7) equals a hash the path held earlier
+  **in this same session** (a first edit alone is the decision moment, not
+  evidence the decision was wrong) — the in-session case, unchanged from
+  before this amendment.
+- **The end of `runIndex`** (`src/index/indexer.ts`, Step 14; `modify:`)
+  calls `recordRegret(store)` with no session: **reverted** here means
+  `observed_actions.writtenSince(path, sinceTs)` (Step 9) is true — the path
+  was actually written since the watermark, so this is never evaluated on a
+  path nothing touched — *and* the path's current on-disk `content_hash` —
+  the value `runIndex`'s own incremental walk already computes for every
+  file — equals `files.content_hash`'s value for that path from *before*
+  this pass overwrites it: the snapshot `runIndex` took last time. Requiring
+  both conditions is what makes this "reverted" rather than merely
+  "unchanged": every untouched file trivially has its current `content_hash`
+  matching its own last-indexed value, so the write-since-watermark check is
+  what excludes the ordinary case and leaves only a path that changed and
+  then changed back to what it was. This candidate set is evaluated
+  independently of whichever files `runIndex`'s own incremental-diff
+  optimization treats as "unchanged and skippable" for its own reindexing
+  purpose — a net-reverted file is unchanged by that same measure and would
+  never reach a regret check gated on the walk's own diff flag, so the
+  regret pass queries `observed_actions` directly over the paths of
+  store-held facts, rather than piggybacking on which files the walk chose
+  to revisit. Disjointness from `SessionEnd` follows from what each side can
+  even see: `SessionEnd`'s in-session definition only ever compares against
+  a hash produced by an edit recorded *within that same session*; it never
+  reads `files.content_hash`'s persisted, pre-pass value, so a match against
+  that value — which is what this check requires — is never something
+  `SessionEnd` could already have reported, whether the churn spanned one
+  session or several. `sinceTs` is `schema_meta.regret_index_ts` (Step 7),
+  absent until the first pass, read and advanced to the current time by
+  `schema_meta.get`/`set` (Step 9) after every `runIndex` regret pass — a
+  single-store watermark, the same shape as AD-5's per-project
+  `whisper_stats_watermark:<repoKey>` fold but scoped to this store alone —
+  so once a reverted path is reported, the next pass finds no write since
+  the advanced watermark for it and never re-flags the same revert; absent,
+  `sinceTs` is treated as epoch 0, so the first-ever pass considers the
+  store's entire `observed_actions` history for the paths of store-held
+  facts `runIndex` is touching regardless, per the population bound above —
+  bounded by that same set, never a full-table scan. The miner's
+  `revert_chain` landmine (Step 13) is a separate signal — a file in ≥ 2
+  revert-labelled commits — and continues to exist independently; it
+  answers "has this file's *commit history* shown revert churn," not "did
+  the oracle's own regret proxy miss a revert," which is what this call
+  site closes.
+
+The rate is rendered by `status` under its mandated label, with the note
+that the designed silence at a run-and-failed done-claim is self-counted
+here (AD-18).
 
 **Creates.** `src/diag/regret.ts` — regret proxy (FR-L4, AD-18); `src/diag/whisper_stats_fold.ts` — SessionEnd fold (AD-5, AD-26).
 
-**Source.** `AD-5` (per-project watermarked fold; run points); `AD-26`
-(single `BEGIN IMMEDIATE`); `AD-18` (regret proxy, outcome semantics of its
-two reads); `AD-4` (consumer filter); `FR-L4`, `D-36`, `AC-24`.
+**Source.** `AD-5` (per-project watermarked fold; run points; the
+watermark pattern this step's `regret_index_ts` mirrors); `AD-26`
+(single `BEGIN IMMEDIATE`); `AD-18` (regret proxy, its two mandated run
+points, outcome semantics of its two `observed_actions` reads); `AD-4`
+(consumer filter); `FR-L4`, `D-36`, `AC-24`.
 
 **Why this approach (Gate 3):**
 1. **The decision.** Fold and watermark advance in one immediate
    transaction so concurrent same-project folds serialize; regret is a
-   deterministic proxy bounded to subject / direct partner in Phase A.
+   deterministic proxy bounded to subject / direct partner in Phase A, with
+   both of AD-18's run points implemented and disjoint by construction.
 2. **The authoritative standard.** `AD-5`, `AD-26`, `AD-18`; `FR-L4`
    (existence required, proxy the architect's); `D-36`.
 3. **Why this standard applies here.** Without regret the loop converges to
    silence and reads healthy; the watermark transaction is what keeps the
-   efficacy counts from double-counting under AD-26's concurrent handlers.
+   efficacy counts from double-counting under AD-26's concurrent handlers,
+   and the fact that `SessionEnd` never reads `files.content_hash` is what
+   keeps the two regret run points from double-counting each other.
 4. **What this is NOT — and why.** Not an uptake judge (`D-12`). Not
    automated demotion input (Phase C). Not coverage measurement (AC-18's
    seeded coverage). Not a fold on tool events (AD-5 forbids; AD-23's
-   inventory).
+   inventory). Not a dedicated revert-history table (`D-plan-31`: a boolean
+   check that a path was written since the watermark, plus a read of
+   `files.content_hash` — data `runIndex` already holds for its own
+   diffing — answers the question; a second table would duplicate data
+   already there, which AD-4's uniform table-creation criterion argues
+   against). Not a substitute for the miner's `revert_chain` (Step 13):
+   that class reads commit messages, this one reads the oracle's own
+   observation log and index snapshot, and neither implies the other.
 
 **Dependencies.** Declared above (`depends_on`).
 
 **Verification.** `T-30-1` (replay on `regret-true-positive` and
 `regret-no-inflate`: a regret row for the relevant churn — including a
-never-triggered fact — none for the unrelated churn — AC-24), `T-30-2` (two concurrent same-project folds do not
-double-count; a post-session correction reaches `whisper_stats` — AC-23's
-efficacy clause).
+never-triggered fact and a cross-session revert — none for the unrelated
+churn or a same-session revert counted twice — AC-24), `T-30-2` (two
+concurrent same-project folds do not double-count; a post-session
+correction reaches `whisper_stats` — AC-23's efficacy clause).
 
 **Impact if wrong.** Silent metric drift — under-reports (the
 silence-is-fine surface returns) or over-reports (diagnostic noise,
@@ -5294,6 +5356,67 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   a reindex every session; testable on the real fixture): in-process
   resolution 1.0, `git rev-parse` 0.8, raw-text comparison 0.7,
   symbolic-means-stale 0.5.
+- **D-plan-31 — `recordRegret` runs at both of AD-18's mandated run points;
+  the index-time call at the end of `runIndex` defines a cross-session
+  "reverted" as a match against `files.content_hash`'s own persisted
+  snapshot, gated by a plain write-since-watermark check, disjoint from
+  `SessionEnd`'s in-session check because `SessionEnd` never reads that
+  column.** *Reasoning.* AD-18 states the run points as a decision, not a
+  possibility — "at `SessionEnd` (and at index refresh)" — and leaves only
+  the *population* at the second point to the plan; a plan that deletes the
+  run point instead of defining its population overrides the architecture
+  rather than implementing it. A first attempt at the population (comparing
+  the current hash to `observed_actions.priorSessionHash`, "the
+  second-most-recent `'ok'` Edit/Write row's hash") cannot work: `content_hash`
+  only ever records the hash *after* an edit (Step 7's DDL comment), so a
+  revert to the pre-tracking baseline — the common case, and the one
+  `T-30-1` specifies (one edit, one revert-edit, two sessions total) — is a
+  value no row's `content_hash` ever holds, and no comparison among
+  post-write hashes can detect a match against it. `files.content_hash`
+  (Step 14) *does* hold exactly that baseline: it is the snapshot from the
+  previous `runIndex` pass, already read by that pass's own incremental
+  diff for an unrelated purpose. Comparing the path's current on-disk hash
+  to `files.content_hash`'s pre-pass value, gated by
+  `observed_actions.writtenSince(path, sinceTs)` (Step 9) being true — so
+  an untouched file, which trivially always matches its own last-indexed
+  hash, is never mistaken for a revert — correctly detects a net reversion
+  regardless of how many edits or sessions produced it, using data Step 14
+  already holds plus one boolean existence check. This must be evaluated
+  independently of whichever files `runIndex`'s own incremental-diff
+  optimization treats as unchanged and skippable for its own purpose: a
+  net-reverted file is unchanged by that same measure and would never reach
+  a regret check gated on the walk's own diff flag, so the regret pass
+  queries `observed_actions` directly over the paths of store-held facts,
+  not over whichever files the walk chose to revisit. Disjointness from
+  `SessionEnd` follows structurally rather than from a session-difference
+  guard on matched rows: `SessionEnd`'s in-session definition only ever
+  compares against a hash produced by an edit recorded within that same
+  session and never reads `files.content_hash` at all, so a match against
+  that column is never something `SessionEnd` could already have reported,
+  independent of how many sessions the churn spanned. `sinceTs` — a new
+  `schema_meta.regret_index_ts` key — bounds the existence check and
+  advances after each pass, the same watermark shape AD-5 already uses for
+  the `whisper_stats` fold, so a reported cross-session revert is reported
+  once. No new table: AD-4's uniform table-creation criterion (no table
+  without a same-phase writer) argues against a revert-history table
+  duplicating data a boolean churn check plus `files.content_hash` already
+  answers — and no code path removes an `observed_actions` row short of a
+  whole-store `deinit --purge` (Step 9's DAO provides no delete/prune
+  method; Step 32, line 3816, confirms `--purge` deletes the project store
+  file itself), so the `writtenSince` check is never reading a selectively
+  pruned history. Score (implements both of AD-18's run points; no new
+  schema table; the two run points are disjoint by construction; correctly
+  detects a revert to a value that predates every recorded edit for the
+  path, which a pure `observed_actions` hash-chain comparison cannot;
+  testable with a two-session replay): `files.content_hash` match gated by
+  `writtenSince` 1.0, `observed_actions.priorSessionHash` hash-chain
+  matching 0.4 (provably fails `T-30-1`'s own two-edit scenario — the
+  target hash predates every row `observed_actions` holds for the path — a
+  design this issue tried, committed, and is now withdrawing), a dedicated
+  revert-history table 0.7 (duplicates data already available, violates
+  AD-4's creation criterion), dropping the index-time call site 0.3 (an
+  architecture override by omission, not a resolution — and the population
+  it claims is undefinable is exactly what this decision defines).
 
 ### 10A. Author's collapse-test on each load-bearing decision (`CLAUDE.md` rule 2)
 
@@ -5918,6 +6041,43 @@ collapse-hunt attacks these questions harder and hunts for the ones missing.
    `HEAD`); AD-12; `FR-K7`; `T-14-2`.
 4. **Steers toward.** Reading the named files and reporting what cannot
    be read. **Guide, not gate.**
+
+#### D-plan-31 (regret proxy: both AD-18 run points, disjoint by construction)
+
+1. **Job.** Let the regret proxy see a revert wherever it actually happens
+   — inside one session, or spanning several — without any call site
+   resting on a population nothing defines, and without double-counting
+   one event as two regrets.
+2. **Hardest question.** *`files.content_hash` already predicts "unchanged"
+   whenever the current hash matches the last-indexed one — a normal
+   incremental walk uses exactly that to decide which files to skip
+   re-processing. If a net-reverted file looks unchanged by that same
+   measure, how does this check ever run on it instead of being skipped
+   before `recordRegret` is ever reached?*
+3. **Answer.** The regret pass does not ride on `runIndex`'s own
+   change-detection walk; it queries `observed_actions` directly for the
+   paths of store-held facts — the existing population bound (AD-18) — and
+   checks `writtenSince(path, sinceTs)` for each. A net-reverted path is
+   exactly the case where `writtenSince` is true (something happened) while
+   the walk's own current-vs-last-indexed diff reads "unchanged" (nothing
+   net happened) — the conjunction the walk's own optimization is not asking
+   for, since it only needs the second half to decide what to re-index. The
+   two checks answer different questions on purpose: `runIndex`'s walk asks
+   "did the file change since the last pass" to decide what to re-index;
+   this asks "did the file change and change back," which the first
+   question cannot see by construction. Cite: AD-18 (both run points
+   mandated; population is the plan's to define); Step 7 (`content_hash`'s
+   DDL comment: post-write only, never the pre-tracking baseline — why a
+   hash-chain comparison over `observed_actions` alone cannot detect a
+   revert to that baseline); Step 9 (`files.content_hash`, already read by
+   `runIndex`'s own diff; `writtenSince`, the plain existence check); AD-5
+   (the watermark pattern this reuses); `T-30-1` (asserts one regret row
+   across both `SessionEnd` calls and both `runIndex` calls for the same
+   cross-session revert to the pre-session baseline, and zero before
+   `runIndex` runs).
+4. **Steers toward.** Two call sites, one population definition each,
+   provably disjoint because each reads a value the other never touches.
+   **Guide, not gate.**
 
 ---
 ## 11. Verification of factual claims
@@ -7868,11 +8028,11 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **NOT asserts.** Downstream behaviour. **Fails when** any output is
     emitted or any store write occurs.
 
-- **T-30-1 (AC-24) — Regret true-positive and no-inflate.**
+- **T-30-1 (AC-24) — Regret true-positive and no-inflate, in-session and cross-session.**
   - **File.** `test/replay/regret_proxy.test.ts`.
   - **Verifies.** Step 30; AC-24.
   - **Level.** Acceptance.
-  - **Real/doubles.** Real handler; real stores; fixtures
+  - **Real/doubles.** Real handler; real `runIndex`; real stores; fixtures
     `regret-true-positive`, `regret-no-inflate`. No doubles.
   - **Data.** A held (bar-failed) fact whose region is re-edited in-session;
     a held fact whose covering test fails (`PostToolUseFailure`); a
@@ -7880,12 +8040,22 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     generated) whose partner is edited and reverted in-session
     (`never_triggered`); a held fact with unrelated churn; a `failed` Edit on
     the region; a held fact whose region receives exactly one `ok` edit
-    (no regret — the first edit is the decision moment). Technique:
-    decision table.
+    (no regret — the first edit is the decision moment); a held fact whose
+    subject is edited to a new hash in a first replayed session (`SessionEnd`
+    runs, no regret yet — nothing to compare against outside that session),
+    then edited back to its original hash in a second replayed session
+    (`SessionEnd` runs again, still no regret — the second session's own
+    history has no earlier occurrence of that hash), then `runIndex` runs
+    once: exactly one regret row appears, dated after `runIndex`, not after
+    either `SessionEnd` — the cross-session case — and a second `runIndex`
+    run immediately after records no further row for the same revert (the
+    `regret_index_ts` watermark). Technique: decision table.
   - **NOT asserts.** Proxy calibration. **Fails when** any of the three TP
     cases records no regret row, OR the never-triggered row is not labelled
     `never_triggered`, OR the unrelated churn, the failed Edit, or the
-    single-edit case records one.
+    single-edit case records one, OR the cross-session case records zero or
+    more than one regret row across both `SessionEnd` calls and the two
+    `runIndex` calls combined, OR it records one before `runIndex` runs.
 
 - **T-30-2 — Fold serialization and post-session correction reach.**
   - **File.** `test/unit/whisper_stats_fold.test.ts`.
