@@ -21,7 +21,7 @@ function clears(text, floor = 2) {
 }
 const cases = [
   // spec examples and boundaries
-  ["", false, 'below_length_floor'], [".", false, 'below_length_floor'], ["No.", true], ["Yes.", true], ["Yes, line 12.", true],
+  ["", false, 'below_length_floor'], [".", false, 'below_length_floor'], ["y", false, 'below_length_floor'], ["n", false, 'below_length_floor'], ["No.", true], ["Yes.", true], ["Yes, line 12.", true],
   ["I'll get to that.", false, 'deferral_only'], ["I'll get to that!", false, 'deferral_only'],
   // direct answers (FR-B5: err toward clearing)
   ["Sure.", true], ["Ok.", true], ["Right.", true], ["Understood.", true], ["Got it, will do.", true],

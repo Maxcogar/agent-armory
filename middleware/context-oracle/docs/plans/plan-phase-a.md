@@ -2833,7 +2833,11 @@ conservative recognizers, each a small pure function:
   and nothing else. Strip tool-noise blocks and code fences. *Substance*:
   the remaining text, punctuation and whitespace aside, is at least
   `lengthFloorChars` characters (a "small floor", AD-9 — the seeded value
-  2 rejects an empty or one-mark turn and nothing else). *Deferral*: a
+  2 rejects an empty or one-mark turn, and also holds a one-character
+  direct answer such as "y", "n", or "7": the test is length-only, so a
+  real one-character answer is indistinguishable from noise at this floor
+  — a length-only test's accepted cost, escaped by one more character and
+  counted by `deny_despite_answer_text`, D-plan-7). *Deferral*: a
   deferral-stoplist phrase (the "I'll get to that"-class phrases Step 12
   seeds — never a bare common word) is present, and every token outside
   the phrases belongs to the deferral-filler set (Step 12: the temporal
@@ -4880,9 +4884,12 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   detectors trip on the same run length); `qa.clear_length_floor_chars` = 2
   (AD-9 asks for "a small floor" to exclude noise and FR-B5 says "only an
   empty deferral fails to clear": 2 rejects an empty or single-mark turn
-  and lets "No." — OL-C5's direct answer — clear; content-free deferrals
-  are the job of the stoplist and the filler set (D-plan-24), not the
-  floor's; both miss directions are
+  and lets "No." — OL-C5's direct answer — clear, though a one-character
+  direct answer ("y", "n") is held too, since the substance test is
+  length-only, not answer-aware — the accepted cost of that simplicity,
+  escaped by one more character and counted the same way; content-free
+  deferrals are the job of the stoplist and the filler set (D-plan-24), not
+  the floor's; both miss directions are
   measured by `deny_despite_answer_text` and human corrections);
   `bar.recency_half_life_days` = 365 and `bar.stale_index_factor` = 0.8
   (AD-13 names a recency dampener and FR-K7 a staleness reduction without
@@ -5157,21 +5164,25 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   over the whole turn holds on "Later." and "Not now." with no recognized
   phrase — beyond AD-9's *recognized* class and onto one-word answers to a
   when-question. Under the two predicates the direct answers of the
-  `T-23-2` case table all clear, FR-B1's class holds with any number of
-  filler words, every stoplist member can hold, a dressed or plan-stating
-  dodge ("Sure, I'll get to that after the refactor.") clears on its
-  content words, and an unrecognized deferral ("Later.") clears — the
-  skeleton's designed under-hold, counted by Step 39's escape fraction and
-  corrected through the human channel, exactly as AD-9 files the
+  `T-23-2` case table clear at or above the floor, FR-B1's class holds with
+  any number of filler words, every stoplist member can hold, a dressed or
+  plan-stating dodge ("Sure, I'll get to that after the refactor.") clears
+  on its content words, and an unrecognized deferral ("Later.") clears —
+  the skeleton's designed under-hold, counted by Step 39's escape fraction
+  and corrected through the human channel, exactly as AD-9 files the
   deferral-false-match miss; the filler set's own miss directions are
   stated with it (a filler word that was the answer is a wrongful hold
   escaped by one more word; a delay word outside the set is an escape the
-  report counts). The rule is executed over the spec's examples, the
+  report counts), and the floor's own miss direction is the same shape: a
+  one-character direct answer ("y", "n") is a wrongful hold escaped by one
+  more character, since the substance test is length-only, not
+  answer-aware. The rule is executed over the spec's examples, the
   direct-answer class, the reviewer-supplied deferral inputs, and the
   generated phrase × filler class by `probe:16_clear_rule_cases` (§11.4).
-  Score (holds on FR-B1's class; clears every direct answer, one-word
-  included; the hold requires a recognized phrase; no acknowledgement
-  vocabulary or clause grammar; both miss directions named and measured):
+  Score (holds on FR-B1's class; clears every direct answer at or above the
+  floor, one-word included; the hold requires a recognized phrase; no
+  acknowledgement vocabulary or clause grammar; both miss directions named
+  and measured):
   two predicates 1.0, content-token predicate on the whole turn 0.7,
   phrase-strip-then-floor described honestly 0.7.
 - **D-plan-25 — `hooks_not_firing` has two detectors — the stale-session
@@ -5565,7 +5576,9 @@ collapse-hunt attacks these questions harder and hunts for the ones missing.
    printed with the number, and `tune` moves it without a recompile. The
    clear floor is 2, not 40: FR-B5 says only an empty deferral fails to
    clear and P3 forbids a format tax, so the floor excludes emptiness and
-   nothing else, and `T-38-30` clears on "No.". Cite: spec §5.2, §11.5,
+   one-mark noise — though not only those: a one-character direct answer
+   ("y", "n") is held too, a length-only test's accepted cost (`T-23-2`) —
+   and `T-38-30` clears on "No.". Cite: spec §5.2, §11.5,
    FR-B5, P3; AD-9 ("a small floor"); AD-14; AD-20.
 4. **Steers toward.** Reading the report with its seeds; tuning through the
    CLI. **Guide, not gate.**
@@ -5870,8 +5883,9 @@ collapse-hunt attacks these questions harder and hunts for the ones missing.
 
 #### D-plan-24 (two-predicate clear rule: substance, and not a recognized deferral)
 
-1. **Job.** Let every answer clear the block, including a one-word one,
-   while a recognized deferral carrying nothing but filler never does.
+1. **Job.** Let every answer clear the block, including a one-word one at
+   or above the character floor, while a recognized deferral carrying
+   nothing but filler never does.
 2. **Hardest question.** *The filler set is a vocabulary — the thing the
    previous shape refused — and it cuts both ways: "I'll get to that
    later" is held even when "later" answers a when-question, while "Sure,
@@ -5890,7 +5904,11 @@ collapse-hunt attacks these questions harder and hunts for the ones missing.
    by a text turn is a report field (Step 39), and `ctxoracle correct` is
    where the dodge that matters is filed. What the rule no longer does is
    call the bare phrase "the class": FR-B1's deferral with any number of
-   filler words holds, which is the owner's case (OL-C3). Cite: FR-B1,
+   filler words holds, which is the owner's case (OL-C3). The floor's own
+   miss — a one-character direct answer held for being short — is
+   symmetric to the filler-word miss above, a length-only test's accepted
+   cost, measured the same way (`deny_despite_answer_text`, D-plan-7).
+   Cite: FR-B1,
    FR-B5, P3; AD-9 ("not a recognized content-free deferral"; the two miss
    classes); spec §11.5; `AC-2a-ii`; L1.
 4. **Steers toward.** Clearing on any content and counting the escapes.
@@ -6733,7 +6751,8 @@ this session; line numbers are of that revision.
   *deferral*: a deferral-stoplist phrase is present and every token
   outside the phrases is in the deferral-filler set; clear iff substance
   and not deferral — classifies the T-23-2 case table as stated: the empty
-  and one-mark turns and the tool-noise-only turn do not clear
+  turn, the one-mark turn, the one-character direct answers "y"/"n", and
+  the tool-noise-only turn do not clear
   (`below_length_floor`); `I'll get to that.`, `I'll get to that later.`,
   `I'll get to that soon.`, `I'll get to that next.`, `I'll come back to
   it.`, `I'll come back to that.`, `I'll get back to you on that.`, `I'll
@@ -6749,8 +6768,8 @@ this session; line numbers are of that revision.
   seeded filler word, after and before the phrase — does not clear
   (`deferral_only`) while each of those turns with one content word
   appended clears. **Steps.** 12, 23. **Evidence.** Executed
-  `probe:16_clear_rule_cases` 2026-09-07 (a reference implementation of
-  the rule over the forty-two listed cases and the generated class): every
+  `probe:16_clear_rule_cases` 2026-09-08 (a reference implementation of
+  the rule over the forty-four listed cases and the generated class): every
   listed case prints `ok`, and the probe prints the generated counts — 7
   phrases × 33 filler words × 2 placements = 462 hold cases and 462 clear
   cases, all `ok`.
@@ -7693,10 +7712,15 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Level.** Unit.
   - **Real/doubles.** Real function; floor, deferral list, and filler set
     read from the seeded table.
-  - **Data.** An empty turn and a one-mark turn "." (no clear,
-    `below_length_floor` — below the seeded floor of 2); "No.", "Yes, line
+  - **Data.** An empty turn, a one-mark turn "." and the one-character
+    direct answers "y" and "n" (no clear, `below_length_floor` — below the
+    seeded floor of 2: the substance test is length-only, so a real
+    one-character answer is held despite being a direct answer, a
+    length-only test's accepted cost, escaped by one more character and
+    counted by `deny_despite_answer_text`); "No.", "Yes, line
     12.", "Sure.", "Ok.", "Right.", "Understood.", "Got it, will do." (clear
-    — direct answers are never held for being short); "Because the fixture
+    — direct answers at or above the floor are never held for being
+    short); "Because the fixture
     is written later than the assertion reads it." and "First let me check:
     the null check is not the cause." (clear — a bare word is no phrase, and
     a phrase beside an answer's tokens is not the answer); "I'll get to

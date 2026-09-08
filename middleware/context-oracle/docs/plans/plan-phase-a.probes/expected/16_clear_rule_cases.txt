@@ -1,5 +1,7 @@
 ok  "" -> false (below_length_floor)
 ok  "." -> false (below_length_floor)
+ok  "y" -> false (below_length_floor)
+ok  "n" -> false (below_length_floor)
 ok  "No." -> true
 ok  "Yes." -> true
 ok  "Yes, line 12." -> true
