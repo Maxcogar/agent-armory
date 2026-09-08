@@ -1636,7 +1636,7 @@ returning typed rows or void — the surface later steps call:
 | `session_log` | `append(row)` (returns the ULID), `forSession(session)`, `lastEventTs(session)`, `livenessRows(open = true)` |
 | `observed_actions` | `append(row)`, `okEdits(session)`, `okReads(session)`, `runs(session)`, `pathWrites(session, sinceSeq)`, `firstHash(session, path)` |
 | `regret` | `append(row)`, `forSession(session)`, `countsByState()` |
-| `classified_turns` | `record(consumer, uuid, ts, clears, reason)`, `sinceQuestionOpened(consumer)` (the assistant text turns since the newest open question, in order), `between(consumer, fromTs, toTs)` |
+| `classified_turns` | `record(consumer, uuid, ts, clears, reason): 'new' \| 'updated'` — `INSERT … ON CONFLICT(consumer, uuid) DO UPDATE SET clears, reason` (`ts` unchanged), so the `resume`/`fork`/`compact` re-read of a recorded turn updates its row instead of throwing (D-plan-27); `sinceQuestionOpened(consumer)` (the assistant text turns since the newest open question, in order), `between(consumer, fromTs, toTs)` |
 | `whisper_audit` | `append(row)` (returns the ULID synchronously), `forSession(session)`, `denies(consumer, sinceTs)`, `lastKinds(consumer, n)`, `deliveredSubjects(session)` |
 | `faults` | `append(row)`, `sinceTs(ts)`, `countByCode()` |
 | `whisper_stats` | `upsertFold(rows)` |
@@ -2717,7 +2717,13 @@ interface Phase B's model-maintained writer will leave unchanged:
   deny path calls. **This signature is the Phase B seam and does not
   change.**
 - `answerQuestions(store, consumer, closedByUuid, closedByKind:
-  'generic_text_all_prior'): number` — bulk-closes all currently-open rows.
+  'generic_text_all_prior', clearingOffset, clearingTs): number` — closes
+  the open rows asked prior to the clearing turn: `asked_offset` below
+  `clearingOffset`, or `asked_offset` null with `opened_at` ≤ `clearingTs`
+  (an intake row whose turn the reader did not recognize); in steady state
+  every open row precedes the newest turn, so this is AD-9's
+  clear-all-prior; on a `resume`/`fork`/`compact` rebuild it leaves a
+  question asked after the answer open (D-plan-27).
 - `voidQuestion(store, questionId, 'intake_invalidated', denyFired:
   boolean)` — records in `closed_by_kind` and in the fault detail whether a
   deny had already fired on the row (so the `status` wrongful-deny surface
@@ -2974,17 +2980,21 @@ depends_on: [S1, S12, S21, S22, S23, S24]
   `'already_open'` result is not an error.
 - `catchUpTranscript(store, diagnosticsDir, consumer, transcriptPath,
   deadline)`: reads from the bookmark to EOF via `TranscriptReader`; per
-  entry: `human` → reconcile against intake rows by `content_hash`
+  entry: `human` → reconcile first by `asked_uuid` (a turn a row already
+  carries — a re-read on a `resume`/`fork`/`compact` rebuild — needs no
+  open and no backfill), then against intake rows by `content_hash`
   (backfill `asked_uuid`/`asked_offset`), open a fresh row for a human
-  question with no intake row (same recognizer), and void an intake row
+  question with no row (same recognizer), and void an intake row
   whose matching turn carries an affirmatively non-human marker
   (`voidQuestion(..., 'intake_invalidated', denyFired)` + fault);
   `assistant_text` → `recognizeClearing`; every classified turn is
   recorded (`classified_turns.record(consumer, uuid, ts, clears, reason)`,
-  Step 9; D-plan-27 — the record AD-9's `deny_loop` and
-  `deny_despite_answer_text` detectors read across events), and on `clears`
-  `answerQuestions(store, consumer, entry.uuid, 'generic_text_all_prior')`;
-  `skip` with `unknown_shape` → `unrecognized_user_entry` fault. The
+  Step 9 — an upsert, so the rebuild's re-read updates the row; D-plan-27
+  — the record AD-9's `deny_loop` and `deny_despite_answer_text` detectors
+  read across events), and on `clears` `answerQuestions(store, consumer,
+  entry.uuid, 'generic_text_all_prior', entry.offset, entry.ts)` — the
+  rows asked prior to the turn; `skip` with `unknown_shape` →
+  `unrecognized_user_entry` fault. The
   bookmark advances only over completed lines; if the deadline fires
   mid-read the handler records `catchup_incomplete` and the next event
   resumes (questions not yet discovered cannot deny; questions already open
@@ -3075,10 +3085,12 @@ depends_on: [S1, S9, S23, S25]
 
 **What changes.** Create `src/blocks/health.ts` exposing detectors the
 handler calls after every deny emission and every catch-up:
-- `checkDenyAfterAnswerLag(store, consumer, classifiedTurns)` — when a
-  catch-up classifies a clearing assistant turn whose transcript timestamp
-  precedes an already-emitted deny for the consumer, record
-  `deny_after_answer_lag` with both ids.
+- `checkDenyAfterAnswerLag(store, consumer, newlyRecordedTurns)` — over the
+  turns this catch-up's `record` reported as new (a `resume`/`fork`/`compact`
+  rebuild's re-read of an answer already recorded is not a newly classified
+  answer, D-plan-27): when a clearing turn's transcript timestamp precedes
+  an already-emitted deny for the consumer, record `deny_after_answer_lag`
+  with both ids.
 - `checkDenyLoop(store, consumer)` — ≥ `deny.loop_threshold` consecutive
   `kind='deny'` audit rows with no `classified_turns` row between them
   (`classified_turns.between`, Step 9) → `deny_loop`.
@@ -3159,7 +3171,13 @@ depends_on: [S1, S18, S22, S25]
 diagnosticsDir, consumer, source)` per V5's enumeration: `startup`/`clear`
 → `expireOnStartup` (prior `open` rows → `expired`), bookmark reset to
 null; `resume`/`fork`/`compact` → bookmark reset to offset 0 so the next
-catch-up rebuilds qa-state from the transcript; when that rebuild scans a
+catch-up rebuilds qa-state from the transcript; the rebuild re-reads turns
+the store already holds, and every catch-up write is idempotent for a
+repeated `(consumer, uuid)` — `classified_turns.record` upserts, a human
+turn is matched by `asked_uuid` first, a clearing turn closes the rows
+asked prior to it, and the lag detector reads only newly recorded turns
+(Steps 9, 22, 25, 26; D-plan-27) — so a rebuild over a populated store
+ends in the same state and raises no fault; when that rebuild scans a
 non-empty transcript, recognizes zero human turns, and emitted
 `unrecognized_user_entry` diagnostics, raise `rebuild_recovered_nothing`
 (L11(a)'s loud failure). qa-state is untouched at `SessionEnd`.
@@ -3191,7 +3209,10 @@ directions stated in `status`).
    distinction is what makes the conversation-continues semantic correct:
    state rebuilt from offset 0 mirrors the fresh classification Phase B's
    writer will do, so the seam holds; the counter is the owner-facing
-   signal that makes "Max re-asks" reachable (FR-B4).
+   signal that makes "Max re-asks" reachable (FR-B4); a rebuild that
+   collided with its own earlier writes would fail open on every event for
+   the rest of the session (AD-7) — the silent dark the owner cannot see
+   (`OL-10`).
 4. **What this is NOT — and why.** Not a per-source silent policy (would
    hide `rebuild_recovered_nothing`). Not a Stop-time block (`FR-B4`).
 
@@ -5078,8 +5099,9 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
 - **D-plan-27 — Every assistant text turn the catch-up classifies is
   recorded in a `classified_turns` table (`consumer`, `uuid`, `ts`,
   `clears`, `reason`), written by Step 25's catch-up beside the clearing
-  path and read by Step 26's `deny_loop` and `deny_despite_answer_text`
-  detectors.** *Reasoning.* AD-9 defines the two detectors over intervening
+  path as an idempotent upsert keyed `(consumer, uuid)`, and read by Step
+  26's `deny_loop` and `deny_despite_answer_text` detectors.** *Reasoning.*
+  AD-9 defines the two detectors over intervening
   assistant text turns and their rejection reasons across events, while
   each hook event is a fresh process (AD-1) and no Phase A table held a
   classified turn, so a detector in event N could not see a rejection that
@@ -5089,8 +5111,31 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   recording each classified turn is one small row per assistant text turn,
   has a same-phase writer (AD-4's uniform-table criterion), and is the only
   shape under which the detectors read state the store actually holds.
-  `T-26-1` carries a case whose below-floor turn was recorded two events
-  earlier.
+  The `resume`/`fork`/`compact` rebuild (AD-9) re-reads the whole
+  transcript for the same consumer, so the record meets rows it already
+  wrote: a plain insert under `PRIMARY KEY(consumer, uuid)` throws on the
+  first previously-seen turn, the event fails open (AD-7), and — the
+  bookmark never advancing past 0 — every later event fails the same way,
+  no deny and no whisper for the rest of the session, a `store` fault the
+  owner reads as corruption (`OL-10`). The record is therefore `INSERT …
+  ON CONFLICT DO UPDATE` (the rebuilt questions state and the record come
+  from one classification pass, so the detectors read what the block
+  acted from; a `DO NOTHING` would keep a classification a tuned lexicon
+  has since changed), and the rebuild's other writes are idempotent the
+  same way — a human turn matched by `asked_uuid` first, a clearing turn
+  closing the rows asked prior to it (AD-9's "all prior", unchanged in
+  steady state), the lag detector reading newly recorded turns only — the
+  AD-1 premise applied to every write, not only the reads. Deleting the
+  consumer's rows and replaying from a clean slate would destroy the deny
+  history the rows carry and a live row a compaction summarized away;
+  skipping the rebuild abandons AD-9's path for `fork` and `compact`.
+  Score (no constraint failure on the first resume; record agrees with
+  the rebuilt state; deny history and live rows survive; steady state
+  unchanged; no spurious lag fault; testable over a populated store):
+  idempotent uuid-keyed writes 1.0, clean-slate replay 0.75, no rebuild
+  0.58, `DO NOTHING` on `classified_turns` alone 0.5. `T-27-1` rebuilds
+  over a populated store; `T-26-1` carries a case whose below-floor turn
+  was recorded two events earlier.
 - **D-plan-28 — The FTS5 DDL lives in its own migration,
   `001b_phase_a_fts.sql`, applied only when `schema_meta.fts_state =
   'fts5'` — a row the migration runner itself records from `init`'s probe
@@ -5719,7 +5764,10 @@ collapse-hunt attacks these questions harder and hunts for the ones missing.
    two detectors over exactly those outputs — a deny with no intervening
    rejected turn, a deny after a turn rejected below the floor — so they
    detect the block's misbehaviour from what it did, which only its own
-   record holds. The independent grade is elsewhere: Step 39's labelled
+   record holds. The record survives the `resume`/`fork`/`compact` re-read
+   because its write is an idempotent upsert, so what the detectors read
+   after a resume is the same pass's output, never a constraint failure.
+   The independent grade is elsewhere: Step 39's labelled
    sample, drawn per leg and labelled blind, measures the recognizer
    against human labels and never against this table. Cite: AD-9
    (`deny_loop`, `deny_despite_answer_text`); AD-1; AD-4; spec §11.5;
@@ -7366,12 +7414,15 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Real/doubles.** Real `node:sqlite`; real child processes; no doubles.
   - **Data.** Two workers issuing `openQuestion` for the same
     `(consumer, content_hash)`; then `answerQuestions`; then a re-open;
-    `voidQuestion` with `denyFired: true`. Technique: state-transition +
+    `voidQuestion` with `denyFired: true`; `answerQuestions` with a
+    clearing offset and timestamp over two open rows, one asked before the
+    clearing turn and one after. Technique: state-transition +
     error guessing (concurrency).
   - **NOT asserts.** Which worker wins. **Fails when** two `open` rows
     exist, OR neither worker gets the row, OR the loser does not get
     `'already_open'`, OR re-open after `answered` fails, OR the voided row's
-    detail lacks the deny-fired flag.
+    detail lacks the deny-fired flag, OR the row asked after the clearing
+    turn is closed.
 
 - **T-23-1 — Question recognizer: positives and asserted non-coverage.**
   - **File.** `test/unit/recognizer_question.test.ts`.
@@ -7576,11 +7627,21 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Real/doubles.** Real store and files; no doubles.
   - **Data.** Seeded open rows; each of `startup`, `clear`, `resume`, `fork`,
     `compact`; the marker-carrying and marker-less transcript fixtures for the
-    rebuild path; a `SessionEnd`. Technique: decision table.
+    rebuild path; a `SessionEnd`; the rebuild case: a store whose
+    `questions` and `classified_turns` already hold every row the
+    marker-carrying fixture produces (a first pass), with one question
+    still `open` that was asked after the fixture's last clearing turn and
+    one `kind='deny'` audit row timestamped after that clearing turn;
+    `resume` and a second pass over the same fixture. Technique: decision
+    table.
   - **NOT asserts.** Dedup sets (T-20-1). **Fails when** `startup`/`clear` do
     not expire, OR `resume`/`fork`/`compact` do not rebuild from offset 0, OR
     the marker-less rebuild does not raise `rebuild_recovered_nothing`, OR
-    `SessionEnd` changes any row.
+    `SessionEnd` changes any row, OR the rebuild case ends with any row
+    differing from the first pass's rows (the later question stays `open`;
+    every earlier row keeps its status and `closed_by_uuid`; every
+    `classified_turns` row is present once), OR it records any fault — a
+    store error, or `deny_after_answer_lag` for the replayed answer.
 
 - **T-27-2 — Outstanding-question line and the done-claim counter.**
   - **File.** `test/unit/stop_outstanding_line.test.ts`.
