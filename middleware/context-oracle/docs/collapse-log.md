@@ -1278,3 +1278,55 @@ in its `step-decl` so the gate refuses the plan until a review file names
 it) is not built; the loop stopped at the owner's five-round cap with the
 plan not accepted, and the choice of how to continue is recorded in
 `docs/STATUS.md`.
+
+## 2026-09-08 — a mechanically flawless correction can still fail a literal requirement it never checked against its own wording
+
+`docs/plans/plan-phase-a.md`'s subsequent correction-loop pass
+(`.claude/hooks/correction-loop/`, one collapse-hunt finding served at a
+time, `state/proposal.md` required before any plan edit) processed 24
+findings; one of them, `m-7` (the `hooks_not_firing` totally-dead detector
+flagging the session that installs the tool), failed the loop's own
+mechanical judge **17 consecutive times** with identical, content-free
+feedback ("FAILED at step 2") across five different rejected/refined
+technical mechanisms and four independent subagent reviews — every one of
+which validated the *plan text* (diffs against the true parent commit,
+byte-matched attestation lines, re-executed gate commands) and found it
+sound, repeatedly, while the same verdict kept recurring.
+
+The actual defect was not in the plan text at all: it was in
+`proposal.md` itself, and it was present from round 1. The loop's own
+served packet states, in the section defining what the file must contain:
+"for every unit... the corrected text or the statement that it needs no
+change, **with the spec/architecture line (from section 3 or the
+documents) that decides it**." Every one of the 16 failing submissions
+instead cited **the finding itself, or the independent review that found
+the correction** — process artifacts, not documents — as each
+disposition's "Deciding source." Sixteen rounds of increasingly rigorous
+*content* verification never caught this because none of them re-read the
+loop's own requirements sentence as literally as they re-read the plan;
+each round assumed the prior rounds' interpretation of "what the file must
+contain" was already settled and moved on to hunting for a new content
+defect. A fresh background review, given the packet and the current
+`proposal.md` with zero exposure to any prior round, found it on the first
+pass by doing exactly one thing differently: checking the artifact against
+the requirement's literal grammar, not against what sixteen rounds of
+precedent had assumed the requirement meant. Rewriting every disposition —
+including the ones stating "no change," which the requirement's own
+grammar covers equally — to cite real authority (`AD-17`, `OL-10`,
+`OL-11`, or a primary source like Node's own `fs.Stats` reference) passed
+on the next round with no change to the plan text itself. Class:
+**unverified** (the correction's own compliance with its governing
+instructions was assumed from precedent, never checked against the
+instructions' actual wording) — one level up from every other entry in
+this log, which is about the plan's claims going unverified; here it was
+the correction *process's* claim about itself.
+
+The general lesson, for this loop or any correction mechanism with a
+written contract: when the *same* mechanical check fails identically
+across rounds that vary the content being checked, the content is not
+necessarily where the defect is — re-read the check's own stated
+requirements first, literally, word by word, before producing another
+content variant. A process that "obviously" satisfies its own rules by
+precedent is exactly the failure mode "no hollow decisions" exists to
+catch, applied to the correction mechanism instead of the document it
+corrects.
