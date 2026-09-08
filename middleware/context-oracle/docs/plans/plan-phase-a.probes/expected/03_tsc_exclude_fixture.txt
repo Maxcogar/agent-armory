@@ -1,0 +1,7 @@
+build with exclude: exit=0
+fixtures emitted: no
+build without exclude: error TS2322
+build without exclude: exit=2
+per-fixture bad: error TS2322
+per-fixture bad: exit=2
+per-fixture good: exit=0

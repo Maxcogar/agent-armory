@@ -1,0 +1,3 @@
+annotated return: error TS2741
+annotated return: exit=2
+type assertion: exit=0

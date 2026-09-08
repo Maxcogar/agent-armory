@@ -1,0 +1,5 @@
+identical across 3 runs: true
+A success attempts=1
+B success attempts=2
+C StoreBusy attempts=2
+rows ["A","B"]

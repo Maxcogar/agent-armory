@@ -1,0 +1,2 @@
+empty-glob: exit=0 tests=0
+matching-glob: exit=0 tests=1

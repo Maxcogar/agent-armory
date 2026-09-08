@@ -25,109 +25,116 @@ The spec (`docs/specs/spec-context-oracle.md`) is signed off (`OL-C6`). The Phas
 A architecture (`docs/architecture-phase-a.md`) is reviewed to convergence, with
 `AD-9` rebuilt to the honest Phase A skeleton the spec mandates.
 
-**The Phase A implementation plan attempt (`docs/plans/plan-phase-a.md`) failed
-its independent reviews and is not fit to build against.** PR #78 on branch
-`claude/context-oracle-1evnd9`, head `d915856`. Two reviews landed against the
-current plan:
+**The Phase A implementation plan (`docs/plans/plan-phase-a.md`) has been
+through five review-and-correction rounds plus a hook-enforced correction-loop
+pass, and currently passes every mechanical gate this project has for it.**
+The round-3/round-4/round-5 cycle (2026-09-07) found and closed the 43
+round-3 findings plus round-4's regressions, then stopped at round 5 (the
+owner's five-round cap) with a diagnosis and a general fix rather than a
+sixth manual round: `docs/collapse-log.md`'s 2026-09-07 entries record that
+identifier-reconciliation checking missed build-order and re-derivation
+classes reviewers caught by walking the build and executing claims, and that
+the fix has to be a mechanical gate general enough to survive the next
+document, not another rule for this one.
 
-- **`docs/reviews/2026-09-06-plan-collapse-hunt.md` — Verdict: DOES NOT
-  SURVIVE.** 3 full collapses, 4 partials, 6 new load-bearing decisions the
-  author's collapse-test (§10A) missed. Key collapses: D-plan-1 build-order
-  framing IS the 2026-09-04 goal-loss shape at the build layer; D-plan-3
-  `node:test` won't actually execute against `.ts` under Node 22.16 (tests
-  never run, T15-2 confinement grep passes vacuously); Step 42 exit run on
-  `Maxcogar/agent-armory` is not "the owner's real repos" §11.5 names.
-- **`docs/reviews/2026-09-06-plan-expert-review.md` — Verdict: NEEDS FIXES
-  (10 findings: 3 Serious, 5 Moderate, 2 Minor).** S1 Step 31 references
-  Step 32 in Dependencies (topological-sort violation); S2 FR-A2g
-  Verification genre has no acceptance-tier test; S3 plan not deliverable
-  per SKILL.md while an open register entry remains; M1 ~15 named fixture
-  repos unenumerated in §5.1; more.
+**That fix extended a mechanism that already existed and was already
+mandatory** — the **`expert-plan` skill**'s `scripts/derive-plan-sections.mjs`
+(`.claude/skills/expert-plan/`, mirrored into this project's own skill copy
+per this file's scope rule), owner-authorized and built 2026-08-09
+(ten independent review rounds; `--self-check` was already validating its own
+contract before this plan's round 3 even ran). `--check` was extended
+2026-09-07 (commit `b453f64`) to add the **build-order check** from
+step-declarations (every `provides:`/`depends_on:` edge, every consumed name
+actually provided, no step consuming what a later step creates), and
+`scripts/run-plan-probes.mjs` (new in that commit) re-executes every probe an
+"Evidence" line cites and fails on drift. In the same commit,
+`tools/check_plan.py` — a plan-specific, one-off script written during the
+round-5 diagnosis session earlier that same day, duplicating ground the
+already-mandatory `derive-plan-sections.mjs` should have covered — was
+deleted as redundant scope-creep, not "replaced": the general mechanism was
+extended to cover its defect classes instead of a second, document-specific
+tool being kept beside it. Both scripts run as the `check-plan` CI job in
+`.github/workflows/context-oracle-docs.yml`, beside `check-docs`
+(`tools/check_docs.py`), on every PR touching this project. Commit `b453f64`
+also converted the whole plan to the skill's step-decl grammar.
 
-Additional context on how the plan got here:
+**Since then, a further collapse-hunt round queued 24 findings (ids `m-1`
+through `m-8`, plus earlier `SY-1`/`S-*`/`M-*` series in the same queue) and
+processed them one at a time through a hook-enforced correction loop**
+(`.claude/hooks/correction-loop/`: `guard.py`/`serve.py`/`judge.py`, wired at
+the repo root's `.claude/settings.json`) — the loop serves one finding's full
+context, blocks any plan edit until `state/proposal.md` states a disposition
+for every unit the finding touches with its deciding spec/architecture
+citation, requires the edits to match the proposal exactly, requires a
+`state/selfcheck.md` with real gate output and a read-after-edit attestation,
+and only then runs its own mechanical judge — which reports pass/fail with no
+further detail, by design. **As of commit `b58a05c` (issue m-8, the 24th and
+last), the loop reports the queue empty: `state/current.json` no longer
+exists and no further issue is served.** The two m-series corrections most
+worth recording:
 
-- **`docs/reviews/2026-09-06-author-gates-review.md`** — the plan-writer's
-  own compliance walk. Found 20 findings on their own artifact (5 Critical,
-  7 Serious, 4 Moderate, 4 Minor).
-- **`docs/reviews/2026-09-06-meta-check-skipped-steps.md`** — meta-check
-  subagent. Found H1–H8 including the finding that the plan-writer
-  proceeded despite two SKILL.md halt conditions (CodeGraph and Clear
-  Thought MCP servers unavailable, plan-writer manual-substituted instead
-  of halting).
+- **m-7** (`hooks_not_firing`'s totally-dead detector flagging the very
+  session that installs the tool): took 17 submission rounds under the loop
+  before passing. Every earlier round was mechanically correct — five
+  rejected/refined technical mechanisms, four independent subagent reviews,
+  every diff verified against its true parent commit, every attestation line
+  byte-matched — and still failed identically. The actual defect, found on
+  round 17 by a fresh background review with zero prior context: the loop's
+  own packet requires every disposition in `proposal.md`, changed **or
+  unchanged**, to cite "the spec/architecture line (from section 3 or the
+  documents) that decides it" — and every submission had instead cited "the
+  finding" or "the independent review" (process artifacts, not documents).
+  Rewriting every disposition to cite real authority (`AD-17`, `OL-10`,
+  `OL-11`, Node's own `fs.Stats` reference) passed on the next round. This is
+  now a standing lesson for any future work under this loop or one like it:
+  a correction whose grounding cites the review that found it, rather than
+  the document that authorizes it, can be mechanically flawless and still
+  fail a literal citation requirement — read the packet's own requirements
+  section as literally as the plan text itself, on every stuck round, before
+  assuming the content is what's wrong.
+- **m-8** (Step 28's handler pipeline naming an unexported "path-write
+  predicate"): a smaller, one-round fix — `pathWriteTarget(command): string |
+  null` factored out of Step 26's `checkDenyBypassSuspect` into an exported
+  name, applying the m-7 lesson from the start (every disposition, including
+  the 38 "no change" ones, cited real `AD-9`/`AD-6`/document authority).
 
-The author's compliance findings and the meta-check findings were partially
-applied across commits `bbcd55f`, `6cb00ce`, `107673c`, `e60293b`, `99be60a`,
-`7290549`, `5f94682`. The two later independent reviews (collapse-hunt +
-expert-review) landed on the post-fix plan and still returned failing
-verdicts.
+All three plan gates are green on the current HEAD (`b58a05c`):
+`derive-plan-sections.mjs --check`, `run-plan-probes.mjs` (all 17 probes),
+and `check_docs.py`.
 
-**The plan-writer also opened Q-gap-5 in the plan's Gaps section — a bin-2
-owner-decision escalation asking Max Cogar to rule accept / halt / waive on
-the SKILL.md halt-condition violation. This was the wrong disposition.**
-CLAUDE.md rule 2 says: *"if tooling genuinely prevents it, halt and say so
-rather than shipping an unattacked decision."* The project's answer to
-the halt condition is: halt. Not: escalate to the owner. Opening a bin-2
-question the project's own rule already answers is exactly the "don't hand
-the owner a decision that is already written" failure `CLAUDE.md` calls out.
+## What to do next
 
-## What to do next (agent-owned)
-
-1. **Fix the current plan in place; a rewrite is not what either review
-   calls for.** Neither review says the plan's *shape* is unsalvageable:
-   collapse-hunt names exactly 3 full collapses (C1 build-order framing,
-   C2 `node:test` won't execute `.ts` under Node 22.16, C3 Step 42's
-   exit-run repo set is one-and-that-one — `Maxcogar/agent-armory`), 4
-   partials (P1–P4), and 6 new load-bearing decisions its own §10A missed
-   (N1–N6) — while explicitly recording 3 decisions that survive as-is
-   (S1–S3). Expert-review's verdict is literally "NEEDS FIXES" (10
-   findings: 3 Serious, 5 Moderate, 2 Minor), the project's own term for a
-   fixable artifact, not a rebuild-from-zero one. This project has direct
-   precedent for exactly this situation: `docs/architecture-phase-a.md`
-   returned this same collapse-hunt verdict, "DOES NOT SURVIVE," across at
-   least four rounds (`docs/reviews/2026-08-29-collapse-hunt-architecture-phase-a.md`,
-   `2026-08-29-round-2-...md`, `2026-09-03-round-6-...md`,
-   `2026-09-03-round-9-...md`) and converged to acceptance every time by
-   fixing the round's named collapses in the existing document and
-   re-reviewing — never by discarding it and starting over. Apply that
-   same discipline here: fix C1–C3, P1–P4, and N1–N6 in
-   `docs/plans/plan-phase-a.md` and the 10 expert-review findings, on top
-   of the current architecture, in the current plan document.
-
-2. **Every finding across all four review documents applies to the fix
-   pass** — the author-gates review, the meta-check, the collapse-hunt,
-   and the expert-review. Not a prioritized subset. Not a "start with
-   C1–C3." All of them.
-
-3. **Halt on the SKILL.md halt condition, per CLAUDE.md rule 2.** CodeGraph
-   MCP and Clear Thought MCP are unavailable in this environment
-   (empirically verified this session: `ToolSearch` for `codegraph` and
-   `clear_thought` both returned no matches). SKILL.md says a required
-   tool that cannot run is a halt condition, not a license to improvise.
-   The next attempt at the plan either (a) runs in an environment where
-   those tools ARE available, or (b) does not produce a
-   `/expert-plan`-labeled fix — a different, non-`/expert-plan` process
-   would need explicit owner authorization first.
-
-4. **Run the independent collapse-hunt and expert-review after the fix
-   pass lands**, before delivering. Both are mandatory per CLAUDE.md
-   rule 2 and per the project lifecycle. Do not open owner-decision gaps
-   for anything the project's own rules already answer. If that round
-   still returns findings, fix and re-review again — the same iterate-to-
-   convergence loop the architecture document went through, not a reason
-   to discard the plan.
+**No owner question is open.** The correction-loop queue is empty and every
+mechanical gate is green; that is a fact this session established, not a
+decision. What remains genuinely undecided, and is not this session's to
+decide alone, is whether a hook-enforced correction loop clearing 24 queued
+findings satisfies this project's own Lifecycle rule — "adversarially
+reviewed with all findings applied" — the same way the round-2/round-4/
+round-5 collapse-hunt-plus-expert-review pairs did, or whether the pattern
+that closed round 2 through round 5 (an independent collapse-hunt **and** a
+separate expert-review pass over the *whole* corrected document, not just
+the queued findings) should run once more before the plan becomes the build
+contract for `/expert-implement`. This session did not run a fresh
+whole-document round of either kind after the m-series closed, so it cannot
+honestly claim that check has happened. A next session (or Max Cogar) should
+decide: accept the correction-loop's mechanical pass as sufficient given its
+per-finding rigor, or dispatch one more independent collapse-hunt and
+expert-review over the whole current plan before treating it as the build
+contract.
 
 ## Open items
 
-- The Phase A plan is not deliverable as written. Fix per items 1–4
-  above, in place — not a restart or rewrite from zero.
-- L11(a) — human-marker presence on Max Cogar's real interactive
-  transcript was resolved this session by direct measurement of
-  `/root/.claude/projects/-home-user-agent-armory/dc9955b4-2023-5a97-b6a3-47796382cb94.jsonl`
-  (11 `origin.kind:"human"` entries, markers present exactly as V12 and
-  AD-9 assume). Follow-up documentation PR updating architecture L11(a)
-  from "assumption pending" to "measured" is a post-Phase-A-completion
-  task.
-- L11(b) — whether `UserPromptSubmit` fires for platform-injected turns
-  remains empirically unresolvable inside this container (hook install
-  blocked by auto-mode classifier). Design-safe either way per AD-9's
-  voiding guard. Natural resolution: first real install of the tool.
+- No known open defect in `docs/plans/plan-phase-a.md`: all three mechanical
+  gates are green and the correction-loop queue is empty. The open item is
+  the acceptance decision above, not a known problem in the text.
+- The round-3 tentative items carried forward, never re-verified this
+  session: behaviour at the Node 22.16.0 floor is executed only by CI's
+  matrix entry; whether `unshare -rn` works on the GitHub Actions runner
+  image the plan uses (probe `09_unshare_no_network.optional` is marked
+  optional for exactly this reason).
+- L11(a) — human-marker presence is measured on interactive transcripts; the
+  plan reports it *verified* only when an owner-local interactive transcript is
+  in the exit corpus, otherwise *not observed*.
+- L11(b) — whether `UserPromptSubmit` fires for platform-injected turns is
+  undocumented; the plan resolves it by live induction inside the exit run's
+  closed-loop leg. Design-safe either way per `AD-9`'s voiding guard.

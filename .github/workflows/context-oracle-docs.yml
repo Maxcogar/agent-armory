@@ -6,6 +6,13 @@ name: context-oracle-docs
 # don't exist, retired IDs cited as live, handoff files, edited reviews, or a
 # project change without a STATUS.md rewrite. In-session rules and hooks are
 # advisory; this is the check no session can skip.
+#
+# The plan gate (second job) is the expert-plan skill's own tooling run on
+# the Phase A plan: the derivation script regenerates the generated regions,
+# checks build order from the step declarations, and resolves every probe
+# citation; the probe runner re-executes the plan's executed evidence and
+# fails on drift. It exists because two consecutive correction rounds on the
+# plan regressed on exactly those classes (docs/collapse-log.md 2026-09-07).
 
 on:
   pull_request:
@@ -23,3 +30,17 @@ jobs:
         run: |
           python3 middleware/context-oracle/tools/check_docs.py \
             --base "origin/${{ github.base_ref }}"
+
+  check-plan:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Skill self-check (the contract and the script move together)
+        run: node middleware/context-oracle/.claude/skills/expert-plan/scripts/derive-plan-sections.mjs --self-check
+      - name: Plan declarations, build order, generated regions, probe citations
+        run: node middleware/context-oracle/.claude/skills/expert-plan/scripts/derive-plan-sections.mjs --check middleware/context-oracle/docs/plans/plan-phase-a.md
+      - name: Plan probes (executed evidence reproduces)
+        run: node middleware/context-oracle/.claude/skills/expert-plan/scripts/run-plan-probes.mjs middleware/context-oracle/docs/plans/plan-phase-a.md

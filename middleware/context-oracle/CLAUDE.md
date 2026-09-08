@@ -21,6 +21,31 @@ Max's explicit sign-off. Only Max confirms; an agent never self-confirms, and
 owner claims and propagated them — ledger REJECTED section; collapse-log
 2026-08-12.)
 
+## Writing discipline — specificity over generalization, always (`OL-C7`)
+
+Two failure modes recur across sessions in this project's own documents —
+`docs/collapse-log.md` and elsewhere — named directly by Max Cogar (`OL-C7`)
+after he caught an instance of the first one:
+
+1. **Overgeneralization.** A statement Max makes about one specific thing, in
+   specific context, gets written down as a broader project rule than what he
+   actually said. His statement was about *that* fix, in *that* context —
+   never silently promote it to "he doesn't want X in general" or "he rejects
+   this whole category."
+2. **Context-stripping.** A lesson, rule, or decision recorded with only a
+   bare verdict ("rejected," "has no value," "not a fix") and no situational
+   specifics — what was actually tried, what was specifically wrong with it,
+   under what conditions — is dangerous, not just useless: a future agent with
+   zero context can invoke it to justify almost anything, including violating
+   the workflow.
+
+**The fix, every time something gets written down:** carry the actual
+reasoning and its situational scope — never compress a decision or a lesson
+to a verdict alone. If the real specifics cannot be recovered, delete the
+entry rather than publish an under-specified one; an entry that isn't there
+cannot be misused, one with no context can be misused any way an agent wants.
+This applies to every file in this project, not only owner-attributed claims.
+
 ## Read before working
 
 1. `OWNER-LEDGER.md` — what is and isn't authoritatively Max Cogar's.
