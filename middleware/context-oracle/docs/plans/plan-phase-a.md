@@ -448,7 +448,8 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/src/util/hash.ts | create | S5 |
 | middleware/context-oracle/ctxoracle/src/util/spawn.ts | create | S5 |
 | middleware/context-oracle/ctxoracle/src/util/ulid.ts | create | S9 |
-| middleware/context-oracle/ctxoracle/test/build_time/grammar_inventory_check.ts | create | S38 |
+| middleware/context-oracle/ctxoracle/test/build_time/grammar_inventory_check.test.ts | create | S38 |
+| middleware/context-oracle/ctxoracle/test/build_time/marker_presence.test.ts | create | S38 |
 | middleware/context-oracle/ctxoracle/test/build_time/marker_presence.ts | create | S38 |
 | middleware/context-oracle/ctxoracle/test/build/fixtures/deny_literal_outside.ts | create | S24 |
 | middleware/context-oracle/ctxoracle/test/build/fixtures/missing_provenance.ts | create | S9 |
@@ -787,14 +788,16 @@ lag fixture whose clearing assistant turn is appended by the test that uses
 it — written as literal files, not generated.
 
 Create `scripts/run-tests.mjs` (dependency-free): it enumerates
-`dist/test/unit/**/*.test.js`, `dist/test/build/**/*.test.js`, and
-`dist/test/conventions/**/*.test.js` with `fs.readdirSync(dir, {recursive:
+`dist/test/unit/**/*.test.js`, `dist/test/build/**/*.test.js`,
+`dist/test/conventions/**/*.test.js`, and `dist/test/build_time/**/*.test.js`
+(Step 38's build-time verifications) with `fs.readdirSync(dir, {recursive:
 true})`; counts the `*.test.ts` sources under `test/unit`, `test/build`,
-`test/conventions`; **exits 1 with a plain-language message if the total
-compiled count is zero or if, for any of the three directories, the
-compiled count differs from the source count** (a directory with no
-sources and no compiled files is consistent, so the build tier being
-empty before Step 9 is not a failure); otherwise runs
+`test/conventions`, `test/build_time`; **exits 1 with a plain-language
+message if the total compiled count is zero or if, for any of the four
+directories, the compiled count differs from the source count** (a
+directory with no sources and no compiled files is consistent, so the
+build tier being empty before Step 9 is not a failure, and `test/build_time`
+is empty until Step 38 creates it); otherwise runs
 `execFileSync(process.execPath, ['--test', ...files], {stdio: 'inherit'})`
 and propagates the exit code. With `--replay` it does the same for
 `dist/test/replay/**/*.test.js` (the acceptance tier, Steps 37–38).
@@ -4147,7 +4150,7 @@ dropped. CI (Step 1) runs the same command at the floor and at the current
 
 **Verification.** `npm run build && npm test` exits 0 at Node 22.16.0 and at
 the current 22.x; the runner's printed counts equal the number of `.test.ts`
-files under the three directories in §5.1.
+files under the four directories in §5.1.
 
 **Impact if wrong.** Coverage theater — a missing or silently skipped test
 file. The runner guard and this reconciliation are the two checks.
@@ -4160,7 +4163,7 @@ file. The runner guard and this reconciliation are the two checks.
 step: S38
 covers: [PA-10]
 files:
-  create: [middleware/context-oracle/ctxoracle/scripts/check-cold-container.sh, middleware/context-oracle/ctxoracle/test/replay/hook_stream_fixtures/, middleware/context-oracle/ctxoracle/test/replay/answer_drift_off_to_unrelated.test.ts, middleware/context-oracle/ctxoracle/test/replay/answer_drift_reconciliation.test.ts, middleware/context-oracle/ctxoracle/test/replay/answer_drift_subagent_allow.test.ts, middleware/context-oracle/ctxoracle/test/replay/answer_drift_lag_hold.test.ts, middleware/context-oracle/ctxoracle/test/replay/deny_after_answer_lag.test.ts, middleware/context-oracle/ctxoracle/test/replay/deny_health_induced.test.ts, middleware/context-oracle/ctxoracle/test/replay/session_start_startup.test.ts, middleware/context-oracle/ctxoracle/test/replay/session_start_resume.test.ts, middleware/context-oracle/ctxoracle/test/replay/stop_outstanding_question_line.test.ts, middleware/context-oracle/ctxoracle/test/replay/coupling_nonobvious.test.ts, middleware/context-oracle/ctxoracle/test/replay/orientation_mixed_shape.test.ts, middleware/context-oracle/ctxoracle/test/replay/reuse_mixed_language.test.ts, middleware/context-oracle/ctxoracle/test/replay/consequence_coupled_tests.test.ts, middleware/context-oracle/ctxoracle/test/replay/completeness_paired_change.test.ts, middleware/context-oracle/ctxoracle/test/replay/bar_no_cap.test.ts, middleware/context-oracle/ctxoracle/test/replay/bar_hazard_bypass.test.ts, middleware/context-oracle/ctxoracle/test/replay/dedup_read_set.test.ts, middleware/context-oracle/ctxoracle/test/replay/corpus_floor.test.ts, middleware/context-oracle/ctxoracle/test/replay/rumor_rule.test.ts, middleware/context-oracle/ctxoracle/test/replay/session_boundary_dedup.test.ts, middleware/context-oracle/ctxoracle/test/replay/stop_single_cycle.test.ts, middleware/context-oracle/ctxoracle/test/replay/security_ac11.test.ts, middleware/context-oracle/ctxoracle/test/replay/subagent_delivery.test.ts, middleware/context-oracle/ctxoracle/test/replay/language_config_added.test.ts, middleware/context-oracle/ctxoracle/test/replay/idle_silence.test.ts, middleware/context-oracle/ctxoracle/test/replay/seeded_facts_exit.test.ts, middleware/context-oracle/ctxoracle/test/replay/verification_headline.test.ts, middleware/context-oracle/ctxoracle/test/replay/warning_headline.test.ts, middleware/context-oracle/ctxoracle/test/replay/answer_drift_overfire.test.ts, middleware/context-oracle/ctxoracle/test/replay/answer_drift_residual.test.ts, middleware/context-oracle/ctxoracle/test/build_time/marker_presence.ts, middleware/context-oracle/ctxoracle/test/build_time/grammar_inventory_check.ts]
+  create: [middleware/context-oracle/ctxoracle/scripts/check-cold-container.sh, middleware/context-oracle/ctxoracle/test/replay/hook_stream_fixtures/, middleware/context-oracle/ctxoracle/test/replay/answer_drift_off_to_unrelated.test.ts, middleware/context-oracle/ctxoracle/test/replay/answer_drift_reconciliation.test.ts, middleware/context-oracle/ctxoracle/test/replay/answer_drift_subagent_allow.test.ts, middleware/context-oracle/ctxoracle/test/replay/answer_drift_lag_hold.test.ts, middleware/context-oracle/ctxoracle/test/replay/deny_after_answer_lag.test.ts, middleware/context-oracle/ctxoracle/test/replay/deny_health_induced.test.ts, middleware/context-oracle/ctxoracle/test/replay/session_start_startup.test.ts, middleware/context-oracle/ctxoracle/test/replay/session_start_resume.test.ts, middleware/context-oracle/ctxoracle/test/replay/stop_outstanding_question_line.test.ts, middleware/context-oracle/ctxoracle/test/replay/coupling_nonobvious.test.ts, middleware/context-oracle/ctxoracle/test/replay/orientation_mixed_shape.test.ts, middleware/context-oracle/ctxoracle/test/replay/reuse_mixed_language.test.ts, middleware/context-oracle/ctxoracle/test/replay/consequence_coupled_tests.test.ts, middleware/context-oracle/ctxoracle/test/replay/completeness_paired_change.test.ts, middleware/context-oracle/ctxoracle/test/replay/bar_no_cap.test.ts, middleware/context-oracle/ctxoracle/test/replay/bar_hazard_bypass.test.ts, middleware/context-oracle/ctxoracle/test/replay/dedup_read_set.test.ts, middleware/context-oracle/ctxoracle/test/replay/corpus_floor.test.ts, middleware/context-oracle/ctxoracle/test/replay/rumor_rule.test.ts, middleware/context-oracle/ctxoracle/test/replay/session_boundary_dedup.test.ts, middleware/context-oracle/ctxoracle/test/replay/stop_single_cycle.test.ts, middleware/context-oracle/ctxoracle/test/replay/security_ac11.test.ts, middleware/context-oracle/ctxoracle/test/replay/subagent_delivery.test.ts, middleware/context-oracle/ctxoracle/test/replay/language_config_added.test.ts, middleware/context-oracle/ctxoracle/test/replay/idle_silence.test.ts, middleware/context-oracle/ctxoracle/test/replay/seeded_facts_exit.test.ts, middleware/context-oracle/ctxoracle/test/replay/verification_headline.test.ts, middleware/context-oracle/ctxoracle/test/replay/warning_headline.test.ts, middleware/context-oracle/ctxoracle/test/replay/answer_drift_overfire.test.ts, middleware/context-oracle/ctxoracle/test/replay/answer_drift_residual.test.ts, middleware/context-oracle/ctxoracle/test/build_time/marker_presence.ts, middleware/context-oracle/ctxoracle/test/build_time/marker_presence.test.ts, middleware/context-oracle/ctxoracle/test/build_time/grammar_inventory_check.test.ts]
   modify: [.github/workflows/context-oracle-ctxoracle.yml]
   delete: []
 provides: []
@@ -4174,17 +4177,25 @@ against the real handler binary through Step 28's replay harness, each
 with its hook-stream fixture under `test/replay/hook_stream_fixtures/` and
 the fixture repositories Step 1's generator produces, and the build-time
 verifications:
-- `test/build_time/grammar_inventory_check.ts` (L6): enumerates the `.wasm`
-  files shipped in the installed `tree-sitter-wasms` package, loads each
-  grammar the default `index.ext_to_grammar` table names through
-  `web-tree-sitter`, and fails on any missing or unloadable grammar.
-- `test/build_time/marker_presence.ts` (L11(a)): given one or more
-  `--corpus <machine>/<mode>=<dir>` arguments, counts the user entries of
-  every transcript under each by `(content shape, origin.kind, isMeta)` and
-  prints the table keyed by the declared origin (a transcript given with no
-  declared origin is reported "origin unknown"); it is executed by Step
-  39's replay leg over every corpus that leg declares, and the exit report
-  carries the table.
+- `test/build_time/grammar_inventory_check.test.ts` (L6, T-38-33): a
+  `node:test` file enumerated by `run-tests.mjs`'s `build_time` tier
+  (Step 1) — it enumerates the `.wasm` files shipped in the installed
+  `tree-sitter-wasms` package, loads each grammar the default
+  `index.ext_to_grammar` table names through `web-tree-sitter`, and fails
+  the test on any missing or unloadable grammar.
+- `test/build_time/marker_presence.ts` (L11(a)): exports
+  `markerPresence(corpora)`, which counts the user entries of every
+  transcript under each of one or more `{machine, mode, dir}` corpora by
+  `(content shape, origin.kind, isMeta)` and returns the table keyed by the
+  declared origin (a transcript given with no declared origin is reported
+  "origin unknown"); the module's own CLI entry reads
+  `--corpus <machine>/<mode>=<dir>` arguments and prints the table —
+  invoked directly (not through `run-tests.mjs`) by Step 39's replay leg
+  over every corpus that leg declares, whose exit report carries the
+  table. `test/build_time/marker_presence.test.ts` (T-38-32) imports
+  `markerPresence` and is the self-test, enumerated by `run-tests.mjs`'s
+  `build_time` tier (Step 1), asserting the fixed cases against
+  `test/replay/transcript_fixtures/`.
 - `scripts/check-cold-container.sh` (AC-20): run by the `cold-container`
   job this step adds to `.github/workflows/context-oracle-ctxoracle.yml`,
   in a fresh `node:22.16.0-bookworm` container (the `bookworm` variant
@@ -4223,9 +4234,10 @@ the owner's real transcripts, grammar inventory); L6, L11; `D-plan-5`.
 **Verification.** **Checkpoint 4**: `node scripts/run-tests.mjs --replay`
 exits 0 with every replay test executed — `T-38-1`–`T-38-24`,
 `T-38-26`–`T-38-31`, plus the replay tests of Steps 28–35 — the runner's
-count guard covers `test/replay` too; `grammar_inventory_check` passes for
-the default table (`T-38-33`); `marker_presence` passes its self-test
-(`T-38-32`); the `cold-container` job passes (`T-38-25`). The replay
+count guard covers `test/replay` too, and (the same invocation's
+`build_time` tier, Step 1) `test/build_time/grammar_inventory_check.test.ts`
+(`T-38-33`) and `test/build_time/marker_presence.test.ts` (`T-38-32`) both
+pass; the `cold-container` job passes (`T-38-25`). The replay
 tier's wall time on the every-PR job and the `large-store` build time
 `T-29-1` prints are read from this run's log and stated in the exit report
 (§16 item 2); the plan assumes no number for either.
@@ -4602,8 +4614,10 @@ are *runnable* at that point.
   fixtures run here *alongside* the whisper-path fixtures, never as an
   isolated first correctness gate (the collapse-log 2026-09-04 shape is a
   recognizer elaborated against its own fixtures with nothing else in
-  view); `grammar_inventory_check` (`T-38-33`) and `marker_presence`'s
-  self-test (`T-38-32`) pass; the `cold-container` job passes (`T-38-25`).
+  view); the same `node scripts/run-tests.mjs --replay` run's `build_time`
+  tier (Step 1) passes `grammar_inventory_check.test.ts` (`T-38-33`) and
+  `marker_presence.test.ts` (`T-38-32`); the `cold-container` job passes
+  (`T-38-25`).
   Owner-visible check: a hand-driven session on `coupling-nonobvious` with
   the tool installed produces a Coupling whisper with an evidence ratio and
   a pointer, and an `Edit` while a `?` question is open is denied with the
@@ -6676,7 +6690,7 @@ the ISO/IEC/IEEE 29119-4 technique named. Each entry carries **six fields**:
 
 **ID scheme.** `T<step>-<n>`. `T-38-*` are the acceptance-tier replays through
 the real handler binary, each labelled with the spec criterion it pins.
-Tests run through `scripts/run-tests.mjs` (unit/build/conventions) or
+Tests run through `scripts/run-tests.mjs` (unit/build/conventions/build_time) or
 `--replay` (replay). Compile-time tests invoke `tsc --noEmit` on their own
 fixture through `test/build/tsc_fixture.ts` (Step 1) and assert a non-zero
 exit whose diagnostics name the intended error; the fixtures are excluded
@@ -8528,8 +8542,11 @@ and are stated on each entry.
     does not re-arm the deny.
 
 - **T-38-32 (L11(a)) — Marker presence on real transcripts.**
-  - **File.** `test/build_time/marker_presence.ts` (executed by Step 39 over
-    the replay corpus; its self-test runs against `test/replay/transcript_fixtures/`).
+  - **File.** `test/build_time/marker_presence.test.ts` (run by
+    `node scripts/run-tests.mjs`'s `build_time` tier, Step 1) — imports
+    `markerPresence` from `test/build_time/marker_presence.ts`, the module
+    Step 39 invokes directly over the real replay corpus; the self-test
+    runs against `test/replay/transcript_fixtures/`.
   - **Verifies.** Step 38 build-time script over the corpus Step 39 leg 1 enumerates; `L11(a)`.
   - **Level.** Build-time verification.
   - **Real/doubles.** Real transcript files. No doubles.
@@ -8544,7 +8561,8 @@ and are stated on each entry.
     reported "origin unknown".
 
 - **T-38-33 (L6) — Grammar inventory.**
-  - **File.** `test/build_time/grammar_inventory_check.ts`.
+  - **File.** `test/build_time/grammar_inventory_check.test.ts` (run by
+    `node scripts/run-tests.mjs`'s `build_time` tier, Step 1).
   - **Verifies.** Step 38 build-time script over Step 15's default table; `L6`.
   - **Level.** Build-time verification.
   - **Real/doubles.** Real installed `tree-sitter-wasms`, real
