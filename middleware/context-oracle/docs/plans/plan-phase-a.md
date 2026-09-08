@@ -4849,8 +4849,11 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   repository: Step 29's `test/fixtures/generate_large_store.ts` builds it
   through the real migrations (Step 7) and DAOs (Step 9) into the test's
   temp home, cached per run directory by content hash and rebuilt per CI
-  job, because nothing before Step 7 can create its tables; Step 1's
-  generator and `T-1-3` cover fixture repositories only.
+  job, because nothing before Step 7 can create its tables; the rebuild's
+  time is measured and printed by `T-29-1`'s own run, stated in Step 38's
+  exit report — never Step 37's unit/build/convention tier, which never
+  touches this fixture; Step 1's generator and `T-1-3` cover fixture
+  repositories only.
 
 - **D-plan-6 — The `init`/`deinit` marker is the documented `command` field:
   `init` writes `"<node>" "<real path of dist/src/cli/dispatch.js>" hook
