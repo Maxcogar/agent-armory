@@ -1359,7 +1359,11 @@ CREATE TABLE schema_meta(key TEXT PRIMARY KEY, value TEXT) STRICT;
   -- interpreter path the hooks pin; read back by status, Step 33),
   -- regret_index_ts (Step 30: the watermark
   -- the index-time regret pass advances past, so a cross-session revert
-  -- is reported once)
+  -- is reported once), store_created_at (Step 31's init: set at first
+  -- creation if absent, and overwritten whenever init genuinely re-wires
+  -- a missing hook entry — the INTEGER epoch-ms moment this repository's
+  -- hooks last started firing; AD-17's totally-dead detector, Step 33,
+  -- D-plan-25, excludes any transcript whose first entry predates it)
 CREATE TABLE files(id INTEGER PRIMARY KEY, path TEXT NOT NULL UNIQUE,
   lang TEXT NOT NULL, zone TEXT NOT NULL CHECK(zone IN
     ('source','generated','vendored','build_output','unknown')),
@@ -3333,8 +3337,11 @@ fixture repository the test names (`pristine-tree` when it names none);
 `ensureLayout` (Step 4) for that key; `openStore` (Step 3) on the two paths
 it returns and `probeFts5` (Step 3) on the project store for the flag;
 `applyMigrations` (Step 7) on the project store with that flag and on the
-global store (002, Step 8); `seedDefaults` (Step 12); and `runIndex(store,
-repoPath, {full: true, frontends: defaultFrontends()})` (Steps 14, 15) —
+global store (002, Step 8); `seedDefaults` (Step 12); then
+`schema_meta.set('store_created_at', Date.now())` guarded by
+`schema_meta.get` the same way Step 31 item 3 guards it; and
+`runIndex(store, repoPath, {full: true, frontends: defaultFrontends()})`
+(Steps 14, 15) —
 the store-preparing sequence `init` (Step 31) performs, minus its settings
 write, so a replay at this step runs against the store `init` would have
 created, built through the substrate's own functions and never through DDL
@@ -3724,7 +3731,15 @@ switch. Create `src/cli/init.ts`:
    before migration 001 — it is passed to `applyMigrations(store, {fts:
    <the probe result>})` for the project store (001; `fts_state` recorded;
    001b when the row reads `'fts5'`) and `applyMigrations` runs for the
-   global store (002) (Steps 7, 8); then `seedDefaults` (Step 12). On
+   global store (002) (Steps 7, 8); then `seedDefaults` (Step 12), then
+   `schema_meta.set('store_created_at', Date.now())` guarded by
+   `schema_meta.get` so only a store where the key is absent gets it
+   (`applyMigrations`, Step 7, run through its own DAO, `schema_meta.get`/
+   `set`, Step 9 — the same pair `regret_index_ts`, Step 30, already reads
+   and advances) — placed in this item, not item 4, so Step 28's replay
+   harness (`prepareStore`, which performs items 3 and 5 for every fixture
+   store, never item 4) gives every fixture store this key the same way a
+   real `init` does. On
    `false` the `LIKE` path is what `search.ts` uses. The summary names the
    recorded state and, when this run's probe disagrees with a state
    recorded by an earlier `init` (the row is written once), says so in
@@ -3754,6 +3769,16 @@ switch. Create `src/cli/init.ts`:
    `settings.json` does not exist, `init` creates it (`{}` before editing)
    and records `claude_dir_created_by_init` / `settings_created_by_init` =
    `1` in `schema_meta` so `deinit` can remove exactly what `init` created;
+   whenever this item actually appends a missing `ctxoracle` entry (real
+   wiring, not the idempotent no-op below) it also overwrites
+   `schema_meta.store_created_at = Date.now()`, regardless of whether the
+   key was already set by item 3 — this is the moment hooks actually
+   started firing again after a `deinit` (no `--purge`) removed them, or
+   after an `export`/`import` migration carried an older store's row into
+   this checkout, and is what keeps AD-17's totally-dead detector (Step 33,
+   D-plan-25) from reading a stale wiring moment in either case; the
+   idempotent case (every documented entry already present and correct)
+   leaves it untouched;
    an existing file is parsed, edited, and re-serialized with its detected
    indentation (2-space default) and its trailing-newline state preserved,
    key order untouched. Idempotent: an existing matching entry is left in
@@ -3910,7 +3935,7 @@ files:
   delete: []
 provides: [ctxoracle-status, ctxoracle-log, ctxoracle-tune]
 tests: [T-33-1, T-33-2, T-33-3, T-33-4]
-depends_on: [S1, S2, S4, S5, S9, S10, S12, S26, S28, S30]
+depends_on: [S1, S2, S4, S5, S9, S10, S12, S21, S26, S28, S30]
 ```
 
 
@@ -3937,11 +3962,22 @@ depends_on: [S1, S2, S4, S5, S9, S10, S12, S26, S28, S30]
   in the directory `projectTranscriptDir(cwd)` returns (Step 21's
   `locate.ts`, the one module that knows the layout) newer than the newest
   liveness row — or present when no liveness row exists at all — by more
-  than the gap ⇒ `hooks_not_firing` with detail "no session started the
-  hooks"; when that directory does not exist, `status` prints "no
-  transcript directory found for this repository" so a changed layout is
-  visible rather than silent; run at `status`, `init`, and `index`,
-  D-plan-25),
+  than the gap, excluding any transcript whose first entry predates the
+  newest liveness row or `schema_meta.store_created_at` (Step 31's `init`
+  writes this at first creation and again whenever it genuinely re-wires a
+  missing hook entry — the moment this repository's hooks last started
+  firing); "first entry" is read via `readFrom`/`discriminateEntry` (Step
+  21), walking forward past `skip`-kind entries (which carry no
+  `timestamp` in `discriminateEntry`'s own shape) to the first `human` or
+  `assistant_text` entry — a transcript still entirely `skip`-kind so far
+  has no first entry yet and is excluded outright, the same direction as
+  every other undecided case here — so the session
+  running `init` itself is never flagged; a transcript that IS flagged
+  records `hooks_not_firing` with detail "no session started the hooks";
+  when that directory does not
+  exist, `status` prints "no transcript directory found for this
+  repository" so a changed layout is visible rather than silent; run at
+  `status`, `init`, and `index`, D-plan-25),
   the pinned interpreter `init` recorded in `schema_meta.pinned_interpreter`
   and whether that path still exists (a Node upgrade that removed it is
   named, never silent — OL-10), latency
@@ -3983,9 +4019,15 @@ counters' labels); `FR-M3`, `FR-M4`, `FR-M5`.
 reserved codes render as "not yet measured"; the seeds and the bypass bound
 are printed), `T-33-2` (`log` renders every audit row with evidence and
 pointers), `T-33-3` (`tune` round-trips scalar and list values and lists
-sources), `T-33-4` (`hooks_not_firing` induced: a liveness row, a transcript
-grown past the gap with no events, `status` flags the session; the same
-session with a recent event is not flagged).
+sources), `T-33-4` (`hooks_not_firing` induced, both halves: a liveness row
+with a transcript grown past the gap and no events is flagged, the same
+session with a recent event is not; a transcript under the repository's
+slug newer than the newest liveness row with no liveness row at all is
+flagged with detail "no session started the hooks"; a transcript whose
+first entry predates `schema_meta.store_created_at` and is still growing
+with no liveness row is not flagged — the session running `init` itself,
+case (d); a `deinit`-then-`init` re-wiring overwrites `store_created_at` so
+the re-installing session is protected the same way, case (e)).
 
 **Impact if wrong.** Owner-blind — a broken `status` is exactly the failure
 `OL-10` was raised to prevent. Caught by `T-33-1`.
@@ -5197,9 +5239,10 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
 - **D-plan-25 — `hooks_not_firing` has two detectors — the stale-session
   half (a liveness row whose transcript keeps growing without events) and
   the totally-dead half (transcripts for this repository's slug newer than
-  the newest liveness row, or present with none, by more than the gap) —
-  and `init` and `status` print the pinned interpreter with an existence
-  check.** *Reasoning.* AD-17 and L7 say liveness rows "go stale", which is
+  the newest liveness row, or present with none, by more than the gap,
+  excluding any transcript whose first entry predates the newest liveness
+  row or `schema_meta.store_created_at`) — and `init` and `status` print
+  the pinned interpreter with an existence check.** *Reasoning.* AD-17 and L7 say liveness rows "go stale", which is
   a comparison of the newest row against something newer; a detector that
   examines only sessions with a row cannot see a wiring that never fired.
   The plan's own command shape — `process.execPath` pinned into
@@ -5929,14 +5972,37 @@ collapse-hunt attacks these questions harder and hunts for the ones missing.
    next CLI use — the failure OL-10 was raised for.
 2. **Hardest question.** *A transcript newer than the newest liveness row
    is also what a session in another checkout of the same repository, or
-   a session that started before `init`, produces; the detector will cry
-   wolf and the owner will learn to ignore it.*
+   a session that started before `init`, produces — the detector will cry
+   wolf and the owner will learn to ignore it; and a `store_created_at`
+   fixed at first creation goes stale the moment hooks are unwired and
+   rewired later (`deinit` without `--purge`, then `init` again) or a
+   store is `export`ed/`import`ed into a fresh checkout — the exact
+   session that re-wires hooks in either case is exactly as exposed as
+   the original bug.*
 3. **Answer.** The detector is scoped to this repository's `cwd` slug and
-   compares against the gap the stale-session half already uses, so a
-   pre-`init` transcript older than the gap never trips it; a session in
-   the same checkout after `init` with no liveness row IS a dead wiring,
-   whatever the cause, and the detail names the pinned interpreter and
-   whether it exists so the likeliest cause is on the screen. False
+   excludes any transcript whose first entry predates the newest liveness
+   row or `schema_meta.store_created_at` (Step 7; written by `init`, Step
+   31, at first creation and again whenever `init` genuinely re-wires a
+   missing hook entry — never on the idempotent no-op case — so the value
+   tracks the *last* moment hooks started firing, not only the first;
+   immune to the filesystem-`birthtime` portability problem an earlier
+   draft of this answer relied on, since Node documents `birthtime` as
+   filesystem-dependent and sometimes unavailable, §11.4): a pre-`init`
+   transcript is excluded outright, whether it is idle or still growing at
+   the moment `init` first runs, so the very session installing the tool
+   is never itself flagged. This same re-write is what closes the second
+   half of the hardest question: a `deinit` (no `--purge`) removes the
+   hook entries without touching `schema_meta`, so the entries are
+   genuinely missing when `init` runs again, and that re-`init`'s own
+   entry-append triggers the overwrite — the re-installing session is
+   protected exactly like the original installing session was; the same
+   holds after `export`/`import`, since Step 31 item 2's keying-mode
+   migration path runs a normal `init` (with its own item-4 entry-append)
+   against the newly-imported store immediately after the migration. A
+   session in the same checkout that *starts* after the *latest* genuine
+   re-wiring with no liveness row IS a dead wiring, whatever the cause,
+   and the detail names the pinned interpreter and whether it exists so
+   the likeliest cause is on the screen. False
    positives are a `status` line, never a deny — the cost of a wrong
    "dead" flag is a look; the cost of a missed one is OL-10's silent
    nothing. Cite: AD-17; L7; OL-10; `CLAUDE.md` rule 1.
@@ -6782,6 +6848,18 @@ this session; line numbers are of that revision.
   listed case prints `ok`, and the probe prints the generated counts — 7
   phrases × 33 filler words × 2 placements = 462 hold cases and 462 clear
   cases, all `ok`.
+- **Claim.** Node's `fs.Stats` documentation, in "Stat time values", states
+  of `birthtime`: "Time of file creation. Set once when the file is
+  created. On file systems where birthtime is not available, this field
+  may instead hold either the `ctime` or `1970-01-01T00:00Z` (ie, Unix
+  epoch timestamp `0`). This value may be greater than `atime` or `mtime`
+  in this case." **Steps.** 33. **Evidence.** Fetched
+  `https://nodejs.org/docs/latest-v22.x/api/fs.json` 2026-09-08 and read the
+  `stat_time_values` module's description verbatim, quoted above — this is
+  why D-plan-25's totally-dead detector (§10A) keys its exclusion off
+  `schema_meta.store_created_at`, an application-level watermark `init`
+  controls, rather than off the filesystem's own `birthtime`, which is not
+  guaranteed to exist or to reflect creation time on every platform.
 
 ### 11.5 Claims from the collapse-log (`docs/collapse-log.md`)
 
@@ -8245,21 +8323,39 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Verifies.** Step 33 — a session with a liveness row, a transcript that
     grew past `diag.hooks_not_firing_gap_s` after its last event, and no
     `SessionEnd` row is flagged; a session whose last event is recent is
-    not.
+    not; a transcript whose first entry predates `schema_meta.store_created_at`
+    and is still growing is not flagged even with no liveness row; a
+    `deinit`-then-`init` re-wiring overwrites `store_created_at`, so the
+    re-installing session is protected the same way the original one was.
   - **Level.** Acceptance.
-  - **Real/doubles.** Real CLI; real store; real transcript file whose
-    mtime the test advances with `fs.utimes` (a real timestamp, not a
+  - **Real/doubles.** Real CLI; real store — including its
+    `schema_meta.store_created_at` row, present in every fixture store
+    `prepareStore` (Step 28) builds, since it is written in item 3 of the
+    `init` sequence `prepareStore` reproduces, not item 4; real transcript
+    files whose mtime the test advances with `fs.utimes`, and whose first
+    parsed line's `timestamp` field (the value `readFrom`/`discriminateEntry`,
+    Step 21, surfaces for a `human`/`assistant_text` entry) is set to a
+    controlled value at fixture-build time (a real timestamp, not a
     double). No doubles.
-  - **Data.** Two sessions and one non-session: (a) liveness row at t, last
+  - **Data.** Two sessions and three non-sessions: (a) liveness row at t, last
     event at t, transcript mtime t + 20 min; (b) liveness row at t, last
     event at t + 19 min, transcript mtime t + 20 min; (c) a transcript under
     the repository's slug with mtime 20 min after the newest liveness row
-    and no liveness row for its session at all (the totally-dead wiring).
-    Technique: boundary value on the gap.
+    and no liveness row for its session at all (the totally-dead wiring);
+    (d) a transcript under the repository's slug whose first entry precedes
+    the fixture store's `schema_meta.store_created_at`, with no liveness
+    row, mtime still advancing past the gap (the session running `init`,
+    still live); (e) the fixture store re-wired a second time (simulating
+    `deinit` without `--purge`, then `init` again, advancing
+    `store_created_at`), with a transcript whose first entry falls between
+    the original and the second `store_created_at` and is still growing
+    with no liveness row (the session running the second `init`). Technique:
+    boundary value on the gap.
   - **NOT asserts.** Timer behaviour (none exists, AD-1). **Fails when** (a)
     records no `hooks_not_firing` fault or is not flagged in `status`, OR (b)
     is flagged, OR (c) records no `hooks_not_firing` with the
-    "no session started the hooks" detail.
+    "no session started the hooks" detail, OR (d) is flagged, OR (e) is
+    flagged.
 
 - **T-34-1 — `correct --verdict false_fire` updates the rate and the fold.**
   - **File.** `test/replay/correct_verdict.test.ts`.
@@ -9199,8 +9295,11 @@ bin, and its closed disposition.
 - **Q48 (Step 33).** Can `hooks_not_firing` see a wiring that never fired?
   **Disposition.** Answered: not with the per-session detector alone — the
   totally-dead half compares transcripts for the repository's slug against
-  the newest liveness row, and `init`/`status` print the pinned interpreter
-  with an existence check (D-plan-25; `T-33-4` case (c)).
+  the newest liveness row or `schema_meta.store_created_at` (excluding any
+  transcript that predates either, so a session already live at install is
+  never itself flagged, `T-33-4` case (d)), and `init`/`status`
+  print the pinned interpreter with an existence check (D-plan-25; `T-33-4`
+  case (c)).
 - **Q49 (Steps 32, 38).** Does `unshare -rn` run on the `ubuntu-24.04`
   GitHub Actions runner? **Disposition.** Answered: no — writing the
   unprivileged user namespace's `uid_map` is refused there (§11.4, the
