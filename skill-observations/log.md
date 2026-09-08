@@ -814,8 +814,8 @@ capture failures is not exempt from them.
 
 **Principle:** Per Observation 22 — an observation that produces no mechanism recurs. This one has recurred; the mechanism (the CLAUDE.md line) is still missing.
 
-### Observation 30: stop-instruction-adherence-gate's judge answers with the wrong JSON key, so a real "not violating" verdict fails closed and cannot self-resolve
-**Status:** OPEN
+### Observation 35: stop-instruction-adherence-gate's judge answered with the wrong JSON key, so a real "not violating" verdict failed closed and could not self-resolve — likely the same root cause PR #82 already fixed
+**Status:** OPEN (root cause probably fixed elsewhere, pending merge — see below)
 **Date:** 2026-09-08
 **Session context:** Context Oracle session close / PR-triage follow-up, in this repo (`Maxcogar/agent-armory`) itself
 **Skill:** `hooks/stop-instruction-adherence-gate` (a repo-root Claude Code `Stop` hook, not a skill file)
@@ -825,10 +825,8 @@ capture failures is not exempt from them.
 **Issue:** The hook's own prompt (`JUDGE_INSTRUCTIONS`) ends with an
 unambiguous instruction: `Reply with ONLY a single JSON object... {"violating":
 true or false, "reason": "..."}`. Twice in the same session, the judge
-subprocess instead replied with `{"complete": true, "reason": "..."}` — a
-different key entirely (most likely cross-contamination from the sibling
-hook, `stop-completeness-gate`, whose own schema is presumably keyed
-`complete`; both hooks fire on every `Stop` with near-identical prompts).
+subprocess instead replied with `{"complete": true, "reason": "..."}` — the
+sibling hook's (`stop-completeness-gate`) schema, not this hook's.
 `parse_verdict()` (`:351-363`) requires the literal key `"violating"`
 (`:361-362`: `if "violating" not in verdict: return None`), so both times the
 parse failed and the hook fell into its "judge produced no parseable
@@ -843,20 +841,39 @@ no amount of correct self-verification fixes a schema-key mismatch, so it
 kept firing across multiple turns until a later judge call happened to use
 the right key.
 
-**Suggested improvement:** `parse_verdict()` should not trust a single
-required key name blindly. Either accept known-equivalent keys (`violating`,
-or `complete` inverted — semantically `"complete": true` means "not
-violating"), or, better, make the fail-closed diagnostic state which parse
-failure actually occurred (wrong/missing key vs. genuinely malformed JSON vs.
-empty output) instead of a blind 300-character slice, so the next person
-hitting this doesn't spend a turn debugging a truncation theory the
-diagnostic itself never ruled out. The prompt could also be hardened to name
-the sibling hook's key explicitly ("your field is `violating`, not
-`complete` — that's the other hook's field") since the two hooks sharing a
-process space and near-identical prompts is the likely source of the drift.
+**Likely root cause, already found and fixed (pending merge):** Open PR #82
+("Fix session isolation and transcript pollution in both Stop-hook gates")
+root-caused, with direct verification, that both hooks' judge subprocesses
+were spawned via `env = os.environ.copy()` without stripping Claude Code's
+own session-identity variables (`CLAUDE_CODE_SESSION_ID` and related) — so a
+"fresh, isolated" judge call could instead attach to the live calling
+session and return content contaminated by an unrelated call made earlier
+in that same session. PR #82's own verification names the exact symptom
+this observation hit, from the other direction: "a completely different
+conversation's `{"violating": ...}` JSON (a different hook's schema)
+leaking into what should have been an isolated `{"complete": ...}`
+judgment." That is the same cross-hook schema leak this observation
+describes, mirrored. PR #82's fix strips
+`CLAUDE_CODE_SESSION_ID`/`CLAUDE_CODE_CHILD_SESSION`/five related vars from
+the judge subprocess environment in both hook scripts before every judge
+call. If PR #82 merges, the wrong-key failure this observation documents is
+most likely already closed by it — but that is inference from reading both
+PRs' diagnoses side by side, not something re-verified against this
+specific failure after PR #82's fix landed, so this observation stays OPEN
+until someone reproduces (or fails to reproduce) the wrong-key symptom on a
+head that includes PR #82.
+
+**Suggested improvement:** Confirm after PR #82 merges that the wrong-key
+symptom no longer reproduces; if it does, `parse_verdict()` still needs a
+defense independent of session isolation — either accept known-equivalent
+keys, or make the fail-closed diagnostic state which parse failure actually
+occurred (wrong/missing key vs. malformed JSON vs. empty output) instead of
+a blind 300-character slice, so the next person hitting this doesn't spend a
+turn debugging a truncation theory the diagnostic itself never ruled out.
 
 **Principle:** A fail-closed path that cannot resolve itself is worse than
 one that can — the agent it blocks has no way to distinguish "genuinely
-still wrong" from "the judge's plumbing is broken," and here the diagnostic
-text actively pointed at the wrong theory (truncation) instead of the real
-one (schema mismatch).
+still wrong" from "the judge's plumbing is broken." Also: two hooks failing
+the same way in the same session are worth checking against each other's
+open PRs before writing up a fix from scratch — the deeper cause may already
+be found.
