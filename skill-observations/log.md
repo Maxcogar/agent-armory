@@ -814,7 +814,7 @@ capture failures is not exempt from them.
 
 **Principle:** Per Observation 22 — an observation that produces no mechanism recurs. This one has recurred; the mechanism (the CLAUDE.md line) is still missing.
 
-### Observation 33: stop-instruction-adherence-gate's judge answers with the wrong JSON key, so a real "not violating" verdict fails closed and cannot self-resolve
+### Observation 30: stop-instruction-adherence-gate's judge answers with the wrong JSON key, so a real "not violating" verdict fails closed and cannot self-resolve
 **Status:** OPEN
 **Date:** 2026-09-08
 **Session context:** Context Oracle session close / PR-triage follow-up, in this repo (`Maxcogar/agent-armory`) itself
