@@ -1205,11 +1205,7 @@ symptom is not "the corrections were applied carelessly"; it is that the
 author's pre-review verification was structurally weaker than the review it
 was preparing for.
 
-**Standing lesson — the fix, and what did not count as one.** The first
-proposed fix — a plan-local gate script, a written execute-before-write
-rule, and a dry-run implementer pass before each review — was rejected by
-Max Cogar: a rule is not a mechanism, another review is not a fix, and
-tooling that works for one plan has no value. The fix that stands lives in
+**Standing lesson — the fix that stands.** It lives in
 **this project's own copy of the expert-plan skill**
 (`.claude/skills/expert-plan/`: `scripts/derive-plan-sections.mjs`,
 `scripts/run-plan-probes.mjs`, and the additions to
