@@ -1352,8 +1352,11 @@ AD-4 puts on every knowledge table:
 --        created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
 CREATE TABLE schema_meta(key TEXT PRIMARY KEY, value TEXT) STRICT;
   -- keys: schema_version, repo_key, keying_mode, identity, last_mined_commit,
-  -- index_head, fts_state ('fts5'|'fallback'), settings_created_by_init,
-  -- claude_dir_created_by_init, regret_index_ts (Step 30: the watermark
+  -- index_head, index_stale ('0'|'1', Step 14's refreshIfStale, AD-17's
+  -- staleness detector), fts_state ('fts5'|'fallback'), settings_created_by_init,
+  -- claude_dir_created_by_init, pinned_interpreter (Step 31's init, the
+  -- interpreter path the hooks pin; read back by status, Step 33),
+  -- regret_index_ts (Step 30: the watermark
   -- the index-time regret pass advances past, so a cross-session revert
   -- is reported once)
 CREATE TABLE files(id INTEGER PRIMARY KEY, path TEXT NOT NULL UNIQUE,
