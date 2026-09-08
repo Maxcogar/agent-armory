@@ -1490,8 +1490,11 @@ and between 001 and 001b records `schema_meta.fts_state` — `'fts5'` when
 the state a store was created under is never retried; it then applies a
 migration whose name carries the `_fts` suffix only when
 `schema_meta.fts_state = 'fts5'`, skipping it otherwise, and records the
-new version. The runner is the row's only writer and `init` (Step 31) its
-only caller. Forward-only per
+new version. The runner is the row's only writer; `init` (Step 31) is its
+only production caller, and test setup — Step 28's replay harness and Step
+29's `large-store` generator — builds its stores through this same
+function, never through DDL of its own (testing-standards: the schema comes
+from the migrations). Forward-only per
 AD-25. The `.sql` files are read at runtime from the package's own `src/`
 tree, resolved from `import.meta.url` of the compiled runner
 (`../../../src/stores/migrations/`), so the package ships `src/` beside
@@ -1519,8 +1522,10 @@ migrations).
 4. **What this is NOT — and why.** Not a generic `facts(kind, json)` table
    (`FR-K6` violation, exactly what the provenance CHECK is designed to
    prevent). Not a runtime version comparison at every open (adds latency;
-   the migration runner at `init` — its one caller, Step 31 — is enough
-   because Phase A ships one schema version). Not shipping dormant tables
+   the migration runner at `init` — its one production caller, Step 31 —
+   is enough because Phase A ships one schema version; the handler never
+   migrates on open, so a store nothing created is a fail-open case,
+   `T-28-3`). Not shipping dormant tables
    (AD-4's criterion,
    applied uniformly).
 
@@ -3212,9 +3217,9 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/cli/dispatch.ts, middleware/context-oracle/ctxoracle/src/cli/hook.ts, middleware/context-oracle/ctxoracle/src/cli/index.ts, middleware/context-oracle/ctxoracle/src/cli/integrity_check.ts, middleware/context-oracle/ctxoracle/test/replay/integrity_check_verb.test.ts, middleware/context-oracle/ctxoracle/src/hook/adapter.ts, middleware/context-oracle/ctxoracle/src/hook/handler.ts, middleware/context-oracle/ctxoracle/test/replay/runner.ts, middleware/context-oracle/ctxoracle/test/replay/pipeline_order.test.ts, middleware/context-oracle/ctxoracle/test/conventions/hook_field_names_isolated.test.ts, middleware/context-oracle/ctxoracle/test/replay/fail_open.test.ts, middleware/context-oracle/ctxoracle/test/replay/produced_but_undelivered.test.ts, middleware/context-oracle/ctxoracle/test/replay/liveness_row.test.ts]
   modify: [.github/workflows/context-oracle-ctxoracle.yml]
   delete: []
-provides: [ctxoracle-hook, hook-integrity-check, ctxoracle-index, toInternalEvent, toHookResponse]
+provides: [ctxoracle-hook, hook-integrity-check, ctxoracle-index, toInternalEvent, toHookResponse, prepareStore]
 tests: [T-28-1, T-28-2, T-28-3, T-28-4, T-28-5, T-28-6]
-depends_on: [S1, S3, S6, S9, S10, S14, S15, S16, S17, S18, S19, S20, S24, S25, S26, S27]
+depends_on: [S1, S3, S4, S5, S6, S7, S8, S9, S10, S12, S14, S15, S16, S17, S18, S19, S20, S24, S25, S26, S27]
 ```
 
 
@@ -3253,25 +3258,51 @@ the edit under `modify:`;
 replay harness only — `init` never writes it, and no environment variable
 can set it.
 
-Create `test/replay/runner.ts` — the replay harness: reads a hook JSON
-stream from `test/replay/hook_stream_fixtures/<name>.jsonl` (one file per
-replaying test, authored with that test), spawns `node
-dist/src/cli/dispatch.js hook <event>` per event with `CTXORACLE_HOME`
-pointed at a temp home and `CTXORACLE_INTERNAL` unset, controls the
-transcript file the stream's `transcript_path` names (appending entries
-between events when a test says so), records each response, and exposes
-assertion helpers over responses, stores, and diagnostics. From this step
-on, every `test/replay/*.test.ts` a later step's Verification names is
-runnable at that step, and this step adds `npm test -- --replay` to Step
-1's `test` CI job.
+Create `test/replay/runner.ts` — the replay harness. For each replaying
+test it creates a temp home and prepares the stores the handler will open,
+`prepareStore(home, repoPath, {fts})`: `resolveRepoKey` (Step 5) on the
+fixture repository the test names (`pristine-tree` when it names none);
+`ensureLayout` (Step 4) for that key; `openStore` (Step 3) on the two paths
+it returns and `probeFts5` (Step 3) on the project store for the flag;
+`applyMigrations` (Step 7) on the project store with that flag and on the
+global store (002, Step 8); `seedDefaults` (Step 12); and `runIndex(store,
+repoPath, {full: true, frontends: defaultFrontends()})` (Steps 14, 15) —
+the store-preparing sequence `init` (Step 31) performs, minus its settings
+write, so a replay at this step runs against the store `init` would have
+created, built through the substrate's own functions and never through DDL
+or rows of the harness's own (testing-standards: the schema comes from the
+migrations; D-plan-5's `large-store`, Step 29, is built the same way). For
+a store keyed on a path with no checkout behind it (Step 39's leg 1, an
+absent `cwd`) the preparation takes the key directly (Step 5's rule-4
+form) and skips the index. A test that needs another state — `T-28-3`'s
+truncated store, `T-28-6`'s corrupted copy — derives it from the prepared
+one. Then it reads a hook JSON stream from
+`test/replay/hook_stream_fixtures/<name>.jsonl` (one file per replaying
+test, authored with that test), spawns `node dist/src/cli/dispatch.js hook
+<event>` per event with `CTXORACLE_HOME` pointed at that home and
+`CTXORACLE_INTERNAL` unset, controls the transcript file the stream's
+`transcript_path` names (appending entries between events when a test says
+so), records each response, and exposes assertion helpers over responses,
+stores, and diagnostics. With the preparation removed every Step 28 replay
+is red, not vacuous: the handler finds no store, fails open (`T-28-3`'s
+case), and writes none of the rows the replays assert — `T-28-1`'s
+`questions` and `session_log` rows and its no-fault clause, `T-28-4`'s
+audit row, `T-28-5`'s liveness row. From this step on, every
+`test/replay/*.test.ts` a later step's Verification names is runnable at
+that step, and this step adds `npm test -- --replay` to Step 1's `test` CI
+job.
 
 Create `src/hook/handler.ts` — the per-event pipeline in AD-8's fixed order:
 1. Guard (`CTXORACLE_INTERNAL` set → exit 0; Step 10's `isInternal`).
 2. Watchdog start (Step 10's `createDeadline`; the check placements per
    AD-23's inventory are verified by Step 29).
 3. Parse stdin JSON → `adapter.toInternalEvent`; derive consumer key
-   `(session_id, agent_id | 'main')`; open the project store (`openStore`,
-   Step 3).
+   `(session_id, agent_id | 'main')`; open the project store at the
+   layout's path for the event's repository,
+   `<home>/projects/<key>/store.db` (`openStore`, Step 3) — the handler
+   never migrates or creates on open; a store no `init` (Step 31) or test
+   preparation (this step's harness) built is the fail-open case `T-28-3`
+   pins.
 4. `SessionStart`: a **liveness row** (`session_log` `event_type =
    'liveness'`, `detail_json` = `{transcriptPath, transcriptBytes}`) —
    AD-17's `hooks_not_firing` input, read by `status` (Step 33); dedup
@@ -3326,7 +3357,7 @@ on failure; it is the detached child the `SessionStart` branch above spawns
 through Step 5's wrapper, and the off-path check the `init` and `index` verbs
 (Steps 31, 32) run (AD-17).
 
-**Creates.** `src/cli/dispatch.ts` — verb dispatcher (bin entry: dist/src/cli/dispatch.js); verbs registered by Steps 28, 31–35; `src/cli/hook.ts` — internal `hook <event> [--deadline-ms n]` verb (routes to handler); `src/cli/index.ts` — `index [--full]` verb → runIndex (Step 14) with Step 15's defaultFrontends(), the reindex child the handler spawns; `src/cli/integrity_check.ts` — internal `hook integrity-check` verb (off-path quick_check); `src/hook/adapter.ts` — the ONE file naming Claude Code hook fields (AD-6); `src/hook/handler.ts` — per-event pipeline (AD-7, AD-8); `test/replay/runner.ts` — replay harness (spawns the built handler through the CLI).
+**Creates.** `src/cli/dispatch.ts` — verb dispatcher (bin entry: dist/src/cli/dispatch.js); verbs registered by Steps 28, 31–35; `src/cli/hook.ts` — internal `hook <event> [--deadline-ms n]` verb (routes to handler); `src/cli/index.ts` — `index [--full]` verb → runIndex (Step 14) with Step 15's defaultFrontends(), the reindex child the handler spawns; `src/cli/integrity_check.ts` — internal `hook integrity-check` verb (off-path quick_check); `src/hook/adapter.ts` — the ONE file naming Claude Code hook fields (AD-6); `src/hook/handler.ts` — per-event pipeline (AD-7, AD-8); `test/replay/runner.ts` — replay harness (prepares each test's stores through the substrate's functions, then spawns the built handler through the CLI).
 
 **Source.** `AD-6` (event map, adapter file, `PostToolUseFailure`
 observation-only); `AD-7` (fail-open, exit 0 always); `AD-8` (pipeline
@@ -3550,17 +3581,8 @@ depends_on: [S1, S2, S3, S4, S5, S7, S8, S12, S14, S15, S28]
 
 **What changes.** Register the `init` verb in Step 28's `dispatch.ts`
 switch. Create `src/cli/init.ts`:
-1. `assertRuntime()` (Step 2); open the stores (`openStore`, Step 3) and
-   `probeFts5`; on a failed runtime check print a plain-language error and
-   exit 1. The
-   probe's result is not written here — `schema_meta` does not exist
-   before migration 001 — it is passed to `applyMigrations` (item 3), which
-   records it as `schema_meta.fts_state` once 001 has created the table
-   and applies 001b only under `'fts5'` (Step 7); on `false` the `LIKE`
-   path is what `search.ts` uses. The summary names the recorded state
-   and, when this run's probe disagrees with a state recorded by an earlier
-   `init` (the row is written once), says so in plain language and names
-   the recovery — `deinit --purge`, then `init` (AD-25 forward-only; Q7).
+1. `assertRuntime()` (Step 2); on a failed runtime check print a
+   plain-language error and exit 1.
 2. `resolveRepoKey` (Step 5). Keying-mode change detection: compute the
    identity and key under **every** rule that applies to this checkout
    (`commit` when the history is full, `url` when a remote exists, `path`
@@ -3568,10 +3590,19 @@ switch. Create `src/cli/init.ts`:
    exists under a mode other than the resolved one, print the
    plain-language warning AD-20 specifies (naming both keys and modes) and
    offer the `export`/`import` migration before proceeding.
-3. `ensureLayout` (Step 4); `applyMigrations(store, {fts: <the probe
-   result>})` for the project store (001; `fts_state` recorded; 001b when
-   the row reads `'fts5'`) and `applyMigrations` for the global store
-   (002) (Steps 7, 8); `seedDefaults` (Step 12).
+3. `ensureLayout` (Step 4); open the stores (`openStore`, Step 3) at the
+   paths it returns and `probeFts5` (Step 3) on the project store. The
+   probe's result is not written here — `schema_meta` does not exist
+   before migration 001 — it is passed to `applyMigrations(store, {fts:
+   <the probe result>})` for the project store (001; `fts_state` recorded;
+   001b when the row reads `'fts5'`) and `applyMigrations` runs for the
+   global store (002) (Steps 7, 8); then `seedDefaults` (Step 12). On
+   `false` the `LIKE` path is what `search.ts` uses. The summary names the
+   recorded state and, when this run's probe disagrees with a state
+   recorded by an earlier `init` (the row is written once), says so in
+   plain language and names the recovery — `deinit --purge`, then `init`
+   (AD-25 forward-only; Q7). Items 3 and 5 are the sequence Step 28's
+   replay harness performs for a fixture repository; `init` adds item 4.
 4. Write hook entries into `<repoPath>/.claude/settings.json` for the eight
    AD-6 events: each entry `{ "type": "command", "command": "\"<node>\"
    \"<dispatch>\" hook <event>", "timeout": 5 }` where `<node>` is
@@ -4192,7 +4223,10 @@ a file containing exactly the transcript entries that precede that event,
 so catch-up reads what the live handler would have seen and never the
 session's future — V1's write lag itself is not reproduced, so the lag-hold
 rate is a leg 2 number only; (d) replay the stream through the real handler
-against a fresh store; (e) run `marker_presence` (Step 38) over the corpus
+against a fresh store the harness prepares (Step 28's store preparation,
+keyed as (a) states — never `init`, whose settings write is the one in-tree
+write, `D-9`, and has no place in a replay over the owner's checkout); (e)
+run `marker_presence` (Step 38) over the corpus
 with its table keyed by **declared corpus origin** — an input, never a
 reading: `exit-run.sh` passes each corpus as `--corpus
 <machine>/<mode>=<dir>` from where it executes and how the corpus was
@@ -4504,8 +4538,9 @@ are *runnable* at that point.
   pipeline order, fail-open, produced-but-undelivered, the liveness row,
   the `hook integrity-check` verb). No acceptance
   replay of a genre or of the block exists yet (they are Step 38's), and
-  no `init` verb exists, so the owner-visible check is deferred to
-  Checkpoint 4.
+  no `init` verb exists — the replays run against stores the harness
+  prepares through the substrate's own functions (Step 28) — so the
+  owner-visible check is deferred to Checkpoint 4.
 
 - **After Step 38 — Checkpoint 4: the acceptance set is complete before the
   exit run; the deny path and the whisper path are exercised together for
@@ -4587,8 +4622,10 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   placed before its first consumer under the same rule: the fixture
   generator and transcript fixtures in Step 1 (Step 5's tests need
   repositories), the replay harness and the CLI entry with the `hook` verb
-  in Step 28 (the first replay needs a binary to spawn), so no
-  Verification field names a test that cannot run at its step.
+  in Step 28 (the first replay needs a binary to spawn and a store that
+  binary can open — the harness prepares it through the substrate's own
+  functions, Steps 4–15, since `init` is Step 31's), so no Verification
+  field names a test that cannot run at its step.
   Multi-criteria score (topological validity, restraint pressure,
   checkpoints executable): B 1.0, C 0.67, A 0.
 
@@ -8728,7 +8765,9 @@ bin, and its closed disposition.
 - **Q34 (Step 1).** When does the first test need a fixture repository,
   and when the first replay a binary? **Disposition.** Answered: `T-5-1`
   at Step 5 and `T-28-1` at Step 28; the generator is Step 1's, the harness
-  and the `hook` verb are Step 28's — D-plan-1.
+  and the `hook` verb are Step 28's — D-plan-1; the harness prepares each
+  replay's stores itself through the substrate's functions (Steps 3–15),
+  since `init` is Step 31's.
 - **Q35 (Step 31).** What string does `init` write as the hook command,
   and does the marker match it under every install mode? **Disposition.**
   Answered — D-plan-6: interpreter plus the real path of `dispatch.js`,
