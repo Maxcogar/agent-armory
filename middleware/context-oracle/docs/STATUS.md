@@ -37,19 +37,26 @@ classes reviewers caught by walking the build and executing claims, and that
 the fix has to be a mechanical gate general enough to survive the next
 document, not another rule for this one.
 
-That general fix shipped as the **`expert-plan` skill**
+**That fix extended a mechanism that already existed and was already
+mandatory** — the **`expert-plan` skill**'s `scripts/derive-plan-sections.mjs`
 (`.claude/skills/expert-plan/`, mirrored into this project's own skill copy
-per this file's scope rule): `scripts/derive-plan-sections.mjs --check`
-regenerates the plan's generated regions and checks step-declaration build
-order (every `provides:`/`depends_on:` edge, every consumed name actually
-provided, no step consuming what a later step creates), and
-`scripts/run-plan-probes.mjs` re-executes every probe an "Evidence" line
-cites and fails on drift. `tools/check_plan.py` (the round-5 stopgap) is
-retired — superseded by this skill, not left beside it — and both scripts run
-as the `check-plan` CI job in `.github/workflows/context-oracle-docs.yml`,
-beside `check-docs` (`tools/check_docs.py`), on every PR touching this
-project (2026-09-07, commit `b453f64`, which also converted the whole plan
-to the skill's step-decl grammar).
+per this file's scope rule), owner-authorized and built 2026-08-09
+(ten independent review rounds; `--self-check` was already validating its own
+contract before this plan's round 3 even ran). `--check` was extended
+2026-09-07 (commit `b453f64`) to add the **build-order check** from
+step-declarations (every `provides:`/`depends_on:` edge, every consumed name
+actually provided, no step consuming what a later step creates), and
+`scripts/run-plan-probes.mjs` (new in that commit) re-executes every probe an
+"Evidence" line cites and fails on drift. In the same commit,
+`tools/check_plan.py` — a plan-specific, one-off script written during the
+round-5 diagnosis session earlier that same day, duplicating ground the
+already-mandatory `derive-plan-sections.mjs` should have covered — was
+deleted as redundant scope-creep, not "replaced": the general mechanism was
+extended to cover its defect classes instead of a second, document-specific
+tool being kept beside it. Both scripts run as the `check-plan` CI job in
+`.github/workflows/context-oracle-docs.yml`, beside `check-docs`
+(`tools/check_docs.py`), on every PR touching this project. Commit `b453f64`
+also converted the whole plan to the skill's step-decl grammar.
 
 **Since then, a further collapse-hunt round queued 24 findings (ids `m-1`
 through `m-8`, plus earlier `SY-1`/`S-*`/`M-*` series in the same queue) and
