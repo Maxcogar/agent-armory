@@ -3126,7 +3126,7 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/blocks/health.ts, middleware/context-oracle/ctxoracle/test/unit/deny_health.test.ts]
   modify: []
   delete: []
-provides: [checkDenyAfterAnswerLag, checkDenyLoop, checkDenyDespiteAnswerText, checkDenyBypassSuspect]
+provides: [checkDenyAfterAnswerLag, checkDenyLoop, checkDenyDespiteAnswerText, checkDenyBypassSuspect, pathWriteTarget]
 tests: [T-26-1, T-38-6]
 depends_on: [S1, S9, S23, S25]
 ```
@@ -3155,12 +3155,17 @@ handler calls after every deny emission and every catch-up:
   detectors read are the `classified_turns` rows the catch-up writes (Step
   25; the table is Step 7's, the DAO Step 9's; D-plan-27), so the detectors
   see turns from earlier events — each event is a fresh process (AD-1).
+- `pathWriteTarget(command): string | null` — the **enumerated path-write
+  predicate** as a standalone export: matches `command` against redirection
+  `>`/`>>`, `tee`, `sed -i`, `perl -i`, and `cp`/`mv`/`install` to a path
+  (AD-4's list, verbatim, no additions) and returns the written path, or
+  `null` when nothing matches — the one place this pattern list is encoded,
+  called both by `checkDenyBypassSuspect` below and by Step 28's handler at
+  `observed_actions` append time (item 8).
 - `checkDenyBypassSuspect(store, consumer, postToolUseBashRow)` — on an
-  `outcome='ok'` Bash row whose command matches the **enumerated path-write
-  predicate** — redirection `>`/`>>`, `tee`, `sed -i`, `perl -i`, and
-  `cp`/`mv`/`install` to a path (AD-4's list, verbatim, no additions) — and
-  whose written path equals the target recorded in a same-turn
-  `kind='deny'` row's `evidence_json`, record `deny_bypass_suspect`. The
+  `outcome='ok'` Bash row whose `pathWriteTarget(row.command)` equals the
+  target recorded in a same-turn `kind='deny'` row's `evidence_json`,
+  record `deny_bypass_suspect`. The
   predicate's coverage bound is stated where the number is shown: `status`
   and the exit report print "bypass diagnostic recognizes only: <the
   list>; other shell write paths are not measured" (L3 owned as a class,
@@ -3398,8 +3403,8 @@ Create `src/hook/handler.ts` — the per-event pipeline in AD-8's fixed order:
 7. Block check (`PreToolUse`, main consumer only; Step 25): on a verdict →
    `adapter.toHookResponse({deny: verdict})`, diagnostics, exit 0.
 8. `PostToolUse` / `PostToolUseFailure`: `observed_actions` append (`ok` /
-   `failed` per V19; `command_class` for Bash rows, Step 17; the path-write
-   predicate sets `path`), read-set update (`updateReadSet`, Step 20),
+   `failed` per V19; `command_class` for Bash rows, Step 17; `pathWriteTarget`
+   (Step 26) sets `path`), read-set update (`updateReadSet`, Step 20),
    bypass diagnostic (`checkDenyBypassSuspect`, Step 26).
 9. Candidate generation (the Step 18 `Generator`s — `orientationGenerator`
    … `verificationGenerator` — whose `triggerEvents` include this event) →
