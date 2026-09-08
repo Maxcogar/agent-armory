@@ -1,0 +1,5 @@
+tree-sitter-wasms 0.1.13 files ["/out"] exports null scripts ["build"]
+web-tree-sitter 0.26.13 dependencies {} install-scripts []
+wasm grammars: 36
+native .node files: 0
+API declarations (init,load,setLanguage) present: 3

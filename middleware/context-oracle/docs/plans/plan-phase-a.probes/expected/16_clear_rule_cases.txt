@@ -1,0 +1,45 @@
+ok  "" -> false (below_length_floor)
+ok  "." -> false (below_length_floor)
+ok  "y" -> false (below_length_floor)
+ok  "n" -> false (below_length_floor)
+ok  "No." -> true
+ok  "Yes." -> true
+ok  "Yes, line 12." -> true
+ok  "I'll get to that." -> false (deferral_only)
+ok  "I'll get to that!" -> false (deferral_only)
+ok  "Sure." -> true
+ok  "Ok." -> true
+ok  "Right." -> true
+ok  "Understood." -> true
+ok  "Got it, will do." -> true
+ok  "Yes, absolutely." -> true
+ok  "Sure, it is safe to rename." -> true
+ok  "Because the fixture is written later than the assertion reads it." -> true
+ok  "The deploy fails because the migration runs later than the seed." -> true
+ok  "First let me check: the null check is not the cause." -> true
+ok  "It is safe; the helper is only used in tests." -> true
+ok  "I'll get to that. The null check does not fix it, see line 12." -> true
+ok  "No — the null check does not fix it, see line 12, though I'll get to the rest later." -> true
+ok  "I'll get to that later." -> false (deferral_only)
+ok  "I'll get to that soon." -> false (deferral_only)
+ok  "I'll get to that next." -> false (deferral_only)
+ok  "I'll come back to it." -> false (deferral_only)
+ok  "I'll come back to that." -> false (deferral_only)
+ok  "I'll get back to you on that." -> false (deferral_only)
+ok  "I'll get back to you." -> false (deferral_only)
+ok  "Will look into that." -> false (deferral_only)
+ok  "I will look into that." -> false (deferral_only)
+ok  "Before I answer, one sec." -> false (deferral_only)
+ok  "I'll get to that, I'll get to that." -> false (deferral_only)
+ok  "Sure, I'll get to that after the refactor." -> true
+ok  "I'll get to that after the refactor." -> true
+ok  "First let me finish this." -> true
+ok  "Later." -> true
+ok  "Not now." -> true
+ok  "One moment." -> true
+ok  "Let me look into that first." -> true
+ok  "Hmm." -> true
+ok  "Hm" -> true
+ok  "```js\nx\n```\nNo." -> true
+ok  "<tool>noise</tool>" -> false (below_length_floor)
+generated: 7 phrases x 33 filler words x 2 placements = 462 hold cases, 462 ok; 462 clear cases, 462 ok

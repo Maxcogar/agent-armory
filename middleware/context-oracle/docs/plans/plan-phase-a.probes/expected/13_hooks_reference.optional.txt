@@ -1,0 +1,15 @@
+present under 'Timeouts': hook doesn’t block the tool call
+present under 'Timeouts': discarding the hook
+present under 'Hook lifecycle': once per turn: UserPromptSubmit , Stop , and StopFailure
+present under 'Hook lifecycle': once per session
+present under 'Hook lifecycle': When you submit a prompt
+present under 'Common input fields': written asynchronously
+present under 'Workspace trust': Interactive session : Claude Code holds back hooks from every settings file
+present under 'Workspace trust': -p or SDK session : Claude Code never shows the dialog and treats the folder as trusted
+present under 'Hooks in skills and agents': A -p session doesn’t count as accepting it
+present under 'PreModelSwitch decision control': On PreToolUse , by contrast
+present under 'Stop decision control': the stop_hook_active input and the 8-consecutive-continuation cap
+present under 'Hook locations': settings.local.json
+present under 'Common fields': statusMessage
+present under 'Command hook fields': asyncRewake
+present under 'HTTP hook fields': allowedEnvVars

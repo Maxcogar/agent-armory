@@ -1,0 +1,2 @@
+const enum Object.values: error TS2475
+exit=2

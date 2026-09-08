@@ -1154,3 +1154,175 @@ phase goal is slop — cut the machinery, log it as a finding. Phase A's goal: a
 honest deterministic foundation that measures its own floor with clean seams for
 later phases, never fake completeness. `AD-9` returns to the architecture layer
 to be rebuilt to that goal, then re-reviewed.
+
+## 2026-09-07 — two consecutive correction rounds regressed: the author's verification was weaker than the reviewers'
+
+**What happened.** The Phase A implementation plan was re-authored from the
+2026-09-06 reviews. Round 2 (independent collapse-hunt + expert-review,
+`docs/reviews/2026-09-07-round-2-*.md`) returned 49 findings, 14 of them
+defects the rewrite itself introduced. Every finding was applied, dependents
+re-derived, a written self-check done. Round 3
+(`docs/reviews/2026-09-07-round-3-*.md`) returned 43 findings, 23 of them
+defects the round-2 corrections introduced. Second consecutive
+correction-induced round: the loop stopped, per the owner's rule, before a
+fourth pass.
+
+**Class: wrong-check, at the process layer.** The author validated each
+correction pass with a script that reconciled identifiers — test IDs ↔ file
+tree ↔ step Verification fields, "Dependencies name earlier steps only". The
+reviewers validated by walking the build in step order and executing claims.
+Every regression class lay outside the author's check and inside the
+reviewers':
+
+- *A step consuming an artifact a later step creates* — the handler (Step 28)
+  calling the guard and watchdog (Step 29) and a verb registered at Step 32;
+  the indexer (Step 14) spawning a verb from Step 32; a CI job at Step 1
+  running a script from Step 38. The Dependencies fields were topologically
+  clean; the prose consumed the future.
+- *An executable claim written from arithmetic instead of execution* — a
+  concurrency test's timeline that both round-3 reviewers executed and found
+  produces the opposite outcome; a "cannot be written" claim about a branded
+  type that a type assertion defeats.
+- *A rule closed at the named instance while a sibling instance stayed or was
+  created* — a convention test's forbidden-word list closed for the response
+  fields and left open for the input fields, then given a third collision by
+  the very correction that added the liveness row.
+- *An attestation left stale by an edit elsewhere* — a trivial-steps list, a
+  "three replay tests" count, a Clear Thought attestation contradicted by the
+  trace file supplied to prove it, a sweep record ending on a pass that added
+  entries.
+- *A reviewer's "required change" transcribed rather than re-derived* — the
+  round-3 collapse-hunt's phrase: "reviewer prescriptions transcribed one
+  decision short of correct, never attacked as author text".
+
+**Why the standing rules did not hold.** "Apply all findings and re-derive
+the dependents" was followed; re-derivation was done by grep and memory over
+a 7,000-line document, and the checks that would have caught the new
+instances did not exist. A correction process that closes ~47 items and
+injects ~12 per pass does not converge below the reviewers' detection floor;
+it converts old defects into new ones at a quarter of the closure rate. The
+symptom is not "the corrections were applied carelessly"; it is that the
+author's pre-review verification was structurally weaker than the review it
+was preparing for.
+
+**Standing lesson — the fix that stands.** It lives in
+**this project's own copy of the expert-plan skill**
+(`.claude/skills/expert-plan/`: `scripts/derive-plan-sections.mjs`,
+`scripts/run-plan-probes.mjs`, and the additions to
+`references/output-contract.md` that every plan written under this copy is
+graded against): (1) each structural fact is declared once — a `step-decl`
+block per step — and every surface that restates it (the file table, the
+coverage table, the step→test table) is generated from the declarations,
+so a second copy cannot drift; (2) build order is checked from the
+declarations — a step's text may name only artifacts it or a declared or
+transitive dependency creates or provides, consumption by exported name
+counts (a bare call-shaped identifier shared between steps must be
+provided), an action item may not name a later step, and a path no step
+declares is an error; (3) an executed claim is kept as a probe beside the
+plan with its recorded output, re-run by the gate, repeated under CPU
+load, scoped to the section of a page it cites, and asserting the
+property the claim rests on rather than an incidental value of the
+runtime it ran in (a recorded SQLite patch version failed the gate on the
+first runner whose Node build bundled the next patch), so a transcription
+of a one-off run cannot outlive the environment it was true in; (4) after a
+correction pass, `--impact <rev>` lists every authored surface that
+restates a changed step, so re-derivation is a checklist rather than
+memory; (5) CI runs the gate on every pull request that touches the plan.
+The general principle: when a correction loop regresses, the mechanism
+that verifies the corrections is the defect; the fix is a check that fails
+on the class, installed where every future artifact of that kind inherits
+it — never a rule, never another pass, never a check that knows one
+document's shape. And the scope rule that bounds it: the mechanism is
+installed in this project's skill copy, never in a plugin or skill outside
+`middleware/context-oracle/` — a session that edited the shared plugin to
+house it was reverted on the owner's instruction, because nothing this
+project needs may be done outside it. Evidence: the round-2, round-3, and
+round-4 reviews and `docs/reviews/2026-09-07-round-4-author-gates-review.md`
+§1.
+
+**The third stop (round 5, the cap) — where the regressions went once the
+mechanism could see structure.** Round 5's independent collapse-hunt
+(`docs/reviews/2026-09-07-round-5-collapse-hunt.md`) verified eight
+findings as introduced by the round-4 corrections. Every one of them lies
+inside the four decisions that pass *re-derived* rather than reconciled —
+the clear rule (D-plan-24: the stoplist phrase strips and the remainder
+"later" clears; executed), the leg-2 protocol (D-plan-26: the counted
+session's invocation was attributed to a tool-less single-turn run and the
+scrub and permission posture the plan's own §11.4 evidence requires were
+never stated), the `classified_turns` record (D-plan-27: a primary key that
+the designed rebuild re-inserts), and the conditional FTS migration
+(D-plan-28: a state key with no writer on the main path). The extended
+mechanism found none of them, and could not: it checks declarations and
+re-executes probes whose case tables the author wrote. A re-derived
+decision is new design, and the author's executed case table tests the
+author's imagination — the reviewer's nineteen extra inputs were the
+spec's own class ("I'll get to that" plus one word), which the author's
+twenty-three cases never contained. Across the three stops the class the
+mechanism catches moved outward (identifier reconciliation → build order →
+declarations and executions), and the regressions moved with it into the
+class it still cannot see: the semantics of a decision made under
+correction pressure. The lesson that outlives this plan: **a correction
+pass that re-derives a decision must not also be the pass that applies it
+to its dependents.** A re-derived decision needs what the original
+decision got — the independent collapse-hunt on that decision alone, with
+inputs the author did not choose — *before* its consequences are written
+into steps, tests and register entries; applying and reviewing in the same
+pass is how five rounds produced three regression rounds. The mechanical
+form this can take (a rule probe whose cases are generated from the
+spec's stated class rather than hand-listed; a re-derived decision marked
+in its `step-decl` so the gate refuses the plan until a review file names
+it) is not built; the loop stopped at the owner's five-round cap with the
+plan not accepted, and the choice of how to continue is recorded in
+`docs/STATUS.md`.
+
+## 2026-09-08 — a mechanically flawless correction can still fail a literal requirement it never checked against its own wording
+
+`docs/plans/plan-phase-a.md`'s subsequent correction-loop pass
+(`.claude/hooks/correction-loop/`, one collapse-hunt finding served at a
+time, `state/proposal.md` required before any plan edit) processed 24
+findings; one of them, `m-7` (the `hooks_not_firing` totally-dead detector
+flagging the session that installs the tool), failed the loop's own
+mechanical judge **17 consecutive times** with identical, content-free
+feedback ("FAILED at step 2") across five different rejected/refined
+technical mechanisms and four independent subagent reviews — every one of
+which validated the *plan text* (diffs against the true parent commit,
+byte-matched attestation lines, re-executed gate commands) and found it
+sound, repeatedly, while the same verdict kept recurring.
+
+The actual defect was not in the plan text at all: it was in
+`proposal.md` itself, and it was present from round 1. The loop's own
+served packet states, in the section defining what the file must contain:
+"for every unit... the corrected text or the statement that it needs no
+change, **with the spec/architecture line (from section 3 or the
+documents) that decides it**." Every one of the 16 failing submissions
+instead cited **the finding itself, or the independent review that found
+the correction** — process artifacts, not documents — as each
+disposition's "Deciding source." Sixteen rounds of increasingly rigorous
+*content* verification never caught this because none of them re-read the
+loop's own requirements sentence as literally as they re-read the plan;
+each round assumed the prior rounds' interpretation of "what the file must
+contain" was already settled and moved on to hunting for a new content
+defect. A fresh background review, given the packet and the current
+`proposal.md` with zero exposure to any prior round, found it on the first
+pass by doing exactly one thing differently: checking the artifact against
+the requirement's literal grammar, not against what sixteen rounds of
+precedent had assumed the requirement meant. Rewriting every disposition —
+including the ones stating "no change," which the requirement's own
+grammar covers equally — to cite real authority (`AD-17`, `OL-10`,
+`OL-11`, or a primary source like Node's own `fs.Stats` reference) passed
+on the next round with no change to the plan text itself. Class:
+**unverified** (the correction's own compliance with its governing
+instructions was assumed from precedent, never checked against the
+instructions' actual wording) — one level up from every other entry in
+this log, which is about the plan's claims going unverified; here it was
+the correction *process's* claim about itself.
+
+The general lesson, for this loop or any correction mechanism with a
+written contract: when the *same* mechanical check fails identically
+across rounds that vary the content being checked, the content is not
+necessarily where the defect is — re-read the check's own stated
+requirements first, literally, word by word, before producing another
+content variant. A process that "obviously" satisfies its own rules by
+precedent is exactly the failure mode "no hollow decisions" exists to
+catch, applied to the correction mechanism instead of the document it
+corrects.
