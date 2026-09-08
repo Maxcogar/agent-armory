@@ -138,3 +138,26 @@ contract.
 - L11(b) — whether `UserPromptSubmit` fires for platform-injected turns is
   undocumented; the plan resolves it by live induction inside the exit run's
   closed-loop leg. Design-safe either way per `AD-9`'s voiding guard.
+- **Two real bugs found in this repo's own Stop hooks (`hooks/stop-completeness-gate/`,
+  `hooks/stop-instruction-adherence-gate/`), outside Context Oracle's own scope but
+  recorded here once so they get seen and fixed:**
+  1. **Wrong JSON key from the judge.** `stop-instruction-adherence-gate`'s judge
+     is instructed to reply `{"violating": bool, "reason": "..."}`; twice in one
+     session it instead replied `{"complete": true, ...}` (the sibling hook's
+     schema), so `parse_verdict()` returned `None` and the hook failed closed on
+     what was actually a clean "not violating" verdict — self-perpetuating, since
+     no self-verification fixes a schema-key mismatch. Evidence and detail:
+     `parse_verdict()` at `hooks/stop-instruction-adherence-gate/stop_instruction_adherence_gate.py:351-363`.
+  2. **Session isolation / transcript pollution (found independently, likely the
+     root cause of #1).** Open PR #82 ("Fix session isolation and transcript
+     pollution in both Stop-hook gates") found both hooks' judge subprocesses
+     were spawned via `env = os.environ.copy()` without stripping Claude Code's
+     own session-identity variables, so a judge call could attach to the live
+     calling session and read cross-contaminated content — including, per that
+     PR's own verification, one hook's JSON schema leaking into the other's
+     judgment, which matches #1 exactly. PR #82 fixes it by stripping
+     `CLAUDE_CODE_SESSION_ID` and related vars before every judge call.
+  Neither of these is Context Oracle's problem to fix; recorded here once,
+  per Max Cogar's explicit instruction, so whoever next works on these hooks
+  sees it. This is not a standing practice — future unrelated findings do not
+  belong in this file.
