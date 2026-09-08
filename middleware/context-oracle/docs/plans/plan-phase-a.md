@@ -3315,9 +3315,11 @@ and the liveness row's detail keys are `transcriptPath` /
 
 Create `src/cli/dispatch.ts` — the `bin` entry (`#!/usr/bin/env node`; a
 manual verb switch, no argument-parsing dependency) with, at this step, the
-single undocumented internal verb `hook <event> [--deadline-ms <n>]` →
+internal verbs `hook <event> [--deadline-ms <n>]` and `hook
+integrity-check`, and the `index [--full]` verb — `hook <event>` routes to
 `src/cli/hook.ts` → the handler: stdin JSON in, response JSON out, exit 0
-always. Later steps register their verbs in the same switch, each declaring
+always; `hook integrity-check` and `index [--full]` are described below.
+Later steps register their verbs in the same switch, each declaring
 the edit under `modify:`;
 `--deadline-ms` overrides the watchdog deadline (Step 29) and exists for the
 replay harness only — `init` never writes it, and no environment variable
