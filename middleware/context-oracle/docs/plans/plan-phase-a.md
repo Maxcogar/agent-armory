@@ -2077,14 +2077,26 @@ injection-flagged at capture — `zone_evidence_suspect`). Create
   tokens — which is the state every file is in at this step, where the
   list is empty because no frontend exists yet (Step 15 creates both and
   the default list); writes `files`,
-  `symbols`, `import_edges`; updates `symbol_refs` (per exported symbol,
-  the count of other files whose text references its identifier among the
-  files that import its file); computes `entry_score` (import in-degree +
-  path-marker points for `main`, `index`, `cli`, `app`, route-registration
-  patterns); writes `test_map` (path conventions + import edges from test
-  files); files > 1 MB or > 20k lines are indexed path-only with a
-  diagnostic; every ingested string passes through `redact` (Step 11);
-  incremental by `content_hash`, deletions cascade; records
+  `symbols`, `import_edges`; under `schema_meta.fts_state = 'fts5'` (Step 7,
+  D-plan-28) writes the FTS index after these relational writes — one
+  `fts_paths` row (`path`, `file_id`) per `files` row, frontend-independent
+  (the "FTS path tokens" every file gets, including a path-only one), and
+  one `fts_symbols` row (`name`, `kind`, `file_id`) per `symbols` row the
+  frontend returned, so a generic-frontend symbol indexes the same way a
+  tree-sitter one does (Step 15); under `'fallback'` neither table exists
+  (Step 7) and this step writes nothing to it; updates `symbol_refs` (per
+  exported symbol, the count of other files whose text references its
+  identifier among the files that import its file); computes `entry_score`
+  (import in-degree + path-marker points for `main`, `index`, `cli`, `app`,
+  route-registration patterns); writes `test_map` (path conventions +
+  import edges from test files); files > 1 MB or > 20k lines are indexed
+  path-only with a diagnostic; every ingested string passes through
+  `redact` (Step 11); incremental by `content_hash` — a changed or removed
+  file's `fts_paths`/`fts_symbols` rows are deleted explicitly
+  (`DELETE … WHERE file_id = ?`) before its relational rows are rewritten,
+  since a virtual table is outside `ON DELETE CASCADE`'s reach (the cascade
+  on `symbols.file_id` removes the relational rows; it never touches
+  `fts_symbols`/`fts_paths`, which carry no foreign key); records
   `schema_meta.index_head` as the commit `resolveHead` returns. Then calls
   `mineCochange` (Step 13).
 - `resolveHead(repoPath): { commit: string } | { unresolved: string }`: the
@@ -2122,8 +2134,8 @@ injection-flagged at capture — `zone_evidence_suspect`). Create
 **Creates.** `src/index/indexer.ts` — orchestrator + reindex lock; `src/index/frontend.ts` — LanguageFrontend interface; `src/index/zone.ts` — zone classification + evidence.
 
 **Source.** `AD-12` (indexer: LanguageFrontend, zone, `entry_score`,
-`import_edges`, `symbol_refs`, `test_map`, incremental refresh, size caps,
-detached refresh with a lock file and `CTXORACLE_INTERNAL=1`); `AD-26`
+`import_edges`, `symbol_refs`, `test_map`, FTS5 tables, incremental refresh,
+size caps, detached refresh with a lock file and `CTXORACLE_INTERNAL=1`); `AD-26`
 (the reindex directory lock; the handler never waits); `AD-23` (the `HEAD`
 resolution is bounded file reads — `.git`, `commondir`, `HEAD`, a loose ref
 or one `packed-refs` scan — never a subprocess; D-plan-30).
@@ -2136,7 +2148,10 @@ or one `packed-refs` scan — never a subprocess; D-plan-30).
    `index_head`, with `HEAD` resolved in-process through the named reads
    and an unresolvable ref a diagnostic, never stale (D-plan-30);
    staleness lowers confidence, never blocks; the detached refresh is
-   lock-protected and fire-and-forget.
+   lock-protected and fire-and-forget; `runIndex` is also the FTS index's
+   writer under `fts_state = 'fts5'`, so the relational and full-text
+   sides of one file's index are written — and, on change or removal,
+   deleted — inside the same function, never drifting out of step.
 2. **The authoritative standard.** `AD-12`; `FR-K1` (language-agnostic
    seam); `C-6` (broad and extensible, no fixed list); OWASP ASVS 5.0 V5
    (File Handling) for the size caps; `AD-23`'s blocking-call inventory
@@ -2148,13 +2163,25 @@ or one `packed-refs` scan — never a subprocess; D-plan-30).
 4. **What this is NOT — and why.** Not per-language hard-coded pipelines
    (C-6 violation). Not "all files parsed regardless of size" (the caps
    prevent a generated file from blowing the indexer). Not `git rev-parse
-   HEAD` on the event path (a subprocess outside AD-23's inventory).
+   HEAD` on the event path (a subprocess outside AD-23's inventory). Not
+   external-content FTS5 tables (`content=symbols`/`content=files`) synced
+   by `AFTER INSERT/UPDATE/DELETE` triggers — SQLite's own documented
+   pattern for keeping an FTS5 index consistent with a content table (the
+   FTS5 documentation's "External Content Tables" section,
+   `sqlite.org/fts5.html`, fetched 2026-09-08) — because whether a trigger
+   declared on `symbols` also fires when `files`' `ON DELETE CASCADE`
+   (AD-4) removes a row there is a SQLite recursive-trigger interaction
+   this plan has not executed or verified; the standalone tables Step 7
+   already declares carry no `content=` option, so the explicit write and
+   explicit delete this step adds are what keep them consistent with the
+   schema as declared.
 
 **Dependencies.** Declared above (`depends_on`).
 
 **Verification.** `T-14-1` (the skeleton runs on `indexer-small` and
 `over-threshold-file` with an empty frontend list; every file has a
-`files` row with its zone and FTS path tokens and no `symbols` or
+`files` row with its zone and FTS path tokens (one `fts_paths` row per
+`files` row under `fts: true`) and no `symbols` or
 `import_edges` row; the > 1 MB file is path-only with a diagnostic; the
 planted secret is absent from the store; a second run over an unchanged
 tree writes nothing; the lock refuses a second concurrent reindex), `T-14-2`
@@ -2196,7 +2223,11 @@ indexer process only (AD-1: no cross-process state). Create
 `src/index/generic_frontend.ts` exporting `genericFrontend: LanguageFrontend`
 — line-based heuristics: identifier-shape
 regexes for definitions (`function`, `class`, `def`, `fn`, shell function
-syntax, …), path-and-word tokenization into FTS. **`import_edges` and
+syntax, …); like every `LanguageFrontend` it returns `{symbols, imports}`
+only and writes no FTS row itself — the symbol names its regexes find are
+the words `runIndex`'s FTS writer (Step 14) inserts into `fts_symbols` for
+a generic-frontend file, the same as for a tree-sitter one.
+**`import_edges` and
 `symbol_refs` are NOT produced by the generic frontend** — that absence is
 what makes a generic-frontend candidate structurally uncountable in the
 Reuse dominance test (Step 18, L6). Create `src/index/frontends.ts`
@@ -2232,7 +2263,8 @@ import edge resolving to the imported file), `T-15-2` (a `.sh` file:
 function-shape symbols, zero `import_edges`), `T-15-3` (the indexer run
 with `defaultFrontends()` on `indexer-small`: `symbols`, `import_edges`,
 `symbol_refs`, `entry_score`, `test_map` populate; the FTS and `LIKE` hit
-sets agree for symbol-token queries).
+sets agree for symbol-token queries; `fts_symbols` holds one row per
+`symbols` row under `fts: true`).
 
 **Impact if wrong.** Contained per language — a broken frontend falls back
 to generic (visible in `status` per-language counts).
@@ -5161,8 +5193,10 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   rebuild path is `deinit --purge` then `init`, Q7). Under this shape no
   caller (the indexer, the Orientation and Reuse genres) knows which ran;
   `T-7-1` runs the migrations under both flags, asserts the recorded state
-  and its write-once rule, and `T-14-1` asserts the same hit set under
-  both; shipping the `.sql` files in `src/` (Step 1's `files` list) with
+  and its write-once rule, and `T-14-1`/`T-15-3` assert the same hit set
+  under both — paths at T-14-1 (empty frontend list), symbols at T-15-3
+  (`defaultFrontends()`, D-plan-29's split); shipping the `.sql` files in
+  `src/` (Step 1's `files` list) with
   the runner resolving them from `import.meta.url` means `tsc`, which
   emits no `.sql`, needs no copy step. This is AD-2's own requirement given
   a shape, not a new capability. Score (executable on an empty store; one
@@ -5789,12 +5823,13 @@ collapse-hunt attacks these questions harder and hunts for the ones missing.
    recorded state — seeded once from `init`'s probe by the runner that
    applies it, so it exists before anything reads it and no later run
    flips it — two indexes that cost nothing under FTS5, one interface with
-   the choice made in one place. `T-7-1` and `T-14-1` run both paths in
+   the choice made in one place. `T-7-1`, `T-14-1`, and `T-15-3` run both
+   paths in
    every CI run, so the path has a user on every pull request whether or
    not the exit run's machines lack FTS5, and `status` names the state so
    the owner knows which path he is on. Cite: AD-2; AD-25;
    `probe:02_sqlite_features` (this runtime's FTS5 state); `T-7-1`,
-   `T-14-1`.
+   `T-14-1`, `T-15-3`.
 4. **Steers toward.** One search interface, with the state visible in
    `status`. **Guide, not gate.**
 
@@ -7070,7 +7105,8 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Data.** 3 `.ts` files (one importing another), 1 `.py`, 1 `.sh`, 1
     file > 1 MB carrying a seeded fact, a zone-evidence comment containing a
     planted secret, a `test/` file importing a source file — run with an
-    empty frontend list. Technique: equivalence partitioning over
+    empty frontend list, the base run under `fts: true`. Technique:
+    equivalence partitioning over
     language/size/secret classes; state-transition (run → unchanged re-run
     → concurrent lock).
   - **NOT asserts.** Symbol extraction (T-15-3); grammar-specific parse
@@ -7078,7 +7114,9 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     or FTS path tokens, OR any `symbols` or `import_edges` row exists, OR
     the > 1 MB file is not path-only with a diagnostic, OR the secret
     appears verbatim in the store, OR the second run writes rows, OR two
-    concurrent reindexes both proceed, OR — the whole run repeated on a
+    concurrent reindexes both proceed, OR, under `fts: true`, the
+    `fts_paths` row count is not equal to the `files` row count, OR — the
+    whole run repeated on a
     store migrated with `fts: false` — `pathSearch` returns a different hit
     set than under `fts: true` for the fixture's path-token queries.
 
@@ -7145,7 +7183,8 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Verifies.** Step 15 — `runIndex` with `defaultFrontends()` populates
     `symbols`, `import_edges`, `symbol_refs`, `entry_score`, and `test_map`;
     `symbolSearch` returns the same hit set under `fts: true` and `fts:
-    false` for the fixture's symbol-token queries.
+    false` for the fixture's symbol-token queries; `fts_symbols` holds one
+    row per `symbols` row under `fts: true`.
   - **Level.** Integration.
   - **Real/doubles.** Real `node:sqlite`; real `web-tree-sitter` +
     `tree-sitter-wasms` grammars; fixture `indexer-small`; no doubles.
@@ -7155,7 +7194,9 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **NOT asserts.** Grammar-specific parse quality (T-15-1/2); the skeleton
     properties (T-14-1). **Fails when** an expected `symbols`,
     `import_edges`, `symbol_refs`, `entry_score`, or `test_map` row is
-    missing, OR the two flags' hit sets differ for a symbol token.
+    missing, OR the two flags' hit sets differ for a symbol token, OR,
+    under `fts: true`, the `fts_symbols` row count is not equal to the
+    `symbols` row count.
 
 - **T-16-1 — Bar combinator: conjunction, failed axis, no cap, hazard bypass.**
   - **File.** `test/unit/bar.test.ts`.
