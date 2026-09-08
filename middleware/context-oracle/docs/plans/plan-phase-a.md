@@ -4376,12 +4376,29 @@ agent can accept. Per repository, the protocol is:
    session and computes. No transfer step exists for agent-driven
    sessions.
 4. **Mode.** A `-p` transcript's human turns carry no `origin` and no
-   `isMeta` (V12; §11.4), so every `--resume` turn's qa-state rebuild
-   (Step 27) recovers nothing and raises `rebuild_recovered_nothing` —
-   expected in this mode and labelled so in the report, never counted as
-   a fault of the reader; mid-session enforcement in leg 2 rests on intake
-   from the `prompt` field alone (L11). Leg 2's transcripts are passed to
-   `marker_presence` under their own declared origin,
+   `isMeta` (V12; §11.4): every catch-up that scans one — not only the
+   `--resume`-triggered rebuild — raises its own `unrecognized_user_entry`
+   diagnostic (Step 21's marker-absent path), and every `--resume` turn's
+   qa-state rebuild (Step 27) recognizes zero human turns and raises
+   `rebuild_recovered_nothing` on top — both expected in this mode by
+   construction and labelled so in the report as `report-machine/claude-p`'s
+   own known signature, never counted as a fault of the reader or confused
+   with L11(a)'s loud failure (which the corpus's declared origin alone
+   distinguishes: a `report-machine/claude-p` fault line is expected, an
+   `owner-local/interactive` or `report-machine/remote-container` one is
+   not). Leg 2 therefore **exercises**: intake from the `prompt` field
+   (unaffected by markers), the deny decision, the lag-window hold, the
+   three deny-health detectors (`deny_after_answer_lag`, `deny_loop`,
+   `deny_despite_answer_text`), and the escape fraction (denies escaped by
+   a text turn); it **cannot exercise**: reconciliation/backfill
+   (`asked_uuid`/`asked_offset`, `T-38-2`'s own property — it needs a
+   marker-bearing human turn to match against an intake row), the voiding
+   guard (AD-9: voids only on an *affirmatively non-human* marker, never
+   on absence, so a marker-less transcript can never trigger it), or
+   rebuild recovery (defined to recover nothing here) — leg 1's
+   reconstructed transcripts and the owner's own interactive sessions,
+   both marker-bearing, are what exercise those three. Leg 2's transcripts
+   are passed to `marker_presence` under their own declared origin,
    `report-machine/claude-p`, whose marker row is expected to be all-zero
    and never counts toward L11(a).
 
@@ -4454,7 +4471,11 @@ with seeded coverage and split by `never_triggered` / held; done-claims
 with an outstanding question; the marker-presence table by declared
 corpus origin, with L11(a) stated as *verified* only when a corpus
 declared `owner-local/interactive` holds at least one transcript and
-otherwise *not observed*; the L11(b) outcome per session; active
+otherwise *not observed*; leg 2's exercised/unexercised path lists (item
+4 above), so a reader of the fault channel reads its
+`unrecognized_user_entry` and `rebuild_recovered_nothing` lines as this
+mode's known signature, not a broken reader; the L11(b) outcome per
+session; active
 suppressing conditions; every `plan_seed` value in force; the IDEAS.md
 #14 limit paragraph naming the leg-2-only fields above; and — **the honest
 floor numbers Max Cogar reads** — the per-leg recall and precision
@@ -5515,8 +5536,13 @@ collapse-hunt attacks these questions harder and hunts for the ones missing.
    observed" leaves L11(b) exactly where the architecture holds it
    (design-safe against a persistent wrongful deny, transient case
    counted). L11(a) is keyed the same way: *verified* only on an
-   owner-local interactive transcript, since a remote-container corpus is
-   the mode already measured. Cite: AD-24 (build-time verifications);
+   owner-local interactive transcript. A `remote-container` corpus is not
+   a second candidate for *verified* — it is the mode already measured
+   (the §11.4 read shows markers present there) — and leg 2's
+   `report-machine/claude-p` corpus is a third, distinct mode: V12 shows a
+   `claude -p` transcript's genuine prompts carry no marker at all, so
+   this corpus can never carry L11(a)'s evidence, by construction, not by
+   absence of a read. Cite: AD-24 (build-time verifications);
    AD-9/T2 (voiding guard); L11; `OL-11`.
 4. **Steers toward.** Executing the scripts and recording outcomes,
    including "not observed". **Guide, not gate.**
