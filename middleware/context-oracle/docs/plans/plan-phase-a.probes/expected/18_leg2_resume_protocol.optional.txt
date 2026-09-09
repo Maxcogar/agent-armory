@@ -1,0 +1,6 @@
+turn 1 session_id differs from parent: true
+turn 1 target.txt created with expected content: true
+turn 1 Bash FORBIDDEN_MARKER command denied: true
+turn 2 (resume) session_id matches turn 1: true
+turn 2 SessionStart source=resume observed: true
+turn 2 Edit appended second line successfully: true

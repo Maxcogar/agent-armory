@@ -5277,11 +5277,16 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   session can show no permission prompt, so an unapproved edit is denied),
   with Step 5's session-identity set removed by the driver and continued
   with `--resume`, is a session whose hooks are live at its first event,
-  that can edit, and whose `session_id` is its own — executed once, §11.4
-  — and it needs neither premise: `init` runs before the session, the
+  that can edit, and whose `session_id` is its own — executed,
+  `probe:18_leg2_resume_protocol.optional` — and it needs neither premise: `init` runs before the session, the
   hooks load at its start, and the store and transcript it produces are on
   the machine that writes the report. The liveness row is then a genuine
-  observable of live hooks, not a precondition no session can meet. It
+  observable of live hooks, not a precondition no session can meet, and it
+  is not a once-per-counted-session observable: each `--resume` continuation
+  fires its own `SessionStart` (`source: resume`, confirmed by the probe),
+  so a multi-turn counted session accumulates one liveness row per turn,
+  strengthening rather than merely meeting the validity rule's "holds a
+  `SessionStart` liveness row" clause (Step 39's Leg 2 validity rule). It
   runs in the marker-less transcript mode (V12), so its rebuild path
   recovers nothing and the leg's corpus is declared as its own origin;
   mid-session enforcement there rests on intake (L11). OL-C5 states the trigger ("if i ask a
@@ -5293,6 +5298,21 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   reported per leg. A corpus's origin is a fact about where it came from,
   unknowable from its contents (V12), so it is declared by the run. The
   indirect ask is the intake-miss class the floor exists to measure.
+  Score (hooks live at the session's first event; the session can edit
+  without denial; the session's `session_id` is its own, not the driver's;
+  verified by the leg-2-shaped invocation itself, not the model seam's):
+  scrubbed `-p` child with
+  `--permission-mode acceptEdits` and `--resume` 1.0 (executed,
+  `probe:18_leg2_resume_protocol.optional`: fresh `session_id`, a
+  `SessionStart` row with `source: resume` on the continued turn, a real
+  `Edit` on both turns, one `PreToolUse` deny recorded);
+  a `-p` child with no permission mode named 0.3 (denies the edit outright —
+  a `-p` session shows no prompt to approve it — the gap this decision
+  closes); an interactive session 0.2 (hooks held back until a workspace-
+  trust dialog no agent can accept, per the hooks reference's settings-file
+  rule); a session created by remote session tooling 0.3 (a wiring written
+  in one session is not there for the next, G3, and its container is not
+  the machine that writes the report).
 - **D-plan-27 — Every assistant text turn the catch-up classifies is
   recorded in a `classified_turns` table (`consumer`, `uuid`, `ts`,
   `clears`, `reason`), written by Step 25's catch-up beside the clearing
@@ -6040,7 +6060,8 @@ collapse-hunt attacks these questions harder and hunts for the ones missing.
    on a mutation and the Completeness genre reachable — and every counted
    session must show an `ok` edit row, so a session the permission system
    silenced never counts. Cite: spec §11.5; the hooks reference's
-   settings-file workspace-trust rule (§11.4); §11.4 (the counted-session
+   settings-file workspace-trust rule (§11.4);
+   `probe:18_leg2_resume_protocol.optional` (the counted-session
    execution); V11; G3; OL-C5; V12; L11; collapse-log 2026-08-25 item 1.
 4. **Steers toward.** Reporting inputs beside outputs and never counting a
    session the hooks did not see. **Guide, not gate.**
@@ -6279,6 +6300,25 @@ this session; line numbers are of that revision.
   and `--max-turns 1`; `--bare` severs auth; `--tools ""` disables all
   tools. **Steps.** 36. **Evidence.** Read `:133–135`; V9 re-executed
   2026-09-07 (§11.4).
+- **Claim.** A scrubbed `claude -p --permission-mode acceptEdits
+  --allowedTools ...` session, continued with `--resume`, is a session
+  whose `session_id` differs from the parent's, whose `SessionStart` hook
+  fires with `source: resume` on the continued turn, that runs a real
+  `Edit` on both turns with no permission prompt, and whose `PreToolUse`
+  hook can deny a tool call — the leg-2 protocol's invocation shape, distinct
+  from V9's tools-less, single-turn, `--max-turns 1` shape. **Steps.** 5,
+  36. **Evidence.** Executed `probe:18_leg2_resume_protocol.optional`
+  2026-09-08 on a freshly-initialized scratch git clone with a `SessionStart`
+  logging hook and a `PreToolUse` hook denying a marked Bash command, which
+  prints exactly: `turn 1 session_id differs from parent: true`, `turn 1
+  target.txt created with expected content: true`, `turn 1 Bash
+  FORBIDDEN_MARKER command denied: true`, `turn 2 (resume) session_id
+  matches turn 1: true`, `turn 2 SessionStart source=resume observed:
+  true`, `turn 2 Edit appended second line successfully: true` — reproduced
+  identically across four consecutive runs with this prompt phrasing (an
+  earlier, more rigid two-part phrasing was intermittently
+  non-deterministic during authoring; the probe script's own comments
+  record why).
 - **Claim.** V12: three kinds of string-content user entries; human turns
   carry `origin.kind:"human"` and no `isMeta`; markers are mode-dependent.
   **Steps.** 21, 27. **Evidence.** Read `:136`; re-measured 2026-09-07
@@ -7223,7 +7263,19 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     answered → re-open (accepted); `sqlite_master` must not contain
     `exemplars`, `recipes`, `env_capabilities`, `deferred_queue`,
     `genre_state`. Technique: decision table over CHECKs and the FTS flag;
-    state-transition for the index.
+    state-transition for the index. The two `fts_state` outcomes this test
+    asserts against a real engine are independently reproduced by
+    `probe:19_fts_migration_sequence` (executed 2026-09-08): a real
+    `node:sqlite` reimplementation of `applyMigrations`'s exact sequence
+    prints `writing schema_meta before migration 001 creates the table
+    throws: true` — confirming a write to `schema_meta` before migration
+    001 creates it is genuinely unexecutable, so `applyMigrations`'s own
+    ordering (001 creates the table; the row is recorded between 001 and
+    001b, from the `fts` argument; 001b is gated on the recorded row) is
+    the only sequence that can run at all — then reproduces this table's
+    two rows exactly: `fts_state` recorded as `'fts5'` under `fts: true`
+    and `'fallback'` under `fts: false`, and unchanged under either row's
+    re-run with the opposite flag.
   - **NOT asserts.** DAO behaviour (T-9-1). **Fails when** the migration
     errors under either flag, OR `fts_state` is not `'fts5'` after the
     first run or `'fallback'` after the second, OR the `fts: false` run
@@ -9272,7 +9324,8 @@ bin, and its closed disposition.
   sessions, with the liveness row as the observable (D-plan-26); a counted
   session runs with `--permission-mode acceptEdits` and an `--allowedTools`
   list, because a `-p` session can show no permission prompt and would
-  otherwise deny every `Edit`/`Write` (§11.4).
+  otherwise deny every `Edit`/`Write` — executed,
+  `probe:18_leg2_resume_protocol.optional`.
 - **Q44 (Step 39).** How many `Stop` events does one turn produce?
   **Disposition.** Answered: one — the reference's once-per-turn cadence
   (§11.4); leg 1's reconstruction emits one `Stop` after the last assistant

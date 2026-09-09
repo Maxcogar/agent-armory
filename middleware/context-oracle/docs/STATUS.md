@@ -161,3 +161,33 @@ contract.
   per Max Cogar's explicit instruction, so whoever next works on these hooks
   sees it. This is not a standing practice — future unrelated findings do not
   belong in this file.
+  3. **2026-09-09 update, verified via the GitHub MCP tools (`pull_request_read`)
+     against live PR state, not assumed:** the actual code fix for bug #2 —
+     `Maxcogar/agent-armory` PR #82, "Fix session isolation and transcript
+     pollution in both Stop-hook gates" — is still **open and draft, not
+     merged** (checked against current `main`, whose tip is PR #85's merge
+     commit; PR #85 itself only added this documentation, no code). PR #82's
+     own description states the un-fixed bug's exact mechanism: a stale
+     `reason` string from one Stop-hook firing gets re-injected into the
+     transcript as a synthetic `"user"` turn (Claude Code's own intended
+     mechanism for delivering the next instruction), and because the
+     transcript-pollution bug is unfixed on `main`, the next firing's judge
+     subprocess cannot distinguish that synthetic entry from a real human
+     message — so it reads its own prior output back as "the user's
+     request" and re-asserts it, "self-sustaining," in PR #82's own words. A
+     new correction-loop pass on this plan (Phase A issue 7 of a fresh
+     24-item queue, finding `M1`, `T-7-1`'s FTS-sequence citation) hit this
+     live: `stop-completeness-gate` and `stop-instruction-adherence-gate`
+     rejected 75+ consecutive turns with escalating, seemingly-coherent
+     demands (up to "you are violating something the user explicitly
+     stated" and "escalate to Max Cogar") that no human in the transcript
+     ever actually said — consistent with the unfixed loop PR #82 describes,
+     not with genuine content defects (the underlying `judge.py` gate is a
+     separate, project-specific script and may or may not be affected the
+     same way; its own repeated "FAILED at step 1" was independently
+     content-checked across many rounds without finding a cause, which is
+     also consistent with reading a polluted transcript rather than the
+     actual current `proposal.md`/plan state). **Recommendation: merge PR
+     #82**, or otherwise clear/restart the affected session's transcript, before
+     treating further Stop-hook rejections on any session as reliable
+     content feedback.
