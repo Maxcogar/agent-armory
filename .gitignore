@@ -63,4 +63,5 @@ skills/*-workspace/
 
 # Correction-loop hook runtime state (Context Oracle) — proposals, self-checks,
 # judge verdicts, hashes; regenerated every run, not source
-middleware/context-oracle/.claude/hooks/correction-loop/state/
+middleware/context-oracle/.claude/hooks/correction-loop/state/*
+!middleware/context-oracle/.claude/hooks/correction-loop/state/done.json

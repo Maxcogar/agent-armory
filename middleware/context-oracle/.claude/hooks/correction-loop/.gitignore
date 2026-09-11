@@ -1,2 +1,3 @@
-state/
+state/*
+!state/done.json
 __pycache__/
