@@ -2,7 +2,7 @@
 
 **Status:** Phase A implementation plan, derived from `docs/specs/spec-context-oracle.md`
 (spec of record, `OL-C6` 2026-08-28) and `docs/architecture-phase-a.md` (Phase A
-architecture, reviewed to convergence 2026-09-04). Revision of 2026-09-07. This plan
+architecture, reviewed to convergence 2026-09-04). Revision of 2026-09-11. This plan
 consumes the spec and architecture and is executed by the Phase A build. Every
 step here traces to an architecture decision (`AD-n`), a spec requirement
 (`FR-*`, `AC-*`, `C-*`, `NF-1`, `P*`, `D-n`), or a ledger key (`OL-*`).
@@ -243,13 +243,17 @@ recorded in §11 with what was found.
   `--experimental-strip-types` from v22.6.0); `node:sqlite` FTS5, WAL, STRICT,
   `VACUUM INTO` and the module-level `sqlite.backup()` executed on v22.22.2 (§11.4).
   Governs Steps 1, 2, 3, 32, 37.
-- **npm registry metadata, read 2026-09-07** (§11.4): `web-tree-sitter`
-  0.26.13 (published 2026-08-23) and 0.27.0 (2026-08-30, current);
-  `tree-sitter-wasms` 0.1.13 (2025-10-07, current); `typescript` 5.9.3
-  (2025-09-30) and 7.0.2 (2026-07-08, current); `@types/node` 22.20.1
-  (the newest 22.x on that date). The plan pins the runtime dependencies to the versions
-  the architecture verified (V14) and the dev dependencies to the versions
-  recorded in Step 1. Governs Steps 1, 15.
+- **npm registry metadata, read 2026-09-07 and 2026-09-11** (§11.4):
+  `web-tree-sitter` 0.25.10 (published 2025-09-22, the last release of the
+  0.25 line — a backport made after 0.26.0 opened on 2025-09-19), 0.26.13
+  (2026-08-23) and 0.27.0 (2026-08-30, current); `tree-sitter-wasms` 0.1.13
+  (2025-10-07, current and last); `typescript` 5.9.3 (2025-09-30) and 7.0.2
+  (2026-07-08, current); `@types/node` 22.20.1 (the newest 22.x on
+  2026-09-07); `@types/emscripten` 1.41.6 (2026-09-01, current). The plan
+  pins the runtime dependencies to the pair executed to load and parse the
+  shipped grammars (§4; `probe:20_grammar_inventory`,
+  `probe:21_web_tree_sitter_026_loads_nothing.optional`) and the dev
+  dependencies to the versions recorded in Step 1. Governs Steps 1, 12, 15.
 - **TypeScript 7.0 release announcement** — `devblogs.microsoft.com/typescript/announcing-typescript-7-0/`,
   fetched 2026-09-07 (§11.4): the native-port compiler removed `baseUrl`,
   `moduleResolution: node/node10/classic`, `module: amd/umd/systemjs/none`,
@@ -292,10 +296,12 @@ recorded in §11 with what was found.
 
 ## 4. Spec issues
 
-One conflict between an architecture premise and current reality was found
-during planning; it changes no requirement and no step, and its resolution is
-derivable, so it did not go to Max Cogar (`CLAUDE.md`: derive what the spec and
-mission already decide).
+Three conflicts between architecture premises and current reality were found
+during planning — the first on 2026-09-07, the other two on 2026-09-11 by
+executing what the architecture had only read. None changes a requirement;
+each resolution is derivable, so none went to Max Cogar (`CLAUDE.md`: derive
+what the spec and mission already decide). The architecture is not edited;
+§16 lists each as premise maintenance for its next revision.
 
 - **Hooks timeout semantics have drifted since architecture V6.** V6
   (2026-08-29) records that "a timed-out `PreToolUse` hook prevents the tool
@@ -313,6 +319,98 @@ mission already decide).
   must remain above the internal one so the diagnostic is written before the
   harness gives up). No requirement changes; the V6 row is listed in §16 as
   premise maintenance for the architecture, which this plan does not edit.
+
+- **V14 verified the parser runtime's manifest, never that it loads a
+  grammar — and the 0.26 line loads none.** V14 (2026-08-29) records
+  `web-tree-sitter` 0.26.13 and `tree-sitter-wasms` 0.1.13 as "current,
+  pure-WASM, with no install scripts" from npm registry metadata, and L6
+  defers the loaded-grammar smoke test to build; AD-12's decision text says
+  the tree-sitter frontend "covers every language for which
+  `tree-sitter-wasms` ships a grammar". Executed on 2026-09-11
+  (`probe:21_web_tree_sitter_026_loads_nothing.optional`,
+  `probe:20_grammar_inventory`, §11.4): under `web-tree-sitter` 0.26.13 and
+  0.27.0, `Language.load` rejects every one of the 36 grammars
+  `tree-sitter-wasms` 0.1.13 ships, throwing an `Error` whose message is
+  empty — from 0.26.0 the loader reads only a `dylink.0` custom section and
+  every shipped grammar carries the legacy `dylink` section (36 of 36);
+  `tree-sitter-wasms` has no later release. Under `web-tree-sitter` 0.25.10
+  (the last 0.25.x, a backport published after 0.26.0 opened; no
+  dependencies, no install scripts — `probe:11_web_tree_sitter_layout`,
+  `probe:17_npm_registry_versions.optional`) 34 grammars load and 32 can be
+  set on a parser and parse: `elm` (language ABI 12) and `ql` (ABI 10) are
+  below every 0.25–0.27 runtime's minimum compatible ABI 13 and
+  `setLanguage` rejects them (`Incompatible language version`; the
+  `Language.load` before it reads their tables through the ABI-15 layout
+  and traps or not depending on how much heap earlier grammars consumed, so
+  nothing asserts the trap); `yaml`'s and `bash`'s external scanners import
+  symbols the runtime never exports (`_Znwm`/`_ZdlPv`; `isalpha`), so
+  `yaml` throws a `TypeError` on its first parse and `bash` on any `case …
+  esac`, and the parser instance that threw is dead afterwards. Separately,
+  a source file that imports `web-tree-sitter` does not compile under Step
+  1's `tsconfig` unless `@types/emscripten` is installed and named in
+  `types` — the package's `.d.ts` references the global `EmscriptenModule`
+  and declares `@types/emscripten` only an optional peer, which npm does
+  not install (`TS2304`, executed for both pins,
+  `probe:22_tsc_web_tree_sitter_import`). **Resolution.** Step 1 pins
+  `web-tree-sitter` 0.25.10 and adds the dev pin `@types/emscripten` 1.41.6
+  with `"types": ["node", "emscripten"]` (D-plan-2 re-derived); the default
+  `index.ext_to_grammar` table (seeded by Step 12, enumerated in Step 15)
+  is the 32 usable grammars, with `elm`, `ql`, `yaml` and `bash` excluded
+  by cause and their extensions falling to the generic frontend — AD-12's
+  "every language for which `tree-sitter-wasms` ships a grammar" is, by
+  execution, every grammar the pinned runtime can load *and parse*; Step
+  15's frontend catches every throwable a parse raises (a `TypeError` from
+  an unresolved scanner import, a `RuntimeError` from a trap), discards
+  that parser instance, indexes the file through the generic frontend and
+  records `frontend_parse_failed` (Step 6) with the language and path, so
+  the eight further grammars whose scanners import `__assert_fail` or
+  `abort` on assertion paths cannot silently poison a run. The
+  alternatives, each executed: per-language grammar packages (the route
+  `web-tree-sitter`'s README recommends) carry `install: node-gyp-build`
+  scripts, `node-addon-api` dependencies, `binding.gyp` and native
+  prebuilds — AD-25's "no postinstall scripts, no native code, no
+  prebuilt-binary downloads" and C-3 fail at install, before dependency
+  counting matters; a rebuilt `tree-sitter-wasms` does not exist; vendoring
+  the `dylink.0`, ABI-15 `.wasm` files those packages ship as checked-in
+  grammar files (no runtime dependency, no install script — a vendored
+  `tree-sitter-javascript` 0.25.0 grammar loads and parses under 0.25.10,
+  0.26.13 and 0.27.0 alike) is not taken in Phase A because it replaces
+  AD-25's grammar source with a vendoring-and-refresh mechanism the phase
+  goal does not need (dominating rule 3), and is recorded in §16 as the
+  named exit if `tree-sitter-wasms` stays unmaintained — an exit that would
+  also restore `yaml`, `bash`, `elm` and `ql` and does not by itself force
+  a runtime bump. The pin is plan-owned: the architecture decides packages
+  (AD-25), never versions (V14 is a premise row), so it moves in either
+  direction only with probe 20 re-executed against the enumerated table. No
+  requirement changes; V14, AD-12's coverage sentence and L6 are listed in
+  §16 as premise maintenance.
+
+- **AD-26's "directory lock" for the detached reindex races on stale
+  reclaim.** AD-26 and AD-12 say the detached reindex "takes a directory
+  lock; the handler never waits on it" — a mechanism named, never verified
+  (no V-row). Step 14 had specified it as a `wx`-created `.reindex.lock`
+  holding a pid with "stale-lock detection by pid liveness". Executed on
+  2026-09-11 (a finding of the independent review of this plan's parallel
+  lineage — `Maxcogar/agent-armory` PR #83, its round 10 — re-executed
+  against this step's text): with the reclaim written as the text implies
+  (read the pid, `process.kill(pid, 0)`, unlink when dead, retry), two real
+  processes racing one abandoned lock both acquired it in 29 of 200
+  iterations, because the liveness check and the unlink-and-recreate are
+  two unsynchronized steps; no text specified release either. The atomic
+  rename-then-verify variants that lineage tried next lost to the same
+  class one syscall later. **Resolution.** The mutual exclusion AD-26 wants
+  is taken from the standard AD-26 itself names — SQLite's single writer:
+  the claim is a `schema_meta` row (`reindex_owner_pid`,
+  `reindex_started_at`) read and written inside one `Store.transaction`
+  (`BEGIN IMMEDIATE`, Step 3), held only while its pid is alive
+  (`process.kill(pid, 0)`; `EPERM` counts as alive), released by deleting
+  the row in a `finally`, and refused with a `reindex_locked` diagnostic
+  (Step 6) rather than silently skipped (D-plan-32); executed
+  (`probe:26_reindex_claim_row_race`): two real processes racing a planted
+  dead-pid claim 200 times — exactly one wins every time, and the released
+  row is absent. The handler still never waits: it reads the row. AD-26's
+  wording is listed in §16 as premise maintenance; the job it states is
+  unchanged.
 
 ---
 ## 5. Files affected
@@ -342,6 +440,7 @@ tests that use it name it in their Data fields.
 |---|---|---|
 | .github/workflows/context-oracle-ctxoracle.yml | create | S1 |
 | .github/workflows/context-oracle-ctxoracle.yml | modify | S28, S38 |
+| middleware/context-oracle/ctxoracle/package-lock.json | create | S1 |
 | middleware/context-oracle/ctxoracle/package.json | create | S1 |
 | middleware/context-oracle/ctxoracle/scripts/check-cold-container.sh | create | S38 |
 | middleware/context-oracle/ctxoracle/scripts/check-status-post-build.sh | create | S40 |
@@ -604,6 +703,7 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/test/unit/stop_outstanding_line.test.ts | create | S27 |
 | middleware/context-oracle/ctxoracle/test/unit/store_corrupt_induction.test.ts | create | S10 |
 | middleware/context-oracle/ctxoracle/test/unit/stores_adapter.test.ts | create | S3 |
+| middleware/context-oracle/ctxoracle/test/unit/tree_sitter_frontend_fallback.test.ts | create | S15 |
 | middleware/context-oracle/ctxoracle/test/unit/tree_sitter_frontend.test.ts | create | S15 |
 | middleware/context-oracle/ctxoracle/test/unit/tuning_dao.test.ts | create | S12 |
 | middleware/context-oracle/ctxoracle/test/unit/watchdog_deadline.test.ts | create | S10 |
@@ -733,7 +833,7 @@ function-level tests it names.
 step: S1
 covers: [PA-10, PA-12]
 files:
-  create: [.github/workflows/context-oracle-ctxoracle.yml, middleware/context-oracle/ctxoracle/package.json, middleware/context-oracle/ctxoracle/tsconfig.json, middleware/context-oracle/ctxoracle/scripts/run-tests.mjs, middleware/context-oracle/ctxoracle/test/build/tsc_fixture.ts, middleware/context-oracle/ctxoracle/test/replay/transcript_fixtures/, middleware/context-oracle/ctxoracle/test/fixtures/generate.ts, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-full/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-shallow/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-shallow-no-origin/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-nongit/, middleware/context-oracle/ctxoracle/test/fixtures/repos/miner-hygiene/, middleware/context-oracle/ctxoracle/test/fixtures/repos/indexer-small/, middleware/context-oracle/ctxoracle/test/fixtures/repos/coupling-nonobvious/, middleware/context-oracle/ctxoracle/test/fixtures/repos/orientation-mixed-shape/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-mixed-language/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-observed-zero/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-same-name-collision/, middleware/context-oracle/ctxoracle/test/fixtures/repos/consequence-coupled-tests/, middleware/context-oracle/ctxoracle/test/fixtures/repos/warning-landmine/, middleware/context-oracle/ctxoracle/test/fixtures/repos/completeness-paired-change/, middleware/context-oracle/ctxoracle/test/fixtures/repos/verification-covering-test/, middleware/context-oracle/ctxoracle/test/fixtures/repos/bar-two-candidates/, middleware/context-oracle/ctxoracle/test/fixtures/repos/dedup-read-set/, middleware/context-oracle/ctxoracle/test/fixtures/repos/corpus-floor-29/, middleware/context-oracle/ctxoracle/test/fixtures/repos/answer-drift-clearly-off/, middleware/context-oracle/ctxoracle/test/fixtures/repos/pristine-tree/, middleware/context-oracle/ctxoracle/test/fixtures/repos/secret-injection/, middleware/context-oracle/ctxoracle/test/fixtures/repos/subagent-delivery/, middleware/context-oracle/ctxoracle/test/fixtures/repos/language-config-added/, middleware/context-oracle/ctxoracle/test/fixtures/repos/seeded-facts/, middleware/context-oracle/ctxoracle/test/fixtures/repos/regret-true-positive/, middleware/context-oracle/ctxoracle/test/fixtures/repos/regret-no-inflate/, middleware/context-oracle/ctxoracle/test/fixtures/repos/over-threshold-file/, middleware/context-oracle/ctxoracle/test/unit/package_build.test.ts, middleware/context-oracle/ctxoracle/test/unit/run_tests_guard.test.ts, middleware/context-oracle/ctxoracle/test/unit/generator_determinism.test.ts]
+  create: [.github/workflows/context-oracle-ctxoracle.yml, middleware/context-oracle/ctxoracle/package.json, middleware/context-oracle/ctxoracle/package-lock.json, middleware/context-oracle/ctxoracle/tsconfig.json, middleware/context-oracle/ctxoracle/scripts/run-tests.mjs, middleware/context-oracle/ctxoracle/test/build/tsc_fixture.ts, middleware/context-oracle/ctxoracle/test/replay/transcript_fixtures/, middleware/context-oracle/ctxoracle/test/fixtures/generate.ts, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-full/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-shallow/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-shallow-no-origin/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-nongit/, middleware/context-oracle/ctxoracle/test/fixtures/repos/miner-hygiene/, middleware/context-oracle/ctxoracle/test/fixtures/repos/indexer-small/, middleware/context-oracle/ctxoracle/test/fixtures/repos/coupling-nonobvious/, middleware/context-oracle/ctxoracle/test/fixtures/repos/orientation-mixed-shape/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-mixed-language/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-observed-zero/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-same-name-collision/, middleware/context-oracle/ctxoracle/test/fixtures/repos/consequence-coupled-tests/, middleware/context-oracle/ctxoracle/test/fixtures/repos/warning-landmine/, middleware/context-oracle/ctxoracle/test/fixtures/repos/completeness-paired-change/, middleware/context-oracle/ctxoracle/test/fixtures/repos/verification-covering-test/, middleware/context-oracle/ctxoracle/test/fixtures/repos/bar-two-candidates/, middleware/context-oracle/ctxoracle/test/fixtures/repos/dedup-read-set/, middleware/context-oracle/ctxoracle/test/fixtures/repos/corpus-floor-29/, middleware/context-oracle/ctxoracle/test/fixtures/repos/answer-drift-clearly-off/, middleware/context-oracle/ctxoracle/test/fixtures/repos/pristine-tree/, middleware/context-oracle/ctxoracle/test/fixtures/repos/secret-injection/, middleware/context-oracle/ctxoracle/test/fixtures/repos/subagent-delivery/, middleware/context-oracle/ctxoracle/test/fixtures/repos/language-config-added/, middleware/context-oracle/ctxoracle/test/fixtures/repos/seeded-facts/, middleware/context-oracle/ctxoracle/test/fixtures/repos/regret-true-positive/, middleware/context-oracle/ctxoracle/test/fixtures/repos/regret-no-inflate/, middleware/context-oracle/ctxoracle/test/fixtures/repos/over-threshold-file/, middleware/context-oracle/ctxoracle/test/unit/package_build.test.ts, middleware/context-oracle/ctxoracle/test/unit/run_tests_guard.test.ts, middleware/context-oracle/ctxoracle/test/unit/generator_determinism.test.ts]
   modify: []
   delete: []
 provides: [npm-ci, npm-test, npm-run-test, npm-run-build]
@@ -745,16 +845,24 @@ depends_on: []
 **What changes.** Create `middleware/context-oracle/ctxoracle/package.json`
 with `"type": "module"`, `"bin": {"ctxoracle": "dist/src/cli/dispatch.js"}`,
 `"engines": {"node": ">=22.16.0"}`, runtime dependencies exactly
-`{"web-tree-sitter": "0.26.13", "tree-sitter-wasms": "0.1.13"}` (exact
-pins, no range), dev dependencies exactly `{"typescript": "5.9.3",
-"@types/node": "22.20.1"}`, scripts `"build": "tsc -p tsconfig.json"`,
+`{"web-tree-sitter": "0.25.10", "tree-sitter-wasms": "0.1.13"}` (exact
+pins, no range — the pair executed to load and parse the shipped grammars,
+§4), dev dependencies exactly `{"typescript": "5.9.3", "@types/node":
+"22.20.1", "@types/emscripten": "1.41.6"}`, scripts `"build": "tsc -p tsconfig.json"`,
 `"test": "node scripts/run-tests.mjs"`, a `"files"` list of `dist/`,
 `src/` (the runtime-read `.sql` migrations live there), and `scripts/`,
-and **no** `install`, `postinstall`, or `preinstall` script. Create `tsconfig.json` with
+and **no** `install`, `postinstall`, or `preinstall` script. Run `npm
+install` once against the authored manifest and commit the generated
+`package-lock.json` beside it: `npm ci`, which every CI job and `T-1-1`
+run, refuses to start without one (`probe:23_npm_ci_without_lockfile`,
+§11.4); the lockfile is npm-generated, never hand-edited, and regenerated
+whenever a pin changes. Create `tsconfig.json` with
 `"strict": true`, `"target": "ES2022"`, `"module": "NodeNext"`,
 `"moduleResolution": "NodeNext"`, `"rootDir": "."`, `"outDir": "dist"`,
 `"include": ["src", "test"]`, `"exclude": ["test/build/fixtures"]`,
-`"declaration": false`, `"verbatimModuleSyntax": true`; relative imports in
+`"declaration": false`, `"verbatimModuleSyntax": true`, `"types": ["node",
+"emscripten"]` (the runtime's `.d.ts` needs `@types/emscripten`'s
+`EmscriptenModule` global, §4); relative imports in
 source and tests are written with the `.js` extension (NodeNext resolution),
 so the emitted JavaScript needs no rewriting. Compiled output lands at
 `dist/src/**` and `dist/test/**`. The `exclude` keeps the must-fail
@@ -818,11 +926,13 @@ earlier would be a red run on an empty set), and the `cold-container` job
 **Source.** `AD-25` (packaging: two runtime deps, no postinstall, no native
 code, `tsc` build); `AD-2` (Node ≥ 22.16.0, TypeScript strict ESM); `AD-24`
 (`node:test` suites); `C-3` (no prebuilt-binary download, no native
-toolchain); V14 (the verified dependency versions).
+toolchain); V14 as corrected in §4 (the dependency versions, executed).
 
 **Why this approach (Gate 3):**
-1. **The decision.** Runtime deps pinned to the exact versions V14 verified;
-   dev deps pinned to `typescript` 5.9.3 and `@types/node` 22.20.1; tests
+1. **The decision.** Runtime deps pinned to the exact versions executed to
+   load and parse the shipped grammars (§4); dev deps pinned to
+   `typescript` 5.9.3, `@types/node` 22.20.1 and `@types/emscripten`
+   1.41.6; the npm-generated lockfile committed so `npm ci` can run; tests
    compiled by the same `tsc` run as the sources and executed from `dist/`
    through a runner that refuses an empty or incomplete test set, with the
    must-fail fixtures excluded from that build and compiled one at a time by
@@ -845,10 +955,11 @@ toolchain); V14 (the verified dependency versions).
    with no extra loader. Because the runner exits 0 on an empty match, a
    glob that silently matches nothing would turn every "Fails when" clause in
    §12 into documentation — the guard in `run-tests.mjs` is what makes a
-   missing test a red run. Exact runtime pins are the versions the
-   architecture verified (V14); reproducing that surface is the point of the
-   pin, and a bump is architecture work (re-verifying V14), not a plan-time
-   choice. `typescript` 5.9.3 is the last release of the 5.x line, the line the
+   missing test a red run. Exact runtime pins are the pair executed to work
+   (§4): `web-tree-sitter` 0.25.10, below the 0.26.13 V14 read from the
+   registry, because a registry read never loads a grammar; reproducing
+   that executed surface is the point of the pin, and the pin moves only
+   with probe 20 re-executed (D-plan-2). `typescript` 5.9.3 is the last release of the 5.x line, the line the
    Node type-stripping guidance and the `@types/node` 22.x typings are
    documented against; TypeScript 7.0.2 (2026-07-08) is a new native compiler
    that removed several options and changed defaults (§11.4) — the tsconfig
@@ -1039,10 +1150,10 @@ depends_on: [S1, S3]
 string` — resolves `process.env.CTXORACLE_HOME || path.join(os.homedir(),
 '.ctxoracle')`. Create `src/identity/layout.ts` with `ensureLayout(home:
 string, repoKey: string): { global: string; project: string; diagnostics:
-string; lock: string; looseMode: string[] }` — creates directories at mode
+string; looseMode: string[] }` — creates directories at mode
 `0o700` if missing, returning absolute paths for `<home>/global/global.db`,
-`<home>/projects/<repoKey>/store.db`, `<home>/projects/<repoKey>/diagnostics/`
-and the reindex lock path, plus the list of pre-existing directories whose
+`<home>/projects/<repoKey>/store.db` and `<home>/projects/<repoKey>/diagnostics/`,
+plus the list of pre-existing directories whose
 mode is looser than `0o700` (never `chmod`ed; `status` reports them).
 
 **Creates.** `src/identity/home.ts` — ~/.ctxoracle layout, 0700; `src/identity/layout.ts` — ensureLayout helper.
@@ -1098,7 +1209,11 @@ depends_on: [S1, S4]
 `resolveRepoKey(repoPath: string): { key: string; mode:
 'commit'|'url'|'path'; identity: string }`, and `src/util/hash.ts` (SHA-256
 helpers). Rules, in order:
-1. `git rev-parse --is-inside-work-tree` false → rule 4.
+1. `git rev-parse --is-inside-work-tree` fails (non-zero exit — in a
+   directory inside no repository git exits 128 with `fatal: not a git
+   repository` and prints nothing; `false` is printed only from inside a
+   `.git` directory — `probe:25_git_rev_parse_nongit`, §11.4) or prints
+   `false` → rule 4.
 2. `git rev-parse --is-shallow-repository` true → identity = the
    **normalized origin URL** (`git config --get remote.origin.url`) when a
    remote exists, else rule 4; `mode='url'`. Normalization, every axis
@@ -1118,6 +1233,11 @@ helpers). Rules, in order:
 4. SHA-256 of `fs.realpathSync(repoPath)`; `mode='path'`. Also taken, with
    a diagnostic, when `--is-shallow-repository` prints anything other than
    `true`/`false`.
+Every `git` invocation in the resolver goes through one helper returning
+`{ok: true, stdout} | {ok: false, code, stderr}`; a failed invocation in
+rule 2 or 3 also routes to rule 4, with the same diagnostic, whose `detail`
+carries the command and its exit code — no rule keys on output a failed
+command never prints.
 The key is the first 12 hex characters of SHA-256 over the identity string.
 `init` performs **no** `git fetch`.
 
@@ -1224,14 +1344,19 @@ the architecture names, verbatim: from AD-17
 `transcript_layout_changed`, `unrecognized_user_entry`, and the two reserved
 codes `model_path_down` and `missed_skill_block` (used only by the `status`
 renderer to say "not yet measured (Phase B/C)"); from AD-26 `store_busy`;
-and three codes this plan names: `whisper_dropped_stale` for AD-15's
+and six codes this plan names: `whisper_dropped_stale` for AD-15's
 compose-time drop (a candidate whose pointer failed re-resolution),
 `tuning_missing` for a `tuning` key read that finds no row (Step 12's
 `TuningReader` re-seeds the key from its seed module and records this code
 with the key in `detail`), and `head_unresolved` for a `HEAD` whose ref the
 resolver Step 14 creates finds neither loose nor packed (recorded instead
 of `index_stale`, with the reason in `detail`, so an unreadable layout
-never spawns a reindex — D-plan-30).
+never spawns a reindex — D-plan-30), `miner_unparsed_numstat` for a
+`--numstat` path field the miner (Step 13) cannot expand unambiguously,
+`reindex_locked` for a reindex refused because a live process holds the
+claim row (Step 14, D-plan-32), and `frontend_parse_failed` for a file
+whose tree-sitter parse threw and was indexed through the generic frontend
+instead (Step 15; `detail` carries the language and path).
 
 Create `src/security/trust.ts` — the `Trust` type (`'untrusted_repo' |
 'human' | 'mechanical'`, mirroring the DB CHECK of Step 7) and
@@ -1932,8 +2057,9 @@ test`, `yarn test`, `pytest`, `cargo test`, `go test`, `jest`, `mocha`,
 `cat`, `pwd`, `echo`, `git status`, `git log`, `git diff`, `grep`, `rg`,
 `find`, `head`, `tail`, `wc`), `lexicon.completion_claim` (`done`,
 `complete`, `completed`, `implemented`, `fixed`, `finished`). The one
-list-valued `architecture_default` key is `index.ext_to_grammar` (the
-default extension → grammar table of Step 15). All list keys are
+list-valued `architecture_default` key is `index.ext_to_grammar`, the
+default extension → grammar table Step 15 enumerates (32 grammars; `elm`,
+`ql`, `yaml` and `bash` excluded by executed cause, §4). All list keys are
 owner-tunable via `tune` (AD-20).
 
 **Creates.** `src/stores/dao/tuning.ts` — tuning DAO + seeding; `src/stores/dao/tuning_seeds.ts` — the single seed source (values + provenance) `seedDefaults` and the reader both read.
@@ -1993,7 +2119,14 @@ depends_on: [S1, S9, S12]
 **What changes.** Create `src/miner/cochange.ts` exposing
 `mineCochange(store, repoPath, opts)` — reads `schema_meta.last_mined_commit`;
 runs `git log --no-merges --numstat -M --format=%H%x00%at%x00
-<watermark>..HEAD` streamed line-by-line; per commit: records the commit in
+<watermark>..HEAD` streamed line-by-line — a `--numstat` line whose path
+field contains ` => ` is a git-detected rename, printed as `old => new` or
+in the brace form `prefix{old => new}suffix` with either side possibly
+empty (`probe:24_git_numstat_rename`, §11.4): the miner expands it to
+both identities (`prefix+old+suffix`, `prefix+new+suffix`) and adds both
+to the commit's touched-file set, and a path field containing a literal
+`{`, `}` or ` => ` that does not parse unambiguously is skipped with a
+`miner_unparsed_numstat` diagnostic (Step 6), never guessed; per commit: records the commit in
 `commits` with `entity_count`; excludes (with `exclude_reason`) commits
 whose `entity_count > miner.max_transaction_entities` and commits beyond the
 horizon (`miner.horizon_years` / `miner.horizon_commits`, whichever first —
@@ -2046,7 +2179,7 @@ stay silent, `FR-A6`).
 
 ---
 
-### Step 14 — Structural indexer skeleton, LanguageFrontend interface, reindex lock
+### Step 14 — Structural indexer skeleton, LanguageFrontend interface, reindex claim
 
 ```step-decl
 step: S14
@@ -2138,18 +2271,27 @@ injection-flagged at capture — `zone_evidence_suspect`). Create
   `{stale: false}` — an unreadable layout never spawns a reindex; it
   spawns nothing — the caller that owns a binary (the handler, Step 28)
   starts the detached reindex.
-  `acquireReindexLock(home, key)`: the exclusive advisory lock on
-  `<home>/projects/<key>/.reindex.lock` (`fs.openSync` with `wx`, pid
-  written, stale-lock detection by pid liveness) that `runIndex` takes; a
-  second concurrent index refuses. The handler never waits on the lock
-  (staleness merely lowers confidence, `FR-K7`).
+  `acquireReindexClaim(store)`: the mutual exclusion `runIndex` takes
+  (D-plan-32; §4) — inside one `Store.transaction` (`BEGIN IMMEDIATE`,
+  Step 3) it reads `schema_meta.reindex_owner_pid`, treats the claim as
+  held only when that pid is alive (`process.kill(pid, 0)`; `EPERM` counts
+  as alive), and when free or stale writes its own pid and
+  `reindex_started_at` in the same transaction; SQLite's single writer
+  makes the check and the write one step, so two reclaimers of one
+  abandoned claim cannot both win (`probe:26_reindex_claim_row_race`,
+  §11.4). A held claim makes the second index refuse with a
+  `reindex_locked` diagnostic (Step 6); `runIndex` releases by deleting
+  the row in a `finally`, on completion or failure. The handler never
+  waits on the claim (staleness merely lowers confidence, `FR-K7`); it
+  reads the row.
 
-**Creates.** `src/index/indexer.ts` — orchestrator + reindex lock; `src/index/frontend.ts` — LanguageFrontend interface; `src/index/zone.ts` — zone classification + evidence.
+**Creates.** `src/index/indexer.ts` — orchestrator + reindex claim; `src/index/frontend.ts` — LanguageFrontend interface; `src/index/zone.ts` — zone classification + evidence.
 
 **Source.** `AD-12` (indexer: LanguageFrontend, zone, `entry_score`,
 `import_edges`, `symbol_refs`, `test_map`, FTS5 tables, incremental refresh,
 size caps, detached refresh with a lock file and `CTXORACLE_INTERNAL=1`); `AD-26`
-(the reindex directory lock; the handler never waits); `AD-23` (the `HEAD`
+(mutual exclusion for the detached reindex — its "directory lock" wording
+corrected to the claim row in §4; the handler never waits); `AD-23` (the `HEAD`
 resolution is bounded file reads — `.git`, `commondir`, `HEAD`, a loose ref
 or one `packed-refs` scan — never a subprocess; D-plan-30).
 
@@ -2197,7 +2339,8 @@ or one `packed-refs` scan — never a subprocess; D-plan-30).
 `files` row under `fts: true`) and no `symbols` or
 `import_edges` row; the > 1 MB file is path-only with a diagnostic; the
 planted secret is absent from the store; a second run over an unchanged
-tree writes nothing; the lock refuses a second concurrent reindex), `T-14-2`
+tree writes nothing; the claim refuses a second concurrent reindex, and two
+real processes racing a stale claim yield exactly one owner), `T-14-2`
 (`refreshIfStale`: a moved `HEAD` records `index_stale`, sets the flag, and
 returns `{stale: true}`, and an unmoved `HEAD` records nothing and returns
 `{stale: false}`, on an ordinary checkout, with the branch ref packed, on a
@@ -2216,11 +2359,11 @@ Orientation, Reuse, Coupling; visible in `status` per-genre counts.
 step: S15
 covers: [PA-1, PA-3]
 files:
-  create: [middleware/context-oracle/ctxoracle/src/index/tree_sitter_frontend.ts, middleware/context-oracle/ctxoracle/src/index/generic_frontend.ts, middleware/context-oracle/ctxoracle/src/index/frontends.ts, middleware/context-oracle/ctxoracle/test/unit/tree_sitter_frontend.test.ts, middleware/context-oracle/ctxoracle/test/unit/generic_frontend.test.ts, middleware/context-oracle/ctxoracle/test/unit/indexer_frontends.test.ts]
+  create: [middleware/context-oracle/ctxoracle/src/index/tree_sitter_frontend.ts, middleware/context-oracle/ctxoracle/src/index/generic_frontend.ts, middleware/context-oracle/ctxoracle/src/index/frontends.ts, middleware/context-oracle/ctxoracle/test/unit/tree_sitter_frontend.test.ts, middleware/context-oracle/ctxoracle/test/unit/generic_frontend.test.ts, middleware/context-oracle/ctxoracle/test/unit/indexer_frontends.test.ts, middleware/context-oracle/ctxoracle/test/unit/tree_sitter_frontend_fallback.test.ts]
   modify: []
   delete: []
 provides: [treeSitterFrontend, genericFrontend, defaultFrontends]
-tests: [T-15-1, T-15-2, T-15-3]
+tests: [T-15-1, T-15-2, T-15-3, T-15-4]
 depends_on: [S1, S14]
 ```
 
@@ -2230,7 +2373,29 @@ depends_on: [S1, S14]
 `LanguageFrontend` by loading the grammar `tree-sitter-wasms/out/<lang>.wasm`
 (the package's documented output directory, V14; path resolved with
 `import.meta.resolve`), parsing via `web-tree-sitter`, extracting symbols
-and imports via per-language tree-sitter queries. Grammar loading is lazy
+and imports via per-language tree-sitter queries. The default
+`index.ext_to_grammar` table (seeded by Step 12) is: `.c`/`.h` → `c`;
+`.cs` → `c_sharp`; `.cc`/`.cpp`/`.cxx`/`.hpp`/`.hh` → `cpp`; `.css` →
+`css`; `.dart` → `dart`; `.el` → `elisp`; `.ex`/`.exs` → `elixir`;
+`.erb`/`.ejs` → `embedded_template`; `.go` → `go`; `.html`/`.htm` →
+`html`; `.java` → `java`; `.js`/`.mjs`/`.cjs`/`.jsx` → `javascript`;
+`.json` → `json`; `.kt`/`.kts` → `kotlin`; `.lua` → `lua`; `.m`/`.mm` →
+`objc`; `.ml`/`.mli` → `ocaml`; `.php` → `php`; `.py`/`.pyi` → `python`;
+`.res`/`.resi` → `rescript`; `.rb` → `ruby`; `.rs` → `rust`;
+`.scala`/`.sc` → `scala`; `.sol` → `solidity`; `.swift` → `swift`; `.rdl`
+→ `systemrdl`; `.tla` → `tlaplus`; `.toml` → `toml`; `.tsx` → `tsx`;
+`.ts`/`.mts`/`.cts` → `typescript`; `.vue` → `vue`; `.zig` → `zig` — the
+32 grammars the pinned runtime loads and parses (§4,
+`probe:20_grammar_inventory`). `elm`, `ql`, `yaml` and `bash` ship but
+are excluded by executed cause (a language ABI below the runtime's
+minimum; scanner imports the runtime never exports), so `.elm`, `.ql`,
+`.yml`/`.yaml` and `.sh`/`.bash` take the generic frontend. A parse that
+throws — a `TypeError` from an unresolved scanner import, a `RuntimeError`
+from a trap — is caught whatever its class: the frontend discards that
+parser instance (one that threw is dead afterwards, executed), indexes
+the file through the generic frontend, and records `frontend_parse_failed`
+(Step 6) with the language and path, visible in `status`'s per-language
+counts. Grammar loading is lazy
 per `(lang, first use)` and cached; parser instances are pooled inside the
 indexer process only (AD-1: no cross-process state). Create
 `src/index/generic_frontend.ts` exporting `genericFrontend: LanguageFrontend`
@@ -2251,8 +2416,9 @@ exporting `defaultFrontends(): LanguageFrontend[]` — one
 
 **Creates.** `src/index/tree_sitter_frontend.ts` — WASM grammars; `src/index/generic_frontend.ts` — line-based fallback; `src/index/frontends.ts` — `defaultFrontends()`, the list the indexer's callers pass.
 
-**Source.** `AD-12`; V14 (web-tree-sitter 0.26.13 and tree-sitter-wasms
-0.1.13, pure WASM, no install scripts — re-read 2026-09-07, §11.4); L6.
+**Source.** `AD-12` (its coverage sentence read as corrected in §4); V14 as
+corrected in §4 (web-tree-sitter 0.25.10 and tree-sitter-wasms 0.1.13, pure
+WASM, no install scripts, executed to load and parse — §11.4); L6.
 
 **Why this approach (Gate 3):**
 1. **The decision.** Tree-sitter frontend where a grammar exists; a
@@ -2260,8 +2426,10 @@ exporting `defaultFrontends(): LanguageFrontend[]` — one
    is invisible.
 2. **The authoritative standard.** `AD-12` (architecture); the
    `web-tree-sitter` package API (`Parser.init`, `Language.load`,
-   `parser.parse`, verified at build against the pinned 0.26.13 — Step 38's
-   grammar-inventory check loads every default grammar through it).
+   `parser.parse`, `Query`, executed at plan time against the pinned
+   0.25.10 (`probe:20_grammar_inventory`) and re-checked at build — Step
+   38's grammar-inventory check loads and parses every default-table
+   grammar through it).
 3. **Why this standard applies here.** The generic frontend's inability to
    produce `import_edges` is a property, not a gap — it forces the Reuse
    crown to abstain on incomparable sets (L6, AC-1b mixed-language case).
@@ -2273,7 +2441,9 @@ exporting `defaultFrontends(): LanguageFrontend[]` — one
 
 **Verification.** `T-15-1` (TypeScript fixture: symbols with correct spans,
 import edge resolving to the imported file), `T-15-2` (a `.sh` file:
-function-shape symbols, zero `import_edges`), `T-15-3` (the indexer run
+function-shape symbols, zero `import_edges`), `T-15-4` (a parse that
+throws falls back to the generic frontend with a `frontend_parse_failed`
+fault and the exhausted parser instance is not reused), `T-15-3` (the indexer run
 with `defaultFrontends()` on `indexer-small`: `symbols`, `import_edges`,
 `symbol_refs`, `entry_score`, `test_map` populate; the FTS and `LIKE` hit
 sets agree for symbol-token queries; `fts_symbols` holds one row per
@@ -3166,10 +3336,13 @@ handler calls after every deny emission and every catch-up:
   `outcome='ok'` Bash row whose `pathWriteTarget(row.command)` equals the
   target recorded in a same-turn `kind='deny'` row's `evidence_json`,
   record `deny_bypass_suspect`. The
-  predicate's coverage bound is stated where the number is shown: `status`
-  and the exit report print "bypass diagnostic recognizes only: <the
-  list>; other shell write paths are not measured" (L3 owned as a class,
-  not padded into a longer list).
+  predicate's two error directions are stated where the number is shown
+  (AD-9: "both directions stated in `status`"): `status` and the exit
+  report print "bypass diagnostic: recognizes only <the list> — a bypass
+  by any other shell write path is not counted (under-count); a shell
+  write to the denied target that was not a bypass is counted
+  (over-count); a proxy, not a measurement" (L3 owned as a class, not
+  padded into a longer list).
 
 **Creates.** `src/blocks/health.ts` — deny health detectors (AD-9, AD-17).
 
@@ -3180,7 +3353,7 @@ and a named detector); `FR-M2`, `FR-M4`; `AC-9`; L3.
 **Why this approach (Gate 3):**
 1. **The decision.** Every deny-mechanism error direction has a named
    detector; the bypass predicate is exactly the architecture's list, and
-   its coverage bound is printed beside its count.
+   both of its error directions are printed beside its count.
 2. **The authoritative standard.** `AD-9`, `AD-17`; `FR-M2`; `AC-9`;
    collapse-log 2026-09-03 round 8 lesson 2 (own a residual as a class, not
    a growing enumeration).
@@ -3198,7 +3371,7 @@ and a named detector); `FR-M2`, `FR-M4`; `AC-9`; L3.
 
 **Verification.** `T-26-1` (each detector induced on a seeded store; the
 predicate fires only on the enumerated forms and only on a same-turn target
-match; `status` text carries the coverage bound). Acceptance replay
+match; `status` text carries both error directions). Acceptance replay
 `T-38-6` (AC-9 deny classes) at Checkpoint 4.
 
 **Impact if wrong.** Diagnostic-only — a broken detector degrades
@@ -3393,7 +3566,8 @@ Create `src/hook/handler.ts` — the per-event pipeline in AD-8's fixed order:
    `index` verb (`src/cli/index.ts`: `index [--full]` → `runIndex` (Step 14)
    with Step 15's `defaultFrontends()`; `--full` re-mines from scratch),
    spawned through Step 5's wrapper and
-   observable by the `.reindex.lock` `runIndex` takes; detached integrity
+   observable by the `schema_meta.reindex_owner_pid` claim `runIndex`
+   takes; detached integrity
    child (`hook integrity-check`, this step's other internal verb, via the
    wrapper); no output.
 5. Question intake (`UserPromptSubmit` only; Step 25).
@@ -3955,9 +4129,11 @@ depends_on: [S1, S2, S4, S5, S9, S10, S12, S21, S26, S28, S30]
   corrections on denies + `deny_after_answer_lag` + `deny_despite_answer_text`
   + voided-intake rows with a deny fired), done-claims-with-outstanding-
   question with its Phase A structural-limit label, `deny_loop` and
-  `deny_bypass_suspect` counts **with the bypass predicate's coverage bound
-  printed beside the count** (Step 26), active suppressing conditions (store
-  corrupt, transcript layout changed, FTS fallback, store busy), the
+  `deny_bypass_suspect` counts **with the bypass predicate's two error
+  directions printed beside the count** (Step 26), active suppressing
+  conditions (store corrupt, transcript layout changed, FTS fallback,
+  store busy), a held reindex claim with its `reindex_owner_pid` and
+  `reindex_started_at` when one exists (Step 14, D-plan-32), the
   `hooks_not_firing` detector (AD-17: for every session with a liveness row
   and no `SessionEnd` row, if the transcript file the row names has an
   mtime later than the session's last `session_log` event by more than
@@ -4300,8 +4476,10 @@ verifications:
   `node:test` file enumerated by `run-tests.mjs`'s `build_time` tier
   (Step 1) — it enumerates the `.wasm` files shipped in the installed
   `tree-sitter-wasms` package, loads each grammar the default
-  `index.ext_to_grammar` table names through `web-tree-sitter`, and fails
-  the test on any missing or unloadable grammar.
+  `index.ext_to_grammar` table names through `web-tree-sitter`, parses a
+  one-line sample with each, and fails the test on any missing,
+  unloadable or non-parsing grammar, or on an excluded grammar (§4)
+  appearing in the table.
 - `test/build_time/marker_presence.ts` (L11(a)): exports
   `markerPresence(corpora)`, which counts the user entries of every
   transcript under each of one or more `{machine, mode, dir}` corpora by
@@ -4584,7 +4762,7 @@ from leg 2 only: the wrongful-deny rate with its components (`false_fire`
 corrections, `deny_after_answer_lag`, `deny_despite_answer_text`,
 voided-intake denies), the lag-hold rate (`deny_after_answer_lag` /
 denies), `deny_loop` and `deny_bypass_suspect` counts with the predicate's
-coverage bound, and the fraction of denies that were escaped by a text
+two error directions (Step 26's wording), and the fraction of denies that were escaped by a text
 turn versus corrected as wrongful; false-fire rate; regret rate paired
 with seeded coverage and split by `never_triggered` / held; done-claims
 with an outstanding question; the marker-presence table by declared
@@ -4836,19 +5014,28 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   Multi-criteria score (topological validity, restraint pressure,
   checkpoints executable): B 1.0, C 0.67, A 0.
 
-- **D-plan-2 — Dependency pins.** Runtime: `web-tree-sitter` 0.26.13 and
-  `tree-sitter-wasms` 0.1.13, exact. *Reasoning.* These are the versions
-  the architecture verified (V14, 2026-08-29); the plan builds what the
-  architecture verified, and a range would admit a surface (0.27.0 was
-  published 2026-08-30) no one has verified. A bump is architecture work.
-  Dev: `typescript` 5.9.3, `@types/node` 22.20.1, exact. *Reasoning.* 5.9.3
+- **D-plan-2 — Dependency pins.** Runtime: `web-tree-sitter` 0.25.10 and
+  `tree-sitter-wasms` 0.1.13, exact. *Reasoning.* V14 verified the two
+  manifests (no install scripts, no native code) — a property that holds
+  for 0.25.10 as well — and never a grammar load; executed 2026-09-11 (§4),
+  0.26.13 and 0.27.0 load none of the 36 shipped grammars and 0.25.10 loads
+  34 and parses 32, so the pin is the newest runtime that works with the
+  grammar package AD-25 names, and a range would admit 0.26.x, which does
+  not. The pin is plan-owned — the architecture decides packages (AD-25),
+  never versions — and moves in either direction only with
+  `probe:20_grammar_inventory` re-executed against Step 15's enumerated
+  table. Dev: `typescript` 5.9.3, `@types/node` 22.20.1,
+  `@types/emscripten` 1.41.6, exact. *Reasoning.* 5.9.3
   is the last release of the compiler line the Node type-stripping
   guidance and the 22.x typings are documented against; 7.0.2 is a native
   port two months old that removed options and changed defaults (§11.4) —
   the tsconfig avoids every removed option so a later bump is a version
-  change only, but adopting it is a separate verified decision. Score
-  (documentation alignment, maturity, forward-compatible tsconfig): 5.9.3
-  1.0, 7.0.2 0.6.
+  change only, but adopting it is a separate verified decision.
+  `@types/emscripten` is the optional peer `web-tree-sitter`'s `.d.ts`
+  needs for its `EmscriptenModule` global; without it, and without
+  `emscripten` in `types`, `tsc` fails `TS2304` on any file importing the
+  runtime (`probe:22_tsc_web_tree_sitter_import`). Score (documentation
+  alignment, maturity, forward-compatible tsconfig): 5.9.3 1.0, 7.0.2 0.6.
 
 - **D-plan-3 — Test execution: `tsc` compiles `src/` and `test/` into
   `dist/` with the must-fail fixtures excluded; a dependency-free runner
@@ -5107,13 +5294,14 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   visible instead of normalized away.
 
 - **D-plan-16 — The bypass diagnostic's predicate is exactly AD-4's
-  enumerated list, and its coverage bound is printed beside its count.**
+  enumerated list, and both of its error directions are printed beside its
+  count.**
   *Reasoning.* Every reachable shell write path is an open set; extending
   the list is the padding trap (collapse-log 2026-09-03 round 8: own a
   residual as a class), and the architecture already discloses the
   diagnostic as a proxy with both error directions. The honest floor
-  states what the proxy recognizes, so the exit number is read with its
-  bound.
+  states what the proxy recognizes and what it miscounts, so the exit
+  number is read with both.
 
 - **D-plan-17 — Two test levels per component: a function-level test at
   the step that builds it (real store, real files, no handler), and an
@@ -5305,7 +5493,8 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   `--permission-mode acceptEdits` and `--resume` 1.0 (executed,
   `probe:18_leg2_resume_protocol.optional`: fresh `session_id`, a
   `SessionStart` row with `source: resume` on the continued turn, a real
-  `Edit` on both turns, one `PreToolUse` deny recorded);
+  `Write` and a real `Edit` across the two turns, one settings-file
+  `PreToolUse` deny of a requested `Write` recorded);
   a `-p` child with no permission mode named 0.3 (denies the edit outright —
   a `-p` session shows no prompt to approve it — the gap this decision
   closes); an interactive session 0.2 (hooks held back until a workspace-
@@ -5506,6 +5695,21 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   architecture override by omission, not a resolution — and the population
   it claims is undefinable is exactly what this decision defines).
 
+- **D-plan-32 — The detached reindex's mutual exclusion is a `schema_meta`
+  claim row taken inside one `BEGIN IMMEDIATE` transaction, released in a
+  `finally`, refused with `reindex_locked`.** *Reasoning.* AD-26 wants one
+  reindex at a time with a handler that never waits; the "directory lock"
+  it names, written as Step 14 first had it (a `wx` file, a pid, liveness
+  reclaim), lets two reclaimers of a stale lock both win (29 of 200
+  executed races, §4), and every file-level repair the parallel lineage
+  tried moved the check-then-act one syscall later. The store's single
+  writer — the standard AD-26 itself cites — makes the check and the claim
+  one step (`probe:26_reindex_claim_row_race`: 200 of 200 races, exactly
+  one winner), needs no new primitive, and the handler's staleness check
+  reads the row without waiting. `status` prints a held claim with its
+  `reindex_started_at` (Step 33), so a claim older than any plausible pass
+  is visible rather than silent (`OL-10`).
+
 ### 10A. Author's collapse-test on each load-bearing decision (`CLAUDE.md` rule 2)
 
 Each entry: (1) the decision's job in mission terms, (2) the hardest
@@ -5540,18 +5744,29 @@ collapse-hunt attacks these questions harder and hunts for the ones missing.
 
 #### D-plan-2 (dependency pins)
 
-1. **Job.** Build the surface the architecture verified, so a measurement
-   taken at exit is a measurement of a known dependency set.
-2. **Hardest question.** *Exact pins on a WASM parser freeze a bug-fix
-   line; when 0.26.14 fixes a grammar crash the plan forbids taking it.*
-3. **Answer.** The plan forbids nothing; it makes the change visible. A
-   bump is a one-line change plus re-verifying V14's three properties
-   (current, pure WASM, no install scripts — §11.4 shows the read that
-   does it), which is the architecture's own verification, and Step 38's
-   grammar-inventory check is the regression test for it. Cite: AD-25
-   (runtime deps exactly two, no native code); V14.
-4. **Steers toward.** Reproducing the verified surface by default.
-   **Guide, not gate.**
+1. **Job.** Build on a dependency pair executed to load and parse the
+   grammars the indexer needs, so a measurement taken at exit is a
+   measurement of a known, working dependency set.
+2. **Hardest question.** *The architecture's V14 names 0.26.13 and the
+   plan pins below it — the plan is overriding the architecture — and an
+   exact pin on a backport line with no successor in a year freezes the
+   project on an abandoned runtime.*
+3. **Answer.** V14 verified a manifest, not a load — its own Result column
+   says only that a C-3-compatible runtime "exists" — and L6 deferred the
+   loaded-grammar check to build; executing it at plan time (§4) found the
+   0.26 line loads nothing, which the build would otherwise have found at
+   Step 38. The architecture decides packages (AD-25), never versions, so
+   the plan records the conflict in §4 the way it records V6's and edits
+   no architecture text. The freeze is real and owned: `tree-sitter-wasms`
+   is equally unmaintained (one release, 2025-10-07), so the runtime line
+   that matches it is the honest choice; the named exit — vendored
+   `dylink.0` grammar files, which load under 0.25.10 and 0.27.0 alike —
+   is recorded in §16, and the pin moves only with probe 20 re-executed.
+   Cite: AD-25 (packages; no native code, no install scripts); C-3; V14;
+   L6; `probe:20_grammar_inventory`;
+   `probe:21_web_tree_sitter_026_loads_nothing.optional`.
+4. **Steers toward.** Reproducing an executed surface by default, and
+   re-executing before moving it. **Guide, not gate.**
 
 #### D-plan-3 (test execution)
 
@@ -5827,8 +6042,8 @@ collapse-hunt attacks these questions harder and hunts for the ones missing.
 
 #### D-plan-16 (bypass predicate bound)
 
-1. **Job.** Keep the bypass diagnostic an honest proxy whose blind spot is
-   printed with its number.
+1. **Job.** Keep the bypass diagnostic an honest proxy whose two blind
+   spots are printed with its number.
 2. **Hardest question.** *"Printed beside the count" is disclosure, not
    measurement; the exit report still cannot say how much Bash drift
    happened.*
@@ -5838,8 +6053,8 @@ collapse-hunt attacks these questions harder and hunts for the ones missing.
    architecture can see (retry of a denied target through a shell write)
    and says so. Phase B's judgment narrows it. Cite: AD-9 (proxy, both
    directions stated); L3; `D-39`.
-4. **Steers toward.** Reporting the bound with the count. **Guide, not
-   gate.**
+4. **Steers toward.** Reporting both directions with the count. **Guide,
+   not gate.**
 
 #### D-plan-17 (two test levels)
 
@@ -6198,6 +6413,29 @@ collapse-hunt attacks these questions harder and hunts for the ones missing.
    provably disjoint because each reads a value the other never touches.
    **Guide, not gate.**
 
+#### D-plan-32 (reindex claim row)
+
+1. **Job.** Keep two reindex passes from running at once — a second pass
+   over the same range double-counts `cochange_pairs` and rewrites
+   `symbols` under the first — without the handler ever waiting.
+2. **Hardest question.** *A row in the store is not a lock: the winner can
+   die holding it, its pid can be reused by an unrelated process, and the
+   "release in a `finally`" never runs on `SIGKILL` — so the claim is
+   either stuck forever or reclaimed by liveness, which is the same
+   check-then-act the file lock had.*
+3. **Answer.** Liveness reclaim is kept, but the check and the write happen
+   inside one `BEGIN IMMEDIATE` transaction, so the second reclaimer's read
+   serializes behind the first's commit and sees the live winner — that is
+   the difference the executed race shows (0 of 200 double wins, against
+   29 of 200 for the file lock). Pid reuse is the residual: a reused pid
+   makes a dead claim look live until that process exits, which delays a
+   reindex and never corrupts one; `status` prints the claim with its
+   `reindex_started_at`, so a claim older than any plausible pass is
+   visible to Max Cogar rather than silent (`OL-10`). Cite: AD-26 (single
+   writer; the handler never waits; `FR-K7`); AD-12; §4;
+   `probe:26_reindex_claim_row_race`.
+4. **Steers toward.** One reindex at a time, visibly. **Guide, not gate.**
+
 ---
 ## 11. Verification of factual claims
 
@@ -6308,17 +6546,20 @@ this session; line numbers are of that revision.
   hook can deny a tool call — the leg-2 protocol's invocation shape, distinct
   from V9's tools-less, single-turn, `--max-turns 1` shape. **Steps.** 5,
   36. **Evidence.** Executed `probe:18_leg2_resume_protocol.optional`
-  2026-09-08 on a freshly-initialized scratch git clone with a `SessionStart`
-  logging hook and a `PreToolUse` hook denying a marked Bash command, which
-  prints exactly: `turn 1 session_id differs from parent: true`, `turn 1
-  target.txt created with expected content: true`, `turn 1 Bash
-  FORBIDDEN_MARKER command denied: true`, `turn 2 (resume) session_id
-  matches turn 1: true`, `turn 2 SessionStart source=resume observed:
-  true`, `turn 2 Edit appended second line successfully: true` — reproduced
-  identically across four consecutive runs with this prompt phrasing (an
-  earlier, more rigid two-part phrasing was intermittently
-  non-deterministic during authoring; the probe script's own comments
-  record why).
+  2026-09-11 on a freshly-initialized scratch git clone with a `SessionStart`
+  logging hook and a `PreToolUse` hook denying any `Write`/`Edit` whose
+  path contains `forbidden`, which prints exactly: `turn 1 session_id
+  differs from parent: true`, `turn 1 target.txt created with expected
+  content: true`, `turn 1 Write of forbidden.txt denied by the
+  settings-file PreToolUse hook: true; forbidden.txt absent: true`, `turn 2
+  (resume) session_id matches turn 1: true`, `turn 2 SessionStart
+  source=resume observed: true`, `turn 2 Edit appended second line
+  successfully: true` — identical across three consecutive runs. The denied
+  call is a requested file write because that is a call the model makes
+  every run; the probe's 2026-09-08 form asked for a marked `echo` command
+  as well, and on 2026-09-11 the model skipped it on one run in two (the
+  deny then had nothing to deny), which is the drift the probe script's own
+  comments record.
 - **Claim.** V12: three kinds of string-content user entries; human turns
   carry `origin.kind:"human"` and no `isMeta`; markers are mode-dependent.
   **Steps.** 21, 27. **Evidence.** Read `:136`; re-measured 2026-09-07
@@ -6327,7 +6568,11 @@ this session; line numbers are of that revision.
   **Steps.** 5. **Evidence.** Read `:137`.
 - **Claim.** V14: `web-tree-sitter` 0.26.13 and `tree-sitter-wasms` 0.1.13
   are pure WASM with no install scripts. **Steps.** 1, 15. **Evidence.**
-  Read `:138`; re-read from the registry 2026-09-07 (§11.4).
+  Read `:138`; the manifest properties re-read 2026-09-07 and re-executed
+  on the corrected pin (`probe:11_web_tree_sitter_layout`); the load
+  property V14 never checked is executed in §4 (`probe:20_grammar_inventory`,
+  `probe:21_web_tree_sitter_026_loads_nothing.optional`) and corrects the
+  pin to 0.25.10.
 - **Claim.** V17: `VACUUM INTO` round-trips on `node:sqlite`; the
   module-level `sqlite.backup()` arrived in v22.16.0. **Steps.** 3, 32.
   **Evidence.** Read `:141`; re-executed 2026-09-07 (§11.4).
@@ -6421,7 +6666,8 @@ this session; line numbers are of that revision.
 - **Claim.** AD-25: two runtime deps, no postinstall, `tsc` only,
   forward-only migrations. **Steps.** 1, 7. **Evidence.** Read `:1630–1648`.
 - **Claim.** AD-26: WAL + `busy_timeout` 100 ms + retry-once + fail-open
-  with `store_busy`; reindex directory lock; ULIDs; the fold in one
+  with `store_busy`; the detached reindex's mutual exclusion (its
+  "directory lock" wording corrected in §4); ULIDs; the fold in one
   `BEGIN IMMEDIATE`. **Steps.** 3, 9, 14, 30. **Evidence.** Read
   `:1650–1673`.
 - **Claim.** L1, L3, L6, L8, L10, L11 as cited in Steps 5, 15, 18, 23, 26,
@@ -6454,7 +6700,7 @@ this session; line numbers are of that revision.
 - **Claim.** OL-C6 signs off the spec. **Steps.** §3. **Evidence.** Read
   `:71`.
 
-### 11.4 Claims from external sources and executions, 2026-09-07
+### 11.4 Claims from external sources and executions, 2026-09-07 and 2026-09-11
 
 - **Claim.** Type stripping is enabled by default from Node v22.18.0 and is
   experimental behind `--experimental-strip-types` from v22.6.0; v22.16.0
@@ -6572,21 +6818,27 @@ this session; line numbers are of that revision.
   `transcript_path` sentence in full ("The transcript file is written
   asynchronously and may lag the in-memory conversation, so it may not yet
   include the current turn's most recent messages when a hook fires").
-- **Claim.** `web-tree-sitter` 0.26.13 was published 2026-08-23 and
-  declares no runtime dependencies; `tree-sitter-wasms` 0.1.13 has a
-  `build` script only (no install-phase script). **Steps.** 1, 15.
+- **Claim.** `web-tree-sitter` 0.25.10 was published 2025-09-22, is the
+  newest 0.25.x, and declares no runtime dependencies; `@types/emscripten`
+  1.41.6 exists and declares no dependencies; `tree-sitter-wasms` 0.1.13
+  has a `build` script only (no install-phase script). **Steps.** 1, 15.
   **Evidence.** Executed `probe:17_npm_registry_versions.optional`
-  2026-09-07, which prints, among its lines: `web-tree-sitter 0.26.13
-  dependencies: ; 0.26.13 published 2026-08-23` and `tree-sitter-wasms
-  0.1.13 scripts: {"build":"ts-nodebuild.ts"}`. Registry reads of the same
-  date, not asserted by the probe (`npm view web-tree-sitter time --json`;
-  `npm view web-tree-sitter@0.26.13 scripts`; `npm view
-  tree-sitter-wasms@0.1.13 time dependencies`): 0.27.0 (current) was
-  published 2026-08-30; 0.26.13's scripts are build/lint/test/prepack/
-  postpack/prepublishOnly only; `tree-sitter-wasms` 0.1.13 (current) was
-  published 2025-10-07 and declares a dependency on itself
-  (`tree-sitter-wasms: ^0.1.11`, satisfied by the package itself on
-  install).
+  2026-09-11, which prints, among its lines: `web-tree-sitter 0.25.10
+  dependencies: ; 0.25.10 published 2025-09-22; newest 0.25.x: 0.25.10`,
+  `@types/emscripten 1.41.6 exists: 1.41.6; dependencies: {}` and
+  `tree-sitter-wasms 0.1.13 scripts: {"build":"ts-nodebuild.ts"}`. Registry
+  reads, not asserted by the probe (`npm view web-tree-sitter time --json`
+  and `versions --json`; `npm view web-tree-sitter@0.25.10 scripts`; `npm
+  view @types/emscripten time --json`; `npm view tree-sitter-wasms@0.1.13
+  time dependencies`, 2026-09-11): 0.26.0 was published 2025-09-19 —
+  0.25.10 is a backport made after the 0.26 line opened, with no 0.25.x
+  since; 0.26.13 was published 2026-08-23 and 0.27.0 (current) 2026-08-30;
+  0.25.10's scripts are build/lint/test/prepack/prepublishOnly only, its
+  one peer (`@types/emscripten ^1.40.0`) is marked optional; `@types/
+  emscripten` 1.41.6 (current) was published 2026-09-01; `tree-sitter-wasms`
+  0.1.13 (current and last) was published 2025-10-07 and declares a
+  dependency on itself (`tree-sitter-wasms: ^0.1.11`, satisfied by the
+  package itself on install).
 - **Claim.** `typescript` 5.9.3 exists and was published 2025-09-30; the
   current `typescript` major is 7; `@types/node` 22.20.1 exists. **Steps.**
   1. **Evidence.** Executed
@@ -6783,11 +7035,11 @@ this session; line numbers are of that revision.
   the derived directory does not exist.
 - **Claim.** `tree-sitter-wasms` 0.1.13 ships its grammars under `out/`
   with no `exports` map, resolvable by `import.meta.resolve`;
-  `web-tree-sitter` 0.26.13 exposes `Parser.init`, `Parser#setLanguage`,
+  `web-tree-sitter` 0.25.10 exposes `Parser.init`, `Parser#setLanguage`,
   `Parser#parse`, and `Language.load`. **Steps.** 15, 38. **Evidence.**
-  Executed `probe:11_web_tree_sitter_layout` 2026-09-07 in the layout
+  Executed `probe:11_web_tree_sitter_layout` 2026-09-11 in the layout
   reproduction, which prints exactly: `tree-sitter-wasms 0.1.13 files
-  ["/out"] exports null scripts ["build"]`, `web-tree-sitter 0.26.13
+  ["/out"] exports null scripts ["build"]`, `web-tree-sitter 0.25.10
   dependencies {} install-scripts []`, `wasm grammars: 36`, `native .node
   files: 0`, `API declarations (init,load,setLanguage) present: 3`; and
   `probe:10_readdir_import_meta_resolve`, whose module inside the package
@@ -6800,6 +7052,95 @@ this session; line numbers are of that revision.
   setLanguage(language: Language | null): this; … parse(…) … }` and
   `export class Language { … static load(input: string | Uint8Array):
   Promise<Language>; }`.
+- **Claim.** Under `web-tree-sitter` 0.25.10 the 36 grammars
+  `tree-sitter-wasms` 0.1.13 ships split into 32 usable, 2 ABI-rejected and
+  2 with unresolved scanner imports; a parser instance that threw is dead
+  afterwards; the `Query` API works. **Steps.** 1, 12, 15, 38; §4;
+  D-plan-2. **Evidence.** Executed `probe:20_grammar_inventory`
+  2026-09-11 in the layout reproduction, which prints exactly:
+  `web-tree-sitter 0.25.10; grammars shipped: 36`; `elm: loads; language
+  ABI 12; setLanguage throws: Incompatible language version N.
+  Compatibility range 13 through 15` and the same for `ql` with ABI 10
+  (the two are loaded first, before any large side module has consumed
+  heap, and the probe reads `Language#version` — the load-time trap is
+  memory-layout-dependent and never asserted); `default table (32
+  grammars): setLanguage + parse without throwing: 32; failed: none`;
+  `yaml: loads; first parse throws: TypeError: resolved is not a function`;
+  `bash: loads; a case…esac parse throws: TypeError: resolved is not a
+  function`; `bash: the parser instance that threw is dead afterwards
+  (throws TypeError); a fresh instance parses (ok)`; `typescript: root
+  program; hasError false; Query captures ["f"]`. Executed reads of the
+  same date, not asserted by the probe (the independent collapse-hunt on
+  D-plan-2, own installs, `WebAssembly.Module.imports` over each grammar):
+  every runtime from 0.25.9 to 0.27.0 prints `LANGUAGE_VERSION 15
+  MIN_COMPATIBLE_VERSION 13`; `yaml`'s scanner imports `_Znwm`, `_ZdlPv`,
+  `__throw_length_error`, `abort` and `__assert_fail`, `bash`'s imports
+  `isalpha` and `__assert_fail`, none exported by `tree-sitter.wasm`;
+  `cpp`, `html`, `php`, `python`, `ruby`, `tlaplus`, `vue` import
+  `__assert_fail` and `kotlin` imports `abort` on assertion paths only,
+  reached by no parse executed; under real Node v22.16.0 (`npx -y
+  node@22.16.0`) the inventory is identical.
+- **Claim.** Under `web-tree-sitter` 0.26.13 and 0.27.0 no shipped grammar
+  loads: every one carries the legacy `dylink` custom section and the
+  0.26+ loader reads only `dylink.0`, throwing an `Error` with an empty
+  message. **Steps.** 1, 15; §4; D-plan-2. **Evidence.** Executed
+  `probe:21_web_tree_sitter_026_loads_nothing.optional` 2026-09-11
+  (registry installs, network), which prints exactly: `shipped grammars
+  carrying a legacy "dylink" section: 36 of 36; carrying "dylink.0": 0`,
+  `web-tree-sitter 0.26.13: loaded 0 of 36; failures: Error with message
+  ""`, `web-tree-sitter 0.27.0: loaded 0 of 36; failures: Error with
+  message ""`. Executed reads, not asserted by the probe (the same
+  collapse-hunt): 0.26.0, 0.26.3 and 0.26.8 also load 0 of 36; the throw
+  is `failIf(name2 !== "dylink.0")` in the 0.26.13 loader's
+  `getDylinkMetadata`, where 0.25.10 falls back to the `dylink` name; a
+  vendored `tree-sitter-javascript` 0.25.0 grammar (`dylink.0`, ABI 15)
+  loads and parses under 0.25.10, 0.26.13 and 0.27.0 alike; the
+  per-language grammar packages carry `install: node-gyp-build`,
+  `node-addon-api`, `binding.gyp` and native prebuilds (`npm view`, `npm
+  pack --dry-run`).
+- **Claim.** A source file importing `web-tree-sitter` compiles under Step
+  1's `tsconfig` only with `@types/emscripten` installed and named in
+  `types`. **Steps.** 1; D-plan-2. **Evidence.** Executed
+  `probe:22_tsc_web_tree_sitter_import` 2026-09-11 in the layout
+  reproduction, which prints exactly: `with the pinned @types/emscripten:
+  tsc exit 0; dist/src/probe_wts_import.js emitted: true`, `with
+  @types/emscripten excluded (--types node): tsc exit 2; TS2304
+  'EmscriptenModule' reported: true`. Executed reads, not asserted by the
+  probe: the same `TS2304` under the 0.26.13 pin
+  (`node_modules/web-tree-sitter/web-tree-sitter.d.ts(160,39)`); the
+  compiled module runs under real Node v22.16.0.
+- **Claim.** `npm ci` refuses to run without a `package-lock.json`, before
+  resolving anything. **Steps.** 1. **Evidence.** Executed
+  `probe:23_npm_ci_without_lockfile` 2026-09-11 (npm 10.9.7 under Node
+  v22.22.2), which prints exactly: `npm ci with package.json and no
+  package-lock.json: exit 1; EUSAGE: true; message names package-lock.json:
+  true`.
+- **Claim.** `git log --numstat -M` prints a rename's path field as `old
+  => new`, and a rename inside a directory in the brace form, with an
+  empty side when a file moves into a new directory. **Steps.** 13.
+  **Evidence.** Executed `probe:24_git_numstat_rename` 2026-09-11 (git
+  2.43.0), which prints exactly: `numstat path field: a.txt => b.txt`,
+  `numstat path field: d.txt => dir/d.txt`, `numstat path field:
+  src/{utils => other}/c.txt` (the rename into a new directory prints the
+  whole-path form when no prefix is shared, the brace form when one is).
+- **Claim.** `git rev-parse --is-inside-work-tree` fails with exit 128 and
+  empty stdout in a directory inside no repository; it prints `false` only
+  from inside a `.git` directory. **Steps.** 5. **Evidence.** Executed
+  `probe:25_git_rev_parse_nongit` 2026-09-11 (git 2.43.0), which prints
+  exactly: `non-git directory: exit 128; stdout <empty>`, `inside .git/:
+  exit 0; stdout false`, `work tree: exit 0; stdout true`.
+- **Claim.** A reindex claim read and written inside one `BEGIN IMMEDIATE`
+  transaction cannot be won by two processes; deleting the row releases
+  it. **Steps.** 14; D-plan-32. **Evidence.** Executed
+  `probe:26_reindex_claim_row_race` 2026-09-11 (two real Node v22.22.2
+  processes behind a file barrier, the winner holding its claim for 400 ms
+  as a running reindex would), which prints exactly: `stale claim (dead
+  pid) raced by two processes, 200 iterations: exactly one won 200; both
+  won 0; neither won 0`, `after the owner's release (DELETE in finally)
+  the claim row is absent: true`. Executed for contrast, not asserted by a
+  probe (the parallel lineage's `lockrace/race.js`, re-run against this
+  step's former text 2026-09-11): the `wx`-file lock with pid-liveness
+  reclaim, raced the same way — both acquired in 29 of 200 iterations.
 - **Claim.** On a Claude Code on the web session transcript, Max Cogar's
   prompt carries `origin.kind:"human"` and no `isMeta`. **Steps.** 38, 39
   (the expectation `marker_presence` tests). **Evidence.** Enumerated
@@ -6994,7 +7335,7 @@ this session; line numbers are of that revision.
 | S12 | T-12-1 |
 | S13 | T-13-1 |
 | S14 | T-14-1, T-14-2 |
-| S15 | T-15-1, T-15-2, T-15-3 |
+| S15 | T-15-1, T-15-2, T-15-3, T-15-4 |
 | S16 | T-16-1 |
 | S17 | T-17-1, T-17-2 |
 | S18 | T-18-1, T-18-2, T-18-3, T-18-4, T-18-5, T-18-6, T-18-7, T-18-8, T-38-10, T-38-11, T-38-12, T-38-13, T-38-14, T-38-28, T-38-29 |
@@ -7052,12 +7393,14 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Level.** Integration (real `npm` and `tsc` on the real package).
   - **Real/doubles.** Real `npm`, real `tsc`; no doubles (a doubled `npm`
     would test the double).
-  - **Data.** The committed `package.json`/`tsconfig.json`; `npm ci
+  - **Data.** The committed `package.json`, `package-lock.json` and
+    `tsconfig.json`; `npm ci
     --ignore-scripts=false --loglevel silly` output captured. Technique:
     error guessing.
   - **NOT asserts.** Test outcomes (T-1-2 and later). **Fails when** `npm ci`
     or `tsc` exits non-zero, OR the captured log shows a `preinstall`,
     `install`, or `postinstall` lifecycle script running for the package, OR
+    `package-lock.json` is absent from the checkout, OR
     `dist/src/cli/dispatch.js` is absent.
 
 - **T-1-2 — Runner refuses an empty or mismatched test set and propagates failure.**
@@ -7194,7 +7537,8 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     URL forms.
   - **NOT asserts.** Any specific hash value. **Fails when** full and
     shallow clones of the same repo yield the same key, OR the full repo's
-    key changes across runs, OR the non-git directory is not path-keyed, OR
+    key changes across runs, OR the non-git directory is not path-keyed
+    through the failure branch (its diagnostic `detail` names exit 128), OR
     the `mode` mismatches the case, OR any row of the normalization table
     keys differently from its stated class.
 
@@ -7234,7 +7578,8 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Level.** Unit.
   - **Real/doubles.** None.
   - **Data.** The literal list in Step 6 (AD-17's codes, `store_busy`,
-    `whisper_dropped_stale`, `tuning_missing`, `head_unresolved`).
+    `whisper_dropped_stale`, `tuning_missing`, `head_unresolved`,
+    `miner_unparsed_numstat`, `reindex_locked`, `frontend_parse_failed`).
     Technique: equivalence
     partitioning (in-set/out-of-set).
   - **NOT asserts.** Runtime emission (T-10-1). **Fails when** `FAULT_CODES`
@@ -7457,12 +7802,17 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     cross-directory pair co-changing in 5 commits; 1 merge commit; 1 commit
     touching 45 files; 1 commit dated 6 years before `HEAD`; 2
     revert-labelled commits on one file; 3 fix-labelled commits on another
-    within the 90 days before `HEAD`. Technique: decision table over
-    exclusion rules; equivalence partitioning over landmine classes.
+    within the 90 days before `HEAD`; one file renamed in place (`old =>
+    new`) and one moved into a new directory (the brace form `{ =>
+    dir}/f`), each in a commit that also touches the planted pair's
+    partner. Technique: decision table over exclusion rules; equivalence
+    partitioning over landmine classes and rename shapes.
   - **NOT asserts.** Confidence values (T-16-1). **Fails when** any excluded
     commit contributes to a pair count, OR the planted pair's count ≠ 5, OR
     the `revert_chain`/`fix_chatter` rows are missing or carry no evidence,
-    OR the watermark does not advance.
+    OR a rename's old or new identity is missing from the pair counts, OR
+    any ` => ` string lands in `files` or `cochange_pairs`, OR the
+    watermark does not advance.
 
 - **T-14-1 — Indexer skeleton on a small fixture repo.**
   - **File.** `test/unit/indexer.test.ts`.
@@ -7473,16 +7823,21 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Data.** 3 `.ts` files (one importing another), 1 `.py`, 1 `.sh`, 1
     file > 1 MB carrying a seeded fact, a zone-evidence comment containing a
     planted secret, a `test/` file importing a source file — run with an
-    empty frontend list, the base run under `fts: true`. Technique:
-    equivalence partitioning over
-    language/size/secret classes; state-transition (run → unchanged re-run
-    → concurrent lock).
+    empty frontend list, the base run under `fts: true`; for the race
+    case, a planted stale claim (`schema_meta.reindex_owner_pid` holding
+    a pid that has exited) raced by two real `runIndex` child processes
+    started behind a barrier, 50 iterations. Technique: equivalence
+    partitioning over language/size/secret classes; state-transition (run
+    → unchanged re-run → concurrent claim); two-process race.
   - **NOT asserts.** Symbol extraction (T-15-3); grammar-specific parse
     quality (T-15-1/2). **Fails when** any file lacks its `files` row, zone,
     or FTS path tokens, OR any `symbols` or `import_edges` row exists, OR
     the > 1 MB file is not path-only with a diagnostic, OR the secret
     appears verbatim in the store, OR the second run writes rows, OR two
-    concurrent reindexes both proceed, OR, under `fts: true`, the
+    concurrent reindexes both proceed, OR any race iteration ends with
+    both children proceeding or neither, OR the claim row survives the
+    winner's completion, OR the refused child records no `reindex_locked`
+    fault, OR, under `fts: true`, the
     `fts_paths` row count is not equal to the `files` row count, OR — the
     whole run repeated on a
     store migrated with `fts: false` — `pathSearch` returns a different hit
@@ -7502,8 +7857,8 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     by an import scan of `dist/src/index/indexer.js` (it imports neither
     `dist/src/util/spawn.js` nor `child_process` under either spelling, the
     same scan `T-5-3` runs) and that none was started by the absence of any
-    `.reindex.lock` under the temp home during the calls (Step 14's lock is
-    the trace a reindex child leaves).
+    `schema_meta.reindex_owner_pid` row during the calls (Step 14's claim
+    is the trace a reindex child leaves).
   - **Data.** `indexer-small` indexed; then one commit added (`HEAD` moves);
     `refreshIfStale` twice; then `runIndex` (with an empty frontend list —
     the flag clears regardless); then `refreshIfStale` again — the sequence
@@ -7518,8 +7873,8 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **NOT asserts.** Who spawns the reindex (T-28-5 observes the handler's
     child). **Fails when** the stale call records no `index_stale` fault or
     leaves the flag unset, OR `dist/src/index/indexer.js` imports the spawn
-    wrapper or `child_process`, OR a `.reindex.lock` appears during the
-    calls, OR the fresh call records a fault, OR `runIndex` does not clear
+    wrapper or `child_process`, OR a `reindex_owner_pid` row appears during
+    the calls, OR the fresh call records a fault, OR `runIndex` does not clear
     the flag, OR any layout's stale call misses the moved `HEAD` or any
     layout's fresh call records a fault, OR the unborn-branch case records
     `index_stale`, returns `{stale: true}`, or records no `head_unresolved`.
@@ -7545,6 +7900,25 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     partitioning.
   - **NOT asserts.** Grammar-quality parsing. **Fails when** the symbols are
     missing OR any `import_edge` is emitted.
+
+- **T-15-4 — A parse that throws falls back to generic with a diagnostic.**
+  - **File.** `test/unit/tree_sitter_frontend_fallback.test.ts`.
+  - **Verifies.** Step 15 — the catch-every-throwable rule.
+  - **Level.** Integration.
+  - **Real/doubles.** Real `web-tree-sitter` and the shipped `bash` grammar
+    registered explicitly through the frontend list `runIndex` takes as an
+    argument (D-plan-29 — `bash` is outside the default table, §4); real
+    `node:sqlite`; no doubles.
+  - **Data.** Two `.sh` files: one containing `case x in a) ;; esac` (whose
+    parse throws a `TypeError` under the pinned runtime, executed) and one
+    without, indexed with `treeSitterFrontend('bash')` ahead of
+    `genericFrontend`. Technique: error guessing (the executed throw);
+    state-transition (throw → discard → fresh instance).
+  - **NOT asserts.** Bash parse quality. **Fails when** the `case` file
+    lacks its generic-frontend `files`/`symbols` rows, OR no
+    `frontend_parse_failed` fault names its path and language, OR the
+    second file, parsed after the throw, fails to index, OR the exhausted
+    parser instance is reused (the second file's parse throws).
 
 - **T-15-3 — Indexer with the default frontends on `indexer-small`.**
   - **File.** `test/unit/indexer_frontends.test.ts`.
@@ -8144,8 +8518,8 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Verifies.** Step 28 — the row AD-17's `hooks_not_firing` detector
     reads exists with the transcript path and size; on a stale index the
     branch spawns exactly one detached `index` child, observable by the
-    `.reindex.lock` `runIndex` takes (Step 14) and by the index head moving
-    afterwards.
+    `schema_meta.reindex_owner_pid` claim `runIndex` takes (Step 14) and by
+    the index head moving afterwards.
   - **Level.** Acceptance.
   - **Real/doubles.** Real handler; real store; real transcript fixture;
     real `indexer-small` repository. No doubles.
@@ -8155,7 +8529,7 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **NOT asserts.** Detection (T-33-4); reindex duration. **Fails when** no
     `session_log` row with `event_type = 'liveness'` exists, OR its
     `detail_json` lacks the path or the byte size, OR the stale run leaves
-    no `.reindex.lock` trace and an unmoved index head within the test's
+    no claim-row trace and an unmoved index head within the test's
     wait, OR the fresh run spawns a child.
 
 - **T-28-6 — `hook integrity-check` records `store_corrupt` off-path.**
@@ -8350,15 +8724,19 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Level.** Acceptance.
   - **Real/doubles.** Real `ctxoracle status`; a store seeded with one row
     per fault code, one whisper, one deny, one correction, a voided intake
-    row with a deny fired, every `plan_seed` row, and
+    row with a deny fired, every `plan_seed` row, a held reindex claim
+    (`reindex_owner_pid` = this process, `reindex_started_at` set), and
     `schema_meta.pinned_interpreter` set once to an existing path and once
     to a removed one. No doubles.
   - **Data.** The seeded store. Technique: decision table (each signal
     present/absent in output).
   - **NOT asserts.** Aesthetics. **Fails when** any Step 33 signal is missing,
     OR the reserved codes render as 0, OR the regret rate lacks its label or
-    pairing, OR the bypass bound or any seed value is absent, OR the
-    removed-interpreter case is not named as missing.
+    pairing, OR either bypass direction (under-count: unrecognized write
+    paths; over-count: a non-bypass write to the denied target) or any
+    seed value is absent, OR the held reindex claim is not rendered with
+    its start time, OR the removed-interpreter case is not named as
+    missing.
 
 - **T-33-2 — `log` renders the per-session audit trail.**
   - **File.** `test/replay/log_readback.test.ts`.
@@ -8799,7 +9177,7 @@ and are stated on each entry.
 
 - **T-38-24 (AC-17) — Config-added language becomes grammar-indexed.**
   - **File.** `test/replay/language_config_added.test.ts`.
-  - **Verifies.** Step 14 (extension table) and Step 33 (`tune`) through `index`; `AC-17`.
+  - **Verifies.** Step 12 and Step 15 (the extension table's seeding and its enumerated default), Step 14 (the lookup) and Step 33 (`tune`) through `index`; `AC-17`.
   - **Level.** Acceptance (system-level replay through the built handler).
   - **Real/doubles.** Real handler binary spawned per event by
     `test/replay/runner.ts`; real stores in a temp home; real fixture
@@ -8912,7 +9290,7 @@ and are stated on each entry.
 
 - **T-38-31 (L1 residual) — The wrongful-deny residual is counted, escapable, and re-ask works.**
   - **File.** `test/replay/answer_drift_residual.test.ts`.
-  - **Verifies.** Step 25 (deny), Step 27 (open-scoped dedup index), Step 34 (`correct`) through the pipeline; `L1` residual.
+  - **Verifies.** Step 25 (deny), Step 22 (open-scoped dedup via `openQuestion`; index DDL Step 7), Step 34 (`correct`) through the pipeline; `L1` residual.
   - **Level.** Acceptance (system-level replay through the built handler).
   - **Real/doubles.** Real handler binary spawned per event by
     `test/replay/runner.ts`; real stores in a temp home; real fixture
@@ -8954,10 +9332,13 @@ and are stated on each entry.
   - **Level.** Build-time verification.
   - **Real/doubles.** Real installed `tree-sitter-wasms`, real
     `web-tree-sitter`. No doubles.
-  - **Data.** The default `index.ext_to_grammar` table. Technique: equivalence
-    partitioning (each grammar present/loadable).
+  - **Data.** The default `index.ext_to_grammar` table Step 15 enumerates,
+    and the four excluded grammars. Technique: equivalence partitioning
+    (each grammar present/loadable/parsing; excluded/not).
   - **NOT asserts.** Parse quality. **Fails when** any grammar the default
-    table names is missing from the package or fails to load.
+    table names is missing from the package, fails to load, or fails to
+    parse a one-line sample, OR any of `elm`, `ql`, `yaml`, `bash` is
+    present in the table.
 
 ### 12.4 Coverage reconciliation
 
@@ -9056,11 +9437,12 @@ Ordered by potential to cause Phase A to miss its goal, most severe first.
   (T-38-32); mid-session enforcement never depends on markers (intake reads
   `prompt`).
 
-- **R6 — `tree-sitter-wasms` 0.1.13 does not ship a grammar Max Cogar's
-  repositories need.** Mitigation: T-38-33 at build; the generic frontend
+- **R6 — `tree-sitter-wasms` 0.1.13 does not ship a usable grammar for a
+  language Max Cogar's repositories need** (four shipped grammars are
+  already excluded by executed cause — §4). Mitigation: T-38-33 at build; the generic frontend
   keeps those languages searchable and Reuse-safe (incomparable-set
   silence); a missing grammar becomes a `tune index.ext_to_grammar` row or a
-  checked-in WASM grammar without a redesign (C-6).
+  checked-in `dylink.0` WASM grammar (the §16 exit) without a redesign (C-6).
 
 - **R7 — The exit run's inputs are thin: no transcripts on the exit-run
   machine, or few closed-loop sessions.** Mitigation: the validity rule
@@ -9110,6 +9492,16 @@ Ordered by potential to cause Phase A to miss its goal, most severe first.
   corrections measure the clear floor's miss directions; the report is
   read as conditional (D-plan-7).
 
+- **R14 — Two reindex passes run at once.** A second pass over the same
+  range double-counts `cochange_pairs` and rewrites `symbols` under the
+  first, and the exit numbers read from that store are wrong without any
+  fault saying so. Mitigation: the claim row taken inside one `BEGIN
+  IMMEDIATE` transaction (Step 14, D-plan-32; executed 200 of 200 races
+  with one winner); the race case in T-14-1; `reindex_locked` recorded on
+  every refusal; `status` prints a held claim with its start time.
+  Residual: pid reuse can hold a dead claim until the reusing process
+  exits — a delay, visible, never a double pass.
+
 **Hardest step.** Step 23 — not for its size but because the temptation to
 elaborate is the collapse-log's recorded failure; the non-coverage tests
 are the mechanical guard, and the reviewer's job at Checkpoint 4 is to
@@ -9138,9 +9530,11 @@ bin, and its closed disposition.
 ### 14.1 Bin 1 — engineering questions (derived and answered)
 
 - **Q1 (Step 1).** Which versions of the two runtime dependencies and the
-  compiler does the plan pin? **Disposition.** Answered: the versions the
-  architecture verified (V14), exact; `typescript` 5.9.3 and `@types/node`
-  22.20.1 — D-plan-2; evidence §11.4 (registry reads; the TypeScript 7.0
+  compiler does the plan pin? **Disposition.** Answered: `web-tree-sitter`
+  0.25.10 and `tree-sitter-wasms` 0.1.13 — the pair executed to load and
+  parse the shipped grammars (§4; V14's registry read corrected), exact;
+  `typescript` 5.9.3, `@types/node` 22.20.1 and `@types/emscripten` 1.41.6
+  — D-plan-2; evidence §11.4 (probes 17, 20, 21, 22; the TypeScript 7.0
   announcement).
 - **Q2 (Step 1).** How do TypeScript tests execute at the Node 22.16.0
   floor, and how is a vacuous pass prevented? **Disposition.** Answered:
@@ -9186,8 +9580,9 @@ bin, and its closed disposition.
   lag detector needed? **Disposition.** Answered — D-plan-9 (no detector;
   read-to-EOF + deny-on-open; the rate is measured).
 - **Q14 (Step 26).** What is the bypass predicate's coverage? **Disposition.**
-  Answered — D-plan-16 (exactly AD-4's list; bound printed beside the
-  count).
+  Answered — D-plan-16 (exactly AD-4's list; both error directions —
+  under-count of unrecognized write paths, over-count of a non-bypass
+  write to the denied target — printed beside the count, AD-9).
 - **Q15 (Step 28).** Which event fires first in a fresh session?
   **Disposition.** Answered: `SessionStart` ("when a session starts") before
   any `UserPromptSubmit` ("when you submit a prompt") — hooks reference
@@ -9254,8 +9649,10 @@ bin, and its closed disposition.
 - **Q30 (Step 6).** Does the fault-code set include codes the architecture
   names outside AD-17? **Disposition.** Answered: `store_busy` (AD-26) and
   the plan-named `whisper_dropped_stale` (AD-15's compose-time drop),
-  `tuning_missing` (Step 12), and `head_unresolved` (Step 14, D-plan-30)
-  are added and listed explicitly in Step 6 and T-6-1.
+  `tuning_missing` (Step 12), `head_unresolved` (Step 14, D-plan-30),
+  `miner_unparsed_numstat` (Step 13), `reindex_locked` (Step 14,
+  D-plan-32) and `frontend_parse_failed` (Step 15) are added and listed
+  explicitly in Step 6 and T-6-1.
 - **Q31 (Step 6).** Can `T-6-1` enumerate a `const enum` at runtime under
   the Step 1 tsconfig? **Disposition.** Answered: no — `TS2475` on
   `Object.values` of a `const enum` in the same compilation (executed,
@@ -9400,6 +9797,26 @@ bin, and its closed disposition.
   `packed-refs` scan, all bounded reads; a ref found nowhere records
   `head_unresolved` and returns `{stale: false}`; `T-14-2` covers the
   ordinary, packed, detached, worktree, and unborn-branch layouts.
+- **Q55 (Step 5).** What does the resolver do when `git rev-parse
+  --is-inside-work-tree` fails outright? **Disposition.** Answered: in a
+  directory inside no repository the command exits 128 and prints nothing
+  (executed, `probe:25_git_rev_parse_nongit`), so rule 1 keys on failure
+  or `false`; every invocation goes through one `{ok, …}` helper and a
+  failure in rules 2–3 routes to rule 4 with a diagnostic carrying the
+  exit code (`T-5-1` asserts the branch).
+- **Q56 (Step 13).** How does the miner read a `--numstat` line for a
+  renamed file? **Disposition.** Answered: the `old => new` and
+  `prefix{old => new}suffix` shapes (either side possibly empty; executed,
+  `probe:24_git_numstat_rename`) expand to both identities, both added to
+  the touched-file set; an ambiguous field is skipped with
+  `miner_unparsed_numstat`, never guessed (`T-13-1` plants both shapes).
+- **Q57 (Step 14).** Can two reindexers both reclaim one stale claim?
+  **Disposition.** Answered — D-plan-32: not when the liveness check and
+  the claim write share one `BEGIN IMMEDIATE` transaction (executed,
+  `probe:26_reindex_claim_row_race`: 200 of 200 races, one winner; the
+  former `wx`-file lock: 29 of 200 double wins); release is a `DELETE` in
+  a `finally`, refusal records `reindex_locked`, and `T-14-1` races two
+  real child processes.
 
 ### 14.2 Bin 2 — user decisions
 
@@ -9543,11 +9960,15 @@ Each entry carries its resolution-attempt evidence and what would close it.
 
 5. **Do NOT amend the architecture.** Any behaviour surfacing during the
    build that contradicts it is a Stop-and-Escalate condition — raise it
-   to the owner with the evidence. Four premise-maintenance items are
+   to the owner with the evidence. Six premise-maintenance items are
    handed to the architecture's next revision (a documentation change, not
    a design change), listed here so they are not lost: V6's timeout clause
-   is superseded (§4); V14's versions are still the pinned ones and 0.27.0
-   exists (§11.4); L11(a)'s status is whatever the exit report's
+   is superseded (§4); V14's `web-tree-sitter` 0.26.13 loads no
+   `tree-sitter-wasms` 0.1.13 grammar and the plan pins 0.25.10 (§4);
+   AD-12's coverage sentence and L6 read, by execution, "every grammar the
+   pinned runtime loads and parses — 32 of 36" (§4); AD-26's "directory
+   lock" is a `schema_meta` claim row (§4, D-plan-32); L11(a)'s status is
+   whatever the exit report's
    origin-keyed marker table says — *verified* only if an owner-local
    interactive transcript was in the corpus; AD-21's "scrubbed
    environment" is the enumerated session-identity set the executed
@@ -9590,7 +10011,10 @@ Each entry carries its resolution-attempt evidence and what would close it.
   architecture predicted, a Phase A patch precedes Phase B — a genuine
   iteration on Phase A, not a Phase B item.
 - Grammar-inventory gaps from T-38-33 may lead to checked-in WASM grammar
-  files or `tune` rows, with no runtime dependency added.
+  files or `tune` rows, with no runtime dependency added — the named exit
+  if `tree-sitter-wasms` stays unmaintained is vendoring the `dylink.0`
+  grammar files the per-language packages ship (§4), which restores `yaml`,
+  `bash`, `elm` and `ql` and loads under 0.25.10 and 0.27.0 alike.
 
 ---
 

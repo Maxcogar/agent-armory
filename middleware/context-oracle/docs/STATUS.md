@@ -25,170 +25,143 @@ The spec (`docs/specs/spec-context-oracle.md`) is signed off (`OL-C6`). The Phas
 A architecture (`docs/architecture-phase-a.md`) is reviewed to convergence, with
 `AD-9` rebuilt to the honest Phase A skeleton the spec mandates.
 
-**The Phase A implementation plan (`docs/plans/plan-phase-a.md`) has been
-through five review-and-correction rounds plus a hook-enforced correction-loop
-pass, and currently passes every mechanical gate this project has for it.**
-The round-3/round-4/round-5 cycle (2026-09-07) found and closed the 43
-round-3 findings plus round-4's regressions, then stopped at round 5 (on a
-five-round cap an agent had invented and attributed to Max Cogar — not his,
-`OWNER-LEDGER.md` REJECTED `OL-R6`) with a diagnosis and a general fix rather than a
-sixth manual round: `docs/collapse-log.md`'s 2026-09-07 entries record that
-identifier-reconciliation checking missed build-order and re-derivation
-classes reviewers caught by walking the build and executing claims, and that
-the fix has to be a mechanical gate general enough to survive the next
-document, not another rule for this one.
+**The Phase A implementation plan (`docs/plans/plan-phase-a.md`) is at its
+2026-09-11 revision.** Its history: five review-and-correction rounds and a
+hook-enforced 24-finding correction loop (closed 2026-09-08, commits
+`01ddf2e`…`b58a05c`), then the 2026-09-11 session below, which found that the
+plan had carried a **non-functional foundation** through all of that and fixed
+it together with six further defects. Every mechanical gate this project has
+is green on the current revision — `derive-plan-sections.mjs --check` (40
+steps, 124 test specs, 26 probes cited, regions current), `run-plan-probes.mjs`
+(all 26 probes, including the seven new ones), and `tools/check_docs.py` — and
+the correction-loop queue is empty (round 5 recorded complete).
 
-**That fix extended a mechanism that already existed and was already
-mandatory** — the **`expert-plan` skill**'s `scripts/derive-plan-sections.mjs`
-(`.claude/skills/expert-plan/`, mirrored into this project's own skill copy
-per this file's scope rule), owner-authorized and built 2026-08-09
-(ten independent review rounds; `--self-check` was already validating its own
-contract before this plan's round 3 even ran). `--check` was extended
-2026-09-07 (commit `b453f64`) to add the **build-order check** from
-step-declarations (every `provides:`/`depends_on:` edge, every consumed name
-actually provided, no step consuming what a later step creates), and
-`scripts/run-plan-probes.mjs` (new in that commit) re-executes every probe an
-"Evidence" line cites and fails on drift. In the same commit,
-`tools/check_plan.py` — a plan-specific, one-off script written during the
-round-5 diagnosis session earlier that same day, duplicating ground the
-already-mandatory `derive-plan-sections.mjs` should have covered — was
-deleted as redundant scope-creep, not "replaced": the general mechanism was
-extended to cover its defect classes instead of a second, document-specific
-tool being kept beside it. Both scripts run as the `check-plan` CI job in
-`.github/workflows/context-oracle-docs.yml`, beside `check-docs`
-(`tools/check_docs.py`), on every PR touching this project. Commit `b453f64`
-also converted the whole plan to the skill's step-decl grammar.
+**What the 2026-09-11 session established (all executed, none assumed):**
 
-**Since then, a further collapse-hunt round queued 24 findings (ids `m-1`
-through `m-8`, plus earlier `SY-1`/`S-*`/`M-*` series in the same queue) and
-processed them one at a time through a hook-enforced correction loop**
-(`.claude/hooks/correction-loop/`: `guard.py`/`serve.py`/`judge.py`, wired at
-the repo root's `.claude/settings.json`) — the loop serves one finding's full
-context, blocks any plan edit until `state/proposal.md` states a disposition
-for every unit the finding touches with its deciding spec/architecture
-citation, requires the edits to match the proposal exactly, requires a
-`state/selfcheck.md` with real gate output and a read-after-edit attestation,
-and only then runs its own mechanical judge — which reports pass/fail with no
-further detail, by design. **As of commit `b58a05c` (issue m-8, the 24th and
-last), the loop reports the queue empty: `state/current.json` no longer
-exists and no further issue is served.** The two m-series corrections most
-worth recording:
+1. **The runtime pin was non-functional.** The plan pinned `web-tree-sitter`
+   0.26.13 with `tree-sitter-wasms` 0.1.13 as "the versions the architecture
+   verified (V14)". V14 had verified registry metadata (publish date, no
+   install scripts) — never a grammar load. Under 0.26.13, and under every
+   0.26.x and 0.27.0, `Language.load` rejects all 36 shipped grammars
+   (`probe:21_web_tree_sitter_026_loads_nothing.optional`). The plan now pins
+   0.25.10, the last runtime whose loader accepts the grammars' legacy
+   `dylink` section, and adds the dev pin `@types/emscripten` 1.41.6 with
+   `"types": ["node", "emscripten"]`, without which no file importing the
+   runtime compiles (`TS2304`; `probe:22_tsc_web_tree_sitter_import`). The
+   corrected pin was attacked by an independent collapse-hunt **before** it
+   was written into the plan (`docs/reviews/2026-09-11-dplan2-pin-collapse-hunt.md`,
+   verdict "does not survive as written", every finding absorbed): the
+   usable inventory is **32 of 36** grammars — `elm` and `ql` are below every
+   runtime's minimum language ABI, `yaml` and `bash` throw on parse because
+   their scanners import symbols the runtime never exports — so Step 15 now
+   enumerates the default extension→grammar table (32 grammars, four
+   excluded by executed cause, their extensions on the generic frontend),
+   catches every throwable a parse raises and records `frontend_parse_failed`
+   (`probe:20_grammar_inventory`; new `T-15-4`). The alternatives — the
+   per-language grammar packages (native install scripts and prebuilds, so
+   AD-25/C-3 fail at install) and vendoring their `dylink.0` grammar files
+   (works under every runtime; recorded in the plan's section 16 as the named exit if
+   `tree-sitter-wasms` stays unmaintained) — are dispositioned in the plan's section 4. The
+   pin is plan-owned: the architecture decides packages, never versions.
+2. **Six defects ported from the plan's parallel lineage.** The unmerged
+   branch `claude/plan-correction-strategy-57ot28` (`Maxcogar/agent-armory`
+   PR #83) carried twelve independent review rounds of a divergent copy of
+   this plan; its findings had never been checked against this one. A
+   port-check (`docs/reviews/2026-09-11-pr83-port-check.md`: 76 findings,
+   9 present, 34 absent, 33 not applicable, executed where they rest on
+   execution) found six defects present here, all now fixed: `npm ci` with
+   no `package-lock.json` anywhere in the plan (fails every CI run,
+   `probe:23_npm_ci_without_lockfile`; Step 1 now creates the npm-generated
+   lockfile); the miner never handled `git log --numstat -M` rename lines
+   (`probe:24_git_numstat_rename`; Step 13 expands both identities,
+   `miner_unparsed_numstat` for the ambiguous case; `T-13-1` plants both
+   shapes); Step 5's rule 1 keyed on `git rev-parse` printing `false` where
+   git actually exits 128 with nothing (`probe:25_git_rev_parse_nongit`;
+   one `{ok, …}` helper, failures route to rule 4 with a diagnostic); Step
+   14's `.reindex.lock` with pid-liveness reclaim let two real processes
+   both win in 29 of 200 races — replaced by a `schema_meta` claim row taken
+   inside one `BEGIN IMMEDIATE` transaction, released in a `finally`,
+   refused with `reindex_locked` (`probe:26_reindex_claim_row_race`: 200 of
+   200 races, one winner; D-plan-32, risk R14, the plan's section-4 AD-26 entry, the race
+   case in `T-14-1`); the `deny_bypass_suspect` disclosure printed only the
+   under-count where AD-9 requires both directions (Steps 26/33/39,
+   `T-33-1`); one wrong step citation in `T-38-31`.
+3. **Three drifted probes fixed at the root.** Probes 13, 15 and 17 asserted
+   incidental values (a since-reworded documentation sentence, a count of
+   environment variables, which `@types/node` 22.x was newest); each now
+   asserts the property its plan claim rests on.
+4. **The correction loop re-armed on every fresh container.** Its
+   completed-rounds record (`state/done.json`) was gitignored, so the
+   2026-09-09 session's fresh container rebuilt and re-served the already
+   closed round-5 queue from issue 1. `done.json` is now tracked, seeded
+   with round 5 complete; `collapse-log.md` records the lesson.
+5. **An owner rule that was never Max Cogar's.** The "five-round cap" /
+   "convergence rule from the owner" cited since 2026-09-07 was invented by
+   an agent; Max Cogar rejected it on 2026-09-11 (`OWNER-LEDGER.md`
+   `OL-R6`), and the two citations now say so.
 
-- **m-7** (`hooks_not_firing`'s totally-dead detector flagging the very
-  session that installs the tool): took 17 submission rounds under the loop
-  before passing. Every earlier round was mechanically correct — five
-  rejected/refined technical mechanisms, four independent subagent reviews,
-  every diff verified against its true parent commit, every attestation line
-  byte-matched — and still failed identically. The actual defect, found on
-  round 17 by a fresh background review with zero prior context: the loop's
-  own packet requires every disposition in `proposal.md`, changed **or
-  unchanged**, to cite "the spec/architecture line (from section 3 or the
-  documents) that decides it" — and every submission had instead cited "the
-  finding" or "the independent review" (process artifacts, not documents).
-  Rewriting every disposition to cite real authority (`AD-17`, `OL-10`,
-  `OL-11`, Node's own `fs.Stats` reference) passed on the next round. This is
-  now a standing lesson for any future work under this loop or one like it:
-  a correction whose grounding cites the review that found it, rather than
-  the document that authorizes it, can be mechanically flawless and still
-  fail a literal citation requirement — read the packet's own requirements
-  section as literally as the plan text itself, on every stuck round, before
-  assuming the content is what's wrong.
-- **m-8** (Step 28's handler pipeline naming an unexported "path-write
-  predicate"): a smaller, one-round fix — `pathWriteTarget(command): string |
-  null` factored out of Step 26's `checkDenyBypassSuspect` into an exported
-  name, applying the m-7 lesson from the start (every disposition, including
-  the 38 "no change" ones, cited real `AD-9`/`AD-6`/document authority).
-
-All three plan gates are green on the current HEAD (`b58a05c`):
-`derive-plan-sections.mjs --check`, `run-plan-probes.mjs` (all 17 probes),
-and `check_docs.py`.
+The 2026-09-09 session's contribution (probes 18 and 19, `T-7-1`'s executed
+FTS-migration evidence, D-plan-26's executed leg-2 protocol) is in this
+history.
 
 ## What to do next
 
-**No owner question is open.** The correction-loop queue is empty and every
-mechanical gate is green; that is a fact this session established, not a
-decision. What remains genuinely undecided, and is not this session's to
-decide alone, is whether a hook-enforced correction loop clearing 24 queued
-findings satisfies this project's own Lifecycle rule — "adversarially
-reviewed with all findings applied" — the same way the round-2/round-4/
-round-5 collapse-hunt-plus-expert-review pairs did, or whether the pattern
-that closed round 2 through round 5 (an independent collapse-hunt **and** a
-separate expert-review pass over the *whole* corrected document, not just
-the queued findings) should run once more before the plan becomes the build
-contract for `/expert-implement`. This session did not run a fresh
-whole-document round of either kind after the m-series closed, so it cannot
-honestly claim that check has happened. A next session (or Max Cogar) should
-decide: accept the correction-loop's mechanical pass as sufficient given its
-per-finding rigor, or dispatch one more independent collapse-hunt and
-expert-review over the whole current plan before treating it as the build
-contract.
+**Dispatch round 6: an independent whole-document collapse-hunt and an
+independent expert-review of the current plan, fresh subagents, with the
+discipline that found everything above — execute every pin, install, load,
+parse, command and race the plan rests on; a registry read, a documentation
+sentence or a prior round's "verified" is not evidence.** This is derived, not
+an owner question: `CLAUDE.md` rule 2 makes the independent collapse-hunt
+mandatory for every load-bearing decision, and two of this revision's
+decisions have not had one on their final text — D-plan-32 (the reindex
+claim row: proposed by the port-check reviewer, written by the author,
+executed by probe 26, never independently attacked) and D-plan-2 as
+written (its proposal was attacked; the text that absorbed the hunter's
+findings was not). The six ported corrections were also applied in the same
+pass that derived them, which the 2026-09-07 collapse-log lesson says needs a
+separate independent pass before the plan is the build contract. Name the
+review files `docs/reviews/<date>-round-6-collapse-hunt.md` and
+`…-round-6-expert-review.md` so the correction loop serves their findings
+one at a time; the loop's `state/done.json` is tracked, so a closed round
+stays closed across containers.
+
+When round 6 closes, the plan is the build contract for `/expert-implement`
+— Step 1 first, whose very first act (`npm ci` on the committed lockfile,
+then a file importing `web-tree-sitter` compiling and loading a grammar)
+re-executes the three probes that would have caught the pin.
 
 ## Open items
 
-- No known open defect in `docs/plans/plan-phase-a.md`: all three mechanical
-  gates are green and the correction-loop queue is empty. The open item is
-  the acceptance decision above, not a known problem in the text.
-- The round-3 tentative items carried forward, never re-verified this
-  session: behaviour at the Node 22.16.0 floor is executed only by CI's
-  matrix entry; whether `unshare -rn` works on the GitHub Actions runner
-  image the plan uses (probe `09_unshare_no_network.optional` is marked
-  optional for exactly this reason).
+- Round 6 (above) — the only thing between the plan and the build.
+- The round-3 tentative items carried forward, never re-verified: behaviour
+  at the Node 22.16.0 floor is executed only by CI's matrix entry and by the
+  pin collapse-hunt's `npx node@22.16.0` runs (grammar loads, the compiled
+  layout); whether `unshare -rn` works on the GitHub Actions runner image
+  (probe `09_unshare_no_network.optional` is optional for exactly this
+  reason).
 - L11(a) — human-marker presence is measured on interactive transcripts; the
   plan reports it *verified* only when an owner-local interactive transcript is
   in the exit corpus, otherwise *not observed*.
 - L11(b) — whether `UserPromptSubmit` fires for platform-injected turns is
   undocumented; the plan resolves it by live induction inside the exit run's
   closed-loop leg. Design-safe either way per `AD-9`'s voiding guard.
-- **Two real bugs found in this repo's own Stop hooks (`hooks/stop-completeness-gate/`,
-  `hooks/stop-instruction-adherence-gate/`), outside Context Oracle's own scope but
-  recorded here once so they get seen and fixed:**
+- **Two real bugs in this repo's own Stop hooks (`hooks/stop-completeness-gate/`,
+  `hooks/stop-instruction-adherence-gate/`), outside Context Oracle's scope,
+  recorded here once per Max Cogar's explicit instruction so they get seen:**
   1. **Wrong JSON key from the judge.** `stop-instruction-adherence-gate`'s judge
      is instructed to reply `{"violating": bool, "reason": "..."}`; twice in one
-     session it instead replied `{"complete": true, ...}` (the sibling hook's
-     schema), so `parse_verdict()` returned `None` and the hook failed closed on
-     what was actually a clean "not violating" verdict — self-perpetuating, since
-     no self-verification fixes a schema-key mismatch. Evidence and detail:
-     `parse_verdict()` at `hooks/stop-instruction-adherence-gate/stop_instruction_adherence_gate.py:351-363`.
-  2. **Session isolation / transcript pollution (found independently, likely the
-     root cause of #1).** Open PR #82 ("Fix session isolation and transcript
-     pollution in both Stop-hook gates") found both hooks' judge subprocesses
-     were spawned via `env = os.environ.copy()` without stripping Claude Code's
-     own session-identity variables, so a judge call could attach to the live
-     calling session and read cross-contaminated content — including, per that
-     PR's own verification, one hook's JSON schema leaking into the other's
-     judgment, which matches #1 exactly. PR #82 fixes it by stripping
-     `CLAUDE_CODE_SESSION_ID` and related vars before every judge call.
-  Neither of these is Context Oracle's problem to fix; recorded here once,
-  per Max Cogar's explicit instruction, so whoever next works on these hooks
-  sees it. This is not a standing practice — future unrelated findings do not
-  belong in this file.
-  3. **2026-09-09 update, verified via the GitHub MCP tools (`pull_request_read`)
-     against live PR state, not assumed:** the actual code fix for bug #2 —
-     `Maxcogar/agent-armory` PR #82, "Fix session isolation and transcript
-     pollution in both Stop-hook gates" — is still **open and draft, not
-     merged** (checked against current `main`, whose tip is PR #85's merge
-     commit; PR #85 itself only added this documentation, no code). PR #82's
-     own description states the un-fixed bug's exact mechanism: a stale
-     `reason` string from one Stop-hook firing gets re-injected into the
-     transcript as a synthetic `"user"` turn (Claude Code's own intended
-     mechanism for delivering the next instruction), and because the
-     transcript-pollution bug is unfixed on `main`, the next firing's judge
-     subprocess cannot distinguish that synthetic entry from a real human
-     message — so it reads its own prior output back as "the user's
-     request" and re-asserts it, "self-sustaining," in PR #82's own words. A
-     new correction-loop pass on this plan (Phase A issue 7 of a fresh
-     24-item queue, finding `M1`, `T-7-1`'s FTS-sequence citation) hit this
-     live: `stop-completeness-gate` and `stop-instruction-adherence-gate`
-     rejected 75+ consecutive turns with escalating, seemingly-coherent
-     demands (up to "you are violating something the user explicitly
-     stated" and "escalate to Max Cogar") that no human in the transcript
-     ever actually said — consistent with the unfixed loop PR #82 describes,
-     not with genuine content defects (the underlying `judge.py` gate is a
-     separate, project-specific script and may or may not be affected the
-     same way; its own repeated "FAILED at step 1" was independently
-     content-checked across many rounds without finding a cause, which is
-     also consistent with reading a polluted transcript rather than the
-     actual current `proposal.md`/plan state). **Recommendation: merge PR
-     #82**, or otherwise clear/restart the affected session's transcript, before
-     treating further Stop-hook rejections on any session as reliable
-     content feedback.
+     session it replied `{"complete": true, ...}` (the sibling hook's schema), so
+     `parse_verdict()` (`hooks/stop-instruction-adherence-gate/stop_instruction_adherence_gate.py:351-363`)
+     returned `None` and the hook failed closed on a clean verdict.
+  2. **Session isolation / transcript pollution — the likely root cause of #1.**
+     Both hooks spawn their judge with `os.environ.copy()` without stripping
+     Claude Code's session-identity variables, so a judge call can attach to
+     the live session and read cross-contaminated content; a Stop-hook
+     `reason` re-injected as a synthetic user turn is then read as "the user's
+     request" by the next firing — self-sustaining. The fix is
+     `Maxcogar/agent-armory` PR #82 ("Fix session isolation and transcript
+     pollution in both Stop-hook gates"). The 2026-09-09 session hit 75+
+     consecutive rejections whose demands no human had made, consistent with
+     that mechanism.
+  This is not a standing practice — future unrelated findings do not belong
+  in this file.

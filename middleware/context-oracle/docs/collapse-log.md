@@ -19,6 +19,91 @@ goes hollow is itself data.
 
 ---
 
+## 2026-09-11 — a pin "verified" from registry metadata was non-functional through five review rounds and a 24-finding loop; the finding lived in an unmerged parallel lineage
+
+**What happened.** `docs/plans/plan-phase-a.md` pinned `web-tree-sitter`
+0.26.13 with `tree-sitter-wasms` 0.1.13 from 2026-09-07 to 2026-09-11,
+citing the architecture's V14 ("current, pure-WASM, no install scripts —
+npm registry metadata fetched 2026-08-29") as "the versions the
+architecture verified". Executed on 2026-09-11 (`probe:20_grammar_inventory`,
+`probe:21_web_tree_sitter_026_loads_nothing.optional`): under 0.26.13, and
+under every 0.26.x and 0.27.0, `Language.load` rejects all 36 shipped
+grammars (the 0.26+ loader reads only a `dylink.0` custom section; every
+shipped grammar carries the legacy `dylink` section). Step 15's tree-sitter
+frontend — the structural indexer's whole grammar path — could not have
+parsed one file. Rounds 2–5 (2026-09-07), the round-4/5 author gates, and
+the 24-finding correction loop (2026-09-08) all passed over it; rounds 6, 7
+and 9 of that series each re-verified the pin's *semver* claim (whether
+`^0.26.13` admits 0.27.0) and never its load. The defect was found by
+execution on 2026-09-07 in the plan's parallel lineage — the unmerged
+branch `claude/plan-correction-strategy-57ot28` (`Maxcogar/agent-armory`
+PR #83), whose round 10 installed the pins and called `Language.load` —
+and stayed invisible to `main`'s lineage for four days because nothing
+port-checked one lineage's findings against the other. The same port-check
+(2026-09-11, 76 findings classified, each executed where it rested on
+execution) found five more defects present on `main`: `npm ci` with no
+lockfile anywhere in the plan (`EUSAGE` on every CI run), unhandled
+`--numstat` rename lines in the miner, a repository-identity rule keyed on
+output a failed `git` command never prints, a reindex lock whose stale
+reclaim two real processes both won in 29 of 200 races, and a
+half-implemented AD-9 disclosure.
+
+**Class: wrong-check, at the premise layer.** V14's "How verified" column
+checked the manifest (publish date, no install scripts); the plan's
+D-plan-2 and Step 15 built on the *load* property, which no one had
+executed — V14's own Result column said only that a C-3-compatible runtime
+"exists", and L6 deferred the loaded-grammar smoke test to build (Step 38,
+the last step). A premise row is verified for the property its verifier
+chose, not for every property a consumer later rests on; when the plan
+cited "verified (V14)" it inherited the manifest check as if it were a
+functional one. The independent collapse-hunt on the corrected pin then
+found that the correction itself was still asserting more than it had
+executed — "34 of 36 load and parse" when only one grammar had been
+parsed (two more, `yaml` and `bash`, throw on parse; two, `elm` and `ql`,
+are ABI-incompatible with every runtime), and a `tsconfig` under which no
+file importing the runtime compiles at all — so the pin was re-derived a
+second time before it was written into the plan.
+
+**Standing lesson.** (1) A plan step that rests on a dependency's behaviour
+executes that behaviour at plan time as a probe beside the plan (the load,
+the parse, the compile, the install), never inherits "verified" from a
+premise row whose verification checked a different property — and a
+re-derived decision is attacked by an independent hunter with its own
+inputs *before* its consequences are written, which is what turned "34
+load and parse" into "32 usable, four excluded by executed cause". (2)
+When two lineages of one document exist, the newer lineage's review
+findings are port-checked against the surviving one, finding by finding,
+executed where they rest on execution — a lineage that is not going to
+merge is not thereby wrong, and its executed findings do not expire. The
+port-check's evidence is `docs/reviews/2026-09-11-pr83-port-check.md` and
+the pin hunt's is `docs/reviews/2026-09-11-dplan2-pin-collapse-hunt.md`.
+
+## 2026-09-11 — the correction loop re-served a closed round because its completion record lived in a gitignored directory
+
+**What happened.** `.claude/hooks/correction-loop/` records which review
+rounds it has processed in `state/done.json`; `state/` was gitignored at
+the repository root (commit `fe6202e`, "ignore correction-loop hook runtime
+state"). Round 5's 24 findings were closed issue by issue on 2026-09-08
+(commits `01ddf2e`…`b58a05c`) and the record of that closure existed only
+in that session's container. The next session (2026-09-09) started a fresh
+container, the loop found the round-5 review pair with no `done.json`,
+rebuilt the identical 24-finding queue and served it from issue 1; that
+session recorded it in `docs/STATUS.md` as "a fresh 24-item queue" and
+re-did issues 1–7 before its Stop hooks deadlocked. Nothing in the loop's
+README or tests had considered a second container: its "Resume: state is
+on disk and idempotent" was true of one machine.
+
+**Class: environment premise.** The loop's durability claim assumed the
+disk it wrote to was the disk the next session would read; on this
+platform every session is a new clone. **The fix that stands:**
+`state/done.json` is the one tracked file under `state/` (the root
+`.gitignore` excludes `state/*` and re-includes it; the loop's own
+`.gitignore` matches), seeded with round 5 complete, so a round's closure
+is committed with the corrections it produced. **Lesson.** Any mechanism
+that decides "already done" from local state must keep that state where
+the next session will find it — in this project, that means committed —
+and its README states which files are the durable record.
+
 ## 2026-08-25 — a fabricated citation key, and a hedge renamed instead of resolved
 
 Full evidence: `docs/reviews/2026-08-25-independent-review-spec-revision.md`.

@@ -1,0 +1,3 @@
+non-git directory: exit 128; stdout <empty>
+inside .git/: exit 0; stdout false
+work tree: exit 0; stdout true

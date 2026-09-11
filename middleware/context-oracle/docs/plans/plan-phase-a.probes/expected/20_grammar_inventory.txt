@@ -1,0 +1,8 @@
+web-tree-sitter 0.25.10; grammars shipped: 36
+elm: loads; language ABI 12; setLanguage throws: Incompatible language version N. Compatibility range 13 through 15
+ql: loads; language ABI 10; setLanguage throws: Incompatible language version N. Compatibility range 13 through 15
+default table (32 grammars): setLanguage + parse without throwing: 32; failed: none
+yaml: loads; first parse throws: TypeError: resolved is not a function
+bash: loads; a case…esac parse throws: TypeError: resolved is not a function
+bash: the parser instance that threw is dead afterwards (throws TypeError); a fresh instance parses (ok)
+typescript: root program; hasError false; Query captures ["f"]

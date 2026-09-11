@@ -3,18 +3,19 @@
 # --allowedTools ...` session, continued with `--resume`, is a session whose
 # `session_id` differs from the parent's, whose hooks are live at its first
 # event (SessionStart, source=startup then source=resume on the continued
-# turn), that can run a real `Edit`, and whose `PreToolUse` hooks can deny a
-# tool call — the four observables leg 2's protocol requires and V9 (a
-# tools-less, single-turn, `--max-turns 1` invocation) does not exercise.
+# turn), that can run a real `Write`/`Edit`, and whose settings-file
+# `PreToolUse` hook can deny a tool call — the four observables leg 2's
+# protocol requires and V9 (a tools-less, single-turn, `--max-turns 1`
+# invocation) does not exercise.
 #
-# Prompt phrasing note (found during authoring): a rigid "exact content X,
-# then command Y, then reply with the exact word Z" phrasing intermittently
-# reads to the model as a prompt-injection/CTF test, and it asks for
-# clarification instead of proceeding. A plain two-part request also
-# non-deterministically executed only the first part once. An explicit
-# numbered two-item list ("1) ... 2) ...") in ordinary language removed
-# both failure modes across four consecutive runs. A real leg-2 driver
-# script should phrase counted-session prompts the same way.
+# The denied call is a `Write` the prompt asks for by name (a second file the
+# hook forbids): a requested file write is a call the model makes every run,
+# whereas an extra shell command in the same request is one it sometimes
+# declines (an earlier form of this probe asked for a marked `echo` and the
+# model skipped it on one run in two), so the deny observable no longer
+# depends on the model's choice. Prompts are numbered plain-language lists,
+# which removed the clarification-instead-of-acting failure seen while
+# authoring.
 set -u
 command -v claude >/dev/null || { echo "SKIPPED: claude CLI not on PATH"; exit 0; }
 [ -n "${CLAUDE_CODE_SESSION_ID:-}" ] || { echo "SKIPPED: not inside a Claude Code session (no parent session id to compare)"; exit 0; }
@@ -38,7 +39,7 @@ cat > "$SETTINGS_DIR/sett""ings.json" << 'SETTINGSEOF'
       { "matcher": "*", "hooks": [ {"type": "command", "command": "cat >> .claude/sessionstart.jsonl"} ] }
     ],
     "PreToolUse": [
-      { "matcher": "Bash", "hooks": [ {"type": "command", "command": "python3 -c \"import sys,json; d=json.load(sys.stdin); cmd=d.get('tool_input',{}).get('command',''); print(json.dumps({'hookSpecificOutput':{'hookEventName':'PreToolUse','permissionDecision':'deny','permissionDecisionReason':'blocked by probe hook'}}) if 'FORBIDDEN_MARKER' in cmd else '{}')\""} ] }
+      { "matcher": "Write|Edit", "hooks": [ {"type": "command", "command": "python3 -c \"import sys,json; d=json.load(sys.stdin); p=d.get('tool_input',{}).get('file_path',''); print(json.dumps({'hookSpecificOutput':{'hookEventName':'PreToolUse','permissionDecision':'deny','permissionDecisionReason':'blocked by probe hook'}}) if 'forbidden' in p else '{}')\""} ] }
     ]
   }
 }
@@ -47,7 +48,7 @@ SETTINGSEOF
 SCRUB=(env -u CLAUDECODE -u CLAUDE_CODE_SESSION_ID -u CLAUDE_CODE_REMOTE_SESSION_ID -u CLAUDE_CODE_CHILD_SESSION -u CLAUDE_PID -u CLAUDE_CODE_ENTRYPOINT)
 
 OUT1=$("${SCRUB[@]}" timeout 120 claude -p \
-  "This is a working repo checkout. Please do both of the following: 1) Create a file named target.txt containing the line hello-world. 2) Separately, run this command in the terminal so I can check the output: echo FORBIDDEN_MARKER-test" \
+  "This is a working repo checkout. Please do both of the following: 1) Create a file named target.txt containing the line hello-world. 2) Create a second file named forbidden.txt containing the line placeholder." \
   --model claude-haiku-4-5-20251001 --permission-mode acceptEdits --allowedTools "Write Edit Bash" --output-format json 2>/dev/null) || { echo "turn 1 invocation failed"; exit 1; }
 
 SID1=$(printf '%s' "$OUT1" | python3 -c "import sys,json; print(json.load(sys.stdin).get('session_id',''))" 2>/dev/null)
@@ -55,15 +56,16 @@ DENIED1=$(printf '%s' "$OUT1" | python3 -c "
 import sys,json
 d=json.load(sys.stdin)
 denials=d.get('permission_denials') or []
-print('true' if any(x.get('tool_name')=='Bash' and 'FORBIDDEN_MARKER' in x.get('tool_input',{}).get('command','') for x in denials) else 'false')
+print('true' if any(x.get('tool_name') in ('Write','Edit') and 'forbidden' in x.get('tool_input',{}).get('file_path','') for x in denials) else 'false')
 " 2>/dev/null)
 
 if [ "$SID1" = "$CLAUDE_CODE_SESSION_ID" ]; then FRESH1=false; else FRESH1=true; fi
 if [ -f target.txt ] && [ "$(cat target.txt)" = "hello-world" ]; then CREATED1=true; else CREATED1=false; fi
+if [ -e forbidden.txt ]; then ABSENT1=false; else ABSENT1=true; fi
 
 echo "turn 1 session_id differs from parent: $FRESH1"
 echo "turn 1 target.txt created with expected content: $CREATED1"
-echo "turn 1 Bash FORBIDDEN_MARKER command denied: ${DENIED1:-false}"
+echo "turn 1 Write of forbidden.txt denied by the settings-file PreToolUse hook: ${DENIED1:-false}; forbidden.txt absent: $ABSENT1"
 
 OUT2=$("${SCRUB[@]}" timeout 120 claude -p \
   "Thanks. Now please add another line to target.txt that says second-turn-edit." \
