@@ -247,7 +247,7 @@ recorded in §11 with what was found.
   0.26.13 (published 2026-08-23) and 0.27.0 (2026-08-30, current);
   `tree-sitter-wasms` 0.1.13 (2025-10-07, current); `typescript` 5.9.3
   (2025-09-30) and 7.0.2 (2026-07-08, current); `@types/node` 22.20.1
-  (current 22.x line). The plan pins the runtime dependencies to the versions
+  (the newest 22.x on that date). The plan pins the runtime dependencies to the versions
   the architecture verified (V14) and the dev dependencies to the versions
   recorded in Step 1. Governs Steps 1, 15.
 - **TypeScript 7.0 release announcement** — `devblogs.microsoft.com/typescript/announcing-typescript-7-0/`,
@@ -6528,8 +6528,8 @@ this session; line numbers are of that revision.
 - **Claim.** The hooks reference states, each inside the section named:
   the timeout clause (a timed-out hook "doesn't block the tool call") and
   the "discarding the hook's output" sentence inside "Timeouts"; the
-  cadence lines "once per turn: UserPromptSubmit, Stop, and StopFailure"
-  and "once per session", and the `UserPromptSubmit` description "When you
+  cadence lines "per turn: UserPromptSubmit, Stop, and StopFailure" and
+  "per session: SessionStart and SessionEnd", and the `UserPromptSubmit` description "When you
   submit a prompt", inside "Hook lifecycle"; the `transcript_path` lag
   sentence ("written asynchronously") inside "Common input fields"; the
   settings-file workspace-trust rule — "Interactive session: Claude Code
@@ -6556,9 +6556,10 @@ this session; line numbers are of that revision.
   mcp_tool; `prompt`/`model` for prompt/agent) with no statement that
   unknown fields are tolerated; the three settings-file locations
   (`~/.claude/settings.json`, `.claude/settings.json`,
-  `.claude/settings.local.json`); the cadences in full (once per session:
-  `SessionStart`, `SessionEnd`; once per turn: `UserPromptSubmit`, `Stop`,
-  `StopFailure`; on every tool call: `PreToolUse`, `PostToolUse`); the
+  `.claude/settings.local.json`); the cadences in full (per session:
+  `SessionStart`, `SessionEnd`; per turn: `UserPromptSubmit`, `Stop`,
+  `StopFailure`; on every tool call inside the agentic loop: `PreToolUse`,
+  `PostToolUse`, except `EndConversation` calls); the
   `UserPromptSubmit` description in full, "When you submit a prompt,
   before Claude processes it" (silent on injected turns); the timeout
   sentences in full ("a `command`, `http`, or `mcp_tool` hook that reaches
@@ -6587,15 +6588,19 @@ this session; line numbers are of that revision.
   (`tree-sitter-wasms: ^0.1.11`, satisfied by the package itself on
   install).
 - **Claim.** `typescript` 5.9.3 exists and was published 2025-09-30; the
-  current `typescript` major is 7; `@types/node` 22.20.1 is the current
-  22.x line. **Steps.** 1. **Evidence.** Executed
+  current `typescript` major is 7; `@types/node` 22.20.1 exists. **Steps.**
+  1. **Evidence.** Executed
   `probe:17_npm_registry_versions.optional` 2026-09-07, which prints, among
   its lines: `typescript 5.9.3 exists: 5.9.3; published 2025-09-30`,
-  `typescript latest major: 7`, `@types/node 22.x latest: 22.20.1`.
-  Registry reads of the same date, not asserted by the probe (`npm view
-  typescript time --json`): 5.9.3 is the last 5.x release, 7.0.2 was
-  published 2026-07-08 and is current, and the entries after it are
-  `7.1.0-dev.*`.
+  `typescript latest major: 7`, `@types/node 22.20.1 exists: 22.20.1`.
+  Registry reads, not asserted by the probe (`npm view typescript time
+  --json`, 2026-09-07; `npm view @types/node@22 version`, 2026-09-07 and
+  2026-09-11): 5.9.3 is the last 5.x release, 7.0.2 was published
+  2026-07-08 and is current, and the entries after it are `7.1.0-dev.*`;
+  22.20.1 was the newest `@types/node` 22.x on 2026-09-07 and 22.20.2 had
+  succeeded it by 2026-09-11 — the probe asserts the pinned version exists,
+  not which 22.x is newest, because the latter is a property of the
+  registry's calendar, not of the plan.
 - **Claim.** TypeScript 7.0 is a native (Go) port that removed `baseUrl`,
   `moduleResolution: node/node10/classic`, `module: amd/umd/systemjs/none`,
   `target: es5`, `downlevelIteration`, and disabling `esModuleInterop`/
@@ -6635,8 +6640,8 @@ this session; line numbers are of that revision.
   is_error=False session=fresh` (the six variables `CLAUDECODE`,
   `CLAUDE_CODE_SESSION_ID`, `CLAUDE_CODE_REMOTE_SESSION_ID`,
   `CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_PID`, `CLAUDE_CODE_ENTRYPOINT`
-  removed); the count of `CLAUDE_*`/`ANTHROPIC_*` variables present and
-  whether `ANTHROPIC_BASE_URL` is among them; and `every
+  removed); whether `ANTHROPIC_BASE_URL` is among the `CLAUDE_*`/
+  `ANTHROPIC_*` variables present (`yes`); and `every
   CLAUDE_*/ANTHROPIC_* removed: is_error=False session=fresh` — the wider
   scrub also authenticates here, which is why D-plan-8 keeps the narrower
   set that the piggyback's routing variables survive.

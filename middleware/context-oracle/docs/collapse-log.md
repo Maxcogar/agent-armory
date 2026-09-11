@@ -1164,8 +1164,9 @@ defects the rewrite itself introduced. Every finding was applied, dependents
 re-derived, a written self-check done. Round 3
 (`docs/reviews/2026-09-07-round-3-*.md`) returned 43 findings, 23 of them
 defects the round-2 corrections introduced. Second consecutive
-correction-induced round: the loop stopped, per the owner's rule, before a
-fourth pass.
+correction-induced round: the loop stopped before a fourth pass, on a
+convergence rule `docs/STATUS.md` then recorded as the owner's (its owner
+attribution is unconfirmed — `OWNER-LEDGER.md` PENDING `OL-P1`).
 
 **Class: wrong-check, at the process layer.** The author validated each
 correction pass with a script that reconciled identifiers — test IDs ↔ file
@@ -1271,8 +1272,9 @@ pass is how five rounds produced three regression rounds. The mechanical
 form this can take (a rule probe whose cases are generated from the
 spec's stated class rather than hand-listed; a re-derived decision marked
 in its `step-decl` so the gate refuses the plan until a review file names
-it) is not built; the loop stopped at the owner's five-round cap with the
-plan not accepted, and the choice of how to continue is recorded in
+it) is not built; the loop stopped at the five-round cap `docs/STATUS.md`
+then recorded as the owner's (unconfirmed — `OWNER-LEDGER.md` PENDING
+`OL-P1`) with the plan not accepted, and the choice of how to continue is recorded in
 `docs/STATUS.md`.
 
 ## 2026-09-08 — a mechanically flawless correction can still fail a literal requirement it never checked against its own wording

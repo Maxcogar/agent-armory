@@ -25,8 +25,8 @@ def under(heading_start, needle):
 checks = [
     ("hook doesn’t block the tool call", "Timeouts"),
     ("discarding the hook", "Timeouts"),
-    ("once per turn: UserPromptSubmit , Stop , and StopFailure", "Hook lifecycle"),
-    ("once per session", "Hook lifecycle"),
+    ("per turn: UserPromptSubmit , Stop , and StopFailure", "Hook lifecycle"),
+    ("per session: SessionStart and SessionEnd", "Hook lifecycle"),
     ("When you submit a prompt", "Hook lifecycle"),
     ("written asynchronously", "Common input fields"),
     ("Interactive session : Claude Code holds back hooks from every settings file", "Workspace trust"),
