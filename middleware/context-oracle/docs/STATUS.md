@@ -29,8 +29,9 @@ A architecture (`docs/architecture-phase-a.md`) is reviewed to convergence, with
 through five review-and-correction rounds plus a hook-enforced correction-loop
 pass, and currently passes every mechanical gate this project has for it.**
 The round-3/round-4/round-5 cycle (2026-09-07) found and closed the 43
-round-3 findings plus round-4's regressions, then stopped at round 5 (the
-owner's five-round cap) with a diagnosis and a general fix rather than a
+round-3 findings plus round-4's regressions, then stopped at round 5 (on a
+five-round cap an agent had invented and attributed to Max Cogar — not his,
+`OWNER-LEDGER.md` REJECTED `OL-R6`) with a diagnosis and a general fix rather than a
 sixth manual round: `docs/collapse-log.md`'s 2026-09-07 entries record that
 identifier-reconciliation checking missed build-order and re-derivation
 classes reviewers caught by walking the build and executing claims, and that
