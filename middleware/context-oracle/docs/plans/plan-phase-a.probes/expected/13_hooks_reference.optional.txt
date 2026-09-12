@@ -1,7 +1,7 @@
 present under 'Timeouts': hook doesn’t block the tool call
 present under 'Timeouts': discarding the hook
-present under 'Hook lifecycle': once per turn: UserPromptSubmit , Stop , and StopFailure
-present under 'Hook lifecycle': once per session
+present under 'Hook lifecycle': per turn: UserPromptSubmit , Stop , and StopFailure
+present under 'Hook lifecycle': per session: SessionStart and SessionEnd
 present under 'Hook lifecycle': When you submit a prompt
 present under 'Common input fields': written asynchronously
 present under 'Workspace trust': Interactive session : Claude Code holds back hooks from every settings file

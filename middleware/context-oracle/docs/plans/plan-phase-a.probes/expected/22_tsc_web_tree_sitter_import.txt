@@ -1,0 +1,2 @@
+with the pinned @types/emscripten: tsc exit 0; dist/src/probe_wts_import.js emitted: true
+with @types/emscripten excluded (--types node): tsc exit 2; TS2304 'EmscriptenModule' reported: true

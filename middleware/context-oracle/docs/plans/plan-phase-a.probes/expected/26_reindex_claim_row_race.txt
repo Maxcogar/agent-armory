@@ -1,0 +1,2 @@
+stale claim (dead pid) raced by two processes, 200 iterations: exactly one won 200; both won 0; neither won 0
+after the owner's release (DELETE in finally) the claim row is absent: true

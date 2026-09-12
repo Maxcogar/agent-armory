@@ -1,4 +1,4 @@
 unscrubbed: is_error=False session=parent
 session-identity scrub: is_error=False session=fresh
-CLAUDE_*/ANTHROPIC_* variables present: 43; includes ANTHROPIC_BASE_URL: yes
+ANTHROPIC_BASE_URL among the CLAUDE_*/ANTHROPIC_* variables present: yes
 every CLAUDE_*/ANTHROPIC_* removed: is_error=False session=fresh

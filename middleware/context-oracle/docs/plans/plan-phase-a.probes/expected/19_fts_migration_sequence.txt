@@ -1,0 +1,9 @@
+writing schema_meta before migration 001 creates the table throws: true
+fts:true: fts_state after first applyMigrations call = fts5
+fts:true: fts_symbols virtual table created = true
+fts:true: schema_meta table present (LIKE-path indexable base) = true
+fts:true: fts_state after second call with opposite flag = fts5 (unchanged: true)
+fts:false: fts_state after first applyMigrations call = fallback
+fts:false: fts_symbols virtual table created = false
+fts:false: schema_meta table present (LIKE-path indexable base) = true
+fts:false: fts_state after second call with opposite flag = fallback (unchanged: true)

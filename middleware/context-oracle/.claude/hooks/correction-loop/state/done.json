@@ -1,0 +1,5 @@
+{
+  "rounds": [5],
+  "issues": [],
+  "note": "Tracked on purpose (see README, 'Durable completion record'). Round 5 (docs/reviews/2026-09-07-round-5-*.md, 24 findings) was closed issue by issue in commits 01ddf2e..b58a05c on 2026-09-08; the per-issue entries the loop wrote for that round were lost with that session's container, so `issues` starts empty."
+}

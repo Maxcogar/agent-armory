@@ -1,0 +1,1 @@
+npm ci with package.json and no package-lock.json: exit 1; EUSAGE: true; message names package-lock.json: true

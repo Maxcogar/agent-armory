@@ -6,5 +6,5 @@ run(){ label="$1"; shift; out=$(timeout 120 "$@" claude -p "Reply with the singl
   printf '%s' "$out" | python3 -c "import sys,json,os; d=json.load(sys.stdin); print('$label: is_error=%s session=%s' % (d.get('is_error'), 'parent' if d.get('session_id')==os.environ.get('CLAUDE_CODE_SESSION_ID') else 'fresh'))"; }
 run "unscrubbed" env CTXORACLE_INTERNAL=1
 run "session-identity scrub" env -u CLAUDECODE -u CLAUDE_CODE_SESSION_ID -u CLAUDE_CODE_REMOTE_SESSION_ID -u CLAUDE_CODE_CHILD_SESSION -u CLAUDE_PID -u CLAUDE_CODE_ENTRYPOINT CTXORACLE_INTERNAL=1
-vars=$(env | grep -oE "^(CLAUDE|ANTHROPIC)[A-Za-z0-9_]*" | sort -u); echo "CLAUDE_*/ANTHROPIC_* variables present: $(printf '%s\n' "$vars" | grep -c .); includes ANTHROPIC_BASE_URL: $(printf '%s\n' "$vars" | grep -qx ANTHROPIC_BASE_URL && echo yes || echo no)"
+vars=$(env | grep -oE "^(CLAUDE|ANTHROPIC)[A-Za-z0-9_]*" | sort -u); echo "ANTHROPIC_BASE_URL among the CLAUDE_*/ANTHROPIC_* variables present: $(printf '%s\n' "$vars" | grep -qx ANTHROPIC_BASE_URL && echo yes || echo no)"
 run "every CLAUDE_*/ANTHROPIC_* removed" env $(printf '%s\n' "$vars" | sed 's/^/-u /' | tr '\n' ' ') CTXORACLE_INTERNAL=1
