@@ -174,6 +174,71 @@ rate-limited or billing-blocked rather than absent (should hit the same
 fail-closed diagnostic path via a non-zero exit code, but wasn't
 exercised).
 
+## Transcript pollution and a self-sustaining feedback loop (critical, found in production)
+
+A direct consequence of the session-isolation bug below: because judge
+subprocesses (from both this hook and the sibling adherence gate) shared
+the live session's ID before the isolation fix, *every real judge firing*
+appended its own prompt as a synthetic `"type": "user"` transcript entry
+into the actual conversation - and a manual diagnostic `claude -p` command
+run directly via Bash during debugging (sharing the same session for the
+same reason) did the same with its own one-off prompt text. `last_user_text`
+had no way to tell these apart from a real human message, and picked
+whichever was most recent.
+
+This became a live, self-sustaining loop: Claude Code's own mechanism for
+delivering a Stop-hook block re-injects the hook's `reason` into the
+transcript as a synthetic `"type": "user"` entry too (this is correct,
+intended behavior - it's how the agent receives the instruction to keep
+going). Once the diagnostic artifact above became "the most recent real
+user text," the judge quoted it in its `reason` as if it were a genuine
+instruction ("the user asked to list files..."); that `reason` got
+re-injected as a `"user"` entry; the *next* firing's scan found *that*
+entry as the new "most recent user text," quoted it again, and so on -
+producing several real, live blocks in this actual session that had
+nothing to do with anything a human had said, each one indistinguishable
+from a real finding without checking the source.
+
+Fixed by excluding known-synthetic prefixes from every place this script
+reads "the user's request": `"Stop hook feedback:"` (the harness's own
+re-injection), `"You are a strict completeness auditor"` / `"...compliance
+auditor"` (this hook's and the sibling's own judge-prompt text, which had
+leaked into this transcript on every pre-fix firing), and
+`"<task-notification>"` (automated GitHub/background-task notices). Also
+excluded, as a one-off, the exact text of the specific diagnostic command
+that started this - a historical artifact of one incident, not a
+generalizable pattern, called out in the code as such. Re-verified directly
+against this session's own real (still-polluted) transcript file after the
+fix: `last_user_text` now correctly resolves to the actual most recent real
+human message, skipping past dozens of synthetic entries to find it.
+
+## Session isolation (critical, found in production)
+
+The judge subprocess is spawned with `env = os.environ.copy()`, which
+inherits Claude Code's own session-identity variables
+(`CLAUDE_CODE_SESSION_ID` and related) from the calling process. Verified
+directly: a `claude -p` call made without stripping these reported the
+*same* `session_id` as the live interactive session that spawned it, and
+its answer came back contaminated with content from an unrelated call made
+earlier in that same session — a completely different conversation's
+`{"violating": ...}` JSON (a different hook's schema) leaking into what
+should have been an isolated `{"complete": ...}` judgment. This was caught
+because it produced an unparseable verdict in real production use, not by
+inspection.
+
+Fix: `run_judge()` now strips `CLAUDE_CODE_SESSION_ID`,
+`CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_CODE_REMOTE_SESSION_ID`,
+`CLAUDE_SESSION_INGRESS_TOKEN_FILE`, `CLAUDE_CODE_MESSAGING_SOCKET`,
+`CLAUDE_CODE_MESSAGING_TOKEN`, `CLAUDE_CODE_SYNC_SESSION_REFS`, and
+`SESSION_INGRESS_URL` from the subprocess environment before spawning the
+judge, on every call. Re-verified after the fix with a fresh scenario
+(a hedged, admitted-partial fix, and separately a genuinely root-caused
+one): both produced correctly-scoped, uncontaminated verdicts using the
+right schema, with no cross-talk from unrelated content. Every result in
+"Testing performed" above that predates this fix was produced before the
+bug was known to exist; the two re-checks after the fix are the ones to
+trust for whether the isolation actually works.
+
 ## History
 
 The first version of this gate let a "clarifying question" count as

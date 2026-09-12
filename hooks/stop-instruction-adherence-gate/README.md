@@ -175,6 +175,44 @@ what broke, never an invented lower ceiling and never a silent pass.
   every call site, run the tests), an action log that does exactly that and
   nothing else, and a final response that accurately reports it. The judge
   correctly returned `violating: false` (silent allow, no false positive).
+  Re-run again after the session-isolation fix below, with the same result.
+- After the session-isolation fix, re-ran a fresh true-negative scenario
+  where the response *claimed* a test had been run with no corresponding
+  tool call in the action log: the judge correctly flagged that as a real
+  violation of CLAUDE.md's "verify before you assert" rule, quoting the
+  actual rule text and noting the missing tool call — grounded, specific,
+  and not a leftover artifact of the isolation bug.
+
+## Transcript pollution and a self-sustaining feedback loop (critical, found in production)
+
+Shares the exact bug and fix described in detail in
+stop-completeness-gate's README: this hook's own judge-prompt text
+(`"You are a strict compliance auditor..."`) also leaked into the live
+session transcript on every real firing before the session-isolation fix
+below, and `find_last_user_index`/`build_conversation_history` had no way
+to tell that apart from a real user statement - nor from the harness's own
+`"Stop hook feedback:"` re-injections, which fed a self-sustaining quote
+loop across real, live blocks in this actual session. Fixed identically
+here: `_NOT_A_REAL_USER_MESSAGE_PREFIXES` excludes both hooks' judge-prompt
+openers, the hook-feedback prefix, and `"<task-notification>"` from both
+functions. Re-verified against this session's own real (still-polluted)
+transcript after the fix.
+
+## Session isolation (critical, found in production)
+
+Shares the exact bug described in stop-completeness-gate's README: the
+judge subprocess inherited Claude Code's own session-identity environment
+variables (`CLAUDE_CODE_SESSION_ID` and related), so it was never actually
+an isolated call — it attached to the live calling session and its answers
+could be contaminated by unrelated content from elsewhere in that session.
+Caught via the sibling hook's production output, not by inspection here.
+Fixed identically: `run_judge()` strips `CLAUDE_CODE_SESSION_ID`,
+`CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_CODE_REMOTE_SESSION_ID`,
+`CLAUDE_SESSION_INGRESS_TOKEN_FILE`, `CLAUDE_CODE_MESSAGING_SOCKET`,
+`CLAUDE_CODE_MESSAGING_TOKEN`, `CLAUDE_CODE_SYNC_SESSION_REFS`, and
+`SESSION_INGRESS_URL` before spawning the judge, every call. Both the
+true-positive and true-negative cases above were re-verified after this
+fix; treat any result from before it as unreliable.
 
 Not tested: firing through an actual live `Stop` event inside an
 interactive session (only direct script invocation was tested), and

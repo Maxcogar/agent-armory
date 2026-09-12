@@ -28,6 +28,24 @@ import sys
 # subprocess sees it and returns immediately.
 _RECURSION_GUARD_ENV = "STOP_COMPLETENESS_GATE_JUDGE_RUN"
 
+# Session isolation: the calling process's environment carries Claude Code's
+# own session identity (CLAUDE_CODE_SESSION_ID and friends). Left in place,
+# a spawned `claude -p` judge attaches to THIS session instead of starting a
+# fresh, isolated one - verified directly: an unstripped call reported the
+# same session_id as the live interactive session, and its answer was
+# contaminated with unrelated content from elsewhere in that session. These
+# must be stripped from the judge subprocess's environment on every call.
+_SESSION_ISOLATION_STRIP_VARS = [
+    "CLAUDE_CODE_SESSION_ID",
+    "CLAUDE_CODE_CHILD_SESSION",
+    "CLAUDE_CODE_REMOTE_SESSION_ID",
+    "CLAUDE_SESSION_INGRESS_TOKEN_FILE",
+    "CLAUDE_CODE_MESSAGING_SOCKET",
+    "CLAUDE_CODE_MESSAGING_TOKEN",
+    "CLAUDE_CODE_SYNC_SESSION_REFS",
+    "SESSION_INGRESS_URL",
+]
+
 DEFAULT_MODEL = os.environ.get("STOP_GATE_MODEL", "claude-sonnet-5")
 MAX_BUDGET_USD = os.environ.get("STOP_GATE_MAX_BUDGET_USD", "0.50")
 TIMEOUT_SECONDS = int(os.environ.get("STOP_GATE_TIMEOUT_SECONDS", "45"))
@@ -117,6 +135,37 @@ def read_stdin_json():
         return {}
 
 
+# Prefixes of "user"-typed transcript text that are NOT something a human
+# typed, and must never be read as "the user's request":
+#  - "Stop hook feedback:" - Claude Code re-injecting a blocking Stop hook's
+#    own `reason` as the agent's next instruction. Left unfiltered, a block
+#    whose reason quotes an earlier (possibly wrong) request becomes the new
+#    "most recent user message" for the next firing, which quotes it again
+#    in its own reason, forever - a self-sustaining loop with no human in it.
+#    Verified directly in production: this happened for real.
+#  - "You are a strict completeness auditor" / "...compliance auditor" -
+#    this hook's own judge prompt (and the sibling adherence gate's), which
+#    leaked into THIS transcript on every real firing before the session-
+#    isolation fix below, because the judge subprocess shared this session's
+#    ID. Found by direct inspection of the live transcript, not by theory.
+#  - "<task-notification>" - an automated GitHub/background-task notice
+#    relayed into context, not a statement from the user.
+_NOT_A_REAL_USER_MESSAGE_PREFIXES = (
+    "Stop hook feedback:",
+    "You are a strict completeness auditor",
+    "You are a strict compliance auditor",
+    "<task-notification>",
+    # One-off: a manual diagnostic `claude -p` command run directly via Bash
+    # during this hook's own development (not through either hook script)
+    # shared this session's ID and leaked its literal prompt text into this
+    # transcript as a synthetic "user" entry. This exact string will not
+    # recur - it is a historical artifact of one incident, not a pattern -
+    # but it sits in this session's history and must not be read as a real
+    # instruction if this hook ever scans back that far again.
+    "List the files in the current directory using a tool call, then report what you found.",
+)
+
+
 def _extract_text(content):
     if isinstance(content, str):
         stripped = content.strip()
@@ -133,8 +182,9 @@ def _extract_text(content):
 
 def last_user_text(transcript_path):
     """Scan the transcript JSONL backward for the most recent real user
-    message (skipping tool_result-only entries, which are also type
-    "user"), and return its plain text."""
+    message: skips tool_result-only entries (also type "user"), and skips
+    synthetic Stop-hook-feedback re-injections (also type "user", also
+    plain text - see _HOOK_FEEDBACK_PREFIX)."""
     if not transcript_path or not os.path.isfile(transcript_path):
         return None
     try:
@@ -154,7 +204,7 @@ def last_user_text(transcript_path):
             continue
         message = entry.get("message") or {}
         text = _extract_text(message.get("content"))
-        if text:
+        if text and not text.startswith(_NOT_A_REAL_USER_MESSAGE_PREFIXES):
             return text
     return None
 
@@ -173,6 +223,8 @@ def build_prompt(user_text, assistant_text):
 def run_judge(user_text, assistant_text):
     prompt = build_prompt(user_text, assistant_text)
     env = os.environ.copy()
+    for var in _SESSION_ISOLATION_STRIP_VARS:
+        env.pop(var, None)
     env[_RECURSION_GUARD_ENV] = "1"
     try:
         proc = subprocess.run(

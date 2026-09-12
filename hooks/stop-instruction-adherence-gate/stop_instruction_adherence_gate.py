@@ -44,6 +44,24 @@ import sys
 _OWN_GUARD_ENV = "STOP_ADHERENCE_GATE_JUDGE_RUN"
 _SIBLING_GUARD_ENV = "STOP_COMPLETENESS_GATE_JUDGE_RUN"  # from stop-completeness-gate
 
+# Session isolation: the calling process's environment carries Claude Code's
+# own session identity (CLAUDE_CODE_SESSION_ID and friends). Left in place,
+# a spawned `claude -p` judge attaches to THIS session instead of starting a
+# fresh, isolated one - verified directly: an unstripped call reported the
+# same session_id as the live interactive session, and its answer was
+# contaminated with unrelated content from elsewhere in that session. These
+# must be stripped from the judge subprocess's environment on every call.
+_SESSION_ISOLATION_STRIP_VARS = [
+    "CLAUDE_CODE_SESSION_ID",
+    "CLAUDE_CODE_CHILD_SESSION",
+    "CLAUDE_CODE_REMOTE_SESSION_ID",
+    "CLAUDE_SESSION_INGRESS_TOKEN_FILE",
+    "CLAUDE_CODE_MESSAGING_SOCKET",
+    "CLAUDE_CODE_MESSAGING_TOKEN",
+    "CLAUDE_CODE_SYNC_SESSION_REFS",
+    "SESSION_INGRESS_URL",
+]
+
 DEFAULT_MODEL = os.environ.get("STOP_ADHERENCE_GATE_MODEL", "claude-sonnet-5")
 MAX_BUDGET_USD = os.environ.get("STOP_ADHERENCE_GATE_MAX_BUDGET_USD", "0.50")
 TIMEOUT_SECONDS = int(os.environ.get("STOP_ADHERENCE_GATE_TIMEOUT_SECONDS", "60"))
@@ -160,6 +178,25 @@ def _extract_text(content):
     return None
 
 
+# Prefixes of "user"-typed transcript text that are NOT something a human
+# typed, and must never be treated as "something the user explicitly
+# stated" - see the matching, more detailed comment in the sibling
+# stop-completeness-gate/stop_completeness_gate.py; both were found and
+# fixed together after this exact failure occurred in production (a
+# self-sustaining quote loop with no human in it, followed by discovering
+# every real judge firing before the session-isolation fix had leaked its
+# own prompt into this transcript).
+_NOT_A_REAL_USER_MESSAGE_PREFIXES = (
+    "Stop hook feedback:",
+    "You are a strict completeness auditor",
+    "You are a strict compliance auditor",
+    "<task-notification>",
+    # One-off historical artifact - see the sibling file's comment. Will not
+    # recur, but sits in this session's history.
+    "List the files in the current directory using a tool call, then report what you found.",
+)
+
+
 def read_transcript_lines(transcript_path):
     if not transcript_path or not os.path.isfile(transcript_path):
         return None
@@ -195,6 +232,8 @@ def build_conversation_history(entries):
         message = entry.get("message") or {}
         text = _extract_text(message.get("content"))
         if not text:
+            continue
+        if etype == "user" and text.startswith(_NOT_A_REAL_USER_MESSAGE_PREFIXES):
             continue
         speaker = "USER" if etype == "user" else "ASSISTANT"
         turns.append(f"{speaker}: {text}")
@@ -263,7 +302,8 @@ def find_last_user_index(entries):
         if entry.get("type") != "user":
             continue
         message = entry.get("message") or {}
-        if _extract_text(message.get("content")):
+        text = _extract_text(message.get("content"))
+        if text and not text.startswith(_NOT_A_REAL_USER_MESSAGE_PREFIXES):
             return i
     return None
 
@@ -319,6 +359,8 @@ def build_prompt(instructions_text, history_text, action_log, assistant_text):
 
 def run_judge(prompt):
     env = os.environ.copy()
+    for var in _SESSION_ISOLATION_STRIP_VARS:
+        env.pop(var, None)
     env[_OWN_GUARD_ENV] = "1"
     env[_SIBLING_GUARD_ENV] = "1"
     try:
