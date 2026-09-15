@@ -13,14 +13,19 @@ findable without reading five repositories' git logs.
 It answers "when did this change and why." It does not decide which copy is right — see *What this
 file does not do*.
 
+**Paths.** This file sits in the plugin's `skills/` directory, beside the skills it covers, but the
+copies it tracks live across several repositories. Every path below is therefore written from the
+**`agent-armory` repository root**, not relative to this file, unless it names another repository.
+
 ---
 
 ## Relationship to the plugin's own changelog
 
-`claude-plugins/expert-dev-tools/docs/SKILL-CHANGELOG.md` already exists and stays. It is the
-**applyable-text** record for edits made inside that plugin: anchor, verbatim inserted text, the
-evidence that motivated it — everything needed to reproduce a change in another copy. Its scope is
-`claude-plugins/expert-dev-tools/skills/` and it says so.
+`claude-plugins/expert-dev-tools/docs/SKILL-CHANGELOG.md` — `../docs/SKILL-CHANGELOG.md` from here —
+already exists and stays. It is the **applyable-text** record for edits made inside that plugin:
+anchor, verbatim inserted text, the evidence that motivated it — everything needed to reproduce a
+change in another copy. Its scope is `claude-plugins/expert-dev-tools/skills/`, the directory this
+file sits in, and it says so.
 
 This file is the **cross-copy register**: every change to every copy, including the ones that plugin
 never saw. Where a change has a plugin changelog entry, this file's row points at it by entry number
@@ -40,7 +45,7 @@ get a row here only, with the change described well enough to find and judge.
   only what has been verified absent, with the check that verified it, so it can be re-run rather
   than trusted.
 - **It does not hold observations, deferred items, or non-changes.** Those live in
-  `skill-observations/log.md`, where status is tracked.
+  `agent-armory/skill-observations/log.md`, where status is tracked.
 
 ---
 
@@ -100,7 +105,7 @@ Short names used in the rows below:
 
 | Short name | Path |
 |---|---|
-| `plugin` | `agent-armory/claude-plugins/expert-dev-tools/skills/` |
+| `plugin` | `agent-armory/claude-plugins/expert-dev-tools/skills/` — the directory holding this file |
 | `aps-fusion` | `agent-armory/mcp-servers/aps-fusion-mcp-server/.claude/skills/` |
 | `context-oracle` | `agent-armory/middleware/context-oracle/.claude/skills/` |
 | `armory-skills` | `agent-armory/skills/Expert-Skills/` |
