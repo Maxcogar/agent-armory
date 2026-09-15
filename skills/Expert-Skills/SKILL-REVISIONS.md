@@ -13,6 +13,11 @@ findable without reading five repositories' git logs.
 It answers "when did this change and why." It does not decide which copy is right — see *What this
 file does not do*.
 
+**Companion document.** `EXPERT-REVIEW-AUDIT.md`, in this directory, is the evidence behind the
+changes to `expert-review`: 68 persisted review rounds read against the skill, what the reviewer
+does and does not check, and the open design questions. This file records which copies exist and
+when each changed; that one records what is wrong with the skill and why.
+
 **Paths.** The copies this register tracks live across several repositories. Every path below is
 therefore written from the **`agent-armory` repository root**, not relative to this file, unless it
 names another repository.
