@@ -76,70 +76,333 @@ A copy count and a set of content hashes are volatile measurements — they chan
 changes. Per these skills' own volatile-measurement rule, this section records the instrument, the
 invocation, and the date, never bare numbers to be trusted later. **Re-run it; do not cite it.**
 
+**The skills do not only live in `skills/` directories.** They are also installed as slash
+**commands** (`.claude/commands/expert-*.md`), as subagent **profiles** (`.claude/agents/`), and as
+always-on **rules** (`.agents/rules/`, `roles/_shared/`) — all full-length, all separately edited.
+An earlier run of this census searched only for files named `SKILL.md` and therefore missed 55 of
+119 copies, including the largest and most recently edited `expert-architecture` text in existence
+(`NOVA/.claude/commands/expert-architecture.md`, 78 KB, 2026-08-29). **Search by form and location,
+never by filename.**
+
 **Scope of the run.** Every repository in the account pushed on or after 2026-04-21 — the earliest
-commit touching any expert-series skill — was checked for copies. Twelve were checked beyond
-`NOVA` and `agent-armory`; six carry copies and were cloned. Repos last pushed before the skills
-existed are out of scope, and `smart-watch-v3` was excluded by the owner. The repositories holding
-copies are: `NOVA`, `agent-armory`, `design-navigator-mcp-ui`, `expert-standards-dev-package`,
-`project-manager`, `the-app-for-apps`, `turbine-studio`, `cnc-syndicate-hub`, plus the machine's
-synced skill set (which is not a git repository and therefore carries no dates).
+commit touching any expert-series skill — was checked for copies. Twelve were checked beyond `NOVA`
+and `agent-armory`; six carry copies and were cloned. Repos last pushed before the skills existed
+are out of scope, and `smart-watch-v3` was excluded by the owner. Locations holding copies: `NOVA`,
+`agent-armory`, `design-navigator-mcp-ui`, `expert-standards-dev-package`, `project-manager`,
+`the-app-for-apps`, `turbine-studio`, `cnc-syndicate-hub`, plus the machine's synced skill set
+(not a git repository, so it carries no dates).
+
+**Excluded as outputs, not copies:** anything under `docs/` — review reports, plans, specs and
+architectures *produced by* these skills (`docs/planning/reviews/*-expert-review-*.md` and similar).
+Those are products, not variants, and counting them would inflate every figure here.
 
 **Method.** Three passes, all re-runnable:
 
-1. *Census* — every `SKILL.md` under an `expert-*` or `full-cycle` directory in each clone, with its
-   content hash and the date of the last commit that touched it.
-2. *History index* — for every such path, every historical content-state in that repo's git log,
-   hashed the same way.
-3. *Classification* — a current version is **stale** when its exact content appears in some *other*
-   path's history (it is an unchanged older copy of that lineage), and **unique** when the content
-   exists nowhere else (it carries edits made only there).
+1. *Census* — every `SKILL.md` under an `expert-*`/`full-cycle` directory, plus every
+   `expert-*.md`/`full-cycle*.md` under a `commands/`, `agents/`, `rules/` or `roles/` directory,
+   with its content hash and the date of the last commit that touched it.
+2. *History index* — for every one of those paths, every historical content-state in that repo's
+   git log, hashed the same way.
+3. *Classification* — a version is **stale** when its exact content appears in some *other* path's
+   history (an unchanged older copy of that lineage), and **unique** when the content exists nowhere
+   else (it carries edits made only there).
 
 ```
-# census: skill, content hash, last-changed date, repo, path
+# pass 1 — census, run in each clone
 find . -path ./.git -prune -o -name SKILL.md -print | while read f; do
   s=$(basename "$(dirname "$f")"); case "$s" in expert-*|full-cycle) ;; *) continue;; esac
-  printf "%s\t%s\t%s\n" "$s" "$(md5sum < "$f" | cut -c1-8)" \
-         "$(git log -1 --date=short --format='%ad %h' -- "${f#./}")"
+  printf "%s\tskill\t%s\t%s\n" "$s" "$(md5sum <"$f"|cut -c1-8)" \
+         "$(git log -1 --date=short --format=%ad -- "${f#./}")"
+done
+find . -path ./.git -prune -o -type f \( -iname 'expert-*.md' -o -iname 'full-cycle*.md' \) -print |
+while read f; do p="${f#./}"
+  case "/$p" in */docs/*|*/skill-observations/*|*/references/*) continue;; esac
+  case "/$p" in */commands/*) form=command;; */agents/*) form=agent;;
+                */rules/*) form=rule;; */roles/*) form=role;; *) continue;; esac
+  printf "%s\t%s\t%s\t%s\n" "$(basename "$p" .md)" "$form" "$(md5sum <"$f"|cut -c1-8)" \
+         "$(git log -1 --date=short --format=%ad -- "$p")"
 done
 
-# history index: same, but every state in the log
+# pass 2 — history index, for every path pass 1 emitted
 git log --format='%H %ad' --date=short -- "$path" | while read sha d; do
   printf "%s\t%s\n" "$(git show "$sha:$path" | md5sum | cut -c1-8)" "$d"
 done
 ```
 
-**Run 2026-09-15** against the eight repositories above at their then-current `main`, plus the
-synced set. Result: **64 copies of 16 skill names, in 42 distinct versions — 35 of them unique.**
+**Run 2026-09-15** against the eight repositories at their then-current `main`, plus the synced set:
+**119 copies of 28 names, in 76 distinct versions — 64 of them unique.**
 
 ### Reconciliation load
 
-The number that matters for producing one canonical version of each skill is the **unique** column:
+The number that matters for producing one canonical version of each skill is the **unique** column;
 stale copies need no content decision, only replacement.
 
-| Skill | Versions | Unique | Stale | Copies |
-|---|---|---|---|---|
-| `expert-standard` | 8 | **6** | 2 | 20 |
-| `expert-review` | 5 | **5** | 0 | 5 |
-| `expert-spec` | 4 | **4** | 0 | 4 |
-| `expert-implement` | 4 | **3** | 1 | 6 |
-| `expert-architecture` | 4 | **3** | 1 | 5 |
-| `expert-plan` | 3 | **2** | 1 | 7 |
-| `expert-mcp-overhaul` | 3 | **2** | 1 | 3 |
-| `expert-standard-eval` | 2 | **2** | 0 | 2 |
-| `expert-architecture-portable` | 2 | **1** | 1 | 4 |
-| `expert-standard-builder` | 1 | 1 | 0 | 2 |
-| `expert-correct` | 1 | 1 | 0 | 1 |
-| `expert-architecture-greenfield` | 1 | 1 | 0 | 1 |
-| `expert-architecture-greenfield-portable` | 1 | 1 | 0 | 1 |
-| `expert-plan-greenfield-portable` | 1 | 1 | 0 | 1 |
-| `full-cycle` | 1 | 1 | 0 | 1 |
-| **Total** | **42** | **35** | **7** | **64** |
+| Skill | Exists as | Versions | Unique | Stale | Copies |
+|---|---|---|---|---|---|
+| `expert-standard` | role/rule/skill | 11 | **9** | 2 | 23 |
+| `expert-review` | command/skill | 8 | **8** | 0 | 13 |
+| `expert-spec` | command/skill | 8 | **7** | 1 | 15 |
+| `expert-architecture` | command/skill | 7 | **5** | 2 | 10 |
+| `expert-plan` | command/skill | 6 | **4** | 2 | 13 |
+| `expert-implement` | agent/command/skill | 6 | **4** | 2 | 10 |
+| `expert-implementer` | agent | 3 | **2** | 1 | 4 |
+| `expert-architecture-greenfield` | command/skill | 2 | **2** | 0 | 3 |
+| `expert-mcp-overhaul` | skill | 3 | **2** | 1 | 3 |
+| `expert-architecture-greenfield-portable` | command/skill | 2 | **2** | 0 | 2 |
+| `expert-standard-eval` | skill | 2 | **2** | 0 | 2 |
+| `expert-architecture-portable` | skill | 2 | **1** | 1 | 4 |
+| `expert-standard-builder` | skill | 1 | **1** | 0 | 2 |
+| `expert-acceptance` | agent | 1 | **1** | 0 | 1 |
+| `expert-architect` | agent | 1 | **1** | 0 | 1 |
+| `expert-closeout` | agent | 1 | **1** | 0 | 1 |
+| `expert-correct` | skill | 1 | **1** | 0 | 1 |
+| `expert-corrector` | agent | 1 | **1** | 0 | 1 |
+| `expert-diagnostician` | agent | 1 | **1** | 0 | 1 |
+| `expert-plan-greenfield-portable` | skill | 1 | **1** | 0 | 1 |
+| `expert-planner` | agent | 1 | **1** | 0 | 1 |
+| `expert-reviewer` | agent | 1 | **1** | 0 | 1 |
+| `expert-spec-writer` | agent | 1 | **1** | 0 | 1 |
+| `expert-standard.md` | skill | 1 | **1** | 0 | 1 |
+| `expert-tool-classifier` | agent | 1 | **1** | 0 | 1 |
+| `expert-tool-substance-verifier` | agent | 1 | **1** | 0 | 1 |
+| `expert-verifier` | agent | 1 | **1** | 0 | 1 |
+| `full-cycle` | skill | 1 | **1** | 0 | 1 |
+| **Total (28 names)** | | **76** | **64** | **12** | **119** |
 
-Two naming irregularities that break path-based lookup, recorded so a sweep does not miss them: four
-copies of `expert-standard` sit in directories named **`expert-standards`** while the skill's
-frontmatter declares `name: expert-standard` (they are folded into `expert-standard` above); and
+Two things this table makes visible that a `skills/`-only view hides. **`full-cycle` exists in
+exactly one place** — `NOVA/.claude/skills/full-cycle` — so every other repository runs these skills
+with no workflow document: no phase order, no correction procedure, no diagnosis rule, no traps
+ledger. And **the same skill often differs between its skill form and its command form in the same
+repo**, so "one canonical version per skill" may need to mean one per (skill, form) pair; the
+variance map below shows which.
+
+Naming irregularities that break path-based lookup: four copies of `expert-standard` sit in
+directories named **`expert-standards`** (folded into `expert-standard` above);
 `agent-armory/gemini-extensions/agentboard/skills/expert-standard.md` is a bare file rather than a
-skill directory — its content is identical to the `2a6f1d8d` cluster below.
+skill directory; and the subagent profiles `expert-implementer`, `expert-planner`, `expert-reviewer`
+and `expert-spec-writer` are distinct artifacts from the skills they are named after — they are
+listed separately and must not be merged into them.
+
+### Variance map
+
+Versions newest-first within each name. "Last changed" is the newest commit date among that
+version's copies; the synced set has no git history, so it shows `—`.
+
+#### `expert-standard` — 11 version(s), 23 cop(ies)
+
+| Version | Form | Held by | Last changed | Status |
+|---|---|---|---|---|
+| `d7a59a48` | skill | `agent-armory`/claude-plugins/expert-dev-tools/skills/expert-standard/SKILL.md | 2026-08-21 | **unique** |
+| `aa632da8` | skill | `NOVA`/.agents/skills/expert-standards/SKILL.md | 2026-08-16 | **unique** |
+| `3f9a5768` | skill | `project-manager`/.claude/skills/expert-standard/SKILL.md<br>`the-app-for-apps`/.claude/skills/expert-standard/SKILL.md<br>`agent-armory`/Project-Claude-Configs/Project-Manager/skills/expert-standard/SKILL.md<br>`agent-armory`/skills/Expert-Skills/expert-standard/SKILL.md<br>`cnc-syndicate-hub`/.claude/skills/expert-standard/SKILL.md<br>`turbine-studio`/.claude/skills/expert-standard/SKILL.md<br>`agent-armory`/middleware/context-oracle/.claude/skills/expert-standard/SKILL.md<br>`agent-armory`/mcp-servers/aps-fusion-mcp-server/.claude/skills/expert-standard/SKILL.md | 2026-07-30 | **stale** — content of `agent-armory`/claude-plugins/expert-dev-tools/skills/expert-standard/SKILL.md at 2026-07-22 |
+| `46721fce` | skill | `design-navigator-mcp-ui`/.claude/skills/expert-standard/SKILL.md | 2026-07-11 | **unique** |
+| `b8620773` | skill | `NOVA`/.claude/skills/expert-standards/SKILL.md | 2026-06-12 | **unique** |
+| `68008ddb` | skill | `agent-armory`/claude-plugins/agentboard/skills/expert-standards/SKILL.md<br>`project-manager`/agentboard-plugin/skills/expert-standards/SKILL.md | 2026-06-07 | **unique** |
+| `2a6f1d8d` | skill | `project-manager`/.agent/skills/expert-standards/SKILL.md<br>`agent-armory`/codex-plugins/agentboard/skills/expert-standards/SKILL.md<br>`agent-armory`/gemini-extensions/agentboard-gemini/skills/expert-standard/SKILL.md | 2026-05-11 | **stale** — content of `agent-armory`/claude-plugins/agentboard/skills/expert-standards/SKILL.md at 2026-05-07 |
+| `68478e21` | role | `agent-armory`/programmatic-claude-profiles/roles/_shared/expert-standard.md | 2026-05-04 | **unique** |
+| `b6c3894d` | skill | `synced set`<br>`expert-standards-dev-package`/.claude/skills/expert-standard/SKILL.md<br>`expert-standards-dev-package`/library/skills/expert-standard/SKILL.md | 2026-04-27 | **unique** |
+| `e5c19a84` | rule | `NOVA`/.agents/rules/expert-standards.md | 2026-04-21 | **unique** |
+| `5d97fcc8` | rule | `the-app-for-apps`/.agents/rules/expert-standards.md | 2026-04-09 | **unique** |
+
+#### `expert-spec` — 8 version(s), 15 cop(ies)
+
+| Version | Form | Held by | Last changed | Status |
+|---|---|---|---|---|
+| `1f26e5d7` | skill | `NOVA`/.claude/skills/expert-spec/SKILL.md | 2026-08-29 | **unique** |
+| `89705ea7` | skill | `agent-armory`/claude-plugins/expert-dev-tools/skills/expert-spec/SKILL.md | 2026-08-21 | **unique** |
+| `c68a0614` | skill | `agent-armory`/mcp-servers/aps-fusion-mcp-server/.claude/skills/expert-spec/SKILL.md | 2026-07-30 | **unique** |
+| `59c4cef9` | command | `project-manager`/.claude/commands/expert-spec.md<br>`the-app-for-apps`/.claude/commands/expert-spec.md<br>`agent-armory`/Project-Claude-Configs/Project-Manager/commands/expert-spec.md<br>`agent-armory`/commands/Expert-Commands/expert-spec.md<br>`cnc-syndicate-hub`/.claude/commands/expert-spec.md<br>`turbine-studio`/.claude/commands/expert-spec.md<br>`agent-armory`/middleware/context-oracle/.claude/commands/expert-spec.md | 2026-07-17 | **unique** |
+| `4d02ba78` | command | `design-navigator-mcp-ui`/.claude/commands/expert-spec.md | 2026-07-11 | **unique** |
+| `bc719865` | command | `NOVA`/.claude/commands/expert-spec.md | 2026-06-12 | **unique** |
+| `9c9441bb` | command | `expert-standards-dev-package`/.claude/commands/expert-spec.md<br>`expert-standards-dev-package`/library/commands/expert-spec.md | 2026-04-27 | **stale** — content of `NOVA`/.claude/commands/expert-spec.md at 2026-05-06 |
+| `e29eddef` | skill | `synced set` | — | **unique** |
+
+#### `expert-review` — 8 version(s), 13 cop(ies)
+
+| Version | Form | Held by | Last changed | Status |
+|---|---|---|---|---|
+| `46eae723` | skill | `NOVA`/.claude/skills/expert-review/SKILL.md | 2026-09-01 | **unique** |
+| `b6ab93c8` | skill | `agent-armory`/claude-plugins/expert-dev-tools/skills/expert-review/SKILL.md | 2026-08-21 | **unique** |
+| `1df7ba33` | skill | `agent-armory`/mcp-servers/aps-fusion-mcp-server/.claude/skills/expert-review/SKILL.md | 2026-07-30 | **unique** |
+| `3df82ddb` | skill | `design-navigator-mcp-ui`/.claude/skills/expert-review/SKILL.md | 2026-07-19 | **unique** |
+| `ea7dd0f9` | command | `agent-armory`/commands/Expert-Commands/expert-review.md<br>`turbine-studio`/.claude/commands/expert-review.md<br>`agent-armory`/middleware/context-oracle/.claude/commands/expert-review.md | 2026-07-17 | **unique** |
+| `5ae100e5` | command | `project-manager`/.claude/commands/expert-review.md<br>`the-app-for-apps`/.claude/commands/expert-review.md<br>`agent-armory`/Project-Claude-Configs/Project-Manager/commands/expert-review.md<br>`cnc-syndicate-hub`/.claude/commands/expert-review.md | 2026-06-04 | **unique** |
+| `f9887717` | command | `expert-standards-dev-package`/library/commands/expert-review.md | 2026-04-27 | **unique** |
+| `c10f9c8c` | skill | `synced set` | — | **unique** |
+
+#### `expert-architecture` — 7 version(s), 10 cop(ies)
+
+| Version | Form | Held by | Last changed | Status |
+|---|---|---|---|---|
+| `433fe1cb` | command | `NOVA`/.claude/commands/expert-architecture.md | 2026-08-29 | **unique** |
+| `018d1a46` | skill | `agent-armory`/claude-plugins/expert-dev-tools/skills/expert-architecture/SKILL.md | 2026-08-21 | **unique** |
+| `2a9723da` | skill | `agent-armory`/skills/Expert-Skills/expert-architecture/SKILL.md<br>`agent-armory`/mcp-servers/aps-fusion-mcp-server/.claude/skills/expert-architecture/SKILL.md | 2026-07-30 | **stale** — content of `agent-armory`/claude-plugins/expert-dev-tools/skills/expert-architecture/SKILL.md at 2026-07-22 |
+| `7360441d` | skill | `design-navigator-mcp-ui`/.claude/skills/expert-architecture/SKILL.md | 2026-07-11 | **unique** |
+| `12e2b12d` | command | `agent-armory`/commands/Expert-Commands/expert-architecture.md<br>`turbine-studio`/.claude/commands/expert-architecture.md | 2026-07-07 | **stale** — content of `NOVA`/.claude/commands/expert-architecture.md at 2026-07-18 |
+| `3da7eec8` | command | `expert-standards-dev-package`/library/commands/expert-architecture.md<br>`project-manager`/.claude/commands/expert-architecture.md | 2026-05-30 | **unique** |
+| `d59e02c9` | skill | `synced set` | — | **unique** |
+
+#### `expert-plan` — 6 version(s), 13 cop(ies)
+
+| Version | Form | Held by | Last changed | Status |
+|---|---|---|---|---|
+| `719b40cd` | skill | `NOVA`/.claude/skills/expert-plan/SKILL.md | 2026-08-29 | **unique** |
+| `eecb925b` | skill | `agent-armory`/claude-plugins/expert-dev-tools/skills/expert-plan/SKILL.md | 2026-08-21 | **unique** |
+| `4e3c4327` | skill | `synced set`<br>`design-navigator-mcp-ui`/.claude/skills/expert-plan/SKILL.md<br>`agent-armory`/middleware/context-oracle/.claude/skills/expert-plan/SKILL.md<br>`agent-armory`/skills/Expert-Skills/expert-plan/SKILL.md<br>`agent-armory`/mcp-servers/aps-fusion-mcp-server/.claude/skills/expert-plan/SKILL.md | 2026-07-30 | **stale** — content of `agent-armory`/claude-plugins/expert-dev-tools/skills/expert-plan/SKILL.md at 2026-07-22 |
+| `945ce35f` | command | `the-app-for-apps`/.claude/commands/expert-plan.md<br>`agent-armory`/Project-Claude-Configs/Project-Manager/commands/expert-plan.md<br>`agent-armory`/commands/Expert-Commands/expert-plan.md<br>`turbine-studio`/.claude/commands/expert-plan.md | 2026-07-07 | **unique** |
+| `b53997a1` | command | `expert-standards-dev-package`/library/commands/expert-plan.md | 2026-04-27 | **unique** |
+| `cb819b7f` | command | `project-manager`/.claude/commands/expert-plan.md | 2026-04-23 | **stale** — content of `the-app-for-apps`/.claude/commands/expert-plan.md at 2026-04-19 |
+
+#### `expert-implement` — 6 version(s), 10 cop(ies)
+
+| Version | Form | Held by | Last changed | Status |
+|---|---|---|---|---|
+| `c481d160` | skill | `NOVA`/.claude/skills/expert-implement/SKILL.md | 2026-08-29 | **unique** |
+| `c00edeea` | skill | `agent-armory`/claude-plugins/expert-dev-tools/skills/expert-implement/SKILL.md | 2026-08-21 | **unique** |
+| `a210c4c1` | skill | `agent-armory`/middleware/context-oracle/.claude/skills/expert-implement/SKILL.md<br>`agent-armory`/skills/Expert-Skills/expert-implement/SKILL.md<br>`agent-armory`/mcp-servers/aps-fusion-mcp-server/.claude/skills/expert-implement/SKILL.md | 2026-07-30 | **stale** — content of `agent-armory`/claude-plugins/expert-dev-tools/skills/expert-implement/SKILL.md at 2026-07-22 |
+| `5fde06ac` | skill | `design-navigator-mcp-ui`/.claude/skills/expert-implement/SKILL.md | 2026-07-22 | **unique** |
+| `786e55ae` | command | `turbine-studio`/.claude/commands/expert-implement.md | 2026-07-12 | **unique** |
+| `bc752d69` | agent/command | `agent-armory`/agents/Expert-Agents/Expert-Implementation/expert-implement.md<br>`the-app-for-apps`/.claude/commands/expert-implement.md<br>`agent-armory`/commands/Expert-Commands/expert-implement.md | 2026-06-03 | **stale** — content of `turbine-studio`/.claude/commands/expert-implement.md at 2026-07-07 |
+
+#### `expert-implementer` — 3 version(s), 4 cop(ies)
+
+| Version | Form | Held by | Last changed | Status |
+|---|---|---|---|---|
+| `a1bd0ba3` | agent | `agent-armory`/claude-plugins/expert-dev-tools/agents/expert-implementer.md | 2026-08-21 | **unique** |
+| `aba323df` | agent | `turbine-studio`/.claude/agents/expert-implementer.md | 2026-07-12 | **unique** |
+| `b1e0fcbf` | agent | `the-app-for-apps`/.claude/agents/expert-implementer.md<br>`agent-armory`/agents/Expert-Agents/Expert-Implementation/expert-implementer.md | 2026-06-03 | **stale** — content of `turbine-studio`/.claude/agents/expert-implementer.md at 2026-07-07 |
+
+#### `expert-mcp-overhaul` — 3 version(s), 3 cop(ies)
+
+| Version | Form | Held by | Last changed | Status |
+|---|---|---|---|---|
+| `5eb39fbb` | skill | `agent-armory`/claude-plugins/expert-dev-tools/skills/expert-mcp-overhaul/SKILL.md | 2026-08-21 | **unique** |
+| `6c9c69a5` | skill | `agent-armory`/mcp-servers/aps-fusion-mcp-server/.claude/skills/expert-mcp-overhaul/SKILL.md | 2026-07-30 | **stale** — content of `agent-armory`/claude-plugins/expert-dev-tools/skills/expert-mcp-overhaul/SKILL.md at 2026-07-22 |
+| `aad58221` | skill | `synced set` | — | **unique** |
+
+#### `expert-architecture-portable` — 2 version(s), 4 cop(ies)
+
+| Version | Form | Held by | Last changed | Status |
+|---|---|---|---|---|
+| `c124568a` | skill | `agent-armory`/claude-plugins/expert-dev-tools/skills/expert-architecture-portable/SKILL.md | 2026-08-21 | **unique** |
+| `b609c920` | skill | `synced set`<br>`agent-armory`/middleware/context-oracle/.claude/skills/expert-architecture-portable/SKILL.md<br>`agent-armory`/skills/Expert-Skills/expert-architecture-portable/expert-architecture-portable/SKILL.md | 2026-07-17 | **stale** — content of `agent-armory`/claude-plugins/expert-dev-tools/skills/expert-architecture-portable/SKILL.md at 2026-07-22 |
+
+#### `expert-architecture-greenfield` — 2 version(s), 3 cop(ies)
+
+| Version | Form | Held by | Last changed | Status |
+|---|---|---|---|---|
+| `000cc316` | command | `agent-armory`/commands/Expert-Commands/expert-architecture-greenfield.md<br>`turbine-studio`/.claude/commands/expert-architecture-greenfield.md | 2026-07-07 | **unique** |
+| `a2d5ebc3` | skill | `synced set` | — | **unique** |
+
+#### `expert-architecture-greenfield-portable` — 2 version(s), 2 cop(ies)
+
+| Version | Form | Held by | Last changed | Status |
+|---|---|---|---|---|
+| `ced9b2ed` | command | `agent-armory`/commands/Expert-Commands/expert-architecture-greenfield-portable.md | 2026-06-03 | **unique** |
+| `cc8251a7` | skill | `synced set` | — | **unique** |
+
+#### `expert-standard-eval` — 2 version(s), 2 cop(ies)
+
+| Version | Form | Held by | Last changed | Status |
+|---|---|---|---|---|
+| `1967c1b0` | skill | `expert-standards-dev-package`/.claude/skills/expert-standard-eval/SKILL.md | 2026-05-04 | **unique** |
+| `ff4090f1` | skill | `synced set` | — | **unique** |
+
+#### `expert-standard-builder` — 1 version(s), 2 cop(ies)
+
+| Version | Form | Held by | Last changed | Status |
+|---|---|---|---|---|
+| `d2232a64` | skill | `synced set`<br>`expert-standards-dev-package`/.claude/skills/expert-standard-builder/SKILL.md | 2026-04-27 | **unique** |
+
+#### `expert-acceptance` — 1 version(s), 1 cop(ies)
+
+| Version | Form | Held by | Last changed | Status |
+|---|---|---|---|---|
+| `aebd5423` | agent | `agent-armory`/claude-plugins/expert-dev-tools/agents/expert-acceptance.md | 2026-08-21 | **unique** |
+
+#### `expert-architect` — 1 version(s), 1 cop(ies)
+
+| Version | Form | Held by | Last changed | Status |
+|---|---|---|---|---|
+| `30f260b6` | agent | `agent-armory`/claude-plugins/expert-dev-tools/agents/expert-architect.md | 2026-08-21 | **unique** |
+
+#### `expert-closeout` — 1 version(s), 1 cop(ies)
+
+| Version | Form | Held by | Last changed | Status |
+|---|---|---|---|---|
+| `72e178cd` | agent | `agent-armory`/claude-plugins/expert-dev-tools/agents/expert-closeout.md | 2026-08-21 | **unique** |
+
+#### `expert-correct` — 1 version(s), 1 cop(ies)
+
+| Version | Form | Held by | Last changed | Status |
+|---|---|---|---|---|
+| `069ea2cd` | skill | `agent-armory`/claude-plugins/expert-dev-tools/skills/expert-correct/SKILL.md | 2026-08-21 | **unique** |
+
+#### `expert-corrector` — 1 version(s), 1 cop(ies)
+
+| Version | Form | Held by | Last changed | Status |
+|---|---|---|---|---|
+| `b306b9d4` | agent | `agent-armory`/claude-plugins/expert-dev-tools/agents/expert-corrector.md | 2026-08-21 | **unique** |
+
+#### `expert-diagnostician` — 1 version(s), 1 cop(ies)
+
+| Version | Form | Held by | Last changed | Status |
+|---|---|---|---|---|
+| `03e05083` | agent | `agent-armory`/claude-plugins/expert-dev-tools/agents/expert-diagnostician.md | 2026-08-21 | **unique** |
+
+#### `expert-plan-greenfield-portable` — 1 version(s), 1 cop(ies)
+
+| Version | Form | Held by | Last changed | Status |
+|---|---|---|---|---|
+| `82482d34` | skill | `synced set` | — | **unique** |
+
+#### `expert-planner` — 1 version(s), 1 cop(ies)
+
+| Version | Form | Held by | Last changed | Status |
+|---|---|---|---|---|
+| `083aa916` | agent | `agent-armory`/claude-plugins/expert-dev-tools/agents/expert-planner.md | 2026-08-21 | **unique** |
+
+#### `expert-reviewer` — 1 version(s), 1 cop(ies)
+
+| Version | Form | Held by | Last changed | Status |
+|---|---|---|---|---|
+| `cb057856` | agent | `agent-armory`/claude-plugins/expert-dev-tools/agents/expert-reviewer.md | 2026-08-21 | **unique** |
+
+#### `expert-spec-writer` — 1 version(s), 1 cop(ies)
+
+| Version | Form | Held by | Last changed | Status |
+|---|---|---|---|---|
+| `86e1cb49` | agent | `agent-armory`/claude-plugins/expert-dev-tools/agents/expert-spec-writer.md | 2026-08-21 | **unique** |
+
+#### `expert-standard.md` — 1 version(s), 1 cop(ies)
+
+| Version | Form | Held by | Last changed | Status |
+|---|---|---|---|---|
+| `2a6f1d8d` | skill | `agent-armory`/gemini-extensions/agentboard/skills/expert-standard.md/SKILL.md | 2026-06-03 | **unique** |
+
+#### `expert-tool-classifier` — 1 version(s), 1 cop(ies)
+
+| Version | Form | Held by | Last changed | Status |
+|---|---|---|---|---|
+| `0c7a6fb1` | agent | `expert-standards-dev-package`/.claude/agents/expert-tool-classifier.md | 2026-04-27 | **unique** |
+
+#### `expert-tool-substance-verifier` — 1 version(s), 1 cop(ies)
+
+| Version | Form | Held by | Last changed | Status |
+|---|---|---|---|---|
+| `000f1e43` | agent | `expert-standards-dev-package`/.claude/agents/expert-tool-substance-verifier.md | 2026-05-04 | **unique** |
+
+#### `expert-verifier` — 1 version(s), 1 cop(ies)
+
+| Version | Form | Held by | Last changed | Status |
+|---|---|---|---|---|
+| `6ee6ec3a` | agent | `agent-armory`/claude-plugins/expert-dev-tools/agents/expert-verifier.md | 2026-08-21 | **unique** |
+
+#### `full-cycle` — 1 version(s), 1 cop(ies)
+
+| Version | Form | Held by | Last changed | Status |
+|---|---|---|---|---|
+| `16920495` | skill | `NOVA`/.claude/skills/full-cycle/SKILL.md | 2026-09-10 | **unique** |
 
 ### Short names used in the revision rows
 
@@ -309,9 +572,9 @@ From 2026-09-15 forward, rows are written in the commit that makes the change.
 **Row coverage is narrower than the census.** The variance map above covers all 64 copies in every
 location. The revision rows below were traced from `git log` in `nova` and `plugin` only, and cover
 five skills — `expert-review`, `expert-spec`, `expert-plan`, `expert-implement`, `expert-standard`.
-No row exists yet for any other location or for `expert-architecture`,
-`expert-architecture-portable`, `expert-correct`, `expert-mcp-overhaul`, the greenfield variants, or
-`full-cycle`. **A skill or location with no row has not been traced — never read that as "never
+No row exists yet for any other location, for any **command, agent, rule or role** form of any
+skill, or for `expert-architecture`, `expert-architecture-portable`, `expert-correct`,
+`expert-mcp-overhaul`, the greenfield variants, the subagent profiles, or `full-cycle`. **A skill or location with no row has not been traced — never read that as "never
 changed."**
 
 ---
