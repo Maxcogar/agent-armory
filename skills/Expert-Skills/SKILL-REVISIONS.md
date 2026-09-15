@@ -70,61 +70,227 @@ text.
 
 ---
 
-## Copy census
+## Copy census and variance map
 
-A file count and a set of content hashes are volatile measurements — they change whenever any copy
+A copy count and a set of content hashes are volatile measurements — they change whenever any copy
 changes. Per these skills' own volatile-measurement rule, this section records the instrument, the
 invocation, and the date, never bare numbers to be trusted later. **Re-run it; do not cite it.**
 
+**Scope of the run.** Every repository in the account pushed on or after 2026-04-21 — the earliest
+commit touching any expert-series skill — was checked for copies. Twelve were checked beyond
+`NOVA` and `agent-armory`; six carry copies and were cloned. Repos last pushed before the skills
+existed are out of scope, and `smart-watch-v3` was excluded by the owner. The repositories holding
+copies are: `NOVA`, `agent-armory`, `design-navigator-mcp-ui`, `expert-standards-dev-package`,
+`project-manager`, `the-app-for-apps`, `turbine-studio`, `cnc-syndicate-hub`, plus the machine's
+synced skill set (which is not a git repository and therefore carries no dates).
+
+**Method.** Three passes, all re-runnable:
+
+1. *Census* — every `SKILL.md` under an `expert-*` or `full-cycle` directory in each clone, with its
+   content hash and the date of the last commit that touched it.
+2. *History index* — for every such path, every historical content-state in that repo's git log,
+   hashed the same way.
+3. *Classification* — a current version is **stale** when its exact content appears in some *other*
+   path's history (it is an unchanged older copy of that lineage), and **unique** when the content
+   exists nowhere else (it carries edits made only there).
+
 ```
-# From a parent directory holding both clones, with the synced set at
-# ~/.claude/skills/synced/<id>/.  expert-standard is searched under both
-# directory spellings; some copies use the plural.
-for s in expert-review expert-spec expert-plan expert-implement \
-         expert-standard expert-standards; do
-  echo "### $s"
-  find agent-armory NOVA ~/.claude/skills/synced \
-       -path '*/.git' -prune -o -name SKILL.md -path "*/$s/*" -print 2>/dev/null |
-    while read f; do printf "  %s  %s\n" "$(md5sum < "$f" | cut -c1-8)" "$f"; done | sort
+# census: skill, content hash, last-changed date, repo, path
+find . -path ./.git -prune -o -name SKILL.md -print | while read f; do
+  s=$(basename "$(dirname "$f")"); case "$s" in expert-*|full-cycle) ;; *) continue;; esac
+  printf "%s\t%s\t%s\n" "$s" "$(md5sum < "$f" | cut -c1-8)" \
+         "$(git log -1 --date=short --format='%ad %h' -- "${f#./}")"
+done
+
+# history index: same, but every state in the log
+git log --format='%H %ad' --date=short -- "$path" | while read sha d; do
+  printf "%s\t%s\n" "$(git show "$sha:$path" | md5sum | cut -c1-8)" "$d"
 done
 ```
 
-**Run 2026-09-15**, against `agent-armory` at `3b3c11d`, `Maxcogar/NOVA` branch
-`claude/expert-review-skill-amwx9u` at `c12b1ec`, and the machine's synced skill set:
+**Run 2026-09-15** against the eight repositories above at their then-current `main`, plus the
+synced set. Result: **64 copies of 16 skill names, in 42 distinct versions — 35 of them unique.**
 
-| Skill | Copies found | Distinct contents |
-|---|---|---|
-| `expert-standard` | 11 | **7** |
-| `expert-review` | 4 | **4** — every copy differs |
-| `expert-spec` | 4 | **4** — every copy differs |
-| `expert-plan` | 6 | 3 |
-| `expert-implement` | 5 | 3 |
+### Reconciliation load
 
-`expert-standard`'s 11 copies span both directory spellings — 7 under `expert-standard`, 4 under
-`expert-standards`. Four of the 11 share one content hash and two more share another; the remaining
-five are each unique.
+The number that matters for producing one canonical version of each skill is the **unique** column:
+stale copies need no content decision, only replacement.
 
-Short names used in the rows below:
+| Skill | Versions | Unique | Stale | Copies |
+|---|---|---|---|---|
+| `expert-standard` | 8 | **6** | 2 | 20 |
+| `expert-review` | 5 | **5** | 0 | 5 |
+| `expert-spec` | 4 | **4** | 0 | 4 |
+| `expert-implement` | 4 | **3** | 1 | 6 |
+| `expert-architecture` | 4 | **3** | 1 | 5 |
+| `expert-plan` | 3 | **2** | 1 | 7 |
+| `expert-mcp-overhaul` | 3 | **2** | 1 | 3 |
+| `expert-standard-eval` | 2 | **2** | 0 | 2 |
+| `expert-architecture-portable` | 2 | **1** | 1 | 4 |
+| `expert-standard-builder` | 1 | 1 | 0 | 2 |
+| `expert-correct` | 1 | 1 | 0 | 1 |
+| `expert-architecture-greenfield` | 1 | 1 | 0 | 1 |
+| `expert-architecture-greenfield-portable` | 1 | 1 | 0 | 1 |
+| `expert-plan-greenfield-portable` | 1 | 1 | 0 | 1 |
+| `full-cycle` | 1 | 1 | 0 | 1 |
+| **Total** | **42** | **35** | **7** | **64** |
 
-| Short name | Path |
+Two naming irregularities that break path-based lookup, recorded so a sweep does not miss them: four
+copies of `expert-standard` sit in directories named **`expert-standards`** while the skill's
+frontmatter declares `name: expert-standard` (they are folded into `expert-standard` above); and
+`agent-armory/gemini-extensions/agentboard/skills/expert-standard.md` is a bare file rather than a
+skill directory — its content is identical to the `2a6f1d8d` cluster below.
+
+### Short names used in the revision rows
+
+| Short name | Location |
 |---|---|
+| `nova` | `Maxcogar/NOVA` → `.claude/skills/` |
+| `nova-agents` | `Maxcogar/NOVA` → `.agents/skills/` |
 | `plugin` | `agent-armory/claude-plugins/expert-dev-tools/skills/` |
 | `aps-fusion` | `agent-armory/mcp-servers/aps-fusion-mcp-server/.claude/skills/` |
 | `context-oracle` | `agent-armory/middleware/context-oracle/.claude/skills/` |
 | `armory-skills` | `agent-armory/skills/Expert-Skills/` |
-| `project-manager` | `agent-armory/Project-Claude-Configs/Project-Manager/skills/` |
 | `claude-agentboard` | `agent-armory/claude-plugins/agentboard/skills/` |
 | `codex-agentboard` | `agent-armory/codex-plugins/agentboard/skills/` |
 | `gemini-agentboard` | `agent-armory/gemini-extensions/agentboard-gemini/skills/` |
-| `nova` | `Maxcogar/NOVA` → `.claude/skills/` |
-| `nova-agents` | `Maxcogar/NOVA` → `.agents/skills/` |
-| `synced` | `~/.claude/skills/synced/<id>/` |
+| `design-navigator` | `Maxcogar/design-navigator-mcp-ui` → `.claude/skills/` |
+| `esdp` | `Maxcogar/expert-standards-dev-package` → `.claude/skills/` and `library/skills/` |
+| `project-manager` | `Maxcogar/Project-Manager` → `.claude/skills/`, `.agent/skills/`, `agentboard-plugin/skills/` |
+| `the-app-for-apps` | `Maxcogar/the-app-for-apps` → `.claude/skills/` |
+| `turbine-studio` | `Maxcogar/Turbine-Studio` → `.claude/skills/` |
+| `cnc-hub` | `Maxcogar/CNC-Syndicate-Hub` → `.claude/skills/` |
+| `synced` | the machine's `~/.claude/skills/synced/<id>/` — not a git repository |
 
-Naming irregularities, recorded because they break path-based lookup: the `nova`, `nova-agents`,
-`claude-agentboard` and `codex-agentboard` copies of `expert-standard` sit in directories named
-**`expert-standards`** while the skill's frontmatter declares `name: expert-standard`; and
-`agent-armory/gemini-extensions/agentboard/` carries `expert-standard.md` as a bare file rather than
-a skill directory, so it is outside the census command above.
+The revision rows below cover `nova` and `plugin` only. The other locations appear in the variance
+map above but have no rows yet; see *Provenance of this register*.
+
+### Variance map
+
+Versions newest-first within each skill. "Last changed" is the newest commit date among that
+version's copies; the synced set has no git history, so it shows `—`.
+
+### `expert-standard` — 8 version(s) across 20 copy(ies)
+
+| Version | Held by | Last changed | Status |
+|---|---|---|---|
+| `d7a59a48` | `agent-armory`/claude-plugins/expert-dev-tools/skills/expert-standard | 2026-08-21 | **unique** — content exists nowhere else |
+| `aa632da8` | `NOVA`/.agents/skills/expert-standards | 2026-08-16 | **unique** — content exists nowhere else |
+| `3f9a5768` | `project-manager`/.claude/skills/expert-standard<br>`the-app-for-apps`/.claude/skills/expert-standard<br>`agent-armory`/Project-Claude-Configs/Project-Manager/skills/expert-standard<br>`agent-armory`/skills/Expert-Skills/expert-standard<br>`cnc-syndicate-hub`/.claude/skills/expert-standard<br>`turbine-studio`/.claude/skills/expert-standard<br>`agent-armory`/middleware/context-oracle/.claude/skills/expert-standard<br>`agent-armory`/mcp-servers/aps-fusion-mcp-server/.claude/skills/expert-standard | 2026-07-30 | **stale** — same content as `agent-armory` at 2026-07-22 |
+| `46721fce` | `design-navigator-mcp-ui`/.claude/skills/expert-standard | 2026-07-11 | **unique** — content exists nowhere else |
+| `b8620773` | `NOVA`/.claude/skills/expert-standards | 2026-06-12 | **unique** — content exists nowhere else |
+| `68008ddb` | `agent-armory`/claude-plugins/agentboard/skills/expert-standards<br>`project-manager`/agentboard-plugin/skills/expert-standards | 2026-06-07 | **unique** — content exists nowhere else |
+| `2a6f1d8d` | `project-manager`/.agent/skills/expert-standards<br>`agent-armory`/codex-plugins/agentboard/skills/expert-standards<br>`agent-armory`/gemini-extensions/agentboard-gemini/skills/expert-standard | 2026-05-11 | **stale** — same content as `agent-armory` at 2026-05-07 |
+| `b6c3894d` | `expert-standards-dev-package`/.claude/skills/expert-standard<br>`expert-standards-dev-package`/library/skills/expert-standard<br>`machine synced set` | 2026-04-27 | **unique** — content exists nowhere else |
+
+### `expert-review` — 5 version(s) across 5 copy(ies)
+
+| Version | Held by | Last changed | Status |
+|---|---|---|---|
+| `46eae723` | `NOVA`/.claude/skills/expert-review | 2026-09-01 | **unique** — content exists nowhere else |
+| `b6ab93c8` | `agent-armory`/claude-plugins/expert-dev-tools/skills/expert-review | 2026-08-21 | **unique** — content exists nowhere else |
+| `1df7ba33` | `agent-armory`/mcp-servers/aps-fusion-mcp-server/.claude/skills/expert-review | 2026-07-30 | **unique** — content exists nowhere else |
+| `3df82ddb` | `design-navigator-mcp-ui`/.claude/skills/expert-review | 2026-07-19 | **unique** — content exists nowhere else |
+| `c10f9c8c` | `machine synced set` | — | **unique** — content exists nowhere else |
+
+### `expert-implement` — 4 version(s) across 6 copy(ies)
+
+| Version | Held by | Last changed | Status |
+|---|---|---|---|
+| `c481d160` | `NOVA`/.claude/skills/expert-implement | 2026-08-29 | **unique** — content exists nowhere else |
+| `c00edeea` | `agent-armory`/claude-plugins/expert-dev-tools/skills/expert-implement | 2026-08-21 | **unique** — content exists nowhere else |
+| `a210c4c1` | `agent-armory`/skills/Expert-Skills/expert-implement<br>`agent-armory`/middleware/context-oracle/.claude/skills/expert-implement<br>`agent-armory`/mcp-servers/aps-fusion-mcp-server/.claude/skills/expert-implement | 2026-07-30 | **stale** — same content as `agent-armory` at 2026-07-22 |
+| `5fde06ac` | `design-navigator-mcp-ui`/.claude/skills/expert-implement | 2026-07-22 | **unique** — content exists nowhere else |
+
+### `expert-architecture` — 4 version(s) across 5 copy(ies)
+
+| Version | Held by | Last changed | Status |
+|---|---|---|---|
+| `018d1a46` | `agent-armory`/claude-plugins/expert-dev-tools/skills/expert-architecture | 2026-08-21 | **unique** — content exists nowhere else |
+| `2a9723da` | `agent-armory`/skills/Expert-Skills/expert-architecture<br>`agent-armory`/mcp-servers/aps-fusion-mcp-server/.claude/skills/expert-architecture | 2026-07-30 | **stale** — same content as `agent-armory` at 2026-07-22 |
+| `7360441d` | `design-navigator-mcp-ui`/.claude/skills/expert-architecture | 2026-07-11 | **unique** — content exists nowhere else |
+| `d59e02c9` | `machine synced set` | — | **unique** — content exists nowhere else |
+
+### `expert-spec` — 4 version(s) across 4 copy(ies)
+
+| Version | Held by | Last changed | Status |
+|---|---|---|---|
+| `1f26e5d7` | `NOVA`/.claude/skills/expert-spec | 2026-08-29 | **unique** — content exists nowhere else |
+| `89705ea7` | `agent-armory`/claude-plugins/expert-dev-tools/skills/expert-spec | 2026-08-21 | **unique** — content exists nowhere else |
+| `c68a0614` | `agent-armory`/mcp-servers/aps-fusion-mcp-server/.claude/skills/expert-spec | 2026-07-30 | **unique** — content exists nowhere else |
+| `e29eddef` | `machine synced set` | — | **unique** — content exists nowhere else |
+
+### `expert-plan` — 3 version(s) across 7 copy(ies)
+
+| Version | Held by | Last changed | Status |
+|---|---|---|---|
+| `719b40cd` | `NOVA`/.claude/skills/expert-plan | 2026-08-29 | **unique** — content exists nowhere else |
+| `eecb925b` | `agent-armory`/claude-plugins/expert-dev-tools/skills/expert-plan | 2026-08-21 | **unique** — content exists nowhere else |
+| `4e3c4327` | `design-navigator-mcp-ui`/.claude/skills/expert-plan<br>`agent-armory`/skills/Expert-Skills/expert-plan<br>`agent-armory`/middleware/context-oracle/.claude/skills/expert-plan<br>`agent-armory`/mcp-servers/aps-fusion-mcp-server/.claude/skills/expert-plan<br>`machine synced set` | 2026-07-30 | **stale** — same content as `agent-armory` at 2026-07-22 |
+
+### `expert-mcp-overhaul` — 3 version(s) across 3 copy(ies)
+
+| Version | Held by | Last changed | Status |
+|---|---|---|---|
+| `5eb39fbb` | `agent-armory`/claude-plugins/expert-dev-tools/skills/expert-mcp-overhaul | 2026-08-21 | **unique** — content exists nowhere else |
+| `6c9c69a5` | `agent-armory`/mcp-servers/aps-fusion-mcp-server/.claude/skills/expert-mcp-overhaul | 2026-07-30 | **stale** — same content as `agent-armory` at 2026-07-22 |
+| `aad58221` | `machine synced set` | — | **unique** — content exists nowhere else |
+
+### `expert-architecture-portable` — 2 version(s) across 4 copy(ies)
+
+| Version | Held by | Last changed | Status |
+|---|---|---|---|
+| `c124568a` | `agent-armory`/claude-plugins/expert-dev-tools/skills/expert-architecture-portable | 2026-08-21 | **unique** — content exists nowhere else |
+| `b609c920` | `agent-armory`/skills/Expert-Skills/expert-architecture-portable/expert-architecture-portable<br>`agent-armory`/middleware/context-oracle/.claude/skills/expert-architecture-portable<br>`machine synced set` | 2026-07-17 | **stale** — same content as `agent-armory` at 2026-07-22 |
+
+### `expert-standard-eval` — 2 version(s) across 2 copy(ies)
+
+| Version | Held by | Last changed | Status |
+|---|---|---|---|
+| `1967c1b0` | `expert-standards-dev-package`/.claude/skills/expert-standard-eval | 2026-05-04 | **unique** — content exists nowhere else |
+| `ff4090f1` | `machine synced set` | — | **unique** — content exists nowhere else |
+
+### `expert-standard-builder` — 1 version(s) across 2 copy(ies)
+
+| Version | Held by | Last changed | Status |
+|---|---|---|---|
+| `d2232a64` | `expert-standards-dev-package`/.claude/skills/expert-standard-builder<br>`machine synced set` | 2026-04-27 | **unique** — content exists nowhere else |
+
+### `expert-architecture-greenfield` — 1 version(s) across 1 copy(ies)
+
+| Version | Held by | Last changed | Status |
+|---|---|---|---|
+| `a2d5ebc3` | `machine synced set` | — | **unique** — content exists nowhere else |
+
+### `expert-architecture-greenfield-portable` — 1 version(s) across 1 copy(ies)
+
+| Version | Held by | Last changed | Status |
+|---|---|---|---|
+| `cc8251a7` | `machine synced set` | — | **unique** — content exists nowhere else |
+
+### `expert-correct` — 1 version(s) across 1 copy(ies)
+
+| Version | Held by | Last changed | Status |
+|---|---|---|---|
+| `069ea2cd` | `agent-armory`/claude-plugins/expert-dev-tools/skills/expert-correct | 2026-08-21 | **unique** — content exists nowhere else |
+
+### `expert-plan-greenfield-portable` — 1 version(s) across 1 copy(ies)
+
+| Version | Held by | Last changed | Status |
+|---|---|---|---|
+| `82482d34` | `machine synced set` | — | **unique** — content exists nowhere else |
+
+### `expert-standard.md` — 1 version(s) across 1 copy(ies)
+
+| Version | Held by | Last changed | Status |
+|---|---|---|---|
+| `2a6f1d8d` | `agent-armory`/gemini-extensions/agentboard/skills/expert-standard.md | 2026-06-03 | **unique** — content exists nowhere else |
+
+### `full-cycle` — 1 version(s) across 1 copy(ies)
+
+| Version | Held by | Last changed | Status |
+|---|---|---|---|
+| `16920495` | `NOVA`/.claude/skills/full-cycle | 2026-09-10 | **unique** — content exists nowhere else |
 
 ---
 
@@ -139,6 +305,14 @@ change. What that means for how far each row can be trusted:
   which is a claim by its author — read the commit before acting on one.
 
 From 2026-09-15 forward, rows are written in the commit that makes the change.
+
+**Row coverage is narrower than the census.** The variance map above covers all 64 copies in every
+location. The revision rows below were traced from `git log` in `nova` and `plugin` only, and cover
+five skills — `expert-review`, `expert-spec`, `expert-plan`, `expert-implement`, `expert-standard`.
+No row exists yet for any other location or for `expert-architecture`,
+`expert-architecture-portable`, `expert-correct`, `expert-mcp-overhaul`, the greenfield variants, or
+`full-cycle`. **A skill or location with no row has not been traced — never read that as "never
+changed."**
 
 ---
 
@@ -229,8 +403,8 @@ Changes verified present in one copy and absent from another, with the check tha
 it can be re-run rather than trusted. This is not a full propagation matrix and is not maintained as
 one — it records only what has actually been checked, on the date shown.
 
-**Checked 2026-09-15** across all four `expert-review` copies — `plugin`, `aps-fusion`, `nova`,
-`synced`:
+**Checked 2026-09-15** across all five `expert-review` copies — `nova`, `plugin`, `aps-fusion`,
+`design-navigator`, `synced`:
 
 ```
 for p in "Verified-unchanged carve-out" \
@@ -245,14 +419,14 @@ done
 
 | Rule | Present in | Absent from | Phrase checked |
 |---|---|---|---|
-| Verified-unchanged carve-out (`19fbc64`) | `nova` only | `plugin`, `aps-fusion`, `synced` | `Verified-unchanged carve-out` |
-| Provenance is not part of the finding surface (`9e73fa2`) | `nova` only | `plugin`, `aps-fusion`, `synced` | `Provenance is not part of the finding surface` |
-| Reference-set enumeration is structural (`929b9ab`) | `nova` only | `plugin`, `aps-fusion`, `synced` | `find_symbol_dependents` |
+| Verified-unchanged carve-out (`19fbc64`) | `nova` only | `plugin`, `aps-fusion`, `design-navigator`, `synced` | `Verified-unchanged carve-out` |
+| Provenance is not part of the finding surface (`9e73fa2`) | `nova` only | `plugin`, `aps-fusion`, `design-navigator`, `synced` | `Provenance is not part of the finding surface` |
+| Reference-set enumeration is structural (`929b9ab`) | `nova` only | `plugin`, `aps-fusion`, `design-navigator`, `synced` | `find_symbol_dependents` |
 
-All three are owner rulings, and each exists in exactly one of four copies. The `plugin` copy is the
+All three are owner rulings, and each exists in exactly one of five copies. The `plugin` copy is the
 one vendored into other projects, so all three are currently unavailable everywhere except Nova.
 
-**Also checked, and absent from all four:** `PREFLIGHT`. Every review round since 2026-08-16 carries
+**Also checked, and absent from all five:** `PREFLIGHT`. Every review round since 2026-08-16 carries
 a `PREFLIGHT` header, and `tools/check-correction-gate.py` check D in Nova blocks the next reviewer
 dispatch when the prior round lacks the literal token — but no copy of `expert-review` requires it.
 The requirement exists only in the per-line dispatch prompts under `NOVA/docs/reviews/`. The skill
