@@ -178,3 +178,5 @@ Added 2026-08-29 (testing-methodology discussion with Max Cogar):
 have the oracle extract the steps from an active or invoked skill and monitor what the agent is doing
 and tell it to do any parts they missed. If an agent says they are going to start by doing x, and that isnt the actual way the
 skill says to do whatever it is, then the oracle would correct them and inject the actual starting step into the agents context.
+Or maybe the agent can do it. if the agent wants to make a task list then it would be easier and more reliable for the list to get 
+generated from a tool call than to write that out manually. 
