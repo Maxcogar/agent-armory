@@ -24,18 +24,22 @@ every Phase A decision against this goal (`CLAUDE.md` dominating rule 3).
 The spec (`docs/specs/spec-context-oracle.md`) is signed off (`OL-C6`). The Phase
 A architecture (`docs/architecture-phase-a.md`) is reviewed to convergence.
 
-**The Phase A implementation plan (`docs/plans/plan-phase-a.md`) is in round 6 —
-its final gate. The S1 fix (below) is applied and the author's Gate A/B/C
-compliance walk is done (`docs/reviews/2026-09-17-author-gates-review.md`), but
-the round is NOT closed: the independent post-fix review (round 7) must come back
-clean on the current plan first. The plan is NOT yet the build contract.** Every
-mechanical gate is green on the current revision: `derive-plan-sections.mjs
---check` (40 steps, 124 test specs, **27 probes cited**, regions current),
-`--self-check` (34 checks), `run-plan-probes.mjs --repeat 3 --load 2` (all 27
-probes, including probe 27), and `tools/check_docs.py`. The correction loop's
-tracked record (`state/done.json`) holds rounds 5 and 6 — meaning the round-6
-finding S1 was *processed* by the loop, which is not the same as the fix being
-independently verified.
+**The Phase A implementation plan (`docs/plans/plan-phase-a.md`) is in an
+independent review-and-fix chain and is NOT yet the build contract.** Round 6
+found S1 (the miner `core.quotePath` mis-key), fixed. Round 7 — the independent
+post-fix review, dispatched neutrally (mechanical-only per the review-handoff
+template: changed files + plan path + "run the review, report the verdict", no
+framing) — found **M1** (the residual-quote safety branch shipped untested: the
+`miner-hygiene` fixture never planted a residually-quoted path, so T-13-1's guard
+was inert and a whole-field-first-char miscoding would pass) and **T1** (a Step 13
+prose-order nit). Both are fixed through the correction loop (`state/done.json`
+now holds rounds 5, 6, 7), and the author's Gate A/B/C walk on those fixes is done
+(`docs/reviews/2026-09-17-round-7-author-gates-review.md`, which re-derived Q56).
+The round is NOT closed: the independent **round-8** verification of the round-7
+fixes must come back clean first. Every mechanical gate is green on the current
+revision: `derive-plan-sections.mjs --check` (40 steps, 124 test specs, **27
+probes cited**, regions current), `--self-check` (34 checks), `run-plan-probes.mjs`
+(all 27 probes), and `tools/check_docs.py`.
 
 **What round 6 was and what it found (2026-09-16 → 17).** Two independent reviews
 of the current plan by fresh subagents — an expert-review and a whole-document
@@ -88,20 +92,23 @@ to match.
 
 ## What to do next
 
-**Finish round 6: process the independent post-fix review (round 7) of the S1
-fix, then close only if it is clean on the current plan.** The author-gates walk
-is done; the last step is the independent adversarial pass on the amended plan
-(fresh subagents, never the author), written to
-`docs/reviews/2026-09-17-round-7-collapse-hunt.md` and
-`…-round-7-expert-review.md` so the correction loop serves any findings. The
-author-gates walk named one thing for that pass to attack rather than wave
-through: whether a Unicode NFC/NFD mismatch between git's bytes and the indexer's
-`readdir` can still mis-key a path even under `core.quotePath=false` (on Linux —
-Phase A's target — they match; cross-platform is the open question). When round 7
+**Dispatch round 8: the independent verification of the round-7 fixes (M1, T1),
+fresh subagents, dispatched neutrally per the review-handoff mechanical-only
+template.** Two passes — a collapse-hunt (CLAUDE.md dominating rule 2) and an
+expert-review (`/expert-review`) — each given ONLY the changed files, the plan
+path, and "run the review, report the verdict", with no framing, no attack list,
+no prior-round pointers (the review skill/rule the reviewer runs is what it
+follows, not dispatch instructions — see `.claude/skills/expert-implement/references/review-handoff.md`).
+Write them to `docs/reviews/2026-09-17-round-8-collapse-hunt.md` and
+`…-round-8-expert-review.md` so the correction loop serves any findings; process
+findings through the loop, then repeat the author-gates walk. The chain converges
+when a round returns zero findings — there is no round cap (OL-R6). When a round
 is clean, and only then, the plan is the build contract and the next step is
 `/expert-implement` against it, Step 1 first (its first act — `npm ci` on the
 committed lockfile, then a file importing `web-tree-sitter` compiling and loading
-a grammar — re-executes the probes that would catch a non-functional pin).
+a grammar — re-executes the probes that would catch a non-functional pin). The
+NFC/NFD question the author-gates walks flagged is dispositioned out of scope for
+Phase A's Linux target and was confirmed so by round 7's independent execution.
 
 ## Open items
 

@@ -2130,17 +2130,17 @@ and every genre lookup key on, so the pair would be silently mis-keyed —
 the guessing this miner forbids (`probe:27_git_numstat_quotepath`, §11.4);
 `-z` is not used because the record framing already spends `%x00` on the
 `--format` header and the parse is line-by-line. With the flag a path
-field is raw UTF-8, but git still C-quotes a path containing a literal
-double-quote, backslash, tab, or newline, so any path field — or either
-rename identity — that still begins with a double-quote cannot be taken as
-a literal and is skipped with a `miner_unparsed_numstat` diagnostic
-(Step 6), never guessed. A `--numstat` line whose path field contains
+field is raw UTF-8. A `--numstat` line whose path field contains
 ` => ` is a git-detected rename, printed as `old => new` or in the brace
 form `prefix{old => new}suffix` with either side possibly empty
 (`probe:24_git_numstat_rename`, §11.4): the miner expands it to both
 identities (`prefix+old+suffix`, `prefix+new+suffix`) and adds both to the
 commit's touched-file set, and a path field containing a literal `{`, `}`
 or ` => ` that does not parse unambiguously is skipped with a
+`miner_unparsed_numstat` diagnostic (Step 6), never guessed. Because git
+still C-quotes a path containing a literal double-quote, backslash, tab, or
+newline, any path field — or either rename identity — that still begins
+with a double-quote cannot be taken as a literal and is skipped with a
 `miner_unparsed_numstat` diagnostic (Step 6), never guessed; per commit: records the commit in
 `commits` with `entity_count`; excludes (with `exclude_reason`) commits
 whose `entity_count > miner.max_transaction_entities` and commits beyond the
@@ -7833,7 +7833,12 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     dir}/f`), each in a commit that also touches the planted pair's
     partner; and one file with a non-ASCII path (`café.txt`) — which
     git's default `core.quotePath` would C-quote in `--numstat` —
-    co-changing with the planted pair's partner in one commit. Technique:
+    co-changing with the planted pair's partner in one commit; and one file
+    renamed to a residually C-quoted path (`a\b.txt`, which git C-quotes as
+    `"a\\b.txt"` even under `core.quotePath=false`, so `--numstat` prints the
+    rename with its new identity beginning with a double-quote) in a commit
+    that also touches the planted pair's partner — reaching the residual-quote
+    skip on a rename identity. Technique:
     decision table over exclusion rules; equivalence partitioning over
     landmine classes, rename shapes, and path encodings.
   - **NOT asserts.** Confidence values (T-16-1). **Fails when** any excluded
@@ -9846,7 +9851,7 @@ bin, and its closed disposition.
   `probe:24_git_numstat_rename`) expand to both identities, both added to
   the touched-file set; an ambiguous field, or either rename identity still
   C-quoted (one beginning with a double-quote), is skipped with
-  `miner_unparsed_numstat`, never guessed (`T-13-1` plants both shapes).
+  `miner_unparsed_numstat`, never guessed (`T-13-1` plants both rename shapes and a residually C-quoted rename).
 - **Q57 (Step 14).** Can two reindexers both reclaim one stale claim?
   **Disposition.** Answered — D-plan-32: not when the liveness check and
   the claim write share one `BEGIN IMMEDIATE` transaction (executed,
