@@ -89,7 +89,7 @@ into without a redesign:
   line-based fallback frontend, zone classification, `entry_score`,
   `import_edges`, `symbol_refs`, incremental refresh with `content_hash`, size
   caps.
-- **Co-change miner (AD-13):** `git log --no-merges --numstat -M` streaming
+- **Co-change miner (AD-13):** `git -c core.quotePath=false log --no-merges --numstat -M` streaming
   with hygiene filters (merge exclusion, >30-entity transactions, horizon),
   canonical-ordered pair counts, `last_mined_commit` watermark, corpus floor.
 - **The bar (AD-14):** the three-axis conjunction (confidence ∧
@@ -1352,7 +1352,9 @@ with the key in `detail`), and `head_unresolved` for a `HEAD` whose ref the
 resolver Step 14 creates finds neither loose nor packed (recorded instead
 of `index_stale`, with the reason in `detail`, so an unreadable layout
 never spawns a reindex — D-plan-30), `miner_unparsed_numstat` for a
-`--numstat` path field the miner (Step 13) cannot expand unambiguously,
+`--numstat` path field the miner (Step 13) cannot expand unambiguously or
+cannot decode to a raw path (a field still C-quoted under
+`core.quotePath=false`),
 `reindex_locked` for a reindex refused because a live process holds the
 claim row (Step 14, D-plan-32), and `frontend_parse_failed` for a file
 whose tree-sitter parse threw and was indexed through the generic frontend
@@ -2118,14 +2120,27 @@ depends_on: [S1, S9, S12]
 
 **What changes.** Create `src/miner/cochange.ts` exposing
 `mineCochange(store, repoPath, opts)` — reads `schema_meta.last_mined_commit`;
-runs `git log --no-merges --numstat -M --format=%H%x00%at%x00
-<watermark>..HEAD` streamed line-by-line — a `--numstat` line whose path
-field contains ` => ` is a git-detected rename, printed as `old => new` or
-in the brace form `prefix{old => new}suffix` with either side possibly
-empty (`probe:24_git_numstat_rename`, §11.4): the miner expands it to
-both identities (`prefix+old+suffix`, `prefix+new+suffix`) and adds both
-to the commit's touched-file set, and a path field containing a literal
-`{`, `}` or ` => ` that does not parse unambiguously is skipped with a
+runs `git -c core.quotePath=false log --no-merges --numstat -M
+--format=%H%x00%at%x00 <watermark>..HEAD` streamed line-by-line.
+`core.quotePath=false` is set explicitly because git's default (ON)
+C-quotes any path field holding a byte ≥ 0x80 (`café.txt` prints as
+`"caf\303\251.txt"`, double-quoted and octal-escaped), which never equals
+the raw-UTF-8 path the structural indexer's `readdir` walk (Steps 14–15)
+and every genre lookup key on, so the pair would be silently mis-keyed —
+the guessing this miner forbids (`probe:27_git_numstat_quotepath`, §11.4);
+`-z` is not used because the record framing already spends `%x00` on the
+`--format` header and the parse is line-by-line. With the flag a path
+field is raw UTF-8, but git still C-quotes a path containing a literal
+double-quote, backslash, tab, or newline, so any path field — or either
+rename identity — that still begins with a double-quote cannot be taken as
+a literal and is skipped with a `miner_unparsed_numstat` diagnostic
+(Step 6), never guessed. A `--numstat` line whose path field contains
+` => ` is a git-detected rename, printed as `old => new` or in the brace
+form `prefix{old => new}suffix` with either side possibly empty
+(`probe:24_git_numstat_rename`, §11.4): the miner expands it to both
+identities (`prefix+old+suffix`, `prefix+new+suffix`) and adds both to the
+commit's touched-file set, and a path field containing a literal `{`, `}`
+or ` => ` that does not parse unambiguously is skipped with a
 `miner_unparsed_numstat` diagnostic (Step 6), never guessed; per commit: records the commit in
 `commits` with `entity_count`; excludes (with `exclude_reason`) commits
 whose `entity_count > miner.max_transaction_entities` and commits beyond the
@@ -7123,6 +7138,17 @@ this session; line numbers are of that revision.
   `numstat path field: d.txt => dir/d.txt`, `numstat path field:
   src/{utils => other}/c.txt` (the rename into a new directory prints the
   whole-path form when no prefix is shared, the brace form when one is).
+- **Claim.** `git log --numstat`'s path field is C-quoted when it holds a
+  byte ≥ 0x80 under git's default `core.quotePath`; `-c
+  core.quotePath=false` emits it as raw UTF-8 but still C-quotes a path
+  containing a literal double-quote, backslash, tab, or newline.
+  **Steps.** 13. **Evidence.** Executed `probe:27_git_numstat_quotepath`
+  2026-09-16 (git 2.43.0), which prints exactly: under the default
+  (`core.quotePath` unset), `café.txt` as `"caf\303\251.txt"` and `a\b.txt`
+  as `"a\\b.txt"` (double-quoted, octal/backslash-escaped) and `plain.txt`
+  raw; under `-c core.quotePath=false`, `café.txt` as raw UTF-8 and
+  `plain.txt` raw, while `a\b.txt` stays `"a\\b.txt"` — the residual-quote
+  case the miner routes to `miner_unparsed_numstat`.
 - **Claim.** `git rev-parse --is-inside-work-tree` fails with exit 128 and
   empty stdout in a directory inside no repository; it prints `false` only
   from inside a `.git` directory. **Steps.** 5. **Evidence.** Executed
@@ -7805,14 +7831,22 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     within the 90 days before `HEAD`; one file renamed in place (`old =>
     new`) and one moved into a new directory (the brace form `{ =>
     dir}/f`), each in a commit that also touches the planted pair's
-    partner. Technique: decision table over exclusion rules; equivalence
-    partitioning over landmine classes and rename shapes.
+    partner; and one file with a non-ASCII path (`café.txt`) — which
+    git's default `core.quotePath` would C-quote in `--numstat` —
+    co-changing with the planted pair's partner in one commit. Technique:
+    decision table over exclusion rules; equivalence partitioning over
+    landmine classes, rename shapes, and path encodings.
   - **NOT asserts.** Confidence values (T-16-1). **Fails when** any excluded
     commit contributes to a pair count, OR the planted pair's count ≠ 5, OR
     the `revert_chain`/`fix_chatter` rows are missing or carry no evidence,
     OR a rename's old or new identity is missing from the pair counts, OR
     any ` => ` string lands in `files` or `cochange_pairs`, OR the
-    watermark does not advance.
+    `café.txt` co-change pair is absent from `cochange_pairs` (it must be
+    counted under its raw-UTF-8 path, matching the indexer's `readdir`
+    key, never a C-quoted `"caf\303\251.txt"`), OR any C-quoted or escaped
+    path field — one beginning with a double-quote — lands in `files` or
+    `cochange_pairs` instead of being recorded as `miner_unparsed_numstat`,
+    OR the watermark does not advance.
 
 - **T-14-1 — Indexer skeleton on a small fixture repo.**
   - **File.** `test/unit/indexer.test.ts`.

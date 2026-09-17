@@ -1,0 +1,9 @@
+core.quotePath: (unset = default ON)
+-- default (ON): numstat path fields --
+"a\\b.txt"
+"caf\303\251.txt"
+plain.txt
+-- core.quotePath=false: numstat path fields --
+"a\\b.txt"
+café.txt
+plain.txt
