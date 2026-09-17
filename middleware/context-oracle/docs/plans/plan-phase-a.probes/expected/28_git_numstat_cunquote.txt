@@ -1,0 +1,3 @@
+readdir keys:  a\x5cb.txt  caf\xc3\xa9.txt  ctrl\x01x.txt  plain.txt  q"z.txt  ta\x09b.txt
+c-unquoted:    a\x5cb.txt  caf\xc3\xa9.txt  ctrl\x01x.txt  plain.txt  q"z.txt  ta\x09b.txt
+invertible (decoded == readdir keys): true
