@@ -9839,10 +9839,13 @@ bin, and its closed disposition.
   failure in rules 2–3 routes to rule 4 with a diagnostic carrying the
   exit code (`T-5-1` asserts the branch).
 - **Q56 (Step 13).** How does the miner read a `--numstat` line for a
-  renamed file? **Disposition.** Answered: the `old => new` and
+  renamed file? **Disposition.** Answered: the miner runs `git log` under
+  `core.quotePath=false`, so path fields and rename identities arrive as raw
+  UTF-8 (`probe:27_git_numstat_quotepath`); the `old => new` and
   `prefix{old => new}suffix` shapes (either side possibly empty; executed,
   `probe:24_git_numstat_rename`) expand to both identities, both added to
-  the touched-file set; an ambiguous field is skipped with
+  the touched-file set; an ambiguous field, or either rename identity still
+  C-quoted (one beginning with a double-quote), is skipped with
   `miner_unparsed_numstat`, never guessed (`T-13-1` plants both shapes).
 - **Q57 (Step 14).** Can two reindexers both reclaim one stale claim?
   **Disposition.** Answered — D-plan-32: not when the liveness check and
