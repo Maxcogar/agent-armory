@@ -7855,18 +7855,26 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     dir}/f`), each in a commit that also touches the planted pair's
     partner; and one file with a non-ASCII path (`café.txt`) — which
     git's default `core.quotePath` would C-quote in `--numstat` —
-    co-changing with the planted pair's partner in one commit; three files
-    renamed to paths git C-quotes even under `core.quotePath=false` — one with
-    a literal backslash (`a\b.txt`, printed `"a\\b.txt"`), one with a literal
-    double-quote (`q"z.txt`, printed `"q\"z.txt"`), one with a literal tab in
-    its name (printed `"ta\tb.txt"`) — each co-changing with the planted pair's
-    partner, so each C-quoted identity must be C-unquoted back to its raw
-    `readdir` key (the encoding is invertible: `probe:28_git_numstat_cunquote`);
-    and one file named with a literal ` => ` (`x => y.txt`) renamed, so
-    `--numstat` prints a single field carrying multiple ` => ` that cannot be
-    split into one rename unambiguously — the reaching input for
-    `miner_unparsed_numstat`, which must be recorded, never guessed into a
-    rename. Technique:
+    co-changing with the planted pair's partner in one commit. Both C-quoted
+    shapes the miner's rule must handle are planted — a **split rename
+    identity** and a **whole path field** — so equivalence partitioning over
+    path encodings is honestly populated on both:
+    three files, each moved with `git mv` from a **plain-named source** (content
+    preserved, so git detects the rename under `-M` and prints the old side
+    unquoted — the field does not begin with `"`, only the new identity does),
+    to paths git C-quotes even under `core.quotePath=false` — one with a literal
+    backslash (`plainsrc.txt => "a\\b.txt"`), one with a literal double-quote
+    (→ `"q\"z.txt"`), one with a literal tab (→ `"ta\tb.txt"`) — each co-changing
+    with the planted pair's partner; and one **plain, non-renamed** file **added**
+    at a backslash path (`u\v.txt`), whose standalone `--numstat` field is
+    `"u\\v.txt"` (the whole field begins with `"`), co-changing with the partner
+    in one commit. Each C-quoted token — plain field or split rename identity —
+    must be C-unquoted back to its raw `readdir` key (the encoding is invertible:
+    `probe:28_git_numstat_cunquote`). And one file named with a literal ` => `
+    (`x => y.txt`, moved with `git mv`) whose `--numstat` field carries multiple
+    ` => ` that cannot be split into one rename unambiguously — the reaching
+    input for `miner_unparsed_numstat`, which must be recorded, never guessed
+    into a rename. Technique:
     decision table over exclusion rules; equivalence partitioning over
     landmine classes, rename shapes, and path encodings.
   - **NOT asserts.** Confidence values (T-16-1). **Fails when** any excluded
@@ -7876,12 +7884,13 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     counts, OR any ` => ` substring lands in `files` or `cochange_pairs`, OR the
     `café.txt` co-change pair is absent from `cochange_pairs` (it must be
     counted under its raw-UTF-8 path, matching the indexer's `readdir`
-    key, never a C-quoted `"caf\303\251.txt"`), OR any of the three
-    C-quoted-class renames (backslash, double-quote, tab) is absent from
-    `cochange_pairs` under its raw `readdir` key or loses its co-change with
-    the partner, OR any field git C-quoted — one beginning with a
-    double-quote — lands in `files` or `cochange_pairs` in that quoted form
-    instead of C-unquoted to its raw path, OR the `x => y.txt` multi-arrow
+    key, never a C-quoted `"caf\303\251.txt"`), OR any of the four
+    C-quoted-class files — the backslash, double-quote, and tab renames and the
+    plain-added `u\v.txt` — is absent from `cochange_pairs` under its raw
+    `readdir` key or loses its co-change with the partner, OR any field git
+    C-quoted — one beginning with a double-quote, whether a plain field or a
+    split rename identity — lands in `files` or `cochange_pairs` in that quoted
+    form instead of C-unquoted to its raw path, OR the `x => y.txt` multi-arrow
     field is not recorded as `miner_unparsed_numstat` (it is guessed into a
     rename or pair, or silently dropped), OR the watermark does not advance.
 
@@ -9887,8 +9896,9 @@ bin, and its closed disposition.
   — and only an unquoted field holding a literal `{`, `}`, or ` => ` that
   cannot be told apart from rename syntax is recorded as
   `miner_unparsed_numstat`, never guessed (`T-13-1` plants both rename shapes,
-  representative C-quoted classes — backslash, double-quote, tab — and the
-  multi-arrow field that must be recorded as `miner_unparsed_numstat`).
+  both C-quoted shapes — split rename identities (backslash, double-quote,
+  tab) and a plain-added C-quoted field (`u\v.txt`) — and the multi-arrow field
+  that must be recorded as `miner_unparsed_numstat`).
 - **Q57 (Step 14).** Can two reindexers both reclaim one stale claim?
   **Disposition.** Answered — D-plan-32: not when the liveness check and
   the claim write share one `BEGIN IMMEDIATE` transaction (executed,
