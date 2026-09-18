@@ -1,16 +1,18 @@
 // Claims (Step 13, T-13-1): git's C-quoting of a `--numstat` path field is a
-// total, invertible encoding. Under `-c core.quotePath=false` a path is emitted
-// raw UTF-8 unless it contains a literal double-quote, backslash, tab, newline,
-// or a control byte < 0x20, in which case git wraps it in double quotes and
-// C-escapes those bytes (`\"`, `\\`, `\t`, `\n`, `\NNN` octal, ...). Inverting
-// that escape (C-unquote) recovers the exact raw bytes of the on-disk path —
-// the same key the structural indexer's `readdir` walk produces. So the miner
-// DECODES a still-quoted field back to its raw path (deterministic, not a guess)
-// rather than dropping it; only a genuinely ambiguous UNQUOTED field (a literal
-// `{`, `}`, or ` => ` that cannot be told apart from rename syntax) is routed to
-// `miner_unparsed_numstat`. This probe proves the round-trip: git's C-quoted
-// `--numstat` fields, C-unquoted, equal the readdir keys exactly, across the
-// backslash / non-ASCII / double-quote / tab / control-byte classes.
+// total, invertible encoding, and C-unquoting a quoted field then UTF-8-decoding
+// it yields the exact string key the structural indexer's `readdir` walk uses.
+// Under `-c core.quotePath=false` a path is emitted raw UTF-8 unless it contains
+// a literal double-quote, backslash, tab, newline, or a control byte < 0x20, in
+// which case git wraps it in double quotes and C-escapes those bytes (`\"`, `\\`,
+// `\t`, `\n`, `\NNN` octal, ...) — INCLUDING octal-escaping each byte of a
+// non-ASCII run when the same name also carries a quote-forcing byte. Inverting
+// that escape (C-unquote) recovers the exact raw bytes; those bytes UTF-8-decode
+// to the `readdir` key string (comparison is on the decoded STRING, never the raw
+// bytes — a name mixing `é` with a tab proves the two differ). So the miner
+// DECODES a still-quoted field back to its raw path and decodes it to a string
+// (deterministic, not a guess) rather than dropping it. This probe proves the
+// round-trip across the backslash / non-ASCII / double-quote / tab / newline /
+// control-byte / mixed classes.
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -30,6 +32,8 @@ try {
     Buffer.from('a\\b.txt'),                          // literal backslash
     Buffer.from('q"z.txt'),                           // literal double-quote
     Buffer.from('ta\tb.txt'),                         // literal tab
+    Buffer.from('ne\nwl.txt'),                        // literal newline
+    Buffer.from('café\tx.txt', 'utf8'),              // non-ASCII AND a tab (octal + escape mix)
     Buffer.from([0x63, 0x74, 0x72, 0x6c, 0x01, 0x78, 0x2e, 0x74, 0x78, 0x74]), // ctrl<0x01>x.txt
   ];
   const sep = Buffer.from('/');
@@ -62,7 +66,9 @@ try {
     return Buffer.from(out);
   }
 
-  // Parse `git log --numstat` path fields (added TAB deleted TAB path).
+  // Parse `git log --numstat` path fields (added TAB deleted TAB path). A newline
+  // in a name is emitted as the two ASCII bytes `\n` inside the quoted field, so
+  // the numstat LINE never carries a raw newline and line-splitting is safe.
   const raw = git('-c', 'core.quotePath=false', 'log', '-1', '--no-merges', '--numstat', '--format=');
   const decoded = [];
   for (const line of raw.toString('latin1').split('\n')) {
@@ -70,17 +76,16 @@ try {
     const field = Buffer.from(line.split('\t').slice(2).join('\t'), 'latin1');
     decoded.push(cUnquote(field));
   }
-  const key = b => b.toString('latin1');
+  // The key is the UTF-8-DECODED string, matching the indexer's readdir walk.
   const readdirKeys = readdirSync(d, { encoding: 'buffer' })
-    .map(key).filter(n => n !== '.git').sort();
-  const decodedKeys = decoded.map(key).sort();
+    .map(b => b.toString('utf8')).filter(n => n !== '.git').sort();
+  const decodedKeys = decoded.map(b => b.toString('utf8')).sort();
 
-  // Render each raw path as pure ASCII (printable bytes raw, everything else as
-  // `\xNN`) so the expected output is deterministic and encoding-independent.
-  const esc = latin1 => Array.from(latin1, ch => {
-    const b = ch.charCodeAt(0);
-    return (b >= 0x20 && b < 0x7f && b !== 0x5c)
-      ? ch : '\\x' + b.toString(16).padStart(2, '0');
+  // Render each string key as pure ASCII (printable code points raw, everything
+  // else as `\xNN`) so the expected output is deterministic and terminal-safe.
+  const esc = s => Array.from(s, ch => {
+    const cp = ch.codePointAt(0);
+    return (cp >= 0x20 && cp < 0x7f && ch !== '\\') ? ch : '\\x' + cp.toString(16).padStart(2, '0');
   }).join('');
   console.log('readdir keys:  ' + readdirKeys.map(esc).join('  '));
   console.log('c-unquoted:    ' + decodedKeys.map(esc).join('  '));

@@ -25,11 +25,14 @@ The spec (`docs/specs/spec-context-oracle.md`) is signed off (`OL-C6`). The Phas
 A architecture (`docs/architecture-phase-a.md`) is reviewed to convergence.
 
 **The Phase A implementation plan (`docs/plans/plan-phase-a.md`) has had every
-known review finding addressed and every mechanical gate green, but has NOT yet
-had a clean independent confirming pass — so it is one confirming review away
-from being the build contract.** Trajectory of the one seam that has driven the
-recent rounds — the co-change miner's handling of paths git C-quotes in
-`--numstat` (backslash / double-quote / tab / control-byte filenames):
+known review finding addressed and every mechanical gate green. Round 9's two
+independent passes split — expert-review PASS, collapse-hunt NEEDS FIXES (1
+Moderate, 2 Minor) — and those findings have now been fixed at the root; the
+plan is awaiting the round-10 confirming pass.** Trajectory of the one seam that
+has driven the recent rounds — the co-change miner's handling of paths git
+C-quotes in `--numstat` (backslash / double-quote / tab / newline / control-byte
+filenames) and the rename ` => ` that can collide with a filename that contains
+one:
 
 - **Round 6 — S1 (Serious, fixed).** Step 13 read `--numstat` path fields
   verbatim, but `core.quotePath` defaults on, so non-ASCII paths (`café.txt`)
@@ -54,22 +57,46 @@ recent rounds — the co-change miner's handling of paths git C-quotes in
   - **T2** — the fixture's rename-door discrimination silently depended on the
     renames being `git mv` from plain-named sources. **Closed** (`cf2d63e`): the
     Data states it.
+- **Round 9 — M1 (Moderate), m2, m3 (Minor), all fixed.** The expert-review
+  (`docs/reviews/2026-09-18-round-9-expert-review.md`) returned PASS; the
+  collapse-hunt (`…-round-9-collapse-hunt.md`) found the decode rule was
+  specified as flat string tests that ignore git's quote structure. Findings and
+  the root fix:
+  - **M1** — git C-quotes each rename identity independently, so "begins with
+    `"`" and "contains ` => `" are not separable discriminators: a single quoted
+    path whose *name* holds ` => ` (`"a => b\tc.txt"`) was mis-split into a
+    silent bogus co-change pair. **Fixed** by re-deriving Step 13 as
+    **quote-aware tokenization** — a ` => ` (or a `{ … => … }` brace group) is a
+    rename separator only *outside* a quoted token, so `"a => b\tc.txt"` is one
+    path and `"back\\slash.txt" => plainname.txt` is a rename. Grounded by
+    executed git 2.43.0 (whenever any identity needs quoting git emits the full
+    `"old" => "new"` form, never the brace form) and new
+    `probe:29_git_numstat_tokenize`. T-13-1 now plants CASE C and CASE D; the
+    self-contradicting "any ` => ` substring" fixture clause is removed.
+  - **m2** — the newline C-quoted class was asserted but exercised by nothing.
+    **Fixed**: `probe:28_git_numstat_cunquote` now plants `ne\nwl.txt`; T-13-1
+    plants a newline plain-add.
+  - **m3** — Step 13 equated the C-unquoted *bytes* with the indexer's *string*
+    `readdir` key. **Fixed**: Step 13/Q56 state the C-unquoted bytes are
+    **UTF-8-decoded to the string key**, and probe 28 compares decoded strings
+    (planting a non-ASCII+tab mixed name, `caf\xe9\x09x.txt`).
 
-Mechanical gates on the current revision (`cf2d63e`): `derive-plan-sections.mjs
---check` (40 steps, 124 test specs, **28 probes cited**, regions current),
-`--self-check` (34 checks), `run-plan-probes.mjs` (all 28 probes, incl.
-`28_git_numstat_cunquote`), `tools/check_docs.py`. **CI is green** on PR
+Mechanical gates on the current revision: `derive-plan-sections.mjs --check` (40
+steps, 124 test specs, **29 probes cited**, regions current), `--self-check` (34
+checks), `run-plan-probes.mjs` (all 29 probes, incl. `28_git_numstat_cunquote`
+and `29_git_numstat_tokenize`), `tools/check_docs.py`. PR
 [#89](https://github.com/Maxcogar/agent-armory/pull/89).
 
-**One open judgment call to flag for the confirming review.** Both round-8
-reviews recommended resolving the seam as a uniform **skip** (record every
-C-quoted path as `miner_unparsed_numstat`, contributing no pair). The fix instead
-resolves it as a uniform **decode** (C-unquote every C-quoted token back to its
-raw path). Both eliminate the contradiction and populate both partitions; decode
-additionally keeps the co-change substrate complete (no dropped files) at the
-cost of a small, deterministic, executed-invertible C-unquote step. This is an
-author design choice (OL-11) that diverges from the reviewers' recommendation and
-should be the first thing a fresh independent pass evaluates.
+**The decode-vs-skip question is resolved, not open.** Earlier rounds framed it
+as decode (recover every C-quoted path) vs. skip (record all as
+`miner_unparsed_numstat`). The round-9 collapse-hunt showed the real distinction
+is finer and settles it: the arrow's meaning is fixed by git's own quote
+structure, so **decode** the resolvable paths (a special-byte quoted path, and a
+rename whose sides are quoted) and **skip** only the genuinely ambiguous
+*fully-unquoted* multi-` => ` field. Uniform skip is wrong — it would drop
+resolvable single paths and every rename, gutting the miner's signal; and a flat
+decode without quote-aware tokenization silently mis-keys the collision case.
+The quote-aware rule is the one correct answer, grounded by execution.
 
 ## Session note — enforcement hooks disabled by owner (2026-09-17)
 
@@ -91,19 +118,20 @@ longer auto-enforced by a broken judge.
 
 ## What to do next
 
-**Owner's choice (pending):**
-1. **One confirming independent review of the current plan (`cf2d63e`)** — a
-   single fresh pass (dispatched neutrally per
-   `.claude/skills/expert-implement/references/review-handoff.md`). If it returns
-   zero findings, the seam is provably converged and the plan is the build
-   contract; if it flags the decode-vs-skip choice, settle that one item and
-   build. This is the rigorous close, one pass — not the auto-loop the hooks were
-   forcing.
-2. **Proceed to build** — treat the plan as the contract and run
-   `/expert-implement` against it, Step 1 first (its first act — `npm ci` on the
-   committed lockfile, then a file importing `web-tree-sitter` compiling and
-   loading a grammar — re-executes the probes that would catch a non-functional
-   pin).
+**The round-10 confirming pass is running.** The round-9 M1/m2/m3 fixes are
+applied and all mechanical gates are green, so per the Re-Review Protocol the
+two independent passes (expert-review + collapse-hunt) are re-dispatched
+neutrally over the fix diff (`cf2d63e..HEAD`) via
+`.claude/skills/expert-implement/references/review-handoff.md`. If both return no
+Moderate-or-above finding, the seam is converged and the plan becomes the build
+contract; if the collapse-hunt surfaces a new finding, it is fixed at the root
+(re-derived from the grounded git behavior, never patched) and re-reviewed.
+
+**Then build** — treat the converged plan as the contract and run
+`/expert-implement` against it, Step 1 first (its first act — `npm ci` on the
+committed lockfile, then a file importing `web-tree-sitter` compiling and
+loading a grammar — re-executes the probes that would catch a non-functional
+pin).
 
 The author-gates Gate A/B/C walk on the round-8 fixes was not separately written
 this session (the loop that used to require it is disabled); the fixes' coherence
