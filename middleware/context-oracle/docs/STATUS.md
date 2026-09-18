@@ -25,143 +25,80 @@ The spec (`docs/specs/spec-context-oracle.md`) is signed off (`OL-C6`). The Phas
 A architecture (`docs/architecture-phase-a.md`) is reviewed to convergence.
 
 **The Phase A implementation plan (`docs/plans/plan-phase-a.md`) is converged and
-is the build contract.** The one seam that drove rounds 6–14 — how the co-change
-miner reads paths and renames from `git log --numstat` — is resolved at the root
-by reading history under `-z` and parsing on NUL. **Round 14's two independent
-passes both returned PASS on the same revision (`67fc7cf`)**, with zero
-Moderate-or-above findings; the `-z`/NUL mechanism survived four consecutive
-collapse-hunts (rounds 12–14). One optional cosmetic Minor is recorded below and
-was deliberately not applied, to keep the build contract identical to the
-double-PASSed revision.
+is the build contract. The next step is to build it.** It has been carried through
+the independent review-and-fix loop to a clean close: the final round's two
+independent passes — an expert-review and a collapse-hunt — both returned PASS
+with zero Moderate-or-above findings. Its mechanical gates are green and are the
+first things to re-run if anything about the plan seems off:
 
-Trajectory of that seam. Every round attacked a symptom of one underlying
-choice: the plan parsed `--numstat` **line-by-line**, which forced it to handle
-git's C-quoting of special-byte paths (rounds 6–9: `core.quotePath=false`, then
-decode/C-unquote, then a quote-aware tokenizer) and the `old => new` rename
-syntax a filename can itself contain. Round 10's two independent passes
-(`docs/reviews/2026-09-18-round-10-{expert-review,collapse-hunt}.md`) both
-returned NEEDS FIXES on the same Moderate and both pointed past the symptom: a
-real file literally named `a => b.txt` (no quote-forcing byte, so unquoted) is
-byte-identical in line mode to a rename `a`→`b.txt` — an **irreducible**
-ambiguity no decoding removes — and the plan silently guessed it as a rename
-while asserting it never guessed.
+- `node .claude/skills/expert-plan/scripts/derive-plan-sections.mjs docs/plans/plan-phase-a.md --check` — 40 steps, 124 test specs, 26 probes cited, regions current
+- `node .claude/skills/expert-plan/scripts/derive-plan-sections.mjs --self-check` — 34 checks
+- `node .claude/skills/expert-plan/scripts/run-plan-probes.mjs docs/plans/plan-phase-a.md` — all 26 probes match their recorded expectations
+- `python tools/check_docs.py` — cross-document consistency
 
-Rounds 6–9 built ever-more-elaborate machinery *inside* the line-based choice —
-`core.quotePath=false`, a C-unquote decoder, then a quote-aware tokenizer, with
-probes `24_git_numstat_rename`, `27_git_numstat_quotepath`,
-`28_git_numstat_cunquote`, `29_git_numstat_tokenize` — and each round the next
-review found a new pathological shape the previous rule mis-keyed. Round 10
-showed the last one was irreducible in line mode.
+The one seam that took the review series to converge is the co-change miner's
+reading of `git log --numstat` (Step 13). It is resolved at the root: the miner
+reads history under **`-z`** and parses the stream on **NUL** — the only byte a
+pathname cannot contain — with each commit record marked by a `%x1e` + 40-hex
+(`%H`) header field. Under `-z`, git emits every path raw (no `core.quotePath`
+C-quoting of *any* byte) and a rename as two separate NUL-delimited fields, so a
+filename that contains ` => ` or a raw control byte is never mis-keyed and no
+rename is ever guessed; `probe:24_git_numstat_z` grounds this against real git.
+The full history of that seam — why line-by-line parsing was the wrong root, and
+the verify-before-you-assert failure the `-z` rewrite itself hit and fixed — is in
+`docs/collapse-log.md` (2026-09-18); the per-round evidence is in
+`docs/reviews/2026-09-18-round-*`.
 
-**The root fix (this session): parse with `-z`.** `git log -z --numstat` emits
-every path field as **raw bytes** (no C-quoting of any byte, regardless of
-`core.quotePath`) and emits a rename as **two separate NUL-delimited fields** —
-so there is no path to decode and no rename to guess. A file named `a => b.txt`
-is one field, a rename is two, both unambiguous. This **dissolves the whole
-seam**: the four line-mode probes (`24_git_numstat_rename`,
-`27_git_numstat_quotepath`, `28_git_numstat_cunquote`, `29_git_numstat_tokenize`)
-and all the decode/tokenizer prose are deleted and replaced by one probe,
-`24_git_numstat_z`, and a straight-line parse. Step 13, T-13-1, Q56, §11.4, and
-the Step 6 catalog are refit; `miner_unparsed_numstat` is now a defensive guard
-against git output-format drift.
-
-**Round 11 — one Serious/Moderate finding, fixed at the root.** Both round-11
-passes (`…-round-11-{expert-review,collapse-hunt}.md`) confirmed `-z` closes the
-whole round-6–10 family, but caught a *new* bug the `-z` fix introduced: the
-first framing delimited commits by a `%x1e` Record Separator and asserted `0x1e`
-is "a byte git never emits inside a path" — **false and uncited** (git forbids
-only NUL and `/` in a pathname; `0x1e` is legal and `-z` emits it raw), the exact
-verify-before-you-assert failure. A file named `we<0x1e>ird.txt` was cut mid-path
-into a fabricated pair. **Fixed** by keying the parse on the one byte a path
-cannot hold: the stream is split on **NUL**, a commit header is a field of shape
-`\x1e`+40-hex (`%H`), and a numstat/rename path — `0x1e` included — is never
-mistaken for a header. Grounded by execution (`we<0x1e>ird.txt`, a path beginning
-with `0x1e`, and a rename to a `0x1e`-bearing path all resolve whole);
-`probe:24_git_numstat_z` and T-13-1 now plant the `0x1e`-in-path case.
-
-**Round 12 — mechanism verified sound; one Moderate prose defect, fixed.** Both
-passes (`…-round-12-{expert-review,collapse-hunt}.md`) confirmed the round-11
-findings all closed and could **not collapse** the NUL-driven parse — the
-collapse-hunt attacked it with a filename byte-identical to a `%x1e`+40-hex
-header (as plain add, rename source, rename target) and multi-/empty-commit
-streams, and it held (positional rename consumption). The one finding: Step 13
-claimed `probe:24_git_numstat_z` plants the `0x1e` path "co-changing with a
-partner," but that probe commit is solo (the co-change case lives in `T-13-1`) —
-a dominating-rule-1 inaccuracy about executed evidence, isolated to Step 13 (Q56
-and §11.4 were accurate). **Fixed**: Step 13's prose now states only what the
-probe proves (the `0x1e` path records as one whole path, not a fabricated pair)
-and cites `T-13-1` for the co-change; a truncated-rename guard was added to the
-malformed-record set and to the probe's reference parser.
-
-**Round 13 — mechanism sound again; one Moderate + Minors, fixed.** The
-expert-review returned PASS; the collapse-hunt again could not collapse the parse
-but hunted and found one Moderate: Step 13's Gate-3 "The decision" clause still
-read "Stream `git log` **line-by-line**" — a stale leftover from before the `-z`
-rewrite (present since the switch, missed because rounds 11–12 diffs didn't touch
-it), contradicted by the step's own `-z`/NUL body and its `ne<LF>wl.txt` fixture.
-**Fixed**: the clause now states the `-z` NUL-stream parse. Two Minors also
-applied — the truncated-rename malformed class is now exercised in `T-13-1`
-(data + `Fails when`), and the probe parser's `cur` deref is guarded.
-
-**Round 14 — both passes PASS; converged.** The expert-review and the
-collapse-hunt (`…-round-14-{expert-review,collapse-hunt}.md`) both returned PASS
-on `67fc7cf` with zero Moderate-or-above findings, verifying all three round-13
-fixes closed. The collapse-hunt's fresh attacks all held. The **one remaining
-item is optional cosmetic Minor** (from the round-14 expert-review): the early
-`if (!cur) continue` guard added for round-13's m2 makes the two inner `cur`
-checks in `24_git_numstat_z.mjs`'s parser provably redundant dead code. It is
-non-blocking, changes no behavior, and was left in place so the build contract is
-byte-identical to the revision both passes reviewed; it can be trimmed during
-implementation.
-
-Mechanical gates on the current revision: `derive-plan-sections.mjs --check` (40
-steps, 124 test specs, **26 probes cited**, regions current), `--self-check` (34
-checks), `run-plan-probes.mjs` (all 26 probes, incl. `24_git_numstat_z`),
-`tools/check_docs.py`. PR
-[#89](https://github.com/Maxcogar/agent-armory/pull/89).
-
-## Session note — enforcement hooks disabled by owner (2026-09-17)
-
-The two repo-root Stop-hook gates (`hooks/stop-completeness-gate/`,
-`hooks/stop-instruction-adherence-gate/`) and the context-oracle correction-loop
-hooks were **disabled at Max Cogar's explicit request** (commit `9b29353`:
-gate scripts short-circuit to `exit 0`; `.claude/settings.local.json` sets
-`CORRECTION_LOOP_JUDGE_RUN=1` so the loop's judge/guard/serve stand down). Reason:
-all three judges' nested `claude -p` subprocess hung/timed out for hours
-(confirmed environmental — disk, proxy, API all healthy; a trivial `claude -p`
-timed out with MCP off and stdin closed), failing **closed** by design and
-blocking every turn-end. The correction loop's own guard had also locked the
-round-8 findings and the settings files while its issue was "active," and the
-loop could not advance because its judge could not run. This is the same
-session-isolation class of bug already tracked in Open Items below (PR #82). The
-disable is a deliberate, owner-authorized operational unblock, not a weakening of
-review rigor — the independent-review discipline still applies; it is just no
-longer auto-enforced by a broken judge.
+**One optional cleanup for the builder (non-blocking).** The *reference* parser in
+`docs/plans/plan-phase-a.probes/24_git_numstat_z.mjs` carries two now-redundant
+`cur` null-checks — an early `if (!cur) continue` guard makes the inner
+`if (cur)` / `else if (cur)` checks dead code. It changes no behavior and blocks
+nothing; when Step 13 builds the production miner's parser, write it without them.
 
 ## What to do next
 
-**Build.** The plan is converged (round-14 double-PASS) and is the build
-contract. The next step is to run `/expert-implement` against it, Step 1 first —
-its first act is `npm ci` on the committed lockfile, then a file importing
-`web-tree-sitter` compiling and loading a grammar, which re-executes the probes
-that would catch a non-functional pin. Per the merge-before-next-session
-workflow, this is a natural session boundary: the build is the next session's
-work on a `main` that already carries this converged plan.
+**Build Phase A.** Run `/expert-implement` against `docs/plans/plan-phase-a.md`,
+Step 1 first. Step 1's first act is `npm ci` on the committed lockfile, then a
+source file that imports `web-tree-sitter`, compiles under the pinned `tsconfig`,
+and loads a grammar — which re-executes the probes that would catch a
+non-functional runtime pin before any later step builds on it. Execute the steps
+strictly in order; the plan is written to make every decision, so a spot where
+you would have to choose on the fly is a plan defect to stop and report (the
+`expert-implement` STOP REPORT), not to improvise past.
 
-The author-gates Gate A/B/C walk on the round-8 fixes was not separately written
-this session (the loop that used to require it is disabled); the fixes' coherence
-is instead carried by the green mechanical gates and this STATUS. The NFC/NFD
-question the earlier author-gates walks flagged remains dispositioned out of scope
-for Phase A's Linux target (confirmed by round 7's independent execution).
+Build against the §11.5 phase exit and the §14 acceptance criteria, and judge
+every build decision against the Phase A goal above — not against passing review
+(dominating rule 3). The independent review of the built work is dispatched to a
+neutral subagent per
+`.claude/skills/expert-implement/references/review-handoff.md`; you never grade
+your own work.
+
+One premise the earlier reviews flagged and dispositioned: Unicode NFC/NFD path
+normalization is **out of scope** for Phase A's Linux target (confirmed by
+independent execution). Do not reopen it in the build without new evidence.
+
+## Current repo state the build inherits — enforcement hooks are disabled
+
+The two repo-root Stop-hook gates (`hooks/stop-completeness-gate/`,
+`hooks/stop-instruction-adherence-gate/`) and the context-oracle correction-loop
+hooks are **disabled at Max Cogar's explicit request**: the gate scripts
+short-circuit to `exit 0`, and `.claude/settings.local.json` sets
+`CORRECTION_LOOP_JUDGE_RUN=1` so the loop's judge/guard/serve stand down. Reason:
+all three judges spawn a nested `claude -p` subprocess that hung/timed out for
+hours — the session-isolation bug in Open Items below (fix: PR #82). The disable
+is a deliberate, owner-authorized operational unblock, **not** a licence to skip
+review rigor: the independent-review discipline (dominating rule 2) still applies
+by hand — it is simply no longer auto-enforced by a broken judge. If the build
+re-enables or relies on these gates, fix the `claude -p` isolation first.
 
 ## Open items
 
-- **The round-3 tentative items, carried forward and still not fully verified on
-  the target surface.** Behaviour at the Node 22.16.0 engines floor is executed
-  only by CI's matrix entry and the pin runs (`npx node@22.16.0`). Whether
-  `unshare -rn` works on the GitHub Actions runner image is still open — the
-  optional `09_unshare_no_network.optional` probe is evidence for this container,
-  not for the GHA runner. Both settle the first time the build's CI runs.
+- **The runtime-pin and sandbox premises settle the first time the build's CI
+  runs.** Behaviour at the Node 22.16.0 engines floor is executed only by CI's
+  matrix entry and the pin runs (`npx node@22.16.0`); whether `unshare -rn` works
+  on the GitHub Actions runner image is still open — the optional
+  `09_unshare_no_network.optional` probe is evidence for this container, not for
+  the GHA runner.
 - **L11(a)** — human-marker presence is measured on interactive transcripts; the
   plan reports it *verified* only when an owner-local interactive transcript is in
   the exit corpus, otherwise *not observed*.
@@ -175,6 +112,5 @@ for Phase A's Linux target (confirmed by round 7's independent execution).
   Claude Code's session-identity variables, so the judge attaches to the live
   session and hangs/dies empty; the gates then fail closed. The fix is
   `Maxcogar/agent-armory` PR #82 ("Fix session isolation and transcript pollution
-  in both Stop-hook gates"). This session hit exactly that failure for hours (see
-  the session note above), which is why the owner disabled the gates. This is not
-  a standing practice — future unrelated findings do not belong in this file.
+  in both Stop-hook gates"). This is not a standing practice — future unrelated
+  findings do not belong in this file.
