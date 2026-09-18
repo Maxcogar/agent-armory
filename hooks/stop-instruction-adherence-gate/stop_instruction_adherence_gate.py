@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import sys; sys.exit(0)  # DISABLED per owner (Max Cogar) request 2026-09-17; restore via git to re-enable
 """Stop hook - Instruction Adherence Gate.
 
 Fires on every Stop event (every time the main agent would end its turn).
