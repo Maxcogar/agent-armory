@@ -1,9 +1,0 @@
-CASE_C: field="a => b\tc.txt"
-  ids=1: a => b\x09c.txt
-CASE_D: field="back\\slash.txt" => plainname.txt
-  ids=2: back\x5cslash.txt | plainname.txt
-plain: field=p.txt => q.txt
-  ids=2: p.txt | q.txt
-brace: field=src/{utils => other}/c.txt
-  ids=2: src/utils/c.txt | src/other/c.txt
-rename iff exactly one unquoted " => ": CASE_C=single CASE_D=rename plain=rename brace=rename

@@ -89,7 +89,7 @@ into without a redesign:
   line-based fallback frontend, zone classification, `entry_score`,
   `import_edges`, `symbol_refs`, incremental refresh with `content_hash`, size
   caps.
-- **Co-change miner (AD-13):** `git -c core.quotePath=false log --no-merges --numstat -M` streaming
+- **Co-change miner (AD-13):** `git log --no-merges -M -z --numstat --format=%x1e%H%x00%at%x00` streaming
   with hygiene filters (merge exclusion, >30-entity transactions, horizon),
   canonical-ordered pair counts, `last_mined_commit` watermark, corpus floor.
 - **The bar (AD-14):** the three-axis conjunction (confidence ∧
@@ -1351,11 +1351,12 @@ compose-time drop (a candidate whose pointer failed re-resolution),
 with the key in `detail`), and `head_unresolved` for a `HEAD` whose ref the
 resolver Step 14 creates finds neither loose nor packed (recorded instead
 of `index_stale`, with the reason in `detail`, so an unreadable layout
-never spawns a reindex — D-plan-30), `miner_unparsed_numstat` for a
-**fully unquoted** `--numstat` path field the miner (Step 13) cannot expand
-unambiguously — a multi-` => ` field whose `{`, `}`, or ` => ` cannot be told
-apart from git's rename syntax (a field carrying a C-quoted token is parsed
-quote-aware and its identities C-unquoted, never recorded here),
+never spawns a reindex — D-plan-30), `miner_unparsed_numstat` for a `-z
+--numstat` record the miner (Step 13) cannot parse into the expected shape — a
+malformed stream, e.g. a future git output-format drift (under `-z` paths are
+raw and a rename is two separate NUL fields, so C-quoting and the `old => new`
+ambiguity never arise; this diagnostic is the defensive guard, not an expected
+case),
 `reindex_locked` for a reindex refused because a live process holds the
 claim row (Step 14, D-plan-32), and `frontend_parse_failed` for a file
 whose tree-sitter parse threw and was indexed through the generic frontend
@@ -2121,54 +2122,33 @@ depends_on: [S1, S9, S12]
 
 **What changes.** Create `src/miner/cochange.ts` exposing
 `mineCochange(store, repoPath, opts)` — reads `schema_meta.last_mined_commit`;
-runs `git -c core.quotePath=false log --no-merges --numstat -M
---format=%H%x00%at%x00 <watermark>..HEAD` streamed line-by-line.
-`core.quotePath=false` is set explicitly because git's default (ON)
-C-quotes any path field holding a byte ≥ 0x80 (`café.txt` prints as
-`"caf\303\251.txt"`, double-quoted and octal-escaped), which never equals
-the raw-UTF-8 path the structural indexer's `readdir` walk (Steps 14–15)
-and every genre lookup key on, so the pair would be silently mis-keyed —
-the guessing this miner forbids (`probe:27_git_numstat_quotepath`, §11.4);
-`-z` is not used because the record framing already spends `%x00` on the
-`--format` header and the parse is line-by-line. With the flag a path
-field is raw UTF-8. Each `--numstat` path field is then parsed **quote-aware**, because git's
-two structural markers can collide inside one field. The first is the rename
-syntax: a rename prints as `old => new`, or in the brace form
-`prefix{old => new}suffix` with either side possibly empty
-(`probe:24_git_numstat_rename`, §11.4), expanding to its two identities
-(`prefix+old+suffix`, `prefix+new+suffix`). The second is C-quoting: git still
-wraps a path field — or a single rename identity — in double quotes and
-C-escapes any literal double-quote, backslash, tab, newline, or control byte
-`< 0x20` even under `core.quotePath=false`. The collision is that a real path
-may itself contain ` => ` in its name (`"a => b\tc.txt"`), so a flat
-"contains ` => `" test would mis-split one file into two garbage identities.
-git resolves the collision at emission and the miner mirrors it: **whenever any
-identity needs quoting git emits the full `"old" => "new"` form (each identity
-quoted independently) and never the brace form** (executed, git 2.43.0,
-`probe:29_git_numstat_tokenize`, §11.4), so a rename's ` => ` (and any
-`{ … => … }` brace group) always lies **outside** a quoted token, while a ` => `
-**inside** a quoted token is filename content. The miner therefore tokenizes the
-field respecting quoting — a token that begins with an unescaped double-quote
-runs to its closing unescaped double-quote — and treats ` => ` or a brace group
-as a rename separator **only outside a quoted token**: a field with no such
-separator is a single path, a field with exactly one is a rename expanded to its
-two identities. Each identity that began with a double-quote is **C-unquoted**
-back to its raw bytes — git's C-quoting is a total, invertible encoding (`\"`,
-`\\`, `\t`, `\n`, `\NNN` octal, and the rest of the C escapes) — and those bytes
-are then **UTF-8-decoded to the string key** the structural indexer's `readdir`
-walk (Steps 14–15) and every genre lookup use; a name mixing a non-ASCII run
-with a quote-forcing byte is octal-escaped per byte, so the bytes must be decoded
-to a string, never compared byte-wise (`probe:28_git_numstat_cunquote`, §11.4,
-proves the decode equals the `readdir` keys across the backslash, non-ASCII,
-double-quote, tab, newline, control-byte, and mixed classes;
-`probe:29_git_numstat_tokenize` proves the tokenizer maps `"a => b\tc.txt"` to
-one path and `"back\\slash.txt" => plainname.txt` to two). The one field the
-miner cannot resolve is a **fully unquoted** field whose `{`, `}`, or ` => `
-cannot be told apart from git's rename syntax — a multi-` => ` field that no
-single split turns into one rename; that alone is skipped with a
-`miner_unparsed_numstat` diagnostic (Step 6), never guessed. Every other line
-adds its single decoded path, or both decoded rename identities, to the commit's
-touched-file set; per commit: records the commit in
+runs `git log --no-merges -M -z --numstat
+--format=%x1e%H%x00%at%x00 <watermark>..HEAD` and parses the NUL-delimited
+stream. `-z` (git's machine-output mode) is the load-bearing choice, and it is
+why this miner does **no path decoding and makes no rename guess**. With `-z`,
+git emits every path field as **raw bytes** — it does not C-quote a non-ASCII
+byte (`café.txt`), a double-quote, a backslash, a tab, a newline, or a control
+byte, regardless of `core.quotePath` — so a field already equals the exact key
+the structural indexer's `readdir` walk (Steps 14–15) and every genre lookup use,
+never a `"caf\303\251.txt"` that would be silently mis-keyed. And with `-z` a
+**rename is two separate NUL-delimited fields** — the entry `<added>\t<deleted>\t`
+with an empty path, then `<old>\0<new>\0` — instead of the line-mode `old => new`,
+so a real file whose name literally contains ` => ` is a single field and can
+never be confused with a rename. Both the C-quoting the earlier rounds fought and
+the ` => ` ambiguity they could not resolve are dissolved at the source
+(executed, git 2.43.0, `probe:24_git_numstat_z`, §11.4). The one reason line mode
+was kept before — that `-z` and a `%x00` `--format` header would both spend NUL —
+is resolved by prefixing each commit record with a **Record Separator** (`%x1e`,
+byte `0x1e`), which git never emits inside a path or a numstat field: the parser
+reads a record as `\x1e`, the NUL-terminated `%H` and `%at`, then the commit's
+`-z --numstat` block up to the next `\x1e` or end of stream. Each numstat entry
+is `<added>\t<deleted>\t<path>` (a binary file is `-\t-\t<path>`); an entry whose
+path is empty is a rename whose next two NUL fields are the old and new
+identities, both added to the touched-file set. A record matching none of these
+shapes — a malformed stream, e.g. a future git output-format drift — is recorded
+with a `miner_unparsed_numstat` diagnostic (Step 6) and contributes no pair,
+never guessed. Every well-formed entry adds its raw path, or both raw rename
+identities, to the commit's touched-file set; per commit: records the commit in
 `commits` with `entity_count`; excludes (with `exclude_reason`) commits
 whose `entity_count > miner.max_transaction_entities` and commits beyond the
 horizon (`miner.horizon_years` / `miner.horizon_commits`, whichever first —
@@ -7157,48 +7137,18 @@ this session; line numbers are of that revision.
   v22.22.2), which prints exactly: `npm ci with package.json and no
   package-lock.json: exit 1; EUSAGE: true; message names package-lock.json:
   true`.
-- **Claim.** `git log --numstat -M` prints a rename's path field as `old
-  => new`, and a rename inside a directory in the brace form, with an
-  empty side when a file moves into a new directory. **Steps.** 13.
-  **Evidence.** Executed `probe:24_git_numstat_rename` 2026-09-11 (git
-  2.43.0), which prints exactly: `numstat path field: a.txt => b.txt`,
-  `numstat path field: d.txt => dir/d.txt`, `numstat path field:
-  src/{utils => other}/c.txt` (the rename into a new directory prints the
-  whole-path form when no prefix is shared, the brace form when one is).
-- **Claim.** `git log --numstat`'s path field is C-quoted when it holds a
-  byte ≥ 0x80 under git's default `core.quotePath`; `-c
-  core.quotePath=false` emits it as raw UTF-8 but still C-quotes a path
-  containing a literal double-quote, backslash, tab, or newline.
-  **Steps.** 13. **Evidence.** Executed `probe:27_git_numstat_quotepath`
-  2026-09-16 (git 2.43.0), which prints exactly: under the default
-  (`core.quotePath` unset), `café.txt` as `"caf\303\251.txt"` and `a\b.txt`
-  as `"a\\b.txt"` (double-quoted, octal/backslash-escaped) and `plain.txt`
-  raw; under `-c core.quotePath=false`, `café.txt` as raw UTF-8 and
-  `plain.txt` raw, while `a\b.txt` stays `"a\\b.txt"` — the residual-quote
-  case the miner C-unquotes back to its raw `readdir` key
-  (`probe:28_git_numstat_cunquote`), never dropping it.
-- **Claim.** git's C-quoting of a `--numstat` path field is a total,
-  invertible encoding, and C-unquoting a still-quoted field then UTF-8-decoding
-  it yields the exact `readdir` key string the indexer walks. **Steps.**
-  13. **Evidence.** Executed `probe:28_git_numstat_cunquote` 2026-09-18 (git
-  2.43.0, Node v22.22.2), which prints exactly a `readdir keys` line and a
-  `c-unquoted` line as the identical sorted list `a\x5cb.txt  caf\xe9\x09x.txt
-  caf\xe9.txt  ctrl\x01x.txt  ne\x0awl.txt  plain.txt  q"z.txt  ta\x09b.txt`,
-  then `invertible (decoded == readdir keys): true` — across the backslash,
-  non-ASCII, double-quote, tab, newline, control-byte (`\x01`), and mixed
-  (non-ASCII + tab, `caf\xe9\x09x.txt`) classes; the mixed key, octal-escaped
-  per byte by git, proves the decode is to a string, not compared raw bytes.
-- **Claim.** a `git log --numstat` path field is tokenized quote-aware: git
-  emits the full `"old" => "new"` form (never the brace form) whenever any
-  identity needs quoting, so ` => ` separates a rename only **outside** a quoted
-  token, while a ` => ` inside a quoted token is filename content. **Steps.**
-  13. **Evidence.** Executed `probe:29_git_numstat_tokenize` 2026-09-18 (git
-  2.43.0, Node v22.22.2): git prints the single quoted path `"a => b\tc.txt"`
-  and the tokenizer yields one identity (`a => b\x09c.txt`), while the rename
-  `"back\\slash.txt" => plainname.txt` yields two (`back\x5cslash.txt`,
-  `plainname.txt`); the plain rename `p.txt => q.txt` and the brace rename
-  `src/{utils => other}/c.txt` each yield two, and the summary line reads
-  `CASE_C=single CASE_D=rename plain=rename brace=rename`.
+- **Claim.** run with `-z`, `git log --numstat` emits every path field as raw
+  bytes (no `core.quotePath` C-quoting of non-ASCII, backslash, double-quote,
+  tab, newline, or control bytes) and emits a rename as two separate
+  NUL-delimited fields, so a file whose name literally contains ` => ` is one
+  field, never confused with a rename. **Steps.** 13. **Evidence.** Executed
+  `probe:24_git_numstat_z` 2026-09-18 (git 2.43.0, Node v22.22.2) with
+  `core.quotePath` at its default (on): it prints `raw under -z (quotePath
+  default ON): fields == readdir keys: true` over the non-ASCII, backslash, tab,
+  and newline classes, then `rename oldname.txt->newname.txt: ids=2 [newname.txt,
+  oldname.txt]`, `literal 'a => b.txt' (plain add): ids=1 [a => b.txt]`, and
+  `binary: [bin.dat]` — a rename expands to two raw identities, a real file named
+  with ` => ` stays one, and neither is guessed.
 - **Claim.** `git rev-parse --is-inside-work-tree` fails with exit 128 and
   empty stdout in a directory inside no repository; it prints `false` only
   from inside a `.git` directory. **Steps.** 5. **Evidence.** Executed
@@ -7878,72 +7828,43 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     cross-directory pair co-changing in 5 commits; 1 merge commit; 1 commit
     touching 45 files; 1 commit dated 6 years before `HEAD`; 2
     revert-labelled commits on one file; 3 fix-labelled commits on another
-    within the 90 days before `HEAD`; one file renamed in place (`old =>
-    new`) and one moved into a new directory (the brace form `{ =>
-    dir}/f`), each in a commit that also touches the planted pair's
-    partner; and one file with a non-ASCII path (`café.txt`) — which
-    git's default `core.quotePath` would C-quote in `--numstat` —
-    co-changing with the planted pair's partner in one commit. The C-quoted
-    shapes the miner's quote-aware rule must handle are all planted — a **split
-    rename identity**, a **whole path field**, a **single quoted path whose name
-    contains ` => `** (CASE C), and a **rename with a C-quoted side** (CASE D) —
-    so equivalence partitioning over path encodings and over the quote/rename
-    collision is honestly populated:
-    three files, each moved with `git mv` from a **plain-named source** (content
-    preserved, so git detects the rename under `-M` and prints the old side
-    unquoted — the field does not begin with `"`, only the new identity does),
-    to paths git C-quotes even under `core.quotePath=false` — one with a literal
-    backslash (`plainsrc.txt => "a\\b.txt"`), one with a literal double-quote
-    (→ `"q\"z.txt"`), one with a literal tab (→ `"ta\tb.txt"`) — each co-changing
-    with the planted pair's partner; two **plain, non-renamed** files **added**
-    at C-quoted paths, one at a backslash path (`u\v.txt`, field `"u\\v.txt"`)
-    and one at a newline path (`ne<LF>wl.txt`, field `"ne\nwl.txt"`), each the
-    whole field beginning with `"`, co-changing with the partner; **CASE C** —
-    one **plain, non-renamed** file **added** whose name literally contains
-    ` => ` and a tab (`a => b<TAB>c.txt`, field `"a => b\tc.txt"`), which the
-    quote-aware rule must resolve to the **single** decoded path because the
-    ` => ` lies inside the quoted token, not as a separator, co-changing with the
-    partner; and **CASE D** — one file renamed from a backslash path to a plain
-    name (`back\slash.txt` → `plainname.txt`, field
-    `"back\\slash.txt" => plainname.txt`), which the quote-aware rule must
-    resolve to a **rename** on its one **unquoted** ` => ` separator (outside the
-    quoted old side), contributing **both** decoded identities. Each C-quoted
-    token — plain field, split rename identity, or a rename side — is C-unquoted
-    to its raw bytes and UTF-8-decoded to its `readdir` key (the encoding is
-    invertible and the tokenizer separates an in-name ` => ` from a rename
-    separator: `probe:28_git_numstat_cunquote`, `probe:29_git_numstat_tokenize`).
-    And one file named with a literal ` => ` (`x => y.txt`, moved with `git mv`)
-    whose **fully unquoted** `--numstat` field carries multiple ` => ` that
-    cannot be split into one rename unambiguously — the reaching input for
-    `miner_unparsed_numstat`, which must be recorded, never guessed
-    into a rename. Technique:
+    within the 90 days before `HEAD`; one file renamed in place
+    (`old.txt` → `new.txt`), in a commit that also touches the planted pair's
+    partner, whose `-z --numstat` entry is a rename (an empty-path entry followed
+    by the two raw NUL fields `old.txt`, `new.txt`), both identities added to the
+    touched set. The miner's `-z` path handling is exercised across its classes,
+    each co-changing with the planted pair's partner in one commit — a non-ASCII
+    path (`café.txt`), a backslash path (`back\slash.txt`), a tab path
+    (`ta<TAB>b.txt`), and a newline path (`ne<LF>wl.txt`), every one of which
+    git's *line*-mode `--numstat` would C-quote but `-z` emits **raw**, so each
+    must land in `cochange_pairs` under its exact raw `readdir` key; a **real,
+    non-renamed** file literally named `a => b.txt` (a plain add with no
+    quote-forcing byte, which line mode would print byte-identical to a rename),
+    which under `-z` is a **single** NUL field and must be recorded as the one
+    path `a => b.txt`, never split into a phantom `a` / `b.txt` pair
+    (`probe:24_git_numstat_z`); and a **binary** file (a `-\t-` numstat entry)
+    whose path must still be recorded. The generator also feeds the miner's
+    parser one **synthetic malformed `-z` record** (a numstat entry missing a
+    field, which real git never emits) that must be recorded as
+    `miner_unparsed_numstat` and contribute no pair — the defensive guard against
+    a future git output-format drift, never guessed. Technique:
     decision table over exclusion rules; equivalence partitioning over
-    landmine classes, rename shapes, and path encodings.
+    landmine classes, rename shape, and raw path classes.
   - **NOT asserts.** Confidence values (T-16-1). **Fails when** any excluded
     commit contributes to a pair count, OR the planted pair's count ≠ 5, OR
     the `revert_chain`/`fix_chatter` rows are missing or carry no evidence,
-    OR either literal rename's old or new identity is missing from the pair
-    counts, OR any rename field (`old => new` or a `{ => dir}` brace group)
-    lands in `files` or `cochange_pairs` as an unsplit literal string instead of
-    its two identities, OR the
-    `café.txt` co-change pair is absent from `cochange_pairs` (it must be
-    counted under its raw-UTF-8 path, matching the indexer's `readdir`
-    key, never a C-quoted `"caf\303\251.txt"`), OR any of the
-    C-quoted-class files — the backslash, double-quote, and tab renames, the
-    plain-added `u\v.txt` and `ne<LF>wl.txt`, CASE C, and both sides of CASE D —
-    is absent from `cochange_pairs` under its raw
-    `readdir` key or loses its co-change with the partner, OR any field git
-    C-quoted lands in `files` or `cochange_pairs` still quoted (beginning with a
-    double-quote, or carrying a residual `\\`/`\t`/`\n`/octal escape) instead of
-    C-unquoted and UTF-8-decoded to its raw path, OR **CASE C**
-    (`"a => b\tc.txt"`) is not recorded as the **single** path `a => b<TAB>c.txt`
-    (its in-name ` => ` is split into a rename or two garbage identities), OR
-    **CASE D** (`"back\\slash.txt" => plainname.txt`) is not recorded as a
-    **rename** contributing both `back\slash.txt` and `plainname.txt` (its
-    unquoted ` => ` separator is missed, or the whole field is C-unquoted as one
-    token), OR the fully-unquoted `x => y.txt` multi-arrow
-    field is not recorded as `miner_unparsed_numstat` (it is guessed into a
-    rename or pair, or silently dropped), OR the watermark does not advance.
+    OR the rename's `old.txt` or `new.txt` identity is missing from the pair
+    counts, OR the rename lands in `files` or `cochange_pairs` as an unsplit
+    literal string instead of its two identities, OR any of the raw special-byte
+    paths (`café.txt`, `back\slash.txt`, `ta<TAB>b.txt`, `ne<LF>wl.txt`) is
+    absent from `cochange_pairs` under its exact raw `readdir` key, loses its
+    co-change with the partner, or appears C-quoted (a leading `"`, a
+    `"caf\303\251.txt"`, or any residual `\\`/`\t`/`\n`/octal escape), OR the real
+    file `a => b.txt` is not recorded as the **single** path `a => b.txt` (it is
+    split into a phantom `a` / `b.txt` rename pair), OR the binary file's path is
+    missing from the touched set, OR the synthetic malformed `-z` record is not
+    recorded as `miner_unparsed_numstat` (it is guessed into a pair, silently
+    dropped, or crashes the parse), OR the watermark does not advance.
 
 - **T-14-1 — Indexer skeleton on a small fixture repo.**
   - **File.** `test/unit/indexer.test.ts`.
@@ -9936,24 +9857,20 @@ bin, and its closed disposition.
   failure in rules 2–3 routes to rule 4 with a diagnostic carrying the
   exit code (`T-5-1` asserts the branch).
 - **Q56 (Step 13).** How does the miner read a `--numstat` line for a
-  renamed file? **Disposition.** Answered: the miner runs `git log` under
-  `core.quotePath=false`, so plain path fields and rename identities arrive as
-  raw UTF-8 (`probe:27_git_numstat_quotepath`), and it parses each field
-  **quote-aware**. git emits the full `"old" => "new"` form (never the brace
-  form) whenever any identity needs quoting (`probe:29_git_numstat_tokenize`),
-  so a ` => ` or a `prefix{old => new}suffix` brace group
-  (`probe:24_git_numstat_rename`) marks a rename only **outside** a quoted
-  token — expanding to both identities — while a ` => ` inside a quoted token is
-  filename content and the field is one path. Each identity beginning with a
-  double-quote is C-unquoted to its raw bytes and UTF-8-decoded to its `readdir`
-  key string — a deterministic, invertible decode
-  (`probe:28_git_numstat_cunquote`) — and only a **fully unquoted** field whose
-  `{`, `}`, or ` => ` cannot be told apart from rename syntax (a multi-arrow
-  field) is recorded as `miner_unparsed_numstat`, never guessed (`T-13-1`
-  plants both rename shapes, the C-quoted single path whose name holds ` => `
-  (CASE C), a rename with a C-quoted side (CASE D), the split-rename and
-  plain-added C-quoted classes, and the multi-arrow field that must be recorded
-  as `miner_unparsed_numstat`).
+  renamed file? **Disposition.** Answered: the miner runs `git log -z --numstat`
+  (machine mode), so there is nothing to decode and nothing to guess. `-z` emits
+  every path field as raw bytes — no `core.quotePath` C-quoting of any byte — so
+  a field equals the indexer's `readdir` key directly; and it emits a rename as
+  two separate NUL-delimited fields (`<added>\t<deleted>\t` with an empty path,
+  then `<old>\0<new>\0`), both identities added to the touched set, so a real
+  file whose name literally contains ` => ` is one field and is never split into
+  a phantom rename (`probe:24_git_numstat_z`). Commit records are delimited by a
+  Record Separator (`%x1e`) so the `%x00` header never collides with the `-z`
+  NUL fields. Only a record that matches none of the expected shapes — a
+  malformed stream from a future git format drift — is recorded as
+  `miner_unparsed_numstat`, never guessed (`T-13-1` plants the raw special-byte
+  paths, a rename, a real file literally named `a => b.txt` asserted to stay one
+  path, and a binary entry).
 - **Q57 (Step 14).** Can two reindexers both reclaim one stale claim?
   **Disposition.** Answered — D-plan-32: not when the liveness check and
   the claim write share one `BEGIN IMMEDIATE` transaction (executed,

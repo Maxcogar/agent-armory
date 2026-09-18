@@ -1,3 +1,0 @@
-numstat path field: a.txt => b.txt
-numstat path field: d.txt => dir/d.txt
-numstat path field: src/{utils => other}/c.txt
