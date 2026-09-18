@@ -2186,9 +2186,10 @@ pairs, watermark, corpus floor); `AD-15` (landmine sources: `revert_chain`,
 window).
 
 **Why this approach (Gate 3):**
-1. **The decision.** Stream `git log` line-by-line; hygiene as hard filters
-   recorded in `commits.excluded`; corpus floor is evidentiary, not
-   session-based; landmine mining is the two deterministic classes only.
+1. **The decision.** Stream `git log` under `-z` and parse it on NUL (the only
+   byte a pathname cannot hold), commit records marked by a `%x1e` header; hygiene
+   as hard filters recorded in `commits.excluded`; corpus floor is evidentiary,
+   not session-based; landmine mining is the two deterministic classes only.
 2. **The authoritative standard.** `AD-13`; `AD-15`; `FR-K2` (spec-stated
    hygiene items with their own sources — MSR/HERZIG); Zimmermann et al.
    TSE 31(6) 2005 (ROSE) for the pair-count confidence model.
@@ -7861,10 +7862,13 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     path `a => b.txt`, never split into a phantom `a` / `b.txt` pair
     (`probe:24_git_numstat_z`); and a **binary** file (a `-\t-` numstat entry)
     whose path must still be recorded. The generator also feeds the miner's
-    parser one **synthetic malformed `-z` record** (a numstat entry missing a
-    field, which real git never emits) that must be recorded as
-    `miner_unparsed_numstat` and contribute no pair — the defensive guard against
-    a future git output-format drift, never guessed. Technique:
+    parser two **synthetic malformed `-z` records**, neither of which real git
+    emits — a numstat entry missing a field, and a **truncated rename** (a rename
+    marker `<added>\t<deleted>\t` with an empty path but its two identity fields
+    missing at end of stream) — each of which must be recorded as
+    `miner_unparsed_numstat` and contribute no pair (never a partial or guessed
+    identity): the defensive guard against a future git output-format drift.
+    Technique:
     decision table over exclusion rules; equivalence partitioning over
     landmine classes, rename shape, and raw path classes.
   - **NOT asserts.** Confidence values (T-16-1). **Fails when** any excluded
@@ -7882,9 +7886,10 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     one whole path, OR the real
     file `a => b.txt` is not recorded as the **single** path `a => b.txt` (it is
     split into a phantom `a` / `b.txt` rename pair), OR the binary file's path is
-    missing from the touched set, OR the synthetic malformed `-z` record is not
-    recorded as `miner_unparsed_numstat` (it is guessed into a pair, silently
-    dropped, or crashes the parse), OR the watermark does not advance.
+    missing from the touched set, OR either synthetic malformed `-z` record (the
+    field-short entry or the truncated rename) is not recorded as
+    `miner_unparsed_numstat` (it is guessed into a pair or a partial identity,
+    silently dropped, or crashes the parse), OR the watermark does not advance.
 
 - **T-14-1 — Indexer skeleton on a small fixture repo.**
   - **File.** `test/unit/indexer.test.ts`.

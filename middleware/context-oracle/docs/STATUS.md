@@ -28,8 +28,10 @@ A architecture (`docs/architecture-phase-a.md`) is reviewed to convergence.
 known review finding addressed and every mechanical gate green. The one seam
 that drove rounds 6–11 — how the co-change miner reads paths and renames from
 `git log --numstat` — is resolved at the root by switching to `-z` with a
-NUL-driven parse; round 12 verified the mechanism sound (no collapse) and found
-only a prose-accuracy defect, now fixed. The plan awaits the round-13 confirming
+NUL-driven parse; rounds 12 and 13 verified the mechanism sound (no collapse in
+either), finding only accuracy defects (a prose overclaim; a stale Gate-3
+"line-by-line" decision clause left from the `-z` rewrite), all now fixed. The
+plan awaits the round-14 confirming
 pass.**
 
 Trajectory of that seam. Every round attacked a symptom of one underlying
@@ -91,6 +93,16 @@ probe proves (the `0x1e` path records as one whole path, not a fabricated pair)
 and cites `T-13-1` for the co-change; a truncated-rename guard was added to the
 malformed-record set and to the probe's reference parser.
 
+**Round 13 — mechanism sound again; one Moderate + Minors, fixed.** The
+expert-review returned PASS; the collapse-hunt again could not collapse the parse
+but hunted and found one Moderate: Step 13's Gate-3 "The decision" clause still
+read "Stream `git log` **line-by-line**" — a stale leftover from before the `-z`
+rewrite (present since the switch, missed because rounds 11–12 diffs didn't touch
+it), contradicted by the step's own `-z`/NUL body and its `ne<LF>wl.txt` fixture.
+**Fixed**: the clause now states the `-z` NUL-stream parse. Two Minors also
+applied — the truncated-rename malformed class is now exercised in `T-13-1`
+(data + `Fails when`), and the probe parser's `cur` deref is guarded.
+
 Mechanical gates on the current revision: `derive-plan-sections.mjs --check` (40
 steps, 124 test specs, **26 probes cited**, regions current), `--self-check` (34
 checks), `run-plan-probes.mjs` (all 26 probes, incl. `24_git_numstat_z`),
@@ -117,7 +129,7 @@ longer auto-enforced by a broken judge.
 
 ## What to do next
 
-**Next: the round-13 confirming pass.** The round-12 prose fix is applied and all
+**Next: the round-14 confirming pass.** The round-13 fixes are applied and all
 mechanical gates are green, so per the Re-Review Protocol the two independent
 passes (expert-review + collapse-hunt) are re-dispatched neutrally over the fix
 diff via

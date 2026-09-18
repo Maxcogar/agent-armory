@@ -82,6 +82,7 @@ try {
       }
       if (f.length && f[0] === LF) f = f.subarray(1);      // strip leading \n on first entry
       if (f.length === 0) { i += 1; continue; }            // trailing empty
+      if (!cur) { i += 1; continue; }                      // entry before any header (unreachable, well-formed)
       // numstat entry: <added>\t<deleted>\t<path>
       const parts = [];
       let ps = 0;
