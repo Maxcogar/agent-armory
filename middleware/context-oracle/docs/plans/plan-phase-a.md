@@ -2138,14 +2138,23 @@ never be confused with a rename. Both the C-quoting the earlier rounds fought an
 the ` => ` ambiguity they could not resolve are dissolved at the source
 (executed, git 2.43.0, `probe:24_git_numstat_z`, §11.4). The one reason line mode
 was kept before — that `-z` and a `%x00` `--format` header would both spend NUL —
-is resolved by prefixing each commit record with a **Record Separator** (`%x1e`,
-byte `0x1e`), which git never emits inside a path or a numstat field: the parser
-reads a record as `\x1e`, the NUL-terminated `%H` and `%at`, then the commit's
-`-z --numstat` block up to the next `\x1e` or end of stream. Each numstat entry
-is `<added>\t<deleted>\t<path>` (a binary file is `-\t-\t<path>`); an entry whose
+is handled **without a magic delimiter**: NUL is the *only* byte a pathname
+cannot contain (git forbids NUL and `/` in a pathname, nothing else — `0x1e` and
+every other control byte are legal and emitted raw under `-z`), so the parser
+splits the stream on NUL and on no in-path byte. Each commit record is prefixed
+with a Record Separator (`%x1e`); a NUL field of the shape `\x1e` followed by
+exactly 40 hex (`%H`) is a commit header, its `%at` the next field, and every
+other field belongs to the current commit. A **path is never taken for a
+header**, even one that contains or begins with `0x1e`, because a numstat entry
+field always begins with its `<added>` count and a rename's old/new paths are
+consumed positionally, never rescanned (`probe:24_git_numstat_z` plants
+`we<0x1e>ird.txt` co-changing with a partner and records it as the one path
+`we<0x1e>ird.txt`, not a fabricated pair). Each numstat entry is
+`<added>\t<deleted>\t<path>` (a binary file is `-\t-\t<path>`); an entry whose
 path is empty is a rename whose next two NUL fields are the old and new
-identities, both added to the touched-file set. A record matching none of these
-shapes — a malformed stream, e.g. a future git output-format drift — is recorded
+identities, both added to the touched-file set. A leading field that is not a
+valid `\x1e`+40-hex header, or a numstat entry lacking the `<added>\t<deleted>\t`
+shape — a malformed stream, e.g. a future git output-format drift — is recorded
 with a `miner_unparsed_numstat` diagnostic (Step 6) and contributes no pair,
 never guessed. Every well-formed entry adds its raw path, or both raw rename
 identities, to the commit's touched-file set; per commit: records the commit in
@@ -7138,17 +7147,19 @@ this session; line numbers are of that revision.
   package-lock.json: exit 1; EUSAGE: true; message names package-lock.json:
   true`.
 - **Claim.** run with `-z`, `git log --numstat` emits every path field as raw
-  bytes (no `core.quotePath` C-quoting of non-ASCII, backslash, double-quote,
-  tab, newline, or control bytes) and emits a rename as two separate
-  NUL-delimited fields, so a file whose name literally contains ` => ` is one
-  field, never confused with a rename. **Steps.** 13. **Evidence.** Executed
-  `probe:24_git_numstat_z` 2026-09-18 (git 2.43.0, Node v22.22.2) with
-  `core.quotePath` at its default (on): it prints `raw under -z (quotePath
-  default ON): fields == readdir keys: true` over the non-ASCII, backslash, tab,
-  and newline classes, then `rename oldname.txt->newname.txt: ids=2 [newname.txt,
-  oldname.txt]`, `literal 'a => b.txt' (plain add): ids=1 [a => b.txt]`, and
-  `binary: [bin.dat]` — a rename expands to two raw identities, a real file named
-  with ` => ` stays one, and neither is guessed.
+  bytes (no `core.quotePath` C-quoting of any byte, including control bytes like
+  the Record Separator `0x1e`) and emits a rename as two separate NUL-delimited
+  fields; parsed on NUL — the only byte a path cannot hold — a file whose name
+  contains ` => ` or `0x1e` is one field, never confused with a rename or cut by
+  the record framing. **Steps.** 13. **Evidence.** Executed `probe:24_git_numstat_z`
+  2026-09-18 (git 2.43.0, Node v22.22.2) with `core.quotePath` at its default
+  (on): it prints `raw under -z (quotePath default ON): fields == readdir keys:
+  true` over the non-ASCII, backslash, tab, newline, **and `0x1e`-in-path**
+  classes, then `0x1e-in-path 'we\x1eird.txt': ids=1 [we\x1eird.txt]`, `rename
+  oldname.txt->newname.txt: ids=2 [newname.txt, oldname.txt]`, `literal
+  'a => b.txt' (plain add): ids=1 [a => b.txt]`, and `binary: [bin.dat]` — the
+  `0x1e` path stays one field (not a fabricated pair), a rename expands to two raw
+  identities, a real file named with ` => ` stays one, and none is guessed.
 - **Claim.** `git rev-parse --is-inside-work-tree` fails with exit 128 and
   empty stdout in a directory inside no repository; it prints `false` only
   from inside a `.git` directory. **Steps.** 5. **Evidence.** Executed
@@ -7835,9 +7846,13 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     touched set. The miner's `-z` path handling is exercised across its classes,
     each co-changing with the planted pair's partner in one commit — a non-ASCII
     path (`café.txt`), a backslash path (`back\slash.txt`), a tab path
-    (`ta<TAB>b.txt`), and a newline path (`ne<LF>wl.txt`), every one of which
-    git's *line*-mode `--numstat` would C-quote but `-z` emits **raw**, so each
-    must land in `cochange_pairs` under its exact raw `readdir` key; a **real,
+    (`ta<TAB>b.txt`), a newline path (`ne<LF>wl.txt`), and a **Record-Separator
+    path** (`we<0x1e>ird.txt`, whose name holds the very `0x1e` byte the commit
+    framing uses — a legal filename byte git emits raw under `-z`), every one of
+    which git's *line*-mode `--numstat` would C-quote but `-z` emits **raw**, so
+    each must land in `cochange_pairs` under its exact raw `readdir` key; the
+    `0x1e` path in particular must be recorded **whole**, never cut by the record
+    framing into a fabricated pair (the parser splits on NUL only); a **real,
     non-renamed** file literally named `a => b.txt` (a plain add with no
     quote-forcing byte, which line mode would print byte-identical to a rename),
     which under `-z` is a **single** NUL field and must be recorded as the one
@@ -7856,10 +7871,13 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     OR the rename's `old.txt` or `new.txt` identity is missing from the pair
     counts, OR the rename lands in `files` or `cochange_pairs` as an unsplit
     literal string instead of its two identities, OR any of the raw special-byte
-    paths (`café.txt`, `back\slash.txt`, `ta<TAB>b.txt`, `ne<LF>wl.txt`) is
-    absent from `cochange_pairs` under its exact raw `readdir` key, loses its
-    co-change with the partner, or appears C-quoted (a leading `"`, a
-    `"caf\303\251.txt"`, or any residual `\\`/`\t`/`\n`/octal escape), OR the real
+    paths (`café.txt`, `back\slash.txt`, `ta<TAB>b.txt`, `ne<LF>wl.txt`,
+    `we<0x1e>ird.txt`) is absent from `cochange_pairs` under its exact raw
+    `readdir` key, loses its co-change with the partner, or appears C-quoted (a
+    leading `"`, a `"caf\303\251.txt"`, or any residual `\\`/`\t`/`\n`/octal
+    escape), OR the `we<0x1e>ird.txt` path is cut by the record framing into a
+    fabricated pair or a phantom entry (e.g. `we` and `ird.txt`) instead of the
+    one whole path, OR the real
     file `a => b.txt` is not recorded as the **single** path `a => b.txt` (it is
     split into a phantom `a` / `b.txt` rename pair), OR the binary file's path is
     missing from the touched set, OR the synthetic malformed `-z` record is not
@@ -9864,9 +9882,12 @@ bin, and its closed disposition.
   two separate NUL-delimited fields (`<added>\t<deleted>\t` with an empty path,
   then `<old>\0<new>\0`), both identities added to the touched set, so a real
   file whose name literally contains ` => ` is one field and is never split into
-  a phantom rename (`probe:24_git_numstat_z`). Commit records are delimited by a
-  Record Separator (`%x1e`) so the `%x00` header never collides with the `-z`
-  NUL fields. Only a record that matches none of the expected shapes — a
+  a phantom rename (`probe:24_git_numstat_z`). The stream is split on NUL — the
+  only byte a pathname cannot hold — and a commit header is a field of shape
+  `\x1e` + 40 hex (`%H`); every other byte, `0x1e` included, is legal in a path
+  and emitted raw, so a path containing or beginning with the Record Separator is
+  never mistaken for a header or cut mid-path (the probe plants `we<0x1e>ird.txt`
+  and records it whole). Only a record that matches none of the expected shapes — a
   malformed stream from a future git format drift — is recorded as
   `miner_unparsed_numstat`, never guessed (`T-13-1` plants the raw special-byte
   paths, a rename, a real file literally named `a => b.txt` asserted to stay one

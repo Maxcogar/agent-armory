@@ -1,5 +1,6 @@
 raw under -z (quotePath default ON): fields == readdir keys: true
-  back\x5cslash.txt  caf\xe9.txt  ne\x0awl.txt  ta\x09b.txt
+  back\x5cslash.txt  caf\xe9.txt  ne\x0awl.txt  ta\x09b.txt  we\x1eird.txt
+0x1e-in-path 'we\x1eird.txt': ids=1 [we\x1eird.txt]
 rename oldname.txt->newname.txt: ids=2 [newname.txt, oldname.txt]
 literal 'a => b.txt' (plain add): ids=1 [a => b.txt]
 binary: [bin.dat]

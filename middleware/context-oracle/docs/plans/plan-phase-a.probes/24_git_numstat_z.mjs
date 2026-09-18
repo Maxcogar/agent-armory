@@ -1,22 +1,23 @@
 // Claim (Step 13, T-13-1, Q56): the co-change miner reads history with
-// `git log -z --numstat --format=%x1e%H%x00%at%x00`, and `-z` (machine mode)
-// makes the format unambiguous with NO decoding and NO guessing:
-//   (1) every path field is emitted RAW — no core.quotePath C-quoting of
-//       non-ASCII, backslash, double-quote, tab, newline, or control bytes —
-//       so a field equals the structural indexer's readdir key directly;
-//   (2) a rename is emitted as TWO separate NUL-delimited fields (the entry
-//       `<added>\t<deleted>\t` with an empty path, then `<old>\0<new>\0`), never
-//       the ambiguous line-mode `old => new`, so a real file whose name literally
-//       contains ` => ` is one field and cannot be confused with a rename;
-//   (3) binary entries are `-\t-\t<path>`.
-// The `%x00` format-header vs `-z` NUL collision that made the plan avoid `-z`
-// is resolved by delimiting each commit record with a Record Separator
-// (`\x1e`), a byte git never emits inside a path or numstat field. This probe
-// plants the pathological paths (a tab forces line-mode quoting; a literal
-// ` => ` name forces line-mode ambiguity) with core.quotePath at its DEFAULT
-// (on) and shows `-z` still yields raw, unambiguous fields.
+// `git log -z --numstat --format=%x1e%H%x00%at%x00` and parses it on the ONLY
+// delimiter git guarantees absent from a path — NUL (git forbids NUL and `/` in
+// a pathname, nothing else). Splitting the stream on NUL:
+//   (1) every path field is RAW — no core.quotePath C-quoting of any byte — so a
+//       field equals the indexer's readdir key directly;
+//   (2) a rename is TWO separate NUL fields (the entry `<added>\t<deleted>\t`
+//       with an empty path, then `<old>\0<new>\0`), never `old => new`, so a real
+//       file whose name contains ` => ` is one field, never a phantom rename;
+//   (3) a binary entry is `-\t-\t<path>`.
+// The `%x1e` Record Separator the format prepends marks a commit header ONLY when
+// it BEGINS a NUL-delimited field and is followed by exactly 40 hex (`%H`). A
+// path is never mistaken for a header: a numstat entry field always begins with
+// its `<added>` count, and a rename's old/new fields are consumed positionally —
+// so a path that CONTAINS or BEGINS WITH the RS byte `0x1e` (a legal filename
+// byte git emits raw under -z) is parsed correctly, not split mid-path. This
+// probe plants that exact case (`we<0x1e>ird.txt`) alongside the other classes,
+// with core.quotePath at its DEFAULT (on).
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, readdirSync, rmSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -38,6 +39,8 @@ try {
   wr('back\\slash.txt', 0x43); git('add', '-A'); git('commit', '-q', '-m', 'RAW_bs');
   wr('ta\tb.txt', 0x44); git('add', '-A'); git('commit', '-q', '-m', 'RAW_tab');
   wr('ne\nwl.txt', 0x45); git('add', '-A'); git('commit', '-q', '-m', 'RAW_nl');
+  // A path CONTAINING the Record-Separator byte 0x1e — the byte the framing uses.
+  wr('we\x1eird.txt', 0x4a); git('add', '-A'); git('commit', '-q', '-m', 'RAW_rs');
 
   // A real rename — two separate fields under -z.
   wr('oldname.txt', 0x46); git('add', '-A'); git('commit', '-q', '-m', 'REN0');
@@ -52,50 +55,41 @@ try {
   git('add', '-A'); git('commit', '-q', '-m', 'BIN');
 
   // ---- the -z stream parser under test ----
-  // Returns [{hash, paths:[Buffer,...]}] — paths are RAW bytes, renames expanded
-  // to both identities, never guessed.
+  // NUL is the only byte a path cannot contain, so split the WHOLE stream on NUL.
+  // A field beginning with RS + 40 hex is a commit header; a field beginning with
+  // its <added> count is a numstat entry; a rename's old/new are consumed
+  // positionally. A path with 0x1e in it therefore never cuts a record.
   const RS = 0x1e, NUL = 0x00, TAB = 0x09, LF = 0x0a;
+  const isHeader = f => {
+    if (f.length !== 41 || f[0] !== RS) return false;
+    for (let k = 1; k < 41; k++) { const c = f[k]; if (!((c >= 0x30 && c <= 0x39) || (c >= 0x61 && c <= 0x66))) return false; }
+    return true;
+  };
   function parseZ(buf) {
+    const fields = [];
+    let s = 0;
+    for (let i = 0; i <= buf.length; i++) if (i === buf.length || buf[i] === NUL) { fields.push(buf.subarray(s, i)); s = i + 1; }
     const commits = [];
-    // split by RS
-    const chunks = [];
-    let start = -1;
-    for (let i = 0; i < buf.length; i++) {
-      if (buf[i] === RS) { if (start !== -1) chunks.push(buf.subarray(start, i)); start = i + 1; }
-    }
-    if (start !== -1) chunks.push(buf.subarray(start));
-    for (const chunk of chunks) {
-      // split chunk by NUL into fields
-      const fields = [];
-      let s = 0;
-      for (let i = 0; i <= chunk.length; i++) {
-        if (i === chunk.length || chunk[i] === NUL) { fields.push(chunk.subarray(s, i)); s = i + 1; }
+    let cur = null, i = 0;
+    while (i < fields.length) {
+      let f = fields[i];
+      if (isHeader(f)) {                                   // RS + 40 hex = header
+        cur = { hash: f.subarray(1).toString('latin1'), paths: [], bad: false };
+        commits.push(cur);
+        i += 2;                                            // skip %at
+        if (i < fields.length && fields[i].length === 0) i += 1;  // skip empty separator
+        continue;
       }
-      // fields[0]=hash, [1]=at, [2]="" (header/numstat separator), [3..]=numstat tokens
-      const hash = fields[0].toString('latin1');
-      const paths = [];
-      let i = 3;
-      while (i < fields.length) {
-        let tok = fields[i];
-        if (tok.length && tok[0] === LF) tok = tok.subarray(1); // strip leading \n on first entry
-        if (tok.length === 0) { i++; continue; }                // trailing empty
-        // split tok by TAB: [added, deleted, ...pathparts]
-        const parts = [];
-        let ps = 0;
-        for (let k = 0; k <= tok.length; k++) {
-          if (k === tok.length || tok[k] === TAB) { parts.push(tok.subarray(ps, k)); ps = k + 1; }
-        }
-        const pathPart = parts.length > 2 ? Buffer.concat(parts.slice(2).flatMap((p, idx) => idx ? [Buffer.from([TAB]), p] : [p])) : Buffer.alloc(0);
-        if (pathPart.length === 0) {
-          // rename marker: next two fields are old, new (raw, no tabs stripped)
-          paths.push(fields[i + 1], fields[i + 2]);
-          i += 3;
-        } else {
-          paths.push(pathPart); // normal or binary ('-','-') entry
-          i += 1;
-        }
-      }
-      commits.push({ hash, paths });
+      if (f.length && f[0] === LF) f = f.subarray(1);      // strip leading \n on first entry
+      if (f.length === 0) { i += 1; continue; }            // trailing empty
+      // numstat entry: <added>\t<deleted>\t<path>
+      const parts = [];
+      let ps = 0;
+      for (let k = 0; k <= f.length; k++) if (k === f.length || f[k] === TAB) { parts.push(f.subarray(ps, k)); ps = k + 1; }
+      if (parts.length < 3) { if (cur) cur.bad = true; i += 1; continue; }   // malformed -> guard
+      const path = Buffer.concat(parts.slice(2).flatMap((p, idx) => idx ? [Buffer.from([TAB]), p] : [p]));
+      if (path.length === 0) { cur.paths.push(fields[i + 1], fields[i + 2]); i += 3; }  // rename: positional
+      else { cur.paths.push(path); i += 1; }
     }
     return commits;
   }
@@ -104,22 +98,20 @@ try {
     const cp = ch.codePointAt(0);
     return (cp >= 0x20 && cp < 0x7f && ch !== '\\') ? ch : '\\x' + cp.toString(16).padStart(2, '0');
   }).join('');
-
-  // Resolve one commit by message (non-anchor paths).
   function pathsFor(msg) {
     const raw = git('log', '--grep', msg, '-1', '-z', '--numstat', '--format=%x1e%H%x00%at%x00', '-M');
     const c = parseZ(raw)[0];
     return c.paths.map(esc).filter(p => p !== 'anchor.txt');
   }
 
-  // (1) raw fields equal readdir keys (quotePath default ON)
-  const rawCases = ['RAW_cafe', 'RAW_bs', 'RAW_tab', 'RAW_nl'].flatMap(pathsFor).sort();
-  const onDisk = readdirSync(d, { encoding: 'buffer' })
-    .map(b => esc(b)).filter(n => ['caf\\xe9.txt', 'back\\x5cslash.txt', 'ta\\x09b.txt', 'ne\\x0awl.txt'].includes(n)).sort();
+  // (1) raw fields equal readdir keys (quotePath default ON) — incl. the 0x1e path
+  const rawCases = ['RAW_cafe', 'RAW_bs', 'RAW_tab', 'RAW_nl', 'RAW_rs'].flatMap(pathsFor).sort();
+  const want = ['caf\\xe9.txt', 'back\\x5cslash.txt', 'ta\\x09b.txt', 'ne\\x0awl.txt', 'we\\x1eird.txt'].sort();
+  const onDisk = readdirSync(d, { encoding: 'buffer' }).map(esc).filter(n => want.includes(n)).sort();
   console.log('raw under -z (quotePath default ON): fields == readdir keys: ' +
-    (JSON.stringify(rawCases) === JSON.stringify(onDisk)));
+    (JSON.stringify(rawCases) === JSON.stringify(onDisk) && JSON.stringify(onDisk) === JSON.stringify(want)));
   console.log('  ' + rawCases.join('  '));
-  // (2) rename -> two fields; (3) literal-arrow -> one field; binary -> path
+  console.log("0x1e-in-path 'we\\x1eird.txt': ids=" + pathsFor('RAW_rs').length + ' [' + pathsFor('RAW_rs').join(', ') + ']');
   console.log('rename oldname.txt->newname.txt: ids=' + pathsFor('REN1').length + ' [' + pathsFor('REN1').sort().join(', ') + ']');
   console.log("literal 'a => b.txt' (plain add): ids=" + pathsFor('LIT').length + ' [' + pathsFor('LIT').join(', ') + ']');
   console.log('binary: [' + pathsFor('BIN').join(', ') + ']');

@@ -26,9 +26,9 @@ A architecture (`docs/architecture-phase-a.md`) is reviewed to convergence.
 
 **The Phase A implementation plan (`docs/plans/plan-phase-a.md`) has had every
 known review finding addressed and every mechanical gate green. The one seam
-that drove rounds 6–10 — how the co-change miner reads paths and renames from
-`git log --numstat` — is now resolved at the root by switching to `-z`; the plan
-awaits the round-11 confirming pass.**
+that drove rounds 6–11 — how the co-change miner reads paths and renames from
+`git log --numstat` — is now resolved at the root by switching to `-z` with a
+NUL-driven parse; the plan awaits the round-12 confirming pass.**
 
 Trajectory of that seam. Every round attacked a symptom of one underlying
 choice: the plan parsed `--numstat` **line-by-line**, which forced it to handle
@@ -53,16 +53,27 @@ showed the last one was irreducible in line mode.
 every path field as **raw bytes** (no C-quoting of any byte, regardless of
 `core.quotePath`) and emits a rename as **two separate NUL-delimited fields** —
 so there is no path to decode and no rename to guess. A file named `a => b.txt`
-is one field, a rename is two, both unambiguous. The `%x00`-header/`-z`-NUL
-collision that made the plan avoid `-z` is resolved with a Record-Separator
-(`%x1e`) commit delimiter. This **dissolves the whole seam**: the four probes
-above and all the decode/tokenizer prose are deleted and replaced by one probe,
-`24_git_numstat_z`, and a straight-line parse. Grounded by execution (git 2.43.0,
-`core.quotePath` left on): raw fields equal the `readdir` keys, a rename yields
-two identities, `a => b.txt` yields one, a binary yields its path. Step 13,
-T-13-1, Q56, §11.4, and the Step 6 catalog are refit; `miner_unparsed_numstat` is
-now a defensive guard against git output-format drift, exercised by a synthetic
-malformed record.
+is one field, a rename is two, both unambiguous. This **dissolves the whole
+seam**: the four line-mode probes (`24_git_numstat_rename`,
+`27_git_numstat_quotepath`, `28_git_numstat_cunquote`, `29_git_numstat_tokenize`)
+and all the decode/tokenizer prose are deleted and replaced by one probe,
+`24_git_numstat_z`, and a straight-line parse. Step 13, T-13-1, Q56, §11.4, and
+the Step 6 catalog are refit; `miner_unparsed_numstat` is now a defensive guard
+against git output-format drift.
+
+**Round 11 — one Serious/Moderate finding, fixed at the root.** Both round-11
+passes (`…-round-11-{expert-review,collapse-hunt}.md`) confirmed `-z` closes the
+whole round-6–10 family, but caught a *new* bug the `-z` fix introduced: the
+first framing delimited commits by a `%x1e` Record Separator and asserted `0x1e`
+is "a byte git never emits inside a path" — **false and uncited** (git forbids
+only NUL and `/` in a pathname; `0x1e` is legal and `-z` emits it raw), the exact
+verify-before-you-assert failure. A file named `we<0x1e>ird.txt` was cut mid-path
+into a fabricated pair. **Fixed** by keying the parse on the one byte a path
+cannot hold: the stream is split on **NUL**, a commit header is a field of shape
+`\x1e`+40-hex (`%H`), and a numstat/rename path — `0x1e` included — is never
+mistaken for a header. Grounded by execution (`we<0x1e>ird.txt`, a path beginning
+with `0x1e`, and a rename to a `0x1e`-bearing path all resolve whole);
+`probe:24_git_numstat_z` and T-13-1 now plant the `0x1e`-in-path case.
 
 Mechanical gates on the current revision: `derive-plan-sections.mjs --check` (40
 steps, 124 test specs, **26 probes cited**, regions current), `--self-check` (34
@@ -90,13 +101,14 @@ longer auto-enforced by a broken judge.
 
 ## What to do next
 
-**Next: the round-11 confirming pass.** The `-z` root fix is applied and all
-mechanical gates are green, so per the Re-Review Protocol the two independent
-passes (expert-review + collapse-hunt) are re-dispatched neutrally over the fix
-diff via `.claude/skills/expert-implement/references/review-handoff.md`. If both
-return no Moderate-or-above finding, the seam is converged and the plan becomes
-the build contract; if a new finding surfaces, it is fixed at the root
-(re-derived from grounded git behavior, never patched) and re-reviewed.
+**Next: the round-12 confirming pass.** The round-11 RS-in-path fix is applied
+and all mechanical gates are green, so per the Re-Review Protocol the two
+independent passes (expert-review + collapse-hunt) are re-dispatched neutrally
+over the fix diff via
+`.claude/skills/expert-implement/references/review-handoff.md`. If both return no
+Moderate-or-above finding, the seam is converged and the plan becomes the build
+contract; if a new finding surfaces, it is fixed at the root (re-derived from
+grounded git behavior, never patched) and re-reviewed.
 
 **Then build** — treat the converged plan as the contract and run
 `/expert-implement` against it, Step 1 first (its first act — `npm ci` on the
