@@ -24,15 +24,15 @@ every Phase A decision against this goal (`CLAUDE.md` dominating rule 3).
 The spec (`docs/specs/spec-context-oracle.md`) is signed off (`OL-C6`). The Phase
 A architecture (`docs/architecture-phase-a.md`) is reviewed to convergence.
 
-**The Phase A implementation plan (`docs/plans/plan-phase-a.md`) has had every
-known review finding addressed and every mechanical gate green. The one seam
-that drove rounds 6–11 — how the co-change miner reads paths and renames from
-`git log --numstat` — is resolved at the root by switching to `-z` with a
-NUL-driven parse; rounds 12 and 13 verified the mechanism sound (no collapse in
-either), finding only accuracy defects (a prose overclaim; a stale Gate-3
-"line-by-line" decision clause left from the `-z` rewrite), all now fixed. The
-plan awaits the round-14 confirming
-pass.**
+**The Phase A implementation plan (`docs/plans/plan-phase-a.md`) is converged and
+is the build contract.** The one seam that drove rounds 6–14 — how the co-change
+miner reads paths and renames from `git log --numstat` — is resolved at the root
+by reading history under `-z` and parsing on NUL. **Round 14's two independent
+passes both returned PASS on the same revision (`67fc7cf`)**, with zero
+Moderate-or-above findings; the `-z`/NUL mechanism survived four consecutive
+collapse-hunts (rounds 12–14). One optional cosmetic Minor is recorded below and
+was deliberately not applied, to keep the build contract identical to the
+double-PASSed revision.
 
 Trajectory of that seam. Every round attacked a symptom of one underlying
 choice: the plan parsed `--numstat` **line-by-line**, which forced it to handle
@@ -103,6 +103,17 @@ it), contradicted by the step's own `-z`/NUL body and its `ne<LF>wl.txt` fixture
 applied — the truncated-rename malformed class is now exercised in `T-13-1`
 (data + `Fails when`), and the probe parser's `cur` deref is guarded.
 
+**Round 14 — both passes PASS; converged.** The expert-review and the
+collapse-hunt (`…-round-14-{expert-review,collapse-hunt}.md`) both returned PASS
+on `67fc7cf` with zero Moderate-or-above findings, verifying all three round-13
+fixes closed. The collapse-hunt's fresh attacks all held. The **one remaining
+item is optional cosmetic Minor** (from the round-14 expert-review): the early
+`if (!cur) continue` guard added for round-13's m2 makes the two inner `cur`
+checks in `24_git_numstat_z.mjs`'s parser provably redundant dead code. It is
+non-blocking, changes no behavior, and was left in place so the build contract is
+byte-identical to the revision both passes reviewed; it can be trimmed during
+implementation.
+
 Mechanical gates on the current revision: `derive-plan-sections.mjs --check` (40
 steps, 124 test specs, **26 probes cited**, regions current), `--self-check` (34
 checks), `run-plan-probes.mjs` (all 26 probes, incl. `24_git_numstat_z`),
@@ -129,20 +140,13 @@ longer auto-enforced by a broken judge.
 
 ## What to do next
 
-**Next: the round-14 confirming pass.** The round-13 fixes are applied and all
-mechanical gates are green, so per the Re-Review Protocol the two independent
-passes (expert-review + collapse-hunt) are re-dispatched neutrally over the fix
-diff via
-`.claude/skills/expert-implement/references/review-handoff.md`. If both return no
-Moderate-or-above finding, the seam is converged and the plan becomes the build
-contract; if a new finding surfaces, it is fixed at the root (re-derived from
-grounded git behavior, never patched) and re-reviewed.
-
-**Then build** — treat the converged plan as the contract and run
-`/expert-implement` against it, Step 1 first (its first act — `npm ci` on the
-committed lockfile, then a file importing `web-tree-sitter` compiling and
-loading a grammar — re-executes the probes that would catch a non-functional
-pin).
+**Build.** The plan is converged (round-14 double-PASS) and is the build
+contract. The next step is to run `/expert-implement` against it, Step 1 first —
+its first act is `npm ci` on the committed lockfile, then a file importing
+`web-tree-sitter` compiling and loading a grammar, which re-executes the probes
+that would catch a non-functional pin. Per the merge-before-next-session
+workflow, this is a natural session boundary: the build is the next session's
+work on a `main` that already carries this converged plan.
 
 The author-gates Gate A/B/C walk on the round-8 fixes was not separately written
 this session (the loop that used to require it is disabled); the fixes' coherence

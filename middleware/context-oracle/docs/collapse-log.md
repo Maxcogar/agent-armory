@@ -1414,3 +1414,40 @@ content variant. A process that "obviously" satisfies its own rules by
 precedent is exactly the failure mode "no hollow decisions" exists to
 catch, applied to the correction mechanism instead of the document it
 corrects.
+
+## 2026-09-18 — a seam that finds a new pathological input every round is a representation choice, not a rule bug; and an uncited universal is a collapse
+
+The co-change miner's `--numstat` reader drove rounds 6–14. Each round a
+review found a *new* filename shape the current rule mis-keyed: non-ASCII
+(round 6), residual C-quoted classes (7–8), a quoted name containing
+` => ` (9), a fully-unquoted name containing ` => ` (10). Every fix added
+machinery *inside* one unexamined choice — parsing `git log --numstat`
+**line-by-line**, which forces handling git's C-quoting and its
+`old => new` rename syntax in-band. The line-by-line choice was the root
+cause; the tell was that the findings never converged, they relocated.
+
+The resolution was to stop patching inside the choice and change it:
+read history under **`-z`** (git's machine mode), which emits every path
+raw (no C-quoting of any byte) and a rename as two separate NUL-delimited
+fields — dissolving both the quoting *and* the rename ambiguity by
+construction, and deleting four probes' worth of decode/tokenizer
+machinery. General lesson: when a parser needs a new special case every
+round for a new input, suspect the representation it parses, not the
+rule; reach for the tool's canonical machine-readable mode before
+elaborating an in-band parser. (Class: **under-specified root** — the
+same shape as the 2026-09-03 round-8 entry, one level up: not a component
+incomplete a new way each round, but a *parsing choice* incomplete a new
+way each round.)
+
+And the `-z` rewrite itself then collapsed once, instructively: to frame
+commit records it split the stream on a `%x1e` Record Separator, resting
+on the claim "git never emits `0x1e` inside a path." That universal was
+**uncited and false** — git forbids only NUL and `/` in a pathname, so
+`0x1e` is legal and `-z` emits it raw — and a file named `we<0x1e>ird.txt`
+was silently cut into a fabricated co-change pair. Class: **unverified**,
+the exact "verify before you assert" failure the standing rules name as
+most damaging. The fix keyed the parse on the one byte a path genuinely
+cannot hold (NUL), grounded by executing the falsifying case first. The
+lesson: a load-bearing "X never happens" is a premise to execute against
+primary behavior, never an intuition to assert — most of all when it is
+what makes a delimiter safe.
