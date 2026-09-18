@@ -34,10 +34,23 @@ function frontmatter(path) {
   return fm;
 }
 
-// ---- T-A1: nine skills load-clean -----------------------------------------
+// ---- T-A1: the packaged skill set -----------------------------------------
+// Pinned as a SET, not a count: a bare length passes when one skill is deleted and
+// an unrelated one added, and a stated number is a hand-maintained datum that drifts
+// (this check's own comment read 'nine' above an assertion of ten). Adding or removing
+// a skill must be a deliberate edit here, naming what changed.
 const skillsDir = join(ROOT, 'skills');
 const skills = readdirSync(skillsDir);
-check('T-A1 ten skills packaged', skills.length === 10);
+const EXPECTED_SKILLS = [
+  'expert-architecture', 'expert-architecture-portable', 'expert-correct',
+  'expert-implement', 'expert-mcp-overhaul', 'expert-plan', 'expert-review',
+  'expert-defect-correction', 'expert-spec', 'expert-standard', 'expert-usage',
+  'frontend-standards',
+];
+const missingSkills = EXPECTED_SKILLS.filter((s) => !skills.includes(s));
+const unexpectedSkills = skills.filter((s) => !EXPECTED_SKILLS.includes(s));
+check(`T-A1 the packaged skill set is exactly the declared one (missing: ${missingSkills.join(', ') || 'none'}; undeclared: ${unexpectedSkills.join(', ') || 'none'})`,
+  missingSkills.length === 0 && unexpectedSkills.length === 0);
 for (const s of skills) {
   const fm = frontmatter(join(skillsDir, s, 'SKILL.md'));
   check(`T-A1 skill ${s} has parseable frontmatter + name`, !!fm && !!fm.name);
@@ -492,6 +505,20 @@ check('T-18 the scope check is dispatched to the verifier under one label',
     // guessed by widening the normalizer. Each entry names the exact baseline label
     // and the exact label that supersedes it, with the finding that forced the swap.
     const REPLACED_BY_STRENGTHENING = [
+      // ---- expert-usage skill added: T-A1 traded a bare population count for the
+      // population itself. `skills.length === 10` passes when one skill is deleted and
+      // an unrelated one added, which is the loss it existed to catch; and the stated
+      // number is a hand-maintained datum that had already drifted from this block's
+      // own comment ('nine skills load-clean' above an assertion of ten). Naming the set
+      // makes both a deletion and an undeclared addition fail, and removes the number.
+      {
+        was: 'T-' + 'A1 ten skills packaged',
+        now: "T-" + "A1 the packaged skill set is exactly the declared one (missing: ${missingSkills.join(', ') || 'none'}; undeclared: ${unexpectedSkills.join(', ') || 'none'})",
+        why: 'A length comparison is satisfied by any ten directories. The replacement pins '
+             + 'the membership, so removing a packaged skill fails even if another is added '
+             + 'in the same edit, and adding one must be declared here deliberately. It also '
+             + 'retires the cardinality word, which had already drifted once in this block.',
+      },
       // ---- corrections-0.4.0 round-5 F1/F2/F3: the two properties keep their
       // assertions and lose their overstated labels. The shared ground: a recognizer
       // for a natural-language construct is a hand-drawn boundary, so a check that
@@ -2583,6 +2610,87 @@ check('T-24 scope-check: no time-based exemption in the scope rules (semantic, r
   check('T-30 the fail-open choice and its asymmetry with the fail-closed gates are documented in the script',
     /FAIL OPEN, DELIBERATELY/.test(gateSrc) && /fail-closed/.test(gateSrc) &&
     /continuation AID, not an integrity control/i.test(gateSrc));
+}
+
+// ---- T-34: EDT-0001 / EDT-0002 -------------------------------------------
+// Both were live in a shipped release. Each check here is written to fail on the
+// PRE-FIX source, not merely to pass on the current one.
+{
+  const wf = rd('workflows/expert-lifecycle.js').replace(/\r\n/g, '\n');
+  const lines = wf.split('\n');
+
+  // EDT-0002: gateEscalation() is hoisted and is called from the first document gate.
+  // Declared below the main flow, the constant it reads is in its temporal dead zone and
+  // every CORRECTION_FAILED / NON_CONVERGENCE threw before the diagnostician could run.
+  const declLine = lines.findIndex((l) => l.startsWith('const CORRECTION_FAILED_TEXT')) + 1;
+  const callLines = lines.map((l, i) => (/await gateEscalation\(/.test(l) ? i + 1 : 0)).filter(Boolean);
+  check(`T-34 CORRECTION_FAILED_TEXT is declared before every gateEscalation call (decl ${declLine}, first call ${callLines[0] || '?'})`,
+    declLine > 0 && callLines.length > 0 && declLine < Math.min(...callLines));
+
+  // EDT-0001: a gate inside a document phase leaves the cursor there, so a resume
+  // re-enters at the top of the block. Authoring unconditionally discarded the artifact
+  // and every review round it had been through.
+  // declOf throws when the declaration is absent, which is precisely the pre-fix state
+  // this check exists to catch — so it is inside the try. A check that explodes instead
+  // of failing tells the reader nothing and takes the rest of the tier down with it.
+  let registeredArtifact = null;
+  try {
+    const decl = declOf(wf, 'function registeredArtifact');
+    registeredArtifact = new Function('ledger', `${decl}; return registeredArtifact;`);
+  } catch { registeredArtifact = null; }
+  check('T-34 registeredArtifact is defined and lifts cleanly', typeof registeredArtifact === 'function');
+
+  if (registeredArtifact) {
+    const fn = (idx) => registeredArtifact({ artifact_index: idx })('spec');
+    check('T-34 registeredArtifact returns the latest registered path for the role',
+      fn([{ role: 'spec', path: 'a.md' }, { role: 'plan', path: 'p.md' }, { role: 'spec', path: 'b.md' }]) === 'b.md');
+    check('T-34 registeredArtifact returns null when the role has never been registered',
+      fn([{ role: 'plan', path: 'p.md' }]) === null && fn([]) === null);
+    check('T-34 registeredArtifact ignores malformed entries rather than throwing',
+      fn([null, { role: 'spec' }, { role: 'spec', path: 'c.md' }]) === 'c.md');
+  }
+
+  // Each document phase must consult it before authoring. Checked per phase, on the text
+  // between the phase guard and its authoring dispatch, so a guard added to one phase and
+  // not the others cannot pass.
+  for (const [cur, role] of [['spec', 'spec'], ['architecture', 'architecture'], ['plan', 'plan']]) {
+    const start = wf.indexOf(`if (cursor === '${cur}') {`);
+    const authoring = wf.indexOf('await agent(', start);
+    const between = start >= 0 && authoring > start ? wf.slice(start, authoring) : '';
+    check(`T-34 the ${cur} phase consults registeredArtifact before authoring (resume must not re-author)`,
+      between.includes(`registeredArtifact('${role}')`));
+  }
+}
+
+// ---- T-33: the defect queue and its generated index -------------------------
+// The index is derived data. Hand-maintained derived data drifts here — that is the
+// measured history of this codebase — so the generator owns the file and this check
+// fails when it is stale, rather than trusting whoever last edited a defect.
+{
+  const gen = join(ROOT, 'scripts', 'derive-defect-index.mjs');
+  check('T-33 the defect-index generator exists and parses', existsSync(gen) && (() => {
+    try { execFileSync(process.execPath, ['--check', gen], { stdio: 'pipe' }); return true; }
+    catch { return false; }
+  })());
+
+  let stale = true;
+  try { execFileSync(process.execPath, [gen, '--check'], { stdio: 'pipe', cwd: ROOT }); stale = false; } catch { stale = true; }
+  check('T-33 docs/defects/README.md is current with the defect files (regenerate: node scripts/derive-defect-index.mjs)', !stale);
+
+  const dDir = join(ROOT, 'docs', 'defects');
+  const dFiles = existsSync(dDir) ? readdirSync(dDir).filter((f) => f.endsWith('.md') && f !== 'README.md') : [];
+  check(`T-33 every defect file carries the frontmatter the index derives from (files: ${dFiles.length})`,
+    dFiles.length > 0 && dFiles.every((f) => {
+      const t = readFileSync(join(dDir, f), 'utf8').replace(/\r\n/g, '\n');
+      return /^id:\s*EDT-\d{4}$/m.test(t) && /^state:\s*(open|investigating|corrected)$/m.test(t)
+        && /^severity:\s*(critical|serious|moderate|minor)$/m.test(t) && /^component:\s*\S/m.test(t);
+    }));
+
+  // The queue is only useful if it is reachable. Both pointers are load-bearing.
+  check('T-33 the README points at the defect queue',
+    /docs\/defects\//.test(rd('README.md')));
+  check('T-33 the preflight reports the open defect count (the one surface every run must read)',
+    /open_defects/.test(rd('scripts/preflight-deployment.mjs')));
 }
 
 console.log(failures ? `\nSTRUCTURAL TESTS FAILED (${failures})` : '\nSTRUCTURAL TESTS PASSED');

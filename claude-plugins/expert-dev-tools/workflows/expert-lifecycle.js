@@ -74,6 +74,18 @@ const GATE = {
   control_fault: 'control_fault',
 }
 
+// EDT-0002: declared here, ABOVE the main flow, because gateEscalation() is hoisted and is
+// called from the spec gate (the first document gate) hundreds of lines before this point
+// in source order. Declared below the flow, as it was, every CORRECTION_FAILED and
+// NON_CONVERGENCE read it in its temporal dead zone and threw ReferenceError — before the
+// diagnostician could be dispatched, so a failed run produced no root cause at all.
+const CORRECTION_FAILED_TEXT = {
+  fix_site_regression: 'a correction broke the section it edited',
+  unclosed_class: 'a correction closed the named instance and the same standard was violated elsewhere',
+  sweep_underreported: "a correction's class sweep, re-executed independently, returned sites the correction did not report",
+  found_left_silently_open: 'a correction found class sites it neither changed, escalated, nor declared open',
+}
+
 // ---------------------------------------------------------------------------
 // Schemas (kept to the load-bearing fields per architecture C4)
 // ---------------------------------------------------------------------------
@@ -650,6 +662,16 @@ function record(gate, gateResult) {
 }
 function finish() { delta.budget.total_tokens = budget.spent ? budget.spent() : 0; return delta }
 
+// EDT-0001: the path this phase already produced, if any. A document phase re-entered on
+// resume must continue at its review gate, not re-author over a reviewed artifact. The
+// ledger is the only record available here — a workflow script has no filesystem access —
+// and a registered entry means the phase produced that artifact and the scope check
+// hashed it.
+function registeredArtifact(role) {
+  const hits = (ledger.artifact_index || []).filter((a) => a && a.role === role && a.path)
+  return hits.length ? hits[hits.length - 1].path : null
+}
+
 // The feedback sweep runs once at the segment boundary (never mid-phase).
 phase('Feedback sweep')
 const dispositions = await feedbackSweep(ledger, readerScript, transcriptDir)
@@ -687,6 +709,10 @@ if (cursor === 'spec' && !haveOwnerWords) {
 
 // ---- SPEC ---------------------------------------------------------------
 if (cursor === 'spec') {
+  // EDT-0001: resume continues at the review gate; it never re-authors.
+  const priorSpec = registeredArtifact('spec')
+  if (priorSpec) specPath = specPath || priorSpec
+  if (!priorSpec) {
   phase('Spec')
   const specOut = await agent(
     `Write the specification for this task.\nTask: ${task}\nOwner's request, verbatim (the authoritative statement of what to build — the Task line above is a working title, not the request):\n<<<OWNER_REQUEST\n${taskVerbatim}\nOWNER_REQUEST>>>\nYou are authorized to write exactly one file: the specification artifact you create. Change nothing else in the repository.`,
@@ -703,6 +729,7 @@ if (cursor === 'spec') {
   // used to sit after the escalation return, so a spec that failed to converge was never
   // registered — D9 hash anchoring missed the artifact exactly when the owner needed it.
   delta.artifacts.push({ role: 'spec', path: specPath })
+  }
   const gate = await runGate({
     reviewFn: (round) => agent(`Review the spec at ${specPath} against the task, judged against ${RULER.spec}. Check it against its own output contract at ${OUTPUT_CONTRACT.spec}. Owner's request, verbatim (the authoritative statement of what the spec must cover):\n<<<OWNER_REQUEST\n${taskVerbatim}\nOWNER_REQUEST>>>\nEvery clause of the verbatim request must trace to the spec per its output contract's Request-traceability section; a dropped, renamed, or narrowed clause is a finding. ${NOT_THE_RULER} Round ${round}.`, { agentType: AGENT.reviewer, schema: VERDICT_SCHEMA, phase: 'Review', label: `review:spec:r${round}` }),
     remediateFn: (findings) => agent(`Correct the spec at ${specPath} against these review findings. Re-derive each finding's section from that section's sources — do not edit the sentence the finding points at, and do not re-author the artifact; its untouched sections are correct by the prior round's review. Sweep each finding's class across the whole artifact. Correct only what the findings require. Return sections_rederived: one entry per re-derived section with its location (path:start-end or path#section), the source it was re-derived from, the finding it addresses, and class_sweep {searched, pattern, scope, found, sites_changed} — pattern is the executable regex the sweep ran (Grep syntax) and scope the file or glob it ran over (normally this artifact); found lists EVERY location the search returned, corrected or not; sites_changed lists the found locations you actually edited; every found entry outside sites_changed carries an open_sites entry {location, designation} naming its escalation or explicitly-open status. The pattern is re-executed independently against the artifact this same round: executing it over scope must reproduce found, and a found site neither changed nor designated fails the gate. A finding whose named standard you cannot verify returns status: 'halted' with the reason in halt.detail. Findings: ${JSON.stringify(findings)}`, { agentType: AGENT.corrector, schema: PHASE_SCHEMA, phase: 'Spec', label: 'revise:spec' }),
@@ -728,6 +755,10 @@ if (cursor === 'spec') {
 
 // ---- ARCHITECTURE -------------------------------------------------------
 if (cursor === 'architecture') {
+  // EDT-0001: resume continues at the review gate; it never re-authors.
+  const priorArch = registeredArtifact('architecture')
+  if (priorArch) archPath = archPath || priorArch
+  if (!priorArch) {
   phase('Architecture')
   const out = await agent(`Produce the architecture from the approved spec at ${specPath}. You are authorized to write exactly one file: the architecture artifact you create. Change nothing else in the repository. If premise verification reveals a defect in an upstream artifact, do NOT edit that file: record the discrepancy (location, verified evidence, proposed correction) in your returned evidence, or return status halted with it in halt.detail. Upstream artifacts change only through the orchestrator's amendment path.`, { agentType: AGENT.architect, schema: PHASE_SCHEMA, phase: 'Architecture', label: 'architecture' })
   archPath = resolveArtifactPath(out, archPath)
@@ -735,6 +766,7 @@ if (cursor === 'architecture') {
   if (esc) return esc
   if (!archPath) return missingArtifactPath('architecture')
   delta.artifacts.push({ role: 'architecture', path: archPath })
+  }
   const gate = await runGate({
     reviewFn: (round) => agent(`Review the architecture at ${archPath} against the spec at ${specPath}, judged against ${RULER.architecture}. Check it against its own output contract at ${OUTPUT_CONTRACT.architecture}. ${NOT_THE_RULER} Round ${round}.`, { agentType: AGENT.reviewer, schema: VERDICT_SCHEMA, phase: 'Review', label: `review:arch:r${round}` }),
     remediateFn: (findings) => agent(`Correct the architecture at ${archPath} against these review findings. Re-derive each finding's section from that section's sources — do not edit the sentence the finding points at, and do not re-author the artifact; its untouched sections are correct by the prior round's review. Sweep each finding's class across the whole artifact. Correct only what the findings require. Return sections_rederived: one entry per re-derived section with its location (path:start-end or path#section), the source it was re-derived from, the finding it addresses, and class_sweep {searched, pattern, scope, found, sites_changed} — pattern is the executable regex the sweep ran (Grep syntax) and scope the file or glob it ran over (normally this artifact); found lists EVERY location the search returned, corrected or not; sites_changed lists the found locations you actually edited; every found entry outside sites_changed carries an open_sites entry {location, designation} naming its escalation or explicitly-open status. The pattern is re-executed independently against the artifact this same round: executing it over scope must reproduce found, and a found site neither changed nor designated fails the gate. A finding whose named standard you cannot verify returns status: 'halted' with the reason in halt.detail. Findings: ${JSON.stringify(findings)}`, { agentType: AGENT.corrector, schema: PHASE_SCHEMA, phase: 'Architecture', label: 'revise:arch' }),
@@ -752,6 +784,10 @@ if (cursor === 'architecture') {
 
 // ---- PLAN ---------------------------------------------------------------
 if (cursor === 'plan') {
+  // EDT-0001: resume continues at the review gate; it never re-authors.
+  const priorPlan = registeredArtifact('plan')
+  if (priorPlan) planPath = planPath || priorPlan
+  if (!priorPlan) {
   phase('Plan')
   const out = await agent(`Produce the implementation plan from the spec at ${specPath} and architecture at ${archPath}. You are authorized to write exactly one file: the plan artifact you create. Change nothing else in the repository. If premise verification reveals a defect in an upstream artifact, do NOT edit that file: record the discrepancy (location, verified evidence, proposed correction) in your returned evidence, or return status halted with it in halt.detail. Upstream artifacts change only through the orchestrator's amendment path.`, { agentType: AGENT.planner, schema: PHASE_SCHEMA, phase: 'Plan', label: 'plan' })
   planPath = resolveArtifactPath(out, planPath)
@@ -759,6 +795,7 @@ if (cursor === 'plan') {
   if (esc) return esc
   if (!planPath) return missingArtifactPath('plan')
   delta.artifacts.push({ role: 'plan', path: planPath })
+  }
   const gate = await runGate({
     reviewFn: (round) => agent(`Review the plan at ${planPath} against the spec and architecture, judged against ${RULER.plan}. Check it against its own output contract at ${OUTPUT_CONTRACT.plan}. ${NOT_THE_RULER} Round ${round}.`, { agentType: AGENT.reviewer, schema: VERDICT_SCHEMA, phase: 'Review', label: `review:plan:r${round}` }),
     remediateFn: (findings) => agent(`Correct the plan at ${planPath} against these review findings. Re-derive each finding's section from that section's sources — do not edit the sentence the finding points at, and do not re-author the artifact; its untouched sections are correct by the prior round's review. Sweep each finding's class across the whole artifact. Correct only what the findings require. Return sections_rederived: one entry per re-derived section with its location (path:start-end or path#section), the source it was re-derived from, the finding it addresses, and class_sweep {searched, pattern, scope, found, sites_changed} — pattern is the executable regex the sweep ran (Grep syntax) and scope the file or glob it ran over (normally this artifact); found lists EVERY location the search returned, corrected or not; sites_changed lists the found locations you actually edited; every found entry outside sites_changed carries an open_sites entry {location, designation} naming its escalation or explicitly-open status. The pattern is re-executed independently against the artifact this same round: executing it over scope must reproduce found, and a found site neither changed nor designated fails the gate. A finding whose named standard you cannot verify returns status: 'halted' with the reason in halt.detail. Findings: ${JSON.stringify(findings)}`, { agentType: AGENT.corrector, schema: PHASE_SCHEMA, phase: 'Plan', label: 'revise:plan' }),
@@ -1043,12 +1080,6 @@ function maybeEscalate(out, phaseName) {
 // The callers below therefore test `!== 'PASS'` rather than enumerating verdicts —
 // an unhandled state that fell through reached the spec gate's GATE.intent return
 // and told the owner the specification passed independent review.
-const CORRECTION_FAILED_TEXT = {
-  fix_site_regression: 'a correction broke the section it edited',
-  unclosed_class: 'a correction closed the named instance and the same standard was violated elsewhere',
-  sweep_underreported: "a correction's class sweep, re-executed independently, returned sites the correction did not report",
-  found_left_silently_open: 'a correction found class sites it neither changed, escalated, nor declared open',
-}
 function lastRoundFindings(gate) {
   return (gate.history[gate.history.length - 1] || {}).findings || []
 }
