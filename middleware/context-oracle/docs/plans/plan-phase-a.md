@@ -2148,13 +2148,15 @@ other field belongs to the current commit. A **path is never taken for a
 header**, even one that contains or begins with `0x1e`, because a numstat entry
 field always begins with its `<added>` count and a rename's old/new paths are
 consumed positionally, never rescanned (`probe:24_git_numstat_z` plants
-`we<0x1e>ird.txt` co-changing with a partner and records it as the one path
-`we<0x1e>ird.txt`, not a fabricated pair). Each numstat entry is
+`we<0x1e>ird.txt` and records it as the one whole path `we<0x1e>ird.txt`, not
+split into a fabricated pair; `T-13-1` exercises that same path co-changing with
+the fixture's partner). Each numstat entry is
 `<added>\t<deleted>\t<path>` (a binary file is `-\t-\t<path>`); an entry whose
 path is empty is a rename whose next two NUL fields are the old and new
 identities, both added to the touched-file set. A leading field that is not a
-valid `\x1e`+40-hex header, or a numstat entry lacking the `<added>\t<deleted>\t`
-shape — a malformed stream, e.g. a future git output-format drift — is recorded
+valid `\x1e`+40-hex header, a numstat entry lacking the `<added>\t<deleted>\t`
+shape, or a rename marker missing its two following identity fields (a truncated
+stream) — a malformed stream, e.g. a future git output-format drift — is recorded
 with a `miner_unparsed_numstat` diagnostic (Step 6) and contributes no pair,
 never guessed. Every well-formed entry adds its raw path, or both raw rename
 identities, to the commit's touched-file set; per commit: records the commit in

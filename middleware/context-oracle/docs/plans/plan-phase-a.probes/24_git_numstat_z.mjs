@@ -88,8 +88,11 @@ try {
       for (let k = 0; k <= f.length; k++) if (k === f.length || f[k] === TAB) { parts.push(f.subarray(ps, k)); ps = k + 1; }
       if (parts.length < 3) { if (cur) cur.bad = true; i += 1; continue; }   // malformed -> guard
       const path = Buffer.concat(parts.slice(2).flatMap((p, idx) => idx ? [Buffer.from([TAB]), p] : [p]));
-      if (path.length === 0) { cur.paths.push(fields[i + 1], fields[i + 2]); i += 3; }  // rename: positional
-      else { cur.paths.push(path); i += 1; }
+      if (path.length === 0) {                                       // rename: positional old/new
+        if (fields[i + 1] !== undefined && fields[i + 2] !== undefined) cur.paths.push(fields[i + 1], fields[i + 2]);
+        else if (cur) cur.bad = true;                                // truncated rename -> guard, never guessed
+        i += 3;
+      } else { cur.paths.push(path); i += 1; }
     }
     return commits;
   }

@@ -27,8 +27,10 @@ A architecture (`docs/architecture-phase-a.md`) is reviewed to convergence.
 **The Phase A implementation plan (`docs/plans/plan-phase-a.md`) has had every
 known review finding addressed and every mechanical gate green. The one seam
 that drove rounds 6–11 — how the co-change miner reads paths and renames from
-`git log --numstat` — is now resolved at the root by switching to `-z` with a
-NUL-driven parse; the plan awaits the round-12 confirming pass.**
+`git log --numstat` — is resolved at the root by switching to `-z` with a
+NUL-driven parse; round 12 verified the mechanism sound (no collapse) and found
+only a prose-accuracy defect, now fixed. The plan awaits the round-13 confirming
+pass.**
 
 Trajectory of that seam. Every round attacked a symptom of one underlying
 choice: the plan parsed `--numstat` **line-by-line**, which forced it to handle
@@ -75,6 +77,20 @@ mistaken for a header. Grounded by execution (`we<0x1e>ird.txt`, a path beginnin
 with `0x1e`, and a rename to a `0x1e`-bearing path all resolve whole);
 `probe:24_git_numstat_z` and T-13-1 now plant the `0x1e`-in-path case.
 
+**Round 12 — mechanism verified sound; one Moderate prose defect, fixed.** Both
+passes (`…-round-12-{expert-review,collapse-hunt}.md`) confirmed the round-11
+findings all closed and could **not collapse** the NUL-driven parse — the
+collapse-hunt attacked it with a filename byte-identical to a `%x1e`+40-hex
+header (as plain add, rename source, rename target) and multi-/empty-commit
+streams, and it held (positional rename consumption). The one finding: Step 13
+claimed `probe:24_git_numstat_z` plants the `0x1e` path "co-changing with a
+partner," but that probe commit is solo (the co-change case lives in `T-13-1`) —
+a dominating-rule-1 inaccuracy about executed evidence, isolated to Step 13 (Q56
+and §11.4 were accurate). **Fixed**: Step 13's prose now states only what the
+probe proves (the `0x1e` path records as one whole path, not a fabricated pair)
+and cites `T-13-1` for the co-change; a truncated-rename guard was added to the
+malformed-record set and to the probe's reference parser.
+
 Mechanical gates on the current revision: `derive-plan-sections.mjs --check` (40
 steps, 124 test specs, **26 probes cited**, regions current), `--self-check` (34
 checks), `run-plan-probes.mjs` (all 26 probes, incl. `24_git_numstat_z`),
@@ -101,10 +117,10 @@ longer auto-enforced by a broken judge.
 
 ## What to do next
 
-**Next: the round-12 confirming pass.** The round-11 RS-in-path fix is applied
-and all mechanical gates are green, so per the Re-Review Protocol the two
-independent passes (expert-review + collapse-hunt) are re-dispatched neutrally
-over the fix diff via
+**Next: the round-13 confirming pass.** The round-12 prose fix is applied and all
+mechanical gates are green, so per the Re-Review Protocol the two independent
+passes (expert-review + collapse-hunt) are re-dispatched neutrally over the fix
+diff via
 `.claude/skills/expert-implement/references/review-handoff.md`. If both return no
 Moderate-or-above finding, the seam is converged and the plan becomes the build
 contract; if a new finding surfaces, it is fixed at the root (re-derived from
