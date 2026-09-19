@@ -259,3 +259,49 @@ Step 1–5 regressions):
   scanning a live `dist/` tree. Confirmed stable over five full-suite runs. This
   will recur for every future single-importer convention test (e.g. T-24-2), so
   it is also recorded in `docs/collapse-log.md`.
+
+## Step 7 — SQL migrations: Phase A project store — DONE
+
+**Built.**
+- `src/stores/migrations/001_phase_a_project.sql` — every AD-4 Phase A project
+  table, STRICT, with the PROV block (prov_kind/prov_ref/trust/injection_suspect
+  CHECKs + created_at/updated_at) expanded inline on each knowledge table, the
+  `corrections` whisper/deny exclusive-or CHECK, the `q_open_dedup` partial
+  unique index, the two LIKE-fallback indexes, and the two plan columns
+  (`observed_actions.content_hash`, `regret` table).
+- `src/stores/migrations/001b_phase_a_fts.sql` — the two FTS5 virtual tables,
+  applied only under `fts_state='fts5'`.
+- `src/stores/migration_runner.ts` — `applyMigrations(store, {fts, scope?})`,
+  forward-only, scoped. `readSql` reads from `../../../src/stores/migrations`
+  (resolved from the compiled runner's `import.meta.url`).
+
+**Verified.** `npm test` → 25/25 green (4 new + Step 1–6 regressions):
+- **T-7-1a** `fts:true` → `fts_state='fts5'`, `fts_symbols`/`fts_paths` present,
+  LIKE indexes present, no forbidden Phase B/C table.
+- **T-7-1b** `fts:false` → `fts_state='fallback'`, no fts_* table, LIKE indexes
+  present; a re-run with `fts:true` does not flip the state or add an fts table.
+- **T-7-1c** every CHECK-constrained column rejects its negative (zone; the PROV
+  prov_kind/trust/injection_suspect on all six PROV tables; landmines.kind;
+  cochange `a<b`; corrections verdict + XOR; consumer_state.kind;
+  observed_actions command_class/outcome; regret's three enums; whisper_audit
+  .kind; classified_turns clears/reason; questions status/closed_by_kind), and a
+  valid row is accepted on each.
+- **T-7-1d** the open-scoped dedup index enforces open → duplicate-open rejected
+  → answered → re-open accepted.
+
+**Findings / deviations.**
+- **`applyMigrations` takes a `scope` (default `'project'`), an extension of the
+  plan's abbreviated `applyMigrations(store, {fts})` signature.** The plan
+  applies the runner to *both* stores — 001/001b to the project store, 002 to the
+  global store (lines 3579–3580, 3976–3979) — and T-7-1 forbids project↔global
+  table bleed (T-8-1 requires the global store hold *exactly* the four tables). A
+  single fts-only signature applied uniformly cannot separate the two sets; the
+  filenames encode `project`/`global`/`fts`, so a scope selector is the only
+  design consistent with both tests. Default `'project'` matches the plan's
+  project call shown without a scope; the global caller (Step 8 test, Step 28/31)
+  passes `scope:'global'`. The global branch reads `002_*.sql`, created next in
+  Step 8 (never invoked by Step 7's tests).
+- **Version tracking is a single Phase-A version (`schema_version='1'`) per
+  store's meta table**, with `fts_state` (not the version) governing 001b
+  idempotency — so a re-run short-circuits on `version>=1` and never retries the
+  fts branch, exactly what T-7-1b asserts.
