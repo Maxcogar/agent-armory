@@ -319,3 +319,60 @@ the PROV block), STRICT, no `env_capabilities`. Applied by the Step-7 runner's
 
 **Findings / deviations.** None — mechanical from AD-5, same type resolution as
 Step 7.
+
+## Step 9 — DAOs for every Phase A table + ULID — DONE
+
+**Built.** `src/util/ulid.ts` (Crockford-base32 ULID: 10-char time + 16-char
+random). One factory per table in `src/stores/dao/` (24 files): `schemaMetaDao`,
+`globalMetaDao`, `filesDao`, `symbolsDao`, `importEdgesDao`, `symbolRefsDao`,
+`testMapDao`, `commitsDao`, `cochangePairsDao`, `landminesDao`, `invariantsDao`,
+`humanFactsDao`, `correctionsDao`, `questionsDao`, `classifyStateDao`,
+`consumerStateDao`, `sessionLogDao`, `observedActionsDao`, `regretDao`,
+`classifiedTurnsDao`, `whisperAuditDao`, `faultsDao`, `whisperStatsDao`,
+`lessonsDao`. Each is a thin prepared-statement wrapper (no cache, no async);
+timestamped tables take ULID ids; `whisper_audit.append` returns its id
+synchronously (AD-8). The must-fail fixture `test/build/fixtures/missing_provenance.ts`
++ `test/build/typecheck_provenance.test.ts`.
+
+**Verified.** `npm test` → 30/30 green (T-9-1's three subtests + T-9-2 + the
+Step 1–8 regressions):
+- **T-9-1** structural, knowledge, and session/diagnostic DAOs each
+  create/read/update/delete against the STRICT schema; ids match the ULID regex;
+  `whisper_audit.append` returns a string (not a Promise); FR-X4 laundering
+  (`prov_kind='human'` with `trust≠'human'`, or repo provenance with
+  `trust='human'`) throws at the DAO entry.
+- **T-9-2** the fixture calling seven knowledge writes without provenance fails
+  `tsc` (compiled via `compileFixture`; asserted non-zero with prov/argument
+  diagnostics). `@ts-expect-error` is deliberately NOT used — it would suppress
+  the errors and let the fixture compile, the exact thing T-9-2 catches.
+
+**Findings / deviations.**
+- **`src/security/trust.ts` (a Step-6 file) was modified**, outside Step 9's
+  declared `modify: []`. Added `ProvKind`, `Provenance`, and `provCreateValues`
+  (validate FR-X4 + expand the six PROV columns) there because it is the
+  provenance/trust home and no shared DAO-types file exists in the create list.
+  This confirms Step 6's provisional `assertProvenance` contract: the DAO derives
+  `inputsAreHuman = (prov_kind === 'human')` and the existing helper rejects both
+  laundering directions — no Step-6 rewrite needed.
+- **Several read methods carry provisional semantics, finalized at their
+  consuming step** (each round-trips correctly now): `session_log.livenessRows`
+  (open = latest event ≠ SessionEnd — Step 10/33), `classified_turns.sinceQuestionOpened`
+  (turns at/after the newest open question, via a `questions` join — Step 26),
+  `whisper_audit.deliveredSubjects` (distinct whisper genres — Step 19),
+  `observed_actions` tool classification (EDIT/READ/Bash sets — the handler,
+  Step 25/28), and `cochange_pairs.bump`'s `a_count`/`b_count` (incremented per
+  bump alongside `pair_count`; the miner, Step 13, owns the real per-file counts).
+- **`landmines.upsert` dedups in code on `(kind, file_id, evidence)`** — there is
+  no natural unique key besides the ULID id, so re-mining the same landmine
+  updates its `support` rather than inserting a duplicate.
+- **The entire `test/build/` tier was silently gitignored (real defect, fixed).**
+  The repo-root `.gitignore` has a bare `build/` rule that matches *any* directory
+  named `build`, including `ctxoracle/test/build/`. So Step 1's `tsc_fixture.ts`
+  was created locally but **never committed** — and the build-test tier has been
+  absent from CI since Step 1 (it just happened to hold no `*.test.ts` until now,
+  so nothing failed). Step 9's T-9-2 lives there and imports `tsc_fixture`, so it
+  would have failed on a fresh checkout. Fixed by adding a scoped exception to
+  `ctxoracle/.gitignore` (`!test/build/` + `!test/build/**`), the same class as
+  the earlier `!package-lock.json` re-inclusion; compiled output stays ignored
+  under `dist/`. This commit therefore also adds the previously-uncommitted
+  `test/build/tsc_fixture.ts`.

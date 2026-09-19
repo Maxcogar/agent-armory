@@ -46,3 +46,32 @@ export function assertProvenance<T extends ProvenancedWrite>(row: T): T {
   }
   return row;
 }
+
+/** Provenance kinds — mirrors the DB CHECK on every knowledge table's PROV block. */
+export type ProvKind = 'repo_span' | 'commit' | 'human' | 'mechanical' | 'session';
+
+/** The provenance block a knowledge-record write must carry (Step 9). Required
+ *  at the type level so a write without it fails to compile (T-9-2), and
+ *  validated at runtime by `provCreateValues` (T-9-1's laundering case). */
+export interface Provenance {
+  prov_kind: ProvKind;
+  prov_ref: string;
+  trust: Trust;
+  injection_suspect?: boolean;
+}
+
+/**
+ * Validate a knowledge write's provenance (FR-X4) and expand it to the six PROV
+ * column values in schema order (prov_kind, prov_ref, trust, injection_suspect,
+ * created_at, updated_at). The human-provenance attestation is derived from
+ * prov_kind, so a human-labeled trust on non-human provenance — or vice versa —
+ * is rejected before any row is written.
+ */
+export function provCreateValues(
+  p: Provenance,
+  createdAt: number,
+  updatedAt: number
+): [ProvKind, string, Trust, number, number, number] {
+  assertProvenance({ trust: p.trust, inputsAreHuman: p.prov_kind === 'human' });
+  return [p.prov_kind, p.prov_ref, p.trust, p.injection_suspect === true ? 1 : 0, createdAt, updatedAt];
+}
