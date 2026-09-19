@@ -453,8 +453,8 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/src/blocks/verdict.ts | create | S24 |
 | middleware/context-oracle/ctxoracle/src/cli/correct.ts | create | S34 |
 | middleware/context-oracle/ctxoracle/src/cli/deinit.ts | create | S32 |
-| middleware/context-oracle/ctxoracle/src/cli/dispatch.ts | create | S28 |
-| middleware/context-oracle/ctxoracle/src/cli/dispatch.ts | modify | S31, S32, S33, S34, S35 |
+| middleware/context-oracle/ctxoracle/src/cli/dispatch.ts | create | S1 |
+| middleware/context-oracle/ctxoracle/src/cli/dispatch.ts | modify | S28, S31, S32, S33, S34, S35 |
 | middleware/context-oracle/ctxoracle/src/cli/export.ts | create | S32 |
 | middleware/context-oracle/ctxoracle/src/cli/hook.ts | create | S28 |
 | middleware/context-oracle/ctxoracle/src/cli/import.ts | create | S32 |
@@ -833,7 +833,7 @@ function-level tests it names.
 step: S1
 covers: [PA-10, PA-12]
 files:
-  create: [.github/workflows/context-oracle-ctxoracle.yml, middleware/context-oracle/ctxoracle/package.json, middleware/context-oracle/ctxoracle/package-lock.json, middleware/context-oracle/ctxoracle/tsconfig.json, middleware/context-oracle/ctxoracle/scripts/run-tests.mjs, middleware/context-oracle/ctxoracle/test/build/tsc_fixture.ts, middleware/context-oracle/ctxoracle/test/replay/transcript_fixtures/, middleware/context-oracle/ctxoracle/test/fixtures/generate.ts, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-full/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-shallow/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-shallow-no-origin/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-nongit/, middleware/context-oracle/ctxoracle/test/fixtures/repos/miner-hygiene/, middleware/context-oracle/ctxoracle/test/fixtures/repos/indexer-small/, middleware/context-oracle/ctxoracle/test/fixtures/repos/coupling-nonobvious/, middleware/context-oracle/ctxoracle/test/fixtures/repos/orientation-mixed-shape/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-mixed-language/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-observed-zero/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-same-name-collision/, middleware/context-oracle/ctxoracle/test/fixtures/repos/consequence-coupled-tests/, middleware/context-oracle/ctxoracle/test/fixtures/repos/warning-landmine/, middleware/context-oracle/ctxoracle/test/fixtures/repos/completeness-paired-change/, middleware/context-oracle/ctxoracle/test/fixtures/repos/verification-covering-test/, middleware/context-oracle/ctxoracle/test/fixtures/repos/bar-two-candidates/, middleware/context-oracle/ctxoracle/test/fixtures/repos/dedup-read-set/, middleware/context-oracle/ctxoracle/test/fixtures/repos/corpus-floor-29/, middleware/context-oracle/ctxoracle/test/fixtures/repos/answer-drift-clearly-off/, middleware/context-oracle/ctxoracle/test/fixtures/repos/pristine-tree/, middleware/context-oracle/ctxoracle/test/fixtures/repos/secret-injection/, middleware/context-oracle/ctxoracle/test/fixtures/repos/subagent-delivery/, middleware/context-oracle/ctxoracle/test/fixtures/repos/language-config-added/, middleware/context-oracle/ctxoracle/test/fixtures/repos/seeded-facts/, middleware/context-oracle/ctxoracle/test/fixtures/repos/regret-true-positive/, middleware/context-oracle/ctxoracle/test/fixtures/repos/regret-no-inflate/, middleware/context-oracle/ctxoracle/test/fixtures/repos/over-threshold-file/, middleware/context-oracle/ctxoracle/test/unit/package_build.test.ts, middleware/context-oracle/ctxoracle/test/unit/run_tests_guard.test.ts, middleware/context-oracle/ctxoracle/test/unit/generator_determinism.test.ts]
+  create: [.github/workflows/context-oracle-ctxoracle.yml, middleware/context-oracle/ctxoracle/package.json, middleware/context-oracle/ctxoracle/package-lock.json, middleware/context-oracle/ctxoracle/tsconfig.json, middleware/context-oracle/ctxoracle/src/cli/dispatch.ts, middleware/context-oracle/ctxoracle/scripts/run-tests.mjs, middleware/context-oracle/ctxoracle/test/build/tsc_fixture.ts, middleware/context-oracle/ctxoracle/test/replay/transcript_fixtures/, middleware/context-oracle/ctxoracle/test/fixtures/generate.ts, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-full/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-shallow/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-shallow-no-origin/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-nongit/, middleware/context-oracle/ctxoracle/test/fixtures/repos/miner-hygiene/, middleware/context-oracle/ctxoracle/test/fixtures/repos/indexer-small/, middleware/context-oracle/ctxoracle/test/fixtures/repos/coupling-nonobvious/, middleware/context-oracle/ctxoracle/test/fixtures/repos/orientation-mixed-shape/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-mixed-language/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-observed-zero/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-same-name-collision/, middleware/context-oracle/ctxoracle/test/fixtures/repos/consequence-coupled-tests/, middleware/context-oracle/ctxoracle/test/fixtures/repos/warning-landmine/, middleware/context-oracle/ctxoracle/test/fixtures/repos/completeness-paired-change/, middleware/context-oracle/ctxoracle/test/fixtures/repos/verification-covering-test/, middleware/context-oracle/ctxoracle/test/fixtures/repos/bar-two-candidates/, middleware/context-oracle/ctxoracle/test/fixtures/repos/dedup-read-set/, middleware/context-oracle/ctxoracle/test/fixtures/repos/corpus-floor-29/, middleware/context-oracle/ctxoracle/test/fixtures/repos/answer-drift-clearly-off/, middleware/context-oracle/ctxoracle/test/fixtures/repos/pristine-tree/, middleware/context-oracle/ctxoracle/test/fixtures/repos/secret-injection/, middleware/context-oracle/ctxoracle/test/fixtures/repos/subagent-delivery/, middleware/context-oracle/ctxoracle/test/fixtures/repos/language-config-added/, middleware/context-oracle/ctxoracle/test/fixtures/repos/seeded-facts/, middleware/context-oracle/ctxoracle/test/fixtures/repos/regret-true-positive/, middleware/context-oracle/ctxoracle/test/fixtures/repos/regret-no-inflate/, middleware/context-oracle/ctxoracle/test/fixtures/repos/over-threshold-file/, middleware/context-oracle/ctxoracle/test/unit/package_build.test.ts, middleware/context-oracle/ctxoracle/test/unit/run_tests_guard.test.ts, middleware/context-oracle/ctxoracle/test/unit/generator_determinism.test.ts]
   modify: []
   delete: []
 provides: [npm-ci, npm-test, npm-run-test, npm-run-build]
@@ -876,6 +876,21 @@ and asserts a non-zero exit whose diagnostics name the intended error
 (executed 2026-09-07: a must-fail fixture inside `include` turns `tsc -p`
 red; with the `exclude` the build is green and the per-fixture invocation
 still fails on the fixture — §11.4).
+
+Create `src/cli/dispatch.ts` — the package's `bin` target
+(`#!/usr/bin/env node`), a valid, buildable entry point that at this step
+registers no verbs, does no work, and exits non-zero on any invocation
+(nothing invokes it until Step 28, and `T-1-1` only builds it and checks it
+exists — Step 1 guarantees no more of its runtime behavior). It compiles
+under the strict `tsconfig` above (`tsc` preserves the leading shebang
+verbatim as the emitted file's first line — executed 2026-09-19, §11.4),
+imports nothing, and is the file Step 28 extends with the internal
+`hook`/`index` verbs and Steps 31–35 with the rest, each declaring its edit
+under `modify:`. Creating the declared bin's target here — rather than at
+Step 28 where the first real verbs land — keeps `package.json`'s `bin`
+entry pointing at a file that exists from the first build (AD-25), so
+`T-1-1`'s `dist/src/cli/dispatch.js` assertion holds at Step 1, on every CI
+run, and at Checkpoint 1, instead of being red until Step 28.
 
 Create `test/fixtures/generate.ts` — one deterministic generator per
 fixture repository named in §5.1 (`test/fixtures/repos/<name>`), invoked by
@@ -921,7 +936,7 @@ exists (the runner's count guard covers `test/replay` too, so adding it
 earlier would be a red run on an empty set), and the `cold-container` job
 `AC-20` names is added by Step 38, when its script exists.
 
-**Creates.** `.github/workflows/context-oracle-ctxoracle.yml` — CI: build + unit/integration/convention tier; `package.json` — AD-25; `tsconfig.json` — AD-25; compiles src/ and test/ into dist/; `scripts/run-tests.mjs` — enumerates compiled tests; refuses a zero/mismatched set; `test/build/tsc_fixture.ts` — helper: runs tsc --noEmit on one fixture, returns exit code + diagnostics; `test/replay/transcript_fixtures/` — transcript JSONL fixtures (marker-carrying, marker-less, injected-turn, lag); `test/fixtures/generate.ts` — entry point for all fixture-repo generators (D-plan-5); `test/fixtures/repos/repo-key-full/` — full history, 3 root commits; `test/fixtures/repos/repo-key-shallow/` — depth-1 clone of repo-key-full with origin; `test/fixtures/repos/repo-key-shallow-no-origin/`; `test/fixtures/repos/repo-key-nongit/` — plain directory; `test/fixtures/repos/miner-hygiene/` — planted pair, merge commit, 45-file commit, beyond-horizon commit; `test/fixtures/repos/indexer-small/` — 3 .ts files, 1 .py, 1 .sh, 1 >1 MB file, planted secret; `test/fixtures/repos/coupling-nonobvious/` — cross-directory pair + same-dir same-stem pair; `test/fixtures/repos/orientation-mixed-shape/` — low-in-degree main/cli + high-in-degree hub; `test/fixtures/repos/reuse-mixed-language/` — grammar-covered dominant + generic-frontend candidate; `test/fixtures/repos/reuse-observed-zero/` — grammar-covered symbol with observed 0 count; `test/fixtures/repos/reuse-same-name-collision/` — comment/string collisions; `test/fixtures/repos/consequence-coupled-tests/` — file co-changing with two test files; `test/fixtures/repos/warning-landmine/` — revert_chain + fix_chatter rows, low-confidence row; `test/fixtures/repos/completeness-paired-change/`; `test/fixtures/repos/verification-covering-test/` — changed region with a covering test; run / not-run / run-and-failed variants; `test/fixtures/repos/bar-two-candidates/`; `test/fixtures/repos/dedup-read-set/`; `test/fixtures/repos/corpus-floor-29/` — 29 non-excluded commits, generator adds the 30th; `test/fixtures/repos/answer-drift-clearly-off/`; `test/fixtures/repos/pristine-tree/`; `test/fixtures/repos/secret-injection/`; `test/fixtures/repos/subagent-delivery/`; `test/fixtures/repos/language-config-added/`; `test/fixtures/repos/seeded-facts/` — planted coupling + planted landmine; `test/fixtures/repos/regret-true-positive/` — a held fact and a never-triggered fact); `test/fixtures/repos/regret-no-inflate/`; `test/fixtures/repos/over-threshold-file/` — >1 MB file carrying a seeded fact (AD-24).
+**Creates.** `.github/workflows/context-oracle-ctxoracle.yml` — CI: build + unit/integration/convention tier; `package.json` — AD-25; `tsconfig.json` — AD-25; compiles src/ and test/ into dist/; `src/cli/dispatch.ts` — the `bin` target stub (`#!/usr/bin/env node`; does no work, exits non-zero on invocation), extended by Steps 28 and 31–35 (AD-25); `scripts/run-tests.mjs` — enumerates compiled tests; refuses a zero/mismatched set; `test/build/tsc_fixture.ts` — helper: runs tsc --noEmit on one fixture, returns exit code + diagnostics; `test/replay/transcript_fixtures/` — transcript JSONL fixtures (marker-carrying, marker-less, injected-turn, lag); `test/fixtures/generate.ts` — entry point for all fixture-repo generators (D-plan-5); `test/fixtures/repos/repo-key-full/` — full history, 3 root commits; `test/fixtures/repos/repo-key-shallow/` — depth-1 clone of repo-key-full with origin; `test/fixtures/repos/repo-key-shallow-no-origin/`; `test/fixtures/repos/repo-key-nongit/` — plain directory; `test/fixtures/repos/miner-hygiene/` — planted pair, merge commit, 45-file commit, beyond-horizon commit; `test/fixtures/repos/indexer-small/` — 3 .ts files, 1 .py, 1 .sh, 1 >1 MB file, planted secret; `test/fixtures/repos/coupling-nonobvious/` — cross-directory pair + same-dir same-stem pair; `test/fixtures/repos/orientation-mixed-shape/` — low-in-degree main/cli + high-in-degree hub; `test/fixtures/repos/reuse-mixed-language/` — grammar-covered dominant + generic-frontend candidate; `test/fixtures/repos/reuse-observed-zero/` — grammar-covered symbol with observed 0 count; `test/fixtures/repos/reuse-same-name-collision/` — comment/string collisions; `test/fixtures/repos/consequence-coupled-tests/` — file co-changing with two test files; `test/fixtures/repos/warning-landmine/` — revert_chain + fix_chatter rows, low-confidence row; `test/fixtures/repos/completeness-paired-change/`; `test/fixtures/repos/verification-covering-test/` — changed region with a covering test; run / not-run / run-and-failed variants; `test/fixtures/repos/bar-two-candidates/`; `test/fixtures/repos/dedup-read-set/`; `test/fixtures/repos/corpus-floor-29/` — 29 non-excluded commits, generator adds the 30th; `test/fixtures/repos/answer-drift-clearly-off/`; `test/fixtures/repos/pristine-tree/`; `test/fixtures/repos/secret-injection/`; `test/fixtures/repos/subagent-delivery/`; `test/fixtures/repos/language-config-added/`; `test/fixtures/repos/seeded-facts/` — planted coupling + planted landmine; `test/fixtures/repos/regret-true-positive/` — a held fact and a never-triggered fact); `test/fixtures/repos/regret-no-inflate/`; `test/fixtures/repos/over-threshold-file/` — >1 MB file carrying a seeded fact (AD-24).
 
 **Source.** `AD-25` (packaging: two runtime deps, no postinstall, no native
 code, `tsc` build); `AD-2` (Node ≥ 22.16.0, TypeScript strict ESM); `AD-24`
@@ -938,8 +953,11 @@ toolchain); V14 as corrected in §4 (the dependency versions, executed).
    must-fail fixtures excluded from that build and compiled one at a time by
    the tests that expect them to fail; fixture repositories generated
    deterministically by a script that exists before the first test needs
-   one; CI runs at the floor and at the current 22.x plus the cold-container
-   job.
+   one; the package's declared `bin` target `src/cli/dispatch.ts` shipped
+   here as a minimal `#!/usr/bin/env node` stub that does no work and exits
+   non-zero on invocation, so the manifest's `bin` entry resolves from the
+   first build and is extended, never re-created, by Steps 28 and 31–35; CI runs at the floor and at the
+   current 22.x plus the cold-container job.
 2. **The authoritative standard.** Node.js v22.x documentation (`test`,
    `typescript`, `cli` pages, read 2026-09-07 — §11.4): `node --test`
    executes JavaScript files, adds TypeScript files only when type stripping
@@ -973,7 +991,15 @@ toolchain); V14 as corrected in §4 (the dependency versions, executed).
    property the compiled path lacks; AD-25 fixes the build as `tsc` only).
    Not a caret range on the runtime deps (a range admits a surface the
    architecture did not verify). Not a bare `node --test` glob in CI (a
-   vacuous pass on an empty match, observed).
+   vacuous pass on an empty match, observed). Not a `package.json` `bin`
+   whose target `dist/src/cli/dispatch.js` does not exist until Step 28 (the
+   manifest would point at a missing file and `T-1-1` — which asserts that
+   target exists after build and runs on every `npm test`, so at Step 1, on
+   every CI run, and at Checkpoint 1 — would be red for Steps 1–27; the
+   AD-25 `bin` declaration and its target belong to the same packaging
+   decision and ship together). Not a functional dispatcher here (the real
+   verbs are the AD-6/AD-7/AD-8 pipeline work built at Step 28 onward; Step 1
+   ships only the packaging bin target, AD-25/PA-12).
 
 **Dependencies.** Declared above (`depends_on`).
 
@@ -3496,8 +3522,8 @@ Step 39 marker-presence verification.
 step: S28
 covers: [PA-4, PA-10, PA-11]
 files:
-  create: [middleware/context-oracle/ctxoracle/src/cli/dispatch.ts, middleware/context-oracle/ctxoracle/src/cli/hook.ts, middleware/context-oracle/ctxoracle/src/cli/index.ts, middleware/context-oracle/ctxoracle/src/cli/integrity_check.ts, middleware/context-oracle/ctxoracle/test/replay/integrity_check_verb.test.ts, middleware/context-oracle/ctxoracle/src/hook/adapter.ts, middleware/context-oracle/ctxoracle/src/hook/handler.ts, middleware/context-oracle/ctxoracle/test/replay/runner.ts, middleware/context-oracle/ctxoracle/test/replay/hook_stream_fixtures/, middleware/context-oracle/ctxoracle/test/replay/pipeline_order.test.ts, middleware/context-oracle/ctxoracle/test/conventions/hook_field_names_isolated.test.ts, middleware/context-oracle/ctxoracle/test/replay/fail_open.test.ts, middleware/context-oracle/ctxoracle/test/replay/produced_but_undelivered.test.ts, middleware/context-oracle/ctxoracle/test/replay/liveness_row.test.ts]
-  modify: [.github/workflows/context-oracle-ctxoracle.yml]
+  create: [middleware/context-oracle/ctxoracle/src/cli/hook.ts, middleware/context-oracle/ctxoracle/src/cli/index.ts, middleware/context-oracle/ctxoracle/src/cli/integrity_check.ts, middleware/context-oracle/ctxoracle/test/replay/integrity_check_verb.test.ts, middleware/context-oracle/ctxoracle/src/hook/adapter.ts, middleware/context-oracle/ctxoracle/src/hook/handler.ts, middleware/context-oracle/ctxoracle/test/replay/runner.ts, middleware/context-oracle/ctxoracle/test/replay/hook_stream_fixtures/, middleware/context-oracle/ctxoracle/test/replay/pipeline_order.test.ts, middleware/context-oracle/ctxoracle/test/conventions/hook_field_names_isolated.test.ts, middleware/context-oracle/ctxoracle/test/replay/fail_open.test.ts, middleware/context-oracle/ctxoracle/test/replay/produced_but_undelivered.test.ts, middleware/context-oracle/ctxoracle/test/replay/liveness_row.test.ts]
+  modify: [.github/workflows/context-oracle-ctxoracle.yml, middleware/context-oracle/ctxoracle/src/cli/dispatch.ts]
   delete: []
 provides: [ctxoracle-hook, hook-integrity-check, ctxoracle-index, toInternalEvent, toHookResponse, prepareStore]
 tests: [T-28-1, T-28-2, T-28-3, T-28-4, T-28-5, T-28-6]
@@ -3530,8 +3556,10 @@ carries them as `errorText`, `promptText`, `startSource`, `workingDir`,
 and the liveness row's detail keys are `transcriptPath` /
 `transcriptBytes`).
 
-Create `src/cli/dispatch.ts` — the `bin` entry (`#!/usr/bin/env node`; a
-manual verb switch, no argument-parsing dependency) with, at this step, the
+Extend Step 1's `src/cli/dispatch.ts` — its `bin` entry stub
+(`#!/usr/bin/env node`; a manual verb switch, no argument-parsing
+dependency; the Step 1 stub registered no verbs and exited non-zero on
+invocation) — registering, at this step, the
 internal verbs `hook <event> [--deadline-ms <n>]` and `hook
 integrity-check`, and the `index [--full]` verb — `hook <event>` routes to
 `src/cli/hook.ts` → the handler: stdin JSON in, response JSON out, exit 0
@@ -3645,7 +3673,7 @@ on failure; it is the detached child the `SessionStart` branch above spawns
 through Step 5's wrapper, and the off-path check the `init` and `index` verbs
 (Steps 31, 32) run (AD-17).
 
-**Creates.** `src/cli/dispatch.ts` — verb dispatcher (bin entry: dist/src/cli/dispatch.js); verbs registered by Steps 28, 31–35; `src/cli/hook.ts` — internal `hook <event> [--deadline-ms n]` verb (routes to handler); `src/cli/index.ts` — `index [--full]` verb → runIndex (Step 14) with Step 15's defaultFrontends(), the reindex child the handler spawns; `src/cli/integrity_check.ts` — internal `hook integrity-check` verb (off-path quick_check); `src/hook/adapter.ts` — the ONE file naming Claude Code hook fields (AD-6); `src/hook/handler.ts` — per-event pipeline (AD-7, AD-8); `test/replay/runner.ts` — replay harness (prepares each test's stores through the substrate's functions, then spawns the built handler through the CLI).
+**Creates.** `src/cli/hook.ts` — internal `hook <event> [--deadline-ms n]` verb (routes to handler); `src/cli/index.ts` — `index [--full]` verb → runIndex (Step 14) with Step 15's defaultFrontends(), the reindex child the handler spawns; `src/cli/integrity_check.ts` — internal `hook integrity-check` verb (off-path quick_check); `src/hook/adapter.ts` — the ONE file naming Claude Code hook fields (AD-6); `src/hook/handler.ts` — per-event pipeline (AD-7, AD-8); `test/replay/runner.ts` — replay harness (prepares each test's stores through the substrate's functions, then spawns the built handler through the CLI).
 
 **Source.** `AD-6` (event map, adapter file, `PostToolUseFailure`
 observation-only); `AD-7` (fail-open, exit 0 always); `AD-8` (pipeline
@@ -3655,7 +3683,10 @@ V1–V6, V15, V16, V19.
 **Why this approach (Gate 3):**
 1. **The decision.** One adapter file; fixed pipeline order; exit 0 always;
    adapter output is the internal event type — all downstream code names
-   internal fields only.
+   internal fields only. The CLI `bin` entry is Step 1's
+   `src/cli/dispatch.ts` stub, extended here with this step's verbs and
+   declared under `modify:`, not re-created — its creation is Step 1's
+   packaging decision (AD-25), and Steps 31–35 extend the same switch.
 2. **The authoritative standard.** `AD-6`, `AD-7`, `AD-8`; the hooks
    reference re-read 2026-09-07 (the input fields above are the documented
    set — §11.4).
@@ -3927,8 +3958,9 @@ depends_on: [S1, S2, S3, S4, S5, S7, S8, S12, S14, S15, S28]
 ```
 
 
-**What changes.** Register the `init` verb in Step 28's `dispatch.ts`
-switch. Create `src/cli/init.ts`:
+**What changes.** Register the `init` verb in Step 1's `dispatch.ts`
+switch (created at Step 1, first given verbs at Step 28). Create
+`src/cli/init.ts`:
 1. `assertRuntime()` (Step 2); on a failed runtime check print a
    plain-language error and exit 1.
 2. `resolveRepoKey` (Step 5). Keying-mode change detection: compute the
@@ -6734,7 +6766,7 @@ this session; line numbers are of that revision.
 - **Claim.** OL-C6 signs off the spec. **Steps.** §3. **Evidence.** Read
   `:71`.
 
-### 11.4 Claims from external sources and executions, 2026-09-07 and 2026-09-11
+### 11.4 Claims from external sources and executions, 2026-09-07, 2026-09-11, and 2026-09-19
 
 - **Claim.** Type stripping is enabled by default from Node v22.18.0 and is
   experimental behind `--experimental-strip-types` from v22.6.0; v22.16.0
@@ -7291,6 +7323,21 @@ this session; line numbers are of that revision.
   `schema_meta.store_created_at`, an application-level watermark `init`
   controls, rather than off the filesystem's own `birthtime`, which is not
   guaranteed to exist or to reflect creation time on every platform.
+- **Claim.** Under the Step 1 tsconfig, TypeScript (the pinned 5.9.3)
+  preserves a leading `#!/usr/bin/env node` shebang verbatim as the emitted
+  `.js` file's first line, and the emitted bin-target stub exits non-zero
+  when invoked (through the shebang and through `node`). **Steps.** 1.
+  **Evidence.** Executed 2026-09-19 in the layout reproduction
+  (`layout/prepare.sh`, `typescript` 5.9.3) by
+  `probe:27_tsc_preserves_shebang`: a `#!/usr/bin/env node`-led source
+  compiled with the Step 1 compiler options (`--strict --target ES2022
+  --module NodeNext --moduleResolution NodeNext --verbatimModuleSyntax
+  --types node`) emits a `.js` whose first line is `#!/usr/bin/env node`
+  verbatim, and that file exits non-zero both when invoked through its
+  shebang and through `node`. Prints: `tsc emits shebang verbatim as first
+  line: true`, `shebang-invoked stub exits non-zero: true`, `node-invoked
+  stub exits non-zero: true`. The compiler version and paths are
+  environment-incidental and go to stderr, which the runner does not compare.
 
 ### 11.5 Claims from the collapse-log (`docs/collapse-log.md`)
 

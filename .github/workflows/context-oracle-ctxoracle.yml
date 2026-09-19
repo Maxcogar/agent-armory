@@ -1,0 +1,28 @@
+name: context-oracle-ctxoracle
+
+on:
+  pull_request:
+    paths:
+      - 'middleware/context-oracle/ctxoracle/**'
+      - '.github/workflows/context-oracle-ctxoracle.yml'
+
+defaults:
+  run:
+    working-directory: middleware/context-oracle/ctxoracle
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # The engines floor and the head of the current 22.x line.
+        node-version: ['22.16.0', '22.x']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      - run: npm ci
+      - run: npm run build
+      - run: npm test

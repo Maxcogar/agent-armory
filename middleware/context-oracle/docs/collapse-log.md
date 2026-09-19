@@ -1451,3 +1451,92 @@ cannot hold (NUL), grounded by executing the falsifying case first. The
 lesson: a load-bearing "X never happens" is a premise to execute against
 primary behavior, never an intuition to assert — most of all when it is
 what makes a delimiter safe.
+
+## 2026-09-19 — a "converged" plan (through round 14, gates green) still shipped a Checkpoint-1-breaking wiring defect that only a build attempt surfaced
+
+**What happened.** `docs/plans/plan-phase-a.md` was carried to a clean close —
+round 14's collapse-hunt and expert-review both PASS, all mechanical gates
+green, merged to `main` (PR #90), and `docs/STATUS.md` recorded that the final
+round "returned PASS with zero Moderate-or-above findings." The first build
+attempt (this session, executing `/expert-implement` from Step 1) caught what
+the review series had not: Step 1's own verification test `T-1-1`
+(`test/unit/package_build.test.ts`) asserts `dist/src/cli/dispatch.js` exists
+after build and "Fails when … dispatch.js is absent," but the `bin` entry point
+`src/cli/dispatch.ts` was not created until **Step 28**. Because
+`package_build.test.ts` is authored at Step 1 and `scripts/run-tests.mjs`
+enumerates and runs every `test/unit/**` on each `npm test`, `T-1-1` would have
+been red for Steps 1–27, and **Checkpoint 1 (after Step 12)** — which the plan
+runs as `npm test` and treats as green — would have failed. The manifest also
+declared a `bin` pointing at a file no step built for 27 steps.
+
+**Class: wrong-check, at the review-coverage / gate layer.** The mechanical gate
+(`derive-plan-sections.mjs --check`) verifies that every test↔step↔file
+reference *resolves* — the §5.1 files table matches the step-decls, each test
+maps to a creating step, declared *consumption* of a created path obeys
+build-order — and the plan's review series re-checked the same wiring. None
+checked the *temporal existence* property: a Verification test that asserts an
+artifact **exists** must have that artifact created no later than the step whose
+`npm test` runs the test (and unit/build/convention tests run from their
+creating step onward). A reference that resolves can still be temporally
+impossible — the same family as the 2026-08-01 "resolution is not support"
+lesson, here about existence-over-time rather than identifier fidelity.
+
+**The fix (2026-09-19), and how it was verified.** Step 1 now creates a minimal
+`dispatch.ts` bin stub — a valid, buildable entry point that registers no verbs,
+does no work, and exits non-zero on invocation — and Step 28 *extends* it
+(`create` → `modify`); `T-1-1` is unchanged and now passes at Step 1. Chosen
+over relaxing `T-1-1` because a `bin` target that exists and grows from the
+first build is standard practice and removes the dangling-manifest smell, and it
+keeps `T-1-1` an honest "the declared bin builds" check; the stub is not
+test-gaming, because `dispatch.js` is a permanent product artifact Step 28 fills
+in, not a throwaway created to satisfy an assertion. Two **independent**
+reviewers each swept all 40 steps / 124 specs and confirmed this was the **only**
+instance of the class (every other `dist/`-referencing test is a
+convention/whitelist scan satisfied vacuously by a subset, or asserts DB rows /
+response shapes, not file existence). Evidence:
+`docs/reviews/2026-09-19-dispatch-stub-fix-collapse-hunt.md` and
+`…-expert-review.md`.
+
+**Standing lesson.** (1) When a plan's Verification asserts that a source/`dist`
+artifact *exists*, that is a temporal claim: check the artifact's creation step
+against the step whose test runs it, not merely that the reference resolves. This
+class is currently invisible to `derive --check`, which checks declared
+*consumption* ordering but not *test-asserted existence* ordering — a candidate
+gate extension that would make it mechanically catchable. (2) Convergence
+through a review series (and green gates) is not proof of executability:
+`docs/STATUS.md`'s "zero Moderate-or-above findings" was true of the review and
+false of the artifact. The cheapest catch for an execution-time defect is an
+actual execution attempt of Step 1 — which is what caught this, and why it
+reached a builder rather than Max Cogar.
+
+## 2026-09-19 — a single-importer convention test that seeds files into the scanned tree must survive a concurrent test deleting them mid-scan
+
+**Context.** Phase A's build has one convention test per quarantined module — a
+built-output scan over `dist/src/**/*.js` that a designated file (e.g.
+`stores/adapter.js` for `node:sqlite`, `util/spawn.js` for `child_process`) is
+the sole importer. Each test proves the scan *detects* a violation by seeding a
+throwaway importer file **into `dist/src` itself**, asserting it is caught, then
+removing it. `node --test` runs test files in **separate processes concurrently**
+(default). So two such tests run at the same time, each seeding and deleting its
+own files in the shared `dist/src`.
+
+**What happened (Step 6).** Adding Step 6's files shifted `node --test`'s
+scheduling so the `sqlite` and `child_process` convention tests overlapped. Each
+scan does `readdirSync(distSrc, {recursive})` then `readFileSync` per entry. One
+scan enumerated the *other* test's seed, and that seed was deleted by the other
+test's `finally` before the read — `ENOENT`, crash. It had passed at Step 5 only
+because the two tests happened not to overlap; the Step-5 implementation-log note
+that they were "parallel-safe" because their seed *contents* are orthogonal was
+necessary but **not sufficient** — orthogonal content stops a false *match*, not a
+crash on a vanished file.
+
+**Fix and standing lesson.** Any scan of a directory that another concurrently
+running test mutates must treat a file vanishing between `readdir` and `read` as
+absent (catch `ENOENT`, skip), not as an error. This applies to **every** future
+single-importer / whitelist convention test in this build (the plan has more —
+e.g. `T-24-2`): if it seeds into the scanned tree, its scan must be
+ENOENT-tolerant, or it will flake under parallel `node --test`. The tolerance is
+also simply correct for scanning any live tree. Verified by five consecutive
+green full-suite runs. Do **not** "fix" this by forcing the test runner
+serial — the robustness belongs in the scan, and serial execution would only
+hide the same latent race for real dist scanning.

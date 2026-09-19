@@ -1,0 +1,30 @@
+{
+  "name": "ctxoracle",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "ctxoracle": "dist/src/cli/dispatch.js"
+  },
+  "engines": {
+    "node": ">=22.16.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node scripts/run-tests.mjs"
+  },
+  "files": [
+    "dist/",
+    "src/",
+    "scripts/"
+  ],
+  "dependencies": {
+    "web-tree-sitter": "0.25.10",
+    "tree-sitter-wasms": "0.1.13"
+  },
+  "devDependencies": {
+    "@types/emscripten": "1.41.6",
+    "@types/node": "22.20.1",
+    "typescript": "5.9.3"
+  }
+}

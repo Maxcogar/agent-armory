@@ -1,0 +1,3 @@
+tsc emits shebang verbatim as first line: true
+shebang-invoked stub exits non-zero: true
+node-invoked stub exits non-zero: true

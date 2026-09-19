@@ -1,0 +1,14 @@
+# The repository root .gitignore globally ignores package-lock.json, but this
+# package must commit its lockfile: `npm ci` (run by CI and by T-1-1) refuses to
+# start without one, and the pinned dependency tree is part of the build
+# contract (AD-25, plan Step 1). Re-include it here for this package only.
+# node_modules/ and dist/ stay ignored via the root .gitignore.
+!package-lock.json
+
+# The root .gitignore ignores any directory named `build/`, which also swallows
+# test/build/ — the compile-time test tier (tsc_fixture, package_build,
+# typecheck_provenance) and its must-fail fixtures. That is committed source, not
+# build output (the compiled output lives under dist/, which stays ignored).
+# Re-include the whole test/build/ subtree for this package.
+!test/build/
+!test/build/**
