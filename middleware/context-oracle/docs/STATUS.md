@@ -62,13 +62,29 @@ the runner's count guard) is green, and the Checkpoint 1 owner-visible sanity
 check passed: a freshly migrated + seeded store shows 22 STRICT project tables
 with their CHECK constraints and `tuning` holding every seed with its `source`.
 
-**Interfaces the plan mandated early but that are finalized at their consuming
-step** are flagged in `docs/implementation-log.md` — chiefly a few DAO
-read-methods whose exact query shape lands at Step 10/19/26 (they round-trip
-correctly now), `TuningReader`'s reseed-on-missing behavior (built where it is
-consumed), and `EventContext`/`ObservedActionsReader` shapes. `assertProvenance`'s
-laundering contract was provisional at S6 and is now confirmed by T-9-1. None of
-these blocks Step 13.
+**But Checkpoint 1 is NOT cleanly passed.** The independent first-round review of
+Steps 1–12 (`docs/reviews/2026-09-19-checkpoint-1-implementation-review.md`)
+returned **NEEDS FIXES** — 7 open findings (3 Moderate, 4 Minor), no Critical or
+Serious, no software-breaking bug. Several are the direct result of the
+implementer deciding on the fly instead of following the plan or stopping:
+- **M1** — `assertProvenance` (`src/security/trust.ts`) enforces a weaker FR-X4
+  gate than Step 6/9 prose declares (it permits non-human → `'mechanical'`); the
+  plan prose and the AD-4 schema it cites are themselves in tension, so this is a
+  prose-vs-schema reconciliation, not just a code fix. (An earlier STATUS claim
+  that this contract was "confirmed by T-9-1" was wrong — the review corrected it.)
+- **M2** — T-3-3 (`test/unit/concurrency.test.ts`) does not exercise the AD-26
+  retry-once-then-succeed path; the plan's §12 T-3-3 spec (lines 7564–7589)
+  specifies the exact deterministic sequencing that was not implemented.
+- **M3** — three committed files (`.gitignore`, `test/unit/concurrency_worker.ts`,
+  `test/fixtures/repos/.gitkeep`) sit outside any step's declared `create` list.
+- **m1–m4** — fixture placeholders (deferred to Steps 13–38), two tests validating
+  against the implementation's own constants, a weak redactor negative case, and
+  several interfaces/values the plan never specified (`Store.exec`, the `scope`
+  param on `applyMigrations`, etc.). Full detail in the review doc.
+
+These are open. They are recorded, not fixed — Max Cogar directed that they not be
+patched in this session. Interfaces the plan mandated early but finalized at their
+consuming step are additionally noted in `docs/implementation-log.md`.
 
 Two build-time defects were found and fixed while building (both in
 `docs/implementation-log.md`, one also in `docs/collapse-log.md`): the
@@ -87,16 +103,27 @@ the plan seems off:
 
 ## What to do next
 
-**Continue building Phase A from Step 13** with `/expert-implement` against
+**First, resolve the seven open Checkpoint-1 review findings** in
+`docs/reviews/2026-09-19-checkpoint-1-implementation-review.md`. They are Steps
+1–12 work that is not done until they are addressed — do not treat Checkpoint 1
+as passed while they stand, and do not build Step 13 on top of them. In
+particular M1 (the `assertProvenance` / FR-X4 prose-vs-schema tension) and M3
+(three undeclared files) touch the plan text and so are decided by Max Cogar and
+the plan-revision discipline, not by an implementer editing on the fly; M2
+(the T-3-3 retry-then-succeed coverage gap) is a test the plan already fully
+specifies. Route the fixes the way Max directs — this session did NOT patch them.
+
+**Then continue building Phase A from Step 13** with `/expert-implement` against
 `docs/plans/plan-phase-a.md` — Checkpoint 2 (the whisper path at function level)
 spans Steps 13–20: the co-change miner (S13), the indexer + `runIndex` (S14), the
 tree-sitter/generic frontends + `defaultFrontends` (S15), the bar (S16), dedup
 (S17), the seven genres (S18), the composer (S19), and delivery (S20). Build the
 steps strictly in order; the plan is written to make every decision, so a spot
 where you would have to choose on the fly is a plan defect to STOP REPORT, not to
-improvise past. Judge every decision against the Phase A goal above, not against
-passing review (dominating rule 3), and dispatch the independent review of built
-work to a neutral subagent — never grade your own work.
+improvise past — the review above shows what happens when that rule is skipped.
+Judge every decision against the Phase A goal above, not against passing review
+(dominating rule 3), and dispatch the independent review of built work to a
+neutral subagent — never grade your own work.
 
 Two concrete Step-13 notes already established:
 - The co-change miner reads history under **`-z`** and parses on **NUL** (never
