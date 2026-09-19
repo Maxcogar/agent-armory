@@ -151,3 +151,57 @@ is the migration steps' job.
 - Loose = `(mode & 0o077) !== 0` (any group/other rwx bit). Setuid/setgid/sticky
   are out of scope — the ASVS V14 concern here is owner-only *access*, and T-4-1
   exercises exactly the 0o755 case.
+
+## Step 5 — repo identity resolver + guarded spawn seam — DONE
+
+**Built.**
+- `src/util/hash.ts` — `sha256Hex` / `sha256Short` (`node:crypto`, a stable core
+  module, so no single-importer quarantine).
+- `src/util/spawn.ts` — the ONLY `node:child_process` importer (AD-21). Exports
+  `oracleSpawn`, `oracleExecFileSync`, and `SCRUBBED_ENV`. `childEnv` always
+  sets `CTXORACLE_INTERNAL=1` (recursion guard as a structural property) and, on
+  `scrub: true`, deletes exactly the six session-identity vars; auth/routing vars
+  are inherited untouched. `oracleExecFileSync` pipes stdout+stderr and returns
+  stdout; on a non-zero exit it throws the standard error carrying `.status` and
+  `.stderr`, which the resolver catches.
+- `src/identity/repo_key.ts` — `resolveRepoKey` (the four rules in order) and the
+  exported pure helper `normalizeRemoteUrl`. Every git call goes through
+  `gitProbe` → `oracleExecFileSync`, returning `{ok,stdout}|{ok:false,code,stderr}`.
+  Key = first 12 hex of SHA-256 over the identity string (root commit / normalized
+  URL / real path). Path-mode results carry a `diagnostic.detail` naming the
+  command and exit code.
+
+**Verified.** `npm test` → 19/19 green (7 new + Step 1–4 regressions):
+- **T-5-1a** `repo-key-full` → mode `commit`, identity a 40-hex root hash, no
+  diagnostic; the key is stable across two independent deterministic generations
+  and distinct from its shallow clone's key.
+- **T-5-1b** `repo-key-shallow` → mode `url`, identity `github.com/Owner/Repo`.
+- **T-5-1c** `repo-key-shallow-no-origin` → mode `path`.
+- **T-5-1d** `repo-key-nongit` → mode `path` with a diagnostic naming exit 128.
+- **T-5-1e** the normalization table: five forms collapse to
+  `github.com/Owner/Repo`; explicit port and path case stay distinct; a bare
+  local path and a `file://` URL return `null`.
+- **T-5-2** the guard is set with and without scrub; `scrub: true` drops exactly
+  `SCRUBBED_ENV` and keeps `ANTHROPIC_BASE_URL` / `CLAUDE_CODE_USER_EMAIL` / `PATH`.
+- **T-5-3** only `util/spawn.js` imports child_process; both `'node:child_process'`
+  and `'child_process'` seeds are detected and the scan is clean once removed.
+
+**Findings / deviations.**
+- **`RepoKey` carries an optional `diagnostic` field, an extension of the plan's
+  declared `{ key, mode, identity }` shape.** T-5-1 requires asserting the
+  non-git result's diagnostic (detail names exit 128) *at Step 5*, but the JSONL
+  fault channel (Step 6) does not exist yet. The resolver therefore returns the
+  diagnostic in-band (`diagnostic?: { detail }`), present only on a
+  failure-driven path-mode fallback; `init` (Step 31) will convert it to a fault.
+  This is the minimal way to make T-5-1 testable now without prejudging Step 6's
+  `FAULT_CODES` (detail is a human string, not yet a fault code).
+- **T-5-3 is an import-specifier scan, not the substring scan T-3-2 uses.** The
+  plan specifies T-5-3 that way ("every import/export … from specifier and every
+  `import()` string literal", both spellings), so a comment naming the module —
+  including `spawn.ts`'s own doc comment — is not a false positive. Implemented
+  with three anchored regexes (static `from`, side-effect `import`, dynamic
+  `import()`), verified by seeding one file of each spelling.
+- **The two convention tests are parallel-safe.** `node --test` runs test files
+  in separate processes concurrently; both seed files into `dist/src`, but each
+  scans for its own module string and the seeds are orthogonal, so neither
+  perturbs the other's clean-state assertion.
