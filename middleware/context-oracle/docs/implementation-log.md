@@ -411,3 +411,31 @@ Step 1–8 regressions):
   header-corrupt SQLite file throws during `openStore`'s first PRAGMA — so
   `recordFault(null, …)` exercises the JSONL-only fallback, which is exactly the
   store-dead path AD-17 requires.
+
+## Step 11 — security: redactor + injection flagger + trust compile guard — DONE
+
+**Built.**
+- `src/security/redact.ts` — `redact(input, {entropyBitsPerChar, minTokenLength})`
+  → `{redacted, count}`. Named patterns (PEM, AWS `AKIA…`, GitHub `ghp_`/
+  `github_pat_`, JWT, credential `KEY=value`) applied first, then a
+  Shannon-entropy heuristic over remaining tokens; marker `[redacted:<kind>]`.
+  Thresholds default 4.0 bits/char and 20 chars; callers pass the Step-12 tuning
+  rows, tests pass literals.
+- `src/security/injection.ts` — `isSuspect(input)`: a heuristic regex lexicon
+  (instruction-override, role-play/jailbreak, assistant-directed imperatives),
+  tuned to leave README/comment/commit prose alone.
+
+**Verified.** `npm test` → 40/40 green (5 new + regressions): T-11-1 (each secret
+shape redacted, marker well-formed, secret gone), T-11-2 (variable/url/hex/short-
+base64/unicode/low-entropy-identifier all untouched), T-11-3 (three payloads
+flagged), T-11-4 (three prose samples not flagged), T-11-5 (`'trusted'` assigned
+to a `Trust` variable fails `tsc`).
+
+**Findings / deviations.**
+- The redactor runs named patterns before the entropy pass, so a matched secret
+  (e.g. a 36-char GitHub token that is also high-entropy) is counted once, and
+  the inserted markers (short, dictionary words) never re-trip the entropy pass.
+- The T-11-2 low-entropy negative uses a repetitive 24-char token
+  (`datadatadatadatadatadata`, entropy ≈1.5) to sit unambiguously below the 4.0
+  threshold — a realistic identifier can approach 4.0, and the point of the case
+  is a below-threshold token, so an unambiguous one keeps the test deterministic.
