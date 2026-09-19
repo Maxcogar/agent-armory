@@ -1,8 +1,9 @@
 // Runtime floor check (Step 2, AD-2). The floor is 22.16.0 because that is the
-// Node release whose node:sqlite ships FTS5 (V7) and module-level backup() (V17)
-// — the capabilities the stores rely on. Called from `init` (Step 31) and
+// Node release whose built-in SQLite ships FTS5 (V7) and module-level backup()
+// (V17) — the capabilities the stores rely on. Called from `init` (Step 31) and
 // `status` (Step 33); this step delivers the function and its test, not the
-// wiring.
+// wiring. (The raw module specifier is named only in src/stores/adapter.ts, the
+// single-importer seam the sqlite_single_importer convention test enforces.)
 
 const FLOOR = '22.16.0';
 
@@ -17,7 +18,7 @@ export function assertRuntime(version: string = process.versions.node): void {
   if (compareCore(version, FLOOR) < 0) {
     throw new Error(
       `ctxoracle requires Node.js >= ${FLOOR}, but the current runtime is ${version}. ` +
-        `Upgrade Node: the floor is ${FLOOR} because node:sqlite's FTS5 and backup() ship there.`
+        `Upgrade Node: the floor is ${FLOOR} because the built-in SQLite's FTS5 and backup() ship there.`
     );
   }
 }
