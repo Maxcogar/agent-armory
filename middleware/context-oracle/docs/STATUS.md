@@ -3,7 +3,9 @@
 *Plain-language project status, rewritten each session (not appended). It states
 the current state and what to do next; evidence lives in `docs/reviews/`, durable
 lessons in `docs/collapse-log.md`, ideas in `docs/IDEAS.md`, and everything
-attributed to Max Cogar in `OWNER-LEDGER.md`.*
+attributed to Max Cogar in `OWNER-LEDGER.md`. The step-by-step build journal —
+what each step built, the verification actually run, and every finding — is
+`docs/implementation-log.md`; read it before touching a built step.*
 
 ## The Phase A goal (the north star — read this first)
 
@@ -21,74 +23,97 @@ every Phase A decision against this goal (`CLAUDE.md` dominating rule 3).
 
 ## Where the project stands
 
-The spec (`docs/specs/spec-context-oracle.md`) is signed off (`OL-C6`). The Phase
-A architecture (`docs/architecture-phase-a.md`) is reviewed to convergence.
+The spec (`docs/specs/spec-context-oracle.md`) is signed off (`OL-C6`), the Phase
+A architecture (`docs/architecture-phase-a.md`) is reviewed to convergence, and
+the Phase A implementation plan (`docs/plans/plan-phase-a.md`, 40 steps) is the
+build contract. **The build is underway and Steps 1–12 are done: Checkpoint 1 —
+the store substrate — is reached.** The package lives at
+`middleware/context-oracle/ctxoracle/` (Node ESM, `tsc`-only build, `node:test`).
 
-**The Phase A implementation plan (`docs/plans/plan-phase-a.md`) is the build
-contract, and the next step is to build it.** It was carried through the
-independent review-and-fix loop to a clean close (round 14, both passes PASS) —
-but that "convergence" was not the whole story: the **first build attempt caught
-a real, Checkpoint-1-breaking defect the entire review series had missed.** Step
-1's own verification test `T-1-1` asserted that `dist/src/cli/dispatch.js` exists
-after build, yet that `bin` entry point was not created until Step 28 — so
-`T-1-1` (which the runner runs on every `npm test` from Step 1 onward) would have
-been red for Steps 1–27, and Checkpoint 1 (after Step 12) would have failed. It
-was fixed 2026-09-19 through the required plan-revision workflow — an independent
-corrector, two independent reviews (collapse-hunt + expert-review), three Minor
-follow-up fixes, and a confirming review — with **Step 1 now creating a minimal
-`dispatch.ts` bin stub that Step 28 extends.** Both reviewers independently swept
-all 40 steps and confirmed this was the **only** instance of the "a step's
-verification asserts an artifact a later step creates" class. Full history:
-`docs/collapse-log.md` 2026-09-19 and `docs/reviews/2026-09-19-dispatch-stub-fix-*`.
+What exists and is tested (full detail per step in `docs/implementation-log.md`):
 
-Its mechanical gates are green and are the first things to re-run if anything
-about the plan seems off:
+- **Toolchain & harness (S1):** pinned `package.json`/lockfile, strict NodeNext
+  `tsconfig`, the count-guarded `scripts/run-tests.mjs`, the `dispatch.ts` bin
+  stub, the `compileFixture` helper, and 26 deterministic fixture-repo generators.
+- **Runtime floor (S2):** `assertRuntime` (numeric SemVer vs the 22.16.0 floor).
+- **Store adapter (S3):** the sole `node:sqlite` seam — WAL/STRICT/FTS5,
+  `transaction` with retry-once-then-`StoreBusy` (AD-26), `VACUUM INTO` export,
+  `probeFts5`.
+- **Home/layout (S4):** `ctxoracleHome`, `ensureLayout` (0o700, loose-mode
+  reporting).
+- **Identity & spawn (S5):** `resolveRepoKey` (the four rules + URL
+  normalization) and `src/util/spawn.ts`, the sole `node:child_process` seam
+  (`CTXORACLE_INTERNAL=1`, `scrub`).
+- **Shared substrate (S6):** `FAULT_CODES`, the direct JSONL fault channel, the
+  `Trust`/provenance types, and the shared event/candidate/index types.
+- **Schema (S7, S8):** migrations 001/001b (project store, STRICT + PROV CHECKs +
+  FTS5) and 002 (global store), applied by `applyMigrations(store, {fts, scope})`.
+- **DAOs (S9):** ULID generator + 24 thin DAO factories, one per table;
+  provenance required at compile time and validated at runtime (FR-X4).
+- **Diagnostics & guards (S10):** the session/fault mirror-writers, the
+  cooperative `createDeadline` watchdog, and the `isInternal` recursion guard.
+- **Security (S11):** `redact` (secret patterns + entropy) and `isSuspect`
+  (injection lexicon).
+- **Tuning (S12):** `tuning` DAO + `seedDefaults` from the single `tuning_seeds`
+  source (architecture_default + plan_seed provenance).
 
-- `node .claude/skills/expert-plan/scripts/derive-plan-sections.mjs docs/plans/plan-phase-a.md --check` — 40 steps, 124 test specs, 27 probes cited, regions current
-- `node .claude/skills/expert-plan/scripts/derive-plan-sections.mjs --self-check` — 34 checks
-- `node .claude/skills/expert-plan/scripts/run-plan-probes.mjs docs/plans/plan-phase-a.md` — all 27 probes match their recorded expectations
-- `python tools/check_docs.py` — cross-document consistency
+The full suite (`npm test`, 41 tests across the unit/build/convention tiers, with
+the runner's count guard) is green, and the Checkpoint 1 owner-visible sanity
+check passed: a freshly migrated + seeded store shows 22 STRICT project tables
+with their CHECK constraints and `tuning` holding every seed with its `source`.
 
-The one seam that took the review series to converge is the co-change miner's
-reading of `git log --numstat` (Step 13). It is resolved at the root: the miner
-reads history under **`-z`** and parses the stream on **NUL** — the only byte a
-pathname cannot contain — with each commit record marked by a `%x1e` + 40-hex
-(`%H`) header field. Under `-z`, git emits every path raw (no `core.quotePath`
-C-quoting of *any* byte) and a rename as two separate NUL-delimited fields, so a
-filename that contains ` => ` or a raw control byte is never mis-keyed and no
-rename is ever guessed; `probe:24_git_numstat_z` grounds this against real git.
-The full history of that seam — why line-by-line parsing was the wrong root, and
-the verify-before-you-assert failure the `-z` rewrite itself hit and fixed — is in
-`docs/collapse-log.md` (2026-09-18); the per-round evidence is in
-`docs/reviews/2026-09-18-round-*`.
+**Interfaces the plan mandated early but that are finalized at their consuming
+step** are flagged in `docs/implementation-log.md` — chiefly a few DAO
+read-methods whose exact query shape lands at Step 10/19/26 (they round-trip
+correctly now), `TuningReader`'s reseed-on-missing behavior (built where it is
+consumed), and `EventContext`/`ObservedActionsReader` shapes. `assertProvenance`'s
+laundering contract was provisional at S6 and is now confirmed by T-9-1. None of
+these blocks Step 13.
 
-**One optional cleanup for the builder (non-blocking).** The *reference* parser in
-`docs/plans/plan-phase-a.probes/24_git_numstat_z.mjs` carries two now-redundant
-`cur` null-checks — an early `if (!cur) continue` guard makes the inner
-`if (cur)` / `else if (cur)` checks dead code. It changes no behavior and blocks
-nothing; when Step 13 builds the production miner's parser, write it without them.
+Two build-time defects were found and fixed while building (both in
+`docs/implementation-log.md`, one also in `docs/collapse-log.md`): the
+single-importer convention tests had a parallel-run ENOENT race (now
+ENOENT-tolerant), and the repo-root `build/` gitignore rule was silently
+swallowing the entire `test/build/` tier (now re-included by a scoped exception
+in `ctxoracle/.gitignore`, the same class as the earlier lockfile re-inclusion).
+
+The plan's mechanical gates remain the first things to re-run if anything about
+the plan seems off:
+
+- `node .claude/skills/expert-plan/scripts/derive-plan-sections.mjs docs/plans/plan-phase-a.md --check`
+- `node .claude/skills/expert-plan/scripts/derive-plan-sections.mjs --self-check`
+- `node .claude/skills/expert-plan/scripts/run-plan-probes.mjs docs/plans/plan-phase-a.md`
+- `python middleware/context-oracle/tools/check_docs.py`
 
 ## What to do next
 
-**Build Phase A.** Run `/expert-implement` against `docs/plans/plan-phase-a.md`,
-Step 1 first. Step 1's first act is `npm ci` on the committed lockfile, then a
-source file that imports `web-tree-sitter`, compiles under the pinned `tsconfig`,
-and loads a grammar — which re-executes the probes that would catch a
-non-functional runtime pin before any later step builds on it. Execute the steps
-strictly in order; the plan is written to make every decision, so a spot where
-you would have to choose on the fly is a plan defect to stop and report (the
-`expert-implement` STOP REPORT), not to improvise past.
+**Continue building Phase A from Step 13** with `/expert-implement` against
+`docs/plans/plan-phase-a.md` — Checkpoint 2 (the whisper path at function level)
+spans Steps 13–20: the co-change miner (S13), the indexer + `runIndex` (S14), the
+tree-sitter/generic frontends + `defaultFrontends` (S15), the bar (S16), dedup
+(S17), the seven genres (S18), the composer (S19), and delivery (S20). Build the
+steps strictly in order; the plan is written to make every decision, so a spot
+where you would have to choose on the fly is a plan defect to STOP REPORT, not to
+improvise past. Judge every decision against the Phase A goal above, not against
+passing review (dominating rule 3), and dispatch the independent review of built
+work to a neutral subagent — never grade your own work.
 
-Build against the §11.5 phase exit and the §14 acceptance criteria, and judge
-every build decision against the Phase A goal above — not against passing review
-(dominating rule 3). The independent review of the built work is dispatched to a
-neutral subagent per
-`.claude/skills/expert-implement/references/review-handoff.md`; you never grade
-your own work.
+Two concrete Step-13 notes already established:
+- The co-change miner reads history under **`-z`** and parses on **NUL** (never
+  line-by-line), with each commit record marked by `%x1e` + `%H`; a filename
+  containing ` => ` or a raw control byte is never mis-keyed. `probe:24_git_numstat_z`
+  grounds this; the root-cause history is `docs/collapse-log.md` 2026-09-18.
+- When writing the production miner's numstat parser, write it *without* the two
+  redundant `cur` null-checks the reference parser in
+  `docs/plans/plan-phase-a.probes/24_git_numstat_z.mjs` carries (an early
+  `if (!cur) continue` makes the inner checks dead code).
+- The `cochange_pairs` DAO's `bump` currently increments `a_count`/`b_count`
+  alongside `pair_count` as a stand-in; Step 13 owns the real per-file change
+  counts and should set them from the mining pass.
 
 One premise the earlier reviews flagged and dispositioned: Unicode NFC/NFD path
-normalization is **out of scope** for Phase A's Linux target (confirmed by
-independent execution). Do not reopen it in the build without new evidence.
+normalization is **out of scope** for Phase A's Linux target. Do not reopen it
+without new evidence.
 
 ## Current repo state the build inherits — enforcement hooks are disabled
 
@@ -98,32 +123,27 @@ hooks are **disabled at Max Cogar's explicit request**: the gate scripts
 short-circuit to `exit 0`, and `.claude/settings.local.json` sets
 `CORRECTION_LOOP_JUDGE_RUN=1` so the loop's judge/guard/serve stand down. Reason:
 all three judges spawn a nested `claude -p` subprocess that hung/timed out for
-hours — the session-isolation bug in Open Items below (fix: PR #82). The disable
-is a deliberate, owner-authorized operational unblock, **not** a licence to skip
+hours — the session-isolation bug in Open Items below. The disable is a
+deliberate, owner-authorized operational unblock, **not** a licence to skip
 review rigor: the independent-review discipline (dominating rule 2) still applies
-by hand — it is simply no longer auto-enforced by a broken judge. If the build
-re-enables or relies on these gates, fix the `claude -p` isolation first.
+by hand — it is simply no longer auto-enforced by a broken judge.
 
 ## Open items
 
 - **The runtime-pin and sandbox premises settle the first time the build's CI
   runs.** Behaviour at the Node 22.16.0 engines floor is executed only by CI's
-  matrix entry and the pin runs (`npx node@22.16.0`); whether `unshare -rn` works
-  on the GitHub Actions runner image is still open — the optional
-  `09_unshare_no_network.optional` probe is evidence for this container, not for
-  the GHA runner.
+  matrix entry; whether `unshare -rn` works on the GitHub Actions runner image is
+  still open (the optional `09_unshare_no_network.optional` probe is evidence for
+  this container, not for the GHA runner).
 - **L11(a)** — human-marker presence is measured on interactive transcripts; the
   plan reports it *verified* only when an owner-local interactive transcript is in
   the exit corpus, otherwise *not observed*.
 - **L11(b)** — whether `UserPromptSubmit` fires for platform-injected turns is
   undocumented; the plan resolves it by live induction inside the exit run's
   closed-loop leg. Design-safe either way per `AD-9`'s voiding guard.
-- **Two real bugs in this repo's own Stop hooks (`hooks/stop-completeness-gate/`,
-  `hooks/stop-instruction-adherence-gate/`), outside Context Oracle's scope,
-  recorded here once per Max Cogar's explicit instruction.** Both gates spawn
+- **Two real bugs in this repo's own Stop hooks**, outside Context Oracle's
+  scope, recorded here once per Max Cogar's explicit instruction. Both gates spawn
   their judge subprocess (`claude -p`) with `os.environ.copy()` without stripping
   Claude Code's session-identity variables, so the judge attaches to the live
-  session and hangs/dies empty; the gates then fail closed. The fix is
-  `Maxcogar/agent-armory` PR #82 ("Fix session isolation and transcript pollution
-  in both Stop-hook gates"). This is not a standing practice — future unrelated
-  findings do not belong in this file.
+  session and hangs/dies empty; the gates then fail closed. This is not a standing
+  practice — future unrelated findings do not belong in this file.

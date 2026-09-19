@@ -439,3 +439,38 @@ to a `Trust` variable fails `tsc`).
   (`datadatadatadatadatadata`, entropy ≈1.5) to sit unambiguously below the 4.0
   threshold — a realistic identifier can approach 4.0, and the point of the case
   is a below-threshold token, so an unambiguous one keeps the test deterministic.
+
+## Step 12 — tuning DAO + default seeding + Checkpoint 1 — DONE
+
+**Built.**
+- `src/stores/dao/tuning_seeds.ts` — the single seed source: `SCALAR_SEEDS`
+  (9 `architecture_default` + 11 `plan_seed`) and `LIST_SEEDS` (6 lexicon lists +
+  `index.ext_to_grammar`, the 32-grammar table as `<ext>=<grammar>` members).
+- `src/stores/dao/tuning.ts` — `tuning.get/set/list/addToList/removeFromList`
+  (scalar = one row with `project_key` NULL; list = one row per member, ordered
+  by rowid) and `seedDefaults(store)`, idempotent: it seeds only a key entirely
+  absent, so an owner `tune` edit is never reset.
+
+**Verified.** `npm test` → 41/41 green. **T-12-1**: after `seedDefaults`, every
+scalar/list key reads back with its value and `source`; a scalar set (owner) and
+a list add/remove round-trip; a second `seedDefaults` is a byte-identical no-op
+and does not reset the owner-edited scalar.
+
+**Checkpoint 1 — the substrate — reached.** Ran the full suite (T-1-1…T-12-1,
+41 tests, count guard balanced) plus the owner-visible sanity check on a freshly
+migrated + seeded store: 22 STRICT Phase A project tables (all STRICT; the 12
+non-STRICT objects are the fts5 virtual + shadow tables), `files` carries its
+zone/trust/injection_suspect CHECKs, and `tuning` holds 150 rows across
+`architecture_default`/`plan_seed` with `bar.confidence_floor=0.6` and 51
+`index.ext_to_grammar` members. The store substrate and every DAO/writer/security
+seam the downstream steps plug into are in place.
+
+**Findings / deviations.**
+- **`index.ext_to_grammar` is seeded here (Step 12) but its 32-grammar table is
+  defined at Step 15.** The plan makes it a Step-12 `architecture_default` seed,
+  so the table lives in `tuning_seeds.ts` now (from the plan's Step-15
+  enumeration, §4 exclusions of elm/ql/yaml/bash); Step 15's `defaultFrontends`
+  will read it from here rather than redefining it.
+- **`tuning.get` resolves only the project-global row (`project_key` NULL).** The
+  Step-12 signature is `get(store, key)` with no project_key; per-project
+  override resolution, if a later step needs it, is an additive extension.
