@@ -122,3 +122,32 @@ regressions; 10 tests total):
   asserting an exact count would only make the test flaky. What is asserted is
   the AD-26 contract itself: a contended writer either succeeds or fails open
   cleanly with `StoreBusy`, leaving no torn write.
+
+## Step 4 — `~/.ctxoracle/` layout, 0700 permissions, `CTXORACLE_HOME` — DONE
+
+**Built.** `src/identity/home.ts` — `ctxoracleHome()` resolves
+`$CTXORACLE_HOME || ~/.ctxoracle`, the single place the default location is
+decided. `src/identity/layout.ts` — `ensureLayout(home, repoKey)` creates the
+`<home>`, `<home>/global`, `<home>/projects`, `<home>/projects/<repoKey>`, and
+`.../diagnostics` directories at **0o700** (explicit `chmod` after `mkdir`, so
+the mode does not depend on umask), and returns the `global.db`/`store.db` file
+paths, the diagnostics dir, and `looseMode` — the pre-existing layout dirs
+looser than 0o700. Loose dirs are **reported, never `chmod`ed** (AD-3: the store
+may already hold the owner's data). The `.db` files are not created here — that
+is the migration steps' job.
+
+**Verified.** `npm test` → 12/12 green (2 new + Step 1–3 regressions):
+- **T-4-1a** an empty home: every layout directory is created at 0o700,
+  `looseMode` is empty, returned paths are correct, and `global.db`/`store.db`
+  are *not* created by `ensureLayout`.
+- **T-4-1b** a pre-existing `projects/<key>` at 0o755: `looseMode` is exactly
+  `[projectDir]`, its mode is left at 0o755 (never chmod-ed), and newly created
+  dirs (`global`, `diagnostics`) are still 0o700.
+
+**Findings / deviations.**
+- `statSync().mode` typed as `number | bigint` (the BigInt overloads leak
+  through `ReturnType<typeof statSync>`), so `mode & 0o077` failed `tsc`. Fixed
+  by typing the local as `Stats` and importing `type Stats` from `node:fs`.
+- Loose = `(mode & 0o077) !== 0` (any group/other rwx bit). Setuid/setgid/sticky
+  are out of scope — the ASVS V14 concern here is owner-only *access*, and T-4-1
+  exercises exactly the 0o755 case.
