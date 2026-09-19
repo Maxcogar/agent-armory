@@ -376,3 +376,38 @@ Step 1–8 regressions):
   the earlier `!package-lock.json` re-inclusion; compiled output stays ignored
   under `dist/`. This commit therefore also adds the previously-uncommitted
   `test/build/tsc_fixture.ts`.
+
+## Step 10 — session_log/faults writers, watchdog deadline, recursion guard — DONE
+
+**Built.**
+- `src/diag/session_writer.ts` — `writeSessionEvent(store, event)`, the sole path
+  to the session_log table (returns the ULID).
+- `src/diag/fault_writer.ts` — `recordFault(store | null, diagnosticsDir, fault)`
+  mirror-writes to the faults table (best-effort; swallows a store failure) AND
+  always to the JSONL channel, so a corrupt store still self-reports (AD-17).
+- `src/hook/watchdog.ts` — `DeadlineExceeded`, `createDeadline({ms=2500, now})`
+  with an injectable clock; `check()` throws once elapsed ≥ ms, `elapsed()` reads
+  the clock.
+- `src/hook/guard.ts` — `isInternal(env)` = `env.CTXORACLE_INTERNAL === '1'`.
+
+**Verified.** `npm test` → 35/35 green (5 new + regressions):
+- **T-10-1** a corrupt store (byte 0 overwritten) surfaces `store_corrupt` on the
+  JSONL channel with reproducing detail, through `recordFault` (store handle null
+  because the corrupt open throws).
+- **T-10-2** `elapsed()` is within ±5 ms of an independent `performance.now()`
+  delta across a 50 ms span, five runs.
+- **T-10-3** the writers-only import scan: faults.js / session_log.js importers
+  are within their allow-lists; a seeded rogue importer is detected.
+- **T-10-4** the deadline is not-fired at 2499 and fired at 2500/2501 under a
+  fake clock; `isInternal` is true only for `'1'`.
+
+**Findings / deviations.**
+- **T-10-3's allow-lists name reader modules not yet built** (`diag/status.js`,
+  `diag/log.js`, `diag/regret.js`). The convention is a subset check (actual
+  importers ⊆ allow-list), so their absence is fine now and they are pre-approved
+  when they arrive; ENOENT-tolerant scan for parallel safety (per the Step-6
+  collapse-log lesson).
+- **T-10-1's `store` handle is null** in the caught branch because opening a
+  header-corrupt SQLite file throws during `openStore`'s first PRAGMA — so
+  `recordFault(null, …)` exercises the JSONL-only fallback, which is exactly the
+  store-dead path AD-17 requires.
