@@ -1,0 +1,6 @@
+# The repository root .gitignore globally ignores package-lock.json, but this
+# package must commit its lockfile: `npm ci` (run by CI and by T-1-1) refuses to
+# start without one, and the pinned dependency tree is part of the build
+# contract (AD-25, plan Step 1). Re-include it here for this package only.
+# node_modules/ and dist/ stay ignored via the root .gitignore.
+!package-lock.json

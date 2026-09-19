@@ -1,0 +1,2 @@
+# Fixture repositories are generated deterministically into temp directories at
+# test time by test/fixtures/generate.ts (D-plan-5); none are committed here.
