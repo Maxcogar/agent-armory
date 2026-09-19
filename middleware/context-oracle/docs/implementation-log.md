@@ -305,3 +305,17 @@ Step 1–5 regressions):
   store's meta table**, with `fts_state` (not the version) governing 001b
   idempotency — so a re-run short-circuits on `version>=1` and never retries the
   fts branch, exactly what T-7-1b asserts.
+
+## Step 8 — SQL migrations: Phase A global store — DONE
+
+**Built.** `src/stores/migrations/002_phase_a_global.sql` — the four AD-5 global
+tables (`global_meta`, `whisper_stats`, `tuning`, `lessons`; `lessons` carries
+the PROV block), STRICT, no `env_capabilities`. Applied by the Step-7 runner's
+`scope:'global'` branch (which already existed); no runner change needed.
+
+**Verified.** `npm test` → 26/26 green (1 new + regressions). **T-8-1** migration
+002 yields exactly `{global_meta, lessons, tuning, whisper_stats}` and no
+`env_capabilities`.
+
+**Findings / deviations.** None — mechanical from AD-5, same type resolution as
+Step 7.
