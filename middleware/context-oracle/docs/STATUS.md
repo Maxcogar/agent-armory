@@ -24,16 +24,29 @@ every Phase A decision against this goal (`CLAUDE.md` dominating rule 3).
 The spec (`docs/specs/spec-context-oracle.md`) is signed off (`OL-C6`). The Phase
 A architecture (`docs/architecture-phase-a.md`) is reviewed to convergence.
 
-**The Phase A implementation plan (`docs/plans/plan-phase-a.md`) is converged and
-is the build contract. The next step is to build it.** It has been carried through
-the independent review-and-fix loop to a clean close: the final round's two
-independent passes — an expert-review and a collapse-hunt — both returned PASS
-with zero Moderate-or-above findings. Its mechanical gates are green and are the
-first things to re-run if anything about the plan seems off:
+**The Phase A implementation plan (`docs/plans/plan-phase-a.md`) is the build
+contract, and the next step is to build it.** It was carried through the
+independent review-and-fix loop to a clean close (round 14, both passes PASS) —
+but that "convergence" was not the whole story: the **first build attempt caught
+a real, Checkpoint-1-breaking defect the entire review series had missed.** Step
+1's own verification test `T-1-1` asserted that `dist/src/cli/dispatch.js` exists
+after build, yet that `bin` entry point was not created until Step 28 — so
+`T-1-1` (which the runner runs on every `npm test` from Step 1 onward) would have
+been red for Steps 1–27, and Checkpoint 1 (after Step 12) would have failed. It
+was fixed 2026-09-19 through the required plan-revision workflow — an independent
+corrector, two independent reviews (collapse-hunt + expert-review), three Minor
+follow-up fixes, and a confirming review — with **Step 1 now creating a minimal
+`dispatch.ts` bin stub that Step 28 extends.** Both reviewers independently swept
+all 40 steps and confirmed this was the **only** instance of the "a step's
+verification asserts an artifact a later step creates" class. Full history:
+`docs/collapse-log.md` 2026-09-19 and `docs/reviews/2026-09-19-dispatch-stub-fix-*`.
 
-- `node .claude/skills/expert-plan/scripts/derive-plan-sections.mjs docs/plans/plan-phase-a.md --check` — 40 steps, 124 test specs, 26 probes cited, regions current
+Its mechanical gates are green and are the first things to re-run if anything
+about the plan seems off:
+
+- `node .claude/skills/expert-plan/scripts/derive-plan-sections.mjs docs/plans/plan-phase-a.md --check` — 40 steps, 124 test specs, 27 probes cited, regions current
 - `node .claude/skills/expert-plan/scripts/derive-plan-sections.mjs --self-check` — 34 checks
-- `node .claude/skills/expert-plan/scripts/run-plan-probes.mjs docs/plans/plan-phase-a.md` — all 26 probes match their recorded expectations
+- `node .claude/skills/expert-plan/scripts/run-plan-probes.mjs docs/plans/plan-phase-a.md` — all 27 probes match their recorded expectations
 - `python tools/check_docs.py` — cross-document consistency
 
 The one seam that took the review series to converge is the co-change miner's
