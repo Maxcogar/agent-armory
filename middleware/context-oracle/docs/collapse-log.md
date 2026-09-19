@@ -1508,3 +1508,35 @@ through a review series (and green gates) is not proof of executability:
 false of the artifact. The cheapest catch for an execution-time defect is an
 actual execution attempt of Step 1 — which is what caught this, and why it
 reached a builder rather than Max Cogar.
+
+## 2026-09-19 — a single-importer convention test that seeds files into the scanned tree must survive a concurrent test deleting them mid-scan
+
+**Context.** Phase A's build has one convention test per quarantined module — a
+built-output scan over `dist/src/**/*.js` that a designated file (e.g.
+`stores/adapter.js` for `node:sqlite`, `util/spawn.js` for `child_process`) is
+the sole importer. Each test proves the scan *detects* a violation by seeding a
+throwaway importer file **into `dist/src` itself**, asserting it is caught, then
+removing it. `node --test` runs test files in **separate processes concurrently**
+(default). So two such tests run at the same time, each seeding and deleting its
+own files in the shared `dist/src`.
+
+**What happened (Step 6).** Adding Step 6's files shifted `node --test`'s
+scheduling so the `sqlite` and `child_process` convention tests overlapped. Each
+scan does `readdirSync(distSrc, {recursive})` then `readFileSync` per entry. One
+scan enumerated the *other* test's seed, and that seed was deleted by the other
+test's `finally` before the read — `ENOENT`, crash. It had passed at Step 5 only
+because the two tests happened not to overlap; the Step-5 implementation-log note
+that they were "parallel-safe" because their seed *contents* are orthogonal was
+necessary but **not sufficient** — orthogonal content stops a false *match*, not a
+crash on a vanished file.
+
+**Fix and standing lesson.** Any scan of a directory that another concurrently
+running test mutates must treat a file vanishing between `readdir` and `read` as
+absent (catch `ENOENT`, skip), not as an error. This applies to **every** future
+single-importer / whitelist convention test in this build (the plan has more —
+e.g. `T-24-2`): if it seeds into the scanned tree, its scan must be
+ENOENT-tolerant, or it will flake under parallel `node --test`. The tolerance is
+also simply correct for scanning any live tree. Verified by five consecutive
+green full-suite runs. Do **not** "fix" this by forcing the test runner
+serial — the robustness belongs in the scan, and serial execution would only
+hide the same latent race for real dist scanning.

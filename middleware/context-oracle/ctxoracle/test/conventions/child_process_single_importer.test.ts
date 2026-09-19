@@ -21,12 +21,25 @@ function importsChildProcess(src: string): boolean {
   return STATIC_FROM.test(src) || SIDE_EFFECT.test(src) || DYNAMIC.test(src);
 }
 
+/** Read a file, treating a mid-scan disappearance as empty: the sqlite
+ *  convention test seeds/removes its own files in this same tree concurrently
+ *  (node --test runs test files in parallel), so a foreign seed can vanish
+ *  between readdir and read. Its content is orthogonal to ours anyway. */
+function readOrEmpty(abs: string): string {
+  try {
+    return readFileSync(abs, 'utf8');
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return '';
+    throw e;
+  }
+}
+
 function importers(): string[] {
   const hits: string[] = [];
   for (const rel of readdirSync(distSrc, { recursive: true })) {
     const relStr = String(rel);
     if (!relStr.endsWith('.js')) continue;
-    if (importsChildProcess(readFileSync(path.join(distSrc, relStr), 'utf8'))) {
+    if (importsChildProcess(readOrEmpty(path.join(distSrc, relStr)))) {
       hits.push(relStr.split(path.sep).join('/'));
     }
   }

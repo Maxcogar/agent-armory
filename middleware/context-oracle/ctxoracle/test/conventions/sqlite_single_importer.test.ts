@@ -9,13 +9,26 @@ import { fileURLToPath } from 'node:url';
 
 const distSrc = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'src');
 
+/** Read a file, treating a mid-scan disappearance as empty: the child_process
+ *  convention test seeds/removes its own files in this same tree concurrently
+ *  (node --test runs test files in parallel), so a foreign seed can vanish
+ *  between readdir and read. Its content is orthogonal to ours anyway. */
+function readOrEmpty(abs: string): string {
+  try {
+    return readFileSync(abs, 'utf8');
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return '';
+    throw e;
+  }
+}
+
 function importersOfNodeSqlite(): string[] {
   const hits: string[] = [];
   for (const rel of readdirSync(distSrc, { recursive: true })) {
     const relStr = String(rel);
     if (!relStr.endsWith('.js')) continue;
     const abs = path.join(distSrc, relStr);
-    if (readFileSync(abs, 'utf8').includes('node:sqlite')) hits.push(relStr.split(path.sep).join('/'));
+    if (readOrEmpty(abs).includes('node:sqlite')) hits.push(relStr.split(path.sep).join('/'));
   }
   return hits.sort();
 }

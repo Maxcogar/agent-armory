@@ -204,4 +204,58 @@ is the migration steps' job.
 - **The two convention tests are parallel-safe.** `node --test` runs test files
   in separate processes concurrently; both seed files into `dist/src`, but each
   scans for its own module string and the seeds are orthogonal, so neither
-  perturbs the other's clean-state assertion.
+  perturbs the other's clean-state assertion. **(Corrected at Step 6 — see
+  below: orthogonal *content* was not enough; the scan also had to survive a
+  foreign seed vanishing mid-scan.)**
+
+## Step 6 — shared types, fault codes, JSONL fault channel, trust — DONE
+
+**Built.**
+- `src/diag/fault_codes.ts` — `FAULT_CODES`, a 23-entry `as const` tuple (the
+  AD-17 list incl. the two reserved codes, `store_busy`, and the six codes this
+  plan names), with `FaultCode = (typeof FAULT_CODES)[number]`. Not an enum, so
+  the one declaration is both the runtime list `status` renders and the type.
+- `src/diag/jsonl.ts` — `appendFault(diagnosticsDir, {code, detail, session?})`:
+  a direct file write (never through the store, AD-17), one JSON line per fault,
+  `open('a', 0o600)` + `fchmod 0o600` (umask-independent) + `fsync` before return.
+- `src/security/trust.ts` — `Trust` union, `TRUST_VALUES`, `isTrust`, and
+  `assertProvenance` (FR-X4).
+- `src/types/events.ts` — `EventKind` (the eight AD-6 wire event names),
+  `Consumer`, `StartSource`, `InternalEvent`, `ObservedActionsReader`,
+  `EventContext`. `src/types/candidate.ts` — `Pointer`, `FactClass`, `Candidate`,
+  `TuningReader`. `src/types/index_types.ts` — `SymbolRow`, `ImportEdge`. All
+  type-only (erased at build).
+
+**Verified.** `npm test` → 21/21 green across five consecutive runs (2 new + the
+Step 1–5 regressions):
+- **T-6-1** `FAULT_CODES` equals the enumerated 23-code set (runtime deepEqual),
+  has no duplicates, and the expected list typed `FaultCode[]` is the compile-time
+  half (a divergence between tuple and union fails `tsc`).
+- **T-6-2** three `appendFault` calls (the third a fresh open = "writer restart")
+  accumulate three parseable lines with details intact; file mode is 0o600.
+
+**Findings / deviations.**
+- **`assertProvenance`'s exact laundering contract is provisional.** The plan
+  states the rule twice with slightly different emphasis (Step-9 prose: "accept
+  only `untrusted_repo` unless every input is human-provenance"; T-9-1 example: a
+  `trust='untrusted_repo'` write with a human-provenance input is rejected). I
+  implemented exact-match — human input ⇔ `trust='human'`, laundering rejected in
+  both directions — taking `{trust, inputsAreHuman}`. Step 6 has no test for it;
+  its behavioral gate is **T-9-1** (Step 9), where I will confirm the shape
+  against the real DAO entry points and adjust if needed.
+- **Several shared types carry provisional signatures** finalized at their
+  consuming step: `ObservedActionsReader` (concrete reader built at Step 10),
+  `TuningReader` (Step 12), `EventContext.repoKey` as the key string,
+  `StartSource`/`Consumer` value sets. The plan mandates these types exist by
+  Step 6 (topological order); a consuming step may `modify` a shape as it needs.
+- **Parallel-scan race in the single-importer convention tests (real bug,
+  fixed).** With Step 6's added files, `node --test`'s parallel scheduling made
+  the sqlite and child_process convention tests overlap. Each scan does
+  `readdirSync` then `readFileSync` per entry; a foreign seed enumerated by one
+  scan was deleted by the other's `finally` before the read → `ENOENT` crash
+  (not a content collision — the Step-5 note's "orthogonal content" was
+  necessary but not sufficient). Fixed by making both scans ENOENT-tolerant
+  (`readOrEmpty` returns `''` for a vanished file), which is also correct for
+  scanning a live `dist/` tree. Confirmed stable over five full-suite runs. This
+  will recur for every future single-importer convention test (e.g. T-24-2), so
+  it is also recorded in `docs/collapse-log.md`.
