@@ -62,17 +62,24 @@ the runner's count guard) is green, and the Checkpoint 1 owner-visible sanity
 check passed: a freshly migrated + seeded store shows 22 STRICT project tables
 with their CHECK constraints and `tuning` holding every seed with its `source`.
 
-**The seven Checkpoint-1 review findings are all applied, and both mandatory
-independent passes returned clean.** Two neutral-subagent reviews were dispatched
-under the correct mechanical-only protocol: an expert-review
-(`docs/reviews/2026-09-20-checkpoint-1-fixset-expert-review.md`, **PASS**) and a
-collapse-hunt (`docs/reviews/2026-09-20-checkpoint-1-fixset-collapse-hunt.md`,
-**PASS with two findings, both applied** — a ledgered-authority fix to this
-STATUS's own wording, and extending the seed-literal test pins from 14 to all 20
-§10 scalars plus a completeness guard). Both load-bearing decisions (M1, M2)
-survived the collapse test. An earlier attempt this session was only a single
-steered pass — not the expert-review + collapse-hunt pair the project requires —
-so its PASS was contaminated and is retracted. The
+**The seven Checkpoint-1 review findings are all applied, and the independent
+review reached convergence — a round with zero findings.** The review ran as the
+two mandatory independent passes the project requires (a fresh neutral subagent
+each, mechanical-only dispatch), across two rounds:
+
+- **Round 1** — expert-review **PASS**
+  (`docs/reviews/2026-09-20-checkpoint-1-fixset-expert-review.md`); collapse-hunt
+  **PASS with two findings** (`…-collapse-hunt.md`): a ledgered-authority fix to
+  this STATUS's wording, and extending the seed-literal test pins from 14 to all
+  20 §10 scalars plus a completeness guard.
+- **Round 2 (convergence)** — after those two findings were applied, both passes
+  re-ran and returned **zero findings**
+  (`…-round2-expert-review.md`, `…-round2-collapse-hunt.md`); both load-bearing
+  decisions (M1, M2) survived the collapse test.
+
+An earlier attempt this session was only a single *steered* pass — not the
+expert-review + collapse-hunt pair the project requires — so its PASS was
+contaminated and is retracted. The
 findings came from `docs/reviews/2026-09-19-checkpoint-1-implementation-review.md`
 (NEEDS FIXES: 3 Moderate, 4 Minor; no Critical/Serious, no software-breaking
 bug). **All were applied — no triage:**
@@ -110,10 +117,10 @@ bug). **All were applied — no triage:**
 All four plan gates pass (`derive-plan-sections --check` regions current,
 `--self-check` 34/34, `run-plan-probes` 27/27, `check_docs.py`), the build is
 clean, and the full suite is green (`npm test`, 41 tests). **Checkpoint 1 is now
-cleanly passed** — both independent passes returned clean (expert-review PASS;
-collapse-hunt PASS with its two findings applied), all four plan gates pass, the
-build is clean, the full suite is 41/41, CI is green on the PR head, and there is
-no merge conflict.
+cleanly passed** — the independent review converged (Round 2: both passes, zero
+findings), all four plan gates pass, the build is clean, the full suite is 41/41,
+CI is green on the PR head (per its check-suite events), and there is no merge
+conflict.
 
 The M1 and M3 fixes edited plan text (Step 6/9/§12 and AD-4) and §5.1. Plan and
 doc revision is the agent's job on this agent-led project (`OL-11`, CONFIRMED in
@@ -139,9 +146,9 @@ the plan seems off:
 
 ## What to do next
 
-Both independent passes on the Checkpoint-1 fix set returned clean (expert-review
-PASS; collapse-hunt PASS, its two findings applied), so Checkpoint 1 is cleanly
-passed and Step 13 builds on a clean substrate.
+The independent review of the Checkpoint-1 fix set converged (Round 2: both the
+expert-review and the collapse-hunt returned zero findings), so Checkpoint 1 is
+cleanly passed and Step 13 builds on a clean substrate.
 
 **Continue building Phase A from Step 13** with `/expert-implement` against
 `docs/plans/plan-phase-a.md` — Checkpoint 2 (the whisper path at function level)
