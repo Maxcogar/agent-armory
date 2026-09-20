@@ -62,11 +62,14 @@ the runner's count guard) is green, and the Checkpoint 1 owner-visible sanity
 check passed: a freshly migrated + seeded store shows 22 STRICT project tables
 with their CHECK constraints and `tuning` holding every seed with its `source`.
 
-**The seven Checkpoint-1 review findings are all applied, and the independent
-review of the fix set returned PASS** — a neutral subagent (never the author)
-re-ran the build, the full suite (41/41), and all four plan gates, verified
-every finding against source, and ran collapse-hunts on the two load-bearing
-decisions (M1's `'mechanical'`-reservation and M2's test seam); both held. The
+**The seven Checkpoint-1 review findings are all applied and self-verified; the
+independent review of the fix set is being RE-RUN under the correct protocol.**
+An earlier review attempt this session was dispatched wrongly — steered with a
+custom rubric and pointed at the M1/M2 decisions instead of the mechanical-only
+`/expert-review` dispatch that
+`.claude/skills/expert-implement/references/review-handoff.md` mandates — so its
+PASS was contaminated and does **not** count; it is retracted. A correctly
+dispatched independent review is the gating check. The
 findings came from `docs/reviews/2026-09-19-checkpoint-1-implementation-review.md`
 (NEEDS FIXES: 3 Moderate, 4 Minor; no Critical/Serious, no software-breaking
 bug). **All were applied — no triage:**
@@ -103,8 +106,9 @@ bug). **All were applied — no triage:**
 
 All four plan gates pass (`derive-plan-sections --check` regions current,
 `--self-check` 34/34, `run-plan-probes` 27/27, `check_docs.py`), the build is
-clean, and the full suite is green (`npm test`, 41 tests). **Checkpoint 1 is now
-cleanly passed** — independent review PASS, CI green on the PR head, no merge
+clean, and the full suite is green (`npm test`, 41 tests). **Checkpoint 1 is
+cleanly passed only once a valid independent review returns PASS** — the earlier
+attempt was invalid (above). CI is green on the PR head and there is no merge
 conflict.
 
 The M1 and M3 fixes edited plan text (Step 6/9/§12 and AD-4) and §5.1. Those
@@ -129,10 +133,13 @@ the plan seems off:
 
 ## What to do next
 
-The independent review of the Checkpoint-1 fix set returned **PASS** (see above),
-so Checkpoint 1 is cleanly passed and Step 13 builds on a clean substrate.
+The independent review of the Checkpoint-1 fix set is being re-run under the
+correct mechanical-only `/expert-review` protocol (the earlier attempt was
+steered and does not count). Do not treat Checkpoint 1 as passed, or build Step
+13, until a valid review returns **PASS**; on that PASS, Checkpoint 1 is cleanly
+passed and Step 13 builds on a clean substrate.
 
-**Continue building Phase A from Step 13** with `/expert-implement` against
+**Then continue building Phase A from Step 13** with `/expert-implement` against
 `docs/plans/plan-phase-a.md` — Checkpoint 2 (the whisper path at function level)
 spans Steps 13–20: the co-change miner (S13), the indexer + `runIndex` (S14), the
 tree-sitter/generic frontends + `defaultFrontends` (S15), the bar (S16), dedup
