@@ -62,12 +62,14 @@ the runner's count guard) is green, and the Checkpoint 1 owner-visible sanity
 check passed: a freshly migrated + seeded store shows 22 STRICT project tables
 with their CHECK constraints and `tuning` holding every seed with its `source`.
 
-**The seven Checkpoint-1 review findings are all applied and self-verified; an
-independent review of the fix set is in progress** (a neutral subagent, never
-the author — verdict pending as of this commit). The findings came from
-`docs/reviews/2026-09-19-checkpoint-1-implementation-review.md` (NEEDS FIXES: 3
-Moderate, 4 Minor; no Critical/Serious, no software-breaking bug). **All were
-applied — no triage:**
+**The seven Checkpoint-1 review findings are all applied, and the independent
+review of the fix set returned PASS** — a neutral subagent (never the author)
+re-ran the build, the full suite (41/41), and all four plan gates, verified
+every finding against source, and ran collapse-hunts on the two load-bearing
+decisions (M1's `'mechanical'`-reservation and M2's test seam); both held. The
+findings came from `docs/reviews/2026-09-19-checkpoint-1-implementation-review.md`
+(NEEDS FIXES: 3 Moderate, 4 Minor; no Critical/Serious, no software-breaking
+bug). **All were applied — no triage:**
 
 - **M1** — `assertProvenance` (`src/security/trust.ts`) now enforces the Phase A
   rule exactly: human-provenance ⇒ `'human'`, every non-human input ⇒
@@ -101,9 +103,14 @@ applied — no triage:**
 
 All four plan gates pass (`derive-plan-sections --check` regions current,
 `--self-check` 34/34, `run-plan-probes` 27/27, `check_docs.py`), the build is
-clean, and the full suite is green (`npm test`, 41 tests). **Checkpoint 1 is
-cleanly passed once the independent review returns PASS; if it surfaces anything,
-that is addressed before Step 13.**
+clean, and the full suite is green (`npm test`, 41 tests). **Checkpoint 1 is now
+cleanly passed** — independent review PASS, CI green on the PR head, no merge
+conflict.
+
+The M1 and M3 fixes edited plan text (Step 6/9/§12 and AD-4) and §5.1. Those
+edits were made under Max Cogar's explicit this-session instruction to fix all
+seven findings; plan-revision is the agent's job under `OL-11`. That instruction
+supersedes the prior session's STATUS framing, which had routed M1/M3 to him.
 
 Two build-time defects were found and fixed while building (both in
 `docs/implementation-log.md`, one also in `docs/collapse-log.md`): the
@@ -122,16 +129,10 @@ the plan seems off:
 
 ## What to do next
 
-**First, close out the independent review of the Checkpoint-1 fix set.** All
-seven findings are applied and self-verified (see above), and a neutral-subagent
-review is in progress. On **PASS**, Checkpoint 1 is cleanly passed. If the review
-surfaces anything, address it before Step 13 — for a change that touches the plan
-text or a load-bearing decision, route it through the plan-revision discipline
-(not an implementer editing on the fly), and re-dispatch the independent review.
-Do not treat Checkpoint 1 as passed, and do not build Step 13, until that review
-is PASS.
+The independent review of the Checkpoint-1 fix set returned **PASS** (see above),
+so Checkpoint 1 is cleanly passed and Step 13 builds on a clean substrate.
 
-**Then continue building Phase A from Step 13** with `/expert-implement` against
+**Continue building Phase A from Step 13** with `/expert-implement` against
 `docs/plans/plan-phase-a.md` — Checkpoint 2 (the whisper path at function level)
 spans Steps 13–20: the co-change miner (S13), the indexer + `runIndex` (S14), the
 tree-sitter/generic frontends + `defaultFrontends` (S15), the bar (S16), dedup
