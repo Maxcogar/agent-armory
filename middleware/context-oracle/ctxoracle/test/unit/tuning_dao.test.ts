@@ -41,6 +41,32 @@ test('T-12-1: seedDefaults seeds every key with its value and source', () => {
       assert.equal(sourceOf(store, l.key), l.source, `${l.key} source`);
     }
 
+    // Independent literal pins for the load-bearing seeds, asserted against the
+    // values the plan §10 fixes (AD-14/AD-13/AD-9 and the D-plan-7 seeds) — NOT
+    // against the SCALAR_SEEDS module the seeder reads. A drift between that
+    // module and the plan (a silently changed default) is caught here, which the
+    // module-vs-store loop above cannot see (m2, first-round review).
+    const CRITICAL_SCALARS: Array<[string, string, string]> = [
+      ['bar.confidence_floor', '0.6', 'architecture_default'],
+      ['bar.support_min', '3', 'architecture_default'],
+      ['bar.noise_floor_support_min', '2', 'architecture_default'],
+      ['bar.impact_read_min_coupled', '2', 'architecture_default'],
+      ['miner.max_transaction_entities', '30', 'architecture_default'],
+      ['miner.horizon_years', '5', 'architecture_default'],
+      ['miner.horizon_commits', '10000', 'architecture_default'],
+      ['miner.corpus_floor_commits', '30', 'architecture_default'],
+      ['deny.loop_threshold', '3', 'architecture_default'],
+      ['security.entropy_bits_per_char', '4.0', 'plan_seed'],
+      ['security.entropy_min_token_length', '20', 'plan_seed'],
+      ['landmine.fix_chatter_k', '3', 'plan_seed'],
+      ['landmine.fix_chatter_window_days', '90', 'plan_seed'],
+      ['qa.done_claim_trailing_turns_k', '3', 'plan_seed'],
+    ];
+    for (const [key, value, source] of CRITICAL_SCALARS) {
+      assert.equal(tuning.get(store, key), value, `${key} literal value (plan §10)`);
+      assert.equal(sourceOf(store, key), source, `${key} literal source (plan §10)`);
+    }
+
     // A scalar set (owner) round-trips.
     tuning.set(store, 'bar.confidence_floor', '0.7', 'owner');
     assert.equal(tuning.get(store, 'bar.confidence_floor'), '0.7');

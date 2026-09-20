@@ -34,8 +34,16 @@ export interface Store {
    * whole acquire-and-run is retried once; a second SQLITE_BUSY raises
    * `StoreBusy` (the caller turns that into a `store_busy` fault and fails open,
    * AD-26). Any non-busy error rolls back and propagates unchanged.
+   *
+   * `opts.onBusyRetry`, when supplied, is invoked exactly once — after the first
+   * attempt's SQLITE_BUSY, before the retry — and takes no part in the
+   * transaction (it runs outside BEGIN/COMMIT and cannot affect the row set). It
+   * is the deterministic observation seam T-3-3 uses to sequence the
+   * retry-then-succeed path: a contending worker signals its first-attempt busy
+   * and blocks inside it until the lock is released. Production callers omit it,
+   * and behaviour is then identical to a bare `transaction(fn)`.
    */
-  transaction<T>(fn: () => T): T;
+  transaction<T>(fn: () => T, opts?: { onBusyRetry?: () => void }): T;
   /** `PRAGMA quick_check` — used only off the event path (AD-17). */
   integrityCheck(): 'ok' | 'failed';
   /** Consistent snapshot to `destPath` via `VACUUM INTO` (AD-5, V17). */
@@ -59,14 +67,19 @@ export function openStore(dbPath: string): Store {
     return st;
   }
 
-  function transaction<T>(fn: () => T): T {
+  function transaction<T>(fn: () => T, opts?: { onBusyRetry?: () => void }): T {
     let lastErr: unknown;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         db.exec('BEGIN IMMEDIATE');
       } catch (e) {
         lastErr = e;
-        if (isBusy(e)) continue; // could not even acquire — retry once
+        // could not even acquire — retry once; fire the seam only on the first
+        // (attempt 0) busy, so it runs exactly once, between the two attempts.
+        if (isBusy(e)) {
+          if (attempt === 0) opts?.onBusyRetry?.();
+          continue;
+        }
         throw e;
       }
       try {
@@ -80,7 +93,10 @@ export function openStore(dbPath: string): Store {
           /* ignore rollback failure; the original error is what matters */
         }
         lastErr = e;
-        if (isBusy(e)) continue; // lost the write race — retry once
+        if (isBusy(e)) {
+          if (attempt === 0) opts?.onBusyRetry?.(); // lost the write race — retry once
+          continue;
+        }
         throw e;
       }
     }

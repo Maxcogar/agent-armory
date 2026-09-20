@@ -62,29 +62,48 @@ the runner's count guard) is green, and the Checkpoint 1 owner-visible sanity
 check passed: a freshly migrated + seeded store shows 22 STRICT project tables
 with their CHECK constraints and `tuning` holding every seed with its `source`.
 
-**But Checkpoint 1 is NOT cleanly passed.** The independent first-round review of
-Steps 1–12 (`docs/reviews/2026-09-19-checkpoint-1-implementation-review.md`)
-returned **NEEDS FIXES** — 7 open findings (3 Moderate, 4 Minor), no Critical or
-Serious, no software-breaking bug. Several are the direct result of the
-implementer deciding on the fly instead of following the plan or stopping:
-- **M1** — `assertProvenance` (`src/security/trust.ts`) enforces a weaker FR-X4
-  gate than Step 6/9 prose declares (it permits non-human → `'mechanical'`); the
-  plan prose and the AD-4 schema it cites are themselves in tension, so this is a
-  prose-vs-schema reconciliation, not just a code fix. (An earlier STATUS claim
-  that this contract was "confirmed by T-9-1" was wrong — the review corrected it.)
-- **M2** — T-3-3 (`test/unit/concurrency.test.ts`) does not exercise the AD-26
-  retry-once-then-succeed path; the plan's §12 T-3-3 spec (lines 7564–7589)
-  specifies the exact deterministic sequencing that was not implemented.
-- **M3** — three committed files (`.gitignore`, `test/unit/concurrency_worker.ts`,
-  `test/fixtures/repos/.gitkeep`) sit outside any step's declared `create` list.
-- **m1–m4** — fixture placeholders (deferred to Steps 13–38), two tests validating
-  against the implementation's own constants, a weak redactor negative case, and
-  several interfaces/values the plan never specified (`Store.exec`, the `scope`
-  param on `applyMigrations`, etc.). Full detail in the review doc.
+**The seven Checkpoint-1 review findings are all applied and self-verified; an
+independent review of the fix set is in progress** (a neutral subagent, never
+the author — verdict pending as of this commit). The findings came from
+`docs/reviews/2026-09-19-checkpoint-1-implementation-review.md` (NEEDS FIXES: 3
+Moderate, 4 Minor; no Critical/Serious, no software-breaking bug). **All were
+applied — no triage:**
 
-These are open. They are recorded, not fixed — Max Cogar directed that they not be
-patched in this session. Interfaces the plan mandated early but finalized at their
-consuming step are additionally noted in `docs/implementation-log.md`.
+- **M1** — `assertProvenance` (`src/security/trust.ts`) now enforces the Phase A
+  rule exactly: human-provenance ⇒ `'human'`, every non-human input ⇒
+  `'untrusted_repo'`; `'mechanical'` is rejected. `'mechanical'` is a **schema
+  value reserved for later-phase mechanically-generated content (`FR-X2`)** —
+  the reconciliation is recorded in AD-4 and plan Step 6/9, and `T-9-1` now pins
+  the non-human→`'mechanical'` rejection. The code was looser than the
+  (well-grounded) rule; the fix makes code conform to the rule — the
+  security-tightening direction.
+- **M2** — `Store.transaction` gained a minimal `onBusyRetry` observation seam
+  (declared in Step 3); `T-3-3` now drives the AD-26 retry-then-succeed path
+  deterministically per the §12 spec (writer B reports its first-attempt busy,
+  waits, and its retry finds the lock free by construction — verified stable
+  across repeated runs).
+- **M3** — `.gitignore`, `test/unit/concurrency_worker.ts`, and
+  `test/fixtures/repos/.gitkeep` are declared in their step `create:` lists and
+  §5.1 (regenerated; `--check` clean) and explained in Step 1 prose.
+- **m1** — Step 1's partial fixture deliverable is now explicit in the plan; the
+  deep scenarios stay deferred to their consuming Steps 13–38 (building them now
+  would be premature machinery against the phase goal).
+- **m2** — `T-12-1` pins the load-bearing seeds to the §10 literal values and
+  `T-1-3` pins `FIXTURE_NAMES` to a §5.1 literal list, so drift from the plan is
+  caught rather than validated against the implementation's own constants.
+- **m3** — `T-11-2`'s redactor negative case is now a realistic 28-char
+  identifier at 3.968 bits/char (just below the 4.0 threshold), so over-redaction
+  of real code would be caught.
+- **m4** — the seven undeclared interfaces (`Store.exec`, the `scope` param on
+  `applyMigrations`, `oracleExecFileSync`'s `maxBuffer`, `sha256Short`/`sha256Hex`,
+  the `observed_actions` tool-name sets, the `landmines` dedup key, and
+  `whisper_audit.deliveredSubjects`) are declared in their owning steps.
+
+All four plan gates pass (`derive-plan-sections --check` regions current,
+`--self-check` 34/34, `run-plan-probes` 27/27, `check_docs.py`), the build is
+clean, and the full suite is green (`npm test`, 41 tests). **Checkpoint 1 is
+cleanly passed once the independent review returns PASS; if it surfaces anything,
+that is addressed before Step 13.**
 
 Two build-time defects were found and fixed while building (both in
 `docs/implementation-log.md`, one also in `docs/collapse-log.md`): the
@@ -103,15 +122,14 @@ the plan seems off:
 
 ## What to do next
 
-**First, resolve the seven open Checkpoint-1 review findings** in
-`docs/reviews/2026-09-19-checkpoint-1-implementation-review.md`. They are Steps
-1–12 work that is not done until they are addressed — do not treat Checkpoint 1
-as passed while they stand, and do not build Step 13 on top of them. In
-particular M1 (the `assertProvenance` / FR-X4 prose-vs-schema tension) and M3
-(three undeclared files) touch the plan text and so are decided by Max Cogar and
-the plan-revision discipline, not by an implementer editing on the fly; M2
-(the T-3-3 retry-then-succeed coverage gap) is a test the plan already fully
-specifies. Route the fixes the way Max directs — this session did NOT patch them.
+**First, close out the independent review of the Checkpoint-1 fix set.** All
+seven findings are applied and self-verified (see above), and a neutral-subagent
+review is in progress. On **PASS**, Checkpoint 1 is cleanly passed. If the review
+surfaces anything, address it before Step 13 — for a change that touches the plan
+text or a load-bearing decision, route it through the plan-revision discipline
+(not an implementer editing on the fly), and re-dispatch the independent review.
+Do not treat Checkpoint 1 as passed, and do not build Step 13, until that review
+is PASS.
 
 **Then continue building Phase A from Step 13** with `/expert-implement` against
 `docs/plans/plan-phase-a.md` — Checkpoint 2 (the whisper path at function level)

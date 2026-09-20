@@ -535,7 +535,14 @@ and nothing here depends on the new channel.
 
    All writes go through DAOs; the learned-record entry point accepts only
    `trust='untrusted_repo'` unless every input is human-provenance (`FR-X4` —
-   trust is never laundered).
+   trust is never laundered). The `trust` CHECK's third value `'mechanical'` is
+   present for forward-compatibility with later-phase mechanically-generated
+   content (`FR-X2`, which permits verbatim quotation only for such content);
+   no Phase A writer emits it — Phase A has no model composing content — and the
+   `prov_ref` format list above intentionally gives it no Phase A form. The
+   runtime gate (`assertProvenance`, `T-9-1`) rejects a Phase A learned-record
+   write that attempts `'mechanical'`, so the schema is a forward-compatible
+   superset while the Phase A policy is the two-value rule above.
 
    **Table-creation criterion (applied uniformly):** a table exists in a
    phase's store only if that phase has a writer for it. Where the spec fixes a

@@ -5,11 +5,14 @@
 // Step 11 (redactor, injection flagger) is built after Step 9.
 //
 // FR-X4 is "provenance/trust not launderable": the persisted trust must reflect
-// the true provenance of the content. A repo-derived (non-human) input can never
-// be written as 'human', and a genuinely human input is not silently downgraded.
-// (This is the behavioral contract the plan states at its Step-9 discussion; its
-// runtime gate is T-9-1, its compile-time gate T-11-5. The `inputsAreHuman`
-// attestation is the caller's honest statement of the content's origin.)
+// the true provenance of the content. The Phase A rule (plan Step 6/Step 9,
+// AD-4) admits exactly two learned-record trusts — a human-provenance input is
+// written as 'human', and every non-human input as 'untrusted_repo'. 'mechanical'
+// is a schema value held for later-phase mechanically-generated content (FR-X2)
+// and is written by no Phase A entry point, so this gate rejects it. (This is the
+// behavioral contract the plan states at its Step-9 discussion; its runtime gate
+// is T-9-1, its compile-time gate T-11-5. The `inputsAreHuman` attestation is the
+// caller's honest statement of the content's origin.)
 
 export type Trust = 'untrusted_repo' | 'human' | 'mechanical';
 
@@ -28,11 +31,15 @@ export interface ProvenancedWrite {
 }
 
 /**
- * Enforce FR-X4 on a learned-record write. Returns `row.trust` when it is
- * consistent with the attested provenance; throws otherwise. Human provenance
- * must be written as 'human' and non-human provenance must not be — neither
- * direction may launder. 'mechanical' vs 'untrusted_repo' (both non-human) is a
- * separate axis the caller owns.
+ * Enforce FR-X4 on a learned-record write. Returns `row` when its trust is
+ * consistent with the attested provenance; throws otherwise. The Phase A rule
+ * (plan Step 6/Step 9, AD-4) is exact: a human-provenance input is written as
+ * trust='human', and every non-human input as trust='untrusted_repo'. Nothing
+ * else is a legal Phase A learned-record trust — in particular 'mechanical' is a
+ * schema value reserved for later-phase mechanically-generated content (FR-X2)
+ * and is written by no Phase A entry point, so this gate rejects it. Neither
+ * direction may launder: repo-derived content cannot be raised to 'human' (or
+ * 'mechanical'), and human content cannot be lowered.
  */
 export function assertProvenance<T extends ProvenancedWrite>(row: T): T {
   if (!isTrust(row.trust)) {
@@ -41,8 +48,12 @@ export function assertProvenance<T extends ProvenancedWrite>(row: T): T {
   if (row.inputsAreHuman && row.trust !== 'human') {
     throw new Error("assertProvenance: human-provenance input must be written as trust='human' (FR-X4)");
   }
-  if (!row.inputsAreHuman && row.trust === 'human') {
-    throw new Error("assertProvenance: non-human input cannot be written as trust='human' (FR-X4)");
+  if (!row.inputsAreHuman && row.trust !== 'untrusted_repo') {
+    throw new Error(
+      `assertProvenance: non-human input must be written as trust='untrusted_repo', not ${JSON.stringify(
+        row.trust
+      )} (FR-X4); 'mechanical' is reserved for later-phase mechanically-generated content and is not a Phase A learned-record trust`
+    );
   }
   return row;
 }
@@ -64,8 +75,9 @@ export interface Provenance {
  * Validate a knowledge write's provenance (FR-X4) and expand it to the six PROV
  * column values in schema order (prov_kind, prov_ref, trust, injection_suspect,
  * created_at, updated_at). The human-provenance attestation is derived from
- * prov_kind, so a human-labeled trust on non-human provenance — or vice versa —
- * is rejected before any row is written.
+ * prov_kind (`prov_kind === 'human'`), so a non-human record labeled anything
+ * but 'untrusted_repo', or a human record labeled anything but 'human', is
+ * rejected before any row is written (FR-X4; Phase A admits no other trust).
  */
 export function provCreateValues(
   p: Provenance,

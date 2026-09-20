@@ -13,7 +13,12 @@ const negatives: { name: string; input: string }[] = [
   { name: 'hex colour', input: 'background: #ffffff;' },
   { name: 'short base64', input: 'small YWJjZGVmZ2g= token' }, // 12 chars, below min length
   { name: 'unicode phrase', input: 'こんにちは、世界。ありがとう' },
-  { name: 'long low-entropy identifier', input: 'x datadatadatadatadatadata y' }, // 24 chars, entropy ~1.5
+  // A realistic ≥20-char code identifier sitting just below the 4.0-bit
+  // threshold (getUserProfileByEmailAddress is 28 chars, 3.968 bits/char),
+  // rather than a degenerate low-entropy run. This is the case that catches
+  // over-redaction of real code: nudge the threshold down or break the token
+  // rule and this identifier gets wrongly redacted here (m3, first-round review).
+  { name: 'realistic long identifier near the entropy boundary', input: 'const u = getUserProfileByEmailAddress(id);' },
 ];
 
 test('T-11-2: normal code and text are left unredacted', () => {

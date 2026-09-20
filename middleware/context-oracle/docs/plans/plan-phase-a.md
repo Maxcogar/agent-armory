@@ -440,6 +440,7 @@ tests that use it name it in their Data fields.
 |---|---|---|
 | .github/workflows/context-oracle-ctxoracle.yml | create | S1 |
 | .github/workflows/context-oracle-ctxoracle.yml | modify | S28, S38 |
+| middleware/context-oracle/ctxoracle/.gitignore | create | S1 |
 | middleware/context-oracle/ctxoracle/package-lock.json | create | S1 |
 | middleware/context-oracle/ctxoracle/package.json | create | S1 |
 | middleware/context-oracle/ctxoracle/scripts/check-cold-container.sh | create | S38 |
@@ -568,6 +569,7 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/test/conventions/sqlite_single_importer.test.ts | create | S3 |
 | middleware/context-oracle/ctxoracle/test/fixtures/generate_large_store.ts | create | S29 |
 | middleware/context-oracle/ctxoracle/test/fixtures/generate.ts | create | S1 |
+| middleware/context-oracle/ctxoracle/test/fixtures/repos/.gitkeep | create | S1 |
 | middleware/context-oracle/ctxoracle/test/fixtures/repos/answer-drift-clearly-off/ | create | S1 |
 | middleware/context-oracle/ctxoracle/test/fixtures/repos/bar-two-candidates/ | create | S1 |
 | middleware/context-oracle/ctxoracle/test/fixtures/repos/completeness-paired-change/ | create | S1 |
@@ -657,6 +659,7 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/test/unit/command_class_compound.test.ts | create | S17 |
 | middleware/context-oracle/ctxoracle/test/unit/command_class.test.ts | create | S17 |
 | middleware/context-oracle/ctxoracle/test/unit/compose_rumor_rule.test.ts | create | S19 |
+| middleware/context-oracle/ctxoracle/test/unit/concurrency_worker.ts | create | S3 |
 | middleware/context-oracle/ctxoracle/test/unit/concurrency.test.ts | create | S3 |
 | middleware/context-oracle/ctxoracle/test/unit/dao_crud.test.ts | create | S9 |
 | middleware/context-oracle/ctxoracle/test/unit/delivery_dedup.test.ts | create | S20 |
@@ -833,7 +836,7 @@ function-level tests it names.
 step: S1
 covers: [PA-10, PA-12]
 files:
-  create: [.github/workflows/context-oracle-ctxoracle.yml, middleware/context-oracle/ctxoracle/package.json, middleware/context-oracle/ctxoracle/package-lock.json, middleware/context-oracle/ctxoracle/tsconfig.json, middleware/context-oracle/ctxoracle/src/cli/dispatch.ts, middleware/context-oracle/ctxoracle/scripts/run-tests.mjs, middleware/context-oracle/ctxoracle/test/build/tsc_fixture.ts, middleware/context-oracle/ctxoracle/test/replay/transcript_fixtures/, middleware/context-oracle/ctxoracle/test/fixtures/generate.ts, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-full/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-shallow/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-shallow-no-origin/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-nongit/, middleware/context-oracle/ctxoracle/test/fixtures/repos/miner-hygiene/, middleware/context-oracle/ctxoracle/test/fixtures/repos/indexer-small/, middleware/context-oracle/ctxoracle/test/fixtures/repos/coupling-nonobvious/, middleware/context-oracle/ctxoracle/test/fixtures/repos/orientation-mixed-shape/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-mixed-language/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-observed-zero/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-same-name-collision/, middleware/context-oracle/ctxoracle/test/fixtures/repos/consequence-coupled-tests/, middleware/context-oracle/ctxoracle/test/fixtures/repos/warning-landmine/, middleware/context-oracle/ctxoracle/test/fixtures/repos/completeness-paired-change/, middleware/context-oracle/ctxoracle/test/fixtures/repos/verification-covering-test/, middleware/context-oracle/ctxoracle/test/fixtures/repos/bar-two-candidates/, middleware/context-oracle/ctxoracle/test/fixtures/repos/dedup-read-set/, middleware/context-oracle/ctxoracle/test/fixtures/repos/corpus-floor-29/, middleware/context-oracle/ctxoracle/test/fixtures/repos/answer-drift-clearly-off/, middleware/context-oracle/ctxoracle/test/fixtures/repos/pristine-tree/, middleware/context-oracle/ctxoracle/test/fixtures/repos/secret-injection/, middleware/context-oracle/ctxoracle/test/fixtures/repos/subagent-delivery/, middleware/context-oracle/ctxoracle/test/fixtures/repos/language-config-added/, middleware/context-oracle/ctxoracle/test/fixtures/repos/seeded-facts/, middleware/context-oracle/ctxoracle/test/fixtures/repos/regret-true-positive/, middleware/context-oracle/ctxoracle/test/fixtures/repos/regret-no-inflate/, middleware/context-oracle/ctxoracle/test/fixtures/repos/over-threshold-file/, middleware/context-oracle/ctxoracle/test/unit/package_build.test.ts, middleware/context-oracle/ctxoracle/test/unit/run_tests_guard.test.ts, middleware/context-oracle/ctxoracle/test/unit/generator_determinism.test.ts]
+  create: [.github/workflows/context-oracle-ctxoracle.yml, middleware/context-oracle/ctxoracle/package.json, middleware/context-oracle/ctxoracle/package-lock.json, middleware/context-oracle/ctxoracle/tsconfig.json, middleware/context-oracle/ctxoracle/src/cli/dispatch.ts, middleware/context-oracle/ctxoracle/scripts/run-tests.mjs, middleware/context-oracle/ctxoracle/test/build/tsc_fixture.ts, middleware/context-oracle/ctxoracle/test/replay/transcript_fixtures/, middleware/context-oracle/ctxoracle/test/fixtures/generate.ts, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-full/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-shallow/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-shallow-no-origin/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-nongit/, middleware/context-oracle/ctxoracle/test/fixtures/repos/miner-hygiene/, middleware/context-oracle/ctxoracle/test/fixtures/repos/indexer-small/, middleware/context-oracle/ctxoracle/test/fixtures/repos/coupling-nonobvious/, middleware/context-oracle/ctxoracle/test/fixtures/repos/orientation-mixed-shape/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-mixed-language/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-observed-zero/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-same-name-collision/, middleware/context-oracle/ctxoracle/test/fixtures/repos/consequence-coupled-tests/, middleware/context-oracle/ctxoracle/test/fixtures/repos/warning-landmine/, middleware/context-oracle/ctxoracle/test/fixtures/repos/completeness-paired-change/, middleware/context-oracle/ctxoracle/test/fixtures/repos/verification-covering-test/, middleware/context-oracle/ctxoracle/test/fixtures/repos/bar-two-candidates/, middleware/context-oracle/ctxoracle/test/fixtures/repos/dedup-read-set/, middleware/context-oracle/ctxoracle/test/fixtures/repos/corpus-floor-29/, middleware/context-oracle/ctxoracle/test/fixtures/repos/answer-drift-clearly-off/, middleware/context-oracle/ctxoracle/test/fixtures/repos/pristine-tree/, middleware/context-oracle/ctxoracle/test/fixtures/repos/secret-injection/, middleware/context-oracle/ctxoracle/test/fixtures/repos/subagent-delivery/, middleware/context-oracle/ctxoracle/test/fixtures/repos/language-config-added/, middleware/context-oracle/ctxoracle/test/fixtures/repos/seeded-facts/, middleware/context-oracle/ctxoracle/test/fixtures/repos/regret-true-positive/, middleware/context-oracle/ctxoracle/test/fixtures/repos/regret-no-inflate/, middleware/context-oracle/ctxoracle/test/fixtures/repos/over-threshold-file/, middleware/context-oracle/ctxoracle/test/unit/package_build.test.ts, middleware/context-oracle/ctxoracle/test/unit/run_tests_guard.test.ts, middleware/context-oracle/ctxoracle/test/unit/generator_determinism.test.ts, middleware/context-oracle/ctxoracle/.gitignore, middleware/context-oracle/ctxoracle/test/fixtures/repos/.gitkeep]
   modify: []
   delete: []
 provides: [npm-ci, npm-test, npm-run-test, npm-run-build]
@@ -903,7 +906,17 @@ fixed absolute timestamp from the generator's seed (`GIT_AUTHOR_DATE` /
 `GIT_COMMITTER_DATE`), so the same name yields the same commit hashes on
 every machine (`T-1-3`); the scenario each fixture plants is the one its
 consuming test's `Data` field states, and the generator writes nothing a
-test asserts on except the scenario itself (D-plan-5). Also create the
+test asserts on except the scenario itself (D-plan-5). Step 1's fixture
+deliverable is intentionally **partial**: the repo-identity fixtures
+(`repo-key-*`, consumed at Step 5), `corpus-floor-29`, and
+`over-threshold-file` carry their full planted scenario now, while the
+miner/index/genre and later-phase fixtures (consumed at Steps 13–38) are
+deterministic single-commit baselines here and are elaborated to their
+planted scenario at the step that first consumes — and can verify — them.
+Every entry is already deterministic so `T-1-3` holds, and the generator
+states this deferral inline; building the deep scenarios now, before a test
+can check them, would be unmeasured machinery (the phase goal's "no fake
+completeness"). Also create the
 transcript fixtures under `test/replay/transcript_fixtures/` — one JSONL
 file per V12 shape: marker-carrying human turns, a marker-less string-content
 user entry, an injected task-notification entry (`origin.kind:
@@ -936,7 +949,7 @@ exists (the runner's count guard covers `test/replay` too, so adding it
 earlier would be a red run on an empty set), and the `cold-container` job
 `AC-20` names is added by Step 38, when its script exists.
 
-**Creates.** `.github/workflows/context-oracle-ctxoracle.yml` — CI: build + unit/integration/convention tier; `package.json` — AD-25; `tsconfig.json` — AD-25; compiles src/ and test/ into dist/; `src/cli/dispatch.ts` — the `bin` target stub (`#!/usr/bin/env node`; does no work, exits non-zero on invocation), extended by Steps 28 and 31–35 (AD-25); `scripts/run-tests.mjs` — enumerates compiled tests; refuses a zero/mismatched set; `test/build/tsc_fixture.ts` — helper: runs tsc --noEmit on one fixture, returns exit code + diagnostics; `test/replay/transcript_fixtures/` — transcript JSONL fixtures (marker-carrying, marker-less, injected-turn, lag); `test/fixtures/generate.ts` — entry point for all fixture-repo generators (D-plan-5); `test/fixtures/repos/repo-key-full/` — full history, 3 root commits; `test/fixtures/repos/repo-key-shallow/` — depth-1 clone of repo-key-full with origin; `test/fixtures/repos/repo-key-shallow-no-origin/`; `test/fixtures/repos/repo-key-nongit/` — plain directory; `test/fixtures/repos/miner-hygiene/` — planted pair, merge commit, 45-file commit, beyond-horizon commit; `test/fixtures/repos/indexer-small/` — 3 .ts files, 1 .py, 1 .sh, 1 >1 MB file, planted secret; `test/fixtures/repos/coupling-nonobvious/` — cross-directory pair + same-dir same-stem pair; `test/fixtures/repos/orientation-mixed-shape/` — low-in-degree main/cli + high-in-degree hub; `test/fixtures/repos/reuse-mixed-language/` — grammar-covered dominant + generic-frontend candidate; `test/fixtures/repos/reuse-observed-zero/` — grammar-covered symbol with observed 0 count; `test/fixtures/repos/reuse-same-name-collision/` — comment/string collisions; `test/fixtures/repos/consequence-coupled-tests/` — file co-changing with two test files; `test/fixtures/repos/warning-landmine/` — revert_chain + fix_chatter rows, low-confidence row; `test/fixtures/repos/completeness-paired-change/`; `test/fixtures/repos/verification-covering-test/` — changed region with a covering test; run / not-run / run-and-failed variants; `test/fixtures/repos/bar-two-candidates/`; `test/fixtures/repos/dedup-read-set/`; `test/fixtures/repos/corpus-floor-29/` — 29 non-excluded commits, generator adds the 30th; `test/fixtures/repos/answer-drift-clearly-off/`; `test/fixtures/repos/pristine-tree/`; `test/fixtures/repos/secret-injection/`; `test/fixtures/repos/subagent-delivery/`; `test/fixtures/repos/language-config-added/`; `test/fixtures/repos/seeded-facts/` — planted coupling + planted landmine; `test/fixtures/repos/regret-true-positive/` — a held fact and a never-triggered fact); `test/fixtures/repos/regret-no-inflate/`; `test/fixtures/repos/over-threshold-file/` — >1 MB file carrying a seeded fact (AD-24).
+**Creates.** `.github/workflows/context-oracle-ctxoracle.yml` — CI: build + unit/integration/convention tier; `package.json` — AD-25; `tsconfig.json` — AD-25; compiles src/ and test/ into dist/; `src/cli/dispatch.ts` — the `bin` target stub (`#!/usr/bin/env node`; does no work, exits non-zero on invocation), extended by Steps 28 and 31–35 (AD-25); `scripts/run-tests.mjs` — enumerates compiled tests; refuses a zero/mismatched set; `test/build/tsc_fixture.ts` — helper: runs tsc --noEmit on one fixture, returns exit code + diagnostics; `test/replay/transcript_fixtures/` — transcript JSONL fixtures (marker-carrying, marker-less, injected-turn, lag); `test/fixtures/generate.ts` — entry point for all fixture-repo generators (D-plan-5); `test/fixtures/repos/repo-key-full/` — full history, 3 root commits; `test/fixtures/repos/repo-key-shallow/` — depth-1 clone of repo-key-full with origin; `test/fixtures/repos/repo-key-shallow-no-origin/`; `test/fixtures/repos/repo-key-nongit/` — plain directory; `test/fixtures/repos/miner-hygiene/` — planted pair, merge commit, 45-file commit, beyond-horizon commit; `test/fixtures/repos/indexer-small/` — 3 .ts files, 1 .py, 1 .sh, 1 >1 MB file, planted secret; `test/fixtures/repos/coupling-nonobvious/` — cross-directory pair + same-dir same-stem pair; `test/fixtures/repos/orientation-mixed-shape/` — low-in-degree main/cli + high-in-degree hub; `test/fixtures/repos/reuse-mixed-language/` — grammar-covered dominant + generic-frontend candidate; `test/fixtures/repos/reuse-observed-zero/` — grammar-covered symbol with observed 0 count; `test/fixtures/repos/reuse-same-name-collision/` — comment/string collisions; `test/fixtures/repos/consequence-coupled-tests/` — file co-changing with two test files; `test/fixtures/repos/warning-landmine/` — revert_chain + fix_chatter rows, low-confidence row; `test/fixtures/repos/completeness-paired-change/`; `test/fixtures/repos/verification-covering-test/` — changed region with a covering test; run / not-run / run-and-failed variants; `test/fixtures/repos/bar-two-candidates/`; `test/fixtures/repos/dedup-read-set/`; `test/fixtures/repos/corpus-floor-29/` — 29 non-excluded commits, generator adds the 30th; `test/fixtures/repos/answer-drift-clearly-off/`; `test/fixtures/repos/pristine-tree/`; `test/fixtures/repos/secret-injection/`; `test/fixtures/repos/subagent-delivery/`; `test/fixtures/repos/language-config-added/`; `test/fixtures/repos/seeded-facts/` — planted coupling + planted landmine; `test/fixtures/repos/regret-true-positive/` — a held fact and a never-triggered fact); `test/fixtures/repos/regret-no-inflate/`; `test/fixtures/repos/over-threshold-file/` — >1 MB file carrying a seeded fact (AD-24); `.gitignore` — re-includes `package-lock.json` and the `test/build/` subtree for this package (the repository-root `.gitignore` ignores both by pattern; `node_modules/` and `dist/` stay ignored), so `T-1-1`/CI are not silently starved of the committed lockfile or the compile-time test tier (implementation-log/collapse-log 2026-09-19); `test/fixtures/repos/.gitkeep` — keeps the generated-at-test-time fixture-repos directory present in git.
 
 **Source.** `AD-25` (packaging: two runtime deps, no postinstall, no native
 code, `tsc` build); `AD-2` (Node ≥ 22.16.0, TypeScript strict ESM); `AD-24`
@@ -1079,7 +1092,7 @@ hook path.
 step: S3
 covers: [PA-3]
 files:
-  create: [middleware/context-oracle/ctxoracle/src/stores/adapter.ts, middleware/context-oracle/ctxoracle/test/unit/stores_adapter.test.ts, middleware/context-oracle/ctxoracle/test/conventions/sqlite_single_importer.test.ts, middleware/context-oracle/ctxoracle/test/unit/concurrency.test.ts, middleware/context-oracle/ctxoracle/test/unit/fts5_probe.test.ts]
+  create: [middleware/context-oracle/ctxoracle/src/stores/adapter.ts, middleware/context-oracle/ctxoracle/test/unit/stores_adapter.test.ts, middleware/context-oracle/ctxoracle/test/conventions/sqlite_single_importer.test.ts, middleware/context-oracle/ctxoracle/test/unit/concurrency.test.ts, middleware/context-oracle/ctxoracle/test/unit/concurrency_worker.ts, middleware/context-oracle/ctxoracle/test/unit/fts5_probe.test.ts]
   modify: []
   delete: []
 provides: [openStore, Store, StoreBusy, probeFts5]
@@ -1094,10 +1107,20 @@ codebase that imports `node:sqlite`. Exports:
   `path` with `foreign_keys=ON`, `busy_timeout=100`, prepares statement
   caches, returns a `Store` handle.
 - `Store.prepare(sql: string): Statement` — prepared statement wrapper.
-- `Store.transaction<T>(fn: () => T): T` — `BEGIN IMMEDIATE`/`COMMIT`/
-  `ROLLBACK`; on `SQLITE_BUSY` retries **once**; on the second failure it
-  raises a typed `StoreBusy` error the caller turns into the `store_busy`
-  fault and fails open (AD-26).
+- `Store.exec(sql: string): void` — direct execution of DDL and PRAGMAs (no
+  result rows); used by the migration runner (Step 7) and `BEGIN/COMMIT` inside
+  `transaction`.
+- `Store.transaction<T>(fn: () => T, opts?: { onBusyRetry?: () => void }): T` —
+  `BEGIN IMMEDIATE`/`COMMIT`/`ROLLBACK`; on `SQLITE_BUSY` retries **once**; on
+  the second failure it raises a typed `StoreBusy` error the caller turns into
+  the `store_busy` fault and fails open (AD-26). `opts.onBusyRetry`, when given,
+  is invoked exactly once — after the first attempt's `SQLITE_BUSY`, before the
+  retry — and takes no part in the transaction (it runs outside `BEGIN`/`COMMIT`
+  and cannot affect the row set). It is the deterministic observation seam
+  `T-3-3` uses to sequence the retry-then-succeed path (a contending worker
+  signals its first-attempt busy and blocks inside it until the lock is
+  released). Production callers omit it, and behaviour is then identical to a
+  bare `transaction(fn)`.
 - `Store.close()`, `Store.integrityCheck(): 'ok' | 'failed'` (runs `PRAGMA
   quick_check` — used only off the event path per AD-17).
 - `Store.exportTo(destPath: string): void` — implements `VACUUM INTO`
@@ -1225,7 +1248,7 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/identity/repo_key.ts, middleware/context-oracle/ctxoracle/src/util/hash.ts, middleware/context-oracle/ctxoracle/src/util/spawn.ts, middleware/context-oracle/ctxoracle/test/unit/repo_key.test.ts, middleware/context-oracle/ctxoracle/test/unit/spawn_wrapper.test.ts, middleware/context-oracle/ctxoracle/test/conventions/child_process_single_importer.test.ts]
   modify: []
   delete: []
-provides: [resolveRepoKey, oracleSpawn]
+provides: [resolveRepoKey, oracleSpawn, oracleExecFileSync, sha256Hex, sha256Short, SCRUBBED_ENV]
 tests: [T-5-1, T-5-2, T-5-3]
 depends_on: [S1, S4]
 ```
@@ -1233,8 +1256,10 @@ depends_on: [S1, S4]
 
 **What changes.** Create `src/identity/repo_key.ts` exporting
 `resolveRepoKey(repoPath: string): { key: string; mode:
-'commit'|'url'|'path'; identity: string }`, and `src/util/hash.ts` (SHA-256
-helpers). Rules, in order:
+'commit'|'url'|'path'; identity: string }`, and `src/util/hash.ts` exporting
+`sha256Hex(data)` and `sha256Short(data, len = 12)` (the first `len` hex
+characters of the digest — the repo key is `sha256Short` over the identity
+string). Rules, in order:
 1. `git rev-parse --is-inside-work-tree` fails (non-zero exit — in a
    directory inside no repository git exits 128 with `fatal: not a git
    repository` and prints nothing; `false` is printed only from inside a
@@ -1269,7 +1294,9 @@ The key is the first 12 hex characters of SHA-256 over the identity string.
 
 Also create `src/util/spawn.ts` — the ONLY file in the codebase that imports
 `node:child_process`. It exports `oracleSpawn(cmd, args, {cwd, env?, detached?,
-scrub?})` and `oracleExecFileSync(...)`; every child it starts carries
+scrub?})` and `oracleExecFileSync(cmd, args, {cwd, env?, scrub?, maxBuffer?})`
+(`maxBuffer` bounds captured stdout and defaults to 64 MiB — the miner's `git
+log` is the large consumer); every child it starts carries
 `CTXORACLE_INTERNAL=1` in its environment (AD-21's recursion guard as a
 structural property), and with `scrub: true` the child environment drops
 exactly the **session-identity set** `SCRUBBED_ENV` exported by the module:
@@ -1392,7 +1419,12 @@ Create `src/security/trust.ts` — the `Trust` type (`'untrusted_repo' |
 'human' | 'mechanical'`, mirroring the DB CHECK of Step 7) and
 `assertProvenance(row)`, the helper every learned-record DAO entry point
 (Step 9) calls so that a non-human-provenance input can only be written as
-`'untrusted_repo'` (`FR-X4`); it lives here, with the shared types, because
+`'untrusted_repo'` (`FR-X4`). The schema's third trust value `'mechanical'`
+is present for forward-compatibility with later-phase mechanically-generated
+content (`FR-X2`); no Phase A learned-record entry point emits it, and
+`assertProvenance` rejects a Phase A write that attempts it (the two legal
+outcomes are human-provenance → `'human'`, everything else → `'untrusted_repo'`).
+It lives here, with the shared types, because
 Step 9 consumes it and Step 11 (the redactor and the injection flagger) is
 built after Step 9.
 
@@ -1651,7 +1683,9 @@ uniform table-creation criterion (no table without a same-phase writer)
 means those arrive with their writing phase's migration.
 
 Add `src/stores/migration_runner.ts` — `applyMigrations(store, {fts:
-boolean})` reads `schema_meta.schema_version` (0 when the table does not
+boolean, scope?: 'project'|'global'})` — scope defaults to `'project'`; `'global'`
+applies only migration 002 (the Step 8 global store) against `global_meta`,
+ignoring `fts`. For the project scope it reads `schema_meta.schema_version` (0 when the table does not
 exist yet — an empty store), applies the numbered migrations in order,
 and between 001 and 001b records `schema_meta.fts_state` — `'fts5'` when
 `fts` is true, `'fallback'` otherwise — only when that key is absent, so
@@ -1746,7 +1780,8 @@ CREATE TABLE lessons(id TEXT PRIMARY KEY, statement TEXT NOT NULL,
 `global_meta` holds the per-project fold watermarks (rows keyed
 `whisper_stats_watermark:<repo-key>`). Do NOT create `env_capabilities`
 (Phase B writer). Schema only; the `tuning` seed rows are written by
-Step 12.
+Step 12. Migration 002 is applied by Step 7's runner via
+`applyMigrations(store, {scope: 'global'})`; Step 8 adds no runner of its own.
 
 **Creates.** `src/stores/migrations/002_phase_a_global.sql` — AD-5.
 
@@ -1820,7 +1855,24 @@ synchronously — the deny emitter (Step 25) and the composer (Step 19)
 depend on this being synchronous per AD-8's audit-log-before-emit ordering.
 The learned-record entry points accept only `trust='untrusted_repo'`
 unless every input is human-provenance (`FR-X4`) — `assertProvenance`
-(Step 6's `src/security/trust.ts`) is what each entry point calls.
+(Step 6's `src/security/trust.ts`) is what each entry point calls. The
+schema's `'mechanical'` trust value is reserved for later-phase
+mechanically-generated content (`FR-X2`) and is rejected by that gate in
+Phase A, so `T-9-1` pins that a non-human input written as `'mechanical'`
+throws, alongside the human↔untrusted laundering cases.
+
+Three DAO-surface details are pinned here so they are declared rather than
+left for a reader to discover: (a) `observed_actions` classifies tools by two
+in-code sets — `EDIT_TOOLS = {Edit, Write, MultiEdit, NotebookEdit}` (the
+change/re-edit consumers `okEdits`/`pathWrites`/`writtenSince`) and
+`READ_TOOLS = {Read, Grep, Glob}` (the read-set consumer `okReads`) — matching
+AD-4's consumer filter (the Edit/Write/Read tool rows, not the Bash path-write
+rows); (b) `landmines.upsert` dedups on the key `(kind, file_id, evidence)`, so
+re-mining the same evidence updates `support` in place instead of inserting a
+duplicate row; (c) `whisper_audit.deliveredSubjects(session)` returns the
+distinct `genre` values of the session's delivered whisper rows — `whisper_audit`
+records `genre`, not a separate subject key, so genre is the subject
+granularity this reader exposes.
 
 **Creates.** `src/stores/dao/files.ts`; `src/stores/dao/symbols.ts`; `src/stores/dao/import_edges.ts`; `src/stores/dao/symbol_refs.ts`; `src/stores/dao/test_map.ts`; `src/stores/dao/commits.ts`; `src/stores/dao/cochange_pairs.ts`; `src/stores/dao/landmines.ts`; `src/stores/dao/invariants.ts`; `src/stores/dao/human_facts.ts`; `src/stores/dao/corrections.ts`; `src/stores/dao/questions.ts`; `src/stores/dao/classify_state.ts`; `src/stores/dao/consumer_state.ts`; `src/stores/dao/session_log.ts`; `src/stores/dao/observed_actions.ts`; `src/stores/dao/whisper_audit.ts`; `src/stores/dao/faults.ts`; `src/stores/dao/regret.ts` — the plan-table DAO AD-18's regret row needs; `src/stores/dao/classified_turns.ts` — the per-turn classification record the deny-health detectors read across events; `src/stores/dao/whisper_stats.ts`; `src/stores/dao/lessons.ts`; `src/stores/dao/global_meta.ts` — one file per Phase A table; `src/stores/dao/schema_meta.ts` — one file per Phase A table; `src/util/ulid.ts` — ULID generator (AD-26).
 
@@ -7515,10 +7567,14 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Level.** Integration (real `git`, real filesystem).
   - **Real/doubles.** Real `git`; no doubles.
   - **Data.** Every name under `test/fixtures/repos/` in §5.1, generated
-    twice into two temp directories; `git rev-list --all` compared.
+    twice into two temp directories; `git rev-list --all` compared. The
+    generator's name set is also asserted equal to the §5.1 fixture list held
+    as a literal in the test, so a name added to the generator or to §5.1 but
+    not the other is caught rather than iterated over vacuously.
     Technique: equivalence partitioning over fixture names.
   - **NOT asserts.** Fixture content semantics (each consuming test).
-    **Fails when** any name errors, OR any name's two hash lists differ.
+    **Fails when** any name errors, OR any name's two hash lists differ, OR the
+    generator's fixture set differs from the §5.1 literal list.
 
 - **T-2-1 — Runtime floor rejects below 22.16.0.**
   - **File.** `test/unit/env.test.ts`.
@@ -7740,13 +7796,17 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     returns its id synchronously.
   - **Level.** Integration (real engine via migrations).
   - **Real/doubles.** Real `node:sqlite`; no doubles.
-  - **Data.** One minimal valid row per DAO with real provenance; a
-    `trust='untrusted_repo'` write through a learned-record entry point
-    with a human-provenance input must be rejected (FR-X4 laundering).
-    Technique: equivalence partitioning.
+  - **Data.** One minimal valid row per DAO with real provenance (repo-derived
+    rows carry `trust='untrusted_repo'`). All three FR-X4 laundering cases are
+    rejected at the entry point: a human-provenance input written as
+    `'untrusted_repo'`, a non-human input written as `'human'`, and a non-human
+    input written as `'mechanical'` (the schema's reserved later-phase value —
+    `FR-X2` — which no Phase A entry point may emit). Technique: equivalence
+    partitioning.
   - **NOT asserts.** Type-level enforcement (T-9-2). **Fails when** any
     round-trip loses or mutates data, OR an id is not a valid ULID, OR
-    `append` returns a Promise, OR trust laundering is accepted.
+    `append` returns a Promise, OR any of the three trust-laundering writes is
+    accepted.
 
 - **T-9-2 — Provenance is required at compile time.**
   - **File.** `test/build/typecheck_provenance.test.ts`, fixture
@@ -7827,7 +7887,9 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Level.** Unit.
   - **Real/doubles.** Real function; literal thresholds.
   - **Data.** A variable name, a URL path, a hex colour, a 12-character
-    Base64 string, a Unicode phrase, a 24-character English identifier.
+    Base64 string, a Unicode phrase, and a realistic 28-character code
+    identifier at ~3.97 bits/char — just below the 4.0 threshold, so real code
+    near the boundary is exercised rather than a degenerate low-entropy run.
     Technique: equivalence partitioning (below threshold / below length).
   - **NOT asserts.** Entropy behaviour above threshold on real code (a
     corrections signal). **Fails when** any negative case is redacted.
@@ -7871,11 +7933,14 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Real/doubles.** Real `node:sqlite`; no doubles.
   - **Data.** Migration 002 + `seedDefaults`; every key in Step 12 read back
     with its value and `source`; set a scalar; add and remove a list member;
-    `seedDefaults` again. Technique: decision table (key present/value/
-    source) + state-transition.
+    `seedDefaults` again. The load-bearing scalars are additionally pinned to
+    the §10 literal values/sources (not to the seed module the seeder reads),
+    so a silent drift between the seed module and the plan is caught.
+    Technique: decision table (key present/value/source) + state-transition.
   - **NOT asserts.** Bar arithmetic (T-16-1). **Fails when** any seed is
-    missing, has the wrong value, or the wrong `source`; OR a round-trip
-    loses a value; OR the second `seedDefaults` changes any row.
+    missing, has the wrong value, or the wrong `source`; OR a load-bearing
+    scalar diverges from its §10 literal; OR a round-trip loses a value; OR the
+    second `seedDefaults` changes any row.
 
 - **T-13-1 — Miner hygiene, pair emission, landmine classes.**
   - **File.** `test/unit/miner.test.ts`.
