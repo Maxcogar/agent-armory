@@ -38,7 +38,12 @@ import { whisperStatsDao } from '../../src/stores/dao/whisper_stats.js';
 import { lessonsDao } from '../../src/stores/dao/lessons.js';
 
 const ULID = /^[0-9A-HJKMNP-TV-Z]{26}$/;
-const mech: Provenance = { prov_kind: 'mechanical', prov_ref: 'idx', trust: 'mechanical' };
+// A stand-in valid non-human provenance for CRUD round-trips: repo-derived
+// content ⇒ trust='untrusted_repo' (FR-X4). The real per-writer provenance is
+// set by the Steps 13+ writers; T-9-1's job here is the round-trip plus the
+// laundering gate, not per-table provenance semantics. 'mechanical' is NOT a
+// Phase A learned-record trust (see the rejection case below).
+const repo: Provenance = { prov_kind: 'repo_span', prov_ref: 'src/a.ts:0-5', trust: 'untrusted_repo' };
 const human: Provenance = { prov_kind: 'human', prov_ref: 'owner', trust: 'human' };
 
 function withStores(fn: (project: Store, global: Store) => void): void {
@@ -59,23 +64,23 @@ function withStores(fn: (project: Store, global: Store) => void): void {
 test('T-9-1: structural DAOs round-trip', () => {
   withStores((s) => {
     const files = filesDao(s);
-    const id1 = files.upsert({ path: 'src/a.ts', lang: 'ts', zone: 'source', contentHash: 'h1', mtime: 1, prov: mech });
-    const id2 = files.upsert({ path: 'test/a.test.ts', lang: 'ts', zone: 'source', contentHash: 'h2', mtime: 2, prov: mech });
+    const id1 = files.upsert({ path: 'src/a.ts', lang: 'ts', zone: 'source', contentHash: 'h1', mtime: 1, prov: repo });
+    const id2 = files.upsert({ path: 'test/a.test.ts', lang: 'ts', zone: 'source', contentHash: 'h2', mtime: 2, prov: repo });
     assert.equal(files.byId(id1)?.path, 'src/a.ts');
     assert.equal(files.byPath('test/a.test.ts')?.id, id2);
     assert.equal(files.all().length, 2);
     // update via upsert (same path) keeps id, updates content_hash
-    const id1b = files.upsert({ path: 'src/a.ts', lang: 'ts', zone: 'source', contentHash: 'h1x', mtime: 3, prov: mech });
+    const id1b = files.upsert({ path: 'src/a.ts', lang: 'ts', zone: 'source', contentHash: 'h1x', mtime: 3, prov: repo });
     assert.equal(id1b, id1);
     assert.equal(files.byId(id1)?.content_hash, 'h1x');
 
     const symbols = symbolsDao(s);
-    symbols.replaceForFile(id1, [{ name: 'foo', kind: 'function', spanStart: 0, spanEnd: 5 }], mech);
+    symbols.replaceForFile(id1, [{ name: 'foo', kind: 'function', spanStart: 0, spanEnd: 5 }], repo);
     const foo = symbols.byName('foo');
     assert.equal(foo.length, 1);
     assert.equal(symbols.byId(foo[0]!.id)?.name, 'foo');
     // replace removes the old rows
-    symbols.replaceForFile(id1, [{ name: 'bar', kind: 'function', spanStart: 0, spanEnd: 3 }], mech);
+    symbols.replaceForFile(id1, [{ name: 'bar', kind: 'function', spanStart: 0, spanEnd: 3 }], repo);
     assert.equal(symbols.byName('foo').length, 0);
     const bar = symbols.byName('bar', 'function');
     assert.equal(bar.length, 1);
@@ -90,7 +95,7 @@ test('T-9-1: structural DAOs round-trip', () => {
     assert.equal(refs.refCount(bar[0]!.id), 3);
 
     const tm = testMapDao(s);
-    tm.replaceForFile(id2, [{ regionGlob: 'src/*', source: 'heuristic' }], mech);
+    tm.replaceForFile(id2, [{ regionGlob: 'src/*', source: 'heuristic' }], repo);
     assert.deepEqual(tm.coveringTests('src/a.ts'), [id2]);
     assert.deepEqual(tm.coveringTests('other/x.ts'), []);
 
@@ -110,7 +115,7 @@ test('T-9-1: structural DAOs round-trip', () => {
     assert.deepEqual(co.partnersOf(id1).map((p) => p.partner), [id2]);
 
     // files.deleteMissing removes vanished files (and cascades).
-    files.upsert({ path: 'gone.ts', lang: 'ts', zone: 'source', contentHash: 'g', mtime: 9, prov: mech });
+    files.upsert({ path: 'gone.ts', lang: 'ts', zone: 'source', contentHash: 'g', mtime: 9, prov: repo });
     files.deleteMissing(['src/a.ts', 'test/a.test.ts']);
     assert.equal(files.byPath('gone.ts'), undefined);
     assert.equal(files.byPath('src/a.ts')?.id, id1);
@@ -120,14 +125,14 @@ test('T-9-1: structural DAOs round-trip', () => {
 test('T-9-1: knowledge DAOs round-trip; ids are ULIDs; FR-X4 laundering rejected', () => {
   withStores((s, g) => {
     const files = filesDao(s);
-    const fid = files.upsert({ path: 'src/a.ts', lang: 'ts', zone: 'source', contentHash: 'h', mtime: 1, prov: mech });
+    const fid = files.upsert({ path: 'src/a.ts', lang: 'ts', zone: 'source', contentHash: 'h', mtime: 1, prov: repo });
 
     const landmines = landminesDao(s);
-    const lmId = landmines.upsert({ kind: 'revert_chain', fileId: fid, evidence: 'e', support: 2, prov: mech });
+    const lmId = landmines.upsert({ kind: 'revert_chain', fileId: fid, evidence: 'e', support: 2, prov: repo });
     assert.match(lmId, ULID);
     assert.equal(landmines.forFile(fid).length, 1);
     // dedup: same (kind, file, evidence) updates support, no new row
-    const lmId2 = landmines.upsert({ kind: 'revert_chain', fileId: fid, evidence: 'e', support: 5, prov: mech });
+    const lmId2 = landmines.upsert({ kind: 'revert_chain', fileId: fid, evidence: 'e', support: 5, prov: repo });
     assert.equal(lmId2, lmId);
     assert.equal(landmines.forFile(fid).length, 1);
     assert.equal(landmines.forFile(fid)[0]!.support, 5);
@@ -151,17 +156,25 @@ test('T-9-1: knowledge DAOs round-trip; ids are ULIDs; FR-X4 laundering rejected
     assert.equal(corr.sinceTs(20).length, 0);
 
     const lessons = lessonsDao(g);
-    const lId = lessons.create({ statement: 'always X', prov: mech });
+    const lId = lessons.create({ statement: 'always X', prov: repo });
     assert.match(lId, ULID);
     assert.equal(lessons.all().length, 1);
 
-    // FR-X4: a human input cannot be written as untrusted, and repo content
-    // cannot be written as human.
+    // FR-X4: a human input cannot be written as untrusted, and non-human
+    // (repo-derived) content cannot be written as 'human' NOR as 'mechanical'
+    // — in Phase A the only legal non-human learned-record trust is
+    // 'untrusted_repo'. 'mechanical' is reserved for later-phase
+    // mechanically-generated content (FR-X2) and no Phase A entry point emits it.
     assert.throws(() =>
       hf.create({ statement: 's', targetKind: 'file', targetRef: 'a', statedAt: 1, prov: { prov_kind: 'human', prov_ref: 'o', trust: 'untrusted_repo' } })
     );
     assert.throws(() =>
       hf.create({ statement: 's', targetKind: 'file', targetRef: 'a', statedAt: 1, prov: { prov_kind: 'repo_span', prov_ref: 'a.ts', trust: 'human' } })
+    );
+    // The case the first-round review flagged (M1): a non-human input labeled
+    // 'mechanical' escaped the gate before this fix. It must now be rejected.
+    assert.throws(() =>
+      files.upsert({ path: 'x.ts', lang: 'ts', zone: 'source', contentHash: 'hx', mtime: 1, prov: { prov_kind: 'repo_span', prov_ref: 'x.ts:0-1', trust: 'mechanical' } })
     );
   });
 });
