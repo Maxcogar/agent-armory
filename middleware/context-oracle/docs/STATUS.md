@@ -91,7 +91,16 @@ bug). **All were applied — no triage:**
   the reconciliation is recorded in AD-4 and plan Step 6/9, and `T-9-1` now pins
   the non-human→`'mechanical'` rejection. The code was looser than the
   (well-grounded) rule; the fix makes code conform to the rule — the
-  security-tightening direction.
+  security-tightening direction. **Its blast radius is now verified beyond the
+  diff**: reading every PROV-carrying writer the plan specifies for Steps 13–40
+  confirms each either writes repo-derived content as `'untrusted_repo'` (miner
+  S13, indexer S14/15 — which M1 *requires*) or human-provenance content as
+  `'human'` (`note`, S35 — which M1 *permits*), none emits `'mechanical'`, and
+  all funnel through the Step 9 DAO contract the plan already states identically
+  to M1. The two convergence passes had scoped only to `git diff origin/main`
+  and never examined the gate's planned consumers; that review-scope gap and its
+  clean result are recorded in `docs/collapse-log.md` (2026-09-23). M1 is safe
+  across all of Phase A.
 - **M2** — `Store.transaction` gained a minimal `onBusyRetry` observation seam
   (declared in Step 3); `T-3-3` now drives the AD-26 retry-then-succeed path
   deterministically per the §12 spec (writer B reports its first-attempt busy,
@@ -174,6 +183,12 @@ Two concrete Step-13 notes already established:
 - The `cochange_pairs` DAO's `bump` currently increments `a_count`/`b_count`
   alongside `pair_count` as a stand-in; Step 13 owns the real per-file change
   counts and should set them from the mining pass.
+- Every PROV row the miner (S13) and indexer (S14/15) write is repo-derived, so
+  each carries a non-human `prov_kind` and `trust='untrusted_repo'` — M1's gate
+  (`assertProvenance`, via the Step 9 DAO `create`/`upsert` methods) requires
+  exactly this and rejects `'mechanical'`; the `note` verb (S35) is the only
+  Phase A writer of `'human'` provenance. This is the verified consumer contract
+  behind `docs/collapse-log.md` 2026-09-23, not a new decision to make.
 
 One premise the earlier reviews flagged and dispositioned: Unicode NFC/NFD path
 normalization is **out of scope** for Phase A's Linux target. Do not reopen it

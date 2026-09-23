@@ -1540,3 +1540,71 @@ also simply correct for scanning any live tree. Verified by five consecutive
 green full-suite runs. Do **not** "fix" this by forcing the test runner
 serial — the robustness belongs in the scan, and serial execution would only
 hide the same latent race for real dist scanning.
+
+## 2026-09-23 — a shared-gate change reviewed only against the diff leaves its planned consumers unexamined; convergence on the diff is not verification of the gate's reach
+
+**What happened.** Checkpoint 1's finding **M1**
+(`docs/reviews/2026-09-19-checkpoint-1-implementation-review.md`) tightened
+`assertProvenance` in
+`middleware/context-oracle/ctxoracle/src/security/trust.ts` — the single gate
+every learned-record DAO funnels through (plan Step 9) — so a non-human input
+must be written `trust='untrusted_repo'` and `'mechanical'` is rejected
+(reserved for later-phase mechanically-generated content, `FR-X2`; the
+non-launderable rule is `FR-X4`; schema `AD-4`). Both mandatory convergence
+passes on the fix set
+(`docs/reviews/2026-09-20-checkpoint-1-fixset-round2-expert-review.md` and
+`…-round2-collapse-hunt.md`, zero findings) scoped their review to
+`git diff origin/main` — the Steps 1–12 change set. They re-attacked M1's
+*local* soundness (fail-closed, single-entry-point, spec-grounded) and confirmed
+no `src/` writer *in the diff* emits `'mechanical'`. Neither read the **planned
+consumers** of that gate — the learned-record writers specified for Steps
+13–40 — to confirm the tightened rule conflicts with none of them. Reaching
+beyond the diff is the whole point of a shared gate, and the review scope
+stopped at the diff.
+
+**Class: review-scope, at the blast-radius layer.** A gate or primitive that
+later-planned code is specified to funnel through has a blast radius past the
+steps in the diff. Re-attacking the change where it was *written* — even to
+convergence, even with two independent passes — does not examine where it will
+*bite*: the code not written yet but specified to call it. The convergence
+record was true of the diff and silent about the consumers. (Same family as the
+2026-09-19 "converged ≠ executable" lesson — a claim true of the artifact
+reviewed and false of a property never in scope — here about a change's reach
+across unwritten-but-specified callers rather than temporal existence.)
+
+**How it was closed, and the result.** The blast radius was verified afterward
+by *reading* — not grepping — every PROV-carrying writer the plan specifies
+across Steps 13–40. The seven PROV tables (`files`, `symbols`, `test_map`,
+`landmines`, `invariants` in the project store; `human_facts`; and `lessons`
+in the global store) have exactly three writer families: the co-change miner
+(S13 — `landmines` `revert_chain`/`fix_chatter`) and the structural indexer
+(S14/S15 — `files`/`symbols`/`test_map`) write repo-derived content, which M1
+*requires* be `'untrusted_repo'`; the `note` verb (S35) writes
+`human_facts`/`invariants`/human-stated `landmines`/`lessons` with prov
+`'human'`, which M1 *permits*. The genres (S18) write no PROV table (they read
+and emit in-memory candidates → `whisper_audit`, which carries no PROV block);
+the `correct` verb (S34) writes `corrections`/`questions`, neither a PROV table.
+**No planned writer emits `'mechanical'`**, and every one funnels through the
+Step 9 DAO contract, which the plan already states identically to M1 — so there
+is no per-writer trust decision downstream for M1 to contradict. **M1 is safe
+across all of Phase A**; the reviews simply never established it. (M2 — the
+`onBusyRetry` seam on `Store.transaction` — has the same *shape*, a shared
+primitive, but is an optional, no-op-when-omitted parameter: every production
+and planned caller omits it and gets identical behaviour, so its blast radius
+is structurally nil, confirmed by reading `src/stores/adapter.ts`.)
+
+**Standing lesson.** When a review's diff changes a **shared gate or primitive
+that later-planned steps are specified to funnel through**, the review scope
+must extend to those planned consumers — read each one's intended use against
+the change — not stop at the steps in the diff. This is *not* "every review must
+read the whole plan": the trigger is specific — the diff changes something with
+declared downstream callers that do not exist yet. Distinguish that case (needs
+consumer-scope review) from a plan-document or test-only change, whose blast
+radius is confined by construction and needs no such sweep. The mechanical
+dispatch (`.claude/skills/expert-implement/references/review-handoff.md`) hands
+the reviewer the diff's file list; for a shared-gate change it must also name
+the planned-consumer steps to check, or the reviewer scopes to the diff and — as
+here — returns a clean convergence that never looked where the change actually
+reaches. That the gap surfaced through Max Cogar's questioning rather than
+through the review process is why it is logged: dominating rule 2's "the owner
+is never the one who catches it."
