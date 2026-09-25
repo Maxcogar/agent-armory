@@ -69,6 +69,13 @@ _setup_logging()
 log = logging.getLogger(__name__)
 
 
+# Cap memory before any index is opened: a corrupt persisted index must fail
+# its allocation inside this process, not exhaust the machine.
+from utils.memlimit import apply_memory_limit
+
+apply_memory_limit()
+
+
 # ============================================================
 # Heavy imports — safe now that dependencies are verified.
 # ============================================================
@@ -82,15 +89,19 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field, ConfigDict
 from mcp.server.fastmcp import FastMCP, Context
 
-from config import ProjectContext, restore_context
-from bootstrap import setup_project
-from indexer import index_project, index_file
+from config import ProjectContext, rag_dir
+from index_store import IndexUnavailable, open_index, open_or_rebuild
+from indexer import index_file
 from query import check_constraints, query_impact
-from utils.paths import find_project_root, index_exists_for
+from utils.paths import find_project_root
 from utils.chroma import warmup_embedding_model
+from utils.writer_lock import WriterLock
 
 
 CHARACTER_LIMIT = 25_000
+
+# How often a server that does not own the index retries taking ownership.
+OWNER_RETRY_SECONDS = 30.0
 
 
 # ============================================================
@@ -102,30 +113,42 @@ CHARACTER_LIMIT = 25_000
 class ServerState:
     project: Optional[ProjectContext] = None
     watcher: Optional[object] = None  # ProjectWatcher
+    writer_lock: Optional[WriterLock] = None
     ready: asyncio.Event = field(default_factory=asyncio.Event)
     bootstrap_error: Optional[str] = None
+    # Set while another process owns the index and it cannot be read yet.
+    busy_reason: Optional[str] = None
 
 
-def _ensure_project_for(root: str) -> Optional[ProjectContext]:
-    """Open the cached index for `root`, or build it if absent. Sync — call from a worker thread."""
-    abs_root = os.path.abspath(root)
-    if index_exists_for(abs_root):
-        ctx = restore_context(abs_root)
-        if ctx is not None:
-            return ctx
+async def _wait_for_ownership(state: ServerState, project_root: str, lock: WriterLock) -> None:
+    """Serve the index read-only until the owning process exits.
 
-    log.info("no index for %s; building (may take up to a minute)", abs_root)
-    output = setup_project(abs_root, force=False, generate_files=False)
-    ctx = output["context"]
-    index_project(ctx)
-    return ctx
+    Another server (another Claude Code session on the same project) or a
+    Stop-hook reindex holds the writer lock. This process must not write,
+    rebuild, or watch; it only reads what the owner has persisted.
+    """
+    log.info("another process owns the index for %s; serving read-only", project_root)
+    while not lock.try_acquire():
+        if state.project is None:
+            try:
+                state.project = await asyncio.to_thread(open_index, project_root)
+                state.busy_reason = None
+            except IndexUnavailable as e:
+                state.busy_reason = (
+                    "Another codebase-rag process owns this project's index and it "
+                    f"is not readable yet ({e}). Retrying every {OWNER_RETRY_SECONDS:.0f} s."
+                )
+        state.ready.set()
+        await asyncio.sleep(OWNER_RETRY_SECONDS)
+    log.info("took ownership of the index for %s", project_root)
 
 
 async def _bootstrap(state: ServerState) -> None:
-    """Warm the embedding model, open or build the index, start the watcher.
+    """Warm the embedding model, open (or rebuild) the index, start the watcher.
 
     Runs as a background task so the lifespan yields immediately and tools
     can return an actionable "indexing" response while this is in flight.
+    Only the process holding the project's writer lock rebuilds or watches.
     """
     try:
         warmup_error = await asyncio.to_thread(warmup_embedding_model)
@@ -142,18 +165,23 @@ async def _bootstrap(state: ServerState) -> None:
             )
             return
 
+        project_root = os.path.abspath(project_root)
+        lock = WriterLock(rag_dir(project_root))
+        state.writer_lock = lock
+        if not lock.try_acquire():
+            await _wait_for_ownership(state, project_root, lock)
+
         try:
-            project = await asyncio.to_thread(_ensure_project_for, project_root)
+            project, rebuilt = await asyncio.to_thread(open_or_rebuild, project_root)
         except Exception as e:
             log.error("failed to bootstrap index: %s", e)
             state.bootstrap_error = f"Index bootstrap failed: {e}"
             return
 
-        if project is None:
-            state.bootstrap_error = "Index bootstrap returned no project."
-            return
-
         state.project = project
+        state.busy_reason = None
+        if rebuilt:
+            log.info("index built for %s", project_root)
 
         from watcher import ProjectWatcher
 
@@ -188,6 +216,8 @@ async def app_lifespan(server: FastMCP):
                 await bootstrap_task
             except (asyncio.CancelledError, Exception):
                 pass
+        if state.writer_lock is not None:
+            state.writer_lock.release()
 
 
 mcp = FastMCP("codebase_rag_mcp", lifespan=app_lifespan)
@@ -331,6 +361,16 @@ async def rag_search(
             "summary": state.bootstrap_error,
         })
 
+    if state.project is None and state.busy_reason:
+        return ok_response({
+            "status": "index_busy",
+            "query": params.query,
+            "constraints": [],
+            "patterns": [],
+            "examples": [],
+            "summary": state.busy_reason,
+        })
+
     if state.project is None:
         return ok_response({
             "status": "no_project",
@@ -404,6 +444,18 @@ async def rag_query_impact(
             "dependents": [],
             "similarFiles": [],
             "summary": state.bootstrap_error,
+        })
+
+    if state.project is None and state.busy_reason:
+        return ok_response({
+            "status": "index_busy",
+            "filePath": params.file_path,
+            "exports": [],
+            "apiEndpoints": [],
+            "websocketEvents": [],
+            "dependents": [],
+            "similarFiles": [],
+            "summary": state.busy_reason,
         })
 
     if state.project is None:
