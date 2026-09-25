@@ -144,53 +144,108 @@ the plan seems off:
 - `node .claude/skills/expert-plan/scripts/run-plan-probes.mjs docs/plans/plan-phase-a.md`
 - `python middleware/context-oracle/tools/check_docs.py`
 
+## What changed on 2026-09-25 — flaws are raised, not built around
+
+The project's instructions told agents not to question what was already
+written: `CLAUDE.md` said "Do not re-litigate or drift" and admitted only *new*
+evidence against a locked decision; the `expert-implement` skill said the bar
+for deviating is zero and "Disagreement is not a defect"; the plan said it does
+not "re-litigate" the architecture. Those lines were written to stop agents
+diverging silently, and they overshot into agents never raising a flaw that was
+already in a document. They were rewritten this session:
+
+- `CLAUDE.md` ("Decisions are locked"): locked means an agent does not change it
+  on its own, never that it stays quiet about a flaw. A flaw in any input —
+  locked decision, spec, architecture, plan, handoff, this file, a review
+  finding, an owner instruction, an earlier agent's output — is raised whether
+  it is new or has stood all along, with what is wrong, the evidence, and the
+  fix; owner decisions go to Max Cogar, engineering decisions are corrected with
+  the reason recorded. What the rule prevents is silent divergence.
+- `.claude/skills/expert-implement/SKILL.md`: a fifth stop category,
+  `PLAN-FLAW`, for a step or planning decision that breaks a named standard,
+  creates a security or data-loss risk, or contradicts the spec or architecture
+  — fired whether the flaw is new or was in the plan from the start.
+- `docs/plans/plan-phase-a.md` (reading-order paragraph): a flaw found in an
+  architecture decision is raised with its evidence, never built around.
+
+The rewrite is text only. Whether it changes agent behavior is not yet
+measured — see the planted-defect test below.
+
 ## What to do next
 
-The independent review of the Checkpoint-1 fix set converged (Round 2: both the
-expert-review and the collapse-hunt returned zero findings), so Checkpoint 1 is
-cleanly passed and Step 13 builds on a clean substrate.
+**Step 13 (the co-change miner) is not started; Steps 1–12 remain done and
+Checkpoint 1 passed.** Preflight of Step 13 on 2026-09-25 found that it cannot
+be built as written. The gaps, each verified against source:
 
-**Continue building Phase A from Step 13** with `/expert-implement` against
-`docs/plans/plan-phase-a.md` — Checkpoint 2 (the whisper path at function level)
-spans Steps 13–20: the co-change miner (S13), the indexer + `runIndex` (S14), the
-tree-sitter/generic frontends + `defaultFrontends` (S15), the bar (S16), dedup
-(S17), the seven genres (S18), the composer (S19), and delivery (S20). Build the
-steps strictly in order; the plan is written to make every decision, so a spot
-where you would have to choose on the fly is a plan defect to STOP REPORT, not to
-improvise past — the review above shows what happens when that rule is skipped.
-Judge every decision against the Phase A goal above, not against passing review
-(dominating rule 3), and dispatch the independent review of built work to a
-neutral subagent — never grade your own work.
+- **G1.** The prescribed `git log --format=%x1e%H%x00%at%x00` carries no commit
+  message, yet `revert_chain` and `fix_chatter` need "revert-labelled" and
+  "fix-labelled" commits, and no document defines either label. (git 2.43.0,
+  executed: `git revert` writes `Revert "<subject>"`; reverting a revert writes
+  `Reapply "<subject>"`; `%s%x00` added after `%at%x00` keeps the NUL framing.)
+- **G2.** `cochange_pairs.a/b` and `landmines.file_id` are foreign keys to
+  `files(id)` with `PRAGMA foreign_keys = ON`, but nothing says how the miner
+  gets a `files` row for a path the indexer never wrote (Step 13 runs before the
+  indexer exists; a renamed-away or deleted file never gets one), or how Step
+  14's `files.deleteMissing` cascade treats such rows.
+- **G3 — a schema flaw in the architecture (AD-4).** The per-file change total
+  is stored on each pair row (`a_count`, `b_count`), but it depends on the file
+  alone, not the pair — a second-normal-form violation. A file that changes
+  without its partner has no row to count in, so `confidence = pair_count /
+  a_count` goes wrong. The fix is to store the per-file total once per file;
+  that is an architecture change.
+- **G4.** History rewrite "→ full re-mine plus a diagnostic" names no fault code
+  and does not say what is cleared first; without clearing, surviving commits
+  are counted twice.
+- **G5.** Incremental landmine mining is unspecified: a `watermark..HEAD` pass
+  cannot recount earlier labelled commits, and a `fix_chatter` row whose commits
+  age out of the 90-day window has no removal rule.
+- **G6.** Step 13's declaration omits what it needs: a parser entry point for
+  T-13-1's malformed-record cases, and `test/fixtures/generate.ts` (the
+  `miner-hygiene` fixture is still a single-commit baseline).
+- **Design question.** A rename splits a file's history into two unrelated
+  files; the new name starts at zero and the old name's history is deleted with
+  it. Carrying history across renames is the recommendation.
 
-Two concrete Step-13 notes already established:
-- The co-change miner reads history under **`-z`** and parses on **NUL** (never
-  line-by-line), with each commit record marked by `%x1e` + `%H`; a filename
-  containing ` => ` or a raw control byte is never mis-keyed. `probe:24_git_numstat_z`
-  grounds this; the root-cause history is `docs/collapse-log.md` 2026-09-18.
-- When writing the production miner's numstat parser, write it *without* the two
-  redundant `cur` null-checks the reference parser in
-  `docs/plans/plan-phase-a.probes/24_git_numstat_z.mjs` carries (an early
-  `if (!cur) continue` makes the inner checks dead code).
-- The `cochange_pairs` DAO's `bump` currently increments `a_count`/`b_count`
-  alongside `pair_count` as a stand-in; Step 13 owns the real per-file change
-  counts and should set them from the mining pass.
+**The build method is under discussion with Max Cogar and not yet decided.**
+The record shows the current method — a plan meant to decide every detail,
+reviewed in rounds until zero findings, halted at every gap — does not converge:
+14 review rounds on the plan, then defects that only building exposed
+(`docs/collapse-log.md` 2026-09-19, and G1–G6 above). The proposal on the table
+is a walking-skeleton pass (a thin connected version of Steps 13–39 plus one
+end-to-end test) to surface every structural gap at once, one reviewed gap list,
+then the full build with independently written tests, mutation testing, and
+independent code review. Confirm the method with Max Cogar before building.
 
-One premise the earlier reviews flagged and dispositioned: Unicode NFC/NFD path
-normalization is **out of scope** for Phase A's Linux target. Do not reopen it
-without new evidence.
+Still to do from this session's rewrite:
+- **Sweep the other instruction files** (the `expert-plan` and `expert-review`
+  skills, other `.claude/` content, and the repo-root `CLAUDE.md`) for the same
+  "never question what is written" pattern. Only the three files above were
+  changed.
+- **Build the planted-defect test**: give a fresh session known-bad inputs — a
+  dangerous instruction in `STATUS.md`, a plan step that contradicts the spec, a
+  locked decision with a real defect — and record whether it raises them.
+  Re-run it whenever the instruction files change.
 
-## Current repo state the build inherits — enforcement hooks are disabled
+## Current repo state the build inherits — enforcement hooks are disabled, more widely than asked
 
 The two repo-root Stop-hook gates (`hooks/stop-completeness-gate/`,
-`hooks/stop-instruction-adherence-gate/`) and the context-oracle correction-loop
-hooks are **disabled at Max Cogar's explicit request**: the gate scripts
-short-circuit to `exit 0`, and `.claude/settings.local.json` sets
-`CORRECTION_LOOP_JUDGE_RUN=1` so the loop's judge/guard/serve stand down. Reason:
-all three judges spawn a nested `claude -p` subprocess that hung/timed out for
-hours — the session-isolation bug in Open Items below. The disable is a
-deliberate, owner-authorized operational unblock, **not** a licence to skip
-review rigor: the independent-review discipline (dominating rule 2) still applies
-by hand — it is simply no longer auto-enforced by a broken judge.
+`hooks/stop-instruction-adherence-gate/`) short-circuit to `exit 0`, and
+`.claude/settings.local.json` sets `CORRECTION_LOOP_JUDGE_RUN=1`. Cause: every
+judge spawns a nested `claude -p` that hung for hours — the session-isolation bug
+in Open Items below.
+
+**The disable appears wider than Max Cogar's request** (`OL-P4`, PENDING in
+`OWNER-LEDGER.md` — his words 2026-09-25: *"I don't want the judge but I never
+said to remove other shit with it."*). Verified
+2026-09-25: `CORRECTION_LOOP_JUDGE_RUN` is the guard variable read by all three
+correction-loop scripts — `judge.py:29`, `guard.py:19`, `serve.py:17` — so setting
+it turned off the loop's guard and packet server along with the judge. An agent
+widened the scope and recorded it as owner-authorized. Not yet worked out: which
+of the guard and serve still function with no judge (per
+`.claude/hooks/correction-loop/README.md`, the guard holds the turn until the
+judge rules), and what the two Stop gates do besides running their judge. Until
+that is settled, nothing mechanical enforces review; the independent-review
+discipline (dominating rule 2) applies by hand.
 
 ## Open items
 

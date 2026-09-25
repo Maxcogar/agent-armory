@@ -11,7 +11,9 @@ step here traces to an architecture decision (`AD-n`), a spec requirement
 `docs/architecture-phase-a.md`, `docs/collapse-log.md`. This plan is executed
 against those documents, not in place of them; where the plan cites a decision
 by ID (e.g. AD-9), the architecture is the authority — the plan does not
-re-litigate what the architecture decided, it schedules its construction.
+change what the architecture decided, it schedules its construction; a flaw
+found in an architecture decision is raised with its evidence (`CLAUDE.md`,
+"Decisions are locked"), never built around silently.
 
 **Non-negotiable orientation (`CLAUDE.md` dominating rule 3, spec §11.5).**
 Phase A's goal is *an honest deterministic foundation, running on the owner's

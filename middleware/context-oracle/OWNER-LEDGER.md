@@ -49,6 +49,12 @@ escalation** (OL-C2) — the OL-3 row and spec §8 state both.)
 | OL-11 | The project is agent-led; you start/end sessions, suggest features, speed up testing; design/build/verification/docs/roadmap are the agents'. You are a non-programmer by design. | RETHINK §12.11 |
 | OL-12 | The oracle speaking when an agent claims it's done is a must-have — **to catch a completion claim the work doesn't back**: an agent reporting "done" without having actually finished or verified. (*"having the oracle speak when an agent claims it's done is a must-have feature in my mind"*; concrete need = agents that *"did not finish their work but still stopped anyway."*) *What the oracle does to catch it is design, not owner wording.* Reworded & approved by Max 2026-08-13; the earlier "not ranked above the others" clause dropped — the no-primary-feature principle is held by the mission and OL-C2. | RETHINK §12.12; Max 2026-08-13 |
 
+## ⏳ PENDING — awaiting Max's sign-off; do not build on these
+
+| ID | Proposed claim | Exact words and source |
+|---|---|---|
+| OL-P4 | The disable of the enforcement hooks was meant to remove the **judge** only — not the other enforcement parts that were turned off with it (the correction-loop guard and packet server, which the same `CORRECTION_LOOP_JUDGE_RUN` variable also disables). | Max Cogar, in chat, 2026-09-25: *"I don't want the judge but I never said to remove other shit with it."* |
+
 ## ❌ REJECTED — attributed to Max in this project but NOT his; never reintroduce
 
 | ID | The false attribution | What's actually true | Caught |
@@ -76,7 +82,7 @@ escalation** (OL-C2) — the OL-3 row and spec §8 state both.)
 OL-C2, OL-C3, OL-C4, **OL-C5** (the answer-drift definition, 2026-08-25), **OL-C6**
 (spec sign-off, 2026-08-28), and **OL-C7** (project-writing discipline: no
 overgeneralizing a specific statement into a broad rule, no context-free
-entries anywhere in the project, 2026-09-08). Nothing is pending.
+entries anywhere in the project, 2026-09-08). One claim is pending (OL-P4, 2026-09-25).
 Separately, when Max was asked which languages the oracle should cover he answered that he does not know and
 it is not his to decide ("i dont know what it should cover. but probably more than just lik 3 of
 them"), i.e. he handed the choice to the agent; which languages is therefore a design decision,

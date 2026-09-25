@@ -167,7 +167,8 @@ answer. OL-12 (2026-07-30) is what a real owner question looks like.
 
 Authorities: `OWNER-LEDGER.md` CONFIRMED (controls; RETHINK §12 is its
 recorded rationale) and the spec's judgments (§12) and build order (§11.5).
-Do not re-litigate or drift. Never reintroduce what the owner rejected:
+A locked decision changes only through its owner, and never by silent drift.
+Never reintroduce what the owner rejected:
 
 - **No pre-emptive gate** — no deny before the agent has actually deviated, no
   plan firewalls, no "pass a test to proceed", no generated-file block
@@ -181,8 +182,20 @@ Do not re-litigate or drift. Never reintroduce what the owner rejected:
 - **No compiled context packages** as the agent interface; no agent-required
   rituals.
 
-New evidence that genuinely contradicts a locked decision goes to the owner as
-a question with the evidence — never resolved by an agent.
+**Locked means you don't change it on your own. It never means you stay quiet
+about a flaw.** Raise a flaw in any input — a locked decision, the spec, the
+architecture, the plan, a handoff, `STATUS.md`, a review finding, an owner
+instruction, an earlier agent's output — whenever it is wrong against a named
+engineering standard, creates a security or data-loss risk, contradicts another
+requirement or a verified fact, or is too unclear to act on without guessing.
+Raise it whether the flaw was just found or has been there all along; who wrote
+it and how long it has stood do not make it correct. Raising it means stating
+what is wrong, the standard or evidence that shows it, and the fix. Then route
+it by ownership: an owner decision goes to Max Cogar with that evidence; an
+engineering decision is yours to correct (`OL-11`), with the reason recorded
+where the change is made. What this rule prevents is silent divergence — an
+agent doing something other than what is written with no stated reason.
+Preference ("I would have done it differently") is not a flaw.
 
 ## Lifecycle — no shortcuts
 
