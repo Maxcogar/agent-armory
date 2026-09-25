@@ -539,6 +539,40 @@ independent review of this list.
   hook is shown to the user or treated as an error is to be checked against the
   hooks reference at Step 28.
 
+- **G11 — the file walk and the unfinished index outputs.** The plan says
+  `runIndex` "walks the working tree respecting `.gitignore`". *Skeleton:* it asks
+  git for the file list (`git ls-files -z --cached --others --exclude-standard`)
+  rather than re-implementing gitignore matching. The paths are git's raw `-z`
+  keys, the same ones the miner uses. `symbol_refs` and `test_map` are not
+  produced yet, and `entry_score` is just the path marker plus import in-degree.
+- **G12 — import resolution is undefined.** T-15-1 wants an "import edge
+  resolving to the imported file", but no rule says how a specifier becomes a
+  file. *Skeleton:* only relative specifiers resolve. It tries the path as
+  written, then TypeScript's `.js`→`.ts` convention, then added extensions, then
+  `/index.*`; bare package specifiers give no edge. On this repo the rule
+  resolved all 13 of `indexer.ts`'s imports correctly.
+- **G13 — the per-language queries are not written.** Step 15 requires
+  "per-language tree-sitter queries" for 32 grammars and supplies none. *Skeleton:*
+  queries exist for typescript, tsx, javascript and python only; every other
+  grammar in the table goes to the generic frontend.
+- **G14 — async grammar loading behind a sync `parse`.** web-tree-sitter's
+  `Parser.init` and `Language.load` return promises, the plan's
+  `LanguageFrontend.parse` is synchronous, and the plan says grammars load "lazy
+  per first use". Those three cannot all hold. *Skeleton:* the interface gains an
+  optional `init()`, which `runIndex` (now async) awaits before parsing. Related:
+  a frontend has no store to hand, so `frontend_parse_failed` goes to the JSONL
+  channel only.
+- **G15 — oversize files get no fault code.** Files over 1 MB or 20k lines are
+  "path-only with a diagnostic", but no fault code exists for that. *Skeleton:*
+  nothing is recorded (8 such files in this repo).
+- **G16 — the FTS path index never matches a path segment (a schema bug).**
+  `001b_phase_a_fts.sql` creates `fts_paths` with `tokenchars '/_-.'`, which makes
+  those characters part of a token, so a whole path is a single token. Found by
+  running the skeleton: `pathSearch(['cochange'])` returns nothing under FTS5,
+  while the `LIKE` fallback finds `…/miner/cochange.ts`. T-15-3's check that "the
+  FTS and `LIKE` hit sets agree" would fail. The fix is a tokenizer where `/`,
+  `.`, `_`, `-` separate tokens (the unicode61 default).
+
 ### Step 13 skeleton — the co-change miner
 
 `src/miner/cochange.ts`: `parseNumstatZ`, `isRevertLabelled`, `isFixLabelled`,
@@ -548,3 +582,22 @@ independent review of this list.
 - 535 `files` rows, 3,915 `cochange_pairs` rows, 5 `fix_chatter` landmines.
 - 2.3 s cold.
 - The incremental re-run saw 0 new commits, in 16 ms.
+
+### Steps 14–15 skeleton — the indexer and frontends
+
+- `src/index/frontend.ts` — the interface, plus `init`.
+- `src/index/zone.ts` — path patterns and a generated-file marker; evidence
+  redacted and injection-flagged.
+- `src/index/search.ts` — FTS5 or `LIKE`; FTS terms are quoted so input text
+  cannot inject query syntax.
+- `src/index/indexer.ts` — `runIndex` (async), `resolveHead` (bounded file
+  reads), `refreshIfStale`, and `acquireReindexClaim`/`releaseReindexClaim`.
+  `runIndex` then runs the miner.
+- `src/index/tree_sitter_frontend.ts`, `generic_frontend.ts`, `frontends.ts`.
+
+Run on `Maxcogar/agent-armory` (2026-09-25):
+- 1,804 files indexed, 8 path-only, 8,511 symbols, 721 import edges.
+- Zones: 1,786 source, 13 generated, 5 build output, and 23 `unknown` (the
+  miner's placeholder rows for history-only paths).
+- 9.9 s cold; the incremental re-run indexed 0 files in 0.3 s.
+- `refreshIfStale` returned not stale on an unmoved HEAD.
