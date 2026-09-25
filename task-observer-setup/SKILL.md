@@ -122,7 +122,9 @@ throughout the session.
 
 When loading any skill, check the observation log for OPEN observations
 tagged to that skill. Apply their insights to the current work, even if
-the skill file hasn't been updated yet. This enables immediate application
+the skill file hasn't been updated yet, after checking each one against the
+work in front of you. If an observation looks wrong, flag it to the user
+with the reason instead of applying it. This enables immediate application
 of observations before they're permanently integrated during the weekly
 review.
 ```
@@ -672,7 +674,8 @@ When a handoff doc arrives for observation logging, extract observations
 systematically from both explicit and implicit sources:
 
 1. **Log all explicitly stated observations first.** These are easy to
-   surface and should be logged without filtering.
+   surface and should be logged without filtering. If one looks wrong, log
+   it anyway and add a note saying why, so the review sees the concern.
 
 2. **Then systematically analyse the full document.** Read every section
    asking: "What skill gaps, improvement opportunities, or new skill
@@ -940,7 +943,8 @@ more efficient.
 
 If skill-creator is not available, use the observations as a specification
 and make the changes directly — but flag them to the user as substantial
-changes that may need manual review.
+changes that may need manual review. An observation that looks wrong on
+inspection is flagged to the user with the reason, not applied.
 
 Examples: Restructuring a skill to make an automated workflow the primary
 path instead of a secondary option. Adding an entirely new setup phase to
@@ -1016,7 +1020,8 @@ This file serves as a mandatory checklist during any skill creation or
 regeneration. Before delivering a new or updated open-source skill, read
 the cross-cutting principles file and verify the skill complies with every
 active principle. This is what turns general principles from good intentions
-into enforced standards.
+into enforced standards. If a principle looks wrong for the skill at hand,
+flag it to the user with the reason rather than applying it.
 
 ### How It Works
 
@@ -1131,6 +1136,10 @@ break because nothing is live until the user approves upload.
 4. **Conflicting observations.** Two observations that point in opposite
    directions, or where the integration path isn't obvious, should be
    surfaced rather than resolved autonomously.
+5. **An observation that looks wrong on inspection.** One that would break
+   the skill against a named standard, contradicts the skill's verified
+   behaviour, or rests on a mistaken premise is reported with the reason,
+   not applied.
 
 Scheduled runs that escalate should still apply every non-escalated
 observation before producing the report. A scheduled review that
@@ -1231,7 +1240,7 @@ suggested. Consider both the specific "Suggested improvement" and the general
 
 **If the review is interactive (user present):** Present ALL observations to the user in a single message, grouped by skill. For each observation, show the number, title, and a one-sentence summary. Flag any observations that are ambiguous, risky, or require a judgment call as 'Needs your input'. All other observations are treated as straightforward and can be applied without individual discussion.
 
-**If the review is scheduled autonomous (user not present):** Skip the user-facing present step. Apply the approval policy from "Interactive vs Scheduled Runs" above: apply every non-escalated observation and record the escalated ones (new-skill candidates, removal/restructuring, self-flagged uncertainty, conflicting observations) in the review report without applying them. Proceed directly to Step 4.
+**If the review is scheduled autonomous (user not present):** Skip the user-facing present step. Apply the approval policy from "Interactive vs Scheduled Runs" above: apply every non-escalated observation and record the escalated ones (new-skill candidates, removal/restructuring, self-flagged uncertainty, conflicting observations, observations that look wrong on inspection) in the review report without applying them. Proceed directly to Step 4.
 
 **Step 4 — Cross-check cross-cutting principles against every skill**
 

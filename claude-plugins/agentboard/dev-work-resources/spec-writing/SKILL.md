@@ -49,7 +49,7 @@ If anything is genuinely ambiguous — meaning you cannot determine the answer f
 
 Read the project's relevant context — CLAUDE.md, prior specs, architecture documents, any code the work will touch. You're doing two things at once, and the distinction between them matters:
 
-**Honoring locked decisions.** Prior documents, explicit user requirements, and external constraints are commitments. The spec must be consistent with them. If a proposed requirement contradicts a locked decision, stop and surface the conflict — do not silently overwrite it, work around it, or re-derive a different answer. A spec that contradicts its own project's prior decisions invalidates every downstream artifact that depended on those decisions.
+**Honoring locked decisions.** Prior documents, explicit user requirements, and external constraints are commitments. The spec must be consistent with them. If a proposed requirement contradicts a locked decision, stop and surface the conflict — do not silently overwrite it, work around it, or re-derive a different answer. A locked decision that is itself flawed — wrong against a named standard, a security or data-loss risk, or contradicted by a verified fact — is surfaced the same way, with the evidence and the proposed fix. A spec that contradicts its own project's prior decisions invalidates every downstream artifact that depended on those decisions.
 
 **Reading existing behavior without being captured by it.** If the work touches an existing system, you'll see how that system currently behaves. That behavior is evidence of what was built — not evidence of what should be built. Requirements for new work come from the domain, not from the current implementation. When the spec's requirements diverge from existing behavior, note the divergence and state why.
 
@@ -148,7 +148,7 @@ If any of those answers require subjective interpretation of the document — ra
 
 Then check:
 
-- Nothing contradicts a decision already locked in a prior project document.
+- Nothing contradicts a decision already locked in a prior project document (or every such conflict, and every flaw found in a locked decision, is surfaced).
 - Threat model precedes security requirements when security is in scope.
 - No internal reasoning, self-corrections, or scratchpad artifacts remain. File paths and external references are confirmed, not assumed.
 - The spec is architecturally silent — no file paths, module names, card slicing, dependency ordering, or interface design. Anything architectural goes in "What's still unresolved?" with `/architecture` as the resolver, or out of the document entirely.

@@ -2,7 +2,7 @@
 
 name: expert-correct
 
-description: "Part of the Expert Standard Dev Tools package. Use when an existing artifact — a spec, an architecture, or a plan — must be corrected against a review finding set. This is re-derivation of the affected sections from their sources, not authoring and not patching. Runs at a review gate, after a NEEDS_FIXES verdict, on an artifact that already exists and whose untouched sections are correct by the prior round's review. Do not use it to write a new artifact; that is expert-spec, expert-architecture, or expert-plan."
+description: "Part of the Expert Standard Dev Tools package. Use when an existing artifact — a spec, an architecture, or a plan — must be corrected against a review finding set. This is re-derivation of the affected sections from their sources, not authoring and not patching. Runs at a review gate, after a NEEDS_FIXES verdict, on an artifact that already exists and whose untouched sections passed the prior round's review and are outside the correction's scope. Do not use it to write a new artifact; that is expert-spec, expert-architecture, or expert-plan."
 
 ---
 
@@ -74,6 +74,12 @@ corrected its instances.
 cannot act on; using it is correct behaviour, not failure. Guessing at a standard you could not
 reach, or silently skipping the finding, burns the gate's remaining rounds on an artifact that is
 not improving.
+
+**A finding you can verify is wrong is reported back the same way, with the evidence, not applied.**
+That covers a finding whose named standard, once read, does not say what the finding claims, and a
+finding whose fix would break a requirement or a named standard. A flaw you notice in a section no
+finding touches is outside the correction's scope: do not fix it and do not drop it — record it in
+your returned `evidence` (location, verified evidence, proposed correction).
 
 ---
 

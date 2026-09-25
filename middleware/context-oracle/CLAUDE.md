@@ -225,7 +225,9 @@ Preference ("I would have done it differently") is not a flaw.
 - Verify external facts (harness contracts, protocol status, library behavior)
   against current primary sources before building on them — the hooks contract
   has drifted before and will again.
-- When a review surfaces findings, apply **all** of them.
+- When a review surfaces findings, apply every finding that holds up. Check
+  each against the source first; a finding you find wrong is rejected with the
+  evidence, on the record — never silently dropped, never a convenient subset.
 - Keep documents in sync: behavior → spec; scope → §2 and §14; judgment → §12.
 
 ## Session protocol

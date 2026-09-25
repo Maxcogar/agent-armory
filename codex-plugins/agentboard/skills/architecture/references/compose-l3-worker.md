@@ -112,7 +112,7 @@ The architecture document this profile produces is structured around two-axis ev
 
 The orchestrator passes `spec_path`. Read the file at `spec_path` in full. Read every document the spec references that you can resolve locally — prior architectures, prior plans, related specs, project-level governance documents the spec names, and any standards documents the spec names. An architecture written from a shallow read of the spec ends up satisfying the surface of the requirements while missing the constraints buried in the references.
 
-The orchestrator also passes `verified_level`, `scaffold_card_id`, `agent_id`, and the verified `arch_facts_bundle` inline. The bundle is the upstream evidence that this profile applies; treat its `rule_evaluation.computed_level` as authoritative. You do not re-derive classification — the research agent and auditor have already done that.
+The orchestrator also passes `verified_level`, `scaffold_card_id`, `agent_id`, and the verified `arch_facts_bundle` inline. The bundle is the upstream evidence that this profile applies; treat its `rule_evaluation.computed_level` as authoritative. You do not re-derive classification — the research agent and auditor have already done that. When evidence found during the work shows the level is wrong, record it in the Limitations and trade-offs section and still run at L3.
 
 ---
 
@@ -129,7 +129,7 @@ Read the spec file at `spec_path` in full. Not skim — read every line. Read ev
 - Project-level governance and methodology documents the spec names (compliance checklists, decision-justification rubrics, any project-specific architectural conventions). When the project includes them, treat them as constraints the architecture must respect.
 - Any standards documents the spec names (ISO, OWASP, RFC, NIST) — the spec told you which standards govern; read those that are accessible
 
-Identify which spec requirements (R-numbered) and quality requirements (Q-numbered) you will need to address in the architecture. Note the locked decisions from the spec's "Decisions made during this spec" section (or equivalently named section) — these are commitments you must honor; you do not re-derive them.
+Identify which spec requirements (R-numbered) and quality requirements (Q-numbered) you will need to address in the architecture. Note the locked decisions from the spec's "Decisions made during this spec" section (or equivalently named section) — these are commitments you honor and do not re-derive on preference. When a locked decision is wrong against a named standard, unsafe, or contradicted by another requirement, raise it through the Phase 7 hard-contradiction stop with the evidence and the recommended fix rather than building on it.
 
 Read the inline `arch_facts_bundle`. Note the rules that fired — they are signal about which design surfaces the architecture must address (external systems, migration, security, contract count, card count). The bundle is not a substitute for reading the spec; it is the orchestrator's view of why this architecture is L3.
 
@@ -183,7 +183,7 @@ If `codegraph_scan` returns zero files (typical for a markdown-only project), re
 
 ### 5. Identify governing standards
 
-The spec named the standards that governed it. The architecture inherits those — every standard from the spec's "Standards that govern this spec" section is automatically a standard for this architecture. Read each one (the section in the spec, the linked document if local, or recall what the standard demands if you have verified knowledge from training).
+The spec named the standards that governed it. The architecture inherits those — every standard from the spec's "Standards that govern this spec" section is automatically a standard for this architecture. When the spec misapplies an inherited standard, raise the misapplication with the standard's text as evidence at Phase 7. Read each one (the section in the spec, the linked document if local, or recall what the standard demands if you have verified knowledge from training).
 
 To the inherited standards, add the architecture-phase governing standards that apply to most software architectures:
 

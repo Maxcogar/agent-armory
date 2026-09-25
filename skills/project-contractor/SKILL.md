@@ -406,7 +406,7 @@ If an assumption cannot be verified from code:
 
 ### Claude MUST NOT:
 
-1. **Restructure without asking** - User's structure is intentional
+1. **Restructure without asking** - User's structure is intentional. A structural defect is still named, with the standard it breaks, when you ask
 2. **Add unrequested features** - No bathrooms they didn't ask for
 3. **Assume conventions** - This project may not follow standards
 4. **Skip the survey** - Even for "simple" changes
