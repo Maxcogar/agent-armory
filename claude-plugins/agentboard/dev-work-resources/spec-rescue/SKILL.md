@@ -31,7 +31,7 @@ The operational workflow for this process lives at:
 
 - `docs/specs/spec-workflow.md`
 
-If there is any tension between this skill and the workflow file, follow the workflow file.
+If there is any tension between this skill and the workflow file, follow the workflow file and name the tension to the user so the stale side gets fixed. When the workflow file itself is wrong against a named standard or a verified fact, raise that with the user with the evidence.
 
 `docs/specs/spec-session-status.md` is the current-state artifact. Do not treat it as the source of workflow rules.
 
