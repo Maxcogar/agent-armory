@@ -154,14 +154,15 @@ tool. See `docs/collapse-log.md` 2026-09-04.)
 Design, build, verification, sequencing, and process are yours (OL-11).
 Before asking the owner anything, classify it:
 
-- **Already written** — in this file, the ledger, or the spec → read it and act.
+- **Already written** — in this file, the ledger, or the spec → read it and act,
+  unless it has a flaw ("Decisions are locked" below): then raise the flaw.
 - **Derivable** from the mission or spec → derive it.
 - **Genuinely his** — a preference, a scope call, a yes/no needing no technical
-  background, or new evidence contradicting a locked decision → to him, with
-  the evidence. Only these.
+  background, or a flaw in one of his locked decisions, whether new or
+  long-standing → to him, with the evidence. Only these.
 
-The test: if you can name the file and line that decides it, you have your
-answer. OL-12 (2026-07-30) is what a real owner question looks like.
+The test: if you can name the file and line that decides it, and it holds up
+against the standards it is judged by, you have your answer. OL-12 (2026-07-30) is what a real owner question looks like.
 
 ## Decisions are locked in writing, nowhere else
 

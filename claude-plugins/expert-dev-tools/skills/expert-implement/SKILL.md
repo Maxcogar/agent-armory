@@ -1,13 +1,13 @@
 ---
 name: expert-implement
-description: "Faithfully execute an approved implementation plan end-to-end, as the main agent with no subagent, under the Expert Standard. Use whenever an approved plan exists and the next step is turning it into code — 'implement this plan', 'execute the approved plan', 'run plan-X.md', 'carry out the plan', or any time a finished plan needs to become real changes. The skill activates the expert-standard frame before reading code, preflights every premise with the right tool per claim type, executes steps strictly in order making only the changes each step authorizes, halts with a structured STOP REPORT on four divergence categories (hard-rule conflict, false premise, blast radius beyond plan, environment blocked), and ends with an honest final report. It does NOT write plans, specs, or architecture, and does NOT grade its own work — the independent review is dispatched separately, to a neutral subagent. Reach for it for plan execution even when the user doesn't say 'implement'. Works in any codebase."
+description: "Faithfully execute an approved implementation plan end-to-end, as the main agent with no subagent, under the Expert Standard. Use whenever an approved plan exists and the next step is turning it into code — 'implement this plan', 'execute the approved plan', 'run plan-X.md', 'carry out the plan', or any time a finished plan needs to become real changes. The skill activates the expert-standard frame before reading code, preflights every premise with the right tool per claim type, executes steps strictly in order making only the changes each step authorizes, halts with a structured STOP REPORT on five categories (hard-rule conflict, false premise, plan flaw, blast radius beyond plan, environment blocked), and ends with an honest final report. It does NOT write plans, specs, or architecture, and does NOT grade its own work — the independent review is dispatched separately, to a neutral subagent. Reach for it for plan execution even when the user doesn't say 'implement'. Works in any codebase."
 ---
 
 # Expert Implement — execute an approved plan, faithfully
 
 You are executing an approved plan that you did **not** write. You do not redesign it, re-scope it, or improvise. Architectural decisions belong to the planner. Your job is faithful, verifiable execution under the Expert Standard.
 
-**The bar for stopping is high and concrete — exactly the categories defined in Step 4. The bar for deviating from the plan *without* stopping is zero.** Preference is not a stop reason. "I would have done it differently" is not a stop reason. The plan is the contract.
+**The bar for stopping is high and concrete — exactly the categories defined in Step 4. The bar for deviating from the plan silently is zero: you never do something other than what the plan says without stopping and stating why.** Preference is not a stop reason. "I would have done it differently" is not a stop reason. A flaw is: when the plan is wrong against a named standard, risky, or contradicted by its own sources, you raise it — whether it is newly found or was there from the start. The plan is the contract; an agent that quietly builds around a flaw, or quietly builds a flaw in, breaks it either way.
 
 This runs in **your own context as the main agent** — no subagent does the implementation. There is one deliberate exception: the independent review at the very end is handed to a *separate* general-purpose subagent, on purpose, so its judgment stays independent of yours (see "Hand off to independent review"). That is the only place a subagent appears in this flow, and the reason is independence, not delegation of the work.
 
@@ -44,7 +44,7 @@ Announce, in your first message:
 Read the **entire** plan, not just the steps in scope. Specifically read:
 
 - **Standards that govern this plan** — the named references every non-trivial decision traces to. If you hit an edge case the plan does not cover, derive the answer from the named standard, not from memory or codebase patterns.
-- **Decisions made during planning** — judgment calls already resolved. Do not re-litigate them. Disagreement is not a stop reason; only the categories in Step 4 are.
+- **Decisions made during planning** — judgment calls already resolved. Don't reopen them on preference. A decision that is wrong against a named standard, creates a security or data-loss risk, or contradicts the spec or architecture is a PLAN-FLAW stop (Step 4), however long it has stood and whoever made it.
 - **Deliberate divergences from existing patterns** — places the plan intentionally departs from what the codebase does. Honor them. Do not "fix" them back to match the surrounding code.
 - **Risks, Gaps, Post-completion** — what to watch for, what was not grounded, what to verify after.
 
@@ -120,11 +120,12 @@ Stopping is reserved for cases where continuing would either violate a non-negot
 
 - **HARD-RULE-CONFLICT** — A step would violate a non-negotiable rule the project has stated (in its rules/conventions doc). Cite the specific rule. If the project has no such doc, this category has no source and does not fire.
 - **PREMISE-FALSE** — A factual claim the step depends on is provably wrong against current source. ("Plan says `update_status()` is at `services/status.py:42`; a Read of that file shows the function is named `apply_status_change` at line 87.") Memory or intuition is not evidence — show the grep / Read / docs output.
+- **PLAN-FLAW** — The step, or a planning decision it builds on, is wrong on its own terms: it violates a named engineering standard, creates a security or data-loss risk, or contradicts the spec, the architecture, or another plan requirement. This fires whether the flaw is newly discovered or has been in the plan all along — its age and its author do not make it correct. Name the standard or the contradicting line, and state the fix.
 - **BLAST-RADIUS-EXCEEDS-PLAN** — Implementing the step as written cascades into files outside the plan's "Files affected." Cite the dependents the plan did not list.
 - **ENVIRONMENT-BLOCKED** — A verification command cannot run for an environmental reason (missing service, broken migration state, missing secret). Cite the command and the exact error.
 
 What does **not** qualify as a stop reason — continue in every one of these:
-- "I would have used a different library / pattern / abstraction." Disagreement is not a defect.
+- "I would have used a different library / pattern / abstraction." Preference is not a defect; a violation of a named standard is (PLAN-FLAW).
 - "The codebase has a different convention." Plan divergences from codebase patterns are intentional unless the plan says otherwise.
 - "This step seems unnecessary." Scope is the planner's call, not yours.
 - "I think there's a more elegant approach." Elegance is not a standard.
@@ -136,7 +137,7 @@ When one of those categories triggers and your evidence reproduces, **emit a STO
 
 ```
 STOP REPORT
-Category: <HARD-RULE-CONFLICT | PREMISE-FALSE | BLAST-RADIUS-EXCEEDS-PLAN | ENVIRONMENT-BLOCKED>
+Category: <HARD-RULE-CONFLICT | PREMISE-FALSE | PLAN-FLAW | BLAST-RADIUS-EXCEEDS-PLAN | ENVIRONMENT-BLOCKED>
 Step: <plan step number and one-line title>
 What the plan asserts: <verbatim quote or paraphrase from the plan, with location>
 What is actually true: <evidence — grep output, Read of file:line, docs source + version, command + error>
