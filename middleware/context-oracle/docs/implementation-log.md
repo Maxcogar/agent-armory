@@ -573,6 +573,45 @@ independent review of this list.
   FTS and `LIKE` hit sets agree" would fail. The fix is a tokenizer where `/`,
   `.`, `_`, `-` separate tokens (the unicode61 default).
 
+- **G17 — the concrete `TuningReader` was never built.** Step 6's `TuningReader`
+  interface says "Step 12 builds the concrete `TuningReader`" (re-seed a missing
+  key, record `tuning_missing`), but Step 12 built only `tuning.get(store, key)`.
+  *Skeleton:* `tuningReader(global)` in `tuning.ts` reads, but does not re-seed or
+  record.
+- **G18 — the bar's inputs are not on `Candidate`.** AD-14's decision-impact axis
+  (edit vs read context, blast-radius band, zone) and marginal-value axis
+  (single-file vs cross-file, comparative), plus the trust cap, read
+  per-candidate properties that Step 6's `Candidate` type does not have.
+  *Skeleton:* optional `context`, `blastRadius`, `zone`, `crossFile`,
+  `comparative` and `trust` fields.
+- **G19 — the reference instant is never stored.** The recency dampener measures
+  `age_days` "back from Step 13's reference instant" (HEAD's committer time), but
+  the miner keeps it nowhere and `passesBar`'s context has only `indexStale`.
+  *Skeleton:* `ctx.refTs` is passed in.
+- **G20 — the trust cap has no value.** "Capped by trust (`untrusted_repo` can
+  never yield high-confidence)" names no cap. Every Phase A mined fact is
+  `untrusted_repo`, so any cap below the 0.6 floor would silence every history
+  genre. *Skeleton:* no cap.
+- **G21 — genres cannot see the tool's target.** Coupling, Consequence and Warning
+  need the file a tool call targets, and Reuse the term a search used. AD-6 lets
+  only the adapter name tool-input fields, and `InternalEvent` carries neither.
+  *Skeleton:* `targetPath` and `searchTerm` on `InternalEvent`, filled by the
+  adapter.
+- **G22 — no edited-file list on the reader.** `ObservedActionsReader` returns
+  counts only; Completeness and Verification need the files that were edited.
+  *Skeleton:* the DAO's `pathWrites` is read directly.
+- **G23 — dedup identity is too coarse.** `consumer_state` is keyed by consumer
+  (`main`/`subagent`) with no session. Every subagent shares one dedup set, and
+  concurrent sessions on one repo share `main`'s.
+- **G24 — no rule for the headline text.** AD-19 says composition is pointer-only
+  with no verbatim repo-derived text, yet the genres build a headline string from
+  repo paths. *Skeleton:* the composer renders from pointers and numbers only and
+  ignores the genre's headline.
+- **G25 — subject keys never line up.** The read set records `path:<file>`, while
+  candidates are keyed `coupling:<target>:<partner>` and similar. With no shared
+  subject vocabulary, "don't tell the agent what it already read" never matches
+  anything.
+
 ### Step 13 skeleton — the co-change miner
 
 `src/miner/cochange.ts`: `parseNumstatZ`, `isRevertLabelled`, `isFixLabelled`,
@@ -601,3 +640,16 @@ Run on `Maxcogar/agent-armory` (2026-09-25):
   miner's placeholder rows for history-only paths).
 - 9.9 s cold; the incremental re-run indexed 0 files in 0.3 s.
 - `refreshIfStale` returned not stale on an unmoved HEAD.
+
+### Steps 16–20 skeleton — the bar, command classes, genres, compose, delivery
+
+- `src/bar/combinator.ts` — `confidenceOf` and `passesBar`: a conjunction of
+  three floors, hazard bypass, floors read from tuning.
+- `src/genres/command_class.ts` — quote-aware ternary classifier. Spot checks:
+  `cd pkg && npm test`→1, `ls; cat a`→2, a quoted `&&`, `bash -c` or `$(…)`→3.
+- `src/genres/` — the `Generator` seam, plus Coupling, Warning, Completeness and
+  Orientation doing minimal real queries. Consequence, Reuse and the Verification
+  generator return nothing, because their inputs (`test_map`, `symbol_refs`) are
+  not produced yet (G11). `recognizeDoneClaim` is built as specified.
+- `src/hook/compose.ts` — pointer-only text and the rumor-rule re-resolution.
+- `src/hook/delivery.ts` — dedup, SessionStart reconciliation, the Stop channel.

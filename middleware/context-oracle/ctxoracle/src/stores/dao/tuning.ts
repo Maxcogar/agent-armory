@@ -67,3 +67,16 @@ export function seedDefaults(store: Store): void {
     }
   }
 }
+
+/**
+ * WALKING SKELETON (2026-09-25). SKELETON: G17 — the Step 6 `TuningReader`
+ * interface says Step 12 builds the concrete reader (re-seed a missing key,
+ * record `tuning_missing`); Step 12 did not. This is a minimal reader bound to
+ * the global store (see G8): it reads, and does not yet re-seed or record.
+ */
+export function tuningReader(global: Store): { get(key: string): string | undefined; list(key: string): string[] } {
+  return {
+    get: (key) => tuning.get(global, key) ?? undefined,
+    list: (key) => tuning.list(global, key),
+  };
+}

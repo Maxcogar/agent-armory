@@ -42,6 +42,11 @@ export interface InternalEvent {
   lastAssistantMessage?: string;
   stopHookActive?: boolean;
   workingDir: string;
+  // SKELETON: G21 — genres need the file a tool call targets and the term a
+  // search used, but only the adapter may name tool-input fields (AD-6); these
+  // carry the adapter's extraction. Repo-relative path.
+  targetPath?: string;
+  searchTerm?: string;
 }
 
 /**

@@ -24,6 +24,20 @@ export interface Candidate {
   hazard: boolean;
   headline: string;
   evidenceJson: string;
+  // SKELETON: G18 — the bar's impact and marginal axes (AD-14) read these
+  // per-candidate properties; the Step 6 type declared none of them.
+  /** Whether the triggering event edits or only reads. */
+  context?: 'edit' | 'read';
+  /** Count of coupled files/tests (the blast-radius band). */
+  blastRadius?: number;
+  /** Zone of the file the candidate is about. */
+  zone?: string;
+  /** Fact spans more than one file. */
+  crossFile?: boolean;
+  /** A cross-file current-state fact that is comparative/aggregative (Reuse). */
+  comparative?: boolean;
+  /** Provenance trust of the evidence (untrusted_repo caps confidence). */
+  trust?: 'untrusted_repo' | 'human' | 'mechanical';
 }
 
 /**
