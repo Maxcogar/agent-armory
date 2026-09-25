@@ -371,7 +371,7 @@ D-9), configurable via `.claude/expert-dev-tools.local.md` per the documented
 plugin-settings pattern.
 
 **D6 — STOP REPORT routing table (deterministic, two escalation exits).**
-(1) `PREMISE-FALSE`, `BLAST-RADIUS-EXCEEDS-PLAN` → auto-route to remediation
+(1) `PREMISE-FALSE`, `PLAN-FLAW`, `BLAST-RADIUS-EXCEEDS-PLAN` → auto-route to remediation
 planning → plan review loop → resume implementation. `ENVIRONMENT-BLOCKED` →
 one preflight retry → owner gate. `HARD-RULE-CONFLICT` → owner gate always.
 Override (option B) exists only inside an owner gate.

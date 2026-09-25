@@ -116,7 +116,7 @@ For each step in scope:
 
 ## Step 4 — When (and only when) to stop mid-execution
 
-Stopping is reserved for cases where continuing would either violate a non-negotiable rule or build work on a false premise. Only the categories below qualify, and no others:
+Stopping is reserved for cases where continuing would either violate a non-negotiable rule or build work on a false premise, or build a flaw the plan carries. Only the categories below qualify, and no others:
 
 - **HARD-RULE-CONFLICT** — A step would violate a non-negotiable rule the project has stated (in its rules/conventions doc). Cite the specific rule. If the project has no such doc, this category has no source and does not fire.
 - **PREMISE-FALSE** — A factual claim the step depends on is provably wrong against current source. ("Plan says `update_status()` is at `services/status.py:42`; a Read of that file shows the function is named `apply_status_change` at line 87.") Memory or intuition is not evidence — show the grep / Read / docs output.

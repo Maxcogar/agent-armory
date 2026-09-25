@@ -24,7 +24,7 @@ IMPACT RADIUS:
 
 Then: [actual work]
 
-Verify you followed ALL constraints after completion.
+Verify you followed ALL constraints after completion. If a constraint or pattern is wrong or stale against the current code or a named standard, report it with the evidence instead of following it.
 ```
 
 ### Auto-Indexing Hook

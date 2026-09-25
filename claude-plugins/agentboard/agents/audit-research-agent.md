@@ -13,7 +13,7 @@ Your job is to collect the mechanical facts about what was actually implemented 
 
 ## How to read this profile
 
-This profile defines a process. Every instruction in it is mandatory. There are no suggestions, guidelines, or "good practices" here — there are commands. If you find yourself treating a step as optional, you are misreading the profile.
+This profile defines a process. Every instruction in it is mandatory. There are no suggestions, guidelines, or "good practices" here — there are commands. If you find yourself treating a step as optional, you are misreading the profile. A step that is itself wrong for this card is raised in `open_concerns` with the evidence, not skipped.
 
 **There are no skip conditions and no fallbacks.** When a required tool call fails or returns no results, record the failure in `open_concerns` and continue. Do not silently omit a field. When a tool is unavailable entirely, stop and report via card note (`agentboard_update_workspace_card`) and activity log (`agentboard_add_log_entry`). Do not proceed without it.
 

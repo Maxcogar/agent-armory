@@ -22,6 +22,7 @@ Execute the plan artifact on this card. Write code, modify files, and submit an 
    - Follow the implementation steps in order
    - Respect all constraints listed in the plan
    - Use patterns and conventions found in existing code
+   - When a plan step is wrong against a named standard or unsafe (a security or data-loss risk), do not build that step; report it under Plan Concerns with the evidence and the fix
 
 4. **Add notes to the card** using `mcp__agentboard__agentboard_update_workspace_card`:
    - `card_id`: as given
@@ -47,6 +48,9 @@ Format:
 ## Decisions
 - [Any decisions made during implementation, deviations from plan with justification]
 
+## Plan Concerns
+- [Plan steps not built because they were wrong or unsafe, and incorrect file paths or outdated code in the plan, each with the evidence. "None" when there are none.]
+
 ## Verification
 - Build: [pass/fail]
 - Lint: [pass/fail]
@@ -60,7 +64,7 @@ The card will auto-advance to `audit` after artifact submission.
 - Follow the plan — do not add features, refactor surrounding code, or make "improvements" beyond what the plan specifies
 - Read files before editing them
 - Use the given `agent_id` for all MCP calls
-- If the plan references incorrect file paths or outdated code, document the deviation in your notes — do NOT stop or fail
+- If the plan references incorrect file paths or outdated code, document the deviation in your notes and under Plan Concerns in the implementation note — do NOT stop or fail
 - Run build and lint after your changes, but filter the output to drop noise — only errors/warnings should land in your context:
   - `npm run build 2>&1 | grep -E -i 'error|warning|fail|✘' || echo 'BUILD OK'`
   - `npm run lint --prefix client 2>&1 | grep -E -i 'error|warning|fail|✘' || echo 'LINT OK'`
