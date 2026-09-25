@@ -612,6 +612,41 @@ independent review of this list.
   subject vocabulary, "don't tell the agent what it already read" never matches
   anything.
 
+- **G26 — a fixture contradicts the rule it tests.** The plan's human-turn rule is
+  `origin.kind === 'human'` and not `isMeta`. The Step 1 fixture
+  `test/replay/transcript_fixtures/human_markers.jsonl`, meant to hold
+  "marker-carrying human turns", has no `origin` field at all. The rule is the
+  correct one: in this session's real transcript (2026-09-25), all 25 human turns
+  carry `origin: {"kind": "human"}` with string content, tool results carry no
+  origin, and hook feedback is `isMeta: true`. So the fixture needs the marker
+  added. Taken as written, a test built on it would count an unmarked entry as
+  human.
+- **G27 — `decideDeny` cannot write its audit row.** The plan's signature is
+  `decideDeny(store, consumer, toolName, toolInput)`, but the `whisper_audit` row
+  it must append needs a session. It also names `toolInput.file_path`, which AD-6
+  allows only the adapter to name (see G21). *Skeleton:* `decideDeny(store,
+  session, consumer, toolName, targetPath)`.
+- **G28 — the bookmark cannot be null.** Step 27 says `startup`/`clear` reset the
+  bookmark "to null", but `classify_state.bookmark_offset` is `NOT NULL DEFAULT 0`.
+  *Skeleton:* it resets to 0.
+- **G29 — the consumer key is two different things.** Step 28's handler derives
+  the consumer key as `(session_id, agent_id | 'main')`. Step 6 types `Consumer` as
+  `'main' | 'subagent'`, `decideDeny` tests `consumer !== 'main'`, and every
+  consumer-keyed table (`questions`, `classify_state`, `consumer_state`) stores
+  only the string. This is the same defect as G23, at its source. As built, a
+  question open in one session denies edits in any other session on the same
+  repo. *Skeleton:* the role is the key.
+- **G30 — repository lookup on the event path.** The hook command `init` writes
+  (`"<node>" "<dispatch>" hook <event>`) carries no repo key. So the handler has
+  to find the store from the event's `cwd`, and the only resolver,
+  `resolveRepoKey`, runs `git` subprocesses. AD-23's event-path inventory does
+  not allow those ("never a `git` subprocess on the event path"). *Skeleton:* the
+  handler calls `resolveRepoKey` anyway.
+- **G31 — no fault code for a handler exception.** AD-7 says any error means
+  empty output plus a JSONL fault, but no code exists for "the handler threw".
+  *Skeleton:* such errors are recorded as `store_corrupt` unless the watchdog
+  fired, which is a misattribution.
+
 ### Step 13 skeleton — the co-change miner
 
 `src/miner/cochange.ts`: `parseNumstatZ`, `isRevertLabelled`, `isFixLabelled`,
@@ -653,3 +688,29 @@ Run on `Maxcogar/agent-armory` (2026-09-25):
   not produced yet (G11). `recognizeDoneClaim` is built as specified.
 - `src/hook/compose.ts` — pointer-only text and the rumor-rule re-resolution.
 - `src/hook/delivery.ts` — dedup, SessionStart reconciliation, the Stop channel.
+
+### Steps 21–28 and 31 skeleton — answer drift, the handler, the CLI
+
+- `src/transcript/locate.ts`, `reader.ts` — bounded tail and marker-based
+  discrimination.
+- `src/qa/state.ts`, `classify.ts` — the recognizers. On the plan's own example
+  list, all 17 behave as the plan specifies, including holding a
+  one-character "y".
+- `src/blocks/verdict.ts` (the only deny producer), `answer_drift.ts`,
+  `health.ts`.
+- `src/types/hook_response.ts`.
+- `src/hook/adapter.ts` (the only file naming hook fields), `handler.ts` (AD-8
+  order, audit-then-emit, fail-open).
+- `src/cli/dispatch.ts` with `hook`, `hook integrity-check`, `index`, `init`,
+  and a shared `cli/context.ts`.
+
+End to end (`test/unit/skeleton_e2e.test.ts`, real binary, real git repo):
+1. `init` keys the repo, indexes it, mines it and wires the eight hooks.
+2. A question in the prompt opens a row.
+3. An Edit is denied with "answer Max's question first: …"; a Read is allowed.
+4. Once the answer is in the transcript, the Edit is allowed.
+5. A Read of `src/api/handler.ts` produces `[oracle] coupling: src/db/schema.ts
+   (4 co-changes, ratio 1.00)`; the ratio of 1.00 is G3 visible in output.
+6. The repeat read is silent (dedup), and so is Stop.
+
+`npm test` 42/42.

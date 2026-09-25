@@ -1,10 +1,31 @@
 #!/usr/bin/env node
-// ctxoracle CLI entry point — the package's `bin` target (AD-25).
-//
-// Step 1 ships this as a minimal, valid, buildable stub: it registers no verbs,
-// does no work, and exits non-zero on any invocation. Nothing invokes it until
-// Step 28, which extends this same file with the internal `hook`/`index` verbs;
-// Steps 31–35 add the remaining verbs. The stub exists so the manifest's `bin`
-// entry points at a file that is built from the first `npm run build`.
-process.stderr.write('ctxoracle: no verbs are available yet\n');
-process.exit(1);
+// ctxoracle CLI entry point — the package's `bin` target (AD-25). A manual verb
+// switch, no argument-parsing dependency. WALKING SKELETON: `hook`, `index` and
+// `init` are registered; the remaining verbs are added by Steps 32–35.
+import { hookVerb } from './hook.js';
+import { indexVerb } from './index.js';
+import { integrityCheckVerb } from './integrity_check.js';
+import { initVerb } from './init.js';
+
+async function main(argv: string[]): Promise<number> {
+  const [verb, ...rest] = argv;
+  switch (verb) {
+    case 'hook':
+      return rest[0] === 'integrity-check' ? integrityCheckVerb() : hookVerb(rest);
+    case 'index':
+      return indexVerb(rest);
+    case 'init':
+      return initVerb();
+    default:
+      process.stderr.write(`ctxoracle: unknown verb ${verb ?? '(none)'}\n`);
+      return 1;
+  }
+}
+
+main(process.argv.slice(2)).then(
+  (code) => process.exit(code),
+  (e: unknown) => {
+    process.stderr.write(`ctxoracle: ${String(e)}\n`);
+    process.exit(1);
+  }
+);
