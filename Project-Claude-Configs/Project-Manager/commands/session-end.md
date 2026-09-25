@@ -5,7 +5,7 @@ description: Mandatory session wrap protocol — expert-standard check, completi
 
 # Session End
 
-Do these in order. The completion audit at step 2 and the CORE ingest at step 7 have strict rules — follow them literally. A flaw you find in a rule itself is raised to Max with the evidence, not silently worked around.
+Do these in order. The completion audit at step 2 and the CORE ingest at step 7 have strict rules — follow them literally.
 
 ## 1. Apply the expert-standard to the session's output
 

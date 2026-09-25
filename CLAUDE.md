@@ -76,9 +76,7 @@ session's PR actually unmerged says so to Max Cogar.
 The CORE knowledge graph can only use what is written the way it expects.
 A malformed ingestion is unretrievable at best and misleading at worst.
 This format is a functional contract, not a style choice. Follow it
-exactly; deviations have repeatedly wasted the owner's time and tokens. A
-flaw in the protocol itself is raised to Max Cogar with the evidence —
-never silently worked around.
+exactly; deviations have repeatedly wasted the owner's time and tokens.
 
 **Session start**: (1) `initialize_conversation_session` with `new: true`
 and keep the sessionId; (2) identify the repo and work context;
