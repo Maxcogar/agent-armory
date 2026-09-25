@@ -226,27 +226,6 @@ Still to do from this session's rewrite:
   locked decision with a real defect — and record whether it raises them.
   Re-run it whenever the instruction files change.
 
-## Current repo state the build inherits — enforcement hooks are disabled, more widely than asked
-
-The two repo-root Stop-hook gates (`hooks/stop-completeness-gate/`,
-`hooks/stop-instruction-adherence-gate/`) short-circuit to `exit 0`, and
-`.claude/settings.local.json` sets `CORRECTION_LOOP_JUDGE_RUN=1`. Cause: every
-judge spawns a nested `claude -p` that hung for hours — the session-isolation bug
-in Open Items below.
-
-**The disable appears wider than Max Cogar's request** (`OL-P4`, PENDING in
-`OWNER-LEDGER.md` — his words 2026-09-25: *"I don't want the judge but I never
-said to remove other shit with it."*). Verified
-2026-09-25: `CORRECTION_LOOP_JUDGE_RUN` is the guard variable read by all three
-correction-loop scripts — `judge.py:29`, `guard.py:19`, `serve.py:17` — so setting
-it turned off the loop's guard and packet server along with the judge. An agent
-widened the scope and recorded it as owner-authorized. Not yet worked out: which
-of the guard and serve still function with no judge (per
-`.claude/hooks/correction-loop/README.md`, the guard holds the turn until the
-judge rules), and what the two Stop gates do besides running their judge. Until
-that is settled, nothing mechanical enforces review; the independent-review
-discipline (dominating rule 2) applies by hand.
-
 ## Open items
 
 - **The runtime-pin and sandbox premises settle the first time the build's CI

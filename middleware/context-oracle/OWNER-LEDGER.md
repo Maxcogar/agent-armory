@@ -49,12 +49,6 @@ escalation** (OL-C2) — the OL-3 row and spec §8 state both.)
 | OL-11 | The project is agent-led; you start/end sessions, suggest features, speed up testing; design/build/verification/docs/roadmap are the agents'. You are a non-programmer by design. | RETHINK §12.11 |
 | OL-12 | The oracle speaking when an agent claims it's done is a must-have — **to catch a completion claim the work doesn't back**: an agent reporting "done" without having actually finished or verified. (*"having the oracle speak when an agent claims it's done is a must-have feature in my mind"*; concrete need = agents that *"did not finish their work but still stopped anyway."*) *What the oracle does to catch it is design, not owner wording.* Reworded & approved by Max 2026-08-13; the earlier "not ranked above the others" clause dropped — the no-primary-feature principle is held by the mission and OL-C2. | RETHINK §12.12; Max 2026-08-13 |
 
-## ⏳ PENDING — awaiting Max's sign-off; do not build on these
-
-| ID | Proposed claim | Exact words and source |
-|---|---|---|
-| OL-P4 | The disable of the enforcement hooks was meant to remove the **judge** only — not the other enforcement parts that were turned off with it (the correction-loop guard and packet server, which the same `CORRECTION_LOOP_JUDGE_RUN` variable also disables). | Max Cogar, in chat, 2026-09-25: *"I don't want the judge but I never said to remove other shit with it."* |
-
 ## ❌ REJECTED — attributed to Max in this project but NOT his; never reintroduce
 
 | ID | The false attribution | What's actually true | Caught |
@@ -77,12 +71,14 @@ escalation** (OL-C2) — the OL-3 row and spec §8 state both.)
 | OL-C5 | **Answer-drift block — the definition.** Max's words (2026-08-25): *"if i ask a question and their next move isnt a direct answer or them taking actions to provide an answer, then then need corrected"* — after Max asks a question, the agent's next move must be a direct answer or an action taken to provide the answer; if it is neither, the agent is corrected. | Max, in chat, 2026-08-25 |
 | OL-C6 | **The v1 spec is signed off — good to go.** Asked whether to bless `docs/specs/spec-context-oracle.md` as a whole, proceed without a document-level sign-off, or review a one-page summary first (with the agent recommending proceed-without), Max answered: *"yeah thats good with me. Mark it as good to go."* The spec of record proceeds to Phase A architecture with his sign-off; the wording of the options is Claude's, the selection and the "good to go" are his. He did not line-read the document — the sign-off is authorization to build from it as the authority, resting on the individually CONFIRMED decisions above and the adversarial review record. | Max, in chat, 2026-08-28 |
 | OL-C7 | **Project-writing discipline — two standing failure modes agents keep repeating.** Raised after Max caught an instance of it in `docs/collapse-log.md` (a rejected fix summarized as "was rejected by Max Cogar: a rule is not a mechanism... tooling that works for one plan has no value," with no situational specifics, deleted for exactly this reason once the specifics couldn't be recovered). His words, in full (2026-09-08): *"The first being that my statements are getting overgenralized and turned into new project rules despite my comment being only about one specific thing within specific context. The second being that the shit that gets written is so broad and with zero situational context that it can be misused basically any way an agent wants, and use that to 'justify' doing things that arent allowed, violate the workflow, etc"* — (1) a statement Max makes about one specific thing, in specific context, must never be written down as a broader project rule than what he actually said; (2) any lesson, rule, or decision recorded anywhere in this project must carry its actual situational specifics (what was tried, what was specifically wrong with it, under what conditions) rather than a bare, context-free verdict — an entry with no context can be invoked by a future agent to justify almost anything, including violating the workflow. If the real specifics cannot be recovered, delete the entry rather than publish an under-specified one. | Max, in chat, 2026-09-08 |
+| OL-C8 | **The enforcement-hook disable was for the judge only.** Max Cogar's words, in full: *"I don't want the judge but I never said to remove other shit with it."* | Max, in chat, 2026-09-25 |
 
 *(CONFIRMED: the RETHINK §12 decisions (OL-1…OL-12, OL-5 superseded) plus OL-C1,
 OL-C2, OL-C3, OL-C4, **OL-C5** (the answer-drift definition, 2026-08-25), **OL-C6**
-(spec sign-off, 2026-08-28), and **OL-C7** (project-writing discipline: no
+(spec sign-off, 2026-08-28), **OL-C7** (project-writing discipline: no
 overgeneralizing a specific statement into a broad rule, no context-free
-entries anywhere in the project, 2026-09-08). One claim is pending (OL-P4, 2026-09-25).
+entries anywhere in the project, 2026-09-08), and **OL-C8** (the hook disable
+was for the judge only, 2026-09-25). Nothing is pending.
 Separately, when Max was asked which languages the oracle should cover he answered that he does not know and
 it is not his to decide ("i dont know what it should cover. but probably more than just lik 3 of
 them"), i.e. he handed the choice to the agent; which languages is therefore a design decision,
