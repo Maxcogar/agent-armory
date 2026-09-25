@@ -474,3 +474,77 @@ seam the downstream steps plug into are in place.
 - **`tuning.get` resolves only the project-global row (`project_key` NULL).** The
   Step-12 signature is `get(store, key)` with no project_key; per-project
   override resolution, if a later step needs it, is an additive extension.
+
+## Walking skeleton, Steps 13–39 — IN PROGRESS (2026-09-25)
+
+The build method was changed to a walking skeleton on 2026-09-25 (reason in
+`docs/STATUS.md`). Each step is first built as a thin version that does its
+minimum real work, connected to the steps around it, so the gaps show up in one
+pass. Skeleton code sits at the plan's file paths. Every provisional choice in it
+is marked `SKELETON: G<n>` in the source and listed below. The full build of each
+step replaces those marks with reviewed decisions.
+
+### Skeleton gap list
+
+Each entry: the gap, where it surfaced, the evidence, and the provisional
+skeleton choice. The choice is not the decision; the decision comes from the one
+independent review of this list.
+
+- **G1 — landmine labels have no input.** Step 13's prescribed `git log
+  --format=%x1e%H%x00%at%x00` carries no commit message, yet `revert_chain` and
+  `fix_chatter` need "revert-labelled" and "fix-labelled" commits, which no
+  document defines. *Skeleton:* the format gains `%s%x00`. A revert is a subject
+  starting with `Revert "` or `Reapply "`; git 2.43.0 writes both (executed).
+  A fix is a subject with an SZZ-style keyword (`fix|fixes|fixed|fixing|bug|
+  bugfix|hotfix`), and a revert never also counts as a fix.
+- **G2 — no `files` row for history-only paths.** `cochange_pairs.a/b` and
+  `landmines.file_id` are foreign keys to `files(id)`, with `foreign_keys = ON`.
+  Step 13 runs before the indexer exists, and a renamed-away or deleted path never
+  gets an indexer row. *Skeleton:* the miner writes a placeholder row (`lang`/`zone`
+  `unknown`, `content_hash` empty, `mtime` 0, provenance
+  `commit`/`untrusted_repo`). Still open: how Step 14's `files.deleteMissing`
+  cascade treats those rows.
+- **G3 — per-file change totals; a schema flaw in AD-4.** `a_count` and `b_count`
+  hold a file's total change count on every pair row. That depends on the file
+  alone, not on the pair, which breaks second normal form. A file changing on its
+  own has no row to count in, so `confidence = pair_count / a_count` goes wrong.
+  *Skeleton:* keeps Step 9's stand-in (both counts bumped with `pair_count`). The
+  fix is an architecture change: a per-file count stored once per file.
+- **G4 — history rewrite.** "Full re-mine plus a diagnostic" names no fault code,
+  and does not say what gets cleared first, so without clearing, commits are
+  counted twice. *Skeleton:* an unreachable watermark falls back to a full mine
+  with no clearing and no fault.
+- **G5 — incremental landmines.** A `watermark..HEAD` pass cannot recount earlier
+  labelled commits, and aged-out `fix_chatter` rows have no removal rule.
+  *Skeleton:* landmines come from the current pass only.
+- **G6 — Step 13's declaration.** T-13-1 needs a parser entry point (the skeleton
+  exports `parseNumstatZ`), and the `miner-hygiene` fixture needs to be built out
+  in `test/fixtures/generate.ts`. Neither appears in the step declaration.
+- **G7 — UTF-8 decoding of paths.** `oracleExecFileSync` decodes stdout as UTF-8,
+  and so does the indexer's `readdir`. Both sides match, but two distinct
+  non-UTF-8 filenames collapse to the same key. *Skeleton:* accepted as is.
+- **G8 — the tuning store is never passed (cross-cutting).** `tuning` lives in the
+  global store (migration 002). The plan's signatures for Step 13
+  (`mineCochange(store, …)`), and by the same pattern every later reader of a
+  threshold, pass only the project store. Found by running the skeleton: `no such
+  table: tuning`. *Skeleton:* `mineCochange` takes `opts.global`. The full build
+  needs one convention for handing both stores to every component.
+- **G9 — transactions do not nest.** `Store.transaction` throws "cannot start a
+  transaction within a transaction", and DAOs such as `landmines.upsert` and
+  `tuning.set` open their own. So a caller cannot write a batch atomically, such as
+  the watermark together with its landmines. Found by running the skeleton.
+  *Skeleton:* landmine writes happen after the main transaction.
+- **G10 — `node:sqlite` prints an ExperimentalWarning to stderr** on every process
+  that opens a store, which includes every hook invocation. Whether stderr from a
+  hook is shown to the user or treated as an error is to be checked against the
+  hooks reference at Step 28.
+
+### Step 13 skeleton — the co-change miner
+
+`src/miner/cochange.ts`: `parseNumstatZ`, `isRevertLabelled`, `isFixLabelled`,
+`mineCochange(store, repoPath, {diagnosticsDir, global})`. Run on
+`Maxcogar/agent-armory` (2026-09-25):
+- 361 commits: 348 included, 13 excluded for `max_transaction_entities`.
+- 535 `files` rows, 3,915 `cochange_pairs` rows, 5 `fix_chatter` landmines.
+- 2.3 s cold.
+- The incremental re-run saw 0 new commits, in 16 ms.
