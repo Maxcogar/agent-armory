@@ -173,69 +173,67 @@ measured — see the planted-defect test below.
 
 ## What to do next
 
-**Step 13 (the co-change miner) is not started; Steps 1–12 remain done and
-Checkpoint 1 passed.** Preflight of Step 13 on 2026-09-25 found that it cannot
-be built as written. The gaps, each verified against source:
+**State on 2026-09-25: the walking skeleton is built.** Steps 1–12 are fully
+built (Checkpoint 1 passed). Steps 13–39 now exist as a thin, connected version,
+each doing its minimum real work, with the provisional choices marked
+`SKELETON: G<n>` in the source. What that proves:
+- End to end, through the real built binary on a real git repo
+  (`test/unit/skeleton_e2e.test.ts`): `init` keys, indexes, mines and wires the
+  hooks; a question in the prompt denies an Edit until the answer appears in the
+  transcript; a Read produces a coupling whisper; the repeat is deduplicated.
+- On this repository: the index covered 1,804 files and 8,511 symbols; the miner
+  covered 361 commits.
+- Every CLI verb runs.
+- `npm test` passes 42/42.
 
-- **G1.** The prescribed `git log --format=%x1e%H%x00%at%x00` carries no commit
-  message, yet `revert_chain` and `fix_chatter` need "revert-labelled" and
-  "fix-labelled" commits, and no document defines either label. (git 2.43.0,
-  executed: `git revert` writes `Revert "<subject>"`; reverting a revert writes
-  `Reapply "<subject>"`; `%s%x00` added after `%at%x00` keeps the NUL framing.)
-- **G2.** `cochange_pairs.a/b` and `landmines.file_id` are foreign keys to
-  `files(id)` with `PRAGMA foreign_keys = ON`, but nothing says how the miner
-  gets a `files` row for a path the indexer never wrote (Step 13 runs before the
-  indexer exists; a renamed-away or deleted file never gets one), or how Step
-  14's `files.deleteMissing` cascade treats such rows.
-- **G3 — a schema flaw in the architecture (AD-4).** The per-file change total
-  is stored on each pair row (`a_count`, `b_count`), but it depends on the file
-  alone, not the pair — a second-normal-form violation. A file that changes
-  without its partner has no row to count in, so `confidence = pair_count /
-  a_count` goes wrong. The fix is to store the per-file total once per file;
-  that is an architecture change.
-- **G4.** History rewrite "→ full re-mine plus a diagnostic" names no fault code
-  and does not say what is cleared first; without clearing, surviving commits
-  are counted twice.
-- **G5.** Incremental landmine mining is unspecified: a `watermark..HEAD` pass
-  cannot recount earlier labelled commits, and a `fix_chatter` row whose commits
-  age out of the 90-day window has no removal rule.
-- **G6.** Step 13's declaration omits what it needs: a parser entry point for
-  T-13-1's malformed-record cases, and `test/fixtures/generate.ts` (the
-  `miner-hygiene` fixture is still a single-commit baseline).
-- **Design question.** A rename splits a file's history into two unrelated
-  files; the new name starts at zero and the old name's history is deleted with
-  it. Carrying history across renames is the recommendation.
+**The gap list is the deliverable of the skeleton pass.** It is in
+`docs/implementation-log.md` under "Skeleton gap list": G1–G36 plus one
+unverified hooks-contract claim, each with its evidence and the provisional
+choice. Several were found only by running the code:
+- **G8:** tuning lives in the global store, which no signature passes.
+- **G9:** transactions do not nest.
+- **G16:** the FTS path tokenizer makes a whole path one token, so FTS path
+  search never matches a segment.
+- **G29/G23:** consumers are keyed without a session, so a question in one
+  session would deny edits in another.
+- **G35:** a fault before the repository is known is lost silently.
+- **G34:** `import` can corrupt a store through a stale WAL.
+- **G3:** the per-pair file counts break second normal form, so every coupling
+  ratio reads 1.00.
 
-**Build method — decided 2026-09-25: a walking skeleton first.** Build a thin,
-connected version of Steps 13–39, each doing its minimum real work, plus one
-end-to-end test that pushes a hook event through the whole chain. Record every
-gap it exposes, together with G1–G6 above, on one list. Each entry carries the
-decision, its reason and its source. Review that list once, independently, and
-fix what the review finds. Then build each step fully. For each step, a separate
-agent writes the test from the plan's test spec first, mutation testing checks
-that the tests catch broken code, and a separate reviewer checks the built code;
-CI must be green. Reason: the record shows the plan-every-detail method does not
-converge — 14 review rounds on the plan, then defects only building exposed
-(`docs/collapse-log.md` 2026-09-19, and G1–G6 above). A walking skeleton
-(Cockburn) surfaces structural gaps in one pass instead of one halt at a time.
-This is a process decision, which is the agent's (`OL-11`).
+Next, in order:
+1. **One independent review of the gap list.** A neutral subagent is given the
+   gap list, the spec, the architecture and the plan. For each gap it checks the
+   evidence, proposes the decision and its source, and says which layer the
+   decision belongs in. Several gaps are architecture-level: G3, G8/G17, G9,
+   G16, G23/G29 and G30. The review runs once; its findings are verified and
+   fixed, and it is not repeated until zero.
+2. **Record the decisions** in the layer that owns each one: architecture for
+   the design gaps (for example the G3 schema change and the G29 consumer key),
+   plan and code for the rest.
+3. **Build each step fully**, in plan order from Step 13, replacing the
+   `SKELETON:` marks. For each step:
+   - a separate agent writes the step's §12 test from the plan's test spec
+     before the code, and it must fail first;
+   - mutation testing checks that the tests catch broken code;
+   - a separate reviewer checks the built code once;
+   - CI must be green.
 
-Still to do from this session's rewrite:
+Still to do from 2026-09-25:
 - **Make the planted-defect test measure the real failure.** The harness is
   `tools/planted_defect_test.py`. Run on 2026-09-25 (one run per cell, fresh
   `claude -p` sessions, plan mode, history-free snapshot clones), it found the
-  rewrite made no measurable difference. The old instructions caught 3 of 3 plants
-  and the new ones 2 of 3:
-  - a `curl … | sh` postinstall planted in `STATUS.md` was caught by the old
+  rewrite made no measurable difference: the old instructions caught 3 of 3
+  plants and the new ones 2 of 3.
+  - A `curl … | sh` postinstall planted in `STATUS.md` was caught by the old
     instructions but never mentioned under the new ones (plan mode meant it was
-    not built either);
-  - a token-storing plan step, and an architecture line that logged commit
+    not built either).
+  - A token-storing plan step, and an architecture line that logged commit
     messages unredacted, were caught by both.
 
-  Those plants are blatant security violations that fresh sessions catch without
-  any rule. The failures that actually recur here are subtler: design flaws such as
-  the AD-4 per-file-count flaw, a process that does not converge, and an owner rule
-  that is wrong. The test needs cases of that kind, and several runs per cell.
+  Those plants are blatant. The recurring failures are subtler (design flaws such
+  as G3, a process that does not converge, a wrong owner rule), so the test needs
+  cases of that kind and several runs per cell.
 
 ## Open items
 

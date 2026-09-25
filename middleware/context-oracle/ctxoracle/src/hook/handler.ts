@@ -38,6 +38,7 @@ import { warningGenerator } from '../genres/warning.js';
 import { completenessGenerator } from '../genres/completeness.js';
 import { verificationGenerator, recognizeDoneClaim } from '../genres/verification.js';
 import { oracleSpawn } from '../util/spawn.js';
+import { foldWhisperStats } from '../diag/whisper_stats_fold.js';
 import type { ObservedActionsReader } from '../types/events.js';
 
 const GENERATORS = [
@@ -219,6 +220,11 @@ export function runHandler(stdin: string, kindArg: EventKind, opts: { deadlineMs
         for (const x of texts) recordDelivered(store, consumer, x.c.subjectKey);
       }
     }
+
+    // 10. SessionEnd: the whisper_stats fold (Step 30).
+    // SKELETON: G32 — the regret proxy is not built: it needs a post-write
+    // content_hash per edit, which nothing on the event path records.
+    if (ev.kind === 'SessionEnd') foldWhisperStats(global, store, key);
 
     // 11. Diagnostics row
     writeSessionEvent(store, {

@@ -647,6 +647,36 @@ independent review of this list.
   *Skeleton:* such errors are recorded as `store_corrupt` unless the watchdog
   fired, which is a misattribution.
 
+- **G32 — the regret proxy has no input.** The in-session "reverted" check
+  compares a path's post-write `content_hash` with an earlier one, but nothing on
+  the event path records that hash. The handler would have to hash the written
+  file after each Edit/Write, and that file read is not in AD-23's event-path
+  inventory. *Skeleton:* the regret proxy is not built.
+- **G33 — the `whisper_stats` window is undefined.** `whisper_stats` is keyed by
+  `(genre, project_key, window_start)`, but no step defines the window. The fold
+  also has no stated way to attribute a correction to a genre: through
+  `whisper_audit.genre` via `whisper_id`? *Skeleton:* one all-time window
+  (`window_start` 0), and `sent` only.
+- **G34 — import can corrupt the store (data risk).** `import` copies `store.db`
+  over the layout path, but a store opened before leaves `-wal` and `-shm`
+  sidecars. SQLite can replay a stale WAL onto the imported file. The import
+  needs to remove or checkpoint the sidecars first, with every store handle
+  closed. *Skeleton:* plain copy, not yet fixed.
+- **G35 — a fault before the repository is known is lost silently.** On malformed
+  stdin the handler fails open correctly, but the fault is aimed at a fallback
+  diagnostics directory that is never created, so the write fails and nothing is
+  recorded anywhere. Found by running the skeleton. This is the silent failure
+  OL-10 exists to prevent. There needs to be a home-level diagnostics location
+  that always exists.
+- **G36 — the exit run's leg 1 would count test transcripts.** It enumerates every
+  `*.jsonl` under `~/.claude/projects/`, which includes probe and test-run
+  transcripts (`-tmp-plan-probe-layout-*` and `-tmp-tmp-*` exist on this
+  machine). It needs an exclusion rule for sessions the build itself created.
+- **Unverified — whispers on `PreToolUse`.** The skeleton delivers Warning and
+  Consequence text through `additionalContext` on `PreToolUse`. Whether
+  `PreToolUse` honors `additionalContext` has not been checked against the current
+  hooks reference.
+
 ### Step 13 skeleton — the co-change miner
 
 `src/miner/cochange.ts`: `parseNumstatZ`, `isRevertLabelled`, `isFixLabelled`,
@@ -714,3 +744,20 @@ End to end (`test/unit/skeleton_e2e.test.ts`, real binary, real git repo):
 6. The repeat read is silent (dedup), and so is Stop.
 
 `npm test` 42/42.
+
+### Steps 29–36 and 39 skeleton — verification, SessionEnd, verbs, model seam, exit run
+
+- **Step 29, checked through the built handler.** A deadline of 0 ms gives empty
+  output plus `latency_breach`, `CTXORACLE_INTERNAL=1` gives empty output, and
+  malformed stdin gives empty output but loses its fault (G35).
+- **Step 30.** `foldWhisperStats` is wired into the SessionEnd branch. The regret
+  proxy is not built (G32).
+- **Steps 32–35.** `status`, `log`, `tune`, `correct` (including
+  `--missed-question`), `note` (`--kind landmine`, `--global`), `export`,
+  `import` and `deinit` are all in `src/cli/verbs_skeleton.ts`. Smoke run on a
+  fresh repo: every verb worked, and `import` refused an existing store until
+  `--replace` was given. The average hook call took 96 ms (10 × PostToolUse,
+  including process start and the G30 git lookup).
+- **Step 36.** `src/model/invoke.ts`; nothing imports it.
+- **Step 39, checked for feasibility.** Leg 2's repositories (`Maxcogar/NOVA`,
+  `Maxcogar/Nova-Integrations`) can be attached to a session. Leg 1 has G36.
