@@ -59,8 +59,9 @@ You understand 1,2,3,6. Unclear on 4,5.
 ## Source-Specific Handling
 
 ### From your human partner
-- **Trusted** - implement after understanding
+- **Trusted** - implement after understanding and the same technical check
 - **Still ask** if scope unclear
+- **Raise it with your human partner** if an item is technically wrong, unsafe, or contradicts a requirement: give the evidence and the fix you propose before implementing
 - **No performative agreement**
 - **Skip to action** or technical acknowledgment
 
@@ -118,7 +119,7 @@ Push back when:
 - Violates YAGNI (unused feature)
 - Technically incorrect for this stack
 - Legacy/compatibility reasons exist
-- Conflicts with your human partner's architectural decisions
+- Conflicts with your human partner's architectural decisions (if the decision itself looks flawed, raise that with your human partner too)
 
 **How to push back:**
 - Use technical reasoning, not defensiveness

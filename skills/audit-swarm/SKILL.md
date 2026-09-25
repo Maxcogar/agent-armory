@@ -80,7 +80,7 @@ Use the `core-memory` MCP tool to search for:
 
 
 
-Include relevant CORE results in the shared context block. Past decisions prevent subagents from contradicting established architectural choices or repeating previously-identified issues.
+Include relevant CORE results in the shared context block. Past decisions give subagents context, so they do not contradict established architectural choices on preference or re-report issues already resolved. A past decision that breaks a named standard or creates a risk is still reported as a finding with the evidence, and a previously identified issue that is still present in the code is reported again.
 
 
 

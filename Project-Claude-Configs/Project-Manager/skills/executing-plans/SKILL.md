@@ -56,6 +56,7 @@ After all tasks complete and verified:
 - Plan has critical gaps preventing starting
 - You don't understand an instruction
 - Verification fails repeatedly
+- A step turns out to be wrong mid-batch (breaks a named standard, creates a security or data-loss risk, or contradicts a requirement or the code as it is): report it with the evidence and the fix you propose
 
 **Ask for clarification rather than guessing.**
 
@@ -69,7 +70,7 @@ After all tasks complete and verified:
 
 ## Remember
 - Review plan critically first
-- Follow plan steps exactly
+- Follow plan steps exactly; a step you find wrong is a stop-and-ask, like a blocker
 - Don't skip verifications
 - Reference skills when plan says to
 - Between batches: just report and wait

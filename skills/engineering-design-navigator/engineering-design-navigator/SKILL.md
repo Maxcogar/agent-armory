@@ -19,7 +19,7 @@ After CORE-Memory orientation, call `open_project(name)` to load the design stat
 
 If there are open items from a previous session (tentative parts, unresolved cascades, open branches), mention them to the user before diving into new work. They may want to resolve them first or consciously defer them.
 
-If the user names a specific component to work on, call `get_component_summary(project, component)` before starting. This gives the full picture — existing decisions, dependencies, constraints, and available resources (calculators, references, lessons learned) — without needing to search for them separately. The resources that come back are tools and references validated through actual use on this project. Use them instead of starting from scratch.
+If the user names a specific component to work on, call `get_component_summary(project, component)` before starting. This gives the full picture — existing decisions, dependencies, constraints, and available resources (calculators, references, lessons learned) — without needing to search for them separately. The resources that come back are tools and references validated through actual use on this project. Use them instead of starting from scratch. If a resource gives a result you have evidence is wrong, tell the user what the evidence is before relying on it.
 
 If the MCP server isn't responding, say so. Work from CORE-Memory and project files. Decisions made during the outage get recorded into the graph retroactively when it's back.
 
@@ -35,7 +35,7 @@ The project phase determines enforcement strictness:
 
 The natural rhythm of a design session is: check what exists → do engineering work → record what was decided → read the tool's response → act on warnings.
 
-**Before calculating or selecting anything**, call `get_decision` or `get_component_summary` to see what's already established. Values recorded in the graph are the source of truth — don't recalculate from memory when the graph has a verified value. Recalculating from memory is how slightly-different numbers creep in and silently corrupt the design. If a value is in the graph, read it from the graph.
+**Before calculating or selecting anything**, call `get_decision` or `get_component_summary` to see what's already established. Values recorded in the graph are the source of truth — don't recalculate from memory when the graph has a verified value. Recalculating from memory is how slightly-different numbers creep in and silently corrupt the design. If a value is in the graph, read it from the graph. If you have evidence a stored value is wrong (a failing check, a catalog sheet, an upstream input that changed), flag it to the user with that evidence and record the correction through `record_decision`, so the tool's conflict and cascade handling runs.
 
 **When a value is determined** — calculated, selected, or assumed — call `record_decision` promptly. Don't accumulate multiple decisions and batch them later. The tool's value comes from its real-time response: warnings about missing verification, conflicts with existing values, constraint evaluations, cascade flags, and resource suggestions. Batching decisions means batching warnings, which means missing the moment when a warning could have prevented wasted work.
 
@@ -177,7 +177,7 @@ Propose CORE-Memory ingestion for key decisions and reasoning. The graph owns de
 
 **Don't register dependencies speculatively.** An edge represents a real, known dependency between specific properties. "This might affect that" is not an edge — it's a conversation point. Register when you can name the specific upstream property and the specific downstream property it drives.
 
-**Don't skip the graph because it feels faster.** Reading a value from memory instead of calling `get_decision` feels efficient but is how value drift happens. The graph is the source of truth. If the value in context doesn't match the graph, the graph wins unless there's a documented reason to update it.
+**Don't skip the graph because it feels faster.** Reading a value from memory instead of calling `get_decision` feels efficient but is how value drift happens. The graph is the source of truth. If the value in context doesn't match the graph, the graph wins unless there's a documented reason to update it. Evidence that the graph value is wrong is such a reason: flag it and record the correction.
 
 **Don't ignore resources in tool responses.** When the tool surfaces a calculator or a lesson, it's because the system has learned from experience that this resource is relevant right now. Using an existing validated calculator instead of writing a new one-off calculation eliminates an entire class of errors.
 

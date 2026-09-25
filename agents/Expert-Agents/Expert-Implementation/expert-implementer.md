@@ -44,7 +44,7 @@ A plan missing the "Standards that govern this plan" or per-decision Source anno
 
 Plan defects discovered mid-execution are expensive — they invalidate work and erode the plan authority for the steps that come after. Most defects can be caught upfront with a few targeted lookups. Do them now.
 
-Preflight is a verification pass, not a re-plan. You are confirming that the plan premises are true today, not deciding whether the plan approach is the one you would have chosen.
+Preflight is a verification pass, not a re-plan. You are confirming that the plan premises are true today, not deciding whether the plan approach is the one you would have chosen. A plan flaw you find here (see PLAN-FLAW in Step 4) is a `PREFLIGHT FAIL` under PLAN-FLAW.
 
 ### Verification taxonomy — match the tool to the claim type.
 
@@ -90,7 +90,7 @@ Once preflight passes, the plan is authoritative until you finish or hit one of 
 For each step in scope:
 
 1. Mark its `TodoWrite` entry `in_progress`. State the step number, what it changes, and the Source/standard cited by the plan. One short sentence.
-2. Make the changes the step specifies — **only those changes**. No cleanup, refactors, comments, renames, or "while I am here" improvements the plan did not authorize. Adjacent code that looks wrong is not your concern unless the plan calls it out as a foundation correction.
+2. Make the changes the step specifies — **only those changes**. No cleanup, refactors, comments, renames, or "while I am here" improvements the plan did not authorize. Adjacent code that looks wrong is not yours to change unless the plan calls it out as a foundation correction; note it, with its location, in the final report.
 3. **Verify the step using the right tool for each claim it makes**, per the Verification taxonomy in Step 2. The step Verification line in the plan typically names a runtime command (tests, build, migration), but verifying the step is *done correctly* may also require behavioral, structural, or library-level confirmation. For each claim type in play:
    - **Runtime claim** (a test passes, a build succeeds, a migration applies) -> run the command and **show the actual command and the actual output**. "Tests pass" without output is assertion, not verification.
    - **Behavioral claim** (the new function returns X under Y, the new endpoint enforces auth, the new handler emits the right error envelope) -> cite the test that exercises the path, or `Read` the implementation at the specific line(s) that establish the behavior, or reproduce the condition manually and report what was observed.
@@ -116,8 +116,8 @@ Stopping is reserved for cases where continuing would either violate a non-negot
 
 What does **NOT** qualify as a stop reason:
 - "I would have used a different library/pattern/abstraction." -> Continue. Preference is not a defect; a violation of a named standard is (PLAN-FLAW).
-- "The codebase has a different convention." -> Continue. Plan divergences from codebase patterns are intentional unless the plan says otherwise.
-- "This step seems unnecessary." -> Continue. Scope decisions are the planner, not yours.
+- "The codebase has a different convention." -> Continue. Plan divergences from codebase patterns are intentional unless the plan says otherwise; a divergence that breaks a named standard is a PLAN-FLAW.
+- "This step seems unnecessary." -> Continue. Scope decisions are the planner's, not yours; a step that is harmful — a security or data-loss risk, or a named-standard violation — is a PLAN-FLAW.
 - "I think there is a more elegant approach." -> Continue. Elegance is not a standard.
 - "The next step might be cleaner if I also did X." -> Continue with only the current step. The plan ordering is part of its contract.
 

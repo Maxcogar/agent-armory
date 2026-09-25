@@ -57,6 +57,7 @@ For each contract doc that needs updating:
 
 **Rules for contract docs:**
 - The source code is the authority. Docs describe what the code does.
+- Before rewriting a doc to match, check whether the code change breaks the contract itself (a removed field clients still use, a transition or payload change the contract excludes for a stated reason). If it does, leave that part of the doc unchanged and report the violation to the user with the evidence and the fix you propose.
 - Use exact names from the code (field names, event names, status values).
 - Do not add aspirational content (things the code should do but doesn't yet).
 - Do not remove sections that are still accurate.
@@ -103,6 +104,7 @@ SYNC COMPLETE
   Source files changed: [list]
   Contract docs updated: [list]
   CLAUDE.md sections updated: [list]
+  Contract violations reported: [list, or none]
   Tests: PASS/FAIL
   Lint: PASS/FAIL
 ```

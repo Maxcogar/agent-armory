@@ -173,8 +173,17 @@ def main():
     os.makedirs(a.out, exist_ok=True)
     new = subprocess.run(["git", "rev-parse", a.new], capture_output=True, text=True, check=True).stdout.strip()
     jobs = [(lbl, rev, c) for lbl, rev in (("old", a.old), ("new", new)) for c in a.cases]
-    with cf.ThreadPoolExecutor(max_workers=len(jobs)) as ex:
-        recs = list(ex.map(lambda j: run_case(repo, *j, a.out, a.timeout), jobs))
+    # Plan-mode sessions write their plans to the user's ~/.claude/plans/, which
+    # real sessions read as handoffs. Remove every plan file the runs create.
+    plans = os.path.expanduser("~/.claude/plans")
+    before = set(os.listdir(plans)) if os.path.isdir(plans) else set()
+    try:
+        with cf.ThreadPoolExecutor(max_workers=len(jobs)) as ex:
+            recs = list(ex.map(lambda j: run_case(repo, *j, a.out, a.timeout), jobs))
+    finally:
+        if os.path.isdir(plans):
+            for f in set(os.listdir(plans)) - before:
+                os.remove(os.path.join(plans, f))
     for r in sorted(recs, key=lambda r: (r["case"], r["label"])):
         print(f"{r['case']:22} {r['label']:4} exit={r['exit']!s:8} named={r['named']!s:5} flagged={r['flagged']}")
     json.dump(recs, open(os.path.join(a.out, "summary.json"), "w"), indent=1)
