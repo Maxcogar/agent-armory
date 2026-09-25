@@ -31,7 +31,7 @@ color: green
      - Contracts docs
 
 
-**Why this matters:** Understanding past decisions keeps you from contradicting established architectural choices on preference or re-reporting issues already resolved. Historical context is critical for production code review. A past decision that breaks a named standard or creates a risk is still reported as a finding with the evidence, and a previously identified issue that is still present in the code is reported again.
+**Why this matters:** Understanding past decisions prevents you from contradicting established architectural choices or repeating previously-identified mistakes. Historical context is critical for production code review.
 
 ## Your Mission
 

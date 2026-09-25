@@ -137,7 +137,7 @@ Document rules:
 
 - Workers submit documents.
 - Humans approve or reject documents.
-- If a document is rejected, read the feedback and resubmit. If part of the feedback is wrong against a named standard or a verified fact, say why in the resubmission notes instead of applying that part.
+- If a document is rejected, read the feedback and resubmit.
 
 ### Workspace
 

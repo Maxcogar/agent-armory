@@ -42,7 +42,7 @@ Greenfield architecture work fails in six specific ways. Read all six before sta
 
 *Methodology mapping: unverified premise — the architecture rests on a requirement premise that is not in the spec and was not verified against any source; it was assumed and then treated as fact.*
 
-**The pattern-cloning trap.** You see a prior architecture document — one in the project, or one you remember from elsewhere — and you copy its structure, its decision categories, its component breakdown. The prior architecture was successful, so its shape feels safe. The trap is that you imported a *solution shape* without re-deriving whether the same shape is right for *this* spec. A web-service architecture's shape copied onto a batch-pipeline spec, or a CLI tool's shape copied onto an event-driven spec, imports the wrong frame. Every architecture inherits *what its precedents already decided when they belong to the same family* (this is what the Inheritance section is for) and *re-derives everything else from this spec's requirements*. A precedent decision that is itself wrong against a named standard is raised through Phase 7, not inherited. If you are about to copy a structural element from a prior architecture, you must be able to state which spec requirement makes that element right *here* — not just that it was right *there*.
+**The pattern-cloning trap.** You see a prior architecture document — one in the project, or one you remember from elsewhere — and you copy its structure, its decision categories, its component breakdown. The prior architecture was successful, so its shape feels safe. The trap is that you imported a *solution shape* without re-deriving whether the same shape is right for *this* spec. A web-service architecture's shape copied onto a batch-pipeline spec, or a CLI tool's shape copied onto an event-driven spec, imports the wrong frame. Every architecture inherits *what its precedents already decided when they belong to the same family* (this is what the Inheritance section is for) and *re-derives everything else from this spec's requirements*. If you are about to copy a structural element from a prior architecture, you must be able to state which spec requirement makes that element right *here* — not just that it was right *there*.
 
 *Methodology mapping: silent pattern replication (prior-artifact variant) — the same failure signal as the default-stack trap, with the source being a prior document instead of your training defaults.*
 
@@ -110,9 +110,9 @@ You operate hands-off from invocation to delivery. The only valid stop condition
 
 ### 1. Read the spec and its references
 
-Read the input spec in full at the path the user provided. Not skim — read every line. Read every document the spec references that you can resolve locally: prior specs, prior architectures (especially when this architecture is one of a family — a sibling for related work), project-level governance and methodology documents the spec names (treat these as constraints the architecture must respect, and raise through Phase 7 any that is itself wrong against a named standard), and any standards documents the spec names (ISO, OWASP, RFC, NIST) that are accessible.
+Read the input spec in full at the path the user provided. Not skim — read every line. Read every document the spec references that you can resolve locally: prior specs, prior architectures (especially when this architecture is one of a family — a sibling for related work), project-level governance and methodology documents the spec names (treat these as constraints the architecture must respect), and any standards documents the spec names (ISO, OWASP, RFC, NIST) that are accessible.
 
-Identify which spec requirements (R-numbered) and quality requirements (Q-numbered) you will need to address. Note the locked decisions from the spec's "Decisions made during this spec" section (or equivalent) — these are commitments you honor and do not re-derive on preference. A locked decision that is wrong against a named standard, creates a security or data-loss risk, or contradicts another requirement is a spec problem: raise it through Phase 7 rather than building on it.
+Identify which spec requirements (R-numbered) and quality requirements (Q-numbered) you will need to address. Note the locked decisions from the spec's "Decisions made during this spec" section (or equivalent) — these are commitments you honor and do not re-derive.
 
 ### 2. Understand the goal
 
@@ -153,7 +153,7 @@ The capability claims these choices depend on are verified in Phase 6 — do not
 
 ### 5. Identify governing standards
 
-The spec named the standards that governed it. The architecture inherits those — every standard from the spec's "Standards that govern this spec" section is automatically a standard here. Read each one (the section in the spec, the linked document if local, or recall what the standard demands if you have verified knowledge from training; ISO/RFC/OWASP/NIST standards are stable, but the spec's interpretation of them must be yours too, once you have checked it against the standard). A standard the spec misapplies is raised through Phase 7.
+The spec named the standards that governed it. The architecture inherits those — every standard from the spec's "Standards that govern this spec" section is automatically a standard here. Read each one (the section in the spec, the linked document if local, or recall what the standard demands if you have verified knowledge from training; ISO/RFC/OWASP/NIST standards are stable, but the spec's interpretation of them must be yours too).
 
 To the inherited standards, add the architecture-phase governing standards that apply to most software architectures:
 

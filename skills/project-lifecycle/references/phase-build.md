@@ -2,7 +2,7 @@
 
 Architecture → implementation. The work is executing the design correctly — and "correctly" means against the standards the design was built on, not against patterns already in the codebase. This is where verified premises matter most concretely: code is written against assumptions about what libraries do and what internal contracts guarantee, and an unverified assumption becomes a confident defect.
 
-**Receives:** the architecture document plus the spec. The architecture says how; the spec says what and why. Departures from either are defects. A defect in the spec or architecture itself (wrong against a named standard, unsafe, or contradicted by a verified fact) is raised with the evidence and a proposed fix, not built.
+**Receives:** the architecture document plus the spec. The architecture says how; the spec says what and why. Departures from either are defects.
 
 **Produces:** working, tested code plus implementation notes — including verification evidence for the external libraries and internal contracts the implementation depends on.
 

@@ -11,8 +11,6 @@ Turn user observations about Claude failures into durable fixes.
 
 **User is validator, Claude is executor.** Claude cannot reliably self-diagnose. This workflow captures user observations as testable constraints.
 
-The user is the judge of *what went wrong*. Before a proposed rule is recorded, check that it would actually have prevented the observed failure and does not break something else; if it would not, say so and propose one that would.
-
 ## Workflow
 
 ### 1. Isolate Failure

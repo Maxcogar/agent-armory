@@ -107,7 +107,7 @@ Render a brief markdown summary in the chat covering:
 - The auditor's verdict per field (PASS or DISCREPANCY); if any DISCREPANCY, the corrected values and the recomputed level.
 - The verified level rendered in human-readable form: `L1`, `L2`, or `L3`. Convert the integer `verified_level` (`1`, `2`, or `3`) to the `L#` form for chat display only; preserve the integer form for dispatch in step 11.
 
-Do not ask the user to approve the level. Do not offer the user an option to change the level. When the bundle or audit you are displaying contains evidence that contradicts the verified level, say so to the user with that evidence; the pipeline still dispatches on the verified level. Proceed to step 11 after rendering the summary.
+Do not ask the user to approve the level. Do not offer the user an option to change the level. Proceed to step 11 after rendering the summary.
 
 ### 11. Dispatch to the level-appropriate compose agent
 
@@ -250,7 +250,7 @@ Populate the table with one row per card created in step 19, ordered to match th
 ## Operating rules
 
 - Do not write the architecture document yourself. Do not judge its design quality. Do not pick the level. Spawn agents, verify their outputs, display results to the user, and act on the user's decisions.
-- Do not ask the user to approve the level. Do not offer level overrides. Do tell the user when the evidence shown contradicts the level (step 10).
+- Do not ask the user to approve the level. Do not offer level overrides.
 - Do not create any workspace cards before step 19.
 - Pass each subagent only the inputs that subagent's profile declares it consumes — no exceptions. Substantive corrections reach the affected stage only through declared correction-loop inputs and routed re-entry, never through undeclared prompt context and never through a silent `spec_path` edit.
 - `audit_artifact_id` (the `ARCH_BUNDLE_AUDIT_V2` artifact's ID captured in step 9) is the single seam between the orchestrator and the downstream stages that consume the verified bundle: passed unchanged to compose at step 11 AND to the design reviewer at step 14 (the same value to both). The orchestrator never resolves the bundle and never embeds bundle JSON in any prompt — compose and the design reviewer each fetch the audit themselves and resolve the bundle by the audit's `any_discrepancy` branch.

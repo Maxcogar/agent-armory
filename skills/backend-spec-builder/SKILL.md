@@ -16,8 +16,6 @@ Creates backend architecture outlines by asking questions first, documenting onl
 
 Never propose, assume, or fill in blanks. Ask questions. Document answers. Mark unknowns as `[NEED TO ASK]`.
 
-This rule stops you from inventing requirements, not from reporting problems. When an answer the user gives is technically wrong or risky — it breaks a named standard, opens a security hole, or contradicts another answer — say so, with the reason, before documenting it. The user still decides; you document what they decide.
-
 ## Before Anything Else
 
 1. **Find source-of-truth documentation** - Ask: "Where is your project documentation? Do you have a source-of-truth folder or similar?"

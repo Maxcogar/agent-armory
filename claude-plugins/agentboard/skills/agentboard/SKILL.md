@@ -275,7 +275,7 @@ Every project progresses through 13 phases. Phases 1-9 are document phases (an a
 | 4 | Constraints | `constraints` | The named rules and conventions the work must respect — state-machine constraints, naming conventions, security policies, performance targets, contract invariants. **RAG is the primary tool here** (`source_type="constraints"` queries to discover what already exists). The constraints doc should reflect reality, not invent rules. |
 | 5 | Risk Assessment | `risk_assessment` | What could go wrong, where the blast radius lives, which coupling hotspots the work touches. **codegraph `get_stats` and `get_dependents` are the primary tools here** — high-coupling files imply high change-risk. |
 | 6 | Architecture | `architecture` | Component architecture, structural decisions, and the level-aware design output. Often produced by the `/architecture` skill rather than authored by hand (the skill runs a research → audit → classification → compose → review pipeline and produces this document plus workspace cards from its Card Slices section). |
-| 7 | Contracts | `contracts` | The interface contracts between components — function signatures, API surfaces, message shapes, schemas. Must be consistent with what already exists (use RAG to verify); an existing contract that is itself wrong is named with the evidence, not copied. |
+| 7 | Contracts | `contracts` | The interface contracts between components — function signatures, API surfaces, message shapes, schemas. Must be consistent with what already exists (use RAG to verify). |
 | 8 | Test Strategy | `test_strategy` | The verification plan — what kinds of tests, what coverage, how each requirement maps to its verification. Test code does not get written here; the strategy does. |
 | 9 | Task Breakdown | `task_breakdown` | Implementation tasks ordered by dependency. **Phase 9 is the exception**: it has a document but no milestone task; submit the document manually. After approval, the project moves to phase 10 and the task list authored here becomes the queue of implementation tasks. |
 | 10 | Implementation | none | Free-form implementation tasks (not milestones) created by agents or humans. Agents call `agentboard_advance_phase` to move forward; the document state machine doesn't gate progression here. |
@@ -299,9 +299,9 @@ Milestone tasks are auto-created for phases 1-8 and linked to phase documents. T
 4. **Fill and submit** -- `agentboard_submit_document` with your content and notes
 5. **Wait for review** -- the call blocks until a human approves or rejects
 6. **If approved** -- milestone auto-transitions to `done`, next milestone becomes `ready`
-7. **If rejected** -- read feedback, revise, and resubmit. If part of the feedback is wrong against a named standard or a verified fact, say why in the resubmission `notes` instead of applying that part
+7. **If rejected** -- read feedback, revise, and resubmit
 
-**About the templates:** Each document template contains `<!-- Agent: ... -->` inline instructions that tell you exactly what to write in each section. The templates have pre-structured tables, fields, and prompts -- follow them. When a template instruction is wrong for this project against a named standard or a verified fact, say so with the evidence in the submission `notes`. Templates vary by project type (`new_feature`, `refactor`, `bug_fix`, `migration`, `integration`); you don't need to find them yourself -- `get_next_task` returns the appropriate template content in the response.
+**About the templates:** Each document template contains `<!-- Agent: ... -->` inline instructions that tell you exactly what to write in each section. The templates have pre-structured tables, fields, and prompts -- follow them. Templates vary by project type (`new_feature`, `refactor`, `bug_fix`, `migration`, `integration`); you don't need to find them yourself -- `get_next_task` returns the appropriate template content in the response.
 
 The `ready->in-progress` guard requires only `assignee` (set automatically by `get_next_task`). Milestone tasks have `acceptance_criteria` pre-seeded by the server, which satisfies the `in-progress->review` guard when the server submits notes during milestone-sync.
 
@@ -597,8 +597,8 @@ The codebase-rag MCP exposes two tools. The server auto-detects the project root
 |---|---|
 | **2 -- Codebase Survey** | Use `rag_search` with `source_type="docs"` to surface existing architectural patterns and conventions for §7 Architectural Patterns and §10 Code Conventions. |
 | **4 -- Constraints** | **Critical phase for RAG.** Use `rag_search` with `source_type="constraints"` and queries like "database access patterns", "API conventions", "error handling", "module boundaries" to discover constraints that already exist in the codebase. The constraints doc should reflect reality, not invent rules. |
-| **6 -- Architecture** | Before submitting, use `rag_search` with your proposed architectural changes to verify they don't violate existing patterns. An existing pattern that is itself wrong against a named standard is named in the document with the evidence, not followed. |
-| **7 -- Contracts** | Use `rag_search` (`source_type="docs"` or `"all"`) to find existing API contracts and interface patterns. Your contracts doc must be consistent with what already exists; an existing contract that is itself wrong is named in the doc with the evidence, not copied. |
+| **6 -- Architecture** | Before submitting, use `rag_search` with your proposed architectural changes to verify they don't violate existing patterns. |
+| **7 -- Contracts** | Use `rag_search` (`source_type="docs"` or `"all"`) to find existing API contracts and interface patterns. Your contracts doc must be consistent with what already exists. |
 | **10+ -- Implementation** | Before writing code, use `rag_search` describing your planned change to surface relevant patterns and constraints. Use `rag_query_impact` on files you plan to modify to understand blast radius. |
 
 ### 6.3 Setup Sequence (Main Agent, Every Session)

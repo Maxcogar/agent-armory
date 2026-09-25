@@ -39,7 +39,6 @@ git checkout -b step1-implementation  # (or appropriate step)
      - Read back section to verify
      - Mark TodoWrite task as completed
      - Commit changes
-   - If an edit turns out to be wrong (breaks a named standard, creates a security or data-loss risk, or contradicts a requirement or the code as it is), stop before making it and report it to the user with the evidence and the fix you propose
 
 7. **Verify no syntax errors:**
 ```bash

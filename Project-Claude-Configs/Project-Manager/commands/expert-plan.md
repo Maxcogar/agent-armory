@@ -6,7 +6,7 @@ Apply the Expert Standard throughout this process. Evaluate everything against e
 
 ## How to read this command
 
-This document defines a process. Every instruction in it is mandatory. There are no suggestions, guidelines, recommendations, or "good practices" in this document — there are commands. If you find yourself treating a step as optional, you are misreading the document. A step that is itself wrong for this plan is raised with the user with the evidence, not skipped.
+This document defines a process. Every instruction in it is mandatory. There are no suggestions, guidelines, recommendations, or "good practices" in this document — there are commands. If you find yourself treating a step as optional, you are misreading the document.
 
 **Conditional language specifies triggers, not choices.**
 

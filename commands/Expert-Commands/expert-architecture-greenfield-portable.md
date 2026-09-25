@@ -46,7 +46,7 @@ Greenfield architecture work fails in six specific ways. Read all six before sta
 
 *Methodology mapping: unverified premise — the architecture rests on a requirement premise not in the spec and not verified against any source; it was assumed and then treated as fact.*
 
-**The pattern-cloning trap.** You see a prior architecture document and copy its structure, decision categories, and component breakdown without re-deriving whether the same shape is right for *this* spec. A web-service shape copied onto a batch-pipeline spec imports the wrong frame. Every architecture inherits *what its precedents already decided when they belong to the same family* (the Inheritance section) and *re-derives everything else from this spec's requirements*. A precedent decision that is itself wrong against a named standard is raised through Phase 7, not inherited. If you are about to copy a structural element, state which spec requirement makes it right *here* — not just that it was right *there*.
+**The pattern-cloning trap.** You see a prior architecture document and copy its structure, decision categories, and component breakdown without re-deriving whether the same shape is right for *this* spec. A web-service shape copied onto a batch-pipeline spec imports the wrong frame. Every architecture inherits *what its precedents already decided when they belong to the same family* (the Inheritance section) and *re-derives everything else from this spec's requirements*. If you are about to copy a structural element, state which spec requirement makes it right *here* — not just that it was right *there*.
 
 *Methodology mapping: silent pattern replication (prior-artifact variant).*
 
@@ -140,7 +140,7 @@ You operate hands-off from invocation to delivery. The only valid stop condition
 
 ### 1. Read the spec and its references
 
-Read the input spec in full at the path the user provided — every line. Read every document the spec references that you can resolve locally: prior specs, prior architectures (especially when this architecture is one of a family), project-level governance and methodology documents the spec names (treat these as constraints, and raise through Phase 7 any that is itself wrong against a named standard), and any standards documents the spec names that are accessible. Identify which spec requirements (R-numbered) and quality requirements (Q-numbered) you will need to address. Note the locked decisions from the spec's "Decisions made during this spec" section — commitments you honor and do not re-derive on preference. A locked decision that is wrong against a named standard, creates a security or data-loss risk, or contradicts another requirement is a spec problem: raise it through Phase 7 rather than building on it.
+Read the input spec in full at the path the user provided — every line. Read every document the spec references that you can resolve locally: prior specs, prior architectures (especially when this architecture is one of a family), project-level governance and methodology documents the spec names (treat these as constraints), and any standards documents the spec names that are accessible. Identify which spec requirements (R-numbered) and quality requirements (Q-numbered) you will need to address. Note the locked decisions from the spec's "Decisions made during this spec" section — commitments you honor and do not re-derive.
 
 ### 2. Understand the goal
 
@@ -166,7 +166,7 @@ When the style or stack has three or more viable options competing on multiple c
 
 ### 5. Identify governing standards
 
-The spec named the standards that governed it. The architecture inherits those — every standard from the spec's "Standards that govern this spec" section is automatically a standard here. Read each one (the section in the spec, the linked document if local, or recall what the standard demands if you have verified knowledge from training; ISO/RFC/OWASP/NIST standards are stable, but the spec's interpretation must be yours too, once you have checked it against the standard). A standard the spec misapplies is raised through Phase 7.
+The spec named the standards that governed it. The architecture inherits those — every standard from the spec's "Standards that govern this spec" section is automatically a standard here. Read each one (the section in the spec, the linked document if local, or recall what the standard demands if you have verified knowledge from training; ISO/RFC/OWASP/NIST standards are stable, but the spec's interpretation must be yours too).
 
 Add the architecture-phase governing standards that apply to most software architectures: **ISO/IEC/IEEE 42010** (architecture description — stakeholders, concerns, viewpoints, views, decisions with rationale; underwrites the Architectural drivers section and the decision-rationale discipline); **ISO/IEC 25010** (quality characteristics the architecture must advance); **SOLID** for component design; **REST conventions** (RFC 7231, 7232, 7807) when API design is in scope; **OWASP ASVS** for security architecture when there is a security surface, and **OWASP Threat Modeling guidance** (threats before controls). Add domain-specific standards relevant to the system (microservice patterns, event-driven principles, database normal forms, consistency models — identify per-architecture, do not pre-load).
 

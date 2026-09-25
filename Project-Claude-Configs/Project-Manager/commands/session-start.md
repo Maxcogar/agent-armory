@@ -17,7 +17,7 @@ Do these in order. Do not skip. Do not start work until all are done.
 
 ## 2. Read the latest handoff
 
-Newest file in `docs/deployment-readiness/handoffs/` (`ls -t | head -1`). Read it in full. This is THE authoritative state of last session — it overrides commit messages if they conflict, once you have checked the code to see which one is right. If the code shows the handoff is wrong, say so and cite the evidence.
+Newest file in `docs/deployment-readiness/handoffs/` (`ls -t | head -1`). Read it in full. This is THE authoritative state of last session — it overrides commit messages if they conflict.
 
 ## 3. Read the source-of-truth docs for the current work
 
@@ -51,11 +51,11 @@ Before agreeing to any implementation plan, write out explicitly:
 - What is deferred by plan sequencing and why.
 - Locked decisions from prior plans/corrections that constrain the approach.
 
-If the user's request contradicts a locked decision, stop and flag it. Do not silently proceed. Flag a locked decision the same way when it is itself wrong against a named standard, creates a security or data-loss risk, or contradicts a verified fact: give the evidence and the fix you propose.
+If the user's request contradicts a locked decision, stop and flag it. Do not silently proceed.
 
 ## 7. No hedging
 
-If a standard, plan, or corrections handoff already answers a decision, state the answer and proceed, unless that answer is itself flawed in one of the ways step 6 names; then state the flaw, the evidence, and the fix you propose instead. Do not present (a)/(b)/(c)/(d) option lists for the user to pick from when the source docs already dictate the answer.
+If a standard, plan, or corrections handoff already answers a decision, state the answer and proceed. Do not present (a)/(b)/(c)/(d) option lists for the user to pick from when the source docs already dictate the answer.
 
 ---
 

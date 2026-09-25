@@ -30,7 +30,7 @@ Architecture work fails in five specific ways. The first three are general failu
 
 _Methodology mapping: silent pattern replication (codebase variant) — one of the four failure signals defined by the methodology spec, expert-standard skill, and workflow document._
 
-**The pattern-cloning trap.** You see a prior architecture document — one in the project, or one you remember from elsewhere — and you copy its structure, its decision categories, its component breakdown to your new architecture. The prior architecture was successful, so its shape feels safe. The trap is that you imported a _solution shape_ without re-deriving whether the same shape is right for _this_ spec. Two architectures may share structure because they belong to the same family (e.g., a pair of related microservices in the same system) — copying that structure to an architecture for a different kind of system (e.g., a batch pipeline, a desktop app) would import the wrong frame. Every architecture inherits _what its precedents already decided when they belong to the same family_ (this is what the Inheritance from precedent table is for) and _re-derives everything else from this spec's requirements_. A precedent decision that is itself wrong against a named standard is raised through Phase 7, not inherited. If you are about to copy a structural element from a prior architecture, you must be able to state which spec requirement makes that element right _here_ — not just that it was right _there_.
+**The pattern-cloning trap.** You see a prior architecture document — one in the project, or one you remember from elsewhere — and you copy its structure, its decision categories, its component breakdown to your new architecture. The prior architecture was successful, so its shape feels safe. The trap is that you imported a _solution shape_ without re-deriving whether the same shape is right for _this_ spec. Two architectures may share structure because they belong to the same family (e.g., a pair of related microservices in the same system) — copying that structure to an architecture for a different kind of system (e.g., a batch pipeline, a desktop app) would import the wrong frame. Every architecture inherits _what its precedents already decided when they belong to the same family_ (this is what the Inheritance from precedent table is for) and _re-derives everything else from this spec's requirements_. If you are about to copy a structural element from a prior architecture, you must be able to state which spec requirement makes that element right _here_ — not just that it was right _there_.
 
 _Methodology mapping: silent pattern replication (prior-artifact variant) — the same failure signal as codebase-mirroring, with the source being a prior document instead of the surrounding code._
 
@@ -99,10 +99,10 @@ Read the input spec in full at the path the user provided. Not skim — read eve
 
 - Prior specs the spec names
 - Prior architectures the spec names (especially when this architecture is one of a family — e.g., a sibling architecture for related work)
-- Project-level governance and methodology documents the spec names (compliance checklists, decision-justification rubrics, any project-specific architectural conventions). When the project includes them, treat them as constraints the architecture must respect, and raise through Phase 7 any that is itself wrong against a named standard.
+- Project-level governance and methodology documents the spec names (compliance checklists, decision-justification rubrics, any project-specific architectural conventions). When the project includes them, treat them as constraints the architecture must respect.
 - Any standards documents the spec names (ISO, OWASP, RFC, NIST) — the spec told you which standards govern; read those that are accessible
 
-Identify which spec requirements (R-numbered) and quality requirements (Q-numbered) you will need to address in the architecture. Note the locked decisions from the spec's "Decisions made during this spec" section (or equivalently named section) — these are commitments you must honor; you do not re-derive them on preference. A locked decision that is wrong against a named standard, creates a security or data-loss risk, or contradicts another requirement is a spec problem: raise it through Phase 7 rather than building on it.
+Identify which spec requirements (R-numbered) and quality requirements (Q-numbered) you will need to address in the architecture. Note the locked decisions from the spec's "Decisions made during this spec" section (or equivalently named section) — these are commitments you must honor; you do not re-derive them.
 
 ### 2. Understand the goal
 
@@ -154,7 +154,7 @@ If `codegraph_scan` returns zero files (typical for a markdown-only project), re
 
 ### 5. Identify governing standards
 
-The spec named the standards that governed it. The architecture inherits those — every standard from the spec's "Standards that govern this spec" section is automatically a standard for this architecture. Read each one (the section in the spec, the linked document if local, or recall what the standard demands if you have verified knowledge from training). A standard the spec misapplies is raised through Phase 7.
+The spec named the standards that governed it. The architecture inherits those — every standard from the spec's "Standards that govern this spec" section is automatically a standard for this architecture. Read each one (the section in the spec, the linked document if local, or recall what the standard demands if you have verified knowledge from training).
 
 To the inherited standards, add the architecture-phase governing standards that apply to most software architectures:
 
@@ -164,7 +164,7 @@ To the inherited standards, add the architecture-phase governing standards that 
 - **OWASP Threat Modeling guidance** — threats before controls.
 - **ISO/IEC 25010:2023 quality characteristics** — the architecture must advance the quality characteristics the spec requires, and you must state how each is addressed.
 
-Add domain-specific architecture standards relevant to the system being architected (microservice patterns; event-driven architecture principles; database design normal forms; distributed systems consistency models — identify per-architecture, do not pre-load). Verify external standards via Context7 in Phase 6 when they're versioned library APIs; ISO/RFC/OWASP/NIST standards are stable, but the spec's interpretation of them must be your interpretation too, once you have checked it against the standard; a misreading is raised through Phase 7.
+Add domain-specific architecture standards relevant to the system being architected (microservice patterns; event-driven architecture principles; database design normal forms; distributed systems consistency models — identify per-architecture, do not pre-load). Verify external standards via Context7 in Phase 6 when they're versioned library APIs; ISO/RFC/OWASP/NIST standards are stable, but the spec's interpretation of them must be your interpretation too.
 
 For each named standard, write down (for your own reasoning) what it governs in this architecture. A standard that doesn't govern any specific decision is the standards-decoration trap waiting to happen. Either find the decision it should be governing, or remove it from the list.
 

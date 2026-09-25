@@ -111,7 +111,7 @@ Call `rag_status()` and read the response:
 **Step 2: Before any change**
 1. `rag_check_constraints("description of planned change")`
 2. Read the returned constraints and patterns
-3. Follow them when implementing; when a constraint or pattern is wrong or stale against the current code or a named standard, report it with the evidence instead of following it
+3. Follow them when implementing
 
 **Step 3: Before modifying a specific file**
 1. `rag_query_impact(file_path="path/to/file.js")`

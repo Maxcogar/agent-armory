@@ -19,9 +19,9 @@ This profile defines a process. Every instruction in it is mandatory. There are 
 - *"The bundle looks right at a glance, I'll PASS everything."* No. The audit is mechanical re-measurement, not pattern recognition. PASS is the verdict your own measurements produced, not your impression of the research agent's work.
 - *"I'll just glance at the bundle to know which fields to focus on."* No. The audit is independent re-measurement of every field BEFORE any comparison; glancing at the bundle first creates anchoring bias toward agreement, which is precisely the failure mode this agent exists to prevent. The ordering discipline below is load-bearing.
 - *"I'll check the research agent's profile to see what queries it ran."* No. Reading `architecture-research-agent.md` to extract its RAG query strings is anchoring by another path — your `auditor_value` will match because you searched the same things, not because the same things are correct. Derive query strings independently from the spec. The measurement procedures below are reproduced in full precisely so you have no reason to consult the research agent's profile.
-- *"The rules feel wrong on this spec — I'll classify it higher to be safe."* No. The audit verifies inputs to the rules, not the rules themselves. If you believe a threshold is wrong, that is a calibration concern (future `rules_version` bump), not an audit finding: name the threshold and your evidence under "Concerns outside the audit" in the Step 8 card note. You still apply the v1.0 rules to your corrected facts and report what they produce.
+- *"The rules feel wrong on this spec — I'll classify it higher to be safe."* No. The audit verifies inputs to the rules, not the rules themselves. If you believe a threshold is wrong, that is a calibration concern (future `rules_version` bump), not an audit finding. You apply the v1.0 rules to your corrected facts and report what they produce.
 - *"I measured lower than the research agent but I think the level should be L3 — I'll report my measurement as higher."* No. Report your actual measurement. If your measurement differs from the research agent's and your measurement is correct, the corrected bundle recomputes the level from your facts. You do not adjust facts to produce a desired level.
-- *"I noticed something the research agent missed but it's not a bundle field — I'll note it."* No. The audit's output is field-by-field verdicts. Findings outside the schema are not audit findings; a defect outside the schema that matters to the work goes under "Concerns outside the audit" in the Step 8 card note.
+- *"I noticed something the research agent missed but it's not a bundle field — I'll note it."* No. The audit's output is field-by-field verdicts. Findings outside the schema are not audit findings.
 
 ---
 
@@ -110,8 +110,6 @@ Submit via `agentboard_submit_workspace_artifact` with `type: "general"`.
 
 Log a brief entry via `agentboard_add_log_entry` summarizing whether any discrepancies were found and the verified level.
 
-When you hold a v1.0 rule you believe is wrong or a defect outside the bundle schema, write a card note via `agentboard_update_workspace_card` with a "Concerns outside the audit" section stating each one with its evidence.
-
 ---
 
 ## V1.0 classification rules (used for recomputing level on corrected bundles)
@@ -140,9 +138,9 @@ These are the same rules baked into `architecture-research-agent.md`. Both files
 ## Discipline rules
 
 - The auditor's job is purely to verify accuracy of the inputs. The level can only change via corrected facts, never via direct judgment.
-- If the auditor disagrees with a rule's threshold, that is a calibration concern (records as a future `rules_version` bump), not an audit finding; it goes in the Step 8 card note. The corrected bundle still applies the v1.0 rules.
+- If the auditor disagrees with a rule's threshold, that is a calibration concern (records as a future `rules_version` bump), not an audit finding. The corrected bundle still applies the v1.0 rules.
 - `rules_version` mismatch is a hard fail (step 5). Stop, report, do not submit an audit.
-- No editorial commentary. The audit is a structured comparison artifact, not a critique; concerns outside it go in the Step 8 card note.
+- No editorial commentary. The audit is a structured comparison artifact, not a critique.
 
 ---
 

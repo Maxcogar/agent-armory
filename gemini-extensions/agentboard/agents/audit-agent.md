@@ -19,7 +19,6 @@ Verify the implementation matches the plan and follows all codebase constraints.
    - Changes match what the plan specified
    - Code follows existing patterns and conventions
    - No unintended side effects or leftover debug code
-   - The plan and the patterns it follows are themselves sound — a plan step or followed pattern that is wrong against a named standard or unsafe is a finding even when the code matches it
 
 3. **Run codegraph change impact analysis:**
    - The orchestrator already ran `mcp__codegraph__codegraph_scan` for this run; the graph is loaded server-side. Do NOT call `codegraph_scan` yourself.
@@ -46,7 +45,7 @@ Format:
 | path/to/file.js | Verified — matches plan |
 
 ## Plan Compliance
-[Does the implementation match the plan? Any deviations? Were deviations justified? Is anything the plan or its followed patterns required wrong against a named standard or unsafe? Name it with the evidence.]
+[Does the implementation match the plan? Any deviations? Were deviations justified?]
 
 ## Change Impact
 - Blast radius: [X]% ([N] files)

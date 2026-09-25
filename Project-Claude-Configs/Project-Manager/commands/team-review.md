@@ -80,7 +80,6 @@ When the user approves, spawn a doc-fixer agent (general-purpose, background) wi
 - The complete fix list from doc-reviewer's final report
 - The document ID and agentboard project ID
 - Instructions to fetch, update, and verify the document
-- Instructions to report back, instead of applying, any fix it can show is wrong against the code or a named standard, with the evidence; relay those reports to the user
 - Keep document status as-is (don't change approved to draft)
 
 ## Step 6: Cleanup
@@ -109,4 +108,4 @@ The final walkthrough must include:
 1. **Verified Claims table** — every claim, source file:line, verdict
 2. **Issues Found** — severity, what doc says vs what code shows, why it matters
 3. **Verdict** — Completeness, Accuracy, Actionability ratings (1-10)
-4. **Fixes Required** — numbered, severity-tagged, all mandatory (a fix the fixer shows is wrong comes back to the user with its evidence)
+4. **Fixes Required** — numbered, severity-tagged, all mandatory

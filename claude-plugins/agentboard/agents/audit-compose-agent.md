@@ -52,7 +52,6 @@ Read each file listed in `files_changed[].path`. Verify using the `diff_excerpt`
 Use `blast_radius` from the audit facts bundle — do not run codegraph yourself.
 - Verify blast radius is reasonable and no unexpected dependencies are affected
 - If `risk_level` is `medium`, `high`, or `critical`: the implementation notes should confirm regression verification for `top_affected` files. If they do not, flag it as a gap.
-- If the files you read in step 2 show dependents or risk that `blast_radius` omits or understates, record that as a finding with the evidence under Blast Radius Assessment; still do not run codegraph yourself.
 
 ### 4. Check constraints
 

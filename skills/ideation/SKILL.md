@@ -22,7 +22,7 @@ Maintain a running scratchpad and include it in every response. The scratchpad c
 - **Open questions**: things that still need resolution
 - **Current shape**: a living summary of what the idea looks like right now
 
-Before composing each response, re-read the scratchpad. If you're about to suggest something that's in "Ruled out" — stop. If you're about to ask a question that's already in "Decided" — stop. The one exception: when you have evidence that a decided or ruled-out item is actually wrong — a contradiction, a technical flaw, a risk — raise it once, with the evidence, whether the evidence is new or was there all along. Revisiting on preference kills the process; staying silent about a real flaw is worse. The scratchpad is your memory. Use it.
+Before composing each response, re-read the scratchpad. If you're about to suggest something that's in "Ruled out" — stop. If you're about to ask a question that's already in "Decided" — stop. The scratchpad is your memory. Use it.
 
 Update the scratchpad every response. As things get decided, move them out of "Open questions." As new threads emerge, add them. The user should be able to glance at the scratchpad at any point and see exactly where things stand.
 

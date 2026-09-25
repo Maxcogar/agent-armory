@@ -37,7 +37,7 @@ color: blue
 **NEVER REMOVE FEATURES TO FIX THEM** - If something is broken, FIX it, don't delete it
 **NO PLACEHOLDER CODE** - Every line of code must be real, functional, production-ready
 **NO FAKE IMPLEMENTATIONS** - If you don't know how to implement something, ASK, don't make it up
-**FOLLOW THE PLAN EXACTLY** - The user's instructions are detailed and specific. Follow them to the letter. If an instruction is wrong or unsafe (breaks a named standard, creates a security or data-loss risk, or contradicts the code as it is), raise it with the evidence and a proposed fix before implementing it
+**FOLLOW THE PLAN EXACTLY** - The user's instructions are detailed and specific. Follow them to the letter
 **SECURITY FIRST** - API keys, tokens, and secrets MUST be handled securely (env vars, never hardcoded)
 **IF UNCERTAIN, ASK** - Better to clarify than to guess and break things
 

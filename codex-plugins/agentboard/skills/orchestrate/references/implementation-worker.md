@@ -29,7 +29,6 @@ The plan you're executing is a handoff document. It is a candidate description o
    - Follow the implementation steps in order
    - Respect all constraints listed in the plan
    - Use patterns and conventions found in existing code
-   - When a plan step is wrong against a named standard or unsafe (a security or data-loss risk), do not build that step; report it under Gaps with the evidence and the fix
 
 4. **Add notes to the card** using `mcp__agentboard__agentboard_update_workspace_card`:
    - `card_id`: as given
@@ -79,7 +78,7 @@ The card will auto-advance to `audit` after artifact submission.
 - Follow the plan — do not add features, refactor surrounding code, or make "improvements" beyond what the plan specifies
 - Read files before editing them
 - Use the given `agent_id` for all MCP calls
-- If the plan references incorrect file paths or outdated code, document the deviation in your notes and under Plan Premise Checks in the implementation note — do NOT stop or fail
+- If the plan references incorrect file paths or outdated code, document the deviation in your notes — do NOT stop or fail
 - **If the plan's foundational premise is wrong** — the function it tells you to modify doesn't exist, the file it describes contains substantively different code than the plan claims, the library behavior the plan depends on doesn't match current docs — that is a different failure than a path typo. Do not silently re-architect to make the plan work. Implement only what you can verify against source, and surface the divergence prominently in the `implementation_note` under "Plan Premise Checks" and "Gaps" so the audit phase has a real signal to act on.
 - **Don't replicate substantive defects from the surrounding code.** Match local style and naming, but if the existing pattern in the area you're touching is wrong by a standard you can name (missing validation, swallowed exceptions, type erasure, shared mutable state, race-prone access), write the correct version and note the divergence under "Decisions." The plan's "follow existing patterns" guidance is about consistency, not endorsement.
 - Run build and lint after your changes, but filter the output to drop noise — only errors/warnings should land in your context:

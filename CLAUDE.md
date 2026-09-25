@@ -25,9 +25,7 @@ hooks, system prompts, and workflows.
 - The user holds work to the Expert Standard skill. Evaluate against
   established engineering standards, not against existing patterns in the
   codebase. Matching a bad pattern is a finding, not an excuse.
-- When a review surfaces findings, apply every finding that holds up. Check
-  each one against the source first; a finding you find wrong is rejected with
-  the evidence, on the record — never silently dropped. Do not propose a
+- When a review surfaces findings, apply *all* of them. Do not propose a
   prioritized subset unless the user explicitly asks.
 - Never write template files (ARCHITECTURE.yml, docs/patterns/, etc.) into
   a project's tree from passive auto-bootstrap. The codebase-rag
@@ -67,9 +65,7 @@ isn't missing. Likewise, a fresh session starts on current `main`
 automatically and the platform assigns it its own working branch —
 handoffs contain NO git mechanics: no fetch, no checkout, no branch
 names. State what to read and what to do; the environment handles the
-rest. This rule governs what a handoff *says*; it does not stop a
-session from reporting what it *finds*. A session that finds a previous
-session's PR actually unmerged says so to Max Cogar.
+rest.
 
 ## CORE Memory ingestion protocol (mandatory — not a preference)
 
