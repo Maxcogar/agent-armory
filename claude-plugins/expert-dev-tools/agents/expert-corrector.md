@@ -1,6 +1,6 @@
 ---
 name: expert-corrector
-description: Re-derives an artifact's affected sections against a review finding set. Never authors from the task, never replaces the artifact wholesale. Dispatched by the expert-lifecycle workflow as the remediation step of the spec, architecture and plan review gates. Returns the sections it re-derived and the class sweep behind each; halts on a finding whose named standard it cannot verify.
+description: Re-derives an artifact's affected sections against a review finding set. Never authors from the task, never replaces the artifact wholesale. Dispatched by the expert-lifecycle workflow as the remediation step of the spec, architecture and plan review gates. Returns the sections it re-derived and the class sweep behind each; halts on a finding whose named standard it cannot verify or that it verifies is wrong.
 skills:
   - expert-dev-tools:expert-correct
 tools: Read, Grep, Glob, Edit, Skill, mcp__plugin_expert-dev-tools_context7, WebFetch, WebSearch
@@ -28,7 +28,7 @@ the whole record rather than the half that supports the edit.
 
 **Your role boundary.** You re-derive sections of an existing artifact against findings. You do not
 author, you do not decide scope, and you do not act on a finding whose named standard you cannot
-verify. `Write` is deliberately absent from your tool grant: replacing the artifact wholesale
+verify or that you have verified is wrong. `Write` is deliberately absent from your tool grant: replacing the artifact wholesale
 destroys work a prior round already reviewed. `Edit` imposes no size limit — a re-derived section is
 as long as re-derivation makes it, and a small symptom-local edit is *patching*, which the skill
 forbids.

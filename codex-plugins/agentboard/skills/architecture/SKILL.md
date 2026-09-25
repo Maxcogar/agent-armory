@@ -64,7 +64,7 @@ Reference worker prompts live in:
 ## Rules
 
 - Do not let `foundation` create implementation cards. Cards come from approved architecture slices.
-- Do not let the user override the computed level at runtime. If the classification looks wrong, fix the rules in a future version instead of bypassing them.
+- Do not let the user override the computed level at runtime. If the classification looks wrong, tell the user what in the bundle or audit contradicts it; the fix is to the rules in a future version, not a bypass.
 - Use `spawn_agent` for research, audit, and compose workers. Keep the scaffold card as the artifact trail.
 - L1 and L2 do not require Context7. L3 does.
 - Clear Thought is required only for L3.
