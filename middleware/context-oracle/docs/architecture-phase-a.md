@@ -1421,7 +1421,19 @@ and nothing here depends on the new channel.
    `import_edges`, and FTS rows deleted and `files.in_tree` set to 0, and its
    `files` row is kept while mined history references it (AD-4 — pruning
    deletes evidence, AD-13); files > 1 MB or > 20k lines are
-   indexed path-only with a diagnostic. `schema_meta.index_head` records the
+   indexed path-only with a diagnostic. **A file's derived rows depend on more
+   than its own bytes, so "unchanged" covers every input:** a change in the
+   frontend set (their languages, capabilities, and versions, stored as a
+   fingerprint) makes the pass full, and when a file appears or disappears the
+   pass re-parses every file whose import resolution could change — files with
+   `unresolved_imports > 0` when a file appears, the sources of the dropped
+   edges when one disappears — so an unchanged importer is re-resolved.
+   *Why (Step 14 build review S1, S2, 2026-09-26, both executed):* indexing
+   with no frontends and then with real ones wrote nothing (every store would
+   have kept its empty symbols and edges at Step 15, observed zero read as
+   never counted — the G13 failure); and switching to a branch without a file
+   and back lost its import edges, test mapping, and entry score for good,
+   with `index_head` still equal to `HEAD`, so nothing reported it. `schema_meta.index_head` records the
    indexed commit; the handler's staleness check compares it to `HEAD` and
    spawns the refresh when they diverge (`FR-K7`: staleness lowers confidence
    meanwhile, never blocks).
