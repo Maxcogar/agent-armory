@@ -602,6 +602,7 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/src/stores/dao/corrections.ts | create | S9 |
 | middleware/context-oracle/ctxoracle/src/stores/dao/faults.ts | create | S9 |
 | middleware/context-oracle/ctxoracle/src/stores/dao/files.ts | create | S9 |
+| middleware/context-oracle/ctxoracle/src/stores/dao/files.ts | modify | S13 |
 | middleware/context-oracle/ctxoracle/src/stores/dao/global_meta.ts | create | S9 |
 | middleware/context-oracle/ctxoracle/src/stores/dao/human_facts.ts | create | S9 |
 | middleware/context-oracle/ctxoracle/src/stores/dao/import_edges.ts | create | S9 |
@@ -640,6 +641,7 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/src/util/hash.ts | create | S5 |
 | middleware/context-oracle/ctxoracle/src/util/path_bytes.ts | create | S5 |
 | middleware/context-oracle/ctxoracle/src/util/spawn.ts | create | S5 |
+| middleware/context-oracle/ctxoracle/src/util/spawn.ts | modify | S13 |
 | middleware/context-oracle/ctxoracle/src/util/ulid.ts | create | S9 |
 | middleware/context-oracle/ctxoracle/test/build_time/grammar_inventory_check.test.ts | create | S38 |
 | middleware/context-oracle/ctxoracle/test/build_time/marker_presence.test.ts | create | S38 |
@@ -3083,9 +3085,9 @@ step: S13
 covers: [PA-1, PA-3]
 files:
   create: [middleware/context-oracle/ctxoracle/src/miner/cochange.ts, middleware/context-oracle/ctxoracle/src/miner/labels.ts, middleware/context-oracle/ctxoracle/test/unit/miner.test.ts, middleware/context-oracle/ctxoracle/test/unit/miner_denominator.test.ts, middleware/context-oracle/ctxoracle/test/unit/miner_rewrite.test.ts, middleware/context-oracle/ctxoracle/test/unit/miner_landmines.test.ts, middleware/context-oracle/ctxoracle/test/unit/miner_chunks.test.ts, middleware/context-oracle/ctxoracle/test/unit/miner_chunks_worker.ts, middleware/context-oracle/ctxoracle/test/unit/miner_branches.test.ts]
-  modify: [middleware/context-oracle/ctxoracle/test/fixtures/generate.ts, middleware/context-oracle/ctxoracle/src/index/indexer.ts]
+  modify: [middleware/context-oracle/ctxoracle/test/fixtures/generate.ts, middleware/context-oracle/ctxoracle/src/index/indexer.ts, middleware/context-oracle/ctxoracle/src/util/spawn.ts, middleware/context-oracle/ctxoracle/src/stores/dao/files.ts]
   delete: []
-provides: [mineCochange, parseNumstatZ, isRevertLabelled, isFixLabelled]
+provides: [mineCochange, parseNumstatZ, isRevertLabelled, isFixLabelled, files.repointStaleCommitProv]
 tests: [T-13-1, T-13-2, T-13-3, T-13-4, T-13-5, T-13-6]
 depends_on: [S1, S3, S5, S9, S10, S11, S12]
 ```
@@ -3104,7 +3106,12 @@ full flag, passed through unchanged (Step 14). The one stream is
 
 `git log --no-merges -M -z --numstat --reverse --format=%x1e%H%x00%at%x00%s%x00%b%x00 <range>`
 
-run through Step 5's `oracleSpawn` with stdout consumed as bytes, where
+run through Step 5's `oracleSpawn` with its new option `stdout: 'pipe'` (the
+option this step adds to `src/util/spawn.ts`: stdin ignored, stdout piped,
+stderr inherited; the default stays `'inherit'` — Step 13 builder preflight:
+an inherited stdout has no pipe, `child.stdout` is `null`) and stdout consumed
+as `Buffer` chunks, so the whole history is never one buffer in Node (no
+`maxBuffer` ceiling on a large repository), where
 `<range>` is `<watermark>..HEAD` for an incremental pass and `HEAD` for a full
 one. **Stream layout** (executed on git 2.43.0 here 2026-09-26, §11.4, and
 `probe:24_git_numstat_z` for the path cases): per commit, the NUL-delimited
@@ -3134,8 +3141,9 @@ stored (AD-15, AD-19 pointer-only).
 **Order and horizon.** `--reverse` makes the stream oldest-first, so a chunk's
 watermark is always its newest commit and every commit at or before the
 watermark is written (executed: `-n 2 --reverse` yields the last two commits,
-oldest first). Before the stream, `git rev-list --count <range>` (through
-`oracleRunSync`) gives the range size; commits older than the newest
+oldest first). Before the stream, `git rev-list --count --no-merges <range>`
+(through `oracleRunSync`) gives the range size — `--no-merges` so the count
+matches the stream's positions (builder preflight); commits older than the newest
 `miner.horizon_commits`, or with `ts < refTs − miner.horizon_years × 365.25 ×
 86400`, are **horizon-excluded** (`exclude_reason = 'horizon'`). The
 **reference instant** `refTs` is `HEAD`'s committer timestamp (`git log -1
@@ -3143,7 +3151,17 @@ oldest first). Before the stream, `git rev-list --count <range>` (through
 are judged the same way on any day; it is written to `schema_meta.ref_ts` in
 the pass's final transaction and read by the handler once per event (G19).
 Commits with `entity_count > miner.max_transaction_entities` are excluded
-with `exclude_reason = 'size'`.
+with `exclude_reason = 'size'`. **The horizon is judged per pass, over the
+pass's range:** an incremental pass never ages out commits an earlier pass
+included — the counts are not pruned (AD-13: "not recency pruning"; recency
+acts through the weights) — and the next full mine applies the horizon to the
+whole history afresh (builder preflight: this was unstated).
+
+**The skeleton caller.** The miner's only caller today is a skeleton module a
+later step owns; its adaptation to this step's signature is the §9 row
+"Step 13's skeleton caller", made in this step's build and retired by the
+step that owns the caller (builder preflight: the new signature and the
+`included` rename broke skeleton code Step 13 does not own).
 
 **Per commit, in memory (outside any transaction — AD-26).** Every commit gets
 a `commits` row. For a **horizon-included** commit (size-excluded or not),
@@ -3164,8 +3182,10 @@ exclusion for fixes:* AD-15 — a 200-file "fix lint" sweep would label 200
 files as fix chatter (HERZIG, cited by FR-K2/FR-D3); whole-token matching
 keeps `fixture`, `prefix`, `suffix` out (SZZ matches keywords as words). For
 an included commit, each touched path's `files` row is found or created
-(`files.ensureHistoryRow(path, isSuspect(path))` — the injection flag is set
-when *either* writer creates the row, AD-19), its `change_count` is
+(`files.ensureHistoryRow(path, isSuspect(path), hash)` — the injection flag
+is set when *either* writer creates the row, AD-19; a chunk writes its
+`commits` rows **before** its `ensureHistoryRow` calls, so a path's
+first-naming commit is always "in `commits`" when checked), its `change_count` is
 incremented by one and its `change_weight` by the commit's weight
 `w = 2^((ts − T0) / (h × 86400))` (single-file commits included — the same
 population as the pair counts, AD-13/G3), and every canonical-ordered (`a < b`
@@ -3196,9 +3216,13 @@ last commit without being its ancestors. The landmine rebuild is one short
 `HEAD` the pass mined to — including a merge `HEAD`, which `--no-merges`
 never yields as a chunk's newest commit (AD-13; without it every history fact
 on a merge-PR repository reads stale forever under AD-14). No transaction
-spans a `git` read. **Commit provenance after a purge:** `files.ensureHistoryRow`
-re-points an existing row whose `prov_kind = 'commit'` and whose `prov_ref`
-is not in `commits` to the commit now naming the path; the final transaction
+spans a `git` read. **Commit provenance after a purge:** a new DAO method this
+step adds, `files.repointStaleCommitProv(id, hash): boolean`, sets an existing
+row's `prov_ref` to `hash` when its `prov_kind = 'commit'` and its `prov_ref`
+is not in `commits`, and returns whether it changed; the miner calls it after
+each `ensureHistoryRow` (whose Step 9 contract — never change an existing row,
+`T-9-1r15` — stays as it is; builder preflight: re-pointing inside
+`ensureHistoryRow` would contradict that asserted test); the final transaction
 sweeps (`files.sweepUnreferenced`) history-only rows no re-mined commit names
 and no human-provenance record references (AD-13).
 
@@ -3253,7 +3277,9 @@ horizon`, and a `fix_chatter` row for every file with ≥
 `landmine.fix_chatter_k` distinct fix-labelled commits with `ts ≥ refTs −
 landmine.fix_chatter_window_days × 86400`; key `(kind, file_id)`, `support` =
 that count, `evidence` = the JSON array of the counted commit hashes, newest
-first, provenance `commit`/`untrusted_repo`, and `injection_suspect` = the
+first, provenance `commit`/`untrusted_repo` with `prov_ref` = the newest
+counted hash (the first in `evidence` — deterministic, so two stores mined
+from the same history agree, `T-13-3`), and `injection_suspect` = the
 file row's path flag — so aged-out labels disappear and one file has one row
 per kind whatever the number of passes (G5/N5; executed: two `fix_chatter`
 rows, support 4 and 3, for one file under the skeleton). The same
@@ -3318,7 +3344,10 @@ N5, N10.
 `T-13-2` (the `change_count` denominator), `T-13-3` (history-rewrite purge),
 `T-13-4` (labels and the landmine rebuild), `T-13-5` (chunked commits: crash
 safety of both pass kinds, a repeated full mine that does not double, and the
-lock-hold bound).
+lock-hold bound), `T-13-6` (a merge `HEAD`, a resume on a branching history,
+and the commit-provenance re-point and sweep). `T-13-5(c)`'s `runIndex(…,
+{full: true})` leg is written and run at Step 14, whose `runIndex` options it
+needs (the Step 13 test writer recorded this in the test file).
 
 **Impact if wrong.** Contained to history genres — a broken miner starves
 Coupling, Consequence, Completeness, and Warning genres of evidence (they
@@ -7040,6 +7069,7 @@ are *runnable* at that point.
   | `src/blocks/answer_drift.ts`, `src/blocks/health.ts` | threshold reads move from `TuningReader.get` to `num`/`list` (3); consumer parameters typed `ConsumerKey` (3) | Steps 25, 26 |
   | `src/miner/cochange.ts` | the `landmines.upsert` calls are removed — the miner writes no landmine at 1R (2); `bump` passes the commit hash it already parses and a stand-in weight `1` (3) | Step 13 |
   | `src/index/indexer.ts` | the inline `DELETE FROM files` loop is removed — a file gone from the tree keeps its row at 1R (2); the `fts_paths`/`fts_symbols` inserts, which name the pre-1R columns, are removed, so `init` and `index` run at 1R with empty FTS tables (2); `files.upsert` passes `in_tree: 1` and `isSuspect(path)` (3) | Step 14 |
+  | `src/index/indexer.ts` — Step 13's skeleton caller (made during Step 13's build, after 1R) | the skeleton `runIndex` builds the miner's `TuningReader` as `tuningReader(global, resolveRepoKey(repoPath).key)` and maps `MineResult.included` onto its existing `IndexResult.mine.commitsIncluded`, so the skeleton `index`/`init` verbs compile unchanged; both marked `SKELETON: 13` (3) | Step 14 |
   | `src/index/search.ts` | its FTS bodies (which read the pre-1R FTS columns) and its `LIKE` bodies (which are not AD-2's token fallback) return `[]` (1); no caller remains at 1R | Step 14 |
   | `src/bar/combinator.ts` (`confidenceOf`) | stand-in body consistent with `passesBar`'s (3) | Step 16 |
   | `src/hook/handler.ts` (further) | `targetPath` keeps the skeleton's cwd-relative value, `resultPaths: []`, `context: 'read'`, `role` from `consumerRole`, an empty `observed` reader, and a `recordDrop` stand-in (3); `consumerRole(consumer) === 'main'` replaces `consumer === 'main'` here and in `decideDeny`, since the old comparison can never match a `ConsumerKey` and would switch the block off (3) | Step 28 |
