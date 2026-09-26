@@ -12,8 +12,14 @@ const DEF = [
   { re: /^\s*(?:function\s+)?([A-Za-z_][\w-]*)\s*\(\)\s*\{/, kind: 'function' },
 ];
 
+// SKELETON: 14 — wrapped to Step 14's LanguageFrontend: `lang` '*' (the
+// interface's generic marker), `capabilities` {symbols: true, imports: false},
+// a no-op `init`, and `parse` returning `{ok: true, symbols, imports: []}`
+// (plan §9 row "Step 14's skeleton frontends"); retired by Step 15
 export const genericFrontend: LanguageFrontend = {
-  lang: 'generic',
+  lang: '*',
+  capabilities: { symbols: true, imports: false },
+  async init() {},
   parse(_path, content) {
     const text = content.toString('utf8');
     const symbols: SymbolRow[] = [];
@@ -30,6 +36,6 @@ export const genericFrontend: LanguageFrontend = {
       }
       offset += Buffer.byteLength(line, 'utf8') + 1;
     }
-    return { symbols, imports: [] };
+    return { ok: true, symbols, imports: [] };
   },
 };

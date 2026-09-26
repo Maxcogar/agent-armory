@@ -1,17 +1,44 @@
-// The LanguageFrontend seam (Step 14, AD-12, FR-K1). A frontend turns one file's
-// bytes into symbols and import specifiers; the indexer owns everything else
-// (resolution, storage, FTS). Adding a language is adding a frontend.
+// The LanguageFrontend seam (Step 14, AD-12, FR-K1, C-6; review G12/G13/G14).
+// A frontend turns one file's bytes into symbols and captured import
+// specifiers; the indexer owns everything else (storage, FTS, zones). Adding a
+// language is adding a frontend or a config row, never a redesign.
 //
-// WALKING SKELETON (2026-09-25): `init` is added to the plan's interface.
-// SKELETON: G14 — web-tree-sitter loads grammars asynchronously
-// (`Parser.init`, `Language.load` return promises), so a synchronous `parse`
-// needs its grammar loaded first; the plan's "lazy per first use" loading cannot
-// sit behind a synchronous `parse`.
-import type { ImportEdge, SymbolRow } from '../types/index_types.js';
+// - `capabilities` is the frontend's declaration per language (AD-12, G13):
+//   recorded per language in `schema_meta.lang_capabilities` and shown in
+//   `status`, so "observed zero" is told apart from "never counted".
+// - `init` is awaited once per frontend whose language occurs among the files
+//   the indexer parses (G14: web-tree-sitter's `Parser.init`/`Language.load`
+//   return promises), so `parse` can stay synchronous.
+// - `parse` never throws: a failure is a returned value, so the indexer — which
+//   holds the store — records `frontend_parse_failed`.
+// - A frontend with `capabilities.imports = true` provides `resolve`, which
+//   classifies each captured specifier (AD-12, CH H4): `resolved` (an
+//   `import_edges` row to `dst`), `external` (nothing), or `unresolved`
+//   (counted into `files.unresolved_imports`). One with `imports = false`
+//   returns no imports.
+import type { CapturedImport, SymbolRow } from '../types/index_types.js';
+
+export type ImportResolution = { kind: 'resolved'; dst: string } | { kind: 'external' } | { kind: 'unresolved' };
+
+/** What a resolver may ask about the walked repository. */
+export interface RepoFiles {
+  /** Whether the repository-relative POSIX path is a present file of this walk. */
+  has(path: string): boolean;
+  /** The dependency names of the nearest `package.json` at or above `fromPath`'s directory. */
+  nearestPackageJsonDeps(fromPath: string): ReadonlySet<string>;
+}
+
+export type ImportResolver = (fromPath: string, specifier: string, repo: RepoFiles) => ImportResolution;
+
+export type ParseResult = { ok: true; symbols: SymbolRow[]; imports: CapturedImport[] } | { ok: false; error: string };
 
 export interface LanguageFrontend {
+  /** The grammar name this frontend handles (`index.ext_to_grammar`'s right side); `'*'` for the generic frontend. */
   readonly lang: string;
-  /** Load whatever the frontend needs before `parse` can run. */
-  init?(): Promise<void>;
-  parse(path: string, content: Buffer): { symbols: SymbolRow[]; imports: ImportEdge[] };
+  readonly capabilities: { symbols: boolean; imports: boolean };
+  /** Awaited before any parse. */
+  init(): Promise<void>;
+  /** Never throws. */
+  parse(path: string, content: Buffer): ParseResult;
+  resolve?(fromPath: string, specifier: string, repo: RepoFiles): ImportResolution;
 }

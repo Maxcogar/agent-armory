@@ -10,6 +10,8 @@ import { openRepo } from './context.js';
 import { runIndex } from '../index/indexer.js';
 import { defaultFrontends } from '../index/frontends.js';
 import { schemaMetaDao } from '../stores/dao/schema_meta.js';
+import { tuningReader } from '../stores/dao/tuning.js';
+import { recordFault } from '../diag/fault_writer.js';
 
 const EVENTS = ['UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'PostToolUseFailure', 'Stop', 'SubagentStop', 'SessionStart', 'SessionEnd'];
 const MARKER = /[\\/]dist[\\/]src[\\/]cli[\\/]dispatch\.js"? hook /;
@@ -32,14 +34,29 @@ export async function initVerb(): Promise<number> {
     settings.hooks = hooks;
     writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
     schemaMetaDao(r.project).set('pinned_interpreter', process.execPath);
+    // SKELETON: 14 — the skeleton verb calls Step 14's runIndex with `tuning`
+    // bound to (global store, repo key) and no `global` option, and narrows on
+    // `'refused' in res`; a refused run prints Step 31's notice (an index run is
+    // already in progress, and when it started) and init still exits 0 (plan §9
+    // row "Step 14's skeleton callers"); retired by Step 31
+    const diag = r.layout.diagnostics;
+    const tuning = tuningReader(r.global, r.key.key, (k) => recordFault(r.project, diag, { code: 'tuning_missing', detail: { key: k } }));
     const res = await runIndex(r.project, r.repoPath, {
       full: true,
-      frontends: defaultFrontends(r.global, r.layout.diagnostics),
-      diagnosticsDir: r.layout.diagnostics,
-      global: r.global,
+      frontends: defaultFrontends(r.global, diag),
+      tuning,
+      diagnosticsDir: diag,
     });
+    if ('refused' in res) {
+      const started = Number(schemaMetaDao(r.project).get('reindex_started_at') ?? NaN);
+      const when = Number.isFinite(started) ? ` (started ${new Date(started).toISOString()})` : '';
+      process.stdout.write(
+        `ctxoracle initialized: repo key ${r.key.key} (${r.key.mode}); hooks wired in ${settingsPath}; an index run is already in progress${when} and will produce the index\n`
+      );
+      return 0;
+    }
     process.stdout.write(
-      `ctxoracle initialized: repo key ${r.key.key} (${r.key.mode}); ${res.filesIndexed} files indexed; ${res.mine?.commitsIncluded ?? 0} commits mined; hooks wired in ${settingsPath}\n`
+      `ctxoracle initialized: repo key ${r.key.key} (${r.key.mode}); ${res.filesWritten} files indexed; ${res.mine?.included ?? 0} commits mined; hooks wired in ${settingsPath}\n`
     );
     return 0;
   } finally {

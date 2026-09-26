@@ -27,12 +27,11 @@
 // "A single uninterrupted mine" is one completed mine of the same repository
 // into a fresh store at the seeded tuning. Rows are compared by path.
 //
-// Not covered here (reported to the builder): (c)'s "`runIndex(…, {full:
-// true})` once more on it" — Step 14's declared runIndex options
-// ({full, frontends, tuning, diagnosticsDir}) do not exist before Step 14, and
-// the skeleton's (which require a raw global store) are the ones Step 14
-// replaces, so the call cannot be written at Step 13 without guessing a
-// signature.
+// (c)'s "`runIndex(…, {full: true})` once more on it" leg is written at Step
+// 14, whose declared runIndex options ({full, frontends, tuning,
+// diagnosticsDir}) it needs (the Step 13 test writer's note): test
+// 'T-13-5c (runIndex leg)' below, with the empty frontend list (D-plan-29 —
+// frontends do not touch the counts compared).
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -47,6 +46,7 @@ import { applyMigrations } from '../../src/stores/migration_runner.js';
 import { seedDefaults, tuning as tuningDao, tuningReader } from '../../src/stores/dao/tuning.js';
 import { filesDao } from '../../src/stores/dao/files.js';
 import { mineCochange } from '../../src/miner/cochange.js';
+import { runIndex } from '../../src/index/indexer.js';
 import { generateFixture, fixtureGit, LARGE } from '../fixtures/generate.js';
 
 const workerPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'miner_chunks_worker.js');
@@ -279,6 +279,24 @@ test('T-13-5c: a repeated full mine does not double any count or weight', async 
   await mineInProcess(dbs, repo, true);
   const ref = await referenceSnapshot();
   assert.deepEqual(snapshotOf(dbs, countsSnapshot), { pairs: ref.pairs, files: ref.files }, 'pair_count/pair_weight/change_count/change_weight differ from one mine');
+});
+
+test('T-13-5c (runIndex leg): runIndex({full: true}) on a store mined and fully re-mined twice does not double any count or weight', async () => {
+  const dbs = newDbs('c-index');
+  await mineInProcess(dbs, repo);
+  await mineInProcess(dbs, repo, true);
+  await mineInProcess(dbs, repo, true);
+  const store = openStore(dbs.project);
+  const global = openStore(dbs.global);
+  try {
+    const tuning = tuningReader(global, 'miner-large', () => {});
+    await runIndex(store, repo, { full: true, frontends: [], tuning, diagnosticsDir: diag });
+  } finally {
+    store.close();
+    global.close();
+  }
+  const ref = await referenceSnapshot();
+  assert.deepEqual(snapshotOf(dbs, countsSnapshot), { pairs: ref.pairs, files: ref.files }, 'pair_count/pair_weight/change_count/change_weight differ from one mine after runIndex({full: true})');
 });
 
 test('T-13-5d: a crashed incremental pass resumes from its watermark and never sets mining_in_progress', async () => {

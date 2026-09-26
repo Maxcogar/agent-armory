@@ -1175,3 +1175,207 @@ updated them and R-6.
   → `OK: 40 steps, 13 elements, 163 test specs, 27 probes cited, regions current`.
 - `(cd middleware/context-oracle && python3 tools/check_docs.py)` →
   `context-oracle doc-consistency check passed.`
+
+## Step 14 — structural indexer, LanguageFrontend, reindex claim (AD-12, AD-2, AD-23, AD-26) — BUILT (2026-09-26, uncommitted, pending independent review)
+
+Built against plan Step 14 as amended at `6f5ceb8`. That amendment followed
+this builder's preflight stop (BLAST-RADIUS): the declared `runIndex` options
+and result, and the declared `LanguageFrontend`, broke `tsc` in
+`src/cli/index.ts`, `src/cli/init.ts`, `src/index/generic_frontend.ts` and
+`src/index/tree_sitter_frontend.ts`, and no row covered those four files. The
+fix added two §9 rows and settled three plan silences: zone precedence, a
+bounded 2 KB head read for oversize files, and the path-only skip key.
+
+The build was test-first. A separate agent wrote the stubs, the fixtures
+(`indexer-small`, `indexer-walk`, `indexer-nongit` in `generate.ts`), and
+`T-14-1`…`T-14-5` plus the `T-13-5(c)` `runIndex` leg. This build replaced
+every stub. No asserted test value was changed and no test was deleted.
+
+**Pinned before the build, as §7's contract requires.** The `T-14-2`
+unborn-branch test passed on the skeleton: `ok 11` over the stubbed tree,
+where every other Step 14 test was `not ok`. It pins behaviour the skeleton
+`refreshIfStale` already had: `resolveHead` → `{unresolved}` → a
+`head_unresolved` fault and `{stale: false}`.
+
+**Built.**
+- `src/identity/git_layout.ts` — `readGitPointer(dir)`:
+  - `<dir>/.git` counts as a directory only when `.git/HEAD` is a file;
+  - a `.git` file gives `gitdir:` resolved against `dir`, and `commondir`
+    resolved against the git directory;
+  - bounded reads (4 KB) only.
+- `src/index/walk.ts` — `walkRepository`.
+  - Git mode:
+    - `git ls-files -z --cached --others --exclude-standard` through
+      `oracleRunSync`, split by `splitNul`, decoded by `decodePathBytes`;
+    - a repeated path or rejected byte string is kept once;
+    - the accepted path bytes are piped to `git check-ignore --no-index
+      --stdin -z` (exit 1 = none; another exit throws), giving
+      `ignoredTracked`.
+  - Readdir mode:
+    - recursive `readdirSync(…, {withFileTypes, encoding: 'buffer'})`;
+    - `.git`/`node_modules` directories skipped, symlinks not followed;
+    - output sorted.
+- `src/index/path_glob.ts` — `matchesTestPattern`: segment-wise, root-anchored;
+  `**` spans zero or more whole segments, `*`/`?` stay within one segment,
+  everything else is literal.
+- `src/index/search.ts`:
+  - `tokenize` — NFKD → `toLowerCase` → strip `\p{M}` → split on
+    `[^\p{L}\p{N}]+`;
+  - `symbolSearch`/`pathSearch` — per token, `"<token>"*` `MATCH` under
+    `fts5`, or the range `token >= ? AND token < ? || char(1114111)` under
+    `fallback`; each term's hit set is the intersection over its tokens;
+    `in_tree = 1` rows only.
+  - The two `SKELETON: 1R` bodies are gone.
+- `src/index/zone.ts` — `classifyZone(path, head, ignoredTracked)`:
+  - precedence as `6f5ceb8` states: ignored-tracked → marker (`@generated` |
+    `DO NOT EDIT`) → `vendor/`/`node_modules/` directory segments →
+    `dist/`/`build/` directory segments or a lockfile basename
+    (`build_output`) → `source`;
+  - evidence is redacted, then cut to 200 characters, then injection-flagged.
+- `src/index/frontend.ts` — the declared `LanguageFrontend` (`capabilities`,
+  required `init`, never-throwing `parse` returning `{ok…}`, optional
+  `resolve`), plus `ImportResolution`, `RepoFiles`, `ImportResolver` and
+  `ParseResult`.
+- `src/index/indexer.ts` — replaced in full. Every `SKELETON:` mark Step 14
+  retires is gone: the §9 1R indexer and search rows, and "Step 13's skeleton
+  caller".
+  - `runIndex(store, repoPath, {full, frontends, tuning, diagnosticsDir}):
+    Promise<IndexResult | {refused: 'reindex_locked'}>`.
+  - The claim: when refused, a `reindex_locked` fault `{ownerPid, startedAt}`
+    is recorded and nothing else is written.
+  - Reads, all outside any transaction:
+    - HEAD is resolved before the walk;
+    - the walk, then `lstat` per path;
+    - the byte cap is checked on the stat size, and a file over it gets only a
+      2 KB head read;
+    - otherwise a line-bounded read that stops at the first byte of line
+      20,001;
+    - SHA-256, zone, frontend `init` (once per frontend actually needed),
+      parse, and resolution against the walked present set.
+  - Chunked writes:
+    - pass 1: the `files` row with symbols, `symbol_tokens`, `fts_symbols`,
+      `path_tokens` and `fts_paths`, in one chunk per file;
+    - pass 2: `import_edges` and `unresolved_imports`;
+    - absent files: `markAbsentExcept`, then the file's FTS, symbols, edges
+      both ways, `symbol_refs`, `test_map` and `path_tokens` rows are
+      deleted, and the row is kept;
+    - `sweepUnreferenced`;
+    - `symbol_refs`, `test_map` and `entry_score`;
+    - the final transaction: `index_head`, `index_stale = '0'`,
+      `lang_capabilities` and `walk_mode`.
+  - Then `mineCochange` runs with the same `tuning`, `diagnosticsDir` and
+    `full`, still under the claim, released in a `finally`.
+  - `resolveHead`, `refreshIfStale`, `acquireReindexClaim` and
+    `releaseReindexClaim` are as declared. The fault and the flag are written
+    only on the transition to stale, and a release removes only this
+    process's claim.
+- §9 rows authorized at `6f5ceb8`, each marked `SKELETON: 14`:
+  - `src/cli/index.ts` and `src/cli/init.ts` — `tuning = tuningReader(global,
+    key.key, …tuning_missing)`, no `global` option, narrowed on `'refused' in
+    res`. `index` prints Step 28's notice with the claim's start time and
+    exits 75. `init` prints Step 31's notice and exits 0.
+  - `src/index/generic_frontend.ts` — `lang '*'`,
+    `{symbols: true, imports: false}`, no-op `init`, `{ok: true, …}`.
+  - `src/index/tree_sitter_frontend.ts` — `{symbols: true, imports: true}` and
+    `{ok: true, …}`, with specifiers mapped from the skeleton's edges.
+
+**Plan silences decided in the code (each commented where made).**
+- **`indexing_in_progress`** — a `schema_meta` key the plan does not name.
+  It is set before a pass's first write and deleted in the final
+  transaction, and a pass that starts with it set runs as `full`. Pass 1
+  commits each file's `content_hash`. After that, a crash or a throw before
+  the cross-file rows (edges, `symbol_refs`) are written would leave those
+  files skipped as unchanged forever. The plan's "the staleness check
+  re-triggers it" repairs only `index_head`. This follows AD-26's
+  `mining_in_progress`. The migration's key-list comment (Step 7) does not
+  list the new key. A reviewer should decide whether the plan names it.
+- **The tree-sitter skeleton's `resolve`.** The §9 row names the capability
+  but not `resolve`, and the interface requires `resolve` when
+  `imports = true`. The skeleton's relative-specifier resolver (formerly
+  inline in the indexer, G12) was moved there as `resolve`. A bare specifier
+  is `external`: the skeleton counted nothing for it.
+- **The unchanged test also compares zone, zone evidence and `lang`.** The
+  skip is not by content key alone. A `.gitignore` or `ext_to_grammar` change
+  must re-record the file, because the zone depends on the ignore status, not
+  on the bytes.
+- **Symbols are parsed from the raw bytes, and each derived string is redacted
+  before it is stored** (symbol names, the parse-error text, the referencing
+  text for `symbol_refs`). Parsing redacted text would shift every span after
+  a redacted secret (`redact` changes lengths), and AD-15's rumor rule
+  re-resolves spans against the file on disk. Import specifiers are never
+  stored.
+- **`lstat`, not `stat`:** a symlink in the git listing is not a present file,
+  matching the readdir walk's not-following rule.
+- A non-UTF-8 directory name in readdir mode is one rejected entry and is not
+  descended.
+- **Files with no `ext_to_grammar` entry** get `lang 'unknown'`, and
+  `lang_capabilities` has an `unknown` entry.
+- `frontend` is `'generic'` for `lang '*'`, `'tree-sitter'` for a
+  language-specific frontend, and `'path-only'` when the list has none for the
+  language.
+- **`symbol_refs` recompute set:** every written file as an importer, plus
+  every importer of a written file (a written file's symbols were replaced, so
+  their reference rows cascaded).
+- **`test_map`** is recomputed for every present test file and written only
+  where it differs from the stored rows. Same-dir mapping also changes when a
+  sibling is added or removed, which "changed test files" alone would miss.
+- **Symbol provenance `injection_suspect`** = the path's flag, or any name's
+  flag (the DAO takes one provenance per file).
+- **Lockfile basenames:** the skeleton's five plus `Gemfile.lock` and
+  `composer.lock`. AD-12 names no list.
+- The miner is skipped when the walk is `readdir`. There is no git work tree
+  at the root, and `git rev-parse` there would mine whatever repository
+  encloses the directory. `IndexResult.mine` is then `null`.
+- **`lines` in a line-cap fault** is 20,001: the read stops there, so it is a
+  lower bound.
+- **Several search terms** return the union of their hit sets. Step 18 calls
+  each token separately.
+
+**Known limitation (plan-silent, not built).** An *unchanged* importer is not
+re-resolved when a file it imports appears or disappears:
+- its `unresolved_imports` stays as last parsed;
+- an edge into a removed file is deleted, but no edge to a newly added file
+  is created until the importer changes or a `--full` index runs.
+
+Re-resolving would need every importer's specifiers stored, or a re-parse of
+every importer.
+
+**Verified.**
+- `cd ctxoracle && npm run build && npm test` → `tsc -p tsconfig.json` clean.
+  - `# tests 243`, `# pass 239`, `# fail 0`, `# skipped 0`, `# todo 4`.
+  - The four `todo`s: the `SKELETON: 1R` skeleton_e2e (Step 28), and the three
+    Step 15 subtests (T-14-3 ×2, T-14-5 ×1). Those fail on the
+    `defaultFrontendsFromTuning` alias until Step 15.
+  - `ok`: T-14-1 (5 tests, including the 50-iteration two-process race),
+    T-14-2 (the import scan, four layouts, unborn), T-14-3 (7 Step 14
+    subtests), T-14-4 (2), T-14-5 (tokenize, path search), and `T-13-5c
+    (runIndex leg)`.
+- `indexer`, `indexer_stale` and `indexer_walk` run 3 more times: `# tests 20
+  # pass 18 # fail 0 # todo 2` each time.
+- `node middleware/context-oracle/.claude/skills/expert-plan/scripts/derive-plan-sections.mjs --check middleware/context-oracle/docs/plans/plan-phase-a.md`
+  → `OK: 40 steps, 13 elements, 163 test specs, 27 probes cited, regions current`.
+- `(cd middleware/context-oracle && python3 tools/check_docs.py)` →
+  `context-oracle doc-consistency check passed.`
+- Real repository run on this repository (`HEAD` `6f5ceb8`), with an empty
+  frontend list. The stores were in a scratch `CTXORACLE_HOME`, and
+  `git status --short` was identical before and after.
+  - First pass: 3,662 ms, `walkMode git`. The walk listed 1,879 paths; 1,877
+    are present regular files and all 1,877 were written, 8 of them path-only
+    (8 `index_path_only_oversize` faults). No path was rejected, and no
+    symbols or edges were written (empty list). The miner included 390 of
+    404 commits in 1 chunk.
+  - Unchanged re-run: 273 ms, 0 files written, 0 commits mined.
+  - Store after the passes:
+    - `files`: `in_tree = 1` 1,877, and `in_tree = 0` 23 (history-only);
+    - zones (in-tree): `source` 1,834, `generated` 34, `build_output` 9;
+    - 17,610 `path_tokens` rows, and 1,877 `fts_paths` rows (= the in-tree
+      files);
+    - `fts_state fts5`, `index_stale '0'`, `walk_mode git`, `index_head` =
+      `HEAD`;
+    - no `reindex_owner_pid` and no `indexing_in_progress` left behind.
+
+**For the coordinator.**
+- The Step 14 step-decl `files.modify` still lists only `generate.ts`. The
+  four stand-in files are authorized by the `6f5ceb8` §9 rows, but §5.1
+  (generated from the declarations) does not list them under S14. The gate is
+  green either way.
