@@ -33,6 +33,7 @@ import { applyMigrations } from '../../src/stores/migration_runner.js';
 import { seedDefaults, tuningReader } from '../../src/stores/dao/tuning.js';
 import { filesDao } from '../../src/stores/dao/files.js';
 import { mineCochange } from '../../src/miner/cochange.js';
+import { isRevertLabelled } from '../../src/miner/labels.js';
 import type { TuningReader } from '../../src/types/candidate.js';
 import { generateFixture, fixtureCommit, fixtureGit, LABELS } from '../fixtures/generate.js';
 
@@ -196,5 +197,49 @@ test('T-13-4c: three idle passes with no new commits change nothing', async () =
     assert.deepEqual(minerRows(), expectedMinerRows(all), `idle pass ${pass}: miner-kind landmines`);
     assertOneRowPerKind(`idle pass ${pass}`);
     assertNoMessageText(`idle pass ${pass}`);
+  }
+});
+
+// ---- Step 13 build review (2026-09-26): cases the mutation pass found
+// unasserted, written from plan Step 13 / AD-15's text ------------------------
+
+test('T-13-4d: isRevertLabelled — the trailer is recognised as any whole body line; Reapply is the second subject fallback', () => {
+  // Plan Step 13: "true when the body holds a line matching
+  // `^This reverts commit [0-9a-f]{40}\.$` ... or, as the fallback for a
+  // trailer-less message, the subject starts with `Revert "` or `Reapply "`".
+  const hash = 'c'.repeat(40);
+  assert.equal(isRevertLabelled('undo the cache change', `This reverts commit ${hash}.\n`), true, 'trailer (as git writes it, newline-terminated) with a non-Revert subject');
+  assert.equal(isRevertLabelled('undo', `The cache broke prod.\n\nThis reverts commit ${hash}.\n`), true, 'trailer after an explanation (git revert --edit)');
+  assert.equal(isRevertLabelled('Reapply "add cache"', ''), true, 'the Reapply subject fallback');
+  assert.equal(isRevertLabelled('mention', `See: This reverts commit ${hash}. later\n`), false, 'the trailer must be a whole line');
+  assert.equal(isRevertLabelled('revert the cache', ''), false, 'a lower-case "revert" without the quote is not git-generated');
+});
+
+test('T-13-4e: every miner landmine is commit/untrusted_repo provenance whose prov_ref is the newest counted hash', () => {
+  // Plan Step 13: "provenance `commit`/`untrusted_repo` with `prov_ref` = the
+  // newest counted hash (the first in `evidence`)".
+  const rows = store
+    .prepare("SELECT kind, evidence, prov_kind, prov_ref, trust FROM landmines WHERE kind IN ('revert_chain','fix_chatter')")
+    .all() as { kind: string; evidence: string; prov_kind: string; prov_ref: string; trust: string }[];
+  assert.equal(rows.length, 2, 'the fix_chatter and revert_chain rows of T-13-4a..c');
+  for (const r of rows) {
+    const ev = JSON.parse(r.evidence) as string[];
+    assert.equal(r.prov_kind, 'commit', `${r.kind} prov_kind`);
+    assert.equal(r.trust, 'untrusted_repo', `${r.kind} trust`);
+    assert.equal(r.prov_ref, ev[0], `${r.kind} prov_ref is not the newest counted hash`);
+  }
+});
+
+test('T-13-4f: the size-excluded big/ commit and its size-excluded revert add labels only — no change_count, no pair', () => {
+  // Plan Step 13: size-excluded commits are excluded; "For an included commit,
+  // ... its `change_count` is incremented ... and every canonical-ordered pair
+  // ... is bumped"; the revert of a large commit carries its revert label only.
+  for (const p of LABELS.bigPaths) {
+    const f = filesDao(store).byPath(p);
+    assert.ok(f !== undefined, `${p} has its history row (it carries a revert label)`);
+    assert.equal(f.change_count, 0, `${p} change_count`);
+    assert.equal(f.change_weight, 0, `${p} change_weight`);
+    const n = store.prepare('SELECT count(*) AS n FROM cochange_pairs WHERE a = ? OR b = ?').get(f.id, f.id) as { n: number };
+    assert.equal(n.n, 0, `${p} is in a pair`);
   }
 });

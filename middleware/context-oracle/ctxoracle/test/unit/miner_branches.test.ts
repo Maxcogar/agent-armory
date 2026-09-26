@@ -220,3 +220,48 @@ test('T-13-6c: after a rewrite, a path only a dropped commit touched is swept an
     assert.ok(commitsDao(s).exists(shared.prov_ref), "shared.txt's prov_ref names a commit not in commits");
   });
 });
+
+// Step 13 build review (2026-09-26): T-13-6b's stopped pass is the store's
+// first mine — a full pass — so its resume is a purged full re-mine (plan Step
+// 13: "a full pass that crashed"), and it counts every commit once whether or
+// not the already-mined skip exists (hand mutation C4 survived). The skip
+// matters only to an incremental continuation, which this case exercises.
+test('T-13-6d: an incremental pass over a branching history, stopped after the m2 chunk and resumed, counts every commit once', async () => {
+  // Plan Step 13: "A commit already in `commits` is skipped ... so a resumed
+  // pass never counts a commit twice, even on a branching history whose
+  // side-branch commits were mined before the chunk's last commit without being
+  // its ancestors"; an incremental pass that crashed "resumes from
+  // `<watermark>..HEAD` and never sets the flag".
+  const repo = path.join(root, 'merge-d');
+  const h = buildMergeRepo(repo);
+  const reference = newDbs('d-reference');
+  await mine(reference, repo);
+
+  // A store mined incrementally-ready to m1 (a clone checked out there), then HEAD back at the merge.
+  const dbs = newDbs('d', '0');
+  fixtureGit(repo, ['checkout', '-q', '--detach', h.m1]);
+  await mine(dbs, repo);
+  assert.equal(withStore(dbs, (s) => schemaMetaDao(s).get('last_mined_commit')), h.m1, 'fixture: the store is mined to m1');
+  fixtureGit(repo, ['checkout', '-q', 'main']);
+
+  // The incremental pass streams s1, s2, m2, m3 (m1..HEAD) and stops after the m2 chunk.
+  const child = spawn(process.execPath, [workerPath, 'mine-stop', repo, dbs.project, dbs.global, diag, h.m2], {
+    stdio: ['ignore', 'ignore', 'pipe'],
+  });
+  let stderr = '';
+  child.stderr?.on('data', (d: Buffer) => {
+    stderr += d.toString('utf8');
+  });
+  await new Promise<void>((resolve, reject) => {
+    child.on('error', reject);
+    child.on('exit', () => resolve());
+  });
+  assert.ok(stderr.includes(`injected stop after ${h.m2}`), `the pass did not stop after the m2 chunk; stderr:\n${stderr}`);
+  withStore(dbs, (s) => {
+    assert.equal(schemaMetaDao(s).get('mining_in_progress'), '0', 'fixture: the stopped pass was incremental');
+    assert.ok(commitsDao(s).exists(h.s1) && commitsDao(s).exists(h.s2), 'fixture: the side commits were mined before the stop');
+  });
+
+  await mine(dbs, repo); // the resume: m2..HEAD still reaches s1 and s2 through the merge
+  assert.deepEqual(withStore(dbs, counts), withStore(reference, counts), 'counts after the incremental resume differ from one uninterrupted mine');
+});

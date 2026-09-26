@@ -232,3 +232,46 @@ test('T-13-1k: a body holding 0x1e + 40 hex does not start a commit; the empty-b
   assert.deepEqual(commits[0]?.paths.map((p) => String(p)), ['first.txt'], 'the empty-body commit lost its first entry');
   assert.deepEqual(commits[1]?.paths.map((p) => String(p)), ['second.txt']);
 });
+
+// ---- Step 13 build review (2026-09-26): parser cases the mutation pass found
+// unasserted, written from plan Step 13's parser text -------------------------
+
+function stream(fields: string[]): Buffer {
+  return Buffer.from(fields.join('\0') + '\0', 'utf8');
+}
+
+test('T-13-1l: a rename cut after its first identity is malformed and contributes no partial identity', () => {
+  // Plan Step 13: "a rename marker missing its two identity fields is a
+  // `miner_unparsed_numstat` diagnostic ... and contributes nothing".
+  const { commits, malformed } = parseNumstatZ(
+    stream([`\x1e${H1}`, '1700000000', 'subject', '', '', '\n1\t1\tkept.txt', '2\t0\t', 'old-only.txt'])
+  );
+  assert.equal(malformed.length, 1, 'the one-identity rename is one malformed record');
+  assert.deepEqual(commits.flatMap((c) => c.paths.map((p) => String(p))), ['kept.txt'], 'a partial rename identity was kept');
+});
+
+test('T-13-1m: an entry with an empty added or deleted count lacks the <added>\\t<deleted>\\t shape', () => {
+  // Plan Step 13: "an entry lacking the `<added>\t<deleted>\t` shape ... is a
+  // `miner_unparsed_numstat` diagnostic ... and contributes nothing".
+  const { commits, malformed } = parseNumstatZ(
+    stream([`\x1e${H1}`, '1700000000', 'subject', '', '', '\n1\t0\tgood.txt', '\t\tno-counts.txt', '1\t\tno-deleted.txt'])
+  );
+  assert.equal(malformed.length, 2, 'each count-less entry is one malformed record');
+  assert.deepEqual(commits.flatMap((c) => c.paths.map((p) => String(p))), ['good.txt']);
+});
+
+test('T-13-1n: a field is a commit header only when it is exactly 0x1e + 40 hex', () => {
+  // Plan Step 13: "a field is a commit header only when it is exactly `\x1e` +
+  // 40 hex at a position where a header is expected".
+  const { commits, malformed } = parseNumstatZ(
+    stream([
+      `\x1e${H1}`, '1700000000', 'subject one', '', '', '\n1\t0\tone.txt',
+      `\x1e${'g'.repeat(40)}`, // 0x1e + 40 non-hex: not a header, a shape-less entry
+      '1\t0\ttwo.txt',
+      `\x1e${H2}`, '1700000100', 'subject two', '', '', '\n1\t0\tthree.txt',
+    ])
+  );
+  assert.deepEqual(commits.map((c) => c.hash), [H1, H2]);
+  assert.deepEqual(commits[0]?.paths.map((p) => String(p)), ['one.txt', 'two.txt'], 'a loose header split the first commit');
+  assert.equal(malformed.length, 1, 'the non-hex pseudo-header is one malformed record');
+});
