@@ -577,7 +577,7 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/src/index/frontends.ts | create | S15 |
 | middleware/context-oracle/ctxoracle/src/index/generic_frontend.ts | create | S15 |
 | middleware/context-oracle/ctxoracle/src/index/indexer.ts | create | S14 |
-| middleware/context-oracle/ctxoracle/src/index/indexer.ts | modify | S9, S30 |
+| middleware/context-oracle/ctxoracle/src/index/indexer.ts | modify | S9, S13, S30 |
 | middleware/context-oracle/ctxoracle/src/index/path_glob.ts | create | S14 |
 | middleware/context-oracle/ctxoracle/src/index/resolvers.ts | create | S15 |
 | middleware/context-oracle/ctxoracle/src/index/search.ts | create | S14 |
@@ -810,6 +810,7 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/test/unit/layout.test.ts | create | S4 |
 | middleware/context-oracle/ctxoracle/test/unit/migrations_global.test.ts | create | S8 |
 | middleware/context-oracle/ctxoracle/test/unit/migrations_phase_a.test.ts | create | S7 |
+| middleware/context-oracle/ctxoracle/test/unit/miner_branches.test.ts | create | S13 |
 | middleware/context-oracle/ctxoracle/test/unit/miner_chunks_worker.ts | create | S13 |
 | middleware/context-oracle/ctxoracle/test/unit/miner_chunks.test.ts | create | S13 |
 | middleware/context-oracle/ctxoracle/test/unit/miner_denominator.test.ts | create | S13 |
@@ -3081,11 +3082,11 @@ fault (Step 6's code; `detail` carries the key); caught by `T-12-1`.
 step: S13
 covers: [PA-1, PA-3]
 files:
-  create: [middleware/context-oracle/ctxoracle/src/miner/cochange.ts, middleware/context-oracle/ctxoracle/src/miner/labels.ts, middleware/context-oracle/ctxoracle/test/unit/miner.test.ts, middleware/context-oracle/ctxoracle/test/unit/miner_denominator.test.ts, middleware/context-oracle/ctxoracle/test/unit/miner_rewrite.test.ts, middleware/context-oracle/ctxoracle/test/unit/miner_landmines.test.ts, middleware/context-oracle/ctxoracle/test/unit/miner_chunks.test.ts, middleware/context-oracle/ctxoracle/test/unit/miner_chunks_worker.ts]
-  modify: [middleware/context-oracle/ctxoracle/test/fixtures/generate.ts]
+  create: [middleware/context-oracle/ctxoracle/src/miner/cochange.ts, middleware/context-oracle/ctxoracle/src/miner/labels.ts, middleware/context-oracle/ctxoracle/test/unit/miner.test.ts, middleware/context-oracle/ctxoracle/test/unit/miner_denominator.test.ts, middleware/context-oracle/ctxoracle/test/unit/miner_rewrite.test.ts, middleware/context-oracle/ctxoracle/test/unit/miner_landmines.test.ts, middleware/context-oracle/ctxoracle/test/unit/miner_chunks.test.ts, middleware/context-oracle/ctxoracle/test/unit/miner_chunks_worker.ts, middleware/context-oracle/ctxoracle/test/unit/miner_branches.test.ts]
+  modify: [middleware/context-oracle/ctxoracle/test/fixtures/generate.ts, middleware/context-oracle/ctxoracle/src/index/indexer.ts]
   delete: []
 provides: [mineCochange, parseNumstatZ, isRevertLabelled, isFixLabelled]
-tests: [T-13-1, T-13-2, T-13-3, T-13-4, T-13-5]
+tests: [T-13-1, T-13-2, T-13-3, T-13-4, T-13-5, T-13-6]
 depends_on: [S1, S3, S5, S9, S10, S11, S12]
 ```
 
@@ -3186,9 +3187,20 @@ transactions: a chunk is committed as soon as its transaction has spent
 transaction, checked after each commit's rows), and each chunk transaction
 writes its commits, `labelled_touches`, `change_count` and `change_weight`
 increments, and pair bumps **and** sets `schema_meta.last_mined_commit` to the chunk's newest
-commit — so a crash never leaves the watermark ahead of its data. The
-landmine rebuild is one short **final** transaction (below). No transaction
-spans a `git` read.
+commit — so a crash never leaves the watermark ahead of its data. **A commit
+already in `commits` is skipped** (`commits.exists`, checked as the stream is
+aggregated), so a resumed pass never counts a commit twice, even on a
+branching history whose side-branch commits were mined before the chunk's
+last commit without being its ancestors. The landmine rebuild is one short
+**final** transaction (below), which also sets `last_mined_commit` to the
+`HEAD` the pass mined to — including a merge `HEAD`, which `--no-merges`
+never yields as a chunk's newest commit (AD-13; without it every history fact
+on a merge-PR repository reads stale forever under AD-14). No transaction
+spans a `git` read. **Commit provenance after a purge:** `files.ensureHistoryRow`
+re-points an existing row whose `prov_kind = 'commit'` and whose `prov_ref`
+is not in `commits` to the commit now naming the path; the final transaction
+sweeps (`files.sweepUnreferenced`) history-only rows no re-mined commit names
+and no human-provenance record references (AD-13).
 
 **Full mine, re-mine, and `mining_in_progress` — exactly two cases (expert
 review S3).**
@@ -10144,7 +10156,7 @@ TypeScript 5.9.3 from `ctxoracle/node_modules`.
 | S10 | T-10-1, T-10-2, T-10-3, T-10-4 |
 | S11 | T-11-1, T-11-2, T-11-3, T-11-4, T-11-5 |
 | S12 | T-12-1, T-12-2, T-12-3 |
-| S13 | T-13-1, T-13-2, T-13-3, T-13-4, T-13-5 |
+| S13 | T-13-1, T-13-2, T-13-3, T-13-4, T-13-5, T-13-6 |
 | S14 | T-14-1, T-14-2, T-14-3, T-14-4, T-14-5 |
 | S15 | T-15-1, T-15-2, T-15-3, T-15-4, T-15-5, T-15-6 |
 | S16 | T-16-1, T-16-2, T-16-3 |
@@ -10951,6 +10963,30 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     row or absence differs, OR any file has more than one row per miner kind
     after any pass, OR a row's `evidence` is not the counted hashes newest
     first, OR a commit message substring appears in any column of any table.
+
+- **T-13-6 — Merge `HEAD` and branching histories: the watermark reaches `HEAD` and a resume never double-counts.**
+  - **File.** `test/unit/miner_branches.test.ts`.
+  - **Verifies.** Step 13's final watermark, the already-mined skip, and the
+    purge's commit-provenance rule (AD-13, raised by the Step 13 test writer).
+  - **Level.** Integration (real `git`, real store).
+  - **Real/doubles.** Real `git`; real store; no doubles.
+  - **Data.** (a) a repository whose `HEAD` is a merge commit of a two-commit
+    side branch into `main` (`git merge --no-ff`): after a full mine,
+    `last_mined_commit` equals `HEAD`'s hash, and an index-free history
+    staleness check (`last_mined_commit ≠ HEAD`) reads fresh; (b) the same
+    shape with the side branch's commits dated between two `main` commits,
+    mined with `miner.chunk_ms` = 0 and the pass stopped (a thrown error
+    injected through the worker of T-13-5) after the first chunk whose
+    newest commit is on `main`, then resumed: `change_count`, `pair_count`,
+    and the weights equal one uninterrupted mine's; (c) a path touched only
+    by a commit that a history rewrite drops, and a path first touched by a
+    dropped commit and again by a kept one: after the purge and re-mine, the
+    first path's history-only `files` row is gone and the second's
+    `prov_ref` is the kept commit's hash. Technique: state-transition.
+  - **NOT asserts.** The chunk count. **Fails when** (a)'s
+    `last_mined_commit` is not `HEAD`, OR (b)'s counts differ from the
+    uninterrupted mine's, OR (c)'s swept row survives or the re-pointed
+    `prov_ref` names a commit not in `commits`.
 
 - **T-13-5 — Chunked commits: crash safety and the lock-hold bound.**
   - **File.** `test/unit/miner_chunks.test.ts`, worker
