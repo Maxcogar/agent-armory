@@ -589,6 +589,7 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/src/identity/repo_key.ts | create | S5 |
 | middleware/context-oracle/ctxoracle/src/identity/repo_key.ts | modify | S14 |
 | middleware/context-oracle/ctxoracle/src/index/frontend.ts | create | S14 |
+| middleware/context-oracle/ctxoracle/src/index/frontend.ts | modify | S15 |
 | middleware/context-oracle/ctxoracle/src/index/frontends.ts | create | S15 |
 | middleware/context-oracle/ctxoracle/src/index/generic_frontend.ts | create | S15 |
 | middleware/context-oracle/ctxoracle/src/index/indexer.ts | create | S14 |
@@ -4286,7 +4287,7 @@ they differ.**
   `hasTopLevelModule(name): boolean` — true when some present in-tree path is
   `<dir>/<name>.py`, or has a directory segment `<name>` with a `.py` file
   beneath it — which the indexer builds once per pass from the walk's present
-  set (the interface offered only `has(path)`; raised by the Step 15 test
+  set (the interface offered only a single-path membership check; raised by the Step 15 test
   writer, 2026-09-26). *Why (Step 15 builder's PLAN-FLAW stop, 2026-09-26,
   executed on this repository):* resolving against the root alone classed
   116 of 589 Python imports that name an in-repo module next to the
