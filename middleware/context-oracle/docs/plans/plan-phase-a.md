@@ -2021,10 +2021,11 @@ CREATE TABLE cochange_pairs(
   a INTEGER NOT NULL REFERENCES files(id),
   b INTEGER NOT NULL REFERENCES files(id),
   pair_count INTEGER NOT NULL, last_ts INTEGER NOT NULL,
-  last_commit TEXT NOT NULL,   -- plan column: the hash of the newest commit
-                               -- in the pair's count — the "commit pointer"
-                               -- AD-15's Coupling/Consequence/Completeness
-                               -- headlines need and AD-4 gives no source for
+  last_commit TEXT NOT NULL,   -- AD-4 (added db9ecf9, from D-plan-35): the
+                               -- hash of the newest commit in the pair's
+                               -- count — the "commit pointer" AD-15's
+                               -- Coupling/Consequence/Completeness headlines
+                               -- carry
   PRIMARY KEY(a, b), CHECK(a < b)) STRICT;
 CREATE TABLE landmines(id TEXT PRIMARY KEY,
   kind TEXT NOT NULL CHECK(kind IN ('revert_chain','fix_chatter','human_stated')),
@@ -2048,7 +2049,7 @@ CREATE TABLE human_facts(id TEXT PRIMARY KEY, statement TEXT NOT NULL,
 CREATE TABLE corrections(seq INTEGER PRIMARY KEY, id TEXT NOT NULL UNIQUE,
   whisper_id TEXT, deny_id TEXT,
   verdict TEXT NOT NULL CHECK(verdict IN ('false_fire','missed','confirm')),
-  genre TEXT,          -- plan column: the fold's attribution input for a
+  genre TEXT,          -- AD-4 (added db9ecf9, from D-plan-35): the fold's attribution input for a
                        -- whisper-less 'missed' (the --genre value, or
                        -- 'answer_drift' for --missed-question) — AD-5/AD-18
   note TEXT, ts INTEGER NOT NULL,
@@ -2187,7 +2188,8 @@ place to the DDL above (§6: no store has shipped). Against the built 001:
   millisecond collided). Explicit, not the implicit rowid, because `VACUUM`
   (and so `VACUUM INTO` export) "may change the ROWIDs of entries in any
   tables that do not have an explicit INTEGER PRIMARY KEY" (§3).
-- `corrections` gains the plan column `genre` and the relaxed CHECKs: a
+- `corrections` gains the column `genre` and the relaxed CHECKs (AD-4 since
+  db9ecf9): a
   whisper-less, deny-less row is legal only as `verdict = 'missed'`, and only
   such a row may carry a `genre` (AD-5's `--genre`/`--missed-question`
   attribution; the former exclusive-or CHECK made that row unrepresentable).
@@ -7397,13 +7399,13 @@ the plan made where the review and the architecture left one open.
   (`T-16-2`, `T-38-16`). *Rejected:* a constant tier (no per-fact
   information — the exact defect AD-14's second pass removed); a new seed
   (a number with no source when an existing one carries the meaning). Step 16.
-- **D-plan-35 — `cochange_pairs.last_commit` and `corrections.genre` are plan
-  columns.** *Reasoning.* AD-15's pair headlines require a commit pointer and
+- **D-plan-35 — `cochange_pairs.last_commit` and `corrections.genre` exist
+  (first plan columns; adopted into AD-4 in db9ecf9).** *Reasoning.* AD-15's pair headlines require a commit pointer and
   AD-5/AD-18's fold attributes a whisper-less miss by `--genre`, yet AD-4's
   column lists give neither a home; a column is the only way to carry a fact
   from write time to read time without a `git` subprocess on the event path
   (AD-23) or an in-band `note` sentinel (the normalization rule AD-4 itself
-  cites). Recorded for the architecture's next revision (§16 item 5).
+  cites). Raised in §16 item 5 and adopted into AD-4 (db9ecf9).
   *Rejected:* `git log` at compose time (forbidden on the event path);
   headlines without a commit (FR-D1's verifiable pointer becomes the file
   alone, and AD-15's column is violated). Steps 7, 9, 13, 30, 34.
@@ -12543,10 +12545,11 @@ bin, and its closed disposition.
   confidence only for pairs? **Disposition.** Answered: D-plan-34.
 - **Q60 (Steps 7, 18).** Where does a pair headline's commit pointer come
   from without a `git` subprocess? **Disposition.** Answered:
-  `cochange_pairs.last_commit` — D-plan-35; raised for the architecture, §16.
+  `cochange_pairs.last_commit` — D-plan-35; in AD-4 since db9ecf9.
 - **Q61 (Steps 7, 30, 34).** Where does the fold read `--genre`, and how can a
   whisper-less `missed` row satisfy the exclusive-or CHECK? **Disposition.**
-  Answered: `corrections.genre` and the relaxed CHECKs — D-plan-35; §16.
+  Answered: `corrections.genre` and the relaxed CHECKs — D-plan-35; in AD-4
+  since db9ecf9.
 - **Q62 (Steps 7, 14).** Can the fallback search satisfy N6's agreement with
   an index? **Disposition.** Answered by execution (§11.4): not as built;
   D-plan-36.
@@ -12853,64 +12856,32 @@ Each entry carries its resolution-attempt evidence and what would close it.
 4. **Route lessons** from the build to `docs/collapse-log.md` if they
    generalise — one line each plus a pointer to the review that grounds it.
 
-5. **Do NOT amend the architecture.** Any behaviour surfacing during the
-   build that contradicts it is a Stop-and-Escalate condition — raise it
-   to the owner with the evidence. Six premise-maintenance items (plus the
-   2026-09-26 list below) are
-   handed to the architecture's next revision (a documentation change, not
-   a design change), listed here so they are not lost: V6's timeout clause
-   is superseded (§4); V14's `web-tree-sitter` 0.26.13 loads no
-   `tree-sitter-wasms` 0.1.13 grammar and the plan pins 0.25.10 (§4);
-   AD-12's coverage sentence and L6 read, by execution, "every grammar the
-   pinned runtime loads and parses — 32 of 36" (§4); AD-26's "directory
-   lock" is a `schema_meta` claim row (§4, D-plan-32); L11(a)'s status is
-   whatever the exit report's
-   origin-keyed marker table says — *verified* only if an owner-local
-   interactive transcript was in the corpus; AD-21's "scrubbed
-   environment" is the enumerated session-identity set the executed
-   contract supports (§11.4).
-   **Added by the 2026-09-26 plan pass — architecture flaws and omissions
-   found while consuming `ec3b057`, each raised here (not patched in the
-   architecture) with its evidence and proposed fix; where the plan had to
-   choose to stay buildable, the choice is named:**
-   (a) AD-4's `corrections` column list has no home for the `--genre` /
-   `--missed-question` attribution AD-5 and AD-18 fold by, and its implied
-   exclusive-or of `whisper_id`/`deny_id` makes a whisper-less `missed` row
-   unrepresentable — fix: add `genre NULL` and the relaxed CHECKs to AD-4
-   (the plan's D-plan-35 does exactly this).
-   (b) AD-15's Coupling/Consequence/Completeness headlines require a commit
-   pointer, and AD-4's `cochange_pairs(a, b, pair_count, last_ts)` stores no
-   commit — fix: add `last_commit` to AD-4 (D-plan-35).
-   (c) AD-14's marginal-value classes omit the single-file history fact
-   (Warning), although it claims "no fact class is left undefined" — fix:
-   define the history class by invisibility from a cold checkout, not by
-   file count (D-plan-41).
-   (d) AD-14 gives a hazard (landmine) no evidence ratio, though FR-A5a
-   requires its confidence stated — fix: state the landmine ratio in AD-14
-   (D-plan-34).
-   (e) AD-18's "the identical deviation is thereafter denied" names no
-   session now that the consumer key is per session (AD-4) — fix: AD-18 names
-   the session `--missed-question` arms (D-plan-37).
-   (f) AD-5's import procedure is written for "the live store"; with
-   bindings now in `global_meta` (AD-20), importing a global store from
-   another machine replaces this machine's bindings, and at the exit run an
-   imported owner store collides with the agent's leg-2 store of the same
-   repository — fix: AD-5 states global-import semantics (replace, then
-   report missing roots) and that a foreign project store is imported into a
-   separate home (D-plan-43).
-   (g) AD-26 still says the detached reindex "takes a directory lock" and
-   AD-23 still cites "the V6 fail-closed hazard"; both were already raised as
-   premise maintenance above and remain unfixed in `ec3b057`.
-   (h) AD-2's "indexed `LIKE`/token-prefix" fallback cannot be token-prefix
-   over `symbols(name)`/`files(path)` with a plain index — executed (§11.4) —
-   fix: AD-2 names the NOCASE index and a token table (D-plan-36).
-   (i) AD-16 relies on V22's documented "injected text is saved in the
-   transcript" without an observed shape, and AD-15/AD-6 on a Grep/Glob result
-   list with no documented schema — PG-6, PG-7; fix: a V-row each once the
-   exit run observes them.
-   (j) The probes this pass executed (§11.4) should become
-   `run-plan-probes` entries in the next plan revision (the probe directory
-   was outside this pass's edit scope).
+5. **A conflict with the architecture is raised, never built around.** Any
+   behaviour surfacing during the build that contradicts the architecture
+   stops the step (expert-implement's PLAN-FLAW stop) with the evidence, and
+   is routed by ownership (`CLAUDE.md`, "Decisions are locked"): an
+   engineering flaw is corrected in the architecture in its own pass, with the
+   reason recorded there, and the plan follows in a separate pass; only a flaw
+   in an owner decision goes to Max Cogar.
+   **Resolved 2026-09-26 (architecture commit db9ecf9):** the six earlier
+   premise-maintenance items — V6's timeout clause (a timed-out `PreToolUse`
+   hook fails open silently); V14's runtime (the 0.25.10 pin); AD-12's and
+   L6's coverage ("32 of 36"); AD-26's "directory lock" (the `schema_meta`
+   claim row, D-plan-32); AD-21's scrubbed environment (the session-identity
+   set) — and the plan pass's (a)–(h): `corrections.genre` and
+   `cochange_pairs.last_commit` in AD-4 (D-plan-35); the single-file history
+   class and the landmine evidence ratio in AD-14 (D-plan-41, D-plan-34); the
+   session `--missed-question` arms in AD-18 (D-plan-37); global-import
+   semantics in AD-5 (D-plan-43); the fallback-search indexes in AD-2
+   (D-plan-36); AD-23's V6 citation.
+   **Still open:** L11(a)'s status is whatever the exit report's origin-keyed
+   marker table says — *verified* only if an owner-local interactive
+   transcript was in the corpus; AD-16 relies on V22's documented "injected
+   text is saved in the transcript" without an observed shape, and
+   AD-15/AD-6 on a Grep/Glob result list with no documented schema (PG-6,
+   PG-7) — each gets a V-row once the exit run observes it; and the probes the
+   2026-09-26 plan pass executed (§11.4) become `run-plan-probes` entries in
+   the next plan revision.
 
 6. **Exported-surface check.** The pre-implementation baseline is the
    2026-09-07 `codegraph_scan` of `middleware/context-oracle/` (one code
