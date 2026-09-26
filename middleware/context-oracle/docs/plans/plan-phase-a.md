@@ -1438,7 +1438,17 @@ the sole file containing `node:sqlite`.
   transaction within a transaction", and ten DAO methods open their own, so
   the miner committed its watermark before its landmines; AD-26 records the
   nesting sequence executed on Node 22.22.2.
-- **`openStore(path, opts?: { mustExist?: boolean })`.** With
+- **`openStore(path, opts?: { mustExist?: boolean; busyTimeoutMs?: number })`.**
+  `busyTimeoutMs` sets the connection's `busy_timeout` (default 100, the event
+  path's value). The miner (Step 13), the indexer (Step 14), and every CLI verb
+  (Steps 31–35) open with 5000: nothing off the event path has a latency
+  budget, and a background pass that gave up after 200 ms aborted against a
+  live handler's short write (AD-26, as corrected after CI on 821c835 failed
+  T-13-5b with the miner raising `StoreBusy`). The retry-once rule is
+  unchanged. Test: `T-3-5` case (j) — a store opened with `busyTimeoutMs:
+  5000` completes a write while a second process holds the lock for 1 s; one
+  opened with the default raises `StoreBusy`.
+  With
   `mustExist: true` the adapter opens `pathToFileURL(path).href + '?mode=rw'`
   and never creates a database. When SQLite refuses the open (errcode 14,
   `SQLITE_CANTOPEN`), the adapter then `stat`s the path — nothing was
@@ -3103,6 +3113,8 @@ depends_on: [S1, S3, S5, S9, S10, S11, S12]
 
 
 **What changes.** Create `src/miner/cochange.ts` exposing
+The caller opens `store` with `busyTimeoutMs: 5000` (Step 3; AD-26's
+off-path wait).
 `mineCochange(store, repoPath, opts: {tuning: TuningReader; diagnosticsDir:
 string; full?: boolean}): Promise<MineResult>` (`MineResult = {commitsSeen,
 included, excluded, chunks, rewritten: boolean, pathsRejected}`), the pure
@@ -11375,7 +11387,9 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     polls `last_mined_commit`, then `SIGKILL`s it after the watermark first
     advances past commit 500; the invariant is checked, then a second mine
     completes — a crash continuation, so a purged full re-mine (Step 13); (b)
-    at the seeded 50 ms, a full mine in the worker while a second process
+    at the seeded 50 ms, a full mine in the worker — which opens the store
+    as every off-path caller does, `busyTimeoutMs: 5000` (Step 3) — while a
+    second process
     performs 200 single-row `observed_actions` appends through
     `store.transaction` (busy_timeout 100 ms + one retry); (c) *a repeated full
     mine:* `mineCochange({full: true})` twice on the same completed store, and
