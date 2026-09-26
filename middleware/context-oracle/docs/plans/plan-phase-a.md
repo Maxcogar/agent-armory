@@ -573,6 +573,7 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/src/identity/layout.ts | create | S4 |
 | middleware/context-oracle/ctxoracle/src/identity/repo_binding.ts | create | S28 |
 | middleware/context-oracle/ctxoracle/src/identity/repo_key.ts | create | S5 |
+| middleware/context-oracle/ctxoracle/src/identity/repo_key.ts | modify | S14 |
 | middleware/context-oracle/ctxoracle/src/index/frontend.ts | create | S14 |
 | middleware/context-oracle/ctxoracle/src/index/frontends.ts | create | S15 |
 | middleware/context-oracle/ctxoracle/src/index/generic_frontend.ts | create | S15 |
@@ -585,7 +586,7 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/src/index/walk.ts | create | S14 |
 | middleware/context-oracle/ctxoracle/src/index/zone.ts | create | S14 |
 | middleware/context-oracle/ctxoracle/src/miner/cochange.ts | create | S13 |
-| middleware/context-oracle/ctxoracle/src/miner/cochange.ts | modify | S9 |
+| middleware/context-oracle/ctxoracle/src/miner/cochange.ts | modify | S9, S14 |
 | middleware/context-oracle/ctxoracle/src/miner/labels.ts | create | S13 |
 | middleware/context-oracle/ctxoracle/src/model/invoke.ts | create | S36 |
 | middleware/context-oracle/ctxoracle/src/qa/classify.ts | create | S23 |
@@ -802,6 +803,9 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/test/unit/genre_warning.test.ts | create | S18 |
 | middleware/context-oracle/ctxoracle/test/unit/import_resolvers.test.ts | create | S15 |
 | middleware/context-oracle/ctxoracle/test/unit/indexer_frontends.test.ts | create | S15 |
+| middleware/context-oracle/ctxoracle/test/unit/indexer_inputs.test.ts | create | S14 |
+| middleware/context-oracle/ctxoracle/test/unit/indexer_reads.test.ts | create | S14 |
+| middleware/context-oracle/ctxoracle/test/unit/indexer_review.test.ts | create | S14 |
 | middleware/context-oracle/ctxoracle/test/unit/indexer_stale.test.ts | create | S14 |
 | middleware/context-oracle/ctxoracle/test/unit/indexer_walk.test.ts | create | S14 |
 | middleware/context-oracle/ctxoracle/test/unit/indexer_walk.test.ts | modify | S15 |
@@ -2133,7 +2137,16 @@ CREATE TABLE schema_meta(key TEXT PRIMARY KEY, value TEXT) STRICT;
   -- corpus_floor_met ('0'|'1', Step 13 — N1), lang_capabilities (Step 14:
   -- JSON {lang: {frontend, symbols, imports, resolved, unresolved, files}},
   -- AD-12's per-language capability record and unresolved share),
-  -- walk_mode ('git'|'readdir', Step 14, shown by status)
+  -- walk_mode ('git'|'readdir', Step 14, shown by status),
+  -- frontend_fingerprint (Step 14: sha256 hex over the sorted
+  -- [lang, symbols, imports, version] of the frontends a pass parsed with;
+  -- a pass whose fingerprint differs, or that finds none stored beside an
+  -- in-tree files row, runs as full — Step 14 build review S1),
+  -- head_unresolved_since (Step 14: epoch ms of the refreshIfStale call
+  -- that first found HEAD unresolved; head_unresolved is recorded only when
+  -- it is absent, and a resolved HEAD deletes it — Step 14 build review M4),
+  -- walk_errors (Step 14: JSON {count, first} of the directories the
+  -- readdir walk could not read, absent when none — Step 14 build review m2)
 CREATE TABLE files(id INTEGER PRIMARY KEY, path TEXT NOT NULL UNIQUE,
   lang TEXT NOT NULL, zone TEXT NOT NULL CHECK(zone IN
     ('source','generated','vendored','build_output','unknown')),
@@ -3167,7 +3180,13 @@ of a run with neither setting. Every other git call of the pass that reads
 history through `git log` carries `--no-show-signature` too — the reference
 instant's `git log -1` printed `No signature` ahead of the timestamp under
 the same config (executed, §11.4); `rev-list`, `merge-base`, and `rev-parse`
-are plumbing and do not read `log.*` settings.
+are plumbing and do not read `log.*` settings. **Every git child the miner
+starts runs with `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`,
+`GIT_OBJECT_DIRECTORY`, and `GIT_COMMON_DIR` removed from its environment
+and `cwd` = the checkout root** — git exports these to hooks (githooks(5)),
+so an inherited one would make the miner read another repository's history
+(Step 14 build review m1; Step 14's git-layout module supplies the shared
+environment helper).
 
 The stream runs through Step 5's `oracleSpawn` with its new options `stdout:
 'pipe'` and `stderr: 'pipe'` (the options this step adds to
@@ -3542,14 +3561,21 @@ stay silent, `FR-A6`).
 step: S14
 covers: [PA-1, PA-3, PA-6]
 files:
-  create: [middleware/context-oracle/ctxoracle/src/index/indexer.ts, middleware/context-oracle/ctxoracle/src/index/frontend.ts, middleware/context-oracle/ctxoracle/src/index/zone.ts, middleware/context-oracle/ctxoracle/test/unit/indexer.test.ts, middleware/context-oracle/ctxoracle/test/unit/indexer_stale.test.ts, middleware/context-oracle/ctxoracle/src/index/search.ts, middleware/context-oracle/ctxoracle/src/index/walk.ts, middleware/context-oracle/ctxoracle/src/index/path_glob.ts, middleware/context-oracle/ctxoracle/src/identity/git_layout.ts, middleware/context-oracle/ctxoracle/test/unit/indexer_walk.test.ts, middleware/context-oracle/ctxoracle/test/unit/path_glob.test.ts, middleware/context-oracle/ctxoracle/test/unit/search_semantics.test.ts]
-  modify: [middleware/context-oracle/ctxoracle/test/fixtures/generate.ts]
+  create: [middleware/context-oracle/ctxoracle/src/index/indexer.ts, middleware/context-oracle/ctxoracle/src/index/frontend.ts, middleware/context-oracle/ctxoracle/src/index/zone.ts, middleware/context-oracle/ctxoracle/test/unit/indexer.test.ts, middleware/context-oracle/ctxoracle/test/unit/indexer_stale.test.ts, middleware/context-oracle/ctxoracle/src/index/search.ts, middleware/context-oracle/ctxoracle/src/index/walk.ts, middleware/context-oracle/ctxoracle/src/index/path_glob.ts, middleware/context-oracle/ctxoracle/src/identity/git_layout.ts, middleware/context-oracle/ctxoracle/test/unit/indexer_walk.test.ts, middleware/context-oracle/ctxoracle/test/unit/path_glob.test.ts, middleware/context-oracle/ctxoracle/test/unit/search_semantics.test.ts, middleware/context-oracle/ctxoracle/test/unit/indexer_review.test.ts, middleware/context-oracle/ctxoracle/test/unit/indexer_inputs.test.ts, middleware/context-oracle/ctxoracle/test/unit/indexer_reads.test.ts]
+  modify: [middleware/context-oracle/ctxoracle/test/fixtures/generate.ts, middleware/context-oracle/ctxoracle/src/miner/cochange.ts, middleware/context-oracle/ctxoracle/src/identity/repo_key.ts]
   delete: []
-provides: [LanguageFrontend, ImportResolver, runIndex, resolveHead, refreshIfStale, acquireReindexClaim, releaseReindexClaim, tokenize, symbolSearch, pathSearch, walkRepository, matchesTestPattern, readGitPointer]
-tests: [T-14-1, T-14-2, T-14-3, T-14-4, T-14-5]
+provides: [LanguageFrontend, ImportResolver, runIndex, resolveHead, refreshIfStale, acquireReindexClaim, releaseReindexClaim, tokenize, symbolSearch, pathSearch, walkRepository, matchesTestPattern, readGitPointer, gitChildEnv]
+tests: [T-14-1, T-14-2, T-14-3, T-14-4, T-14-5, T-14-6, T-14-7]
 depends_on: [S1, S3, S5, S9, S10, S11, S12, S13]
 ```
 
+
+**Files the declaration leaves out (Step 14 build review m7).** The two
+skeleton CLI verb files and the two skeleton frontend files that §9's rows
+"Step 14's skeleton callers" and "Step 14's skeleton frontends" change at
+this step are not in `files.modify`, deliberately: later steps create them,
+the plan checker refuses a declaration that names a later step's file, and
+those §9 rows are the authorization for the change.
 
 **What changes.** Create `src/index/frontend.ts` — the interface (G12, G13,
 G14):
@@ -3557,6 +3583,7 @@ G14):
 interface LanguageFrontend {
   readonly lang: string;                               // '*' for the generic frontend
   readonly capabilities: { symbols: boolean; imports: boolean };  // AD-12
+  readonly version: string;                            // identity of what parse/resolve produce
   init(): Promise<void>;                               // awaited before any parse
   parse(path: string, content: Buffer):
     | { ok: true; symbols: SymbolRow[]; imports: CapturedImport[] }
@@ -3573,7 +3600,22 @@ grammar loading stays lazy per language present while `parse` stays
 synchronous (review G14: web-tree-sitter's `Parser.init`/`Language.load`
 return promises). A parse failure is a returned value, never a throw, so the
 indexer — which holds the store — records `frontend_parse_failed` through
-`recordFault(store, …)` and it appears in `status`.
+`recordFault(store, …)` and it appears in `status`. **An `init` that
+rejects disables that frontend for the pass** (Step 14 build review m6): its
+files fall to the generic frontend (`'*'`), or, when the list has none or
+the generic frontend's own `init` rejected, get their `files` row, zone, and
+path tokens with no parse (label `path-only`); one `frontend_parse_failed`
+fault `{lang, error, phase: 'init'}` is recorded per disabled frontend, with
+`error` redacted (Step 11) like a parse failure's; and the pass continues —
+a missing grammar file costs one language its parse, not every language
+its index. `lang_capabilities` records the frontend actually used for each
+language in that pass (the generic one's capabilities, or `path-only`), so
+the record never declares a capability over rows it did not produce (G13).
+`version` is the frontend's identity (Step 14 build review S1): a string
+that changes whenever the rows `parse` or `resolve` can produce change — a
+grammar package version, a query text, or a resolver rule. It is one input
+of the pass's frontend fingerprint (`runIndex`, below); a frontend whose
+output changes without a new `version` is re-parsed only by `--full`.
 
 Create `src/identity/git_layout.ts` — `readGitPointer(dir): {kind: 'dir',
 gitDir} | {kind: 'file', gitDir, commonDir} | null`: `<dir>/.git` as a
@@ -3592,12 +3634,32 @@ rev-parse --git-dir` in a directory whose `.git/` holds only `config`
 prints `fatal: not a git repository`, so git itself does not treat it as
 one.)
 `resolveHead` (below) and the handler's repository walk (Step 28) both use it.
+The same file exports `gitChildEnv(): NodeJS.ProcessEnv` — `process.env`
+with `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_OBJECT_DIRECTORY`,
+and `GIT_COMMON_DIR` removed. **Every git child the indexer starts** (the
+walk's `ls-files` and `check-ignore`, and any git call added beside
+`resolveHead`) and **every git child the miner starts** (Step 13's `git log`
+stream, its `rev-list`/`merge-base`/`rev-parse`/`git log -1` calls) is
+passed `env: gitChildEnv()` and `cwd` = the checkout root, so git selects
+the repository from the directory the oracle chose, not from an inherited
+variable (Step 14 build review m1: git exports `GIT_DIR`/`GIT_WORK_TREE`
+to hooks, and githooks(5) says a hook invoking git on another repository
+"should clear these environment variables"; executed there, with both
+naming repository B, `walkRepository(A)` returned `['only-in-b.ts']`, and
+the `index` verb wired into a `post-checkout` hook is the natural case).
+The same rule applies to Step 5's repository-key resolver: its git calls
+(`remote get-url`, `rev-list --max-parents=0`, `rev-parse`) are passed
+`env: gitChildEnv()` too, a change this step makes in Step 5's file (in its
+`modify:` list), because a key read from an inherited `GIT_DIR` would bind
+the wrong store (raised by the Step 14 plan pass, 2026-09-26).
+Step 5's `childEnv` still adds `CTXORACLE_INTERNAL=1` to the passed `env`.
 
 Create `src/index/walk.ts` — `walkRepository(repoPath): {mode: 'git' |
-'readdir'; paths: string[]; rejected: Buffer[]; ignoredTracked: Set<string>}`
+'readdir'; paths: string[]; rejected: Buffer[]; ignoredTracked: Set<string>;
+walkErrors: {path: string; code: string}[]}`
 (AD-12; review G11/N7). When `readGitPointer(repoPath)` is non-null: `git
 ls-files -z --cached --others --exclude-standard` through `oracleRunSync`
-(bytes), split by `splitNul` and decoded by `decodePathBytes` (rejects into
+(bytes; `env: gitChildEnv()`, `cwd` = `repoPath` — m1 above), split by `splitNul` and decoded by `decodePathBytes` (rejects into
 `rejected`); then the walked paths are piped as NUL-separated bytes to `git
 check-ignore --no-index --stdin -z`, whose printed paths are the
 **tracked-and-ignored** set (exit 1 means none — executed 2026-09-26: with
@@ -3606,7 +3668,24 @@ and the tracked `api.gen.ts` of three tracked files; AD-12 ER M4). Otherwise a
 recursive `readdirSync(dir, {withFileTypes: true, encoding: 'buffer'})` walk,
 skipping any directory named `.git` or `node_modules` (the fixed exclusion
 AD-12 names), not following symlinks, decoding names with `decodePathBytes`;
-`ignoredTracked` is empty there (no ignore file to consult). Paths are
+`ignoredTracked` is empty there (no ignore file to consult). **A directory
+whose `readdirSync` fails** (removed mid-walk by a build's clean step, or
+unreadable) is skipped and appended to `walkErrors` as `{path, code}` (the
+repository-relative path and the error's `code`, e.g. `ENOENT`, `EACCES`);
+the walk continues, and the files beneath it are not listed, so this pass
+treats them as absent — as git mode treats a failed `lstat` (Step 14 build
+review m2: one failure threw the whole pass). A failure to read `repoPath`
+itself still throws, because a pass that listed nothing would mark every
+file absent. **No fault code is recorded for it:** none of Step 6's codes
+means a skipped directory (`path_not_utf8` is an undecodable name,
+`index_path_only_oversize` a cap, `frontend_parse_failed` a parse,
+`head_unresolved` a ref), and a new code is not added for a count the pass
+already reports — `IndexResult.walkErrors` carries the count, and the final
+transaction writes `schema_meta.walk_errors` = JSON `{count, first}` (`first`
+the first five `{path, code}` entries, each path passed through `redact`)
+when the count is non-zero and deletes the key otherwise, which `status`
+shows beside `walk_mode`. git mode has no per-directory read, so its
+`walkErrors` is always empty. Paths are
 repository-relative POSIX. `schema_meta.walk_mode` records the mode.
 
 Create `src/index/path_glob.ts` — `matchesTestPattern(path, pattern):
@@ -3647,10 +3726,24 @@ returned identical symbol sets from the FTS table and the fallback table, and
 the fallback's range query is `SEARCH … USING INDEX`.
 
 Create `src/index/zone.ts` (zone classification per AD-12): a marker comment
-in the head 2 KB (`@generated`, `DO NOT EDIT`, `Code generated … DO NOT
-EDIT`), `dist/`/`build/`/lockfile path patterns, `vendor/`/`node_modules/`
+in the head 2 KB, `dist/`/`build/`/lockfile path patterns, `vendor/`/`node_modules/`
 path segments, and membership of `walkRepository`'s `ignoredTracked` set
 (zone `generated`, evidence `tracked file matches an ignore pattern`).
+**The marker matches only as a comment line** (Step 14 build review M3):
+the head 2 KB is split into lines on `\n`, a trailing `\r` removed, and a
+line is a marker when it matches Go's published convention
+`^// Code generated .* DO NOT EDIT\.$` (pkg.go.dev/cmd/go, "Generate Go
+files by processing source") or when it is a comment whose text starts with
+the tag `@generated` — `^\s*(?://|#|/\*+|\*+|<!--|--)\s*@generated(?![\p{L}\p{N}_])`
+(comment leaders `//`, `#`, `/*`, `*`, `<!--`, `--`). A mention anywhere else
+— inside prose, a string, a later part of a comment line, or `DO NOT EDIT`
+without Go's full line — is not a marker. *Why:* matching `@generated|DO
+NOT EDIT` anywhere classified all three marker hits in this repository
+wrongly (`zone.ts` itself, `indexer.test.ts`, and a spec reading "# DO NOT
+EDIT THIS FILE WITHOUT DIRECT OWNER APPROVAL"), and Orientation and Reuse
+drop non-`source` files (Step 18). The fixture's `# @generated by
+scripts/gen.sh -- DO NOT EDIT …` still matches. The zone evidence stays
+the first matched line, trimmed.
 **Precedence, first match wins:** `ignoredTracked` membership → the marker
 comment → the `vendor/`/`node_modules/` segments (`vendored`) → the
 `dist/`/`build/`/lockfile patterns (`build_output`) → `source` (the Step 14
@@ -3677,14 +3770,34 @@ Create `src/index/indexer.ts`:
   working tree still listed by `--cached`, executed AD-12 ER M3) is treated as
   absent; for each present file, resolve its language through
   `index.ext_to_grammar` (Step 12), pick the frontend whose `lang` matches or
-  the generic one, and `await init()` once for each frontend actually needed;
+  the generic one, and `await init()` once for each frontend actually needed
+  (a rejection disables that frontend for the pass — m6, above);
   then per file: the byte cap is checked on the `stat` size before any read
   (> 1 MB → path-only), and the 20k-line cap during a bounded read that stops
-  at line 20,001 (→ path-only); a path-only file records
+  at line 20,001 (→ path-only). **The read is bounded by the descriptor, not
+  by the earlier `lstat`** (Step 14 build review M1; OWASP ASVS 5.0 V5 and
+  AD-23 bound the bytes read; CWE-367: a check on a path and a later use of
+  that path are not one operation, and the working tree changes while the
+  detached reindex runs): every read of a working-tree file — the parse read,
+  the 2 KB head read for the marker, and the `symbol_refs` importer read —
+  goes through one helper that opens with `O_RDONLY | O_NOFOLLOW |
+  O_NONBLOCK`, `fstat`s the descriptor, and reads at most its bound —
+  1,000,001 bytes (cap + 1) for the parse and importer reads, 2,048 bytes for
+  the head read of an over-cap file. A path that is a symlink at open (`ELOOP`) or whose descriptor is
+  not a regular file is not a present file: it is treated as absent this
+  pass, like a failed `lstat` (RV-5's rule, now at the read as well). A file
+  whose `fstat` size or bytes read exceed 1,000,000 is path-only with the
+  `index_path_only_oversize` fault (`cap: 'bytes'`, `bytes` the larger of
+  the `fstat` size and the bytes read) even when the `lstat` said smaller.
+  (`O_NONBLOCK` beside `O_NOFOLLOW`: a FIFO swapped in after the `lstat`
+  cannot block the open — open(2): a FIFO opened read-only blocks until a
+  writer opens it unless `O_NONBLOCK` is set, and the flag has no effect on
+  a regular file's reads.) A path-only file records
   `index_path_only_oversize` (`{path, bytes, lines, cap}` — G15) and gets its
   `files` row, zone, and path tokens but no parse. **An unchanged path-only
   file is skipped:** a byte-cap file is keyed by its `stat` size and mtime
-  (the change check git's own index uses), stored in `files.content_hash` as
+  (a size-and-mtime check, a subset of git's own — git also compares ctime
+  and inode and handles racy-clean entries; Step 14 build review m3), stored in `files.content_hash` as
   `stat:<size>:<mtime_ms>`, and a line-cap file by the SHA-256 of the bounded
   bytes read; when the key and `in_tree = 1` are unchanged the file is not
   re-recorded and no second `index_path_only_oversize` is written (the fault
@@ -3694,15 +3807,80 @@ Create `src/index/indexer.ts`:
   re-parsed; a changed or new file is parsed, its content passed through
   `redact` (Step 11) before anything derived from it is stored, and its
   `symbols`, `import_edges`, FTS rows, `symbol_tokens`, `path_tokens`,
-  `test_map` rows, and `unresolved_imports` rewritten. Each captured import specifier is resolved
+  `test_map` rows, and `unresolved_imports` rewritten.
+  **"Unchanged" covers every input of a file's derived rows, not only its
+  bytes (AD-12 as amended at `0528470`; Step 14 build review S1, S2):**
+  - *The frontend set (S1).* After the needed `init`s, the pass computes the
+    frontend fingerprint: `sha256Hex` (Step 5) of the `JSON.stringify` array of
+    `[lang, capabilities.symbols, capabilities.imports, version]`, one entry
+    per frontend passed in `frontends` less any disabled by a rejected
+    `init` this pass (m6), sorted by `lang` then `version`. The pass runs as
+    **full** (every present file re-parsed, as under `indexing_in_progress`)
+    when that fingerprint differs from `schema_meta.frontend_fingerprint`, or
+    when no fingerprint is stored while the store already holds an
+    `in_tree = 1` `files` row. The final transaction writes the pass's
+    fingerprint. *Why the executed failure:* indexing an unchanged tree with
+    `[]` and then with a parsing TypeScript frontend wrote 0 files, 0 symbols,
+    0 edges, while `lang_capabilities` declared `{symbols: true, imports:
+    true}` — observed zero read as never counted (G13). Two refinements of
+    the stated rule, recorded here: the fingerprint excludes a frontend
+    disabled by `init` (m6), so a pass whose grammar failed stores the list it
+    actually parsed with and the first pass where that grammar loads differs
+    and re-parses (had it counted the disabled frontend, that language would
+    keep generic rows under a tree-sitter fingerprint — S1 again); and the
+    "no stored fingerprint" trigger keys on an existing `in_tree = 1` row, not
+    on a stored `index_head`, because a `readdir` root and an unresolved
+    `HEAD` (unborn, reftable — below) store no `index_head`, and a store
+    built before this rule would otherwise keep its old rows there. This
+    `full` is the index pass's only: the miner still receives the caller's
+    `full` (below), since mining reads no frontend.
+  - *Appearance and disappearance of files (S2).* The re-parse set is the
+    changed and new files **plus**: (a) when the walk's present set holds a
+    path that had no `in_tree = 1` row before this pass (a new file, or one
+    returning), every other present `in_tree = 1` file whose stored
+    `unresolved_imports > 0` — an import of a missing file was counted
+    unresolved, so it may resolve now; and (b) when a stored `in_tree = 1`
+    path leaves the present set (absent, unstat-able, a symlink or
+    non-regular file at open — M1 — or vanished at read time), the
+    `src_file` of every `import_edges` row into it, read before any delete.
+    A re-parsed file is read, parsed, and written exactly like a changed
+    file — its `import_edges` and `unresolved_imports` re-resolved against
+    this pass's present set — and counts as a written file for the
+    `symbol_refs` recompute, the `test_map` rebuild, and `entry_score` below.
+    A file that becomes **path-only** is not a disappearance: its `files`
+    row stays `in_tree = 1` and stays a resolvable target, so no edge into
+    it is dropped; only its own outgoing edges go, and it is itself the
+    rewritten file, so (b) adds no file for it. *Why the executed failure:*
+    `main` with `a.ts` and `b.test.ts` importing `b.ts`, a branch
+    without `b.ts`, then `main` again → `edges []`, `test_map []`, `b`'s
+    `entry_score 0`, `symbol_refs 0` for good, with `index_head` equal to
+    `HEAD`; and a test written before its source never mapped. The rule
+    needs no stored specifiers: (a) and (b) name exactly the files whose
+    resolution can change.
+  Each captured import specifier is resolved
   by the frontend's `resolve`: `resolved` → an `import_edges` row, `external`
   → nothing, `unresolved` → counted into `files.unresolved_imports` (AD-12,
-  CH H4). Every `files` row the indexer creates or updates has `in_tree = 1`
+  CH H4). **A `resolved` result whose `dst` is not in this pass's present set
+  counts as unresolved** (Step 14 build review m5): the edge has no `files`
+  row to point at, and counting it unresolved is what lets rule (a) above
+  re-resolve it when the target appears. **A `resolved` result whose `dst` is
+  the importing file itself** counts as resolved and writes no edge: a
+  self-edge would inflate the file's own in-degree and `entry_score` (a plan
+  decision raised by the Step 14 plan pass, 2026-09-26). Every `files` row the indexer creates or updates has `in_tree = 1`
   and its path's injection flag (`isSuspect(path)`, AD-19). A file absent
-  from the walk or unstat-able is handled by `files.markAbsentExcept`: its
-  `symbols` (and so their `symbol_tokens`), `import_edges`, `symbol_refs`,
-  `test_map`, FTS, and `path_tokens` rows are deleted and `in_tree` set to 0,
-  and the row is
+  from the walk or unstat-able (the stored `in_tree = 1` rows whose path is
+  not in this pass's present set, read before any write): its
+  `symbols` (and so their `symbol_tokens`), `import_edges` (from it and into
+  it), `symbol_refs`, `test_map`, FTS, and `path_tokens` rows are deleted and
+  `in_tree` set to 0 **in the same chunk transaction** — the `UPDATE files
+  SET in_tree = 0 WHERE id = ?` and that file's derived-row deletes commit
+  together, so a crash can never leave the rows of a not-in-tree file (Step
+  14 build review M5: the old order committed every `in_tree = 0` first, a
+  crash before the delete chunks left `symbols`, `path_tokens` and FTS rows
+  that no later pass revisits, because the absent set is read from
+  `in_tree = 1` rows; reproduced — a `full` pass kept `symbols 1 path_tokens
+  3 fts_paths 1`); the indexer no longer calls `files.markAbsentExcept`,
+  whose one-statement update is exactly the split this rule forbids. The row is
   **kept** (AD-4) — never deleted while history references it;
   `files.sweepUnreferenced()` then removes `in_tree = 0` rows nothing
   references. **After every file is written:** `test_map` is rebuilt for
@@ -3712,9 +3890,17 @@ Create `src/index/indexer.ts`:
   'import_edge'`), or, for a language in `lexicon.test_same_dir_languages`,
   every non-test file of the same language in the same directory (`source =
   'same_dir'`; AD-12 ER M5 — an in-package Go test imports nothing);
-  `region_glob` is the covered file's path (whole-file regions; `status`
-  says so). `symbol_refs` is recomputed for every symbol of a file whose
-  content changed or whose importer set or any importer's content changed:
+  `region_glob` is the covered file's path **as a GLOB-escaped pattern**
+  (whole-file regions; `status` says so): each SQL-GLOB metacharacter `[`,
+  `*`, `?` in the path is wrapped in brackets (`[` → `[[]`, `*` → `[*]`,
+  `?` → `[?]`), so the pattern matches only that path under the reader's
+  `? GLOB region_glob` (`test_map.coveringTests`) — SQLite's GLOB treats all
+  three as metacharacters, and a data-built pattern must escape them (Step 14
+  build review M2: `app/[id]/page.ts` written verbatim matched `app/i/page.ts`
+  and not itself). The rebuild's "rows differ" comparison compares the
+  escaped form, so an unchanged tree still writes nothing. `symbol_refs` is recomputed for every symbol of a file whose
+  content changed or whose importer set or any importer's content changed
+  (a file re-parsed under rule (a) or (b) above counts as changed):
   one row per (symbol, importing file other than the symbol's own) whose
   redacted text contains the symbol's name as a whole identifier
   (`(?<![\p{L}\p{N}_$])name(?![\p{L}\p{N}_$])`), `ref_count` = the
@@ -3735,12 +3921,23 @@ Create `src/index/indexer.ts`:
   **Transactions (AD-26):** per-file rows are written in chunk transactions of
   `miner.chunk_ms` writing time; the file's FTS, `symbol_tokens`, and
   `path_tokens` rows are in the same chunk as its relational rows; `schema_meta.index_head` (from
-  `resolveHead`), `index_stale = '0'`, `lang_capabilities`, and `walk_mode`
+  `resolveHead`), `index_stale = '0'`, `lang_capabilities`, `walk_mode`,
+  `frontend_fingerprint`, and `walk_errors` (set or deleted, above)
   are written only in the final transaction, so a crashed pass leaves the old
-  `index_head` and the staleness check re-triggers it. Then `mineCochange`
+  `index_head` and fingerprint and the staleness check re-triggers it; when
+  `resolveHead` resolved, the same transaction deletes
+  `head_unresolved_since` (M4, below). Then `mineCochange`
   (Step 13) runs with the same `tuning`, `diagnosticsDir`, and **`full`** —
   `runIndex`'s `full` reaches the miner, so a full index is a purged full
-  re-mine (Step 13; expert review S3).
+  re-mine (Step 13; expert review S3); a pass made full by
+  `indexing_in_progress` or by the fingerprint passes the caller's own
+  `full`.
+  **Memory — a stated limit (Step 14 build review m4).** All parse output of
+  a pass — every written file's symbols, captured edges, and counts — is held
+  in memory before the first write, so a pass's memory is proportional to the
+  symbols and edges of the files written in the pass; a first or full index
+  of a large repository holds all of them at once. The writes stay chunked
+  (AD-26); the held parse output is what grows (§13 R17).
   Under `schema_meta.fts_state = 'fts5'` one `fts_paths` row per `files` row
   with `in_tree = 1` and one `fts_symbols` row per `symbols` row, each holding
   `tokenize(<path or name>)` joined by one space, deleted
@@ -3761,7 +3958,19 @@ Create `src/index/indexer.ts`:
   `<commondir>/packed-refs` by a line-by-line scan for `<hash> <refpath>`
   (one read bounded by the repository's ref count); a ref found nowhere
   (an unborn branch, a layout the resolver does not understand) is
-  `{unresolved: <reason>}`. Every read is a bounded file read, never a
+  `{unresolved: <reason>}`. **A reftable repository** (Step 14 build review
+  M4) is detected before the ref lookup and resolves to `{unresolved:
+  'reftable'}`: `<gitdir>/HEAD` reads exactly `ref: refs/heads/.invalid`
+  (git-scm.com/docs/reftable, "Backward compatibility": a reftable
+  repository's `HEAD` is "a regular file containing `ref:
+  refs/heads/.invalid`", its refs in `reftable/`), or `<commondir>/config`
+  sets `extensions.refStorage = reftable` — a line scan of at most its first
+  64 KiB (a bounded read, AD-23; section and key names compared
+  case-insensitively, as git-config(1) defines them). The resolver does not
+  read the reftable format; the staleness of such a repository is
+  **unknown**, never stale and never spawning a reindex, and `status` says so
+  in those words ("staleness unknown: reftable repository"), not only by the
+  fault code. Every read is a bounded file read, never a
   subprocess (AD-23), and `runIndex` records `schema_meta.index_head`
   through this same function so the two sides compare like with like
   (D-plan-30).
@@ -3778,9 +3987,17 @@ Create `src/index/indexer.ts`:
   `index_stale` fault (AD-17's detector, through Step 10's writer) and writes
   `schema_meta.index_stale = '1'` (cleared to `'0'` by the next completed
   `runIndex`), so an index that stays stale for many events writes one fault
-  and one `schema_meta` row, not one per event (expert review m3); on `{unresolved}` records the plan-named
-  `head_unresolved` diagnostic (Step 6) with the reason and returns
-  `{stale: false}` — an unreadable layout never spawns a reindex; it
+  and one `schema_meta` row, not one per event (expert review m3); on `{unresolved}` returns
+  `{stale: false}` — an unreadable layout never spawns a reindex — and records the plan-named
+  `head_unresolved` diagnostic (Step 6) with the reason **only on the
+  transition**, like `index_stale`: when `schema_meta.head_unresolved_since`
+  is absent it records the fault and writes that key (the epoch-ms instant of
+  the call) in one transaction; while the key is present it records nothing;
+  a call that resolves `HEAD` deletes the key, as does `runIndex`'s final
+  transaction when its `HEAD` resolved (Step 14 build review M4: five calls
+  on an unborn branch wrote five faults, and a reftable repository would
+  write one per event forever). A reftable repository therefore records one
+  `head_unresolved` with reason `reftable`. `refreshIfStale`
   spawns nothing — the caller that owns a binary (the handler, Step 28)
   starts the detached reindex.
   `acquireReindexClaim(store): {acquired: true} | {acquired: false;
@@ -3882,7 +4099,21 @@ returns `{stale: true}`, and an unmoved `HEAD` records nothing and returns
 `{stale: false}`, on an ordinary checkout, with the branch ref packed, on a
 detached `HEAD`, and in a linked worktree; an unborn branch records
 `head_unresolved` and returns `{stale: false}`; a completed `runIndex`
-clears the flag). The subtests of `T-14-3` and `T-14-5` whose assertions
+clears the flag; five unresolved calls record one `head_unresolved`, a
+resolving call clears `head_unresolved_since`, and a reftable layout records
+one `head_unresolved` with reason `reftable` and returns `{stale: false}` —
+Step 14 build review M4), `T-14-6` (every input of a file's derived rows —
+Step 14 build review S1, S2, M5, m5, m6: a frontend-set change re-parses an
+unchanged tree; a branch round trip and a test written before its source
+restore edges, `test_map`, `entry_score` and `symbol_refs` exactly; an
+absent file's `in_tree = 0` commits with its derived-row deletes; an `init`
+rejection disables one frontend and the pass completes), `T-14-7` (reads,
+patterns and the walk's environment — Step 14 build review M1, M2, M3, m1,
+m2: a file grown past the cap after the `lstat` is path-only, a swapped-in
+symlink is absent; a bracketed test path maps only itself; the marker
+matches only as a comment line; inherited `GIT_DIR`/`GIT_WORK_TREE` do not
+redirect the walk or the miner; an unreadable directory is skipped and
+counted). The subtests of `T-14-3` and `T-14-5` whose assertions
 need symbols or `import_edges` — rows only Step 15's frontends produce, since
 Step 14 runs with an empty frontend list (D-plan-29) — are written at this
 step and marked `node:test` `{ todo: 'needs Step 15 frontends; retired by
@@ -6372,7 +6603,10 @@ depends_on: [S1, S2, S4, S5, S9, S10, S12, S21, S26, S28, S30, S31]
 - `src/diag/status.ts` + `src/cli/status.ts`: `FR-M4` renderer — plain
   language: runtime check (Step 2), repo key + keying mode + identity
   string (Step 5), loose-mode directories (Step 4), FTS5 state, index
-  head/staleness, invariant count (L10), per-genre volume, false-fire rate
+  head/staleness (including the Step 14 lines: "staleness unknown:
+  reftable repository" when `head_unresolved` carries reason `reftable`,
+  and the skipped-directory count and first path from
+  `schema_meta.walk_errors`), invariant count (L10), per-genre volume, false-fire rate
   (from `corrections`), regret rate **labelled "held-but-unspoken only" and
   paired with the last seeded-coverage result or "coverage not measured
   live"** (AD-17, AC-18), denies issued, wrongful-deny rate (`false_fire`
@@ -7321,7 +7555,7 @@ are *runnable* at that point.
   | `src/miner/cochange.ts` | the `landmines.upsert` calls are removed — the miner writes no landmine at 1R (2); `bump` passes the commit hash it already parses and a stand-in weight `1` (3) | Step 13 |
   | `src/index/indexer.ts` | the inline `DELETE FROM files` loop is removed — a file gone from the tree keeps its row at 1R (2); the `fts_paths`/`fts_symbols` inserts, which name the pre-1R columns, are removed, so `init` and `index` run at 1R with empty FTS tables (2); `files.upsert` passes `in_tree: 1` and `isSuspect(path)` (3) | Step 14 |
   | `src/cli/index.ts`, `src/cli/init.ts` — Step 14's skeleton callers (made during Step 14's build) | the skeleton verbs call the new `runIndex` with `tuning = tuningReader(global, <repo key>, …)` (no `global` option), and narrow on `'refused' in result` before reading `IndexResult`; a refused run prints the notice Step 28/31 specify; marked `SKELETON: 14` (3) | Steps 28 and 31 |
-  | `src/index/generic_frontend.ts`, `src/index/tree_sitter_frontend.ts` — Step 14's skeleton frontends (made during Step 14's build) | wrapped to Step 14's `LanguageFrontend`: `capabilities` (`{symbols: true, imports: false}` for generic; the tree-sitter one's declared capability), `init` (a no-op on generic), `parse` returning `{ok: true, symbols, imports}` with captured specifiers mapped from the skeleton's edges; marked `SKELETON: 14` (3) | Step 15 |
+  | `src/index/generic_frontend.ts`, `src/index/tree_sitter_frontend.ts` — Step 14's skeleton frontends (made during Step 14's build) | wrapped to Step 14's `LanguageFrontend`: `capabilities` (`{symbols: true, imports: false}` for generic; the tree-sitter one's declared capability), `version` (`'skeleton-14'` on both — the member Step 14 build review S1 adds to the interface), `init` (a no-op on generic), `parse` returning `{ok: true, symbols, imports}` with captured specifiers mapped from the skeleton's edges; marked `SKELETON: 14` (3) | Step 15 |
   | `src/index/indexer.ts` — Step 13's skeleton caller (made during Step 13's build, after 1R) | the skeleton `runIndex` builds the miner's `TuningReader` as `tuningReader(global, resolveRepoKey(repoPath).key)` and maps `MineResult.included` onto its existing `IndexResult.mine.commitsIncluded`, so the skeleton `index`/`init` verbs compile unchanged; both marked `SKELETON: 13` (3) | Step 14 |
   | `src/cli/context.ts` — Step 13's skeleton store opener (made during Step 13's build) | the skeleton `openRepo` opens both stores with `busyTimeoutMs: 5000`, the off-path wait (AD-26), so the `index`/`init` verbs' miner cannot abort on `StoreBusy` against a live session; marked `SKELETON: 13` (3) | Step 35 (deletes the file) |
   | `src/index/search.ts` | its FTS bodies (which read the pre-1R FTS columns) and its `LIKE` bodies (which are not AD-2's token fallback) return `[]` (1); no caller remains at 1R | Step 14 |
@@ -9014,7 +9248,11 @@ collapse-hunt attacks these questions harder and hunts for the ones missing.
    reindexed forever or never; the alternative inside the inventory does
    not exist (a subprocess is outside it, AD-23), and staleness only
    lowers confidence (`FR-K7`), so under-detection costs a confidence
-   flag, never a wrong deny. Cite: AD-23 (the inventory; no `git`
+   flag, never a wrong deny. (*Amended by Step 14 build review M4:*
+   `head_unresolved` is recorded once, on the transition to unresolved, not
+   on every `SessionStart` — one fault per event flooded the table on an
+   unborn branch — and a reftable repository is detected and named, its
+   staleness shown as unknown; Step 14.) Cite: AD-23 (the inventory; no `git`
    subprocess on the event path); AD-17 (`index_stale` = `index_head` ≠
    `HEAD`); AD-12; `FR-K7`; `T-14-2`.
 4. **Steers toward.** Reading the named files and reporting what cannot
@@ -10472,7 +10710,7 @@ TypeScript 5.9.3 from `ctxoracle/node_modules`.
 | S11 | T-11-1, T-11-2, T-11-3, T-11-4, T-11-5 |
 | S12 | T-12-1, T-12-2, T-12-3 |
 | S13 | T-13-1, T-13-1o, T-13-1p, T-13-2, T-13-2a, T-13-3, T-13-4, T-13-5, T-13-6, T-13-6d, T-13-6e |
-| S14 | T-14-1, T-14-2, T-14-3, T-14-4, T-14-5 |
+| S14 | T-14-1, T-14-2, T-14-3, T-14-4, T-14-5, T-14-6, T-14-7 |
 | S15 | T-15-1, T-15-2, T-15-3, T-15-4, T-15-5, T-15-6 |
 | S16 | T-16-1, T-16-2, T-16-3 |
 | S17 | T-17-1, T-17-2 |
@@ -11588,7 +11826,15 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     after `git checkout --detach`; and from a linked worktree made by `git
     worktree add` (`.git` a `gitdir:` file, refs in the common directory);
     plus an unborn branch (`git init` with no commit) → `head_unresolved`
-    with its reason, `{stale: false}`, no `index_stale`. Technique:
+    with its reason, `{stale: false}`, no `index_stale`. **Transition and
+    reftable cases (Step 14 build review M4):** `refreshIfStale` called five
+    times on the unborn branch, then one commit made there and
+    `refreshIfStale` called once more; and two planted reftable layouts of
+    the ordinary checkout, each called three times — `<gitdir>/HEAD`
+    rewritten to exactly `ref: refs/heads/.invalid`, and, with `HEAD`
+    untouched, `.git/config` given `[extensions]` / `refStorage = reftable`
+    (git 2.43.0 here has no reftable backend, so the layouts are planted
+    files, as the review read them from git-scm.com/docs/reftable). Technique:
     state-transition (fresh → stale → stale → fresh) × equivalence
     partitioning over `HEAD` layouts.
   - **NOT asserts.** Who spawns the reindex (T-28-5 observes the handler's
@@ -11601,7 +11847,15 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     the calls, OR the fresh call records a fault, OR `runIndex` does not clear
     the flag, OR any layout's stale call misses the moved `HEAD` or any
     layout's fresh call records a fault, OR the unborn-branch case records
-    `index_stale`, returns `{stale: true}`, or records no `head_unresolved`.
+    `index_stale`, returns `{stale: true}`, or records no `head_unresolved`;
+    and, in the M4 cases, when the five unborn calls record other than
+    exactly one `head_unresolved` fault, OR `schema_meta.head_unresolved_since`
+    is absent after them, OR it survives the call made after the first commit
+    (a resolved `HEAD` deletes it), OR either reftable layout records other
+    than exactly one `head_unresolved` fault over its three calls, OR that
+    fault's reason is not `reftable`, OR any reftable call returns
+    `{stale: true}`, records `index_stale`, or writes a
+    `reindex_owner_pid` row.
 
 - **T-14-3 — The walk, zones, `in_tree`, `test_map`, UTF-8, oversize.**
   - **File.** `test/unit/indexer_walk.test.ts`.
@@ -11723,6 +11977,208 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     `user_name`, OR `café` or `CAFE` misses `CAFÉ`, OR `über` misses
     `Über`, OR `bar` misses `foo-bar` or `Foo::Bar`, OR `method` misses
     `my.method`.
+
+- **T-14-6 — Every input of a file's derived rows (frontend set, appearing and disappearing files), atomic absence, `init` failure.**
+  - **File.** `test/unit/indexer_inputs.test.ts`.
+  - **Verifies.** Step 14's "unchanged covers every input" rule, the
+    resolved-but-absent count, the absent-file chunk rule, and the `init`
+    rejection rule — Step 14 build review S1, S2, M5, m5, m6; AD-12 as
+    amended at `0528470`.
+  - **Level.** Integration (real `git`, filesystem, store).
+  - **Real/doubles.** Real `git`, filesystem, `node:sqlite`; no doubles.
+    Where a case needs symbols or edges it passes a minimal frontend written
+    to Step 14's `LanguageFrontend` interface, as `test/unit/indexer_review.test.ts`
+    does (its `tsLike`: `export function <name>` symbols, `from '<specifier>'`
+    imports, a relative resolver that answers `resolved` only for a present
+    target, or for any target with `resolveAll`) — an input of `runIndex`
+    under D-plan-29, not a double; each such frontend carries a `version`
+    (`'v1'` unless the case says otherwise). The skeleton `genericFrontend`
+    is the generic frontend. The M5 case plants a SQLite `TEMP` trigger on
+    the store's own connection — fault injection into the real store, not a
+    double.
+  - **Data and fails when**, case by case:
+    - **(S1) frontend set.** `src/a.ts` (`import { b } from './b.js';
+      export function a() { b(); }`) and `src/b.ts` (`export function b() {}`),
+      committed. Index with `[]`; index the unchanged tree with `[tsLike()]`;
+      then with the same frontend at `version: 'v2'`; then again at
+      `'v2'`; then delete `schema_meta.frontend_fingerprint` and index again
+      at `'v2'`. **Fails when** the `[tsLike()]` pass leaves `symbols` other
+      than `a` and `b`, OR `import_edges` other than `src/a.ts -> src/b.ts`,
+      OR `lang_capabilities.typescript.resolved ≠ 1`, OR the `'v2'` pass's
+      `filesWritten ≠ 2` (a version change re-parses the unchanged tree),
+      OR the repeated `'v2'` pass's `filesWritten ≠ 0` or it changes any row
+      of `symbols`, `import_edges`, `symbol_refs`, `test_map` (the
+      fingerprint is stable), OR the pass with the key deleted writes other
+      than 2 files, OR after any pass `schema_meta.frontend_fingerprint`
+      differs from `sha256Hex(JSON.stringify(<the sorted [lang, symbols,
+      imports, version] entries of the frontends passed>))`, OR, on a
+      `readdir` root (the same two files, no `.git`, so no `index_head` is
+      ever stored) indexed with `[]`, then the key deleted, then indexed with
+      `[]` again, that last pass's `filesWritten ≠ 2` (the missing-fingerprint
+      trigger does not need an `index_head`).
+    - **(S2) branch round trip.** `main`: `src/a.ts` (`import { b } from
+      './b.js'; export function a() { b(); }`), `src/b.ts` (`export function
+      b() {}`), `src/b.test.ts` (`import { b } from './b.js'; b();`); branch
+      `nob` from `main` with `src/b.ts` deleted and committed. Index on
+      `main` and take a path-keyed snapshot (rows keyed by file path, not
+      id, since ids of kept or swept rows may differ): `import_edges`,
+      `test_map` (`test_file`, `region_glob`, `source`), every `in_tree = 1`
+      file's `entry_score` and `unresolved_imports`, and `symbol_refs` as
+      (symbol name, symbol file, importing file, `ref_count`). `git checkout
+      nob`, index; `git checkout main`, index. **Fails when** the first
+      snapshot lacks `src/a.ts -> src/b.ts`, `src/b.test.ts -> src/b.ts`,
+      the `test_map` row `src/b.test.ts → src/b.ts` (`import_edge`), or
+      `src/b.ts`'s `entry_score` 2, OR on `nob` any edge into `src/b.ts`
+      remains or `src/a.ts` or `src/b.test.ts` does not have
+      `unresolved_imports = 1` (the dropped edges' sources were re-parsed
+      and the absent target counts unresolved), OR after the return to
+      `main` any snapshotted table or value differs from the first snapshot.
+    - **(S2) test before its source.** A repository holding only
+      `src/foo.test.ts` (`import { foo } from './foo.js'; foo();`), indexed;
+      then `src/foo.ts` (`export function foo() {}`) written (untracked is
+      enough — `--others`) and indexed. **Fails when** after the second pass
+      `import_edges` lacks `src/foo.test.ts -> src/foo.ts`, OR `test_map`
+      lacks `src/foo.test.ts → src/foo.ts` (`import_edge`), OR
+      `src/foo.test.ts` keeps `unresolved_imports ≠ 0`, OR `src/foo.ts`'s
+      `entry_score ≠ 1`.
+    - **(m5) resolved but not present.** `src/a.ts` importing
+      `./missing.js`, indexed with `tsLike(resolveAll = true)` (the resolver
+      answers `resolved` with `dst` `src/missing.ts`, which does not exist).
+      **Fails when** an `import_edges` row exists for `src/a.ts`, OR its
+      `unresolved_imports ≠ 1`, OR `lang_capabilities.typescript.unresolved
+      ≠ 1` (this kills the review's surviving mutation I25).
+    - **(M5) absence is atomic per file.** `src/x.ts` and `src/y.ts`, each
+      with one symbol, indexed with `[tsLike()]`; both files deleted
+      from the working tree; a `TEMP` trigger `BEFORE DELETE ON path_tokens
+      WHEN old.file_id = <src/y.ts's id> BEGIN SELECT RAISE(ABORT,
+      'injected'); END` planted on the store's connection; the next pass is
+      expected to reject with `injected`; the trigger dropped; one more pass.
+      **Fails when** the injected pass resolves, OR after it any `files` row
+      with `in_tree = 0` still has a `symbols`, `symbol_tokens`,
+      `path_tokens`, `import_edges`, `symbol_refs`, `test_map`, or (under
+      `fts: true`) `fts_paths`/`fts_symbols` row, OR `src/y.ts` has
+      `in_tree = 0` (its chunk rolled back, so it is still `in_tree = 1` with
+      its rows), OR the reindex claim survives, OR after the last pass either
+      file has `in_tree = 1` or any derived row. (On the old order —
+      `markAbsentExcept` committed first — `src/y.ts` is `in_tree = 0` with
+      its rows; the case fails there. The invariant holds whatever the chunk
+      size, so the case sets no tuning.)
+    - **(m6) `init` rejects.** `src/a.ts` (two lines: `import { b } from
+      './b.js';` and `export function a() {}`, so the generic frontend's
+      line-start definition form sees `a`) and `src/b.ts` (`export function
+      b() {}`); frontends `[broken,
+      genericFrontend]` where `broken` is `tsLike()` with `init` rejecting
+      `new Error('grammar missing')`; then the same tree with `[tsLike(),
+      genericFrontend]`; separately, `[broken]` alone on a fresh store.
+      **Fails when** the `[broken, genericFrontend]` pass rejects, OR it
+      records other than exactly one `frontend_parse_failed` fault, OR that
+      fault's detail is not `{lang: 'typescript', error: 'grammar missing',
+      phase: 'init'}`, OR `src/a.ts` lacks the generic frontend's `a`
+      symbol, OR any `import_edges` row exists, OR
+      `lang_capabilities.typescript` is not `{frontend: 'generic', symbols:
+      true, imports: false, …}`, OR the following `[tsLike(),
+      genericFrontend]` pass does not re-parse both files (the fingerprint
+      excluded the disabled frontend, so it differs) and yield `src/a.ts ->
+      src/b.ts` with `lang_capabilities.typescript.frontend = 'tree-sitter'`,
+      OR the `[broken]`-only pass rejects, writes any `symbols` row, or
+      records `lang_capabilities.typescript.frontend` other than
+      `'path-only'`. **RV-24** (`test/unit/indexer_review.test.ts`) induces
+      its failed run with exactly this `init` rejection, which now completes
+      the pass; its assertion — a failed run releases the claim — is
+      unchanged, and it is re-induced by another failure `runIndex` does not
+      absorb (for example the M5 case's `TEMP` trigger).
+  - **Technique.** State-transition (index → changed input → index) over
+    the frontend set, the present set, and a failing chunk; error guessing
+    (the review's executed failures).
+  - **NOT asserts.** Parse quality; the real frontends (Step 15). The review's
+    `tsLike` and `broken` frontends gain the `version` member the interface
+    now requires; nothing they assert changes.
+
+- **T-14-7 — Bounded reads, GLOB-escaped regions, the comment-line marker, the walk's git environment, and walk errors.**
+  - **File.** `test/unit/indexer_reads.test.ts`.
+  - **Verifies.** Step 14's descriptor-bounded read, `region_glob`
+    escaping, the marker patterns, `gitChildEnv` on the walk and the miner,
+    and the readdir walk's error rule — Step 14 build review M1, M2, M3, m1,
+    m2.
+  - **Level.** Integration (real `git`, filesystem, store), plus
+    `classifyZone` and `walkRepository` called directly.
+  - **Real/doubles.** Real `git`, filesystem, `node:sqlite`; no doubles.
+    The M1 cases pass a minimal frontend (as in T-14-6) whose `parse` of
+    `a.ts` changes `b.ts` on disk — an input that makes the tree change
+    during the pass, as an agent writing files does under the detached
+    reindex.
+  - **Data and fails when**, case by case:
+    - **(M1) growth after `lstat`.** `a.ts` and `b.ts` (23 bytes) tracked;
+      the frontend's `parse` of `a.ts` appends 5,000,000 bytes to `b.ts` and
+      records the largest `content.length` it is ever passed. **Fails when**
+      any `parse` call receives more than 1,000,000 bytes, OR `b.ts` is not
+      path-only, OR no `index_path_only_oversize` fault names `b.ts` with
+      `cap: 'bytes'` and `bytes > 1,000,000`.
+    - **(M1) swap to a link or a FIFO after `lstat`.** As above, but the
+      `parse` of `a.ts` replaces `b.ts` with a symlink to a regular file
+      outside the repository holding `export function leak() {}`; a second
+      run replaces it with a FIFO (`mkfifo`); each run under a `node:test`
+      timeout of 10 s, so a blocking open fails the case instead of hanging
+      it. **Fails when** any `symbols` row is named `leak`, OR `b.ts` has
+      `in_tree = 1` after either run, OR either run times out or rejects.
+    - **(M2) GLOB metacharacters.** `app/[id]/page.ts`, `app/[id]/page.test.ts`
+      importing `./page.js`, `app/i/page.ts`; `lib/a*b.ts` with
+      `lib/a*b.test.ts` importing `./a*b.js`, and `lib/axxb.ts`;
+      `lib/a?b.ts` with `lib/a?b.test.ts` importing `./a?b.js`, and
+      `lib/axb.ts` (all legal POSIX names), indexed with `[tsLike()]`; then
+      re-indexed unchanged. **Fails when** a stored `region_glob` is not the
+      escaped form (`app/[[]id]/page.ts`, `lib/a[*]b.ts`, `lib/a[?]b.ts`), OR
+      `coveringTests` of `app/[id]/page.ts`, `lib/a*b.ts`, or `lib/a?b.ts`
+      does not return exactly its own test file, OR `coveringTests` of
+      `app/i/page.ts`, `lib/axxb.ts`, or `lib/axb.ts` returns any row, OR the
+      unchanged re-run writes any `test_map` row.
+    - **(M3) the marker is a comment line.** `classifyZone(path, head,
+      false)` over heads, each a single line then `x\n`: generated —
+      `// Code generated by stringer; DO NOT EDIT.`, the same line ending
+      `\r\n`, `# @generated by scripts/gen.sh -- DO NOT EDIT`, `// @generated
+      -- DO NOT EDIT`, `/* @generated */`, ` * @generated`, `<!-- @generated
+      -->`, `-- @generated`; source — `zone.ts`'s own header line as it
+      stands (a `//` comment whose text starts `2. a generated-file marker
+      comment in the head 2 KB` and later names the tag), `# DO NOT EDIT THIS FILE WITHOUT DIRECT OWNER APPROVAL`,
+      `const s = "@generated";`, `// Code generated by x. DO NOT EDIT` (no
+      final period), `// @generatedFoo`, and `DO NOT EDIT` alone. **Fails
+      when** any head classifies other than stated. **RV-12**
+      (`test/unit/indexer_review.test.ts`) rewrites its over-cap file's
+      header to `@generated!!`, which has no comment leader and so is no
+      longer a marker; its rewrite becomes `# @generated\n` — the same 13
+      bytes as `plain header\n`, so the same-size key it tests is unchanged
+      — and its assertions stand.
+    - **(m1) inherited repository variables.** Repositories A (`a.ts`, two
+      commits touching `a.ts` and `c.ts` together) and B (`only-in-b.ts`,
+      one commit); then `process.env` given `GIT_DIR` = B's `.git`,
+      `GIT_WORK_TREE` = B, `GIT_INDEX_FILE` = B's `.git/index`,
+      `GIT_OBJECT_DIRECTORY` = B's `.git/objects`, and `GIT_COMMON_DIR` = B's
+      `.git` for the case (restored after, so fixture git calls are
+      unaffected). **Fails when** `walkRepository(A).paths` is not
+      `['a.ts', 'c.ts']`, OR `runIndex` on A writes a `files` row for
+      `only-in-b.ts`, OR its `commits` rows are not exactly A's two hashes,
+      OR any `cochange_pairs` row names `only-in-b.ts`.
+    - **(m2) an unreadable directory.** A `readdir` root holding `ok.ts` and
+      `sub/deep.ts`, indexed; then `sub/` made unreadable to `readdirSync`:
+      when the test runs unprivileged, `chmod 000`; as root (where
+      permissions do not block, as in the review's container), `sub/` is
+      moved under a chain of nested directories whose absolute path exceeds
+      `PATH_MAX` (4,096 bytes), built by `renameSync` of already-nested
+      directories so no single call's path exceeds it, so `readdirSync` of
+      it fails `ENAMETOOLONG`; then indexed again; separately, `runIndex` on
+      a root that does not exist. **Fails when** the second pass rejects,
+      OR its `walkErrors` is not 1, OR `schema_meta.walk_errors` is not
+      `{count: 1, first: [{path, code}]}` with the failing directory's
+      repository-relative path and its error code, OR `ok.ts` loses its row
+      or `in_tree = 1`, OR any fault is recorded for the walk error, OR a
+      later pass with the directory readable again leaves
+      `schema_meta.walk_errors` present, OR the missing-root call resolves
+      instead of rejecting.
+  - **Technique.** Error guessing (the review's executed TOCTOU, bracketed
+    path, false-positive marker, and hook-environment failures); decision
+    table over marker lines; boundary value (1,000,000 / 1,000,001 bytes).
+  - **NOT asserts.** Symbol quality; `status` rendering of `walk_errors` or
+    the reftable line (Step 33).
 
 - **T-15-1 — Tree-sitter frontend on a TypeScript fixture.**
   - **File.** `test/unit/tree_sitter_frontend.test.ts`.
@@ -13937,6 +14393,18 @@ seam.
   the aggregated tail reaches it, in a synchronous chunk transaction between
   `data` events, which holds no transaction across a git read (AD-26) and
   bounds memory by a chunk (the review's M5 fix).
+
+- **R17 — The structural indexer's memory grows with the files a pass
+  writes.** All parse output of a pass is held before the first write
+  (Step 14, "Memory — a stated limit"; Step 14 build review m4): the memory
+  is proportional to the symbols and edges of the files written in the pass,
+  so a first index, a full index, and a pass made full by a changed frontend
+  fingerprint hold every present file's symbols and edges at once; an
+  incremental pass holds only its changed and re-parsed files. *Mitigation:*
+  none built in Phase A beyond stating the limit; the writes are chunked
+  (AD-26). *Residual:* a very large repository's full index can exhaust a
+  small machine's memory; the recorded fix, if a bound is wanted, is to write
+  pass 1 in chunks as files are parsed (edges already wait for pass 2).
 
 ---
 ## 14. Question register
