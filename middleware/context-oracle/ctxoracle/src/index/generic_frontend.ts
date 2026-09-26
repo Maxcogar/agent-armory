@@ -19,6 +19,7 @@ const DEF = [
 export const genericFrontend: LanguageFrontend = {
   lang: '*',
   capabilities: { symbols: true, imports: false },
+  version: 'skeleton-14', // plan §9 row "Step 14's skeleton frontends"
   async init() {},
   parse(_path, content) {
     const text = content.toString('utf8');

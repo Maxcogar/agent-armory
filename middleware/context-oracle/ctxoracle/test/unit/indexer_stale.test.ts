@@ -17,12 +17,16 @@
 // with no commit). Technique: state-transition (fresh -> stale -> stale ->
 // fresh) x equivalence partitioning over HEAD layouts.
 //
+// M4 cases (Step 14 build review): refreshIfStale five times on an unborn
+// branch, then one commit there and one more call; and two planted reftable
+// layouts of the ordinary checkout, each called three times.
+//
 // `refreshIfStale(store, checkoutRoot, diagnosticsDir)` gets a per-test
 // temporary diagnostics directory (the JSONL mirror of its faults).
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -173,3 +177,59 @@ test('T-14-2: an unborn branch records head_unresolved with its reason and retur
     global.close();
   }
 });
+
+// --- M4 (Step 14 build review): head_unresolved on the transition only, and reftable.
+
+function headUnresolvedReasons(store: Store): unknown[] {
+  return (store.prepare("SELECT detail_json FROM faults WHERE code = 'head_unresolved' ORDER BY id").all() as { detail_json: string | null }[]).map(
+    (r) => (r.detail_json === null ? null : (JSON.parse(r.detail_json) as { reason?: unknown }).reason)
+  );
+}
+
+test('T-14-2 (M4): five unresolved calls record one head_unresolved; a resolving call clears head_unresolved_since', () => {
+  const repo = path.join(root, 'unborn-m4');
+  fixtureInit(repo);
+  const { store, global } = newStores('stale-unborn-m4');
+  try {
+    for (let i = 1; i <= 5; i++) {
+      assert.deepEqual(refreshIfStale(store, repo, diag), { stale: false }, `unborn call ${i} returns {stale: true}`);
+    }
+    assert.equal(faultCount(store, 'head_unresolved'), 1, 'the five unborn calls record other than exactly one head_unresolved fault');
+    assert.ok(meta(store, 'head_unresolved_since') !== undefined, 'schema_meta.head_unresolved_since is absent after the unborn calls');
+    fixtureCommit(repo, [{ path: 'first.txt', content: 'first\n' }], { message: 'first commit', day: 0 });
+    refreshIfStale(store, repo, diag);
+    assert.equal(meta(store, 'head_unresolved_since'), undefined, 'head_unresolved_since survives the call made after the first commit');
+  } finally {
+    store.close();
+    global.close();
+  }
+});
+
+// git 2.43.0 here has no reftable backend, so both layouts are planted files
+// (git-scm.com/docs/reftable, "Backward compatibility"): a reftable HEAD is a
+// regular file holding `ref: refs/heads/.invalid` (written with git's trailing
+// newline), or the config sets `extensions.refStorage = reftable`.
+const REFTABLE_LAYOUTS: Record<string, (repo: string) => void> = {
+  'HEAD = ref: refs/heads/.invalid': (repo) => writeFileSync(path.join(repo, '.git', 'HEAD'), 'ref: refs/heads/.invalid\n'),
+  'config extensions.refStorage = reftable': (repo) => appendFileSync(path.join(repo, '.git', 'config'), '[extensions]\n\trefStorage = reftable\n'),
+};
+
+for (const [name, plant] of Object.entries(REFTABLE_LAYOUTS)) {
+  test(`T-14-2 (M4): reftable layout (${name}) — three calls record one head_unresolved with reason reftable, never stale`, () => {
+    const repo = path.join(root, `reftable-${Object.keys(REFTABLE_LAYOUTS).indexOf(name)}`);
+    generateFixture('indexer-small', repo);
+    plant(repo);
+    const { store, global } = newStores(`stale-reftable-${Object.keys(REFTABLE_LAYOUTS).indexOf(name)}`);
+    try {
+      for (let i = 1; i <= 3; i++) {
+        assert.deepEqual(refreshIfStale(store, repo, diag), { stale: false }, `reftable call ${i} returns {stale: true}`);
+        assert.equal(meta(store, 'reindex_owner_pid'), undefined, `reftable call ${i} writes a reindex_owner_pid row`);
+      }
+      assert.equal(faultCount(store, 'index_stale'), 0, 'a reftable call records index_stale');
+      assert.deepEqual(headUnresolvedReasons(store), ['reftable'], "the three calls record other than exactly one head_unresolved fault with reason 'reftable'");
+    } finally {
+      store.close();
+      global.close();
+    }
+  });
+}

@@ -12,7 +12,7 @@
 // a path that is not valid UTF-8 goes to `rejected`, never into `paths`.
 import { readdirSync } from 'node:fs';
 import path from 'node:path';
-import { readGitPointer } from '../identity/git_layout.js';
+import { gitChildEnv, readGitPointer } from '../identity/git_layout.js';
 import { oracleRunSync } from '../util/spawn.js';
 import { decodePathBytes, splitNul } from '../util/path_bytes.js';
 
@@ -21,6 +21,11 @@ export interface WalkResult {
   paths: string[];
   rejected: Buffer[];
   ignoredTracked: Set<string>;
+  /**
+   * Directories the readdir walk could not read (Step 14 build review m2):
+   * skipped, the files beneath them not listed; always empty in git mode.
+   */
+  walkErrors: { path: string; code: string }[];
 }
 
 /** The directory names the `readdir` walk never enters (AD-12's fixed exclusion). */
@@ -30,6 +35,7 @@ const GIT_MAX_BUFFER = 256 * 1024 * 1024;
 function gitWalk(repoPath: string): WalkResult {
   const ls = oracleRunSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], {
     cwd: repoPath,
+    env: gitChildEnv(),
     maxBuffer: GIT_MAX_BUFFER,
   });
   if (ls.status !== 0) {
@@ -62,6 +68,7 @@ function gitWalk(repoPath: string): WalkResult {
     const input = Buffer.concat(accepted.flatMap((b) => [b, Buffer.from([0])]));
     const ci = oracleRunSync('git', ['check-ignore', '--no-index', '--stdin', '-z'], {
       cwd: repoPath,
+      env: gitChildEnv(),
       input,
       maxBuffer: GIT_MAX_BUFFER,
     });
@@ -74,14 +81,26 @@ function gitWalk(repoPath: string): WalkResult {
       if (p !== null && p !== '') ignoredTracked.add(p);
     }
   }
-  return { mode: 'git', paths, rejected, ignoredTracked };
+  return { mode: 'git', paths, rejected, ignoredTracked, walkErrors: [] };
 }
 
 function readdirWalk(repoPath: string): WalkResult {
   const paths: string[] = [];
   const rejected: Buffer[] = [];
+  const walkErrors: { path: string; code: string }[] = [];
   const visit = (absDir: string, relPrefix: string, relBytes: Buffer): void => {
-    const entries = readdirSync(absDir, { withFileTypes: true, encoding: 'buffer' });
+    let entries;
+    try {
+      entries = readdirSync(absDir, { withFileTypes: true, encoding: 'buffer' });
+    } catch (e) {
+      // The root itself failing still throws: a pass that listed nothing would
+      // mark every file absent. A subdirectory that cannot be read (removed
+      // mid-walk, unreadable, a path past PATH_MAX) is skipped and counted, and
+      // the files beneath it are absent this pass (Step 14 build review m2).
+      if (relPrefix === '') throw e;
+      walkErrors.push({ path: relPrefix, code: String((e as NodeJS.ErrnoException).code ?? 'UNKNOWN') });
+      return;
+    }
     for (const e of entries) {
       const nameBytes = e.name;
       const entryBytes = relBytes.length === 0 ? Buffer.from(nameBytes) : Buffer.concat([relBytes, Buffer.from('/'), nameBytes]);
@@ -108,7 +127,7 @@ function readdirWalk(repoPath: string): WalkResult {
   };
   visit(repoPath, '', Buffer.alloc(0));
   paths.sort();
-  return { mode: 'readdir', paths, rejected, ignoredTracked: new Set() };
+  return { mode: 'readdir', paths, rejected, ignoredTracked: new Set(), walkErrors };
 }
 
 export function walkRepository(repoPath: string): WalkResult {

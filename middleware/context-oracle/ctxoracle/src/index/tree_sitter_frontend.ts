@@ -84,6 +84,7 @@ export function treeSitterFrontend(lang: string, onParseFailed: FaultSink): Lang
   return {
     lang,
     capabilities: { symbols: true, imports: true },
+    version: 'skeleton-14', // plan §9 row "Step 14's skeleton frontends"
     resolve: skeletonResolve,
     async init() {
       parserInit ??= Parser.init();

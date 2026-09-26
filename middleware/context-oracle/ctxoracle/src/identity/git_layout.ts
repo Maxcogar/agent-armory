@@ -74,3 +74,20 @@ export function readGitPointer(dir: string): GitPointer | null {
   const commonDir = common === '' ? gitDir : path.resolve(gitDir, common);
   return { kind: 'file', gitDir, commonDir };
 }
+
+/** The variables git exports to hooks that select a repository other than the working directory's. */
+const REPO_SELECTING_ENV = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_OBJECT_DIRECTORY', 'GIT_COMMON_DIR'] as const;
+
+/**
+ * `process.env` less the repository-selecting variables (Step 14 build review
+ * m1). git exports `GIT_DIR`/`GIT_WORK_TREE` to hooks, and githooks(5) says a
+ * hook invoking git on another repository "should clear these environment
+ * variables"; every git child the indexer, the miner, and the repository-key
+ * resolver start is passed this environment and `cwd` = the checkout root, so
+ * git selects the repository from the directory the oracle chose.
+ */
+export function gitChildEnv(): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  for (const name of REPO_SELECTING_ENV) delete env[name];
+  return env;
+}

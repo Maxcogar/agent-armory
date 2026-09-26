@@ -3,8 +3,9 @@
 // Precedence, first match wins (plan Step 14, as settled at 6f5ceb8):
 //   1. membership of the walk's tracked-and-ignored set → `generated`,
 //      evidence `tracked file matches an ignore pattern`;
-//   2. a generated-file marker comment in the head 2 KB (`@generated`,
-//      `DO NOT EDIT` — which covers Go's `Code generated … DO NOT EDIT`) →
+//   2. a generated-file marker comment in the head 2 KB (`@generated` as a
+//      comment's leading tag, or Go's full `Code generated … DO NOT EDIT.`
+//      line — matched only as a comment line, Step 14 build review M3) →
 //      `generated`, evidence the marker line;
 //   3. a `vendor/` or `node_modules/` directory segment → `vendored`;
 //   4. a `dist/` or `build/` directory segment, or a lockfile basename →
@@ -28,7 +29,27 @@ export const ZONE_HEAD_BYTES = 2048;
 /** The longest marker-line evidence kept (after redaction). */
 const EVIDENCE_MAX_CHARS = 200;
 
-const MARKER = /@generated|DO NOT EDIT/;
+/**
+ * The marker lines (Step 14 build review M3). Go's published convention,
+ * `^// Code generated .* DO NOT EDIT\.$` (pkg.go.dev/cmd/go, "Generate Go files
+ * by processing source"); or a comment whose text starts with the tag
+ * `@generated`, after one of the leaders `//`, `#`, `/*`, `*`, `<!--`, `--`.
+ * A mention anywhere else — prose, a string, later in a comment, or `DO NOT
+ * EDIT` without Go's full line — is not a marker: matching anywhere classified
+ * `zone.ts` itself, a test, and a spec line as generated, and Orientation and
+ * Reuse drop non-`source` files (Step 18).
+ */
+const GO_MARKER = /^\/\/ Code generated .* DO NOT EDIT\.$/u;
+const TAG_MARKER = /^\s*(?:\/\/|#|\/\*+|\*+|<!--|--)\s*@generated(?![\p{L}\p{N}_])/u;
+
+/** The first marker line of the head, trimmed of a trailing `\r`, or undefined. */
+function markerLine(text: string): string | undefined {
+  for (const raw of text.split('\n')) {
+    const line = raw.endsWith('\r') ? raw.slice(0, -1) : raw;
+    if (GO_MARKER.test(line) || TAG_MARKER.test(line)) return line;
+  }
+  return undefined;
+}
 const VENDOR_SEGMENTS = new Set(['vendor', 'node_modules']);
 const BUILD_SEGMENTS = new Set(['dist', 'build']);
 /**
@@ -52,8 +73,8 @@ function result(zone: Zone, evidence: string | null): ZoneResult {
 export function classifyZone(path: string, head: Buffer, ignoredTracked: boolean): ZoneResult {
   if (ignoredTracked) return result('generated', IGNORED_TRACKED_EVIDENCE);
   const text = head.subarray(0, ZONE_HEAD_BYTES).toString('utf8');
-  if (MARKER.test(text)) {
-    const line = text.split('\n').find((l) => MARKER.test(l)) as string;
+  const line = markerLine(text);
+  if (line !== undefined) {
     // Redact the whole line first: truncating first could cut a secret into a
     // fragment the patterns no longer recognise.
     return result('generated', line.trim());

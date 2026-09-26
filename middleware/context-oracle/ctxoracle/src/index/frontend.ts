@@ -6,9 +6,10 @@
 // - `capabilities` is the frontend's declaration per language (AD-12, G13):
 //   recorded per language in `schema_meta.lang_capabilities` and shown in
 //   `status`, so "observed zero" is told apart from "never counted".
-// - `init` is awaited once per frontend whose language occurs among the files
-//   the indexer parses (G14: web-tree-sitter's `Parser.init`/`Language.load`
-//   return promises), so `parse` can stay synchronous.
+// - `init` is awaited once per frontend whose language occurs in the walked
+//   file set (G14: web-tree-sitter's `Parser.init`/`Language.load` return
+//   promises), so `parse` can stay synchronous; an `init` that rejects disables
+//   that frontend for the pass (Step 14 build review m6).
 // - `parse` never throws: a failure is a returned value, so the indexer — which
 //   holds the store — records `frontend_parse_failed`.
 // - A frontend with `capabilities.imports = true` provides `resolve`, which
@@ -36,6 +37,14 @@ export interface LanguageFrontend {
   /** The grammar name this frontend handles (`index.ext_to_grammar`'s right side); `'*'` for the generic frontend. */
   readonly lang: string;
   readonly capabilities: { symbols: boolean; imports: boolean };
+  /**
+   * The frontend's identity: changes whenever the rows `parse`/`resolve` can
+   * produce change — a grammar package version, a query text, a resolver rule
+   * (Step 14 build review S1). One input of the pass's frontend fingerprint; a
+   * frontend whose output changes without a new `version` is re-parsed only by
+   * `--full`.
+   */
+  readonly version: string;
   /** Awaited before any parse. */
   init(): Promise<void>;
   /** Never throws. */

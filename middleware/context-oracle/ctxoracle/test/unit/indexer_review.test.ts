@@ -90,6 +90,7 @@ function tsLike(resolveAll = false): LanguageFrontend {
   return {
     lang: 'typescript',
     capabilities: { symbols: true, imports: true },
+    version: 'v1', // the member the interface now requires (T-14-6's NOT-asserts note); `broken` spreads it
     async init() {},
     parse(_p, content) {
       const text = content.toString('utf8');
@@ -325,7 +326,7 @@ test('RV-12: a byte-cap file changed at the same size but a new mtime is re-reco
   try {
     await index(env, dir);
     assert.equal(row(env.store, 'big.txt')?.zone, 'source');
-    writeFileSync(path.join(dir, 'big.txt'), `@generated!!\n${body}`); // same size as `plain header\n`
+    writeFileSync(path.join(dir, 'big.txt'), `# @generated\n${body}`); // 13 bytes, the same size as `plain header\n` (T-14-7 M3 note)
     const t = new Date(Date.now() + 5_000);
     utimesSync(path.join(dir, 'big.txt'), t, t);
     await index(env, dir);
@@ -544,12 +545,21 @@ test("RV-23: releaseReindexClaim never drops another process's claim (C3)", () =
 
 test('RV-24: a runIndex that fails releases the claim (C4)', async () => {
   // Plan: "runIndex calls it in a finally, on completion or failure".
+  // Re-induced per T-14-6 (m6): a rejecting `init` now completes the pass, so
+  // the run is failed by the M5 case's fault injection instead — a TEMP
+  // trigger on the store's own connection that aborts the absent file's
+  // path_tokens delete.
   const dir = repo({ 'a.ts': 'a\n' });
   const env = stores();
-  const broken: LanguageFrontend = { ...tsLike(), init: () => Promise.reject(new Error('grammar missing')) };
   try {
     const tuning = tuningReader(env.global, 'review', () => {});
-    await assert.rejects(runIndex(env.store, dir, { full: false, frontends: [broken], tuning, diagnosticsDir: diag }), /grammar missing/);
+    await index(env, dir);
+    const id = row(env.store, 'a.ts')?.id;
+    assert.ok(id !== undefined, 'precondition: a.ts is indexed');
+    rmSync(path.join(dir, 'a.ts'));
+    env.store.exec(`CREATE TEMP TRIGGER rv24_inject BEFORE DELETE ON path_tokens WHEN old.file_id = ${id} BEGIN SELECT RAISE(ABORT, 'injected'); END`);
+    await assert.rejects(runIndex(env.store, dir, { full: false, frontends: [], tuning, diagnosticsDir: diag }), /injected/);
+    env.store.exec('DROP TRIGGER rv24_inject');
     assert.equal(schemaMetaDao(env.store).get('reindex_owner_pid'), undefined, 'the claim survives a failed run');
   } finally {
     env.close();

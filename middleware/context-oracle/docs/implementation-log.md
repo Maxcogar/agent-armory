@@ -1379,3 +1379,152 @@ every importer.
   four stand-in files are authorized by the `6f5ceb8` §9 rows, but §5.1
   (generated from the declarations) does not list them under S14. The gate is
   green either way.
+
+## Step 14 — fixes after the build review — BUILT (2026-09-26, uncommitted, pending independent review)
+
+The build review is `docs/reviews/2026-09-26-step-14-build-review.md`, and the
+reviewer's tests are `test/unit/indexer_review.test.ts` (bfe8d3b). The fixes
+were built against AD-12 as amended at `0528470` and plan Step 14 as amended
+at `221a1bc` and `42dbbd0`. They were test-first.
+- A separate agent wrote the new failing tests: T-14-2 M4 (×3), T-14-6
+  `indexer_inputs.test.ts` (×7, including the self-import case), and T-14-7
+  `indexer_reads.test.ts` (×6, plus 2 nested).
+- That agent added only the declared members: `LanguageFrontend.version`, a
+  throwing `gitChildEnv` stub, and an optional `walkErrors`.
+- This build replaced the stub. No asserted value was changed and no test was
+  deleted. There was no stop this round.
+
+**Built, per finding.**
+- **S1 — frontend fingerprint.** `fingerprintOf` in `src/index/indexer.ts`
+  takes `sha256Hex(JSON.stringify(...))` of the sorted
+  `[lang, symbols, imports, version]` entries.
+  - It covers the frontends passed, less those disabled by a rejected `init`.
+  - The pass is full when the fingerprint differs from
+    `schema_meta.frontend_fingerprint`, or when none is stored beside an
+    `in_tree = 1` row.
+  - The final transaction writes the fingerprint. The miner still gets the
+    caller's `full`.
+  - The frontends whose language occurs among the listed files are
+    `init`-ed first, and the generic frontend only when some present language
+    has no enabled frontend of its own. The fingerprint is computed from what
+    survived.
+- **S2 — appear/disappear re-parse.**
+  - Rule (a): a listed path with no stored `in_tree = 1` row forces every
+    present stored file whose `unresolved_imports > 0`.
+  - Rule (b): a stored in-tree path missing from the listing — or found absent
+    at open (a symlink or non-regular file) or vanished at read — forces the
+    `src_file` of every edge into it. The edges are read before any write.
+  - A worklist re-processes forced files that had already been judged
+    unchanged, until nothing new is forced.
+  - Imports are resolved after every read, against the pass's final present
+    set.
+- **M1 — descriptor-bounded read.** `readTreeFile` opens with `O_RDONLY |
+  O_NOFOLLOW | O_NONBLOCK` and `fstat`s the descriptor.
+  - A non-regular descriptor, or any open error (`ELOOP`, `ENOENT`, …), means
+    absent.
+  - When `fstat` reports more than 1,000,000 bytes, it reads only the 2,048-byte
+    head.
+  - Otherwise it reads at most 1,000,001 bytes, stopping at the first byte of
+    line 20,001.
+  - Content grown past the cap after the `fstat` is `bytes-cap`, with `bytes` =
+    the larger of the size and the bytes read.
+  - The parse read, the zone head, the `symbol_refs` importer read, and the
+    `package.json` read all go through it.
+- **M2 — `region_glob`.** `globEscape` wraps `[`, `*` and `?` in brackets. The
+  "rows differ" comparison is over the escaped form.
+- **M3 — comment-line markers.** `src/index/zone.ts` has `GO_MARKER` =
+  `^// Code generated .* DO NOT EDIT\.$` and `TAG_MARKER` = the leaders `//`,
+  `#`, `/*`, `*`, `<!--`, `--`, then `@generated(?![\p{L}\p{N}_])`, checked per
+  line with a trailing `\r` removed. The header line T-14-7 reads
+  (`2. a generated-file marker comment in the head 2 KB …@generated…`) is kept.
+- **M4 — `head_unresolved` on transition only; reftable.**
+  - `refreshIfStale` records `head_unresolved` and sets
+    `head_unresolved_since` in one transaction, and only while the key is
+    absent. A resolved `HEAD` deletes the key, and so does `runIndex`'s final
+    transaction when its `HEAD` resolved.
+  - `resolveHead` returns `{unresolved: 'reftable'}` before any ref lookup when
+    `HEAD` reads `ref: refs/heads/.invalid`, or when the common directory's
+    `config` sets `extensions.refStorage = reftable`. That check is a
+    section-tracking line scan of at most 64 KiB, with names
+    case-insensitive.
+- **M5 — atomic absence per file.** `markAbsentExcept` is no longer called.
+  Each absent file's derived-row deletes and its `UPDATE files SET in_tree = 0,
+  updated_at = ? WHERE id = ? AND in_tree = 1` run in one chunk transaction.
+  - `updated_at` is added, as the DAO's form writes it.
+  - `indexing_in_progress` is now also set when the pass has only absent files
+    to write.
+- **m1 — `gitChildEnv`.** `src/identity/git_layout.ts` returns `process.env`
+  without `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_OBJECT_DIRECTORY`
+  and `GIT_COMMON_DIR`. It is passed as `env`, with `cwd` = the checkout root,
+  at:
+  - both walk calls (`src/index/walk.ts`);
+  - the miner's `git()` seam, which carries every `rev-list`, `merge-base`,
+    `rev-parse` and `log -1` call, and its `git log` stream
+    (`src/miner/cochange.ts`);
+  - the repository-key probe `gitProbe`, which carries every `rev-parse`,
+    `config` and `rev-list` call (`src/identity/repo_key.ts`).
+- **m2 — `walkErrors`.** In readdir mode, a subdirectory whose `readdirSync`
+  throws is skipped and recorded as `{path, code}`; the root still throws.
+  - `WalkResult.walkErrors` is always present (`[]` in git mode), and
+    `IndexResult.walkErrors` is the count.
+  - The final transaction writes `schema_meta.walk_errors` = `{count, first}`
+    (at most 5, paths redacted), or deletes it. No fault is recorded.
+- **m5 — resolution rules.** A `resolved` `dst` outside the present set counts
+  unresolved and writes no edge. A `resolved` `dst` equal to the importing
+  file is counted resolved and writes no edge. The in-degree query also
+  excludes `src_file = dst_file`.
+- **m6 — a failed `init`.**
+  - A rejected `init` disables that frontend for the pass.
+  - One `frontend_parse_failed` `{lang, error (redacted, ≤200 chars), phase:
+    'init'}` is recorded per disabled frontend.
+  - Its files fall to the generic frontend, or have no parse when there is
+    none (or the generic frontend itself failed).
+  - `lang_capabilities` records the frontend actually used.
+- **§9 skeleton frontends.** The test writer set `version: 'skeleton-14'` on
+  both skeleton frontends. The `frontend.ts` comments now describe the
+  implemented `version` and `init` rules; the test writer's "declared member
+  only" stub note is removed.
+
+**Plan silences decided in the code (each commented where made).**
+- **The generic frontend is `init`-ed only when needed:** when some present
+  language has no enabled language-specific frontend. When it is not needed it
+  is not `init`-ed, but it still counts in the fingerprint, because it was
+  passed and not disabled.
+- **An error thrown by `resolve`** is counted as `unresolved`. The interface
+  says resolvers return values, but the indexer holds the store and must
+  finish the pass.
+- **Reftable `config` values** have a trailing ` ;`/` #` comment and
+  surrounding quotes stripped, and are compared lower-cased.
+
+**Verified.**
+- `cd ctxoracle && npm run build && npm test` → `tsc -p tsconfig.json` clean.
+  - `# tests 289`, `# pass 285`, `# fail 0`, `# skipped 0`, `# todo 4`.
+  - The four `todo`s: the 1R skeleton_e2e (Step 28), and the three Step 15
+    subtests (T-14-3 ×2, T-14-5 ×1).
+  - `grep -rn 'not implemented:' src` → 0.
+- All six `indexer*.test.js` files, run 3 more times: `# tests 66 # pass 64
+  # fail 0 # todo 2` each time. That covers the 50-iteration race, the FIFO
+  run's under-3,000-ms bound, and the as-root `ENAMETOOLONG` walk-error case
+  (this container runs as root).
+- `node middleware/context-oracle/.claude/skills/expert-plan/scripts/derive-plan-sections.mjs --check middleware/context-oracle/docs/plans/plan-phase-a.md`
+  → `OK: 40 steps, 13 elements, 165 test specs, 27 probes cited, regions current`.
+- `(cd middleware/context-oracle && python3 tools/check_docs.py)` →
+  `context-oracle doc-consistency check passed.`
+- Real repository run on this repository (`HEAD` `42dbbd0`), with an empty
+  frontend list. The stores were in a fresh scratch `CTXORACLE_HOME`, and
+  `git status --short` was identical before and after.
+  - First pass: 3,765 ms, `walkMode git`. The walk listed 1,883 paths; 1,881
+    are present and all were written, 8 of them path-only (8
+    `index_path_only_oversize` faults). No path was rejected, `walkErrors` was
+    0, and no symbols or edges were written. The miner included 396 of 410
+    commits in 1 chunk.
+  - Unchanged re-run: 230 ms, 0 files written, 0 commits mined.
+  - Zones (in-tree): `source` 1,841, `generated` 31, `build_output` 9. All 31
+    `generated` rows carry `tracked file matches an ignore pattern`. The
+    earlier run's marker-based hits — the three the review named false — no
+    longer occur (M3).
+  - `frontend_fingerprint` =
+    `4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945`,
+    which is `sha256Hex('[]')`.
+  - No `walk_errors`, `head_unresolved_since`, `indexing_in_progress` or
+    `reindex_owner_pid` left behind.

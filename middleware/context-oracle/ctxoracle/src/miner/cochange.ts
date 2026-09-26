@@ -18,6 +18,7 @@
 import { performance } from 'node:perf_hooks';
 import type { Store } from '../stores/adapter.js';
 import { oracleRunSync, oracleSpawn } from '../util/spawn.js';
+import { gitChildEnv } from '../identity/git_layout.js';
 import { decodePathBytes, escapeBytes } from '../util/path_bytes.js';
 import { recordFault } from '../diag/fault_writer.js';
 import { commitsDao } from '../stores/dao/commits.js';
@@ -336,7 +337,8 @@ function stderrTail(buf: Buffer): string {
 }
 
 function git(repoPath: string, args: string[]): { status: number | null; out: string; err: string } {
-  const r = oracleRunSync('git', args, { cwd: repoPath });
+  // env: the repository-selecting variables removed (Step 14 build review m1).
+  const r = oracleRunSync('git', args, { cwd: repoPath, env: gitChildEnv() });
   return { status: r.status, out: r.stdout.toString('utf8'), err: stderrTail(r.stderr) };
 }
 
@@ -354,7 +356,7 @@ function gitOk(repoPath: string, args: string[]): string {
  */
 function streamGitLog(repoPath: string, args: string[], onChunk: (b: Buffer) => void): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = oracleSpawn('git', args, { cwd: repoPath, stdout: 'pipe', stderr: 'pipe' });
+    const child = oracleSpawn('git', args, { cwd: repoPath, env: gitChildEnv(), stdout: 'pipe', stderr: 'pipe' });
     let tail: Buffer = Buffer.alloc(0);
     child.stderr?.on('data', (b: Buffer) => {
       const joined = tail.length === 0 ? b : Buffer.concat([tail, b]);
