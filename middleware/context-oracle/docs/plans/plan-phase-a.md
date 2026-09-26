@@ -12047,6 +12047,11 @@ rules 1 and 2); fixture repositories are real git repositories produced by
       **Fails when** an `import_edges` row exists for `src/a.ts`, OR its
       `unresolved_imports ≠ 1`, OR `lang_capabilities.typescript.unresolved
       ≠ 1` (this kills the review's surviving mutation I25).
+    - **(self) a file importing itself.** `src/s.ts` importing `./s.js`,
+      the resolver answering `resolved` with `dst` `src/s.ts`. **Fails
+      when** an `import_edges` row `src/s.ts → src/s.ts` exists, OR its
+      `unresolved_imports ≠ 0`, OR its in-degree or `entry_score` counts the
+      self-import (Step 14's self-import rule).
     - **(M5) absence is atomic per file.** `src/x.ts` and `src/y.ts`, each
       with one symbol, indexed with `[tsLike()]`; both files deleted
       from the working tree; a `TEMP` trigger `BEFORE DELETE ON path_tokens
@@ -12117,10 +12122,15 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     - **(M1) swap to a link or a FIFO after `lstat`.** As above, but the
       `parse` of `a.ts` replaces `b.ts` with a symlink to a regular file
       outside the repository holding `export function leak() {}`; a second
-      run replaces it with a FIFO (`mkfifo`); each run under a `node:test`
-      timeout of 10 s, so a blocking open fails the case instead of hanging
-      it. **Fails when** any `symbols` row is named `leak`, OR `b.ts` has
-      `in_tree = 1` after either run, OR either run times out or rejects.
+      run replaces it with a FIFO (`mkfifo`). A blocking open is synchronous
+      and freezes the test process, so no `node:test` timeout can catch it;
+      instead, the swap also starts a helper that opens the FIFO read-write
+      after 3 s (`exec 3<>fifo` — on Linux a read-write open of a FIFO does
+      not block and counts as a writer, releasing a blocked reader), and the
+      FIFO run must finish in under 3,000 ms (raised by the Step 14 test
+      writer: the specified timeout hung the file). **Fails when** any
+      `symbols` row is named `leak`, OR `b.ts` has `in_tree = 1` after either
+      run, OR either run rejects, OR the FIFO run takes 3,000 ms or more.
     - **(M2) GLOB metacharacters.** `app/[id]/page.ts`, `app/[id]/page.test.ts`
       importing `./page.js`, `app/i/page.ts`; `lib/a*b.ts` with
       `lib/a*b.test.ts` importing `./a*b.js`, and `lib/axxb.ts`;
