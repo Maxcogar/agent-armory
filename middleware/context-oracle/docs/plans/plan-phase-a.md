@@ -816,6 +816,7 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/test/unit/miner_chunks_worker.ts | create | S13 |
 | middleware/context-oracle/ctxoracle/test/unit/miner_chunks.test.ts | create | S13 |
 | middleware/context-oracle/ctxoracle/test/unit/miner_denominator.test.ts | create | S13 |
+| middleware/context-oracle/ctxoracle/test/unit/miner_git_env.test.ts | create | S13 |
 | middleware/context-oracle/ctxoracle/test/unit/miner_landmines.test.ts | create | S13 |
 | middleware/context-oracle/ctxoracle/test/unit/miner_rewrite.test.ts | create | S13 |
 | middleware/context-oracle/ctxoracle/test/unit/miner.test.ts | create | S13 |
@@ -2096,6 +2097,9 @@ CREATE TABLE schema_meta(key TEXT PRIMARY KEY, value TEXT) STRICT;
   -- once and a row committed after the read is examined next time — expert
   -- review M7), mined_half_life_days (Step 13: the
   -- bar.recency_half_life_days the stored weights were mined under),
+  -- weight_epoch (Step 13: AD-13's T0 for the weights below, epoch s,
+  -- written refTs − 500·h days by every full mine's purge and kept by
+  -- incremental passes — Step 13 build review M3),
   -- store_created_at (Step 31's init: set at first
   -- creation if absent, and overwritten whenever init genuinely re-wires
   -- a missing hook entry — the INTEGER epoch-ms moment this repository's
@@ -2985,13 +2989,15 @@ owner-tunable via `tune` (AD-20).
   every event fail open silently — Steps 1–12 build review M3). Otherwise the
   plain-language reason names the violated relation and every value in it
   (AD-20, ER M9).
-  *Why 37 (a plan guard, raised in §16 item 5):* AD-13's weight
-  `2^((ts − T0)/h)` with `T0` = 2000-01-01 is an IEEE-754 double; for
-  commits dated up to 2100-01-01 (36,525 days after `T0`) the largest weight
-  is `2^(36525/h)`, and a pass's sums stay finite with ample headroom only
-  while that stays below about `2^1000` — `h` ≥ 36.5 days (executed
-  2026-09-26: `2^(36525/30)` is `Infinity`, `2^(36525/36.5)` ≈ 1.7 × 10^301,
-  §11.4). The seed set satisfies every relation (0.6 ≤ 0.7 < 0.8; 0.9 and
+  *Why 37 (a plan guard, raised in §16 item 5):* first derived when AD-13's
+  weight `2^((ts − T0)/h)` used a fixed `T0` = 2000-01-01 — a 2100 commit's
+  weight `2^(36525/h)` stayed below about `2^1000` only for `h` ≥ 36.5 days
+  (executed 2026-09-26: `2^(36525/30)` is `Infinity`, `2^(36525/36.5)` ≈
+  1.7 × 10^301, §11.4). AD-13 now re-bases `T0` to `refTs − 500·h` days on
+  every full mine and caps `ts` at `refTs` (Step 13; Step 13 build review M3),
+  which bounds the exponent above at 500 whatever `h` is; AD-13 keeps the
+  37-day floor, at which the 5-year horizon spans about 49 half-lives, so
+  every exponent of a fresh mine stays within about [450, 500]. The seed set satisfies every relation (0.6 ≤ 0.7 < 0.8; 0.9 and
   0.9 in (0, 1]; 0.9 × 0.9 = 0.81 ≥ 0.8; 365 ≥ 37).
 - **`tuningWriteNotice(key): string | null`** — the plain-language line
   `tune` prints after an accepted write whose effect needs more than the write:
@@ -3084,11 +3090,11 @@ fault (Step 6's code; `detail` carries the key); caught by `T-12-1`.
 step: S13
 covers: [PA-1, PA-3]
 files:
-  create: [middleware/context-oracle/ctxoracle/src/miner/cochange.ts, middleware/context-oracle/ctxoracle/src/miner/labels.ts, middleware/context-oracle/ctxoracle/test/unit/miner.test.ts, middleware/context-oracle/ctxoracle/test/unit/miner_denominator.test.ts, middleware/context-oracle/ctxoracle/test/unit/miner_rewrite.test.ts, middleware/context-oracle/ctxoracle/test/unit/miner_landmines.test.ts, middleware/context-oracle/ctxoracle/test/unit/miner_chunks.test.ts, middleware/context-oracle/ctxoracle/test/unit/miner_chunks_worker.ts, middleware/context-oracle/ctxoracle/test/unit/miner_branches.test.ts]
+  create: [middleware/context-oracle/ctxoracle/src/miner/cochange.ts, middleware/context-oracle/ctxoracle/src/miner/labels.ts, middleware/context-oracle/ctxoracle/test/unit/miner.test.ts, middleware/context-oracle/ctxoracle/test/unit/miner_denominator.test.ts, middleware/context-oracle/ctxoracle/test/unit/miner_rewrite.test.ts, middleware/context-oracle/ctxoracle/test/unit/miner_landmines.test.ts, middleware/context-oracle/ctxoracle/test/unit/miner_chunks.test.ts, middleware/context-oracle/ctxoracle/test/unit/miner_chunks_worker.ts, middleware/context-oracle/ctxoracle/test/unit/miner_branches.test.ts, middleware/context-oracle/ctxoracle/test/unit/miner_git_env.test.ts]
   modify: [middleware/context-oracle/ctxoracle/test/fixtures/generate.ts, middleware/context-oracle/ctxoracle/src/index/indexer.ts, middleware/context-oracle/ctxoracle/src/util/spawn.ts, middleware/context-oracle/ctxoracle/src/stores/dao/files.ts]
   delete: []
 provides: [mineCochange, parseNumstatZ, isRevertLabelled, isFixLabelled, files.repointStaleCommitProv]
-tests: [T-13-1, T-13-2, T-13-3, T-13-4, T-13-5, T-13-6]
+tests: [T-13-1, T-13-1o, T-13-1p, T-13-2, T-13-2a, T-13-3, T-13-4, T-13-5, T-13-6, T-13-6d, T-13-6e]
 depends_on: [S1, S3, S5, S9, S10, S11, S12]
 ```
 
@@ -3102,35 +3108,101 @@ MalformedRecord[]}` (G6: T-13-1 feeds it malformed records directly), and
 `src/miner/labels.ts` with `isRevertLabelled(subject, body): boolean` and
 `isFixLabelled(subject, fixKeywords): boolean`. Every threshold comes from
 `opts.tuning` (G8; no literal fallbacks — N10); `opts.full` is the indexer's own
-full flag, passed through unchanged (Step 14). The one stream is
+full flag, passed through unchanged (Step 14).
 
-`git log --no-merges -M -z --numstat --reverse --format=%x1e%H%x00%at%x00%s%x00%b%x00 <range>`
+**One `HEAD` per pass (Step 13 build review m1).** The pass first resolves
+`HEAD` to a hash once — `git rev-parse --verify -q HEAD` (no `HEAD`: the pass
+writes nothing and returns a zero result, so the first commit triggers a full
+pass — the builder's decision, which the review judged to hold) — and every later git call of the pass names that hash, written `<head>`
+below, never the symbolic `HEAD`: the reference instant, the `merge-base`
+check, the range count, the stream's `<range>`, and the final transaction's
+`last_mined_commit`. *Why:* the detached reindex runs while the agent is
+committing, so a symbolic `HEAD` can move between reads, and `ref_ts`, the
+horizon count, the stream, and the watermark would each describe a different
+commit (snapshot consistency; the review traced five symbolic reads).
 
-run through Step 5's `oracleSpawn` with its new option `stdout: 'pipe'` (the
-option this step adds to `src/util/spawn.ts`: stdin ignored, stdout piped,
-stderr inherited; the default stays `'inherit'` — Step 13 builder preflight:
-an inherited stdout has no pipe, `child.stdout` is `null`) and stdout consumed
-as `Buffer` chunks, so the whole history is never one buffer in Node (no
-`maxBuffer` ceiling on a large repository), where
-`<range>` is `<watermark>..HEAD` for an incremental pass and `HEAD` for a full
-one. **Stream layout** (executed on git 2.43.0 here 2026-09-26, §11.4, and
+The one stream is
+
+`git log --no-show-signature --root --no-textconv --no-ext-diff --no-merges -M -z --numstat --reverse --format=%x1e%H%x00%at%x00%s%x00%b%x00 <range>`
+
+*Why the first four flags (Step 13 build review S1):* `git log` is porcelain
+and honours the user's own git configuration, which the child inherits; a
+machine consumer pins every setting that changes the bytes it parses.
+`log.showSignature = true` (git-config(1): as if `--show-signature` were
+passed) writes signature-check text into stdout inside the `-z` stream — the
+review executed it against the Step 13 build on a 5-commit signed repository:
+`commitsSeen` 0, 35 `miner_unparsed_numstat` faults, and the watermark still
+set to `HEAD`, so no later pass recovered the history; `log.showRoot = false`
+drops the root commit's entries (executed there: a 2-commit pair read
+`pair_count` 1). `--no-show-signature` and `--root` override those two;
+`--no-textconv` keeps a repository's `.gitattributes` from running a user's
+textconv program on every binary file; `--no-ext-diff` keeps a configured
+external diff out of the stream. Executed here 2026-09-26 (§11.4): with
+`log.showSignature = true` and `log.showRoot = false` in a repository's
+config, the flagged stream is byte-identical (same `md5sum`) to the stream
+of a run with neither setting. Every other git call of the pass that reads
+history through `git log` carries `--no-show-signature` too — the reference
+instant's `git log -1` printed `No signature` ahead of the timestamp under
+the same config (executed, §11.4); `rev-list`, `merge-base`, and `rev-parse`
+are plumbing and do not read `log.*` settings.
+
+The stream runs through Step 5's `oracleSpawn` with its new options `stdout:
+'pipe'` and `stderr: 'pipe'` (the options this step adds to
+`src/util/spawn.ts`: stdin ignored, each named stream piped; each default
+stays `'inherit'` — Step 13 builder preflight: an inherited stdout has no
+pipe, `child.stdout` is `null`) and stdout consumed as `Buffer` chunks, so
+the whole history is never one buffer in Node (no `maxBuffer` ceiling on a
+large repository). **git's stderr (Step 13 build review m2)** is drained as
+it arrives (an undrained pipe would stall git once its buffer fills),
+keeping only its last 2 KB (2,048 bytes); a non-zero exit or a failed spawn
+rejects the pass with an error whose message carries that tail, and any
+fault recorded for the failure carries the same tail, escaped, as
+`detail.stderr`. *Why:* an inherited stderr reaches nobody under the hook's
+detached reindex (`stdio: 'ignore'`), and the rejection carried only the
+exit code, so the reason a mine failed was lost. `<range>` is
+`<watermark>..<head>` for an incremental pass and `<head>` for a full one.
+**Stream layout** (executed on git 2.43.0 here 2026-09-26, §11.4, and
 `probe:24_git_numstat_z` for the path cases): per commit, the NUL-delimited
-fields `\x1e<40 hex>`, `<author ts>`, `<subject>`, `<body>` (possibly empty;
+fields `\x1e<hash>`, `<author ts>`, `<subject>`, `<body>` (possibly empty;
 ending in `\n` when not), then **one empty field**, then the numstat entries,
-of which the **first carries a leading `\n`** (strip exactly one). Every path
+of which the **first carries a leading `\n`** (strip exactly one). `<hash>` is
+40 lower-case hex in a SHA-1 repository and 64 in a SHA-256 one (Step 13
+build review M1; AD-15's trailer likewise; executed, §11.4: `git init
+--object-format=sha256` writes 64-hex `%H`). Every path
 field is raw bytes: with `-z` git never C-quotes a path, and a rename is an
 entry `<added>\t<deleted>\t` with an empty path followed by the two raw
 identity fields `<old>`, `<new>`, so a file literally named `a => b.txt` is one
 field and never a rename. NUL is the only byte a pathname cannot hold, so the
 parser splits on NUL only; a field is a commit header only when it is exactly
-`\x1e` + 40 hex **at a position where a header is expected** (after a
-commit's last entry, or at stream start), and subject/body/path fields are
+`\x1e` followed by exactly 40 or exactly 64 lower-case hex digits **at a
+position where a header is expected** (after a commit's last entry, or at
+stream start), and subject/body/path fields are
 consumed positionally, never rescanned — so a path or body containing `0x1e`
-is never taken for a header (`we<0x1e>ird.txt` is recorded whole). A leading
-field that is not a valid header, an entry lacking the `<added>\t<deleted>\t`
-shape, or a rename marker missing its two identity fields is a
-`miner_unparsed_numstat` diagnostic (detail: the record's escaped first 80
-bytes) and contributes nothing. Each path is decoded by Step 5's
+is never taken for a header (`we<0x1e>ird.txt` is recorded whole). *Why 40 or
+64 (M1):* a 40-only header matched nothing in a SHA-256 repository — the
+review's 4-commit `--object-format=sha256` run mined 0 commits, wrote 28
+faults, and set the watermark to `HEAD`. The **author timestamp** field must
+match `/^[0-9]+$/` before it is read as a number (Step 13 build review m5:
+`Number` accepts `''`, `' 12'`, `1e3`, `0x10`; git never writes those, and
+the guard exists for format drift, so it is exact); a commit whose timestamp
+field fails it is malformed. A leading field that is not a valid header, a
+malformed timestamp, an entry lacking the `<added>\t<deleted>\t` shape, or a
+rename marker missing its two identity fields makes its record malformed:
+it contributes nothing, and the pass records **one** `miner_unparsed_numstat`
+fault per malformed commit record — detail `{commit, records, first}`, with
+`commit` the record's hash (`null` when no valid header precedes it),
+`records` the number of malformed fields counted for it, and `first` the
+escaped first 80 bytes of the first of them — never one per field: after a
+malformed field where a header is expected, the parser stays silent until
+the next valid header, counting what it skips into the same fault (Step 13
+build review m3: the resync paths reported every subject, body, separator,
+and entry of a bad record as its own fault). **The parser keeps a partial
+field as a list of `Buffer` slices** and concatenates them once, when the
+field's terminating NUL arrives, searching each new chunk for NUL with
+`chunk.indexOf(0, from)` from where the last search stopped — so a field that
+spans k chunks (a large commit body) costs O(n) in its length, not the O(k²)
+of re-concatenating and re-scanning the partial field on every chunk (Step 13
+build review m4). Each path is decoded by Step 5's
 `decodePathBytes`; a rejected path is excluded from every count, counted, and
 reported once per pass as `path_not_utf8` (writer `'miner'`); the commit's
 `entity_count` still counts it (the exclusion threshold measures the commit as
@@ -3146,8 +3218,9 @@ oldest first). Before the stream, `git rev-list --count --no-merges <range>`
 matches the stream's positions (builder preflight); commits older than the newest
 `miner.horizon_commits`, or with `ts < refTs − miner.horizon_years × 365.25 ×
 86400`, are **horizon-excluded** (`exclude_reason = 'horizon'`). The
-**reference instant** `refTs` is `HEAD`'s committer timestamp (`git log -1
---format=%ct HEAD`), never the wall clock, so a fixture and a real repository
+**reference instant** `refTs` is `<head>`'s committer timestamp (`git log -1
+--no-show-signature --format=%ct <head>`, read before the full/incremental
+decision below, which needs it), never the wall clock, so a fixture and a real repository
 are judged the same way on any day; it is written to `schema_meta.ref_ts` in
 the pass's final transaction and read by the handler once per event (G19).
 Commits with `entity_count > miner.max_transaction_entities` are excluded
@@ -3156,6 +3229,20 @@ pass's range:** an incremental pass never ages out commits an earlier pass
 included — the counts are not pruned (AD-13: "not recency pruning"; recency
 acts through the weights) — and the next full mine applies the horizon to the
 whole history afresh (builder preflight: this was unstated).
+
+**Memory — a stated limit (Step 13 build review M5).** The pass holds one
+aggregated record for **every commit of its range** — horizon-excluded ones
+included, plus each horizon-included commit's decoded paths — until the
+stream ends, and only then writes the chunks; memory therefore grows with
+the range, not with `miner.horizon_commits`. Measured by the review on
+Node 22: about 168 bytes per commit for a record with a 40-hex hash and no
+paths (100,000 commits → 16.2 MiB; 1,300,000, a Linux-kernel-sized
+non-merge history → 208.4 MiB, about 200 MiB). The review judged this
+tolerable; it is recorded as a limit (§13 R16), not bounded here:
+the plan's requirement is only that the history is never one buffer, which
+holds. *Why stated:* the Step 13 implementation log claimed memory "bounded
+by `miner.horizon_commits`" with no check behind it, and the review
+measured it false.
 
 **The skeleton caller.** The miner's only caller today is a skeleton module a
 later step owns; its adaptation to this step's signature is the §9 row
@@ -3166,7 +3253,9 @@ step that owns the caller (builder preflight: the new signature and the
 **Per commit, in memory (outside any transaction — AD-26).** Every commit gets
 a `commits` row. For a **horizon-included** commit (size-excluded or not),
 `isRevertLabelled(subject, body)` — true when the body holds a line matching
-`^This reverts commit [0-9a-f]{40}\.$` (git-revert(1)'s default message), or,
+`^This reverts commit ([0-9a-f]{40}|[0-9a-f]{64})\.$` (git-revert(1)'s default
+message; 40 or 64 hex per AD-15 — Step 13 build review M1; executed, §11.4:
+`git revert --no-edit` in a SHA-256 repository writes a 64-hex trailer), or,
 as the fallback for a trailer-less message, the subject starts with `Revert "`
 or `Reapply "` — adds one `labelled_touches` row `(file, hash, 'revert', ts)`
 per touched file: revert detection runs **before** the size exclusion,
@@ -3187,12 +3276,24 @@ is set when *either* writer creates the row, AD-19; a chunk writes its
 `commits` rows **before** its `ensureHistoryRow` calls, so a path's
 first-naming commit is always "in `commits`" when checked), its `change_count` is
 incremented by one and its `change_weight` by the commit's weight
-`w = 2^((ts − T0) / (h × 86400))` (single-file commits included — the same
-population as the pair counts, AD-13/G3), and every canonical-ordered (`a < b`
-by file id) pair of the touched set is bumped with the commit's `ts`, hash,
-and `w`. `T0` is 946684800 (2000-01-01T00:00:00Z, epoch s) and `h` is
-`bar.recency_half_life_days`, both as AD-13 fixes them. *Why (AD-13 at
-`6cff0ce`; collapse-hunt H1):* recency weights the evidence, never the
+`w = 2^((min(ts, refTs) − E) / (h × 86400))` (single-file commits included —
+the same population as the pair counts, AD-13/G3), and every canonical-ordered
+(`a < b` by file id) pair of the touched set is bumped with the commit's `ts`,
+hash, and `w`. `h` is `bar.recency_half_life_days` and `E` is the store's
+**weight epoch**, `schema_meta.weight_epoch` (epoch s), both as AD-13 fixes
+them (Step 13 build review M3): every full pass's purge transaction writes
+`E = refTs − 500 × h × 86400` — AD-13's `refTs − 500·h` days — and an
+incremental pass keeps the stored `E`; `ts` is capped at `refTs` (a commit
+cannot carry more recency than `<head>`). *Why the epoch (AD-13 at
+`c31d87e`; Step 13 build review M3):* the former fixed epoch `T0` =
+946684800 (2000-01-01) overflowed IEEE-754 on one far-future author date —
+executed by the review against the Step 13 build: a commit dated 3237 read
+both files' weights back as NULL at `h` = 365 — and `%at` is
+author-controlled, untrusted repository content; with `ts ≤ refTs` and the
+horizon bounding `ts` below, every exponent of a fresh mine lies in about
+[450, 500], and re-basing changes no ratio because every term shares the
+factor. *Why recency weights the evidence (AD-13 at `6cff0ce`; collapse-hunt
+H1):* recency weights the evidence, never the
 result — every term carries the same factor relative to any reference time,
 so `pair_weight / change_weight` is the ratio decayed to `HEAD` with no
 event-time work; a pairing that has always held keeps its ratio however old,
@@ -3213,9 +3314,11 @@ aggregated), so a resumed pass never counts a commit twice, even on a
 branching history whose side-branch commits were mined before the chunk's
 last commit without being its ancestors. The landmine rebuild is one short
 **final** transaction (below), which also sets `last_mined_commit` to the
-`HEAD` the pass mined to — including a merge `HEAD`, which `--no-merges`
+`<head>` the pass mined to — including a merge `HEAD`, which `--no-merges`
 never yields as a chunk's newest commit (AD-13; without it every history fact
-on a merge-PR repository reads stale forever under AD-14). No transaction
+on a merge-PR repository reads stale forever under AD-14) — but only when the
+stream yielded every commit of the range (the completeness check under
+**Final transaction**). No transaction
 spans a `git` read. **Commit provenance after a purge:** a new DAO method this
 step adds, `files.repointStaleCommitProv(id, hash): boolean`, sets an existing
 row's `prov_ref` to `hash` when its `prov_kind = 'commit'` and its `prov_ref`
@@ -3234,18 +3337,31 @@ review S3).**
   `schema_meta.mined_half_life_days` differs from `bar.recency_half_life_days`
   (the stored weights were mined under another half-life — AD-13's "changing
   `h` requires a re-mine"; absent counts as differing only when
-  `last_mined_commit` exists), or on a history rewrite (below). **Every full
+  `last_mined_commit` exists), when **the weight epoch is out of range**
+  (Step 13 build review M3; AD-13: a commit whose exponent `(ts − E)/h` would
+  exceed 1000 makes the pass a purged full re-mine, which re-bases) — tested
+  once, before the stream, as `(refTs − E) / (h × 86400) > 1000`, or
+  `schema_meta.weight_epoch` absent while `last_mined_commit` exists — or on
+  a history rewrite (below). *Why tested before the stream:* every `ts` is
+  capped at `refTs`, so `(refTs − E)/(h × 86400)` is the largest exponent any
+  commit of the pass can reach; testing it up front means no chunk is ever
+  written under an epoch the pass would then abandon, and it re-mines no later
+  than a per-commit test would. An absent epoch beside a watermark means the
+  stored weights were mined under the former fixed 2000 epoch, which no
+  incremental term can be added to (the same reasoning as an absent
+  `mined_half_life_days`). **Every full
   pass starts with the purge transaction**: it deletes every `commits`,
   `cochange_pairs`, and `labelled_touches` row, resets every
   `files.change_count` and `change_weight` to 0, deletes the miner-kind
   landmines (`revert_chain`, `fix_chatter`; never `human_stated`), deletes
-  `last_mined_commit`, writes `mined_half_life_days` = the current `h`, and
-  sets `mining_in_progress = '1'` — on an empty store every delete is a no-op.
-  It then mines `HEAD` in chunks from the oldest included commit, and its
-  final transaction clears the flag.
+  `last_mined_commit`, writes `mined_half_life_days` = the current `h` and
+  `weight_epoch` = `refTs − 500 × h × 86400` (AD-13; Step 13 build review M3),
+  and sets `mining_in_progress = '1'` — on an empty store every delete is a no-op.
+  It then mines `<head>` in chunks from the oldest included commit, and its
+  final transaction clears the flag when the stream was complete (below).
 - *An incremental pass* is every other pass, including the continuation of an
   incremental pass that crashed: its committed chunks advanced the watermark
-  with their data (below), so it resumes from `<watermark>..HEAD` and never
+  with their data (below), so it resumes from `<watermark>..<head>` and never
   sets the flag.
 
 *Why:* every non-purging full pass re-reads commits whose counts are already
@@ -3260,7 +3376,7 @@ each purge and re-mine; the detached reindex the handler spawns runs `index`
 without `--full` and is incremental. While `mining_in_progress` is `'1'` the
 history genres produce no candidates (Step 18 reads
 `EventContext.historyAvailable`). **History rewrite (G4, AD-13):** when the
-watermark exists and `git merge-base --is-ancestor <watermark> HEAD` exits 1
+watermark exists and `git merge-base --is-ancestor <watermark> <head>` exits 1
 (not an ancestor) or 128 (unknown commit — the watermark object is gone), the
 pass records `history_rewritten` (`{oldWatermark, newHead}`) and runs as a
 full pass. *Why:* executed in the gap-list review, after `git commit --amend`
@@ -3291,6 +3407,28 @@ before the final transaction leaves the previous landmine rows, `ref_ts`, and
 floor flag in place; the rebuild is derived and idempotent, so the next pass
 repairs it.
 
+**The completeness check (Step 13 build review M2).** The final transaction
+sets `last_mined_commit = <head>` (and, on a full pass, clears
+`mining_in_progress`) **only when the number of commits the stream yielded
+equals `git rev-list --count --no-merges <range>`** — the count the pass
+already takes for the horizon. A commit counts as yielded when the parser read
+a well-formed record for it, including one then skipped as already mined; a
+malformed record (above) is not. Otherwise the pass records one
+`miner_unparsed_numstat` fault with detail `{expected, read}` (the range
+count and the commits read), leaves `last_mined_commit` where the last chunk
+put it (absent or unchanged when no chunk was written), and on a full pass
+leaves `mining_in_progress = '1'`, so the history genres stay silent and the
+next pass is again a purged full re-mine; the rest of the final transaction
+(landmine rebuild, `ref_ts`, `corpus_floor_met`, sweep) still runs, since each
+is derived from what is stored. *Why:* the invariant this step states — a
+crash never leaves the watermark ahead of its data — holds for a pass whose
+parse lost commits only if the final `HEAD` assignment is conditional; the
+Step 13 build set it unconditionally, so under S1 (0 of 5 commits read) and
+M1 (0 of 4) the store read fresh and mined while its history was empty, and
+no later pass recovered it — faked machinery feeding the discovery data
+Phase B reads (the review's phase-goal check). The guard also turns any
+future stream drift into one visible fault with its counts.
+
 **Fixtures built out in `test/fixtures/generate.ts` (G6):** `miner-hygiene`
 (the scenario `T-13-1` states), `miner-denominator` (`T-13-2`), `miner-labels`
 (`T-13-4`), `miner-large` (`T-13-5`, generated through `git fast-import` so
@@ -3300,16 +3438,19 @@ repairs it.
 
 **Source.** `AD-13` (miner: git log stream, hygiene filters, canonical
 pairs, `change_count` denominator, the recency weights `pair_weight` and
-`change_weight` with `T0` and `h`, chunked watermark, the purge set,
-`mining_in_progress`, corpus floor); `AD-15` (the labels, the derivation from
+`change_weight` with the re-based weight epoch and `h`, chunked watermark,
+the purge set, `mining_in_progress`, corpus floor); `AD-15` (the labels, the
+40- or 64-hex revert trailer, the derivation from
 `labelled_touches`, the per-pass rebuild); `AD-26` (chunks of
 `miner.chunk_ms`, the final transaction); `AD-19` (path injection flag at row
 creation; pointer-only evidence); `FR-K2` (hygiene); `FR-A6` (corpus floor, no
 adoption window); gap-list review G1, G3, G4, G5, G6, G7, G8, G9, G19, N1,
-N5, N10.
+N5, N10; Step 13 build review (`docs/reviews/2026-09-26-step-13-build-review.md`)
+S1, M1–M5, m1–m5.
 
 **Why this approach (Gate 3):**
-1. **The decision.** Stream `git log` under `-z` and parse it on NUL (the only
+1. **The decision.** Stream `git log` under `-z`, with every user setting that
+   changes its bytes pinned by flag, and parse it on NUL (the only
    byte a pathname cannot hold), commit records marked by a `%x1e` header; hygiene
    as hard filters recorded in `commits.excluded`; corpus floor is evidentiary,
    not session-based; landmine mining is the two deterministic classes only.
@@ -3336,7 +3477,9 @@ N5, N10.
    review — it switched the answer-first block off during a refresh). Not
    newest-first chunks (a crash would leave older commits unmined behind an
    advanced watermark). Not substring keyword matching (`fixture`). Not
-   storing commit messages (AD-19).
+   storing commit messages (AD-19). Not a `git log` that trusts the user's
+   configuration (`log.showSignature` emptied the mine — Step 13 build review
+   S1). Not a watermark claimed at `HEAD` whatever the stream yielded (M2).
 
 **Dependencies.** Declared above (`depends_on`).
 
@@ -3345,7 +3488,14 @@ N5, N10.
 `T-13-4` (labels and the landmine rebuild), `T-13-5` (chunked commits: crash
 safety of both pass kinds, a repeated full mine that does not double, and the
 lock-hold bound), `T-13-6` (a merge `HEAD`, a resume on a branching history,
-and the commit-provenance re-point and sweep). `T-13-5(c)`'s `runIndex(…,
+and the commit-provenance re-point and sweep), `T-13-1o` (a pass under
+`log.showSignature` / `log.showRoot` config mines what a plain pass mines —
+Step 13 build review S1), `T-13-1p` (a SHA-256 repository mines with no
+faults — M1), `T-13-2a` (a year-3237 author date yields finite weights, and an
+out-of-range epoch forces a purged full re-mine — M3), `T-13-6d` (an
+incremental pass stopped and resumed counts every commit once — M4), and
+`T-13-6e` (a stream that yields fewer commits than the range count leaves the
+watermark short of `HEAD` with one `{expected, read}` fault — M2). `T-13-5(c)`'s `runIndex(…,
 {full: true})` leg is written and run at Step 14, whose `runIndex` options it
 needs (the Step 13 test writer recorded this in the test file).
 
@@ -9378,11 +9528,19 @@ of that revision; each supersedes the matching row above where they differ):
   same path; missing roots listed. **Steps.** 32, 39. **Evidence.** Read
   `:868–875`.
 - **Claim.** AD-13: each included commit adds `2^((ts − T0)/h)` to
-  `pair_weight` and `change_weight`, `T0` = 2000-01-01 UTC, `h` =
+  `pair_weight` and `change_weight`, `ts` the author time capped at `refTs`,
+  `T0` the store's weight epoch (`schema_meta.weight_epoch`), set to `refTs −
+  500·h` days by each full mine and kept by incremental passes, an exponent
+  over 1000 making the pass a purged full re-mine, `h` =
   `bar.recency_half_life_days`; `confidence = pair_weight / change_weight(a)`;
   changing `h` requires a re-mine, which `tune` states; no recency multiplier
-  on the finished confidence. **Steps.** 7, 9, 12, 13, 16, 33. **Evidence.**
-  Read `:1452–1522` (`:1464`).
+  on the finished confidence. (The fixed `T0` = 2000-01-01 was replaced at
+  `c31d87e`, Step 13 build review M3.) **Steps.** 7, 9, 12, 13, 16, 33.
+  **Evidence.** Read `:1456–1566` (`:1472–1488`), 2026-09-26 at `c31d87e`.
+- **Claim.** AD-15: the revert trailer `This reverts commit <hash>.` carries
+  a 40- or 64-hex object name (SHA-1 or SHA-256 repositories; Step 13 build
+  review M1). **Steps.** 13. **Evidence.** Read `:1756–1758`, 2026-09-26 at
+  `c31d87e`.
 - **Claim.** AD-14: staleness per fact class (history: `last_mined_commit` ≠
   `HEAD`; index facts: `index_head` ≠ `HEAD`) through `bar.stale_factor` seed
   0.9; the tier invariant `bar.untrusted_trust_factor × bar.stale_factor ≥
@@ -10012,6 +10170,29 @@ TypeScript 5.9.3 from `ctxoracle/node_modules`.
   commit, `add gen \0 \0 \0 \n 2 \t 0 \t .gitignore \0`: one empty
   field after `%b`, a leading `\n` on the first entry, oldest commit first
   under `--reverse -n 2`. **Steps.** 13.
+- **The stream under the user's `log.*` configuration** (Step 13 build review
+  S1 amendment; git 2.43.0, a scratch repository of two commits whose
+  objects carry signatures, repository config `log.showSignature = true` and
+  `log.showRoot = false`). Without the pinning flags the `-z` stream begins
+  `N o   s i g n a t u r e \n 036 <hash> …` — the signature-check text lands
+  inside the header field; with `log.showSignature = false` alone the root
+  commit's record ends at its separator field with no numstat entries, and
+  `--root` restores them (`1 \t 0 \t a`, `1 \t 0 \t b`). With
+  `--no-show-signature --root --no-textconv --no-ext-diff` added, the stream
+  under that config and the stream under `-c log.showSignature=false -c
+  log.showRoot=true` have the same `md5sum`. `git log -1 --format=%ct HEAD`
+  under the same config printed `No signature` on stdout before the
+  timestamp; with `--no-show-signature`, the timestamp alone. `git rev-list
+  --count --no-merges HEAD` printed `2` under it (plumbing, unaffected). A
+  commit object with a `gpgsig` header written by `git hash-object -t commit
+  -w` (no signing key) is enough for `log.showSignature = true` with
+  `gpg.format = openpgp` to put the verifier's output on stdout (`gpg: …
+  invalid radix64 character …`, gpg installed, stderr discarded), which
+  `T-13-1o` relies on. **Steps.** 13.
+- **SHA-256 repository** (Step 13 build review M1 amendment; git 2.43.0).
+  `git init --object-format=sha256`, three commits: the stream's headers are
+  `\x1e` + 64 lower-case hex (`fdef5e3a…9640be`); `git revert --no-edit HEAD`
+  wrote the body `This reverts commit <64 hex>.`. **Steps.** 13.
 - **`git check-ignore --no-index --stdin -z`.** Input `dist/a.js\0src/api.gen.ts\0src/k.ts\0`
   with `.gitignore` = `dist/`, `*.gen.ts` (the first two force-added):
   output `dist/a.js\0src/api.gen.ts\0`, exit 0; input `src/k.ts\0` alone:
@@ -10186,7 +10367,7 @@ TypeScript 5.9.3 from `ctxoracle/node_modules`.
 | S10 | T-10-1, T-10-2, T-10-3, T-10-4 |
 | S11 | T-11-1, T-11-2, T-11-3, T-11-4, T-11-5 |
 | S12 | T-12-1, T-12-2, T-12-3 |
-| S13 | T-13-1, T-13-2, T-13-3, T-13-4, T-13-5, T-13-6 |
+| S13 | T-13-1, T-13-1o, T-13-1p, T-13-2, T-13-2a, T-13-3, T-13-4, T-13-5, T-13-6, T-13-6d, T-13-6e |
 | S14 | T-14-1, T-14-2, T-14-3, T-14-4, T-14-5 |
 | S15 | T-15-1, T-15-2, T-15-3, T-15-4, T-15-5, T-15-6 |
 | S16 | T-16-1, T-16-2, T-16-3 |
@@ -10905,7 +11086,11 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     plus a synthetic well-formed record whose **body** field contains `0x1e`
     followed by 40 hex digits (must not start a commit) and a commit whose
     body is empty (the empty `%b` field and the empty separator field that
-    follows it, then the first entry's leading `\n`, as executed §11.4).
+    follows it, then the first entry's leading `\n`, as executed §11.4);
+    and two more synthetic records (Step 13 build review m3, m5): a record
+    whose timestamp field is `1e3` (a form `Number` accepts but
+    `/^[0-9]+$/` rejects), and a leading field that is not a header followed
+    by that record's subject, body, separator, and two entries.
     `mineCochange` runs with a `tuningReader` over a seeded global store.
     Technique:
     decision table over exclusion rules; equivalence partitioning over
@@ -10930,9 +11115,63 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     `miner_unparsed_numstat` (it is guessed into a pair or a partial identity,
     silently dropped, or crashes the parse), OR the body-held `0x1e`+hex
     starts a commit, OR the empty-body commit loses its first entry, OR the
+    `1e3`-timestamp record is read as a commit, OR the non-header record
+    yields other than exactly one `miner_unparsed_numstat` diagnostic (one per
+    malformed commit record, never one per field — m3), OR the
     watermark does not advance to `HEAD`, OR `schema_meta.ref_ts` is not
     `HEAD`'s committer time, OR `schema_meta.corpus_floor_met` is not `'0'`
     for this fixture (fewer than 30 included commits).
+
+- **T-13-1o — The stream does not depend on the user's `log.*` configuration.**
+  - **File.** `test/unit/miner_git_env.test.ts`.
+  - **Verifies.** Step 13's pinned `git log` flags (`--no-show-signature
+    --root --no-textconv --no-ext-diff`) and `--no-show-signature` on the
+    reference instant's `git log -1` — Step 13 build review S1.
+  - **Level.** Integration (real `git`, real store).
+  - **Real/doubles.** Real `git`; real store; no doubles.
+  - **Data.** A repository of four commits, root included, where a pair
+    `a.txt`/`b.txt` co-changes in the root commit and in two later ones,
+    each commit object carrying a `gpgsig` header (written through `git
+    hash-object -t commit -w`, so no signing key is needed; §11.4); a first
+    store mined with the repository config as created; a second store mined
+    after `git config log.showSignature true`, `git config log.showRoot
+    false`, and `git config gpg.format openpgp` are set in the repository's
+    own config (the way a user's `~/.gitconfig` reaches the child — the
+    miner inherits the environment). Precondition asserted first: under that
+    config, `git log` with the stream's format but without the four flags
+    produces bytes different from the plain stream (so the case exercises
+    the settings on this machine; the review's executed failure was
+    `commitsSeen` 0 and 35 faults). Technique: equivalence partitioning over
+    configuration (plain / signature-and-root settings).
+  - **NOT asserts.** The signature verifier's text. **Fails when** the
+    precondition does not hold, OR the second store's `commits`,
+    `cochange_pairs` (`pair_count` and weights), `files.change_count` and
+    `change_weight`, or `labelled_touches` differ from the first store's, OR
+    `pair(a, b).pair_count ≠ 3` in either store (the root commit's entries
+    counted), OR the second pass records any `miner_unparsed_numstat` fault,
+    OR either store's `schema_meta.ref_ts` is not `HEAD`'s committer time, OR
+    either store's `last_mined_commit` is not `HEAD`'s hash.
+
+- **T-13-1p — A SHA-256 repository mines with no faults.**
+  - **File.** `test/unit/miner_git_env.test.ts`.
+  - **Verifies.** Step 13's header rule (`\x1e` + 40 or 64 lower-case hex)
+    and AD-15's 40- or 64-hex revert trailer — Step 13 build review M1.
+  - **Level.** Integration (real `git`, real store).
+  - **Real/doubles.** Real `git`; real store; no doubles.
+  - **Data.** `git init --object-format=sha256`; three commits each touching
+    `a.txt` and `b.txt`; then `git revert --no-edit HEAD`, whose subject is
+    then rewritten with `git commit --amend` to `undo three` while keeping
+    git's body `This reverts commit <64 hex>.`, so only the 64-hex trailer
+    can label it (§11.4). The parser is also fed `\x1e` + 41, 63, and 65 hex
+    digits where a header is expected. Technique: equivalence partitioning
+    over object formats; boundary value analysis on the header length.
+  - **NOT asserts.** Weights. **Fails when** the pass records any
+    `miner_unparsed_numstat` fault, OR `commits` does not hold exactly 4
+    rows whose hashes are the repository's 64-hex hashes, OR `pair(a,
+    b).pair_count ≠ 4`, OR the `undo three` commit has no `revert` row in
+    `labelled_touches` for `a.txt` and `b.txt`, OR `last_mined_commit` is not
+    `HEAD`'s 64-hex hash, OR a 41-, 63-, or 65-hex field is taken for a
+    header.
 
 - **T-13-2 — The `change_count` denominator.**
   - **File.** `test/unit/miner_denominator.test.ts`.
@@ -10945,11 +11184,45 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     Technique: equivalence partitioning (paired / solo commits).
   - **NOT asserts.** Bar outcome. **Fails when** `change_count(a) ≠ 7`, OR
     `change_count(b) ≠ 4`, OR `change_count(c) ≠ 1`, OR `pair(a, b).pair_count
-    ≠ 4`, OR `change_weight(a)` or `pair(a, b).pair_weight` differs by more
-    than 1e-9 relative from the sum of `2^((ts − 946684800) / (365 × 86400))`
-    over the stated commits' author timestamps (AD-13's weight at the seeded
-    half-life), OR `cochange_pairs` has any `a_count`/`b_count` column (the
-    executed defect stored `a_count 4`, confidence 1.00).
+    ≠ 4`, OR `schema_meta.weight_epoch` is not `refTs − 500 × 365 × 86400`
+    (`refTs` = `schema_meta.ref_ts`; AD-13's re-based epoch at the seeded
+    half-life — Step 13 build review M3), OR `change_weight(a)` or
+    `pair(a, b).pair_weight` differs by more than 1e-9 relative from the sum
+    of `2^((min(ts, refTs) − E) / (365 × 86400))`, `E` the stored
+    `weight_epoch`, over the stated commits' author timestamps (AD-13's
+    weight at the seeded half-life), OR `cochange_pairs` has any
+    `a_count`/`b_count` column (the executed defect stored `a_count 4`,
+    confidence 1.00).
+
+- **T-13-2a — The weight epoch: a far-future author date stays finite, and an out-of-range epoch re-bases.**
+  - **File.** `test/unit/miner_denominator.test.ts`.
+  - **Verifies.** Step 13's AD-13 epoch rule — `ts` capped at `refTs`,
+    `schema_meta.weight_epoch` written `refTs − 500·h` days by a full mine and
+    kept by an incremental one, and an exponent over 1000 forcing a purged
+    full re-mine — Step 13 build review M3.
+  - **Level.** Integration (real `git`, real store).
+  - **Real/doubles.** Real `git`; real store; no doubles.
+  - **Data.** (a) A repository of three commits: the first and third touch
+    `c.txt` only; the second touches `a.txt` and `b.txt` with author date
+    `@40000000000` (year 3237) and a committer date inside the fixture's
+    timeline; `HEAD`'s committer date is also inside it. Mined at the seeded
+    `h` = 365 (the review's executed failure on the Step 13 build: both
+    weights read back NULL). (b) After (a)'s mine,
+    `schema_meta.weight_epoch` set to `refTs − 1001 × 365 × 86400` (as if
+    the store had been mined 1001 half-lives before `HEAD`), one commit
+    added, and a pass run without `full`; a second store mines the same
+    history from scratch. Technique: boundary value analysis (exponent at
+    500, over 1000).
+  - **NOT asserts.** Confidence values. **Fails when** in (a) any
+    `files.change_weight` or `cochange_pairs.pair_weight` is NULL, not
+    finite, or 0, OR the 3237 commit's contribution to `pair(a, b).pair_weight`
+    differs by more than 1e-9 relative from `2^500` (its `ts` capped at
+    `refTs`, and `refTs − E` = 500 half-lives), OR `weight_epoch` is not
+    `refTs − 500 × 365 × 86400`; OR in (b) the pass is not a purged full
+    re-mine — any row of `commits`, `cochange_pairs` (weights included),
+    `files.change_count`/`change_weight`, or `labelled_touches` differs from
+    the from-scratch store's, `weight_epoch` is not the new `refTs − 500 × 365
+    × 86400`, or `mining_in_progress` is not `'0'` afterwards.
 
 - **T-13-3 — History rewrite: one purge, a full re-mine, a fault.**
   - **File.** `test/unit/miner_rewrite.test.ts`.
@@ -10998,6 +11271,9 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **File.** `test/unit/miner_branches.test.ts`.
   - **Verifies.** Step 13's final watermark, the already-mined skip, and the
     purge's commit-provenance rule (AD-13, raised by the Step 13 test writer).
+    (b)'s stopped pass is a full pass, so its resume is a purged crash
+    continuation; the skip on an incremental continuation is `T-13-6d`'s
+    (Step 13 build review M4).
   - **Level.** Integration (real `git`, real store).
   - **Real/doubles.** Real `git`; real store; no doubles.
   - **Data.** (a) a repository whose `HEAD` is a merge commit of a two-commit
@@ -11018,6 +11294,71 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     `last_mined_commit` is not `HEAD`, OR (b)'s counts differ from the
     uninterrupted mine's, OR (c)'s swept row survives or the re-pointed
     `prov_ref` names a commit not in `commits`.
+
+- **T-13-6d — An incremental pass stopped and resumed counts every commit once.**
+  - **File.** `test/unit/miner_branches.test.ts`.
+  - **Verifies.** Step 13's already-mined skip on an *incremental*
+    continuation — the case T-13-6(b) cannot reach, because its stopped pass
+    is a store's first mine, a full pass whose resume is a purged crash
+    continuation that counts every commit once with or without the skip
+    (Step 13 build review M4: mutation C4, the skip deleted, survived all of
+    T-13-1…T-13-6).
+  - **Level.** Integration (real `git`, real store, real processes).
+  - **Real/doubles.** Real `git`; real store; T-13-5's worker process (role
+    `mine-stop`: a pass-through store that throws `injected stop after
+    <hash>` once a committed chunk leaves `last_mined_commit` at that hash);
+    no doubles in the miner's path.
+  - **Data.** T-13-6(a)/(b)'s merge shape — `m1` (fork point; `a.txt`,
+    `b.txt`), side `s1` (`a.txt`, `s.txt`) and `s2` (`b.txt`, `s.txt`) dated
+    between `m1` and `m2`, `main` commits `m2` and `m3` (`a.txt`, `b.txt`),
+    and a `--no-ff` merge `HEAD`. A reference store mined once,
+    uninterrupted. A second store (`miner.chunk_ms` = 0, one commit per
+    chunk) first mined with the repository checked out detached at `m1`, so
+    its watermark is `m1`; `main` checked out again; then an incremental
+    pass over `m1..HEAD` (streaming `s1`, `s2`, `m2`, `m3`) run in the
+    worker and stopped after the `m2` chunk; then a mine that completes.
+    Technique: state-transition (mined to the fork → stopped incremental →
+    resumed).
+  - **NOT asserts.** The chunk count. **Fails when** the store is not mined
+    to `m1` before the stopped pass, OR the stopped pass does not stop after
+    the `m2` chunk (its stderr lacks `injected stop after <m2>`), OR
+    `mining_in_progress` is not `'0'` after the stop (the stopped pass was
+    not incremental), OR `s1` or `s2` is not in `commits` after the stop, OR
+    after the resume (whose range `m2..HEAD` still reaches `s1` and `s2`
+    through the merge) any file's `change_count` or `change_weight`, or any
+    pair's `pair_count` or `pair_weight`, differs from the reference store's.
+
+- **T-13-6e — A stream that yields fewer commits than the range holds never claims `HEAD`.**
+  - **File.** `test/unit/miner_git_env.test.ts`.
+  - **Verifies.** Step 13's completeness check in the final transaction —
+    Step 13 build review M2.
+  - **Level.** Integration (real `git`, real store, real processes).
+  - **Real/doubles.** Real `git` and real store; the pass runs in T-13-5's
+    worker (role `mine`) with `PATH` led by a directory holding a `git`
+    shim that executes the real `git` (its absolute path resolved before the
+    shim is installed) and, only for the `log` call carrying `--numstat`,
+    rewrites the `\x1e` byte of chosen commit headers in its stdout to `X`,
+    passing every other call and byte through — a double at the process
+    boundary, standing in for a stream drift real git on this machine does
+    not produce (S1's and M1's are fixed); no double inside the miner.
+  - **Data.** A four-commit repository `c1`…`c4`, each touching `a.txt` and
+    `b.txt`. (a) *A full first mine* with the shim corrupting `c4`'s header
+    (the newest record, so no chunk can name `HEAD`); then a mine without
+    the shim. (b) *An incremental pass:* a store mined plainly with the
+    repository checked out detached at `c2`, `main` checked out again, the
+    shim corrupting every header of the `c2..HEAD` stream; then a mine
+    without the shim. A reference store mined once without the shim.
+    Technique: state-transition + error guessing (stream drift).
+  - **NOT asserts.** The malformed-record faults' `first` text. **Fails
+    when** after (a)'s shimmed pass there is not exactly one
+    `miner_unparsed_numstat` fault with detail `{expected: 4, read: 3}`, OR
+    `last_mined_commit` is not `c3`'s hash, OR `mining_in_progress` is not
+    `'1'`; OR after (b)'s shimmed pass there is not exactly one fault with
+    detail `{expected: 2, read: 0}`, OR `last_mined_commit` is not `c2`'s
+    hash, OR `mining_in_progress` is not `'0'`; OR after either completing
+    mine `last_mined_commit` is not `HEAD`'s hash, `mining_in_progress` is not
+    `'0'`, or any `change_count`, `change_weight`, `pair_count`, or
+    `pair_weight` differs from the reference store's.
 
 - **T-13-5 — Chunked commits: crash safety and the lock-hold bound.**
   - **File.** `test/unit/miner_chunks.test.ts`, worker
@@ -13397,6 +13738,23 @@ seam.
   file the read of the skeleton missed — handled by expert-implement's
   blast-radius stop, not inline.
 
+- **R16 — The co-change miner's memory grows with the mined range.** A pass
+  holds one aggregated record per commit of its range — horizon-excluded
+  commits included, plus the decoded paths of every horizon-included one —
+  until `git log`'s stream ends (Step 13, "Memory — a stated limit"). The
+  Step 13 build review (M5) measured about 168 bytes per commit on Node 22 for
+  the record alone: about 16 MiB at 100,000 commits and about 200 MiB (208.4
+  MiB) at 1.3 million, a Linux-kernel-sized non-merge history; a first or
+  full mine of such a repository needs that much, and more with paths.
+  *Mitigation:* none built in Phase A beyond stating the limit; incremental
+  passes hold only their own range, so the cost falls on first and full
+  mines. *Residual:* a
+  very large repository's full mine can exhaust a small machine's memory;
+  the recorded fix, if a bound is wanted, is to write each chunk as soon as
+  the aggregated tail reaches it, in a synchronous chunk transaction between
+  `data` events, which holds no transaction across a git read (AD-26) and
+  bounds memory by a chunk (the review's M5 fix).
+
 ---
 ## 14. Question register
 
@@ -13691,7 +14049,8 @@ bin, and its closed disposition.
   file whose name literally contains ` => ` is one field and is never split into
   a phantom rename (`probe:24_git_numstat_z`). The stream is split on NUL — the
   only byte a pathname cannot hold — and a commit header is a field of shape
-  `\x1e` + 40 hex (`%H`); every other byte, `0x1e` included, is legal in a path
+  `\x1e` + 40 or 64 lower-case hex (`%H` in a SHA-1 or SHA-256 repository —
+  Step 13 build review M1); every other byte, `0x1e` included, is legal in a path
   and emitted raw, so a path containing or beginning with the Record Separator is
   never mistaken for a header or cut mid-path (the probe plants `we<0x1e>ird.txt`
   and records it whole). Only a record that matches none of the expected shapes — a
