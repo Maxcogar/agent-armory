@@ -352,8 +352,10 @@ and nothing here depends on the new channel.
    `init` (create a temp `fts5` virtual table) as defense-in-depth against
    non-standard builds (a distro Node compiled with different flags); on that
    failure path, search falls back to token-prefix queries over indexes that can
-   serve them — a normalized-token column on `symbols` and a `path_tokens` table
-   of path segments, each with a plain index — behind the same interface, and
+   serve them — a `symbol_tokens(token, symbol_id)` table and a `path_tokens`
+   table of path segments, each with a plain index on the token (a name such as
+   `Foo::Bar` is two tokens, so a prefix query for `bar` needs a row per token,
+   not one column) — behind the same interface, and
    `status` says so plainly. **Both paths use one tokenizer, in the oracle's own
    code:** split on every non-letter/non-digit (Unicode), NFKD-normalize, drop
    combining marks, lowercase. The FTS path indexes those tokens (and the query
@@ -469,7 +471,8 @@ and nothing here depends on the new channel.
                                                  -- corrections.seq; they live
                                                  -- beside the rows they index),
                                                  -- mining_in_progress (1 during a
-                                                 -- full (re-)mine; AD-13, AD-26)
+                                                 -- full (re-)mine; AD-13, AD-26),
+                                                 -- mined_half_life_days (AD-13)
    files(id, path UNIQUE, lang, zone CHECK(zone IN
          ('source','generated','vendored','build_output','unknown')),
          zone_evidence, zone_evidence_suspect INTEGER DEFAULT 0,
@@ -650,7 +653,12 @@ and nothing here depends on the new channel.
                  -- INTEGER PRIMARY KEY", and export is VACUUM INTO (AD-5);
                  -- id stays the ULID other tables reference (AD-26)
    faults(id, ts, code, detail_json, session NULL)          -- FR-M2
-   fts_symbols / fts_paths (FTS5)
+   fts_symbols / fts_paths (FTS5)                -- over AD-2's in-house tokens
+   symbol_tokens(token, symbol_id→symbols)       -- AD-2's fallback: one row per
+                                                 -- normalized name token
+   path_tokens(token, file_id→files)             -- one row per path-segment
+                                                 -- token; both kept in both
+                                                 -- search states (AD-2)
    ```
 
    All writes go through DAOs; the learned-record entry point accepts only
@@ -1464,14 +1472,19 @@ and nothing here depends on the new channel.
    **Recency weights the evidence, never the result.** Each included commit at
    time `ts` adds `2^((ts − T0)/h)` to `cochange_pairs.pair_weight` of every
    pair it touches and to `files.change_weight` of every file it touches, where
-   `T0` is a fixed epoch (2000-01-01 UTC) and `h` is
-   `bar.recency_half_life_days`. Because every term carries the same factor
+   `T0` is a fixed epoch (2000-01-01 UTC), `h` is `bar.recency_half_life_days`,
+   and `ts − T0` is taken in days, the unit of `h`. **Bound:** a weight must stay
+   a finite double, so `(ts − T0)/h < 1000`; `tune` refuses `h` below 37 days,
+   which keeps every commit before 2100 in range (executed: at `h` = 30 a 2100
+   commit's weight is `Infinity`; at 37 it is about 1.5e297). Because every term carries the same factor
    relative to any reference time, `pair_weight / change_weight` equals the
    ratio of weights decayed to `HEAD` — computed with no event-time work, and
    independent of when it is read. A pairing that has always held stays at its
    ratio however old it is; a pairing whose files have since changed apart
-   loses weight to the recent solo changes. Changing `h` requires a re-mine,
-   which `tune` states. *Why (review record 2026-09-26, plan-pass collapse-hunt
+   loses weight to the recent solo changes. The miner records the half-life it
+   mined with (`schema_meta.mined_half_life_days`); when `h` has changed, the
+   next pass is a purged full re-mine (AD-13's purge set), automatically, so a
+   ratio never mixes two decay rates. `tune` says so when `h` is written. *Why (review record 2026-09-26, plan-pass collapse-hunt
    H1):* the earlier rule multiplied the finished confidence by
    `0.5^(age/h)`; with the 0.9 trust factor, a perfect pairing last changed
    together more than about 213 days before `HEAD` fell below the 0.6 floor
