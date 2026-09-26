@@ -127,7 +127,7 @@ forward as "prior pass."
 | V3 | `Stop`/`SubagentStop` deliver context two ways — `decision: "block"`+`reason` (surfaced as an error) and `hookSpecificOutput.additionalContext` ("without displaying a hook error notification") — both bounded by `stop_hook_active` and an 8-consecutive-continuation cap | Same reference, fetched 2026-08-29 | Confirmed. `FR-B4` uses `additionalContext`, once, honoring `stop_hook_active`. |
 | V4 | `SubagentStop` input carries `agent_id`, `agent_type`, `agent_transcript_path`, `last_assistant_message`; subagent hooks are keyed per consumer | Same reference (SubagentStop payload example; SDK type), fetched 2026-08-29 | Confirmed — **for `SubagentStop` input only**; whether subagent tool events carry `agent_transcript_path` is unverified, and nothing in Phase A depends on it (AD-11 reads transcripts for the main consumer only). `FR-O6` delivery keys exist. |
 | V5 | `UserPromptSubmit` input carries `prompt`; `SessionStart.source ∈ {startup, resume, clear, compact, fork}` | Same reference (payload examples; SDK type), fetched 2026-08-29 | Confirmed. AD-9's question intake and AD-16's `D-20` reconciliation read exactly these fields. |
-| V6 | Hook timeouts: 600 s default for command hooks (30 s under `UserPromptSubmit`); SessionEnd hooks share a 1.5 s budget, raised up to 60 s to match a configured per-hook timeout; **a timed-out `PreToolUse` hook prevents the tool from running** | `hooks-guide` Limitations + `env-vars` + agent-sdk hooks page, fetched 2026-08-29 | Confirmed. The last clause makes a hung handler **fail-closed** — AD-23's cooperative deadline plus its blocking-call inventory exist to keep that unreachable **for the enumerated event-path calls** (never claimed in the abstract). |
+| V6 | Hook timeouts: 600 s default for command hooks (30 s under `UserPromptSubmit`); SessionEnd hooks share a 1.5 s budget, raised up to 60 s to match a configured per-hook timeout; a timed-out hook's output is discarded, "so on most events a timed-out hook renders no decision", and "on `PreToolUse`, by contrast, a timed-out command hook lets the tool call continue" | `hooks-guide` Limitations + `env-vars` + agent-sdk hooks page, fetched 2026-08-29; the timeout clause re-read in the hooks reference 2026-09-07 (plan §4, §11.4) | A timed-out handler **fails open silently**: whatever it would have emitted, including a deny, is discarded with no trace. AD-23's cooperative deadline and blocking-call inventory therefore exist so a slow event ends inside the deadline and writes its `latency_breach` diagnostic (`NF-1`, `FR-O3`, `OL-10`) **for the enumerated event-path calls** (never claimed in the abstract). *(Corrected 2026-09-26: this row said a timed-out `PreToolUse` hook prevents the tool from running — fail-closed — which the 2026-09-07 hooks reference contradicts; raised in `docs/plans/plan-phase-a.md` sections 4 and 16.)* |
 | V7 | Stock `node:sqlite` ships FTS5 **from v22.16.0** | Executed here: `CREATE VIRTUAL TABLE … fts5` succeeds on Node v22.22.2 (LTS 'Jod', `process.release.sourceUrl` = nodejs.org v22.22.2); `PRAGMA compile_options` lists `ENABLE_FTS5`; `deps/sqlite/sqlite.gyp` fetched per tag 2026-08-29: **0** FTS5 matches at v22.15.0, **1** at v22.16.0 ("sqlite: enable common flags", nodejs/node#57621, in the 22.16.0 changelog) | **The spec's C-2 factual note (2026-08-16: FTS5 absent, nodejs/node #56951 open) is superseded.** The C-2 *requirement* is met by the built-in engine with zero dependencies — on Node ≥ 22.16.0, which is why AD-2's floor is 22.16.0, not C-1's unflagged-since figure (22.13.0, still true, still recorded in the spec). |
 | V8 | Cold-spawn cost of the whole per-event handler shape: Node process start + store open + WAL + STRICT DDL + FTS5 virtual table + insert + query | Executed here 5×: 45–54 ms full process wall time; in-process store work 1.8 ms. **Excludes `PRAGMA integrity_check`**, which the collapse-hunt measured at 543 ms (`quick_check` 189 ms) on a 410 MB store as one uninterruptible synchronous statement (review record 2026-08-29) — which is why AD-17 keeps integrity checks **off** the event path | NF-1 (p95 ≤ 1.5 s) has ~30× headroom over a spawn-per-event process model whose event path is bounded lookups only (AD-23's inventory). AD-1 rests on this. |
 | V9 | The host-CLI piggyback works in this environment with no separate credentials, as the design would ship it | Executed here: `claude -p --model claude-haiku-4-5 --tools "" --max-turns 1 --output-format json` → `is_error:false`, `num_turns:1`, result `"ok"`; wall 4.4 s (API 2.05 s) | Confirms `OL-2`/`OL-7` path and re-confirms NF-1's corollary: a model call can never sit on the synchronous hook path. Phase A makes no model calls; this pins the Phase B seam's latency class. |
@@ -135,7 +135,7 @@ forward as "prior pass."
 | V11 | `--tools ""` disables all built-in tools | `claude --help` 2026-08-29: `--tools <tools...>` — "Use \"\" to disable all tools" | The tool-disallowed invocation (spec §10) has a current implementing flag. |
 | V12 | Transcript JSONL structure: entries typed `user` / `assistant` / `attachment` / others; assistant entries carry content blocks typed `thinking`/`text`/`tool_use`, plus `uuid`/`parentUuid`/`timestamp`. **String content does NOT imply a human turn**: enumerating a live transcript containing injected turns shows string-content `type:"user"` entries of three kinds — the genuine human turn (`origin.kind:"human"`, `isMeta` absent), task notifications (`origin.kind:"task-notification"` — text partly authored outside the machine), and Stop-hook feedback (`isMeta:true`) — beside list-content tool results | Enumerated **two** transcripts in this environment (2026-08-29): the interactive-session transcript — (string, meta:∅, origin:human)=1, (string, meta:∅, origin:task-notification)=5, (string, meta:true)=2, (list, no markers)=106 — and a `claude -p` probe transcript whose **genuine user prompts carry no `origin` and no `isMeta` at all** (2 of 2) | AD-11's discrimination keys on the **markers**, never on content shape: a question-bearing transcript turn requires `origin.kind === "human"` and not `isMeta`; anything else — including marker-absent string entries — never opens a question from the transcript (skip + diagnostic). **Marker presence is mode-dependent** (the probe transcript proves genuine turns can lack them), so: mid-session enforcement never depends on the markers (intake reads the `prompt` field), the transcript-rebuild path's dependence on them is disclosed (AD-9, L11), and marker presence on the owner's actual interactive transcripts is a named build-time verification (AD-24). The layout is **undocumented** → adapter + version guard + FR-M2 finding on parse failure. |
 | V13 | Repository identity hazards: on this very clone, `git rev-list --max-parents=0 HEAD` returns **4** commits, `--is-shallow-repository` is true, `.git/shallow` has 8 entries | Executed here 2026-08-29 | A shallow clone's "roots" are boundary commits and vary per clone depth (the 2026-07 record measured 6 on a different clone of the same repo). AD-3's rule — never key a store off a shallow history — is re-grounded on fresh evidence. |
-| V14 | `web-tree-sitter` (0.26.13) and `tree-sitter-wasms` (0.1.13) are current, pure-WASM (no native toolchain), with no install scripts in the published manifest | npm registry metadata fetched 2026-08-29 | C-3-compatible parser runtime exists. The exact grammar inventory of `tree-sitter-wasms` is a build-time verification (Limitations L6). |
+| V14 | `web-tree-sitter` (0.26.13) and `tree-sitter-wasms` (0.1.13) are current, pure-WASM (no native toolchain), with no install scripts in the published manifest | npm registry metadata fetched 2026-08-29 | C-3-compatible parser runtime exists. The exact grammar inventory of `tree-sitter-wasms` is a build-time verification (Limitations L6). *(Qualified 2026-09-26: executed 2026-09-11, `web-tree-sitter` 0.26.13 and 0.27.0 load none of the 36 grammars `tree-sitter-wasms` 0.1.13 ships — from 0.26.0 the loader reads only a `dylink.0` section and every shipped grammar carries the legacy `dylink` — so the plan pins 0.25.10, the last 0.25.x; the version is a plan-owned pin, AD-25 decides packages only. Plan §4, probes 20 and 21.)* |
 | V15 | `UserPromptSubmit` hooks inject context via plain stdout **or** `hookSpecificOutput.additionalContext` — both "injected as system reminders for Claude" | Current hooks reference + hooks-guide, fetched 2026-08-29 | The Orientation delivery channel (AD-6) is documented; the design uses `hookSpecificOutput.additionalContext` for uniformity with the other events. |
 | V16 | `PostToolUse` hooks inject context via `hookSpecificOutput.additionalContext` ("directly enters Claude's context window"); plain stdout from a successful PostToolUse hook goes **only to the debug log** | Current hooks reference + context-window page, fetched 2026-08-29 | Coupling/Reuse delivery channel (AD-6) documented; stdout is not a delivery channel on tool events. |
 | V17 | `VACUUM INTO '<file>'` executes on `node:sqlite` and round-trips data (SQLite 3.51.2 bundled); the module-level `backup()` API was **added in Node v22.16.0** (official v22.x API docs) | `VACUUM INTO` executed here 2026-08-29 (source→dest copy verified by query); `backup()` version per the v22.x API docs as recorded in the 2026-08-29 expert-review record | Export (AD-5) uses `VACUUM INTO` — engine-level, version-immune. Import (AD-5) uses `backup()`, which exists only from v22.16.0, so AD-2's 22.16.0 floor is load-bearing for import. *(Corrected 2026-09-26: this row said import also used `VACUUM INTO` and did not depend on the floor, after AD-5 had moved import to `backup()` — review record 2026-09-26, CH R1 / ER M13.)* |
@@ -350,8 +350,14 @@ and nothing here depends on the new channel.
    `node:sqlite`, quarantining its Experimental status. FTS5 is still probed at
    `init` (create a temp `fts5` virtual table) as defense-in-depth against
    non-standard builds (a distro Node compiled with different flags); on that
-   failure path, search falls back to indexed `LIKE`/token-prefix queries behind
-   the same interface, and `status` says so plainly.
+   failure path, search falls back to token-prefix queries over indexes that can
+   serve them — a `COLLATE NOCASE` index on `symbols(name)` and a `path_tokens`
+   table of path segments — behind the same interface, with the same
+   token-prefix semantics as the FTS path, and `status` says so plainly.
+   *(Corrected 2026-09-26: this said "indexed `LIKE`/token-prefix"; executed in
+   the plan pass, a plain index on `symbols(name)` is not used by `LIKE` — a
+   full scan, O(store), which AD-23 forbids on the event path — and no `LIKE`
+   over `files.path` can match a middle segment with an index. Plan D-plan-36.)*
 2. **Standard.** C-1 (Node as the engineering choice, revisitable) and C-2/C-3 as
    the governing constraints; ISO/IEC 25010 analysability for the
    TypeScript-strict choice (provenance-less records become compile-time errors,
@@ -492,8 +498,11 @@ and nothing here depends on the new channel.
                     -- entry-point in-degree; confidence-capped as a heuristic
    test_map(test_file→files, region_glob, source, …prov)   -- FR-A2g mapping
    commits(hash PRIMARY KEY, ts, entity_count, excluded INTEGER, exclude_reason)
-   cochange_pairs(a→files, b→files, pair_count, last_ts,
-                  PRIMARY KEY(a,b))                        -- a<b canonical; FR-K2;
+   cochange_pairs(a→files, b→files, pair_count, last_ts, last_commit,
+                  PRIMARY KEY(a,b))                        -- last_commit: the
+                  -- newest included commit touching both, the commit pointer
+                  -- AD-15's pair headlines carry (no git subprocess at compose,
+                  -- AD-23)                        -- a<b canonical; FR-K2;
                   -- no per-file counters here: support(a) is files.change_count
    landmines(id, kind CHECK(kind IN ('revert_chain','fix_chatter','human_stated')),
              file_id→files, evidence NOT NULL, support INTEGER, …prov)  -- FR-K3..K5
@@ -514,7 +523,15 @@ and nothing here depends on the new channel.
    human_facts(id, statement, target_kind, target_ref, stated_at, …prov) -- FR-L6
    corrections(seq INTEGER PRIMARY KEY, id UNIQUE, whisper_id NULL, deny_id NULL,
                verdict CHECK(verdict IN ('false_fire','missed','confirm')),
+               genre NULL,                            -- the --genre of a
+                                                      -- whisper-less `missed`
+                                                      -- (AD-18), or
+                                                      -- 'answer_drift' for
+                                                      -- --missed-question
                note, ts)                              -- FR-D4/FR-L6/AC-2c;
+               -- at most one of whisper_id / deny_id; both NULL only for a
+               -- `missed` verdict (the whisper-less report AD-5 folds by
+               -- genre, `unattributed` when genre is NULL);
                -- seq = the AD-5 fold watermark key (see whisper_audit);
                -- append-only like whisper_audit: no code path deletes or
                -- updates a corrections row, which is what keeps seq
@@ -835,6 +852,19 @@ and nothing here depends on the new channel.
    import refuses with `store_busy` and changes nothing. *Why the order:*
    checking after the overwrite destroys the store the check exists to protect
    (review record 2026-09-26, ER M12).
+   **Importing a global store replaces this machine's repository bindings.**
+   Bindings are paths (AD-20), and paths differ between machines, so after a
+   global import `import` lists every imported binding whose root does not
+   exist here, in plain language, and `init` in the checkout re-records it.
+   **A foreign project store is imported into a separate home**
+   (`CTXORACLE_HOME`), never into a home that already holds a store for the
+   same repository key: two checkouts of one repository share one key (AD-3),
+   so importing Max Cogar's exported store into the home where the exit run's
+   own store of that repository lives would overwrite it. Restoring one's own
+   export into one's own home is the ordinary use (AC-19's round-trip) and is
+   unchanged. *(Added 2026-09-26: the import
+   procedure was written for "the live store" only; raised by the plan pass,
+   plan D-plan-43.)*
    *Why:* copying a file over a live store corrupts it — executed in the review
    of 2026-09-25 (G34): a store held open by a second process with 200
    uncheckpointed WAL frames, overwritten with `copyFileSync`, reopened with a
@@ -1325,8 +1355,11 @@ and nothing here depends on the new channel.
 
    Parsing goes
    through a `LanguageFrontend` interface (`FR-K1`'s language-agnostic seam,
-   C-6): the tree-sitter frontend covers every language for which
-   `tree-sitter-wasms` ships a grammar, mapped by a **configurable**
+   C-6): the tree-sitter frontend covers every language whose
+   `tree-sitter-wasms` grammar the pinned runtime can load **and parse** —
+   by execution 32 of the 36 it ships (`elm` and `ql` are below the runtime's
+   minimum ABI; `yaml`'s and `bash`'s scanners import symbols the runtime does
+   not export — plan §4, 2026-09-11), mapped by a **configurable**
    extension→grammar table with defaults; a **generic frontend** (line-based
    definition heuristics + path/word tokens into FTS) covers everything else, so
    no language is invisible (C-6: adding a language = adding a grammar file or a
@@ -1516,8 +1549,10 @@ and nothing here depends on the new channel.
      (no fact class is left undefined):
      *single-file current-state* facts fail — the agent's own tools surface
      them in one call (AC-1's obviousness clause: a same-directory/same-stem
-     pair is suppressed); *cross-file history-derived* facts pass by
-     construction (invisible from a cold checkout), as do human-stated facts
+     pair is suppressed); *history-derived* facts, single-file (a Warning's
+     revert or fix history) or cross-file, pass by construction (invisible
+     from a cold checkout — the test is visibility, not file count), as do
+     human-stated facts
      the agent has no channel to; *cross-file current-state* facts (the Reuse
      class) pass **only when comparative or aggregative over a set the agent
      has not enumerated** — a dominance claim over candidates passes, a bare
@@ -1526,7 +1561,14 @@ and nothing here depends on the new channel.
    - **Hazard path (`FR-A5a`):** Warning-genre candidates skip the confidence
      floor; they require only the **noise floor** (real vs coincidental
      evidence: `support ≥ 2` and not sourced solely from an excluded-commit
-     class) and are delivered with confidence stated (`FR-D1`).
+     class) and are delivered with confidence stated (`FR-D1`). A miner
+     landmine's evidence ratio is `min(1, support / bar.support_min)`, the
+     ordinary support floor, so "high" means as supported as a whispered pair
+     and a support-2 landmine is delivered flagged uncertain; a
+     `human_stated` landmine is high by construction (`FR-L6`).
+     *(Added 2026-09-26: a hazard had no ratio, so its stated confidence had no
+     definition, and the class list above omitted the single-file history
+     fact; raised by the plan pass, plan D-plan-34, D-plan-41.)*
    - **No volume/count/budget term exists in the code path** (`OL-C1`; AC-3).
      Two candidates clearing the bar at one event are both delivered.
    - **Ship-high defaults, all tunable rows in `tuning` (AD-5), all marked
@@ -1899,8 +1941,12 @@ and nothing here depends on the new channel.
    verdict on answer-drift may carry the dropped question's text
    (`ctxoracle correct --missed-question "<q>"`); the text is routed **through
    the same question recognizer as every other opener** (minus the `?`
-   requirement — Max may paraphrase), so it opens a question row and the
-   identical deviation is thereafter denied. On a hash collision with an
+   requirement — Max may paraphrase), so it opens a question row in **the
+   session with the newest liveness row** (or the one named by `--session`), and
+   the identical deviation is thereafter denied in that session. *(Why,
+   2026-09-26: the consumer key is per session (AD-4), so "thereafter denied"
+   needs a session; arming every session is the executed G23 defect, and a
+   non-programmer owner does not know session ids. Plan D-plan-37.)* On a hash collision with an
    already-`open` row the CLI says, in plain language, which limit the reported
    miss actually hit — intake coverage: the row already exists and is armed,
    nothing to change; move coverage: a Bash-drift miss stays un-deniable per
@@ -2066,7 +2112,12 @@ and nothing here depends on the new channel.
    `model/invoke.ts` interface whose implementing command is the V9-verified
    invocation (`claude -p --model <small> --tools "" --max-turns 1
    --output-format json`), run with `CTXORACLE_INTERNAL=1` in env, cwd outside
-   the repo, and a scrubbed environment; `--bare` is banned (V10 — it severs
+   the repo, and a scrubbed environment — the session-identity variables that
+   make a `claude -p` child attach to the parent's session (`CLAUDECODE`,
+   `CLAUDE_CODE_SESSION_ID`, `CLAUDE_CODE_REMOTE_SESSION_ID`,
+   `CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_PID`, `CLAUDE_CODE_ENTRYPOINT`,
+   executed 2026-09-07, plan §11.4) removed, not every `CLAUDE_*` variable,
+   since host auth must survive; `--bare` is banned (V10 — it severs
    host auth). The per-environment probe cache (`env_capabilities` —
    `ok`/`failed`/`untested`, so degraded mode is entered deterministically and
    announced, `FR-J2`/`FR-M4`) is **specified here and created by the Phase B
@@ -2186,8 +2237,10 @@ and nothing here depends on the new channel.
    watermarks,
    never on a deny-capable event). Under that
    inventory the deadline fires between slices well inside the wired
-   `"timeout": 5`, and the V6 fail-closed hazard (a timed-out `PreToolUse`
-   hook prevents the tool from running) is avoided **for the enumerated
+   `"timeout": 5`, so a slow event records its `latency_breach` before the
+   harness's timeout silently discards its output (V6: a timed-out
+   `PreToolUse` hook lets the tool continue, and a deny it would have emitted
+   is lost without a trace) — **for the enumerated
    paths** — not declared "unreachable" in the abstract; an unenumerated
    blocking call is exactly what AC-10's large-store fixture exists to catch.
    A deadline fire writes `latency_breach` to the JSONL channel.
@@ -2370,7 +2423,14 @@ and nothing here depends on the new channel.
    WAL + `busy_timeout=100ms` + short write transactions (below) + retry-once
    on `SQLITE_BUSY`; on second failure the event completes whisper-less
    (fail-open) with a `store_busy` diagnostic. The detached reindex takes a
-   directory lock; the handler never waits on it (staleness merely lowers
+   **claim row** in `schema_meta`, inside one `BEGIN IMMEDIATE` transaction,
+   released in a `finally`, and a second reindex is refused with
+   `reindex_locked` (a plan-level diagnostic code); `status` shows a held claim
+   with its start time. *(Corrected 2026-09-26: this said "a directory lock".
+   Executed in the plan (D-plan-32), a lock file with liveness reclaim let two
+   reclaimers of a stale lock both win in 29 of 200 races; the store's single
+   writer makes check and claim one step, 200 of 200 races with exactly one
+   winner.)* The handler never waits on it (staleness merely lowers
    confidence meanwhile, `FR-K7`). Audit-before-emit ordering (AD-8) holds per
    process; ids are ULIDs so concurrent writers never collide. The
    `whisper_stats` fold (AD-5) reads its project store's two watermarks,
@@ -2742,7 +2802,9 @@ criterion is pinned there and its mechanism lives in the named decisions.)
   consequences owned.** V14 verifies the WASM packages exist, are current, and
   are install-script-free; which languages `tree-sitter-wasms` covers is
   checked at build (`npm pack --dry-run` + a loaded-grammar smoke test), with
-  the generic frontend as the floor for anything missing. If coverage proves
+  the generic frontend as the floor for anything missing. *(Executed
+  2026-09-11: every grammar the pinned runtime loads and parses — 32 of 36;
+  the other four fall to the generic frontend. Plan §4.)* If coverage proves
   materially narrower than expected, the ext→grammar config absorbs
   individually-shipped grammar WASMs without redesign (C-6). Two consequences
   for the Reuse genre: `symbol_refs` is an **identifier-match heuristic**
