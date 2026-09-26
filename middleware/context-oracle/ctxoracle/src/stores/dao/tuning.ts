@@ -162,6 +162,11 @@ const RELATION_KEYS = new Set([
   'bar.recency_half_life_days',
 ]);
 
+/** Whether `v` parses as a finite number (the rule `parseNum`, and so `num()`, applies). */
+function isFiniteNumber(v: string): boolean {
+  return v.trim() !== '' && Number.isFinite(Number(v));
+}
+
 /**
  * AD-14's ordering and tier invariants and the half-life guard, checked where
  * `tune` writes (Step 12 build delta; AD-14, AD-20; collapse-hunt H2). After the
@@ -175,14 +180,26 @@ const RELATION_KEYS = new Set([
  *   bar.recency_half_life_days >= 37 (AD-13's weight 2^((ts-T0)/h) stays finite
  *     with headroom for commits dated up to 2100: h >= 36.5 days)
  * Otherwise the plain-language reason names each violated relation and every
- * value in it (AD-20). A key outside these relations is not constrained here.
+ * value in it (AD-20).
+ *
+ * Before those relations (Steps 1-12 build review M3; OWASP ASVS V5, validate
+ * against the expected type before persisting): a key with no seed in
+ * `tuning_seeds` is refused (a typo would write a row nothing reads, and the
+ * reader throws on it), and so is a value that is not a finite number for a
+ * key whose seed is numeric (`num()` throws on one, so every event reading the
+ * key would fail open). A seeded key outside the relations is otherwise not
+ * constrained here.
  */
 export function checkTuningWrite(reader: TuningReader, key: string, value: string): { ok: true } | { refused: string } {
-  if (!RELATION_KEYS.has(key)) return { ok: true };
-  const trimmed = value.trim();
-  if (trimmed === '' || !Number.isFinite(Number(trimmed))) {
-    return { refused: `${key} must be a number; ${JSON.stringify(value)} is not one` };
+  const scalarSeed = SCALAR_BY_KEY.get(key);
+  if (scalarSeed === undefined && !LIST_BY_KEY.has(key)) {
+    return { refused: `refused: ${key} is not a tunable setting (it has no default in tuning_seeds), so nothing would read it` };
   }
+  const numericSeed = scalarSeed !== undefined && isFiniteNumber(scalarSeed.value);
+  if (numericSeed && !isFiniteNumber(value)) {
+    return { refused: `refused: ${key} must be a number; ${JSON.stringify(value)} is not one` };
+  }
+  if (!RELATION_KEYS.has(key)) return { ok: true };
   const v = (k: string): number => valueOf(reader, key, value, k);
   const floor = v('bar.confidence_floor');
   const suspect = v('bar.suspect_confidence_cap');

@@ -43,9 +43,13 @@ function ensureDirs(dirs: string[]): string[] {
       if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
     }
     if (existing === undefined) {
-      // Newly created: force 0o700 explicitly so the result does not depend on
-      // the process umask (T-4-1 asserts the mode, not umask policy).
-      mkdirSync(dir, { recursive: true });
+      // Newly created with the restrictive mode in the creating call, so the
+      // umask can only narrow it and no directory this call creates (including
+      // a missing ancestor the recursive create makes) exists at a looser mode
+      // even briefly (OWASP ASVS V14 / CWE-379; Steps 1-12 build review m3).
+      // Then chmod to exactly 0o700, so the result does not depend on the
+      // process umask (T-4-1 asserts the mode, not umask policy).
+      mkdirSync(dir, { recursive: true, mode: OWNER_ONLY });
       chmodSync(dir, OWNER_ONLY);
     } else if ((existing.mode & NON_OWNER_MASK) !== 0) {
       looseMode.push(dir);

@@ -15,6 +15,23 @@ export class StoreBusy extends Error {
   }
 }
 
+/**
+ * Raised when the transaction a unit of work holds is gone: SQLite rolled the
+ * whole transaction back on its own (after SQLITE_FULL, SQLITE_IOERR,
+ * SQLITE_NOMEM or SQLITE_BUSY — "Response To Errors Within A Transaction",
+ * sqlite.org/lang_transaction.html), or a savepoint's undo failed. Once raised,
+ * every `transaction` call and every statement run through the `Store` throws
+ * it until the depth-0 `transaction` call unwinds, which clears the mark and
+ * rethrows it; nothing of the unit is committed (Step 3; Steps 1-12 build
+ * review S1). `cause` is the error that ended the transaction, when known.
+ */
+export class TransactionAborted extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = 'TransactionAborted';
+  }
+}
+
 const SQLITE_BUSY = 5;
 const SQLITE_CANTOPEN = 14;
 function isBusy(e: unknown): boolean {
@@ -42,7 +59,12 @@ export interface Store {
    * > 0 the call issues `SAVEPOINT sp<depth>`, runs `fn`, and `RELEASE`s it; on
    * a throw it issues `ROLLBACK TO` + `RELEASE` and rethrows. There is no busy
    * retry at depth > 0 (the write lock is already held) and `opts.onBusyRetry`
-   * is ignored there.
+   * is ignored there. After a throw at depth > 0, if the engine has ended the
+   * transaction itself (`db.isTransaction` false), the `ROLLBACK TO` is
+   * skipped, the handle is marked aborted and the call throws
+   * `TransactionAborted`; while aborted every `transaction` call and every
+   * statement through the `Store` throws `TransactionAborted` until the depth-0
+   * call unwinds, which clears the mark and rethrows (Steps 1-12 review S1).
    *
    * `opts.onBusyRetry`, when supplied, is invoked exactly once — after the first
    * attempt's SQLITE_BUSY, before the retry — and takes no part in the
@@ -146,38 +168,89 @@ export function openStore(dbPath: string, opts?: { mustExist?: boolean }): Store
   db.exec('PRAGMA foreign_keys = ON');
   db.exec('PRAGMA busy_timeout = 100');
 
+  // Re-entrancy depth: 0 = no transaction open on this handle (AD-26, G9).
+  let depth = 0;
+  // Set when the unit of work's transaction is gone (engine auto-rollback, or a
+  // failed savepoint undo) while depth > 0; cleared only by the depth-0 frame.
+  // While set, every statement and `transaction` call throws TransactionAborted,
+  // so a caller that caught an inner error can never autocommit later writes
+  // one by one (Step 3; Steps 1-12 build review S1).
+  let aborted = false;
+
+  function abortedError(cause?: unknown): TransactionAborted {
+    const why = cause === undefined ? '' : `: ${String((cause as { message?: string })?.message ?? cause)}`;
+    return new TransactionAborted(
+      `transaction aborted at ${dbPath}: the unit of work's transaction was rolled back${why}`,
+      cause === undefined ? undefined : { cause }
+    );
+  }
+
+  /**
+   * Run one statement-level operation. While aborted it throws
+   * TransactionAborted without touching the engine. When it throws inside a
+   * unit of work (depth > 0) and the engine no longer has a transaction open
+   * (`db.isTransaction`, node:sqlite >= 22.16.0 — the engines floor), the handle
+   * is marked aborted and the original error propagates.
+   */
+  function guarded<T>(op: () => T): T {
+    if (aborted) throw abortedError();
+    try {
+      return op();
+    } catch (e) {
+      if (depth > 0 && !db.isTransaction) aborted = true;
+      throw e;
+    }
+  }
+
   const cache = new Map<string, Statement>();
   function prepare(sql: string): Statement {
+    if (aborted) throw abortedError();
     let st = cache.get(sql);
     if (st === undefined) {
-      st = db.prepare(sql) as unknown as Statement;
+      const raw = db.prepare(sql);
+      st = {
+        run: (...params: unknown[]) =>
+          guarded(() => raw.run(...(params as never[]))) as ReturnType<Statement['run']>,
+        get: (...params: unknown[]) => guarded(() => raw.get(...(params as never[]))),
+        all: (...params: unknown[]) => guarded(() => raw.all(...(params as never[]))),
+      };
       cache.set(sql, st);
     }
     return st;
   }
 
-  // Re-entrancy depth: 0 = no transaction open on this handle (AD-26, G9).
-  let depth = 0;
-
   function nested<T>(fn: () => T): T {
+    if (aborted) throw abortedError();
     const name = `sp${depth}`;
-    db.exec(`SAVEPOINT ${name}`);
+    guarded(() => db.exec(`SAVEPOINT ${name}`));
     depth += 1;
     let result: T;
     try {
       result = fn();
     } catch (e) {
       depth -= 1;
+      // The engine may have ended the whole transaction (then the savepoint is
+      // gone and ROLLBACK TO would fail): skip the undo and poison the unit.
+      if (aborted || !db.isTransaction) {
+        aborted = true;
+        throw e instanceof TransactionAborted ? e : abortedError(e);
+      }
       try {
         db.exec(`ROLLBACK TO ${name}`);
         db.exec(`RELEASE ${name}`);
-      } catch {
-        /* the outer transaction's own rollback covers a failed savepoint undo */
+      } catch (undoErr) {
+        // The savepoint's writes could not be undone, so the unit is no longer
+        // atomic: poison it so the depth-0 frame rolls everything back.
+        aborted = true;
+        throw abortedError(undoErr);
       }
       throw e;
     }
     depth -= 1;
-    db.exec(`RELEASE ${name}`);
+    // fn returned, but an abort inside it was caught and swallowed there: the
+    // unit's work is gone, so this call must not report success.
+    if (aborted) throw abortedError();
+    guarded(() => db.exec(`RELEASE ${name}`));
     return result;
   }
 
@@ -202,15 +275,23 @@ export function openStore(dbPath: string, opts?: { mustExist?: boolean }): Store
       depth = 1;
       try {
         const result = fn();
+        // fn returned after catching an abort: nothing of the unit may commit.
+        if (aborted) throw abortedError();
         db.exec('COMMIT');
         depth = 0;
         return result;
       } catch (e) {
         depth = 0;
-        try {
-          db.exec('ROLLBACK');
-        } catch {
-          /* ignore rollback failure; the original error is what matters */
+        // The depth-0 unwind clears the abort mark and rethrows.
+        aborted = false;
+        // Skip ROLLBACK when the engine has already ended the transaction
+        // (auto-rollback); otherwise undo everything the unit wrote.
+        if (db.isTransaction) {
+          try {
+            db.exec('ROLLBACK');
+          } catch {
+            /* the original error is what the caller needs */
+          }
         }
         lastErr = e;
         if (isBusy(e)) {
@@ -229,17 +310,17 @@ export function openStore(dbPath: string, opts?: { mustExist?: boolean }): Store
 
   return {
     prepare,
-    exec: (sql: string): void => db.exec(sql),
+    exec: (sql: string): void => guarded(() => db.exec(sql)),
     transaction,
     integrityCheck(): 'ok' | 'failed' {
-      const row = db.prepare('PRAGMA quick_check').get() as { quick_check?: string } | undefined;
+      const row = guarded(() => db.prepare('PRAGMA quick_check').get()) as { quick_check?: string } | undefined;
       return row?.quick_check === 'ok' ? 'ok' : 'failed';
     },
     exportTo(destPath: string): void {
       // VACUUM INTO requires a single-quoted SQL string literal; a double-quoted
       // path is parsed as an identifier (verified against the runtime, §11.4).
       const escaped = destPath.replace(/'/g, "''");
-      db.exec(`VACUUM INTO '${escaped}'`);
+      guarded(() => db.exec(`VACUUM INTO '${escaped}'`));
     },
     close(): void {
       db.close();

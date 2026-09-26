@@ -225,10 +225,13 @@ export async function runIndex(store: Store, repoPath: string, opts: IndexOption
       });
       known.set(p, id);
       indexed += 1;
+      // SKELETON: 1R — the skeleton's `fts_paths` insert named the pre-1R
+      // `path` column, which migration 001b no longer defines, so it is removed
+      // and the FTS tables stay empty at 1R (plan §9, Steps 1-12 build review
+      // M1); the per-file deletes still match 001b's `file_id`; retired by Step 14
       if (fts) {
         store.prepare('DELETE FROM fts_paths WHERE file_id = ?').run(id);
         store.prepare('DELETE FROM fts_symbols WHERE file_id = ?').run(id);
-        store.prepare('INSERT INTO fts_paths(path, file_id) VALUES(?, ?)').run(p, id);
       }
       const tooBig = content.length > MAX_BYTES || content.toString('utf8').split('\n').length > MAX_LINES;
       const fe = byLang.get(lang) ?? generic;
@@ -243,7 +246,8 @@ export async function runIndex(store: Store, repoPath: string, opts: IndexOption
       const rows = parsed.symbols.map((s) => ({ ...s, name: redact(s.name).redacted }));
       syms.replaceForFile(id, rows, prov);
       symbolCount += rows.length;
-      if (fts) for (const s of rows) store.prepare('INSERT INTO fts_symbols(name, kind, file_id) VALUES(?, ?, ?)').run(s.name, s.kind, id);
+      // SKELETON: 1R — the skeleton's `fts_symbols` insert (pre-1R `name`
+      // column) is removed; see the fts_paths note above; retired by Step 14
       pendingImports.push({ id, path: p, specs: parsed.imports.map((i) => i.dst) });
     }
 

@@ -14,15 +14,15 @@ import { fileURLToPath } from 'node:url';
 const dispatch = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../src/cli/dispatch.js');
 
 // Checkpoint 1R (plan §9): marked todo, never deleted or rewritten against the
-// old types. Observed cause at 1R: `init` fails first in the skeleton indexer's
-// FTS write (`table fts_paths has no column named path` — migration 001b now
-// indexes the in-house `tokens` column); past it, every generator returns no
-// candidates and the 4-commit repository meets no corpus floor.
+// old types. Observed cause at 1R: `init` succeeds (the indexer's pre-1R FTS
+// inserts are removed, §9 — Steps 1-12 build review M1); the first PreToolUse
+// prints nothing to parse, because every generator returns no candidates and
+// the 4-commit repository meets no corpus floor.
 test(
   'skeleton: a hook stream flows init → deny → answer → allow → whisper → dedup',
   {
     todo:
-      'SKELETON: 1R — the reduced generators return no candidates, the 4-commit repository meets no corpus floor, and the skeleton indexer writes the pre-1R FTS columns; retired by Step 28',
+      'SKELETON: 1R — the reduced generators return no candidates and the 4-commit repository meets no corpus floor; retired by Step 28',
   },
   () => {
   const root = mkdtempSync(path.join(tmpdir(), 'ctxo-e2e-'));

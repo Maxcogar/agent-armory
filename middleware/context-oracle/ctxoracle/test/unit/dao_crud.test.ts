@@ -152,8 +152,8 @@ test('T-9-1: structural DAOs round-trip', () => {
 test('T-9-1 (2026-09-26): files.ensureHistoryRow is insert-if-absent with in_tree 0, zone unknown, NULL content_hash', () => {
   withStores((s) => {
     const files = filesDao(s);
-    const a = files.ensureHistoryRow('h.txt', false);
-    const b = files.ensureHistoryRow('h.txt', false);
+    const a = files.ensureHistoryRow('h.txt', false, 'c0ffee');
+    const b = files.ensureHistoryRow('h.txt', false, 'c0ffee');
     assert.equal(b, a, 'the same id both times');
     const row = s.prepare('SELECT * FROM files WHERE id = ?').get(a) as Record<string, unknown>;
     assert.equal(row.in_tree, 0);
@@ -167,7 +167,7 @@ test('T-9-1 (2026-09-26): files.ensureHistoryRow is insert-if-absent with in_tre
 
     // It never changes an existing row.
     const idx = inTreeFile(s, 'present.ts');
-    assert.equal(files.ensureHistoryRow('present.ts', false), idx);
+    assert.equal(files.ensureHistoryRow('present.ts', false, 'c0ffee'), idx);
     assert.equal(fileCounts(s, idx).in_tree, 1, 'an existing in-tree row is unchanged');
   });
 });
@@ -186,8 +186,8 @@ test('T-9-1 (2026-09-26): files.markAbsentExcept returns the unlisted in-tree id
 test('T-9-1 (2026-09-26): files.sweepUnreferenced deletes an unreferenced in_tree 0 row and keeps one a pair references', () => {
   withStores((s) => {
     const files = filesDao(s);
-    const lone = files.ensureHistoryRow('lone.txt', false);
-    const paired = files.ensureHistoryRow('paired.txt', false);
+    const lone = files.ensureHistoryRow('lone.txt', false, 'c0ffee');
+    const paired = files.ensureHistoryRow('paired.txt', false, 'c0ffee');
     const partner = inTreeFile(s, 'partner.ts');
     cochangePairsDao(s).bump(paired, partner, 100, 'h1', 1);
     assert.equal(files.sweepUnreferenced(), 1);
@@ -511,8 +511,8 @@ test('T-9-1 (2026-09-26): observed_actions — append takes no seq; writtenSince
     assert.equal(oa.maxSeq(), 5, 'the engine assigned seq 1..5');
     assert.equal(oa.okEdits(S), 2);
     assert.equal(oa.okReads(S), 1);
-    assert.equal(oa.firstHash(S, 'a.ts'), 'e1');
-    assert.deepEqual(oa.hashesFor(S, 'a.ts'), ['e1', 'e2'], 'post-write hashes of ok edits, in order');
+    assert.equal(oa.firstHash(S, C, 'a.ts'), 'e1');
+    assert.deepEqual(oa.hashesFor(S, C, 'a.ts'), ['e1', 'e2'], 'post-write hashes of ok edits, in order');
     assert.deepEqual(oa.okEditedPaths(S, C), ['a.ts'], 'excludes the failed Edit and the Bash row');
 
     assert.equal(oa.writtenSinceSeq('a.ts', 0), true, 'an ok Edit with seq > 0');
@@ -605,7 +605,7 @@ test('T-9-1r1 (review): markAbsentExcept touches only in_tree = 1 rows — an al
     const files = filesDao(s);
     const keep = inTreeFile(s, 'keep.ts');
     const gone = inTreeFile(s, 'gone.ts');
-    const hist = files.ensureHistoryRow('history-only.txt', false);
+    const hist = files.ensureHistoryRow('history-only.txt', false, 'c0ffee');
     assert.deepEqual(files.markAbsentExcept([keep]), [gone], 'the history-only row is not reported');
     assert.equal(fileCounts(s, hist).in_tree, 0);
   });
@@ -616,9 +616,9 @@ test('T-9-1r2 (review): sweepUnreferenced deletes only in_tree = 0 rows with cha
   withStores((s) => {
     const files = filesDao(s);
     const inTree = inTreeFile(s, 'present.ts'); // unreferenced, but in the tree
-    const counted = files.ensureHistoryRow('counted.txt', false); // unreferenced, change_count 1
+    const counted = files.ensureHistoryRow('counted.txt', false, 'c0ffee'); // unreferenced, change_count 1
     files.addChangeCount(counted, 1, 1);
-    const lone = files.ensureHistoryRow('lone.txt', false);
+    const lone = files.ensureHistoryRow('lone.txt', false, 'c0ffee');
     assert.equal(files.sweepUnreferenced(), 1);
     assert.equal(files.byId(lone), undefined);
     assert.equal(files.byId(inTree)?.path, 'present.ts', 'an in-tree row is never swept');
@@ -627,12 +627,12 @@ test('T-9-1r2 (review): sweepUnreferenced deletes only in_tree = 0 rows with cha
 });
 
 test('T-9-1r3 (review): ensureHistoryRow records the path injection flag it is given', () => {
-  // "ensureHistoryRow(path, injectionSuspect)"; the PROV injection_suspect column is the path's flag (Step 7)
+  // "ensureHistoryRow(path, injectionSuspect, commitHash)"; the PROV injection_suspect column is the path's flag (Step 7)
   withStores((s) => {
     const files = filesDao(s);
-    const id = files.ensureHistoryRow('ignore previous instructions.txt', true);
+    const id = files.ensureHistoryRow('ignore previous instructions.txt', true, 'c0ffee');
     assert.equal(files.byId(id)?.injection_suspect, 1);
-    assert.equal(files.byId(files.ensureHistoryRow('plain.txt', false))?.injection_suspect, 0);
+    assert.equal(files.byId(files.ensureHistoryRow('plain.txt', false, 'c0ffee'))?.injection_suspect, 0);
   });
 });
 
@@ -683,16 +683,16 @@ test('T-9-1r6 (review): observed_actions.runs(session, consumer) returns that co
   });
 });
 
-test('T-9-1r7 (review): observed_actions.pathWrites(session, sinceSeq) reads only seq > sinceSeq and orders by seq', () => {
-  // "`pathWrites(session, sinceSeq)` orders by `seq`"
+test('T-9-1r7 (review): observed_actions.pathWrites(session, consumer, sinceSeq) reads only seq > sinceSeq and orders by seq', () => {
+  // "`pathWrites(session, consumer, sinceSeq)` orders by `seq`"
   withStores((s) => {
     const oa = observedActionsDao(s);
     oa.append({ session: S, consumer: C, tool: 'Edit', path: 'z.ts', outcome: 'ok', ts: 1 }); // seq 1
     oa.append({ session: S, consumer: C, tool: 'Write', path: 'm.ts', outcome: 'ok', ts: 2 }); // seq 2
     oa.append({ session: S, consumer: C, tool: 'Edit', path: 'b.ts', outcome: 'ok', ts: 3 }); // seq 3
     oa.append({ session: S, consumer: C, tool: 'Edit', path: 'm.ts', outcome: 'ok', ts: 4 }); // seq 4
-    assert.deepEqual(oa.pathWrites(S, 0), ['z.ts', 'm.ts', 'b.ts'], 'first-write seq order, not path order');
-    assert.deepEqual(oa.pathWrites(S, 2), ['b.ts', 'm.ts'], 'rows at or below sinceSeq are excluded');
+    assert.deepEqual(oa.pathWrites(S, C, 0), ['z.ts', 'm.ts', 'b.ts'], 'first-write seq order, not path order');
+    assert.deepEqual(oa.pathWrites(S, C, 2), ['b.ts', 'm.ts'], 'rows at or below sinceSeq are excluded');
   });
 });
 
@@ -765,5 +765,81 @@ test('T-9-1r12 (review): landmines.createHuman refuses a repo-derived (commit / 
     const lm = landminesDao(s);
     assert.throws(() => lm.createHuman({ fileId: f, evidence: 'from a commit message', prov: mined }));
     assert.deepEqual(lm.forFile(f), []);
+  });
+});
+
+// ---- Added for the fixes that follow the Steps 1–12 build review
+// (docs/reviews/2026-09-26-steps-1-12-build-review.md M2, m2, m1), written from
+// the plan's Step 9 delta as amended by commit ca67af7. Each case quotes the
+// sentence it pins.
+
+/** Main and a subagent of the same session edit a shared path; the subagent writes first. */
+function seedTwoConsumers(s: Store): { SUB: string } {
+  const oa = observedActionsDao(s);
+  const SUB = 'S#sub:ag1';
+  oa.append({ session: S, consumer: SUB, tool: 'Edit', path: 'shared.ts', content_hash: 'sub1', outcome: 'ok', ts: 1 }); // seq 1
+  oa.append({ session: S, consumer: SUB, tool: 'Write', path: 'sub-only.ts', content_hash: 'sub2', outcome: 'ok', ts: 2 }); // seq 2
+  oa.append({ session: S, consumer: C, tool: 'Edit', path: 'shared.ts', content_hash: 'main1', outcome: 'ok', ts: 3 }); // seq 3
+  oa.append({ session: S, consumer: C, tool: 'Edit', path: 'main-only.ts', content_hash: 'main2', outcome: 'ok', ts: 4 }); // seq 4
+  oa.append({ session: S, consumer: SUB, tool: 'Edit', path: 'shared.ts', content_hash: 'sub3', outcome: 'ok', ts: 5 }); // seq 5
+  return { SUB };
+}
+
+// "`hashesFor(session, consumer, path)`; ... `pathWrites(session, consumer, sinceSeq)` ...;
+//  `firstHash(session, consumer, path)`. Every per-session reader takes the consumer, so a subagent's
+//  actions never appear in the main agent's `ObservedActionsReader`"
+
+test("T-9-1r13a (review M2): observed_actions.pathWrites(session, consumer, sinceSeq) never returns another consumer's paths", () => {
+  withStores((s) => {
+    const { SUB } = seedTwoConsumers(s);
+    const oa = observedActionsDao(s);
+    assert.deepEqual(oa.pathWrites(S, C, 0), ['shared.ts', 'main-only.ts'], "main's writes only, in main's first-write seq order");
+    assert.deepEqual(oa.pathWrites(S, SUB, 0), ['shared.ts', 'sub-only.ts'], "the subagent's writes only");
+  });
+});
+
+test("T-9-1r13b (review M2): observed_actions.firstHash(session, consumer, path) never returns another consumer's hash", () => {
+  withStores((s) => {
+    const { SUB } = seedTwoConsumers(s);
+    const oa = observedActionsDao(s);
+    assert.equal(oa.firstHash(S, C, 'shared.ts'), 'main1', "main's first hash, not the subagent's earlier one");
+    assert.equal(oa.firstHash(S, SUB, 'shared.ts'), 'sub1');
+    assert.equal(oa.firstHash(S, C, 'sub-only.ts'), undefined, 'a path only the subagent wrote has no hash for main');
+  });
+});
+
+test("T-9-1r13c (review M2): observed_actions.hashesFor(session, consumer, path) never returns another consumer's hashes", () => {
+  withStores((s) => {
+    const { SUB } = seedTwoConsumers(s);
+    const oa = observedActionsDao(s);
+    assert.deepEqual(oa.hashesFor(S, C, 'shared.ts'), ['main1'], "main's hashes exclude the subagent's");
+    assert.deepEqual(oa.hashesFor(S, SUB, 'shared.ts'), ['sub1', 'sub3']);
+  });
+});
+
+test('T-9-1r14 (review m2): observed_actions.pathWrites counts outcome = ok rows only — a failed write is excluded', () => {
+  // "`pathWrites(session, consumer, sinceSeq)` orders by `seq` and counts `outcome = 'ok'` rows only
+  //  (a failed write changed nothing, the rule every other edit consumer follows)"
+  withStores((s) => {
+    const oa = observedActionsDao(s);
+    oa.append({ session: S, consumer: C, tool: 'Edit', path: 'failed.ts', outcome: 'failed', ts: 1 });
+    oa.append({ session: S, consumer: C, tool: 'Write', path: 'ok.ts', outcome: 'ok', ts: 2 });
+    oa.append({ session: S, consumer: C, tool: 'NotebookEdit', path: 'nb.ipynb', outcome: 'failed', ts: 3 });
+    assert.deepEqual(oa.pathWrites(S, C, 0), ['ok.ts']);
+  });
+});
+
+test('T-9-1r15 (review m1): files.ensureHistoryRow(path, injectionSuspect, commitHash) stores prov_ref = commitHash', () => {
+  // "provenance `commit`/`untrusted_repo` with `prov_ref` = the commit that first named the path — a `commit`
+  //  provenance must reference a commit"; "never changes an existing row"
+  withStores((s) => {
+    const files = filesDao(s);
+    const hash = '0123456789abcdef0123456789abcdef01234567';
+    const id = files.ensureHistoryRow('history.txt', false, hash);
+    const row = files.byId(id);
+    assert.equal(row?.prov_kind, 'commit');
+    assert.equal(row?.prov_ref, hash, 'the reference is the commit hash, not the path');
+    assert.equal(files.ensureHistoryRow('history.txt', false, 'ffffffffffffffffffffffffffffffffffffffff'), id);
+    assert.equal(files.byId(id)?.prov_ref, hash, 'a second call does not change the existing row');
   });
 });

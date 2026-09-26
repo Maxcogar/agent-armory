@@ -47,8 +47,8 @@ export interface FilesDao {
   byPath(path: string): FileRecord | undefined;
   byId(id: number): FileRecord | undefined;
   all(): FileRecord[];
-  /** Insert-if-absent a history-only row (in_tree 0, lang/zone 'unknown', NULL hash/mtime, commit/untrusted_repo); returns its id; never changes an existing row. */
-  ensureHistoryRow(path: string, injectionSuspect: boolean): number;
+  /** Insert-if-absent a history-only row (in_tree 0, lang/zone 'unknown', NULL hash/mtime, commit/untrusted_repo, prov_ref = commitHash); returns its id; never changes an existing row. */
+  ensureHistoryRow(path: string, injectionSuspect: boolean, commitHash: string): number;
   /** Set in_tree = 0 on every in_tree = 1 row whose id is not listed; returns those ids (ascending). */
   markAbsentExcept(listedPresentIds: number[]): number[];
   /** Delete in_tree = 0 rows with change_count = 0 that no history-derived row references; returns the count. */
@@ -104,15 +104,16 @@ export function filesDao(store: Store): FilesDao {
     all() {
       return store.prepare('SELECT * FROM files ORDER BY id').all() as FileRecord[];
     },
-    ensureHistoryRow(path, injectionSuspect) {
+    ensureHistoryRow(path, injectionSuspect, commitHash) {
       return store.transaction(() => {
         const existing = store.prepare('SELECT id FROM files WHERE path = ?').get(path) as { id: number } | undefined;
         if (existing !== undefined) return existing.id;
         const now = Date.now();
         // The row is history-derived: provenance commit / untrusted_repo (FR-X4).
-        // The DAO is given no commit hash, so the reference is the path itself.
+        // prov_ref is the commit that first named the path: a `commit`
+        // provenance references a commit (Steps 1-12 build review m1).
         const prov = provCreateValues(
-          { prov_kind: 'commit', prov_ref: path, trust: 'untrusted_repo', injection_suspect: injectionSuspect },
+          { prov_kind: 'commit', prov_ref: commitHash, trust: 'untrusted_repo', injection_suspect: injectionSuspect },
           now,
           now
         );

@@ -124,3 +124,56 @@ test('T-4-1c: a pre-existing loose <home>/diagnostics/ is reported by ensureHome
     rmSync(base, { recursive: true, force: true });
   }
 });
+
+// ---- Added for the fixes that follow the Steps 1–12 build review
+// (docs/reviews/2026-09-26-steps-1-12-build-review.md m3), written from plan
+// Step 4 as amended by commit ca67af7: ensureHome "creates <home>/,
+// <home>/global/, and <home>/diagnostics/ at 0o700 when missing (created with
+// `mkdirSync(path, {mode: 0o700})`, so the umask can only narrow the mode and
+// there is no window at a looser one, then `chmod` to `0o700` exactly)".
+// The window between mkdir and chmod is not observable from a test; what is
+// observable is the mode every directory ensureHome creates is left at when
+// the umask narrows nothing (umask 0o000).
+
+function withUmask0(fn: () => void): void {
+  const prev = process.umask(0);
+  try {
+    fn();
+  } finally {
+    process.umask(prev);
+  }
+}
+
+test('T-4-1d (review m3): under umask 0o000, ensureHome leaves <home>/, global/ and diagnostics/ at exactly 0o700', () => {
+  const base = mkdtempSync(path.join(tmpdir(), 'ctxoracle-layout-d-'));
+  const home = path.join(base, 'ctxhome');
+  try {
+    withUmask0(() => {
+      const h = ensureHome(home);
+      assert.deepEqual(h.looseMode, []);
+    });
+    for (const dir of [home, path.join(home, 'global'), path.join(home, 'diagnostics')]) {
+      assert.equal(perms(dir), 0o700, `${dir} is 0o700 under umask 0`);
+    }
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('T-4-1e (review m3): under umask 0o000, a missing ancestor of <home> that ensureHome creates is not left looser than 0o700', () => {
+  // ensureHome creates <home> with a recursive mkdir, so it also creates any
+  // missing ancestor; "no window at a looser one" covers every directory the
+  // call creates, not only the three it names.
+  const base = mkdtempSync(path.join(tmpdir(), 'ctxoracle-layout-e-'));
+  const ancestor = path.join(base, 'missing-parent');
+  const home = path.join(ancestor, 'ctxhome');
+  try {
+    withUmask0(() => {
+      ensureHome(home);
+    });
+    assert.equal(perms(home), 0o700, '<home> is 0o700');
+    assert.equal(perms(ancestor) & 0o077, 0, `the created ancestor ${ancestor} has no group/other bits (mode ${perms(ancestor).toString(8)})`);
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});

@@ -13,7 +13,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { openStore, StoreMissing, StoreUnreadable, type Store } from '../../src/stores/adapter.js';
+import { openStore, StoreBusy, StoreMissing, StoreUnreadable, TransactionAborted, type Store } from '../../src/stores/adapter.js';
 
 function withTable(fn: (store: Store, dbPath: string) => void): void {
   const dir = mkdtempSync(path.join(tmpdir(), 'ctxoracle-nest-'));
@@ -242,4 +242,138 @@ test('T-3-5h2 (review): mustExist on a path whose stat fails with another errno 
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// ---- Case (i), added for the fix that follows the Steps 1–12 build review
+// (docs/reviews/2026-09-26-steps-1-12-build-review.md S1), written from plan
+// T-3-5 case (i) and Step 3's delta as amended by commit ca67af7:
+// "`PRAGMA max_page_count` is capped just above the table's size; the outer
+// inserts 1, an inner call inserts a row too large to fit (`SQLITE_FULL`), the
+// outer catches that error, inserts 3, and returns. If the engine kept the
+// transaction, the result is case (b)'s shape: rows {1, 3}, no throw. If it
+// abandoned it, the outer call throws `TransactionAborted` and the table is
+// empty. Either way rows {3} alone — the executed defect — fails the test; the
+// test records which branch the engine took."
+// And Step 3: "while aborted, every `transaction` call and every statement run
+// through the `Store` throws `TransactionAborted` until the depth-0 call
+// unwinds, which clears the mark and rethrows."
+
+/** Cap the file just above its current size (the review's page_count + 2). */
+function capPages(store: Store): void {
+  const { page_count } = store.prepare('PRAGMA page_count').get() as { page_count: number };
+  store.exec(`PRAGMA max_page_count = ${page_count + 2}`);
+}
+
+function insertTooLarge(store: Store): void {
+  store.prepare('INSERT INTO t(x) VALUES(randomblob(200000))').run();
+}
+
+/**
+ * Whether the write lock is free, observed from a second connection (engine
+ * state, independent of the adapter's bookkeeping): a held lock makes its
+ * BEGIN IMMEDIATE busy through the one retry (StoreBusy).
+ */
+function writeLockFree(dbPath: string): boolean {
+  const other = openStore(dbPath);
+  try {
+    other.transaction(() => undefined);
+    return true;
+  } catch (e) {
+    if (e instanceof StoreBusy) return false;
+    throw e;
+  } finally {
+    other.close();
+  }
+}
+
+test('T-3-5i: engine-abandoned transaction — rows {1, 3} with no throw, or TransactionAborted with no rows; never {3} alone', (t) => {
+  withTable((store) => {
+    capPages(store);
+    let innerErr: unknown;
+    let outerErr: unknown;
+    try {
+      store.transaction(() => {
+        ins(store, 1);
+        try {
+          store.transaction(() => {
+            insertTooLarge(store);
+          });
+        } catch (e) {
+          innerErr = e; // the unit of work catches the inner error and continues
+        }
+        ins(store, 3);
+      });
+    } catch (e) {
+      outerErr = e;
+    }
+    const after = rows(store);
+    assert.notEqual(innerErr, undefined, 'precondition: the too-large inner insert failed');
+
+    if (outerErr === undefined) {
+      t.diagnostic('T-3-5i branch: the engine KEPT the transaction (case (b) shape)');
+      assert.deepEqual(after, [1, 3], 'a kept transaction yields case (b)\'s rows {1, 3}');
+    } else {
+      t.diagnostic(`T-3-5i branch: the engine ABANDONED the transaction; outer threw ${String(outerErr)}`);
+      assert.ok(
+        outerErr instanceof TransactionAborted,
+        `an abandoned transaction must surface as TransactionAborted, got ${String(outerErr)}; rows ${JSON.stringify(after)}`
+      );
+      assert.deepEqual(after, [], 'an abandoned transaction leaves the table empty');
+    }
+    assert.notDeepEqual(after, [3], 'rows {3} alone is the executed defect (row 3 durable without row 1)');
+  });
+});
+
+test('T-3-5i2: while the transaction is aborted, every statement and transaction call through the Store throws TransactionAborted; the depth-0 unwind rethrows it and clears the mark', (t) => {
+  withTable((store, dbPath) => {
+    capPages(store);
+    let abandoned: boolean | undefined;
+    let innerErr: unknown;
+    const whileAborted: Array<[string, unknown]> = [];
+    const attempt = (label: string, fn: () => unknown): void => {
+      try {
+        fn();
+        whileAborted.push([label, undefined]);
+      } catch (e) {
+        whileAborted.push([label, e]);
+      }
+    };
+    let outerErr: unknown;
+    try {
+      store.transaction(() => {
+        ins(store, 1);
+        try {
+          store.transaction(() => {
+            insertTooLarge(store);
+          });
+        } catch (e) {
+          innerErr = e;
+        }
+        abandoned = writeLockFree(dbPath);
+        if (!abandoned) return;
+        attempt('prepare().run (INSERT)', () => ins(store, 3));
+        attempt('prepare().get (SELECT)', () => store.prepare('SELECT count(*) AS n FROM t').get());
+        attempt('prepare().all (SELECT)', () => store.prepare('SELECT x FROM t').all());
+        attempt('exec', () => store.exec('INSERT INTO t(x) VALUES(4)'));
+        attempt('nested transaction', () => store.transaction(() => ins(store, 5)));
+      });
+    } catch (e) {
+      outerErr = e;
+    }
+    if (abandoned === false) {
+      t.skip('this engine kept the transaction after SQLITE_FULL; the aborted state is unreachable here');
+      return;
+    }
+    t.diagnostic('T-3-5i2: the engine abandoned the transaction (the write lock was free after SQLITE_FULL)');
+    assert.ok(innerErr instanceof TransactionAborted, `the inner call throws TransactionAborted, got ${String(innerErr)}`);
+    for (const [label, err] of whileAborted) {
+      assert.ok(err instanceof TransactionAborted, `${label} while aborted must throw TransactionAborted, got ${String(err)}`);
+    }
+    assert.ok(outerErr instanceof TransactionAborted, `the depth-0 call rethrows TransactionAborted, got ${String(outerErr)}`);
+    assert.deepEqual(rows(store), [], 'nothing of the aborted unit is durable');
+
+    // The depth-0 unwind cleared the mark: the handle works again.
+    store.transaction(() => ins(store, 9));
+    assert.deepEqual(rows(store), [9], 'a later unit of work commits normally');
+  });
 });

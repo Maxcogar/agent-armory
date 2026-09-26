@@ -916,3 +916,58 @@ Step 28`); no other test turned red, so it is the only `todo`.
 5. **Step 1 delta (b) says "seven" names; §5.1 and Step 1's `create:` list add
    an eighth, `recency-weighting`.** T-1-3 pins the §5.1 list, so all eight are
    generated.
+
+## Fixes after the Steps 1–12 build review — BUILT (2026-09-26, uncommitted, pending independent review)
+
+Scope: the plan changes in commit `ca67af7` that answer
+`docs/reviews/2026-09-26-steps-1-12-build-review.md` (S1, M1, M2, M3, m1, m2,
+m3), built against tests a separate agent wrote first. No asserted value was
+changed.
+
+- **S1 (Step 3)** — `src/stores/adapter.ts`: after a throw at depth > 0 the
+  adapter reads `db.isTransaction` (node:sqlite, `added: v22.16.0` per the
+  v22.16.0 `doc/api/sqlite.md` — the engines floor). If the engine ended the
+  transaction, `ROLLBACK TO` is skipped, the handle is marked aborted and the
+  call throws `TransactionAborted` (with `cause`). While aborted, `transaction`,
+  `exec`, `prepare`, and every `run/get/all` throw `TransactionAborted`; the
+  depth-0 frame clears the mark, skips `ROLLBACK` when the engine already
+  ended the transaction, and rethrows; a depth-0 `fn` that returns after
+  catching the abort throws `TransactionAborted` instead of committing. The
+  false "outer rollback covers a failed savepoint undo" comment is gone.
+  Plan-silence decision: a `ROLLBACK TO` that fails while the transaction is
+  still live also marks the unit aborted, since its writes could not be undone
+  and the unit is no longer atomic. T-3-5i observed branch on Node 22.22.2:
+  the engine ABANDONED the transaction after `SQLITE_FULL`.
+- **m3 (Step 4)** — `src/identity/layout.ts`: `mkdirSync(dir, {recursive:
+  true, mode: 0o700})`, then `chmodSync(dir, 0o700)` as before.
+- **M2, m2, m1 (Step 9)** — `observed_actions`: `pathWrites(session, consumer,
+  sinceSeq)` filters `consumer` and `outcome = 'ok'`; `firstHash` and
+  `hashesFor` filter `consumer`. `files.ensureHistoryRow(path,
+  injectionSuspect, commitHash)` stores `prov_ref = commitHash`. No `src/`
+  caller of these four methods exists at 1R (the handler's reader is a
+  stand-in; the miner calls `ensureHistoryRow` from Step 13), so no caller
+  changed.
+- **M3 (Step 12)** — `checkTuningWrite` refuses a key absent from both
+  `SCALAR_SEEDS` and `LIST_SEEDS`, and a non-finite value for a key whose seed
+  parses as a finite number, each with a plain-language reason naming the key
+  (and the value).
+- **M1 (§9 rows)** — `src/index/indexer.ts`: the `fts_paths`/`fts_symbols`
+  inserts removed (`SKELETON: 1R`, Step 14); the per-file FTS deletes stay,
+  since 001b has `file_id`. `src/index/search.ts`: both functions return `[]`
+  (`SKELETON: 1R`, Step 14). Note on §9's wording: the `LIKE` bodies did not
+  read pre-1R columns (`symbols.name` and `files.path` exist); they were
+  reduced because they are not AD-2's token-range fallback and have no caller.
+- `test/unit/skeleton_e2e.test.ts`: the todo reason and comment named the
+  indexer's FTS write as a cause; that is no longer true (`init` passes; the
+  test now stops at the first PreToolUse, which prints nothing because no
+  generator yields candidates), so that clause was removed. No assertion
+  changed.
+
+Verification run:
+- `cd ctxoracle && npm run build && npm test` → `tsc -p tsconfig.json` clean;
+  `# tests 168`, `# pass 167`, `# fail 0`, `# skipped 0`, `# todo 1`
+  (skeleton_e2e).
+- `node middleware/context-oracle/.claude/skills/expert-plan/scripts/derive-plan-sections.mjs --check middleware/context-oracle/docs/plans/plan-phase-a.md`
+  → `OK: 40 steps, 13 elements, 157 test specs, 27 probes cited, regions current`.
+- `(cd middleware/context-oracle && python3 tools/check_docs.py)` →
+  `context-oracle doc-consistency check passed.`

@@ -209,3 +209,42 @@ test('T-12-3b (review): the tier invariant admits equality — untrusted_trust_f
     assert.ok('refused' in checkTuningWrite(reader, 'bar.stale_factor', '0.79'), '0.79 < 0.8 is refused');
   });
 });
+
+// ---- Added for the fixes that follow the Steps 1–12 build review
+// (docs/reviews/2026-09-26-steps-1-12-build-review.md M3), written from plan
+// Step 12 as amended by commit ca67af7: "It also refuses a key that has no seed
+// in `tuning_seeds` (a typo would otherwise write a row nothing reads) and, for
+// a key whose seed is numeric, a value that is not a finite number (`num()`
+// throws on one, so `tune bar.support_min abc` would make every event fail open
+// silently). Otherwise the plain-language reason names the violated relation
+// and every value in it."
+
+test('T-12-3c (review M3): checkTuningWrite refuses a key with no seed in tuning_seeds, naming the key', () => {
+  withSeeded((g) => {
+    const reader = tuningReader(g, 'k1', () => {});
+    const r = checkTuningWrite(reader, 'bar.suport_min', '3'); // a typo of bar.support_min
+    assert.ok('refused' in r, `an unknown key must be refused, got ${JSON.stringify(r)}`);
+    assert.ok(r.refused.includes('bar.suport_min'), `the reason names the key: ${r.refused}`);
+  });
+});
+
+test('T-12-3d (review M3): checkTuningWrite refuses a non-finite value for a key whose seed is numeric (bar.support_min)', () => {
+  withSeeded((g) => {
+    const reader = tuningReader(g, 'k1', () => {});
+    assert.equal(reader.num('bar.support_min'), 3, 'precondition: the seed is numeric');
+    for (const value of ['abc', 'Infinity', '', '3 apples']) {
+      const r = checkTuningWrite(reader, 'bar.support_min', value);
+      assert.ok('refused' in r, `bar.support_min = ${JSON.stringify(value)} must be refused, got ${JSON.stringify(r)}`);
+      assert.ok(r.refused.includes('bar.support_min'), `the reason names the key: ${r.refused}`);
+      assert.ok(r.refused.includes(value), `the reason names the value ${JSON.stringify(value)}: ${r.refused}`);
+    }
+  });
+});
+
+test('T-12-3e (review M3): checkTuningWrite accepts a finite numeric value for a numeric seed outside the ordering relations', () => {
+  withSeeded((g) => {
+    const reader = tuningReader(g, 'k1', () => {});
+    assert.deepEqual(checkTuningWrite(reader, 'bar.support_min', '5'), { ok: true });
+    assert.deepEqual(checkTuningWrite(reader, 'bar.support_min', '2.5'), { ok: true });
+  });
+});

@@ -38,11 +38,12 @@ export interface ObservedActionsDao {
   okReads(session: string): number;
   /** The consumer's Bash rows of either outcome, in seq order. */
   runs(session: string, consumer: string): RunRow[];
-  /** Distinct paths written by an edit tool with seq > sinceSeq, in seq order of first write. */
-  pathWrites(session: string, sinceSeq: number): string[];
-  firstHash(session: string, path: string): string | undefined;
-  /** Post-write hashes of the session's ok edits of `path`, in seq order. */
-  hashesFor(session: string, path: string): string[];
+  /** Distinct paths the consumer wrote with an `outcome = 'ok'` edit-tool row with seq > sinceSeq, in seq order of first write. */
+  pathWrites(session: string, consumer: string, sinceSeq: number): string[];
+  /** The consumer's first post-write hash of `path` from an `outcome = 'ok'` row. */
+  firstHash(session: string, consumer: string, path: string): string | undefined;
+  /** Post-write hashes of the consumer's ok edits of `path`, in seq order. */
+  hashesFor(session: string, consumer: string, path: string): string[];
   /** Distinct paths of the consumer's `outcome = 'ok'` edit-tool rows (G22). */
   okEditedPaths(session: string, consumer: string): string[];
   /** Whether any ok edit-tool row of `path` exists with seq > sinceSeq, in any session (M7). */
@@ -102,37 +103,42 @@ export function observedActionsDao(store: Store): ObservedActionsDao {
         )
         .all(session, consumer) as RunRow[];
     },
-    pathWrites(session, sinceSeq) {
+    // Consumer-scoped and ok-only (Steps 1-12 build review M2, m2): a failed
+    // write changed nothing, and a subagent's writes are not the main agent's.
+    pathWrites(session, consumer, sinceSeq) {
       return (
         store
           .prepare(
             `SELECT path FROM observed_actions
-             WHERE session = ? AND seq > ? AND path IS NOT NULL AND ${inList('tool', EDIT_TOOLS)}
+             WHERE session = ? AND consumer = ? AND seq > ? AND outcome = 'ok' AND path IS NOT NULL
+               AND ${inList('tool', EDIT_TOOLS)}
              GROUP BY path ORDER BY min(seq)`
           )
-          .all(session, sinceSeq, ...EDIT_TOOLS) as { path: string }[]
+          .all(session, consumer, sinceSeq, ...EDIT_TOOLS) as { path: string }[]
       ).map((r) => r.path);
     },
-    firstHash(session, path) {
+    // Consumer-scoped (Steps 1-12 build review M2).
+    firstHash(session, consumer, path) {
       const row = store
         .prepare(
           `SELECT content_hash FROM observed_actions
-           WHERE session = ? AND path = ? AND outcome = 'ok' AND content_hash IS NOT NULL
+           WHERE session = ? AND consumer = ? AND path = ? AND outcome = 'ok' AND content_hash IS NOT NULL
            ORDER BY seq LIMIT 1`
         )
-        .get(session, path) as { content_hash: string } | undefined;
+        .get(session, consumer, path) as { content_hash: string } | undefined;
       return row?.content_hash;
     },
-    hashesFor(session, path) {
+    // Consumer-scoped (Steps 1-12 build review M2).
+    hashesFor(session, consumer, path) {
       return (
         store
           .prepare(
             `SELECT content_hash FROM observed_actions
-             WHERE session = ? AND path = ? AND outcome = 'ok' AND content_hash IS NOT NULL
+             WHERE session = ? AND consumer = ? AND path = ? AND outcome = 'ok' AND content_hash IS NOT NULL
                AND ${inList('tool', EDIT_TOOLS)}
              ORDER BY seq`
           )
-          .all(session, path, ...EDIT_TOOLS) as { content_hash: string }[]
+          .all(session, consumer, path, ...EDIT_TOOLS) as { content_hash: string }[]
       ).map((r) => r.content_hash);
     },
     okEditedPaths(session, consumer) {
