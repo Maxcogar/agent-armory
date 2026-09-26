@@ -1498,7 +1498,20 @@ and nothing here depends on the new channel.
    record 2026-09-25, G3.) Refresh:
    `last_mined_commit` watermark; mine only `watermark..HEAD`, committed in
    bounded chunks, each chunk advancing the watermark to its own last commit
-   (AD-26). History rewrite detected (watermark unreachable) → **one purge
+   (AD-26). **A commit already in `commits` is skipped, never counted again,**
+   so a resumed pass is idempotent whatever order the history's branches
+   interleave in. **The pass's final transaction sets `last_mined_commit` to
+   the `HEAD` it mined to**, including when `HEAD` is a merge. *Why (Step 13
+   test writer, 2026-09-26):* the stream excludes merges (`--no-merges`), so a
+   chunk watermark can never equal a merge `HEAD` — every history fact would
+   read stale forever under AD-14's `last_mined_commit ≠ HEAD` rule on a
+   merge-PR repository — and on a branching history a side branch's commits
+   can be mined before the chunk's last commit without being its ancestors, so
+   resuming from `watermark..HEAD` alone would count them twice. A `files` row
+   whose commit provenance names a commit no longer in `commits` (after a
+   purge) is re-pointed to the commit that names the path in the re-mine; one
+   that no re-mined commit names is swept (`files.sweepUnreferenced`) unless a
+   human-provenance record references it. History rewrite detected (watermark unreachable) → **one purge
    transaction** that clears every history-derived table — `commits`,
    `cochange_pairs`, `labelled_touches`, `files.change_count` (reset to 0), and
    the miner-kind `landmines` rows (`revert_chain`, `fix_chatter`; never
