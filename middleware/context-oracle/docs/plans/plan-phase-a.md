@@ -1361,7 +1361,7 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/stores/adapter.ts, middleware/context-oracle/ctxoracle/test/unit/stores_adapter.test.ts, middleware/context-oracle/ctxoracle/test/conventions/sqlite_single_importer.test.ts, middleware/context-oracle/ctxoracle/test/unit/concurrency.test.ts, middleware/context-oracle/ctxoracle/test/unit/concurrency_worker.ts, middleware/context-oracle/ctxoracle/test/unit/fts5_probe.test.ts, middleware/context-oracle/ctxoracle/test/unit/store_nesting.test.ts, middleware/context-oracle/ctxoracle/test/unit/store_backup.test.ts, middleware/context-oracle/ctxoracle/test/unit/store_backup_holder.ts]
   modify: []
   delete: []
-provides: [openStore, Store, StoreBusy, StoreMissing, StoreUnreadable, probeFts5, backupFile]
+provides: [openStore, Store, StoreBusy, StoreMissing, StoreUnreadable, TransactionAborted, probeFts5, backupFile]
 tests: [T-3-1, T-3-2, T-3-3, T-3-4, T-3-5, T-3-6]
 depends_on: [S1, S2]
 ```
@@ -1411,7 +1411,22 @@ the sole file containing `node:sqlite`.
   `ROLLBACK TO sp<depth>` then `RELEASE sp<depth>` and rethrows. There is **no
   busy retry at depth > 0** (the write lock is already held) and
   `opts.onBusyRetry` is ignored there. A throw at depth 0 rolls back
-  everything the nested calls released. DAO methods keep calling
+  everything the nested calls released. **An engine-abandoned transaction
+  poisons the unit (Steps 1–12 build review S1).** SQLite may roll back the
+  whole transaction on its own after `SQLITE_FULL`, `SQLITE_IOERR`,
+  `SQLITE_NOMEM`, or `SQLITE_BUSY` inside it ("Response To Errors Within A
+  Transaction", `sqlite.org/lang_transaction.html`). After any throw at depth
+  > 0 the adapter checks `db.isTransaction`: if the engine has ended the
+  transaction, the `ROLLBACK TO` is skipped, the handle is marked aborted,
+  and the call throws `TransactionAborted` (Step 3 error type); while
+  aborted, every `transaction` call and every statement run through the
+  `Store` throws `TransactionAborted` until the depth-0 call unwinds, which
+  clears the mark and rethrows. So a caller that catches an inner error can
+  never have its later writes autocommit one by one. *Why:* executed in the
+  review, the adapter swallowed the failed savepoint undo, the caller's later
+  insert committed on its own, and the outer call then threw "cannot commit -
+  no transaction is active" with the earlier row lost and the later one
+  kept. DAO methods keep calling
   `transaction` for their own atomicity; a caller wrapping several DAO calls
   in one outer `transaction` makes them one atomic unit (the unit of work
   owns the demarcation). *Why:* executed in the review,
@@ -1538,7 +1553,9 @@ mode is looser than `0o700` (never `chmod`ed; `status` reports them).
 **Reopened 2026-09-26 — build delta (AD-3, AD-17; gap-list review G35, N15).**
 Add `ensureHome(home: string): { homeDiagnostics: string; looseMode: string[] }`
 — creates `<home>/`, `<home>/global/`, and `<home>/diagnostics/` at `0o700`
-when missing (the home layout AD-3 now lists, with the home-level fault
+when missing (created with `mkdirSync(path, {mode: 0o700})`, so the umask can
+only narrow the mode and there is no window at a looser one, then `chmod`
+to `0o700` exactly — Steps 1–12 build review m3) (the home layout AD-3 now lists, with the home-level fault
 channel AD-17 names) and returns `<home>/diagnostics/` plus any of those three
 that pre-existed with a looser mode. `ensureLayout(home, repoKey)` calls
 `ensureHome` first and then creates the per-project directories exactly as
@@ -2552,9 +2569,11 @@ this list differs (the provides list in the declaration is the complete
 surface):
 - `files`: `deleteMissing(presentPaths)` is **removed** (it hard-deleted a
   file and cascaded its history away — G2). New: `ensureHistoryRow(path,
-  injectionSuspect): number` (insert-if-absent with `in_tree = 0`, `lang` and
-  `zone` `'unknown'`, `content_hash`/`mtime` NULL, provenance
-  `commit`/`untrusted_repo`; returns the id; never changes an existing row);
+  injectionSuspect, commitHash): number` (insert-if-absent with `in_tree = 0`,
+  `lang` and `zone` `'unknown'`, `content_hash`/`mtime` NULL, provenance
+  `commit`/`untrusted_repo` with `prov_ref` = the commit that first named the
+  path — a `commit` provenance must reference a commit, Steps 1–12 build
+  review m1; returns the id; never changes an existing row);
   `markAbsentExcept(listedPresentIds): number[]` (sets `in_tree = 0` on every
   `in_tree = 1` row not in the set and returns their ids so the indexer
   deletes their index-derived rows); `sweepUnreferenced(): number` (deletes
@@ -2606,9 +2625,14 @@ surface):
 - `observed_actions`: `append(row)` takes no `seq` (engine-assigned — N16) and
   takes `segments_json`; `okEditedPaths(session, consumer)` (G22 — the
   distinct paths of `outcome = 'ok'` rows whose tool ∈ `EDIT_TOOLS`);
-  `hashesFor(session, path)`; `runs(session, consumer)` returns
+  `hashesFor(session, consumer, path)`; `runs(session, consumer)` returns
   `command_class`, `segments_json`, and `outcome`; `pathWrites(session,
-  sinceSeq)` orders by `seq`; `writtenSince(path, sinceTs)` is **replaced**
+  consumer, sinceSeq)` orders by `seq` and counts `outcome = 'ok'` rows only
+  (a failed write changed nothing, the rule every other edit consumer
+  follows); `firstHash(session, consumer, path)`. Every per-session reader
+  takes the consumer, so a subagent's actions never appear in the main
+  agent's `ObservedActionsReader` (Step 6 declares that reader per session
+  and consumer; Steps 1–12 build review M2, m2); `writtenSince(path, sinceTs)` is **replaced**
   by `writtenSinceSeq(path, sinceSeq)` (`seq > sinceSeq`) and `maxSeq()` — the
   index-time regret watermark is a `seq`, never a wall-clock `ts`, for the
   reason the fold's is (expert review M7: a handler that stamps `ts` before the
@@ -2951,8 +2975,13 @@ owner-tunable via `tune` (AD-20).
   evidence must reach the high tier under every dampener at once, or a
   dampener becomes a universal cap — collapse-hunt H2: without it, `tune
   bar.untrusted_trust_factor 0.75` flagged every mined whisper uncertain, C2
-  again); and `bar.recency_half_life_days ≥ 37`. Otherwise the plain-language
-  reason names the violated relation and every value in it (AD-20, ER M9).
+  again); and `bar.recency_half_life_days ≥ 37`. It also refuses a key that
+  has no seed in `tuning_seeds` (a typo would otherwise write a row nothing
+  reads) and, for a key whose seed is numeric, a value that is not a finite
+  number (`num()` throws on one, so `tune bar.support_min abc` would make
+  every event fail open silently — Steps 1–12 build review M3). Otherwise the
+  plain-language reason names the violated relation and every value in it
+  (AD-20, ER M9).
   *Why 37 (a plan guard, raised in §16 item 5):* AD-13's weight
   `2^((ts − T0)/h)` with `T0` = 2000-01-01 is an IEEE-754 double; for
   commits dated up to 2100-01-01 (36,525 days after `T0`) the largest weight
@@ -6998,7 +7027,12 @@ are *runnable* at that point.
   | `src/hook/handler.ts` | `consumer = consumerKey(session, agentId)`; `writeSessionEvent` and the `observed_actions` append without `seq`; the `whisper_dropped_stale` fault replaced by `whisper_dropped_unverifiable` with `reason: 'stale_pointer'`; `EventContext`'s new members with stand-ins — `repoRoot` = `checkoutRoot` = the skeleton's repository path, `isWorktree: false`, `historyAvailable: false`, `indexStale` and `historyStale` `false`, `refTs` = the stored `ref_ts` or 0, `tuning` = Step 12's `tuningReader` (3) | Step 28 |
   | `src/blocks/answer_drift.ts`, `src/blocks/health.ts` | threshold reads move from `TuningReader.get` to `num`/`list` (3); consumer parameters typed `ConsumerKey` (3) | Steps 25, 26 |
   | `src/miner/cochange.ts` | the `landmines.upsert` calls are removed — the miner writes no landmine at 1R (2); `bump` passes the commit hash it already parses and a stand-in weight `1` (3) | Step 13 |
-  | `src/index/indexer.ts` | the `files.deleteMissing` call is removed — a file gone from the tree keeps its row at 1R (2); `files.upsert` passes `in_tree: 1` and `isSuspect(path)` (3) | Step 14 |
+  | `src/index/indexer.ts` | the inline `DELETE FROM files` loop is removed — a file gone from the tree keeps its row at 1R (2); the `fts_paths`/`fts_symbols` inserts, which name the pre-1R columns, are removed, so `init` and `index` run at 1R with empty FTS tables (2); `files.upsert` passes `in_tree: 1` and `isSuspect(path)` (3) | Step 14 |
+  | `src/index/search.ts` | its FTS and `LIKE` bodies, which read the pre-1R columns, return `[]` (1); no caller remains at 1R | Step 14 |
+  | `src/bar/combinator.ts` (`confidenceOf`) | stand-in body consistent with `passesBar`'s (3) | Step 16 |
+  | `src/hook/handler.ts` (further) | `targetPath` keeps the skeleton's cwd-relative value, `resultPaths: []`, `context: 'read'`, `role` from `consumerRole`, an empty `observed` reader, and a `recordDrop` stand-in (3); `consumerRole(consumer) === 'main'` replaces `consumer === 'main'` here and in `decideDeny`, since the old comparison can never match a `ConsumerKey` and would switch the block off (3) | Step 28 |
+  | `src/hook/adapter.ts` (further) | `targetPathRaw` carried through (3) | Step 28 |
+  | `src/miner/cochange.ts` (further) | `files.upsert` for a history-only path passes `in_tree: 0` (3) | Step 13 |
   | `src/diag/whisper_stats_fold.ts` | the fold body writing `window_start`/`upsertFold` is removed and the function returns `{folded: 0}` (2) | Step 30 |
   | `src/cli/verbs_skeleton.ts` | the `note --kind landmine` branch calling `landmines.upsert` is removed and prints "not built yet" (2) | Step 35 (deletes the file) |
 
@@ -10320,7 +10354,16 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     transaction within a transaction", OR `onBusyRetry` fires below depth 0,
     OR case (f) creates the file or fails to open the existing one, OR (g) is
     not `StoreMissing` or creates the directory, OR (h) is `StoreMissing` or
-    lacks `pathKind: 'directory'`.
+    lacks `pathKind: 'directory'`, OR case (i) leaves row 3 without row 1.
+  - **Case (i) — engine-abandoned transaction (Steps 1–12 build review
+    S1).** `PRAGMA max_page_count` is capped just above the table's size;
+    the outer inserts 1, an inner call inserts a row too large to fit
+    (`SQLITE_FULL`), the outer catches that error, inserts 3, and returns.
+    If the engine kept the transaction, the result is case (b)'s shape:
+    rows {1, 3}, no throw. If it abandoned it, the outer call throws
+    `TransactionAborted` and the table is empty. Either way rows {3} alone —
+    the executed defect — fails the test; the test records which branch the
+    engine took.
 
 - **T-3-6 — `backupFile` into a store another process holds open.**
   - **File.** `test/unit/store_backup.test.ts`, holder
