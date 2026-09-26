@@ -2123,7 +2123,12 @@ CREATE TABLE schema_meta(key TEXT PRIMARY KEY, value TEXT) STRICT;
   -- D-plan-25, excludes any transcript whose first entry predates it),
   -- fold_watermark_audit, fold_watermark_corrections (AD-4/AD-5: the fold's
   -- two seq watermarks, '0' until the first fold), mining_in_progress
-  -- ('1' during a full (re-)mine, AD-13/AD-26), ref_ts (Step 13: the
+  -- ('1' during a full (re-)mine, AD-13/AD-26), indexing_in_progress
+  -- ('1' from an index pass's first write until its final transaction,
+  -- Step 14: a pass that finds it set runs as full, so a crash between the
+  -- file-row chunks and the edge/symbol_refs chunks can never leave files
+  -- skipped as unchanged with their derived rows missing — named by the
+  -- Step 14 builder, confirmed 2026-09-26), ref_ts (Step 13: the
   -- reference instant, HEAD's committer time, epoch s — G19),
   -- corpus_floor_met ('0'|'1', Step 13 — N1), lang_capabilities (Step 14:
   -- JSON {lang: {frontend, symbols, imports, resolved, unresolved, files}},
