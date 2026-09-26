@@ -3645,8 +3645,14 @@ Create `src/index/zone.ts` (zone classification per AD-12): a marker comment
 in the head 2 KB (`@generated`, `DO NOT EDIT`, `Code generated … DO NOT
 EDIT`), `dist/`/`build/`/lockfile path patterns, `vendor/`/`node_modules/`
 path segments, and membership of `walkRepository`'s `ignoredTracked` set
-(zone `generated`, evidence `tracked file matches an ignore pattern`); the
-evidence string is redacted and injection-flagged at capture
+(zone `generated`, evidence `tracked file matches an ignore pattern`).
+**Precedence, first match wins:** `ignoredTracked` membership → the marker
+comment → the `vendor/`/`node_modules/` segments (`vendored`) → the
+`dist/`/`build/`/lockfile patterns (`build_output`) → `source` (the Step 14
+builder's preflight: T-14-3 expects a tracked `dist/a.js` that matches an
+ignore pattern to be `generated`, not `build_output`). A file over the byte
+cap still gets a bounded read of its first 2 KB, for the marker check only.
+The evidence string is redacted and injection-flagged at capture
 (`zone_evidence_suspect`). **Every zone is parsed for symbols** (N9);
 Orientation and
 Reuse exclude non-`source` candidates by zone (Step 18), so a search still
@@ -3671,7 +3677,14 @@ Create `src/index/indexer.ts`:
   (> 1 MB → path-only), and the 20k-line cap during a bounded read that stops
   at line 20,001 (→ path-only); a path-only file records
   `index_path_only_oversize` (`{path, bytes, lines, cap}` — G15) and gets its
-  `files` row, zone, and path tokens but no parse; otherwise
+  `files` row, zone, and path tokens but no parse. **An unchanged path-only
+  file is skipped:** a byte-cap file is keyed by its `stat` size and mtime
+  (the change check git's own index uses), stored in `files.content_hash` as
+  `stat:<size>:<mtime_ms>`, and a line-cap file by the SHA-256 of the bounded
+  bytes read; when the key and `in_tree = 1` are unchanged the file is not
+  re-recorded and no second `index_path_only_oversize` is written (the fault
+  is recorded only when the row is written) — T-14-1's unchanged re-run
+  requires it (the Step 14 builder's preflight). Otherwise
   incremental by `content_hash`: an unchanged `in_tree = 1` file is not
   re-parsed; a changed or new file is parsed, its content passed through
   `redact` (Step 11) before anything derived from it is stored, and its
@@ -7302,6 +7315,8 @@ are *runnable* at that point.
   | `src/blocks/answer_drift.ts`, `src/blocks/health.ts` | threshold reads move from `TuningReader.get` to `num`/`list` (3); consumer parameters typed `ConsumerKey` (3) | Steps 25, 26 |
   | `src/miner/cochange.ts` | the `landmines.upsert` calls are removed — the miner writes no landmine at 1R (2); `bump` passes the commit hash it already parses and a stand-in weight `1` (3) | Step 13 |
   | `src/index/indexer.ts` | the inline `DELETE FROM files` loop is removed — a file gone from the tree keeps its row at 1R (2); the `fts_paths`/`fts_symbols` inserts, which name the pre-1R columns, are removed, so `init` and `index` run at 1R with empty FTS tables (2); `files.upsert` passes `in_tree: 1` and `isSuspect(path)` (3) | Step 14 |
+  | `src/cli/index.ts`, `src/cli/init.ts` — Step 14's skeleton callers (made during Step 14's build) | the skeleton verbs call the new `runIndex` with `tuning = tuningReader(global, <repo key>, …)` (no `global` option), and narrow on `'refused' in result` before reading `IndexResult`; a refused run prints the notice Step 28/31 specify; marked `SKELETON: 14` (3) | Steps 28 and 31 |
+  | `src/index/generic_frontend.ts`, `src/index/tree_sitter_frontend.ts` — Step 14's skeleton frontends (made during Step 14's build) | wrapped to Step 14's `LanguageFrontend`: `capabilities` (`{symbols: true, imports: false}` for generic; the tree-sitter one's declared capability), `init` (a no-op on generic), `parse` returning `{ok: true, symbols, imports}` with captured specifiers mapped from the skeleton's edges; marked `SKELETON: 14` (3) | Step 15 |
   | `src/index/indexer.ts` — Step 13's skeleton caller (made during Step 13's build, after 1R) | the skeleton `runIndex` builds the miner's `TuningReader` as `tuningReader(global, resolveRepoKey(repoPath).key)` and maps `MineResult.included` onto its existing `IndexResult.mine.commitsIncluded`, so the skeleton `index`/`init` verbs compile unchanged; both marked `SKELETON: 13` (3) | Step 14 |
   | `src/cli/context.ts` — Step 13's skeleton store opener (made during Step 13's build) | the skeleton `openRepo` opens both stores with `busyTimeoutMs: 5000`, the off-path wait (AD-26), so the `index`/`init` verbs' miner cannot abort on `StoreBusy` against a live session; marked `SKELETON: 13` (3) | Step 35 (deletes the file) |
   | `src/index/search.ts` | its FTS bodies (which read the pre-1R FTS columns) and its `LIKE` bodies (which are not AD-2's token fallback) return `[]` (1); no caller remains at 1R | Step 14 |
