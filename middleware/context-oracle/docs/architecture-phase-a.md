@@ -1382,9 +1382,12 @@ and nothing here depends on the new channel.
    through a `LanguageFrontend` interface (`FR-K1`'s language-agnostic seam,
    C-6): the tree-sitter frontend covers every language whose
    `tree-sitter-wasms` grammar the pinned runtime can load **and parse** —
-   by execution 32 of the 36 it ships (`elm` and `ql` are below the runtime's
+   by execution 31 of the 36 it ships (`elm` and `ql` are below the runtime's
    minimum ABI; `yaml`'s and `bash`'s scanners import symbols the runtime does
-   not export — plan §4, 2026-09-11), mapped by a **configurable**
+   not export — plan §4, 2026-09-11; `lua` loads but, after its first parse in
+   a process, returns ERROR trees for valid source without throwing — found by
+   the Step 15 test writer, 2026-09-26, with repeated parses, which the one
+   parse per grammar of the 2026-09-11 probe could not show), mapped by a **configurable**
    extension→grammar table with defaults; a **generic frontend** (line-based
    definition heuristics + path/word tokens into FTS) covers everything else, so
    no language is invisible (C-6: adding a language = adding a grammar file or a
@@ -2936,7 +2939,10 @@ criterion is pinned there and its mechanism lives in the named decisions.)
   checked at build (`npm pack --dry-run` + a loaded-grammar smoke test), with
   the generic frontend as the floor for anything missing. *(Executed
   2026-09-11: every grammar the pinned runtime loads and parses — 32 of 36;
-  the other four fall to the generic frontend. Plan §4.)* If coverage proves
+  the other four fall to the generic frontend. Plan §4. Corrected 2026-09-26:
+  31 of 36 — `lua` parses once and then silently returns ERROR trees, so it
+  falls to the generic frontend too; a usable grammar is one that parses
+  valid source correctly on repeated parses, not once.)* If coverage proves
   materially narrower than expected, the ext→grammar config absorbs
   individually-shipped grammar WASMs without redesign (C-6). Two consequences
   for the Reuse genre: `symbol_refs` is an **identifier-match heuristic**
