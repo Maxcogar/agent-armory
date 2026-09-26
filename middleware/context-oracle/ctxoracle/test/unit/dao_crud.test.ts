@@ -593,3 +593,177 @@ test('T-9-1 (2026-09-26): an outer store.transaction around two DAO writes that 
     assert.equal(invariantsDao(s).forFile(f).length, 0, 'no invariant row');
   });
 });
+
+// ---- Added by the 2026-09-26 independent build review
+// (docs/reviews/2026-09-26-steps-1-12-build-review.md). Each case is a sentence
+// of Step 9's build delta that no T-9-1 case above pinned; the sentence is
+// quoted beside the case.
+
+test('T-9-1r1 (review): markAbsentExcept touches only in_tree = 1 rows — an already history-only row is not returned', () => {
+  // "sets `in_tree = 0` on every `in_tree = 1` row not in the set and returns their ids"
+  withStores((s) => {
+    const files = filesDao(s);
+    const keep = inTreeFile(s, 'keep.ts');
+    const gone = inTreeFile(s, 'gone.ts');
+    const hist = files.ensureHistoryRow('history-only.txt', false);
+    assert.deepEqual(files.markAbsentExcept([keep]), [gone], 'the history-only row is not reported');
+    assert.equal(fileCounts(s, hist).in_tree, 0);
+  });
+});
+
+test('T-9-1r2 (review): sweepUnreferenced deletes only in_tree = 0 rows with change_count = 0', () => {
+  // "deletes `in_tree = 0` rows with `change_count = 0` that no ... row references"
+  withStores((s) => {
+    const files = filesDao(s);
+    const inTree = inTreeFile(s, 'present.ts'); // unreferenced, but in the tree
+    const counted = files.ensureHistoryRow('counted.txt', false); // unreferenced, change_count 1
+    files.addChangeCount(counted, 1, 1);
+    const lone = files.ensureHistoryRow('lone.txt', false);
+    assert.equal(files.sweepUnreferenced(), 1);
+    assert.equal(files.byId(lone), undefined);
+    assert.equal(files.byId(inTree)?.path, 'present.ts', 'an in-tree row is never swept');
+    assert.equal(files.byId(counted)?.path, 'counted.txt', 'a row with change_count > 0 is kept');
+  });
+});
+
+test('T-9-1r3 (review): ensureHistoryRow records the path injection flag it is given', () => {
+  // "ensureHistoryRow(path, injectionSuspect)"; the PROV injection_suspect column is the path's flag (Step 7)
+  withStores((s) => {
+    const files = filesDao(s);
+    const id = files.ensureHistoryRow('ignore previous instructions.txt', true);
+    assert.equal(files.byId(id)?.injection_suspect, 1);
+    assert.equal(files.byId(files.ensureHistoryRow('plain.txt', false))?.injection_suspect, 0);
+  });
+});
+
+test('T-9-1r4 (review): cochange_pairs.bump with ts equal to last_ts moves last_commit to the new hash', () => {
+  // "when `ts ≥ last_ts`, sets `last_ts = ts` and `last_commit = hash`"
+  withStores((s) => {
+    const a = inTreeFile(s, 'a.ts');
+    const b = inTreeFile(s, 'b.ts');
+    const co = cochangePairsDao(s);
+    co.bump(a, b, 100, 'h1', 1);
+    co.bump(b, a, 100, 'h2', 1); // reversed argument order: the DAO normalizes (a < b)
+    const p = co.pair(a, b);
+    assert.equal(p?.last_ts, 100);
+    assert.equal(p?.last_commit, 'h2');
+    assert.equal(p?.pair_count, 2);
+  });
+});
+
+test('T-9-1r5 (review): setEntryScore is an assignment that writes nothing when the value is unchanged', () => {
+  // "an assignment — it writes only when the value differs, so an unchanged pass writes nothing; N4"
+  withStores((s) => {
+    const files = filesDao(s);
+    const id = inTreeFile(s, 'a.ts');
+    files.setEntryScore(id, 7);
+    assert.equal((s.prepare('SELECT changes() AS n').get() as { n: number }).n, 1, 'a changed value is written');
+    files.setEntryScore(id, 7);
+    assert.equal((s.prepare('SELECT changes() AS n').get() as { n: number }).n, 0, 'an unchanged value writes no row');
+  });
+});
+
+test('T-9-1r6 (review): observed_actions.runs(session, consumer) returns that consumer\'s Bash rows of either outcome, in seq order', () => {
+  // "`runs(session, consumer)` returns `command_class`, `segments_json`, and `outcome`" (Bash rows of either outcome, Step 6)
+  withStores((s) => {
+    const oa = observedActionsDao(s);
+    oa.append({ session: S, consumer: C, tool: 'Bash', command_class: 3, outcome: 'failed', segments_json: '[3]', ts: 1 });
+    oa.append({ session: S, consumer: C, tool: 'Edit', path: 'a.ts', outcome: 'ok', ts: 2 });
+    oa.append({ session: S, consumer: 'S#sub:ag1', tool: 'Bash', command_class: 1, outcome: 'ok', ts: 3 });
+    oa.append({ session: 'T', consumer: 'T#main', tool: 'Bash', command_class: 1, outcome: 'ok', ts: 4 });
+    oa.append({ session: S, consumer: C, tool: 'Bash', command_class: 1, outcome: 'ok', segments_json: null, ts: 5 });
+    assert.deepEqual(
+      oa.runs(S, C).map((r) => ({ ...r })),
+      [
+        { command_class: 3, segments_json: '[3]', outcome: 'failed' },
+        { command_class: 1, segments_json: null, outcome: 'ok' },
+      ]
+    );
+    assert.equal(oa.runs(S, 'S#sub:ag1').length, 1, 'another consumer of the same session is separate');
+  });
+});
+
+test('T-9-1r7 (review): observed_actions.pathWrites(session, sinceSeq) reads only seq > sinceSeq and orders by seq', () => {
+  // "`pathWrites(session, sinceSeq)` orders by `seq`"
+  withStores((s) => {
+    const oa = observedActionsDao(s);
+    oa.append({ session: S, consumer: C, tool: 'Edit', path: 'z.ts', outcome: 'ok', ts: 1 }); // seq 1
+    oa.append({ session: S, consumer: C, tool: 'Write', path: 'm.ts', outcome: 'ok', ts: 2 }); // seq 2
+    oa.append({ session: S, consumer: C, tool: 'Edit', path: 'b.ts', outcome: 'ok', ts: 3 }); // seq 3
+    oa.append({ session: S, consumer: C, tool: 'Edit', path: 'm.ts', outcome: 'ok', ts: 4 }); // seq 4
+    assert.deepEqual(oa.pathWrites(S, 0), ['z.ts', 'm.ts', 'b.ts'], 'first-write seq order, not path order');
+    assert.deepEqual(oa.pathWrites(S, 2), ['b.ts', 'm.ts'], 'rows at or below sinceSeq are excluded');
+  });
+});
+
+test('T-9-1r8 (review): session_log.append returns {id, seq} — the ULID and the engine-assigned seq of the row it wrote', () => {
+  // "`session_log`: `append(row)` takes no `seq`, returns `{id, seq}`"
+  withStores((s) => {
+    const sl = sessionLogDao(s);
+    const first = sl.append({ session: 'A', consumer: 'A#main', event_type: 'liveness', ts: 10 });
+    const second = sl.append({ session: 'A', consumer: 'A#main', event_type: 'Stop', ts: 5 });
+    assert.match(first.id, ULID);
+    assert.match(second.id, ULID);
+    assert.deepEqual(Object.keys(first).sort(), ['id', 'seq']);
+    const stored = (s.prepare('SELECT seq, id FROM session_log ORDER BY seq').all() as { seq: number; id: string }[]).map((r) => ({ ...r }));
+    assert.deepEqual(stored, [
+      { seq: first.seq, id: first.id },
+      { seq: second.seq, id: second.id },
+    ]);
+    assert.equal(second.seq, first.seq + 1);
+  });
+});
+
+test('T-9-1r9 (review): landmines.rebuildMinerKinds is atomic — a failing row leaves the previous miner rows in place', () => {
+  // "deletes every `revert_chain`/`fix_chatter` row and inserts `rows` ... inside the caller's transaction";
+  // "Every DAO method that writes more than one statement wraps them in `store.transaction` ... so a DAO call alone stays atomic"
+  withStores((s) => {
+    const f = inTreeFile(s, 'src/a.ts');
+    const lm = landminesDao(s);
+    lm.rebuildMinerKinds([{ kind: 'fix_chatter', fileId: f, evidence: 'old', support: 3, prov: mined }]);
+    const dup = { kind: 'revert_chain' as const, fileId: f, evidence: 'e', support: 2, prov: mined };
+    assert.throws(() => lm.rebuildMinerKinds([dup, dup]), 'a second row for one (kind, file_id) violates landmines_miner_key');
+    assert.deepEqual(
+      lm.forFile(f).map((r) => [r.kind, r.evidence]),
+      [['fix_chatter', 'old']],
+      'the delete was rolled back with the failed insert'
+    );
+  });
+});
+
+test('T-9-1r10 (review): whisper_stats.replaceForProject is atomic — a failing row leaves the project\'s previous rows', () => {
+  // "deletes that project's rows and inserts `rows` inside the caller's transaction (AD-5's replace-publish)"
+  withStores((_s, g) => {
+    const ws = whisperStatsDao(g);
+    ws.replaceForProject('k', [{ genre: 'coupling', sent: 4, correctedFalse: 1, correctedMissed: 0 }], 1);
+    const row = { genre: 'reuse', sent: 1, correctedFalse: 0, correctedMissed: 0 };
+    assert.throws(() => ws.replaceForProject('k', [row, row], 2), 'a duplicate (genre, project_key) fails the publish');
+    assert.deepEqual(
+      ws.forProject('k').map((r) => [r.genre, r.sent, r.published_at]),
+      [['coupling', 4, 1]]
+    );
+  });
+});
+
+test('T-9-1r11 (review): global_meta.keysWithPrefix treats the prefix literally (no LIKE wildcards)', () => {
+  // "`global_meta.keysWithPrefix(prefix)` (the bindings, `status` and `deinit --purge`)" — keys starting with prefix
+  withStores((_s, g) => {
+    const gm = globalMetaDao(g);
+    gm.set('repo_path:/a', 'k1');
+    gm.set('repoXpath:/b', 'k2');
+    gm.set('repo_path%:/c', 'k3');
+    assert.deepEqual(gm.keysWithPrefix('repo_path:'), ['repo_path:/a']);
+    assert.deepEqual(gm.keysWithPrefix('repo_path%'), ['repo_path%:/c']);
+  });
+});
+
+test('T-9-1r12 (review): landmines.createHuman refuses a repo-derived (commit / untrusted_repo) row', () => {
+  // "`createHuman(row)` (the `human_stated` writer, Step 35)"; FR-X4: a repo-derived input may not be recorded as
+  // owner-stated. provCreateValues alone accepts commit/untrusted_repo, so this is the kind-level gate.
+  withStores((s) => {
+    const f = inTreeFile(s, 'src/a.ts');
+    const lm = landminesDao(s);
+    assert.throws(() => lm.createHuman({ fileId: f, evidence: 'from a commit message', prov: mined }));
+    assert.deepEqual(lm.forFile(f), []);
+  });
+});

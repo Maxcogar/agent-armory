@@ -152,3 +152,60 @@ test('T-12-3: tuningWriteNotice names `ctxoracle index` for the half-life and is
   assert.match(notice ?? '', /ctxoracle index/);
   assert.equal(tuningWriteNotice('bar.support_min'), null);
 });
+
+// ---- Added by the 2026-09-26 independent build review. Each case is a sentence
+// of Step 12's build delta that T-12-2/T-12-3 above did not pin.
+
+test('T-12-2e (review): a list key with no member at either level is re-seeded with its seed source, onMissing once, seed members returned', () => {
+  // "A key with neither is re-seeded from `tuning_seeds.ts` (the seed row written with its seed `source`),
+  //  `onMissing(key)` is called once for it, and the seed value is returned" — list keys included.
+  withSeeded((g) => {
+    const seeded = (g.prepare("SELECT value, source FROM tuning WHERE key = 'lexicon.completion_claim' AND project_key IS NULL ORDER BY rowid").all() as {
+      value: string;
+      source: string;
+    }[]).map((r) => ({ ...r }));
+    assert.ok(seeded.length > 0, 'precondition: the seed wrote members');
+    g.prepare("DELETE FROM tuning WHERE key = 'lexicon.completion_claim'").run();
+    const missing: string[] = [];
+    const reader = tuningReader(g, 'k1', (k) => missing.push(k));
+    assert.deepEqual(reader.list('lexicon.completion_claim'), seeded.map((r) => r.value));
+    assert.deepEqual(reader.list('lexicon.completion_claim'), seeded.map((r) => r.value), 'a second read');
+    assert.deepEqual(missing, ['lexicon.completion_claim'], 'onMissing called exactly once with that key');
+    const rewritten = (g.prepare("SELECT value, source FROM tuning WHERE key = 'lexicon.completion_claim' AND project_key IS NULL ORDER BY rowid").all() as {
+      value: string;
+      source: string;
+    }[]).map((r) => ({ ...r }));
+    assert.deepEqual(rewritten, seeded, 'the members are re-written with the seed source');
+  });
+});
+
+test("T-12-2f (review): values are cached for the reader's lifetime; a new reader sees a later write", () => {
+  // "values are cached for the reader's lifetime (one event, or one verb run)"
+  withSeeded((g) => {
+    const reader = tuningReader(g, 'k1', () => {});
+    assert.equal(reader.num('bar.confidence_floor'), 0.6);
+    g.prepare("UPDATE tuning SET value = '0.65' WHERE key = 'bar.confidence_floor' AND project_key IS NULL").run();
+    assert.equal(reader.num('bar.confidence_floor'), 0.6, 'the same reader keeps the value it read');
+    assert.equal(tuningReader(g, 'k1', () => {}).num('bar.confidence_floor'), 0.65, 'a new reader reads the new value');
+  });
+});
+
+test('T-12-2g (review): num(key) throws on a value that is not a finite number', () => {
+  // "`num(key)` parses a finite number or throws"
+  withSeeded((g) => {
+    g.prepare("UPDATE tuning SET value = 'abc' WHERE key = 'bar.support_min' AND project_key IS NULL").run();
+    assert.throws(() => tuningReader(g, 'k1', () => {}).num('bar.support_min'));
+    g.prepare("UPDATE tuning SET value = 'Infinity' WHERE key = 'bar.support_min' AND project_key IS NULL").run();
+    assert.throws(() => tuningReader(g, 'k1', () => {}).num('bar.support_min'));
+  });
+});
+
+test('T-12-3b (review): the tier invariant admits equality — untrusted_trust_factor 1 × stale_factor 0.8 = high_confidence_min 0.8 is ok', () => {
+  // "`bar.untrusted_trust_factor × bar.stale_factor ≥ bar.high_confidence_min`"
+  withSeeded((g) => {
+    g.prepare("UPDATE tuning SET value = '1' WHERE key = 'bar.untrusted_trust_factor' AND project_key IS NULL").run();
+    const reader = tuningReader(g, 'k1', () => {});
+    assert.deepEqual(checkTuningWrite(reader, 'bar.stale_factor', '0.8'), { ok: true });
+    assert.ok('refused' in checkTuningWrite(reader, 'bar.stale_factor', '0.79'), '0.79 < 0.8 is refused');
+  });
+});

@@ -405,3 +405,20 @@ test('T-7-1m: under fts:true, the in-house tokens match by prefix in fts_paths a
     assert.deepEqual(syms.map((r) => r.symbol_id), [1], "'\"user\"*' matches user_name and not getUserName");
   });
 });
+
+// ---- Added by the 2026-09-26 independent build review
+// (docs/reviews/2026-09-26-steps-1-12-build-review.md). T-7-1's Data: "per
+// knowledge table one valid row and one row per CHECK-constrained column
+// violating it". `labelled_touches` is new at 2026-09-26 (Step 7's DDL:
+// `label TEXT NOT NULL CHECK(label IN ('revert','fix'))`) and T-7-1c has no row
+// for it.
+test('T-7-1n (review): labelled_touches.label accepts revert and fix and rejects any other label', () => {
+  withStore((store) => {
+    applyMigrations(store, { fts: false });
+    const f = insertFile(store, 'a.ts');
+    const cols = ['file_id', 'commit_hash', 'label', 'ts'];
+    store.prepare(insertSql('labelled_touches', cols)).run(f, 'h1', 'revert', 1);
+    store.prepare(insertSql('labelled_touches', cols)).run(f, 'h1', 'fix', 1);
+    rejects(store, insertSql('labelled_touches', cols), [f, 'h2', 'refactor', 1]);
+  });
+});

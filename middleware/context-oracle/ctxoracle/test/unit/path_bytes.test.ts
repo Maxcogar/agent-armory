@@ -38,3 +38,31 @@ test('T-5-4e: an empty buffer — splitNul yields no field, decodePathBytes yiel
   assert.deepEqual(splitNul(Buffer.alloc(0)), []);
   assert.equal(decodePathBytes(Buffer.alloc(0)), '');
 });
+
+// ---- Added by the 2026-09-26 independent build review. Each case is read from
+// Step 5's build delta: `splitNul` returns "fields between NULs, a trailing
+// empty field dropped" (only the trailing one); `escapeBytes` keeps "printable
+// ASCII 0x20–0x7e except `\`", every other byte as `\xHH`; and the decoder is
+// "the one place a path's bytes become a string ... so the two writers of
+// `files` can never key one byte string two ways" — so two distinct valid byte
+// strings must decode to two distinct strings (a leading EF BB BF must survive).
+
+test('T-5-4f (review): splitNul keeps an empty field between two NULs and drops only the trailing one', () => {
+  const fields = splitNul(Buffer.from('a\0\0b\0', 'binary'));
+  assert.deepEqual(fields.map((f) => f.toString('utf8')), ['a', '', 'b']);
+});
+
+test('T-5-4g (review): escapeBytes escapes the backslash and the bytes just outside 0x20–0x7e, and keeps the range ends', () => {
+  assert.equal(escapeBytes(Buffer.from('back\\slash', 'binary')), 'back\\x5cslash');
+  assert.equal(escapeBytes(Buffer.from([0x1f, 0x20, 0x7e, 0x7f])), '\\x1f ~\\x7f');
+});
+
+test('T-5-4h (review): a leading UTF-8 BOM is kept, so it and the BOM-less name decode to two different paths', () => {
+  const withBom = Buffer.from([0xef, 0xbb, 0xbf, 0x61]);
+  const plain = Buffer.from('a', 'utf8');
+  const a = decodePathBytes(withBom);
+  const b = decodePathBytes(plain);
+  assert.equal(a, '﻿a');
+  assert.notEqual(a, b, 'two byte strings are never keyed as one path');
+  assert.deepEqual([...Buffer.from(a ?? '', 'utf8')], [...withBom], 'the decode round-trips to the same bytes');
+});

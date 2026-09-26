@@ -34,3 +34,18 @@ test('T-6-4e: a malformed key throws, never silently reads as main', () => {
   assert.equal(consumerRole(consumerKey('s1')), 'main');
   assert.throws(() => consumerRole('garbage'));
 });
+
+// ---- Added by the 2026-09-26 independent build review. Step 6's build delta:
+// `consumerRole(key)` "reads the part after the **first** `#` (`main` -> main,
+// `sub:` prefix -> subagent; anything else throws, so a malformed key never
+// silently reads as main)".
+test("T-6-4f (review): an agent id containing '#' still keys a subagent (the role is read after the first '#')", () => {
+  const k = consumerKey('s1', 'ag#main');
+  assert.equal(k, 's1#sub:ag#main');
+  assert.equal(consumerRole(k), 'subagent');
+});
+
+test("T-6-4g (review): a key whose role part merely starts with 'main' throws", () => {
+  assert.throws(() => consumerRole('s1#mainx'));
+  assert.throws(() => consumerRole('s1#bogus'));
+});

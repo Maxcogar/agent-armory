@@ -10,7 +10,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { openStore, StoreMissing, StoreUnreadable, type Store } from '../../src/stores/adapter.js';
@@ -189,6 +189,56 @@ test("T-3-5h: mustExist on a path that is a directory throws StoreUnreadable wit
     assert.equal(caught instanceof StoreMissing, false, 'a directory is not a missing store');
     assert.equal(caught.pathKind, 'directory');
     assert.equal(caught.path, asDir);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ---- Added by the 2026-09-26 independent build review (docs/reviews/2026-09-26-steps-1-12-build-review.md).
+// Both cases are stated in Step 3's build delta: "a `stat` that fails with
+// `ENOENT` or `ENOTDIR` throws the typed `StoreMissing` ...; any other outcome
+// — ... or `stat` fails with another errno — throws the typed
+// `StoreUnreadable` carrying {path, pathKind, errno, message} (`pathKind` null
+// when the `stat` failed)". (g) and (h) above exercise only ENOENT and an
+// existing directory, so neither branch below was pinned.
+
+test('T-3-5g2 (review): mustExist on a path whose parent is a regular file (stat ENOTDIR) throws StoreMissing', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'ctxoracle-mustexist-g2-'));
+  try {
+    const parentFile = path.join(dir, 'not-a-dir');
+    writeFileSync(parentFile, 'x');
+    const p = path.join(parentFile, 'store.db');
+    let caught: unknown;
+    try {
+      openStore(p, { mustExist: true });
+    } catch (e) {
+      caught = e;
+    }
+    assert.ok(caught instanceof StoreMissing, `expected StoreMissing for ENOTDIR, got ${String(caught)}`);
+    assert.ok((caught as Error).message.includes(p), 'the path is in its message');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('T-3-5h2 (review): mustExist on a path whose stat fails with another errno (ELOOP) throws StoreUnreadable with pathKind null and that errno', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'ctxoracle-mustexist-h2-'));
+  try {
+    const a = path.join(dir, 'loop-a');
+    const b = path.join(dir, 'loop-b');
+    symlinkSync(b, a);
+    symlinkSync(a, b);
+    let caught: unknown;
+    try {
+      openStore(a, { mustExist: true });
+    } catch (e) {
+      caught = e;
+    }
+    assert.ok(caught instanceof StoreUnreadable, `expected StoreUnreadable, got ${String(caught)}`);
+    assert.equal(caught instanceof StoreMissing, false, 'a symlink loop is not a missing store');
+    assert.equal(caught.pathKind, null, 'pathKind is null when the stat failed');
+    assert.equal(caught.errno, 'ELOOP');
+    assert.equal(caught.path, a);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

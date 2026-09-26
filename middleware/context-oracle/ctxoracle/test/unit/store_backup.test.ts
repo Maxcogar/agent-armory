@@ -9,7 +9,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync, statSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -73,6 +73,34 @@ test('T-3-6: backupFile(E, L) while a holder keeps L open with uncheckpointed WA
   } finally {
     if (holder.exitCode === null) holder.kill();
     await exited.catch(() => null);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ---- Added by the 2026-09-26 independent build review.
+// Step 3's build delta: `backupFile` wraps `sqlite.backup()` "with the source
+// opened read-only". A read-only open never creates a database, so a missing
+// source must fail the call — it must not be created empty and then copied over
+// the live store (which would replace the owner's data with nothing).
+test('T-3-6b (review): backupFile from a missing source rejects, creates no source file, and leaves the destination intact', async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'ctxoracle-backup-missing-'));
+  try {
+    const live = path.join(dir, 'live.db');
+    const l = openStore(live);
+    l.exec('CREATE TABLE other(x INTEGER NOT NULL)');
+    l.prepare('INSERT INTO other(x) VALUES(42)').run();
+    l.close();
+    const missing = path.join(dir, 'no-such-export.db');
+    await assert.rejects(() => backupFile(missing, live));
+    assert.equal(existsSync(missing), false, 'the missing source is not created');
+    const after = openStore(live);
+    try {
+      const rows = (after.prepare('SELECT x FROM other').all() as { x: number }[]).map((r) => r.x);
+      assert.deepEqual(rows, [42], 'the destination still holds its own rows');
+    } finally {
+      after.close();
+    }
+  } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 });

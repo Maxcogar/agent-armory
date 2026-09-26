@@ -33,7 +33,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
-import { openStore } from '../../src/stores/adapter.js';
+import { openStore, StoreBusy } from '../../src/stores/adapter.js';
 
 const workerPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'concurrency_worker.js');
 
@@ -122,6 +122,42 @@ test('T-3-3: contended writers — retry-then-succeed (B) and give-up (C), by co
       verify.close();
     }
   } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ---- Added by the 2026-09-26 independent build review
+// (docs/reviews/2026-09-26-steps-1-12-build-review.md). Step 3: "`opts.onBusyRetry`,
+// when given, is invoked exactly once — after the first attempt's `SQLITE_BUSY`,
+// before the retry". Case C above records its retry as a marker file, which a
+// second invocation would rewrite unnoticed, so the "exactly once" half of the
+// give-up path was not pinned. Here a second handle on the same file holds the
+// write lock for the whole call; the count is observed directly.
+test('T-3-3b (review): a write contended through both attempts fires onBusyRetry exactly once, then raises StoreBusy and writes nothing', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'ctxoracle-busy-once-'));
+  const dbPath = path.join(dir, 'store.db');
+  const holder = openStore(dbPath);
+  const contender = openStore(dbPath);
+  try {
+    holder.exec('CREATE TABLE t(x INTEGER)');
+    holder.exec('BEGIN IMMEDIATE');
+    let calls = 0;
+    assert.throws(
+      () =>
+        contender.transaction(
+          () => {
+            contender.prepare('INSERT INTO t(x) VALUES(1)').run();
+          },
+          { onBusyRetry: () => { calls += 1; } }
+        ),
+      StoreBusy
+    );
+    assert.equal(calls, 1, 'onBusyRetry fires once, between the two attempts');
+    holder.exec('ROLLBACK');
+    assert.deepEqual(contender.prepare('SELECT x FROM t').all(), [], 'the failed-open write left no row');
+  } finally {
+    contender.close();
+    holder.close();
     rmSync(dir, { recursive: true, force: true });
   }
 });

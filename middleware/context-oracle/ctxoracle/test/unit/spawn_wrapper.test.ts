@@ -92,3 +92,15 @@ test('T-5-5c: a child started by oracleRunSync carries CTXORACLE_INTERNAL=1', ()
     rmSync(cwd, { recursive: true, force: true });
   }
 });
+
+// ---- Added by the 2026-09-26 independent build review. Step 5's build delta
+// types `oracleRunSync` as returning `{status: number | null; stdout: Buffer;
+// stderr: Buffer}` and makes only a non-zero *exit* a returned status. A child
+// that never started has no exit and no output bytes, so it cannot be returned
+// under that type (`status: null` already means "ended by a signal"); the
+// builder throws it (implementation log, finding 4's neighbour in spawn.ts).
+test('T-5-5d (review): oracleRunSync on a command that cannot be started throws rather than returning a status', () => {
+  assert.throws(() => oracleRunSync('ctxoracle-no-such-command-xyz', [], { cwd: process.cwd() }), (e: unknown) => {
+    return (e as NodeJS.ErrnoException).code === 'ENOENT';
+  });
+});
