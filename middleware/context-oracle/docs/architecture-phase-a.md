@@ -141,6 +141,9 @@ forward as "prior pass."
 | V17 | `VACUUM INTO '<file>'` executes on `node:sqlite` and round-trips data (SQLite 3.51.2 bundled); the module-level `backup()` API was **added in Node v22.16.0** (official v22.x API docs) | `VACUUM INTO` executed here 2026-08-29 (source→dest copy verified by query); `backup()` version per the v22.x API docs as recorded in the 2026-08-29 expert-review record | Export/import (AD-5) uses `VACUUM INTO` — engine-level, version-immune; with AD-2's floor at 22.16.0 either mechanism is available, and the chosen one does not depend on the floor. |
 | V18 | A subagent hook's context does **not** reach the parent, and the documented parent channel exists: "To inject context back into the parent session rather than the subagent, a PostToolUse hook on the Agent tool should be used instead" | Current hooks reference (SubagentStop section), fetched 2026-08-29, quoted verbatim | The spec-§13 open item is no longer an unknown: C-4's assumption ("does not propagate") is now documented fact, and the parent-injection option the spec anticipated exists. Nothing in Phase A changes; recorded as premise maintenance (Limitations L9). |
 | V19 | `PostToolUse` "fires after a tool executes successfully" and carries `tool_name`/`tool_input`/`tool_response`; **a failing executing tool fires `PostToolUseFailure` instead**, whose `error` string "generally begins with an exit code line" for Bash (the docs' own example payload is a failing `npm test`); `PostToolUseFailure` does **not** fire for pre-execution rejections — permission denials included | Current hooks reference (PostToolUse + PostToolUseFailure sections and payload examples), fetched 2026-08-29 | Failure outcomes (`observed_actions.outcome='failed'`) are producible **only** from `PostToolUseFailure`, so AD-6 wires it observation-only; a `PreToolUse` deny never generates one (the oracle's own denies cannot pollute the outcome record); `tool_name`/`tool_input` on tool events are the documented inputs AD-15's generators read. |
+| V20 | **When the model reads `PreToolUse` `additionalContext`.** The `PreToolUse` decision-control table: `additionalContext` is "String added to Claude's context alongside the tool result." The "Add context for Claude" section: for `PreToolUse` (and `PostToolUse`/`PostToolUseFailure`) the reminder appears "next to the tool result", and "Claude reads the reminder on the next model request" | Current hooks reference, `code.claude.com/docs/en/hooks.md`, fetched 2026-09-26; both sentences quoted verbatim from the fetched page (review record `docs/reviews/2026-09-25-skeleton-gap-list-review.md`, "Unverified item — whispers on `PreToolUse`") | The hook runs before the tool, but the model first sees a `PreToolUse` whisper **after the tool has run**, with its result. A Warning or Consequence on `PreToolUse` Edit/Write therefore informs the move *after* the edit (revise or proceed), never the decision to edit (AD-15 headline wording; L12). Supersedes the spec's former "injected before the tool runs" phrasing (FR-O2/C-4, corrected 2026-09-26). |
+| V21 | "Stderr from a hook that exits 0 goes to the debug log only, never the transcript, and Claude never sees it." | Current hooks reference, `code.claude.com/docs/en/hooks.md`, fetched 2026-09-26, quoted verbatim (review record 2026-09-25, G10). Observed in the same review on Node 22.22.2: the built handler's stderr was empty on `SessionStart`/`PostToolUse`/`status` with `NODE_NO_WARNINGS` unset — an observation on one Node version, not a guarantee | The handler always exits 0 (AD-7), so anything on its stderr — including `node:sqlite`'s `ExperimentalWarning` — never reaches the model's context. **No warning-suppression mechanism is built**; the hazard does not exist on this contract. |
+| V22 | **`SessionStart` input does not name a parent session**, and injected context is saved in the transcript. The documented `SessionStart` input is the common fields (`session_id`, `transcript_path`, `cwd`, …) plus `source`, `model`, `agent_type`, `session_title`, and — on `resume`/`fork` — four resume-cost fields; `fork` is "A new session forked from an existing one". Separately: "Claude Code saves the injected text in the session transcript." | Current hooks reference, `code.claude.com/docs/en/hooks.md` ("SessionStart input" table and "Add context for Claude"), fetched 2026-09-26. This is the documented field list, not an observed fork payload | Closes the review's open premise (G23/G29): a forked session arrives under a **new** `session_id` with no parent pointer, so AD-16's fork reseed reads the forked transcript itself — questions by AD-9's offset-0 rebuild, the delivered set from the oracle-injected text the transcript carries. |
 
 ---
 
@@ -178,6 +181,9 @@ Stores (outside the repo tree, AD-3):
   ~/.ctxoracle/projects/<repo-key>/store.db     (project store, AD-4)
   ~/.ctxoracle/global/global.db                 (global store, AD-5)
   ~/.ctxoracle/projects/<repo-key>/diagnostics/ (JSONL fault channel, AD-17)
+  ~/.ctxoracle/diagnostics/                     (home-level JSONL fault channel for
+                                                 faults before a repository is
+                                                 known, AD-17)
 ```
 
 There is **no long-running process**. Warm state that the 2026-07 record kept in a
@@ -190,8 +196,10 @@ reconciliation (`D-20`).
 1. Claude Code runs the wired command `ctxoracle hook pre-tool-use` with the hook
    JSON on stdin (timeout configured 5 s; internal watchdog 2.5 s).
 2. Guard: `CTXORACLE_INTERNAL` unset → proceed. Parse stdin; derive consumer key
-   `(session_id, agent_id | "main")`.
-3. Open the project store (WAL; ~2 ms, V8). Run the transcript catch-up: read
+   `(session_id, agent_id | "main")` (AD-4).
+3. Resolve the repository by the bounded upward walk and the `init`-recorded
+   path→key binding (AD-23; no `git` subprocess); a miss → not initialized, exit
+   0 silent, nothing written. Open the project store (WAL; ~2 ms, V8). Run the transcript catch-up: read
    `transcript_path` from the per-consumer bookmark offset to EOF; classify each
    completed entry (new user questions opened, assistant text turns cleared
    against open questions); advance the bookmark (AD-9/AD-11).
@@ -201,7 +209,9 @@ reconciliation (`D-20`).
    `permissionDecision:"deny"` + reason naming the outstanding question(s). If
    the audit write fails, no deny is emitted (fail-open, AD-19). Otherwise:
 5. Candidate generation for the genres this event triggers (Consequence, Warning
-   on Edit/Write; Coupling/Reuse fire on PostToolUse). Store queries only.
+   on Edit/Write; Coupling/Reuse fire on PostToolUse). Store queries only. The
+   model reads a `PreToolUse` whisper next to the tool result, after the tool has
+   run (V20), so these are written as facts about the edit just made (AD-15).
 6. Bar (AD-14), dedup (AD-16), compose (pointer-carrying, non-imperative,
    `[oracle]`-prefixed — `FR-D1`/`FR-D2`), audit-log-then-emit: the whisper is
    written to `whisper_audit` first; only a logged whisper is returned as
@@ -268,7 +278,8 @@ scope discipline).
 
 ### Knowledge-state baseline (written before design, per the skill's discipline)
 
-**Fact (verified this session):** everything in the Verified premises table (V1–V19).
+**Fact (verified this session):** everything in the Verified premises table (V1–V19;
+V20–V22 added 2026-09-26).
 **Inference:** the per-event handler's total latency envelope (~100–200 ms with
 catch-up and candidate queries) is derived from V8 plus the observation that every
 event-path operation is a prepared-statement lookup; it is not yet a measurement
@@ -373,6 +384,7 @@ and nothing here depends on the new channel.
      global/global.db
      projects/<repo-key>/store.db
      projects/<repo-key>/diagnostics/<session-short>.jsonl
+     diagnostics/<session-short>.jsonl     # home-level fault channel (AD-17)
    ```
 
    `<repo-key>` = first 12 hex of SHA-256 over the identity string, chosen by one
@@ -437,6 +449,20 @@ and nothing here depends on the new channel.
          ('source','generated','vendored','build_output','unknown')),
          zone_evidence, zone_evidence_suspect INTEGER DEFAULT 0,
          entry_score INTEGER DEFAULT 0,   -- AD-12: in-degree + path markers
+         in_tree INTEGER NOT NULL CHECK(in_tree IN (0,1)),
+                                          -- 1 = listed by the current index walk;
+                                          -- 0 = history-only (miner-created, or
+                                          -- deleted from the tree since). A
+                                          -- deleted file's row is KEPT while
+                                          -- mined history references it: the
+                                          -- indexer deletes its symbols/
+                                          -- import_edges/FTS rows and sets 0,
+                                          -- never cascading away its pairs or
+                                          -- landmines. Miner-created rows get
+                                          -- in_tree=0, zone='unknown'.
+         change_count INTEGER NOT NULL DEFAULT 0,
+                                          -- support(file): included commits
+                                          -- touching the file (AD-13)
          content_hash, mtime, …prov)
    symbols(id, file_id→files, name, kind, span_start, span_end, …prov)
    import_edges(src_file→files, dst_file→files, kind)      -- file-level imports
@@ -445,18 +471,36 @@ and nothing here depends on the new channel.
                     -- entry-point in-degree; confidence-capped as a heuristic
    test_map(test_file→files, region_glob, source, …prov)   -- FR-A2g mapping
    commits(hash PRIMARY KEY, ts, entity_count, excluded INTEGER, exclude_reason)
-   cochange_pairs(a→files, b→files, pair_count, a_count, b_count, last_ts,
-                  PRIMARY KEY(a,b))                        -- a<b canonical; FR-K2
+   cochange_pairs(a→files, b→files, pair_count, last_ts,
+                  PRIMARY KEY(a,b))                        -- a<b canonical; FR-K2;
+                  -- no per-file counters here: support(a) is files.change_count
    landmines(id, kind CHECK(kind IN ('revert_chain','fix_chatter','human_stated')),
              file_id→files, evidence NOT NULL, support INTEGER, …prov)  -- FR-K3..K5
+             -- miner kinds (revert_chain, fix_chatter): at most ONE row per
+             -- (kind, file_id), support = the count, rebuilt from
+             -- labelled_touches at the end of every mining pass (AD-15);
+             -- human_stated rows are never rebuilt or deduplicated this way
+   labelled_touches(file_id→files, commit_hash, label CHECK(label IN
+             ('revert','fix')), ts, PRIMARY KEY(file_id, commit_hash, label))
+             -- written only for labelled commits (AD-15); the landmine
+             -- derivation's source. Not a per-commit transaction list: it
+             -- holds the labelled subset only and serves only landmines
    invariants(id, description, …prov); invariant_members(invariant_id, file_id, span)
    -- exemplars / recipes: their FORM is fixed here per FR-K3–K5 (pointers to
    -- real code, full provenance block, trust label) but the TABLES are created
    -- by the migration of the phase that first writes them (Phase B/C), per the
    -- creation criterion below. No dormant tables ship in Phase A.
    human_facts(id, statement, target_kind, target_ref, stated_at, …prov) -- FR-L6
-   corrections(id, whisper_id NULL, deny_id NULL, verdict CHECK(verdict IN
-               ('false_fire','missed','confirm')), note, ts) -- FR-D4/FR-L6/AC-2c
+   corrections(seq INTEGER PRIMARY KEY, id UNIQUE, whisper_id NULL, deny_id NULL,
+               verdict CHECK(verdict IN ('false_fire','missed','confirm')),
+               note, ts)                              -- FR-D4/FR-L6/AC-2c;
+               -- seq = the AD-5 fold watermark key (see whisper_audit)
+   -- CONSUMER KEY (every `consumer` column below — questions, classify_state,
+   -- consumer_state, observed_actions, whisper_audit, session_log): one string
+   -- encoding (session_id, agent_id | 'main'). A consumer is one agent in one
+   -- session, never a role: two sessions on one repository, or two subagents
+   -- in one session, never share a row. The role (main | subagent) is derived
+   -- from the key and used only for FR-O6's main-only deny scope (AD-9).
    questions(id, consumer, question_text, content_hash,
              asked_uuid NULL, asked_offset NULL,   -- backfilled at reconciliation
              status CHECK(status IN ('open','answered','expired')),
@@ -481,7 +525,11 @@ and nothing here depends on the new channel.
                                    -- the done-claim counter's counted
                                    -- questions (AD-9)
    observed_actions(session, consumer, seq, tool, path NULL, command_class NULL,
-                    outcome NULL CHECK(outcome IN ('ok','failed')), ts)
+                    outcome NULL CHECK(outcome IN ('ok','failed')),
+                    content_hash NULL,  -- the edited file's hash after an ok
+                                        -- Edit/Write (AD-23's post-write read);
+                                        -- NULL above the AD-12 cap; FR-L4 input
+                    ts)
                     -- edited files, test runs. outcome='ok' from PostToolUse
                     -- (success-only, V19); outcome='failed' is set by the
                     -- PostToolUseFailure event UNCONDITIONALLY (the event
@@ -526,9 +574,16 @@ and nothing here depends on the new channel.
                     --    its target has no observed_actions row — AD-9). An
                     --    uncorrelated write, incl. a redirected test run, does
                     --    not fire; distinct from the run-state command_class.
-   whisper_audit(id, session, consumer, kind CHECK(kind IN ('whisper','deny')),
+   whisper_audit(seq INTEGER PRIMARY KEY, id UNIQUE, session, consumer,
+                 kind CHECK(kind IN ('whisper','deny')),
                  genre, ts, text, evidence_json, confidence, channel,
                  continuation INTEGER DEFAULT 0)            -- FR-X6, non-droppable
+                 -- seq: an explicit INTEGER PRIMARY KEY (a rowid alias), the
+                 -- AD-5 fold watermark key. Explicit, not the implicit rowid,
+                 -- because SQLite documents that VACUUM "may change the ROWIDs
+                 -- of entries in any tables that do not have an explicit
+                 -- INTEGER PRIMARY KEY", and export is VACUUM INTO (AD-5);
+                 -- id stays the ULID other tables reference (AD-26)
    faults(id, ts, code, detail_json, session NULL)          -- FR-M2
    fts_symbols / fts_paths (FTS5)
    ```
@@ -554,10 +609,26 @@ and nothing here depends on the new channel.
    `deferred_queue` (Phase B, AD-22), and the piggyback probe cache
    (`env_capabilities`, Phase B, AD-21) are all created by their writing
    phase's migration, not shipped dormant.
-2. **Standard.** `FR-K6` governing; database-normalization practice (3NF
-   entities; the pair table's denormalized counters are a named read-speed
-   trade-off); OWASP ASI06 (memory/context poisoning) drives the
-   trust-and-suspect columns.
+2. **Standard.** `FR-K6` governing; database-normalization practice (3NF: a
+   fact that depends only on the file — its change count — is stored once, with
+   the file, and never duplicated into pair rows; no in-band sentinel stands for
+   a missing attribute, so "not in the tree" is `in_tree = 0`, never an empty
+   `content_hash`); Zimmermann et al., IEEE TSE 31(6) 2005 (support(A) is the
+   number of transactions containing A — the denominator AD-13 needs); OWASP
+   ASI06 (memory/context poisoning) drives the trust-and-suspect columns.
+   **Superseded 2026-09-26** (review record 2026-09-25, G2/G3/G5/G23): the
+   earlier `cochange_pairs.a_count`/`b_count` counters — declared then as a
+   read-speed trade-off — could not be maintained correctly: a commit touching
+   only `a` has no pair row to increment, and a pair row created later cannot
+   learn `a`'s earlier total, so the built counters equalled `pair_count` and
+   every confidence read 1.0 (executed: `a.txt` changed 7 times, 4 with `b.txt`,
+   stored `a_count 4`; true confidence 4/7 = 0.57, below the 0.6 floor). The
+   earlier cascade-on-delete rule destroyed a deleted file's pairs and
+   landmines, while a never-indexed deleted path kept them — the same history
+   fact kept or lost by accident; `in_tree` replaces both behaviours with one
+   rule. Landmine rows keyed on a pass-specific evidence string duplicated per
+   mining pass (executed: two `fix_chatter` rows, support 4 and 3, for one
+   file); `labelled_touches` plus the per-pass rebuild replaces that.
 3. **Why here.** The schema is where four requirements become structural instead
    of policy: provenance (`FR-K6`), trust preservation (`FR-X4`), the audit trail
    (`FR-X6`), and the never-repeat state (`FR-A4`).
@@ -567,9 +638,21 @@ and nothing here depends on the new channel.
    relationally. Not symbol-level co-change in Phase A: file-level pairs carry
    every Phase A genre; symbol-level edges are additive later (the table design
    does not preclude them) — claiming them now would be unmeasured machinery.
+   Not a role-keyed consumer (`main`/`subagent` as the key): executed in the
+   review of 2026-09-25 (G23), a role key let a question asked in one session
+   deny an Edit in another, silenced a Coupling whisper in a second session and
+   for a second subagent after the first had received it, and let one session's
+   `SessionStart startup` clear every other live session's dedup sets.
+   `OL-C5` binds "their next move" — the agent that was asked — so the key is
+   the agent in its session.
 5. **Premise verification.** STRICT/CHECK/FTS5 execute on this Node (V7, V8);
    `FR-K1`–`FR-K9`, `FR-L1`, `FR-L6`, `FR-X4`, `FR-X6`, `FR-A4` read at spec
-   §11.1, §11.3, §7.2, §5.1. Addresses: those, plus `FR-M1`/`FR-M2` (the
+   §11.1, §11.3, §7.2, §5.1. The `in_tree`, `change_count`, `labelled_touches`,
+   consumer-key, and `seq` changes follow the review record
+   `docs/reviews/2026-09-25-skeleton-gap-list-review.md` (G2, G3, G5, G23/G29,
+   G33/N11), whose defects were executed on the built skeleton; the `seq`
+   rationale is the SQLite VACUUM documentation (`sqlite.org/lang_vacuum.html`,
+   fetched 2026-09-26). Addresses: those, plus `FR-M1`/`FR-M2` (the
    `session_log`/`faults` surface) and AC-13.
 
 ### AD-5 — Global-store schema and fact routing
@@ -607,7 +690,24 @@ and nothing here depends on the new channel.
                                              -- made AFTER a session ends (the
                                              -- dominant timing: Max reads
                                              -- status/log post-hoc) still
-                                             -- reaches the efficacy table
+                                             -- reaches the efficacy table.
+                                             -- WINDOW: one row per (genre,
+                                             -- fold); window_start = the
+                                             -- previous watermark, window_end =
+                                             -- the new one; status sums rows
+                                             -- for totals and can show trend.
+                                             -- WATERMARK: the project store's
+                                             -- whisper_audit.seq and
+                                             -- corrections.seq (AD-4) — two
+                                             -- values per project — never
+                                             -- wall-clock ts. A correction is
+                                             -- attributed through
+                                             -- corrections.whisper_id →
+                                             -- whisper_audit.genre; a
+                                             -- `missed` / --missed-question
+                                             -- correction with no whisper goes
+                                             -- to the genre its verb names, or
+                                             -- to answer_drift
    tuning(key, project_key NULL, value, source, updated_at)
                                              -- scalar tunables (bar floors,
                                              -- thresholds) = one row per key;
@@ -630,13 +730,36 @@ and nothing here depends on the new channel.
    Routing (`FR-L7`): facts *about a repository* (landmines, invariants,
    corrections targeting a whisper's content) → project store; *efficacy* signals
    (per-genre sent/corrected counts) → global store.
-   `export`/`import` (`FR-K9`) round-trips each store to a single file via
-   **`VACUUM INTO`** (engine-level, executed and round-trip-verified this
-   session — V17; chosen over the `backup()` API, which only exists from
-   v22.16.0, so the export mechanism does not hang on the runtime floor); no
-   network path exists in the code.
+   **Why `seq`, not `ts`, is the fold watermark (review record 2026-09-25, N11).**
+   The fold selected rows with `ts > watermark AND ts <= now` and advanced to
+   `now`; a concurrent handler that stamped `ts` before `now` but committed after
+   the fold's read was never folded, because `ts` is another process's wall clock
+   and commits are not ordered by it. `seq` is assigned at insert while the
+   inserting transaction holds SQLite's single write lock, so rows become visible
+   in `seq` order, and it is monotonic because `whisper_audit` and `corrections`
+   rows are never deleted (AD-4). It is an explicit `INTEGER PRIMARY KEY` so the
+   `VACUUM INTO` export cannot renumber it (AD-4).
+   `export` (`FR-K9`) writes each store to a single file via **`VACUUM INTO`**
+   (engine-level, executed and round-trip-verified — V17). **`import` never
+   overwrites a database file:** it writes into the destination with SQLite's
+   online backup, `backup(sourceDb, destinationPath)` from `node:sqlite`
+   (available from the 22.16.0 floor, V17), which takes the engine's locks and is
+   WAL-correct, then runs `quick_check` on the result; if the destination stays
+   busy past AD-26's retry, import refuses with `store_busy` and changes nothing.
+   *Why:* copying a file over a live store corrupts it — executed in the review
+   of 2026-09-25 (G34): a store held open by a second process with 200
+   uncheckpointed WAL frames, overwritten with `copyFileSync`, reopened with a
+   table present only in the stale WAL and `PRAGMA integrity_check` failing
+   `database disk image is malformed`; the same probe through `backup()`, with
+   the holder still open, gave `integrity_check: ok` and only the imported
+   rows. A concurrent hook process keeps the WAL alive, so closing the import
+   verb's own handles is not enough. No network path exists in the code.
 2. **Standard.** `OL-6` store split; `FR-L7` governing the routing; `FR-K9` the
-   round-trip.
+   round-trip; SQLite "How To Corrupt An SQLite Database File" (§1 "File
+   overwrite by a rogue thread or process", §1.4 "Mispairing database files and
+   hot journals"; fetched 2026-09-26) and the SQLite
+   Online Backup API for import; `FR-L4`/`FR-M1` (efficacy counts must not drop
+   rows) for the watermark.
 3. **Why here.** Tuning and efficacy must survive projects being re-cloned;
    repo facts must travel with the repo's own store.
 4. **What this is NOT.** Not a single combined store (couples project export to
@@ -646,10 +769,19 @@ and nothing here depends on the new channel.
    Phase C, excluded by AD-4's uniform table-creation criterion (no table
    without a same-phase writer), which also moves `env_capabilities`,
    `exemplars`, `recipes`, and the `deferred_queue` to their writing phases.
+   Not a file copy for import (the corruption above). Not a wall-clock
+   watermark (the skipped-row race above).
 5. **Premise verification.** `FR-L7`, `FR-K9` read at spec §11.3/§11.1;
-   `VACUUM INTO` executed and round-trip-verified this session (V17); the
-   `backup()`-since-v22.16.0 fact per the official v22.x API docs (V17).
-   Addresses: `FR-L7`, `FR-K9`, `OL-6`.
+   `VACUUM INTO` executed and round-trip-verified (V17); the
+   `backup()`-since-v22.16.0 fact per the official v22.x API docs (V17), and
+   `typeof require('node:sqlite').backup === 'function'` checked on Node 22.22.2
+   2026-09-26; the copy-vs-backup corruption probe executed in the review record
+   `docs/reviews/2026-09-25-skeleton-gap-list-review.md` (G34); the watermark
+   race reasoned from code there (N11, not executed); VACUUM's rowid rule read at
+   `sqlite.org/lang_vacuum.html`, fetched 2026-09-26 (on SQLite 3.51.x a
+   `VACUUM INTO` of a TEXT-keyed table with a deleted row kept the implicit
+   rowids in one local test — an observation, not the documented guarantee, which
+   is why `seq` is explicit). Addresses: `FR-L7`, `FR-K9`, `OL-6`.
 
 ### AD-6 — Hook wiring and the event map
 
@@ -661,13 +793,13 @@ and nothing here depends on the new channel.
    | Hook event | Phase A work | Output channel |
    |---|---|---|
    | `UserPromptSubmit` | **question intake from the `prompt` input field** (AD-9 — the question exists before the agent's first move); Orientation candidate (`FR-A2a`) | `hookSpecificOutput.additionalContext` (V15; plain stdout is the documented alternative) |
-   | `PreToolUse` (matcher `*`) | catch-up; block check (`FR-B1`); Consequence/Warning candidates (`FR-A2d`/`FR-A2e`) | `permissionDecision` deny (blocks only) / `additionalContext` (whispers) |
+   | `PreToolUse` (matcher `*`) | catch-up; block check (`FR-B1`); Consequence/Warning candidates (`FR-A2d`/`FR-A2e`) | `permissionDecision` deny (blocks only) / `additionalContext` (whispers — read by the model next to the tool result, after the tool has run, V20) |
    | `PostToolUse` (matcher `*`) | read-set update; `observed_actions` append (`outcome='ok'` — the event is success-only, V19); Coupling/Reuse candidates (`FR-A2b`/`FR-A2c`) | `additionalContext` |
    | `PostToolUseFailure` (matcher `*`) | **observation only**: `observed_actions` append with `outcome='failed'` set **unconditionally by the event itself** (the `error` exit-code parse is best-effort enrichment of `command_class`/detail, never a precondition — V19's "generally begins" is a hedge, and a non-Bash failure must still append) — without this wiring a run-and-failed test looks *never run*, and Verification would emit the checkably-false "not run" (`FR-D1`) while the `FR-L4` failure clause starves; the run-state consumers therefore read these rows (AD-4's split filter) | **none** — no `permissionDecision` (spec `FR-O2`/`FR-B3` require none be emitted here) and no context channel used |
    | `Stop` | done-claim check; Completeness + Verification whisper; outstanding-question line (`FR-B4`, AC-8a) | `hookSpecificOutput.additionalContext`, once, honoring `stop_hook_active` |
    | `SubagentStop` | same as Stop for the subagent consumer (whispers only — no answer-drift state exists for it, `FR-O6`) | same |
    | `SessionStart` | `D-20` reconciliation by `source` (AD-16); qa-state rebuild trigger per `source` (AD-9); staleness check → detached reindex spawn; detached `quick_check` integrity child (AD-17) | none (stdout unused in Phase A) |
-   | `SessionEnd` | flush/finalize session diagnostics row; the `whisper_stats` watermarked fold (AD-5 — audit rows + corrections, per-project watermark; bounded: indexed rows since the watermark, off every deny-capable path) | none; work bounded ≪ 1.5 s budget (V6), fold included |
+   | `SessionEnd` | flush/finalize session diagnostics row; the `whisper_stats` watermarked fold (AD-5 — audit rows + corrections, per-project `seq` watermark; bounded: rows since the watermark by primary key, off every deny-capable path) | none; work bounded ≪ 1.5 s budget (V6), fold included |
 
    The wired command entries set `"timeout": 5` (seconds) so the harness never
    kills the handler before its own 2.5 s watchdog fires (AD-23, V6).
@@ -690,8 +822,8 @@ and nothing here depends on the new channel.
    failure outcomes exist nowhere else (V19),
    and it emits nothing on any channel. Not stdout injection on tool events (the contract routes
    tool-event context via `hookSpecificOutput`, V2).
-5. **Premise verification.** V1–V6 and V15/V16/V19 (channels, fields, timeouts,
-   the success/failure event split); `D-9` read at
+5. **Premise verification.** V1–V6, V15/V16/V19 and V20 (channels, fields, timeouts,
+   the success/failure event split, when a `PreToolUse` whisper is read); `D-9` read at
    spec §12; `FR-O5` at §5.1. The `.claude/settings.json` hooks format is the
    documented settings surface (hooks reference, fetched 2026-08-29). Addresses:
    `FR-O1`, `FR-O2`, `FR-O5`, `FR-O6`, `D-9`, `FR-B4`.
@@ -712,8 +844,10 @@ and nothing here depends on the new channel.
    "worst case is a wasted sentence" means in code.
 4. **What this is NOT.** Not exit-code-2 signaling (routes as deny, V2 — the
    opposite of fail-open). Not error JSON to stderr for the agent (noise; the
-   owner channel is diagnostics + `status`).
-5. **Premise verification.** V2 (exit-2 routing), V6 (timeout semantics);
+   owner channel is diagnostics + `status`). Not stderr warning suppression:
+   stderr from a hook that exits 0 never reaches the model (V21), so the
+   `node:sqlite` `ExperimentalWarning` is not a hazard to engineer around.
+5. **Premise verification.** V2 (exit-2 routing), V6 (timeout semantics), V21 (exit-0 stderr);
    `FR-O3` read at spec §8. Addresses: `FR-O3`, NF-1, `FR-M2`.
 
 ### AD-8 — The per-event pipeline order (and why order is load-bearing)
@@ -747,7 +881,13 @@ and nothing here depends on the new channel.
    **State (project store, AD-4):** `questions` rows per consumer with status
    `open`/`answered`/`expired`; `classify_state` holds the per-consumer bookmark
    (byte offset + last entry uuid) up to which the transcript has been
-   classified. A row carries the question text and a `content_hash`. **Nothing
+   classified. The consumer is AD-4's `(session_id, agent_id | 'main')` key, so
+   a question, and the bookmark into the transcript that grounds it, belong to
+   one session: a question asked in session A never denies a move in session B,
+   and session B's catch-up never starts from session A's byte offset. *Why:*
+   `OL-C5` binds "their next move" — the agent that was asked; the role-keyed
+   form denied another session's Edit when executed (review record 2026-09-25,
+   G23/G29). A row carries the question text and a `content_hash`. **Nothing
    classifies a question into a type** — Phase A tracks *that* a question is open,
    never *what kind* of answer it wants.
 
@@ -795,6 +935,8 @@ and nothing here depends on the new channel.
      for the next event).
 
    **The deny decision (`PreToolUse`, main consumer only — `FR-O6`, `AC-2a-i`).**
+   "Main" is the role derived from the consumer key (AD-4); the deny reads only
+   the questions of the event's own consumer, `(session_id, 'main')`.
    After catch-up, if the consumer has **at least one `open` question**, the
    pending move is judged by the **move recognizer**, which denies only a move
    *clearly not directed at answering* (`D-41`): the deny-eligible set is exactly
@@ -857,11 +999,17 @@ and nothing here depends on the new channel.
    B's precision case (L3).
 
    **Question lifetime across session boundaries.** qa-state is scoped to the
-   conversation the transcript embodies. On `SessionStart` by `source` (V5):
-   `startup`/`clear` → fresh state (prior `open` rows for a superseded
-   conversation are marked `expired`); `resume`/`fork`/`compact` → the
+   conversation the transcript embodies. `SessionStart` reconciliation acts only
+   on the rows of the event's own consumer — never on another session's rows, which
+   may belong to a live concurrent session on the same repository. On
+   `SessionStart` by `source` (V5):
+   `startup`/`clear` → fresh state (this consumer's prior `open` rows, if any,
+   are marked `expired`; a new `session_id` simply has none); `resume`/`fork`/`compact` → the
    conversation continues, so state is rebuilt by classifying the transcript from
-   offset 0 under a fresh bookmark — recovery reaching exactly as far as the
+   offset 0 under a fresh bookmark. A `fork` arrives under a **new** `session_id`
+   and its input names no parent session (V22), so its rebuild reads the forked
+   transcript itself under the new consumer key; a `resume` whose `session_id`
+   has no rows is rebuilt the same way — recovery reaching exactly as far as the
    marker premise does (V12): in a marker-less transcript mode rebuild recovers
    nothing (under-fire, safe), and when it scans a non-empty transcript,
    recognizes zero human turns, and emitted `unrecognized_user_entry` diagnostics,
@@ -922,7 +1070,8 @@ and nothing here depends on the new channel.
    clause rests on it), V5 (`UserPromptSubmit.prompt`, `SessionStart.source`
    values), V12 (human-turn marker discrimination, observed on a real transcript
    containing injected turns), V2 (the `PreToolUse` deny channel) — all
-   fetched/observed 2026-08-29. `OL-C5`, `OL-C3` read in `OWNER-LEDGER.md`
+   fetched/observed 2026-08-29; V22 (no parent session in `SessionStart` input,
+   fetched 2026-09-26) for the fork rebuild source. `OL-C5`, `OL-C3` read in `OWNER-LEDGER.md`
    (CONFIRMED); `FR-B1`/`FR-B2`/`FR-B5`, `D-39`, `D-41` read at spec §8/§12;
    `AC-2a`/`AC-2a-i`/`AC-2a-ii`/`AC-8a`/`AC-12` at spec §14. Addresses: `FR-A2l`,
    `FR-B1`, `FR-B2`, `FR-B5`, `FR-O6`, `D-39`, `D-41`, `AC-2a`, `AC-2a-i`,
@@ -1006,26 +1155,69 @@ and nothing here depends on the new channel.
 1. **Decision.** `ctxoracle index` (and a detached refresh the handler spawns on
    staleness, with a lock file in the store directory and `CTXORACLE_INTERNAL=1`
    in its environment) builds: `files` (with zone classification: marker
-   comments in the head 2 KB, `dist/`/`build/`/lockfile patterns, `.gitignore`
-   membership, `vendor/`/`node_modules/`), `symbols`, **`import_edges`**
+   comments in the head 2 KB, `dist/`/`build/`/lockfile patterns,
+   `vendor/`/`node_modules/`), `symbols`, **`import_edges`**
    (file→file, what import extraction actually yields), **`symbol_refs`**
    (per exported symbol: the count of *other* files whose text references its
    identifier among the files that import its file — a deterministic
    identifier-match heuristic, recorded as such and confidence-capped; this is
    the producer of the Reuse genre's reference counts, AD-15), **`entry_score`
    per file** (import in-degree from `import_edges` + path-convention markers:
-   `main`/`index`/`cli`/`app`/route-registration patterns — the producer of
-   Orientation's entry-point ranking factor, AD-15), `test_map` (path
-   conventions + import edges from test files), FTS5 tables. Parsing goes
+   `main`/`index`/`cli`/`app` — the producer of
+   Orientation's entry-point ranking factor, AD-15), `test_map`, FTS5 tables.
+
+   **The file walk.** In a git work tree the indexer lists files with
+   `git ls-files -z --cached --others --exclude-standard` — git's own
+   implementation of gitignore(5) (negation, nested ignore files,
+   `core.excludesFile`, `info/exclude`), which a re-implementation would get
+   subtly wrong. In a non-git directory (AD-3 rule 3, path-keyed mode, which must
+   index) it walks with `readdir`, with a fixed exclusion of `.git/` and
+   `node_modules/` disclosed in `status`. *Why:* the skeleton's git-only walk
+   threw `fatal: not a git repository` on a plain directory (review record
+   2026-09-25, G11/N7). **Superseded 2026-09-26:** "`.gitignore` membership" is
+   no longer a zone signal. Ignored files are never walked, and git applies ignore
+   rules only to untracked files ("Files already tracked by Git are not
+   affected", gitignore(5)). A tracked file that matches an ignore pattern is
+   listed (checked 2026-09-26: `--cached` listed a force-added `dist/a.js`
+   under `dist/` in `.gitignore`, and did not list an untracked `dist/c.js`),
+   and it is still zoned by the `dist/`/`build/` path patterns above. So the
+   signal could never fire as defined.
+
+   **`test_map` conventions (review record 2026-09-25, N13).** A file is a test
+   file when its path matches a member of the `lexicon.test_path_patterns`
+   tuning list (AD-5; seeded with `**/*.test.*`, `**/*.spec.*`, `**/test_*.py`,
+   `**/*_test.go`, `**/__tests__/**`, `test/**`, `tests/**` — common test-runner
+   file-naming conventions, the review's seed; a seed, not a claim of
+   completeness), tunable via `ctxoracle tune`. A
+   test file's `import_edges` targets are the files it covers. `region_glob` is
+   the covered file's path: Phase A regions are whole files, and `status` says
+   so. Route-registration patterns are **not** an `entry_score` input in Phase
+   A. No such pattern was ever listed, and a heuristic nobody wrote down cannot
+   be built. A per-language pattern would have to be written as a named list
+   before it is added.
+
+   Parsing goes
    through a `LanguageFrontend` interface (`FR-K1`'s language-agnostic seam,
    C-6): the tree-sitter frontend covers every language for which
    `tree-sitter-wasms` ships a grammar, mapped by a **configurable**
    extension→grammar table with defaults; a **generic frontend** (line-based
    definition heuristics + path/word tokens into FTS) covers everything else, so
    no language is invisible (C-6: adding a language = adding a grammar file or a
-   config row, never a redesign). Zone evidence is secret-scanned and
+   config row, never a redesign). **Every frontend declares its capabilities**
+   per language — `{ symbols: boolean, imports: boolean }` — recorded per
+   language and shown in `status`, so coverage is measured, not claimed. A
+   grammar with no written imports query declares `imports: false`, and so does
+   the generic frontend. Queries are written per grammar as build work. A grammar
+   with no written query at all takes the generic frontend. *Why:* a grammar can have an ext→grammar table entry and
+   still produce 0 `import_edges` by construction (the skeleton ships queries
+   for four grammars), so table membership does not tell "observed zero" from
+   "never counted" (review record 2026-09-25, G13); AD-15's Reuse
+   discriminator keys on this declaration. Zone evidence is secret-scanned and
    injection-flagged at capture (`zone_evidence_suspect`, AD-19). Incremental:
-   content-hash per file; deletions cascade; files > 1 MB or > 20k lines are
+   content-hash per file; a file gone from the walk has its `symbols`,
+   `import_edges`, and FTS rows deleted and `files.in_tree` set to 0, and its
+   `files` row is kept while mined history references it (AD-4 — pruning
+   deletes evidence, AD-13); files > 1 MB or > 20k lines are
    indexed path-only with a diagnostic. `schema_meta.index_head` records the
    indexed commit; the handler's staleness check compares it to `HEAD` and
    spawns the refresh when they diverge (`FR-K7`: staleness lowers confidence
@@ -1041,10 +1233,18 @@ and nothing here depends on the new channel.
    pointers — P4; the generic frontend is a fallback whose facts carry lower
    confidence by construction, and FTS path/word coverage keeps its languages
    searchable). Not a fixed language list (C-6 bars it; the 2026-07 record's
-   four-grammar scope is explicitly not cloned).
+   four-grammar scope is explicitly not cloned). Not a hand-rolled gitignore
+   matcher (git's own listing is the reference implementation). Not a list of
+   unwritten conventions (`test_map` and `entry_score` use only listed, tunable
+   patterns).
 5. **Premise verification.** V14 (both packages current, WASM, no install
    scripts); grammar inventory deferred to build with an explicit check
-   (Limitations L6); `FR-K1`, `FR-K7`, C-6 read at spec §11.1/§8. Addresses:
+   (Limitations L6); the walk, capability, and convention decisions from the
+   review record `docs/reviews/2026-09-25-skeleton-gap-list-review.md` (G11,
+   G13, N7, N13; the non-git failure executed there); the tracked-vs-ignored
+   `ls-files` behaviour executed here 2026-09-26 on git 2.43.0 and the
+   gitignore(5) sentence read at `git-scm.com/docs/gitignore` the same day;
+   `FR-K1`, `FR-K7`, C-6 read at spec §11.1/§8. Addresses:
    `FR-K1`, `FR-K7`, C-3, C-6, NF-1, AC-17, AC-20.
 
 ### AD-13 — Co-change miner
@@ -1057,16 +1257,25 @@ and nothing here depends on the new channel.
    default 5 years or 10,000 commits, whichever first (tunable, `FR-K2`
    "configurable recency-weighted horizon"); recency recorded per pair
    (`last_ts`) and used as a confidence dampener (recency weighting), tunable.
-   Aggregation: canonical-ordered file-pair counts with per-file totals;
-   `confidence(a→b) = pair_count / a_count`; `support = pair_count`. Refresh:
+   Aggregation: canonical-ordered file-pair counts, plus a per-file change count
+   stored once on the file (`files.change_count`, AD-4), incremented for every
+   *included* commit that touches the file — single-file commits included, so
+   it counts the same population as the pair counts;
+   `confidence(a→b) = pair_count / change_count(a)`; `support = pair_count`.
+   (**Superseded 2026-09-26:** `pair_count / a_count` over a counter kept on the
+   pair row, which could not see commits touching `a` alone and so equalled
+   `pair_count` — every confidence 1.0, the floor never filtering; review
+   record 2026-09-25, G3.) Refresh:
    `last_mined_commit` watermark; mine only `watermark..HEAD`; history rewrite
    detected (watermark unreachable) → full re-mine + diagnostic. Corpus floor
    (`FR-A6`): history genres return no candidates until the mined corpus ≥ a
    tunable floor (default: 30 non-excluded commits — evidentiary, feeding
    confidence; no session/adoption window exists anywhere).
 2. **Standard.** `FR-K2` governing (its hygiene items are spec-stated with their
-   own sources); `FR-A6` for the floor.
-3. **Why here.** Pair counts + totals is the minimal storage from which every
+   own sources); `FR-A6` for the floor; Zimmermann et al., IEEE TSE 31(6) 2005
+   for the confidence denominator (support(A) = the number of transactions
+   containing A).
+3. **Why here.** Pair counts + per-file change counts is the minimal storage from which every
    bar term (support, confidence, recency) and every whisper's evidence ratio
    renders without walking history at event time.
 4. **What this is NOT.** Not per-commit transaction lists as the query model
@@ -1075,7 +1284,8 @@ and nothing here depends on the new channel.
    horizon-cap + recorded recency; pruning deletes evidence).
 5. **Premise verification.** `git log --no-merges --numstat` exercised on this
    repo this session (V13's commands ran against the same git); `FR-K2`, `FR-A6`
-   read at spec §11.1/§5.2. Addresses: `FR-K2`, `FR-A6`, AC-1, AC-6, AC-13.
+   read at spec §11.1/§5.2; the counter defect executed in the review record
+   `docs/reviews/2026-09-25-skeleton-gap-list-review.md` (G3). Addresses: `FR-K2`, `FR-A6`, AC-1, AC-6, AC-13.
 
 ### AD-14 — The relevance bar: a conjunction of floors, no caps, calibrated by the human channel
 
@@ -1086,6 +1296,22 @@ and nothing here depends on the new channel.
      `confidence` from `cochange_pairs`, dampened by staleness (`FR-K7`) and
      recency; capped by trust (`untrusted_repo` provenance can never yield
      high-confidence — `FR-X4`). Human facts: high by construction (`FR-L6`).
+     **The high-confidence tier and the trust caps are tuning rows (AD-5).**
+     `bar.high_confidence_min` is the threshold at or above which a fact is
+     presented as high-confidence; below it the composer flags the whisper
+     `[confidence: uncertain]`. This row replaces the skeleton composer's literal
+     0.8. `bar.untrusted_confidence_cap` sits strictly between
+     `bar.confidence_floor` and `bar.high_confidence_min`, so an
+     `untrusted_repo` fact can clear the floor and is always delivered with its
+     confidence stated as not high. `bar.suspect_confidence_cap`, strictly below
+     the untrusted cap, applies to `injection_suspect` facts, because trust alone
+     cannot separate suspect from ordinary repo content (every Phase A mined fact
+     is `untrusted_repo`) and AD-19 requires suspect content to cap confidence.
+     Since every Phase A mined fact is `untrusted_repo`, the honest property is
+     explicit: **no Phase A mined whisper is presented as high-confidence**.
+     *Why:* "can never yield high-confidence" named a tier that nothing defined.
+     A cap placed below the 0.6 floor would silence every history genre. A cap
+     above the high tier would cap nothing (review record 2026-09-25, G20).
    - **Decision-impact** `i`: deterministic ordinal from per-candidate
      properties only — edit-context vs read-context, blast-radius band (count of
      coupled files/tests), zone criticality (`generated`/`build_output`
@@ -1130,7 +1356,10 @@ and nothing here depends on the new channel.
    (`OL-C1`). Not a learned bar in Phase A (no automated uptake judgment,
    `D-12`).
 5. **Premise verification.** `FR-A5`/`FR-A5a` read at spec §5.2; `OL-C1`,
-   `OL-C4` in the ledger; ROSE figures note read at spec §9. No environmental
+   `OL-C4` in the ledger; ROSE figures note read at spec §9; `FR-X4` ("low trust
+   lowers confidence and cannot be laundered") read at spec §7.2 for the caps;
+   the tier/cap decision from the review record
+   `docs/reviews/2026-09-25-skeleton-gap-list-review.md` (G20). No environmental
    premises — design choice over verified spec content. Addresses: `FR-A5`,
    `FR-A5a`, `FR-A6` (floor feeds `c`), `OL-C1`, AC-3, AC-3a, AC-4.
 
@@ -1148,9 +1377,9 @@ and nothing here depends on the new channel.
    |---|---|---|---|
    | Orientation `FR-A2a` | `UserPromptSubmit` | prompt tokens → FTS5 over symbols/paths; rank by (match strength × co-change hub degree × `entry_score`, all produced — AD-12/AD-13); join `invariant_members` for one binding invariant **where a matching row exists** — in Phase A `invariants` is written only by the human channel (`note`), so on an un-annotated repo Orientation delivers entry points alone (disclosed, L10; invariant count shown in `status`) | 2–4 entry-point files (+ the binding invariant when one is recorded); **no task-shape landmines** (`D-26` — those fire at the edit) |
    | Coupling `FR-A2b` | `PostToolUse` Read/Grep/Glob | `cochange_pairs` partners of the touched file above bar | partner file(s) with ratio ("17 of its last 20 changes") + commit pointer |
-   | Reuse `FR-A2c` | `PostToolUse` Grep/Glob (a functionality search) | searched term → symbols FTS gives the **candidate set**; `symbol_refs` gives each candidate's referencing-file count; X is *canonical* when its count **dominates the runner-up** (≥ k×, tunable, stored) — **and only when every candidate in the set is evidence-comparable**: a candidate whose `symbol_refs` support is structurally absent (a generic-frontend language with no `import_edges` — its count sits at 0 by construction, not by observation) marks the set incomparable and **no dominance crown is claimed** (silence — the safe direction, since dominance arithmetic alone cannot separate a structurally-uncountable true convention from a covered rival). **The discriminator is the candidate's language, not its stored count**: a candidate whose `lang` is not grammar-covered (generic-frontend — AD-12's ext→grammar table produces no `import_edges` for it) is structurally uncounted → incomparable; a grammar-covered symbol whose count is 0 is *observed*-0 and stays comparable, so an unimported grammar symbol is never over-silenced | The **comparative** convention fact: "of the N **symbols matching this search**, X is the one M files use; the runner-up has m" — the set is named for what it is (a lexical match set, restricted to same-kind symbols; FTS cannot certify functional substitutability, so the text never claims it), and the identifier-match heuristic's false-positive class (same-named symbols, matches in comments/strings) is stated in the whisper's evidence, as is the mixed-language caveat (generic-frontend languages have no `import_edges`, so dominance systematically favors grammar-covered candidates — L6). A bare reference count is one grep and never ships (P5); dominance over an un-enumerated alternative set is what the agent cannot cheaply self-serve. No dominant candidate → silence |
-   | Consequence `FR-A2d` | `PreToolUse` Edit/Write | coupled **test files** of the target (pairs where partner ∈ `test_map`); zone flag of target | historically-coupled tests + zone flag; never a raw call-site count alone |
-   | Warning ⚠ `FR-A2e` | `PreToolUse` Edit/Write | `landmines` rows for target (revert_chain, fix_chatter, human_stated) | the hazard with its evidence and **flagged confidence** (`FR-A5a`) |
+   | Reuse `FR-A2c` | `PostToolUse` Grep/Glob (a functionality search) | searched term → symbols FTS gives the **candidate set**; `symbol_refs` gives each candidate's referencing-file count; X is *canonical* when its count **dominates the runner-up** (≥ k×, tunable, stored) — **and only when every candidate in the set is evidence-comparable**: a candidate whose `symbol_refs` support is structurally absent (a language whose frontend declares `imports: false` — its count sits at 0 by construction, not by observation) marks the set incomparable and **no dominance crown is claimed** (silence — the safe direction, since dominance arithmetic alone cannot separate a structurally-uncountable true convention from a covered rival). **The discriminator is the candidate language's declared `imports` capability (AD-12), not its stored count and not ext→grammar table membership**: a candidate whose language declares `imports: false` (the generic frontend, or a grammar with no written imports query) is structurally uncounted → incomparable; a symbol in an `imports: true` language whose count is 0 is *observed*-0 and stays comparable, so an unimported symbol is never over-silenced. (*Superseded 2026-09-26:* keying on table membership would read a tabled grammar with no imports query — 0 edges by construction — as observed zero and crown a rival, the failure this rule exists to prevent; review record 2026-09-25, G13) | The **comparative** convention fact: "of the N **symbols matching this search**, X is the one M files use; the runner-up has m" — the set is named for what it is (a lexical match set, restricted to same-kind symbols; FTS cannot certify functional substitutability, so the text never claims it), and the identifier-match heuristic's false-positive class (same-named symbols, matches in comments/strings) is stated in the whisper's evidence, as is the mixed-language caveat (`imports: false` languages have no `import_edges`, so dominance systematically favors `imports: true` candidates — L6). A bare reference count is one grep and never ships (P5); dominance over an un-enumerated alternative set is what the agent cannot cheaply self-serve. No dominant candidate → silence |
+   | Consequence `FR-A2d` | `PreToolUse` Edit/Write | coupled **test files** of the target (pairs where partner ∈ `test_map`); zone flag of target | historically-coupled tests + zone flag; never a raw call-site count alone — worded as a fact about **the edit just made** (the model reads it after the edit ran, V20) |
+   | Warning ⚠ `FR-A2e` | `PreToolUse` Edit/Write | `landmines` rows for target (revert_chain, fix_chatter, human_stated) | the hazard with its evidence and **flagged confidence** (`FR-A5a`), worded as a fact about **the edit just made** ("⚠ `x.ts`, just edited, was reverted in 2 commits: …"), so the move it informs is the next one — revise or proceed (V20; L12) |
    | Completeness `FR-A2f` | `Stop` | session's edited files (`observed_actions`) → un-edited partners above ratio floor | "you changed X but not Y, paired in 9 of its last 10 changes" |
    | Verification `FR-A2g` | `Stop` with done-claim | changed regions (from `outcome='ok'` rows — AD-4's split filter) → `test_map` covering tests, minus test runs observed in `observed_actions` **of either outcome** (a failed run *is* a run — AD-4; a run-and-failed covering test at a done-claim is `FR-A2m`'s Phase B case per `D-27`, and Phase A's duty is only never to assert "not run" over it). The `command_class` classifier is **ternary; classes 1 and 2 are config-enumerated (in `tuning`, AD-5 — tended via `ctxoracle tune`), class 3 is the default complement** (anything outside both lists — a partial classifier would leave everyday commands with no class and an unstated default, whose unsafe direction re-admits the false "not run"): (1) *recognized test runner* → mapped subtraction (unmappable target ⇒ subtract all); (2) *recognized-innocuous* (a conservative allowlist of command heads that cannot run tests: `ls`, `cd`, `cat`, `git status`-class, `grep`/`rg`, …) → no effect on run-state; (3) everything else → run-state unknown, and **the shipped branch is the weaker honest claim** ("no *recognized* test run touched T; recognized runners: …" — it keeps the genre alive and still headlines the mapping, satisfying AC-8's content assertion), never the strong "not run". **Classification is per pipeline segment**: the command line is split on `&&`, `;`, `\|`, `\|\|` **quote-aware** (operators inside quotes are not split points; quoting the splitter cannot parse → class 3 wholesale; subshell / `sh -c` wrappers → class 3 wholesale); recognized-innocuous requires **every** segment's head on the allowlist; **segments contribute independently** — each runner segment subtracts its run, and any unknown segment still sets run-state unknown (so a runner+unknown compound both subtracts and composes the weak claim); head-matching a compound (`cd pkg && npm test`) as innocuous would re-manufacture the false "not run" | the covering-test **mapping** for the changed region, with the honest run-state clause; run-state never stands alone (AC-8) |
 
@@ -1168,6 +1397,36 @@ and nothing here depends on the new channel.
    trailing window, k tunable), plus `human_stated` rows from `ctxoracle note`
    (`FR-L6`). Each row carries evidence and support; the Warning genre states
    them (`FR-D3`).
+
+   **The labels.** *Revert-labelled* = a commit git itself generated as a revert:
+   the body trailer `This reverts commit <40-hex>.`, git-revert(1)'s default
+   message, with the subject prefixes `Revert "` / `Reapply "` as the fallback
+   for a message without the trailer (executed 2026-09-26 on git 2.43.0:
+   `git revert --no-edit HEAD` wrote subject `Revert "both"` and body
+   `This reverts commit <hash>.`; git-revert(1) documents the `Reapply "…"`
+   subject for reverting a revert). *Fix-labelled* = a subject matching a member of the
+   `lexicon.fix_keywords` tuning list (AD-5; seeded `fix, fixes, fixed, fixing,
+   bug, bugfix, hotfix`, shown in `status` with every other seed). Source: the
+   SZZ keyword heuristic (Śliwerski, Zimmermann, Zeller, MSR 2005). The miner
+   reads the subject and the revert trailer only and never stores message text.
+   The evidence stays commit hashes (AD-19 pointer-only). Label detection runs over every
+   horizon-included commit **before** the transaction-size exclusion: that
+   filter exists to keep refactor sweeps out of *pair* counts (AD-13), and a
+   revert of a large commit is still a revert.
+
+   **Derivation.** Labelled commits are written to `labelled_touches` (AD-4) in
+   the mining pass's transaction. At the end of every pass, inside that
+   transaction, the miner-kind landmine rows are deleted and rebuilt from it:
+   `revert_chain` over the horizon, `fix_chatter` over the trailing window
+   measured from the reference instant — `HEAD`'s committer time, so a
+   fixture and a real repository are judged the same way on any day — so
+   aged-out rows disappear. The key is
+   `(kind, file_id)`, and support is the count. *Why:* both classes are
+   functions of history, not of a pass. Keying rows on a pass-specific evidence
+   string produced one row per pass, and the Warning genre spoke once per row
+   (executed: two `fix_chatter` rows, support 4 and 3, for one file). A row also
+   kept citing a commit that history rewriting had removed (review record
+   2026-09-25, G1/G5/N5).
 2. **Standard.** `FR-A2a`–`FR-A2g` and `FR-D1`–`FR-D5` governing; P5 (marginal
    value) is each generator's stated guarantee column.
 3. **Why here.** Genre-per-module keeps each generator's marginal-value claim
@@ -1177,10 +1436,17 @@ and nothing here depends on the new channel.
    requirement). Not narration-triggered genres (`FR-A2h`–`FR-A2j` are Phase B).
    Not landmine mining via ML or commit-message sentiment — the deterministic
    classes are checkable and carry their evidence; anything subtler is Phase B/C
-   territory.
+   territory. The revert trailer and the fix-keyword class are lexical
+   classification of the subject line and a git-generated trailer. That is not
+   sentiment analysis. Not a Warning or Consequence worded as advice *before* the
+   edit: the model cannot read it before the edit runs (V20).
 5. **Premise verification.** V1 (`last_assistant_message` Stop-only), V19
    (tool events carry `tool_name`/`tool_input`; the success/failure event
-   split that `observed_actions.outcome` rests on); `FR-A2a`–`FR-A2g`, `D-26`,
+   split that `observed_actions.outcome` rests on), V20 (a `PreToolUse` whisper
+   is read after the tool ran, fetched 2026-09-26); the label, derivation, and
+   discriminator decisions from the review record
+   `docs/reviews/2026-09-25-skeleton-gap-list-review.md` (G1, G5, G13, and the
+   `PreToolUse` item); `FR-A2a`–`FR-A2g`, `D-26`,
    `D-38` read at spec §4/§12. Addresses: those plus AC-1, AC-1a–AC-1d, AC-8.
 
 ### AD-16 — Delivery, dedup, session-boundary reconciliation, Stop-time injection
@@ -1192,12 +1458,44 @@ and nothing here depends on the new channel.
    has visibly touched, from `observed_actions` — `outcome='ok'` rows only,
    per AD-4's consumer filter: a failed Read is not a read, and leaking
    failure rows into the read set would silently withhold facts about files
-   the agent never saw); a candidate whose subject is
-   in either set is withheld — the never-repeat property, never a cap.
+   the agent never saw). The consumer is AD-4's `(session_id, agent_id |
+   'main')` key: a whisper one session (or one subagent) received never
+   silences it for another.
+   **Incorporation is defined per fact (`FR-D5` "visibly incorporated").** Each
+   candidate carries its subject key and the list of read-set keys
+   (`incorporatedBy`) that would make it self-served. An Orientation entry-point
+   pointer to file X → `path:X`. A Reuse dominance claim → none, since the agent
+   cannot self-serve the comparison. Every history-derived fact (Coupling,
+   Consequence, Warning, Completeness) → none. Reading file B does not reveal
+   that A and B co-change: the fact is invisible from a cold checkout (AD-14's
+   marginal-value classes). A candidate is withheld when its subject key is in
+   the `delivered` set, or when one of its `incorporatedBy` keys is in the `read`
+   set — the never-repeat property, never a cap. *Why:* the read set held
+   `path:<file>` keys while candidates carried `coupling:<target>:<partner>`, so
+   the two never matched. The obvious repair, letting a read of the partner
+   suppress the coupling fact, would withhold a fact reading cannot reveal
+   (review record 2026-09-25, G25).
    **Session boundaries (`D-20`), keyed by `SessionStart.source` (V5), exactly
-   as `FR-A4` states them:** `startup`/`clear` → both sets cleaned; `resume`/
+   as `FR-A4` states them, acting only on the event's own consumer's sets**
+   (never another session's; the role-keyed form let one session's `startup`
+   clear every live session's sets — review record 2026-09-25, G23):
+   `startup`/`clear` → both sets cleaned; `resume`/
    `fork` → both sets reseeded (kept); `compact` → the `read` set is cleared
    (the agent's context lost what it had read) and the `delivered` set is kept.
+   **The fork reseed source is the forked transcript.** A `fork` is a new
+   `session_id` whose `SessionStart` input names no parent (V22), so there are
+   no parent rows to copy. The `delivered` set is rebuilt from the
+   oracle-injected text the transcript carries, since Claude Code saves injected
+   text in the transcript (V22). The `read` set is rebuilt from the transcript's
+   Read/Grep/Glob and Edit/Write tool results through AD-11's reader, admitting
+   only results the reader can classify as successful (the `'ok'` classes AD-4's
+   filter admits). The tool-result layout is undocumented (V12), so a result
+   whose outcome the reader cannot establish is not admitted. That under-seeds
+   the `read` set. The cost is that the oracle may speak a fact the agent had
+   already read for itself. It never withholds a fact about a file the agent did
+   not read. Questions
+   are rebuilt by AD-9's offset-0 classification. A `resume` whose `session_id` has no rows is reseeded the
+   same way.
    **Stop-time (`FR-B4`):** Completeness/Verification whispers are delivered at
    `Stop`/`SubagentStop` via `hookSpecificOutput.additionalContext` — once:
    when `stop_hook_active` is true the handler emits nothing on that channel
@@ -1213,7 +1511,12 @@ and nothing here depends on the new channel.
    `decision:"block"` at Stop for delivery (surfaced as an error — V3; the
    spec chose `additionalContext`, `FR-B4`). Not re-delivery suppression by
    time window (a cap in disguise; the bar and the sets are the only filters).
-5. **Premise verification.** V3, V5; `FR-A4`, `FR-B4`, `D-20` read at spec
+5. **Premise verification.** V3, V5, V22 (no parent session in `SessionStart`
+   input; injected text saved in the transcript — the documented field list,
+   fetched 2026-09-26, not an observed fork payload); the consumer-key,
+   incorporation, and fork decisions from the review record
+   `docs/reviews/2026-09-25-skeleton-gap-list-review.md` (G23/G29 executed on
+   the real binary, G25); `FR-A4`, `FR-B4`, `D-20` read at spec
    §5.1/§8/§12. Addresses: `FR-A4`, `FR-D5`, `FR-O6`, `FR-B4`, AC-4, AC-5,
    AC-8, AC-15.
 
@@ -1223,6 +1526,18 @@ and nothing here depends on the new channel.
    - **`session_log` + `whisper_audit` (store):** per event: candidates
      considered, bar outcomes, delivered/withheld reasons, denies, latency
      (`FR-M1`, `FR-X6`).
+   - **Two JSONL channels.** The per-project channel
+     (`projects/<repo-key>/diagnostics/`) takes faults once the repository is
+     known. The **home-level channel** (`<home>/diagnostics/`, created 0700 as
+     part of the home layout, AD-3) takes every fault raised before the
+     repository is known (unparseable stdin is the executed case), and is the
+     only thing the handler may write after a binding miss (AD-23). `status`
+     reads both. *Why:* executed in the
+     review of 2026-09-25 (G35), `{not json` on stdin left zero faults
+     anywhere. The fallback appended into a directory that did not exist, and the
+     handler swallowed the error, so a whole failure class was invisible —
+     exactly what `OL-10` forbids ("it could fail a hundred ways in front of me
+     and I wouldn't know").
    - **`faults` (store) + diagnostics JSONL (file):** self-detected failure
      classes (`FR-M2`), each with a stable code and a detector this
      architecture names: `hooks_not_firing` (SessionStart writes a liveness
@@ -1284,7 +1599,9 @@ and nothing here depends on the new channel.
    that only counts (each fault carries detail_json sufficient to reproduce the
    diagnosis — `FR-M5`'s readback intent).
 5. **Premise verification.** `FR-M1`–`FR-M5`, `D-22` read at spec §6/§12;
-   `OL-10` in the ledger. Addresses: `FR-M1`–`FR-M5`, `FR-X6`, AC-9.
+   `OL-10` in the ledger; the lost pre-repository fault executed in the review
+   record `docs/reviews/2026-09-25-skeleton-gap-list-review.md` (G35).
+   Addresses: `FR-M1`–`FR-M5`, `FR-X6`, AC-9.
 
 ### AD-18 — The Phase A regret proxy and the human channel
 
@@ -1349,7 +1666,14 @@ and nothing here depends on the new channel.
      relaxation, if ever needed, is a Phase B decision. The injection-suspect
      flagger (heuristic lexicon over ingested spans) sets `injection_suspect`;
      suspect content is pointer-only *and* its facts carry `untrusted_repo`
-     trust, capping confidence (`FR-X4`, T2).
+     trust, capping confidence (`FR-X4`, T2; the caps are AD-14's).
+     **Filenames are repo-derived text.** A path is a name the repository's
+     author chose, so every path is run through the injection flagger at index
+     time. A whisper renders a flagged path as `path#<file_id>` and never as the
+     name itself. *Why:* pointer-only composition leaves names as the one
+     repo-authored text a whisper carries, and a pointer is useless if the name
+     inside it can carry an instruction (review record 2026-09-25, G24; OWASP
+     LLM01, prompt injection via data).
    - **Audit-before-emit (`FR-X6`, T2/T3):** AD-8's ordering; an unlogged
      intervention does not exist.
    - **Least privilege (`FR-X5`, T4):** no credentials anywhere; the only
@@ -1378,7 +1702,9 @@ and nothing here depends on the new channel.
 5. **Premise verification.** Spec §7 and §9 rows read; `FR-X1`–`FR-X8` at §7.2.
    The deny-reason-quotes-user-text observation is from AD-9's design (the only
    verbatim text a response ever carries is the user's own question, quoted back
-   to the agent that already has it — no new injection surface). Addresses:
+   to the agent that already has it — no new injection surface). The filename
+   rule is from the review record
+   `docs/reviews/2026-09-25-skeleton-gap-list-review.md` (G24). Addresses:
    `FR-X1`–`FR-X8`, T1–T4, AC-11.
 
 ### AD-20 — CLI surface and `init`/`deinit`
@@ -1389,7 +1715,10 @@ and nothing here depends on the new channel.
    after the owner unshallowed a clone outside the tool), it says so in plain
    language and offers the `export`/`import` migration before switching, so
    following the documented unshallow path never silently orphans the
-   accumulated store; hook wiring into `.claude/settings.json` with a
+   accumulated store; **records the path→key binding** — `global_meta` key
+   `repo_path:<realpath of the repository root>` → repo key — which is the only
+   way the handler finds the store (AD-23), shown in `status`, and re-recorded
+   by re-running `init` after a checkout moves; hook wiring into `.claude/settings.json` with a
    `"ctxoracle"` marker on each entry; first index; plain-language summary),
    `deinit` (remove marked entries; `--purge` deletes the project store),
    `index [--full]`, `status`, `log [--session <id>]`, `correct`, `note`
@@ -1494,7 +1823,21 @@ and nothing here depends on the new channel.
    reads are seek-and-read of the cited span ± slack, never whole-file, and
    skipped entirely for files over the AD-12 ingestion cap; commit-hash
    pointers re-resolve against the store's own `commits` table, **never a
-   `git` subprocess on the event path**); and the `SessionStart`-only items
+   `git` subprocess on the event path**); **repository resolution** — a
+   bounded upward walk from the realpath of the event's `cwd` (at most one `stat` per path
+   component) to the first directory containing `.git` (a directory or a
+   worktree's `.git` file), then one indexed `global_meta` lookup of that
+   root's `init`-recorded binding (AD-20); when the walk finds no `.git` (a
+   path-keyed repository, AD-3 rule 3), one indexed lookup per visited
+   ancestor, nearest first, bounded by the same component count. A miss means
+   not initialized: the handler fails open silent and creates nothing — no store
+   layout, no project directory — except a fault on the home-level channel
+   (AD-17); per-repository state exists only after `init` (AD-20). A moved
+   checkout misses until `init` is re-run, visibly; **the post-write content
+   hash** — on `PostToolUse` for Edit/Write/MultiEdit/NotebookEdit with outcome
+   `ok`, one read of the target file to hash it for `observed_actions`'
+   post-write hash (the `FR-L4` regret proxy's input, AD-18), bounded by the
+   AD-12 ingestion cap, with NULL stored above the cap and no read made; and the `SessionStart`-only items
    (the staleness check's `HEAD` read — a bounded `.git` file read, not a
    subprocess — and the detached reindex/`quick_check` spawns,
    fire-and-forget, never awaited); and the `SessionEnd`-only fold (AD-5's
@@ -1513,9 +1856,23 @@ and nothing here depends on the new channel.
 4. **What this is NOT.** Not harness-timeout reliance (that path is fail-closed
    on PreToolUse, V6). Not a lower wired timeout (1–2 s) — the harness kill
    racing the watchdog reintroduces the hazard the margin removes.
+   **Why repository resolution is a lookup (review record 2026-09-25,
+   G30/N15).** The skeleton derived the repo key per event with `git rev-parse
+   --is-inside-work-tree`, `rev-parse --is-shallow-repository`, and `rev-list
+   --max-parents=0 HEAD`. The last walks the whole history, so it is unbounded
+   on a large repository, and this inventory forbids a `git` subprocess on the
+   event path. The skeleton also created `projects/<key>/` for every
+   repository a hook fired in, `init`-ed or not (executed: two never-`init`-ed
+   directories each gained a project directory). The repo key is computed where
+   that is safe, at `init` (AD-3), and the event path only looks it up. The
+   non-git branch of the walk is this document's addition to the review's
+   decision: AD-3 rule 3 supports path-keyed repositories, and a `.git`-only
+   walk would never find them.
 5. **Premise verification.** V6 (timeout semantics, fetched 2026-08-29); V8 (the
    normal path is ~50 ms, so the watchdog is a tail-risk device, not a working
-   regime). Addresses: NF-1, `FR-O3`, AC-10.
+   regime); the per-event `git` cost and the layout creation executed in the
+   review record `docs/reviews/2026-09-25-skeleton-gap-list-review.md` (G30,
+   N15), and the missing post-write read identified there (G32). Addresses: NF-1, `FR-O3`, AC-10.
 
 ### AD-24 — Test and fixture architecture (the Phase A acceptance criteria made mechanical)
 
@@ -1540,7 +1897,7 @@ and nothing here depends on the new channel.
      from `symbol_refs`; a bare reference count fails the fixture; a
      **mixed-language case** where a generic-frontend symbol is the true
      convention makes the set incomparable, so the fixture asserts **silence**,
-     no false crown; an **unimported-grammar case** where a grammar-covered
+     no false crown; an **unimported-grammar case** where an `imports: true`
      symbol with an *observed* count of 0 is in the set, and the dominance
      comparison is still made among the comparable candidates so it is not
      over-silenced; and a **same-name false-positive case** where a
@@ -1669,15 +2026,38 @@ and nothing here depends on the new channel.
    IMMEDIATE` transaction**, so two concurrent same-project folds cannot both
    read the old mark and double-count the same `sent` rows — the second
    serializes behind the first and sees the advanced watermark.
+   **Transactions nest, and the caller owns them.** Transaction demarcation
+   belongs to the unit of work, meaning the mining pass, the index pass, or the
+   handler's event, and never to a DAO. `Store.transaction` is re-entrant. At
+   depth 0 it issues `BEGIN IMMEDIATE` with the busy-retry above. At depth > 0
+   it issues `SAVEPOINT` / `RELEASE` / `ROLLBACK TO`, with no retry, because the
+   write lock is already held. DAO methods keep their own atomicity through the
+   same call, so a DAO used alone is still atomic, and a caller can make a
+   multi-DAO write atomic. A mining pass's watermark, per-file counts, pairs,
+   `labelled_touches`, and landmine rebuild commit together or not at all.
+   *Why:* executed in the review of 2026-09-25 (G9),
+   `ps.transaction(() => ps.transaction(() => 1))` threw `cannot start a
+   transaction within a transaction`, and ten DAO methods open their own
+   transaction. No caller could make a multi-DAO write atomic, so the miner
+   committed its watermark before its landmines, and a crash between the two
+   left the watermark advanced without them.
 2. **Standard.** SQLite WAL semantics (readers don't block the writer; one
    writer at a time) — engine-documented behaviour exercised by the V8 probe;
-   `FR-O3` for the give-up path.
+   SQLite `SAVEPOINT` documentation (savepoints "are named and may be nested",
+   and work inside a `BEGIN…COMMIT`); Fowler, *Patterns of Enterprise
+   Application Architecture*, Unit of Work; `FR-O3` for the give-up path.
 3. **Why here.** The no-daemon model (AD-1) moves contention to the store; WAL
    is the mechanism that makes that safe, and the give-up path keeps NF-1.
 4. **What this is NOT.** Not a global write queue (a daemon in disguise). Not
-   long `busy_timeout` (blocks the event path — NF-1).
+   long `busy_timeout` (blocks the event path — NF-1). Not DAO-owned
+   transactions, which cannot compose into one atomic unit of work.
 5. **Premise verification.** WAL enabled and exercised in V8; `FR-K7`, `FR-O3`
-   read at spec §11.1/§8. Addresses: NF-1, `FR-O3`, `FR-K7`.
+   read at spec §11.1/§8; nesting executed here 2026-09-26 on Node 22.22.2
+   `node:sqlite` (`BEGIN IMMEDIATE` → `SAVEPOINT a` → insert → `SAVEPOINT b` →
+   insert → `ROLLBACK TO b` → `RELEASE b` → `RELEASE a` → `COMMIT` left exactly
+   the first row); `sqlite.org/lang_savepoint.html` read the same day; the
+   non-nesting defect executed in the review record
+   `docs/reviews/2026-09-25-skeleton-gap-list-review.md` (G9). Addresses: NF-1, `FR-O3`, `FR-K7`.
 
 ### Numbered reasoning chain — the decisions that met the Phase 8 trigger
 
@@ -1745,8 +2125,9 @@ pointer-only composition + suspect flagging; AC-11 fixture plants payloads in
 file content, commit messages, and zone evidence, asserting no payload text
 appears in any whisper and no payload alters oracle behaviour. *Analysis:* with
 no verbatim channel in Phase A, residual surface is names themselves (a
-malicious *filename* quoted in a pointer) — bounded by path-syntax
-normalization in the composer. *Conclusion:* T1 is controlled by construction
+malicious *filename* quoted in a pointer) — closed by AD-19's filename rule:
+every path is injection-flagged at index time, and a flagged path is rendered
+as `path#<file_id>`, never as the name. *Conclusion:* T1 is controlled by construction
 in Phase A; the control is re-examined when Phase B introduces model prompts
 (the seam notes it).
 
@@ -1894,7 +2275,7 @@ criterion is pinned there and its mechanism lives in the named decisions.)
 | C-1 | AD-2, AD-25 |
 | C-2 | AD-2 (premise superseded per V7; requirement met by stock engine) |
 | C-3 | AD-2, AD-12, AD-25 |
-| C-4 | AD-6, AD-7 (verified facts V1–V6, V15/V16, V18/V19 at the boundary) |
+| C-4 | AD-6, AD-7 (verified facts V1–V6, V15/V16, V18/V19, V20–V22 at the boundary) |
 | C-5 | No MCP sampling anywhere in the design (nothing to map; stated for completeness) |
 | C-6 | AD-12 |
 | NF-1 | AD-1, AD-23, AD-26 |
@@ -1972,13 +2353,14 @@ criterion is pinned there and its mechanism lives in the named decisions.)
   cap held at or above the Reuse confidence floor of AD-14, so a
   same-name-inflated candidate still *fires* with the caveat rather than being
   silently dropped below the floor);
-  and in a mixed-language repo, symbols from generic-frontend languages have
-  no `import_edges`, so a dominance comparison would systematically favor
-  grammar-covered candidates — which is why AD-15 claims no crown over an
+  and in a mixed-language repo, symbols from languages whose frontend declares
+  `imports: false` (AD-12) have no `import_edges`, so a dominance comparison
+  would systematically favor `imports: true` candidates — which is why AD-15 claims no crown over an
   incomparable set (silence). Both are stated in the whisper's evidence;
   AC-1b's fixture pins the mixed-language case as **asserted silence** (no
   false crown), the unimported-grammar case as **still comparable** (a
-  grammar-covered symbol whose observed count is 0 is not over-silenced), and
+  symbol in an `imports: true` language whose observed count is 0 is not
+  over-silenced), and
   the same-name false-positive case as **fired with the false-positive caveat
   in evidence and its confidence capped** — a count-dominant comment/string
   collision is crowned with that caveat, not excluded, since `symbol_refs`
@@ -2032,6 +2414,19 @@ criterion is pinned there and its mechanism lives in the named decisions.)
   escapable, auditable on the FR-X6 trail and counted when corrected (the
   automated detectors cannot see it — narration blanket-clears it first), and
   is exactly what (a)'s and (b)'s build-time verifications exist to shrink.
+- **L12 — No fact reaches the model before an edit runs.** A `PreToolUse`
+  whisper is read next to the tool result, on the next model request, so a
+  Warning or Consequence about an Edit/Write reaches the agent right after it
+  makes the edit, never before (V20). AD-15 therefore words them as facts
+  about the edit just made, and the decision they inform is the next move:
+  revise or proceed. The only `PreToolUse` output the model reads *instead of*
+  the tool running is a deny. A deny that does not follow a deviation is the
+  pre-emptive gate the owner rejected (`OL-R4`, `OL-C2`; `CLAUDE.md` "No
+  pre-emptive gate"), so the oracle does not use one to put a fact first. The
+  channel is kept. Owner-visible, in plain language: warnings about an edit
+  reach the agent right after it makes the edit, not before (review record
+  2026-09-25, "Unverified item — whispers on `PreToolUse`").
+
 ## Standards governing this architecture
 
 | Standard / source | Where | What it governed |
@@ -2044,8 +2439,14 @@ criterion is pinned there and its mechanism lives in the named decisions.)
 | OWASP LLM Top-10 2025 (LLM01, LLM02), Prompt-Injection Cheat Sheet, ASI06, Secrets Cheat Sheet (verification inherited from spec §9, 2026-08-25) | spec §9 | AD-19's controls; threat model |
 | OWASP ASVS 5.0 (applicable subset) | mapping table | input validation, error handling, data protection, dependency hygiene areas |
 | ISO/IEC 25010:2023 | quality table | the characteristic mapping and the analysability arguments (AD-2, AD-10) |
-| Zimmermann et al., IEEE TSE 31(6) 2005 (ROSE) — via spec §9 | AD-13, AD-14 | mining shape and the confidence computation's grounding (operating point architect-tunable per the spec's note) |
+| Claude Code hooks reference (`code.claude.com/docs/en/hooks.md`), fetched 2026-09-26 | V20–V22 | when a `PreToolUse` whisper is read, exit-0 stderr, `SessionStart` fork input; AD-7, AD-9, AD-15, AD-16, L12 |
+| Zimmermann et al., IEEE TSE 31(6) 2005 (ROSE) — via spec §9 | AD-4, AD-13, AD-14 | mining shape and the confidence computation's grounding (operating point architect-tunable per the spec's note); support(A) as the per-file denominator |
+| Śliwerski, Zimmermann, Zeller, MSR 2005 (SZZ keyword heuristic) | AD-15 | the fix-label keyword class |
+| git-revert(1), gitignore(5) (`git-scm.com/docs`, read 2026-09-26) + execution on git 2.43.0 | AD-12, AD-15 | the revert label; the file walk and the dropped `.gitignore` zone signal |
 | SQLite WAL documentation (engine behaviour, exercised V8) | AD-26 | concurrency model |
+| SQLite `SAVEPOINT`, `VACUUM`, Online Backup API, and "How To Corrupt An SQLite Database File" (`sqlite.org`, read 2026-09-26) | AD-4, AD-5, AD-26 | nested transactions; the explicit `seq` watermark key; import by backup, never by file copy |
+| Fowler, *Patterns of Enterprise Application Architecture* (Unit of Work) | AD-26 | caller-owned transaction demarcation |
+| Review record `docs/reviews/2026-09-25-skeleton-gap-list-review.md` | AD-4, AD-5, AD-9, AD-12–AD-17, AD-19, AD-23, AD-26, V20–V22, L12 | the 2026-09-26 architecture changes; its executed probes are the evidence each change cites |
 
 Every standard above drives at least one named decision; none is decorative.
 

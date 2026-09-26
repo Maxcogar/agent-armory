@@ -475,8 +475,10 @@ its next action is simply allowed; the deny needs no counter, no held turn, no c
   2026-08-25).** Model-visible context returns via structured
   `hookSpecificOutput.additionalContext` on the tool events, and via plain stdout on
   `UserPromptSubmit`, `UserPromptExpansion`, and `SessionStart` only. A `PreToolUse` hook
-  may return `additionalContext` **without** any `permissionDecision`, injected before the
-  tool runs and preserved even if that tool call later fails — the passive-whisper
+  may return `additionalContext` **without** any `permissionDecision`; the hook runs before
+  the tool, but the text is "added to Claude's context alongside the tool result" and
+  "Claude reads the reminder on the next model request" — the model sees it after the tool
+  has run (hooks reference re-read 2026-09-26) — and it is preserved even if that tool call later fails — the passive-whisper
   affordance (confirmed against the current hooks reference and the Claude Code
   `additionalContext`-on-`PreToolUse` behavior). `PostToolUse` carries `additionalContext`
   the same way. The two **enforcement blocks (FR-B1)** are a `PreToolUse`
