@@ -4151,7 +4151,7 @@ step: S15
 covers: [PA-1, PA-3]
 files:
   create: [middleware/context-oracle/ctxoracle/src/index/tree_sitter_frontend.ts, middleware/context-oracle/ctxoracle/src/index/generic_frontend.ts, middleware/context-oracle/ctxoracle/src/index/frontends.ts, middleware/context-oracle/ctxoracle/test/unit/tree_sitter_frontend.test.ts, middleware/context-oracle/ctxoracle/test/unit/generic_frontend.test.ts, middleware/context-oracle/ctxoracle/test/unit/indexer_frontends.test.ts, middleware/context-oracle/ctxoracle/test/unit/tree_sitter_frontend_fallback.test.ts, middleware/context-oracle/ctxoracle/src/index/resolvers.ts, middleware/context-oracle/ctxoracle/test/unit/import_resolvers.test.ts, middleware/context-oracle/ctxoracle/test/unit/frontend_capabilities.test.ts]
-  modify: [middleware/context-oracle/ctxoracle/src/index/indexer.ts, middleware/context-oracle/ctxoracle/src/stores/dao/tuning_seeds.ts, middleware/context-oracle/ctxoracle/test/fixtures/generate.ts, middleware/context-oracle/ctxoracle/test/unit/indexer_walk.test.ts, middleware/context-oracle/ctxoracle/test/unit/search_semantics.test.ts]
+  modify: [middleware/context-oracle/ctxoracle/src/index/indexer.ts, middleware/context-oracle/ctxoracle/src/index/frontend.ts, middleware/context-oracle/ctxoracle/src/stores/dao/tuning_seeds.ts, middleware/context-oracle/ctxoracle/test/fixtures/generate.ts, middleware/context-oracle/ctxoracle/test/unit/indexer_walk.test.ts, middleware/context-oracle/ctxoracle/test/unit/search_semantics.test.ts]
   delete: []
 provides: [treeSitterFrontend, genericFrontend, defaultFrontends, resolveTsImport, resolvePythonImport]
 tests: [T-15-1, T-15-2, T-15-3, T-15-4, T-15-5, T-15-6]
@@ -4282,7 +4282,12 @@ they differ.**
   standard library or an installed distribution); otherwise it is
   `unresolved` (the name is the repository's own, reached through a path
   the resolver cannot see, e.g. a package installed from the repository or
-  a `sys.path` edit). *Why (Step 15 builder's PLAN-FLAW stop, 2026-09-26,
+  a `sys.path` edit). The "exists anywhere" test is a new `RepoFiles` member,
+  `hasTopLevelModule(name): boolean` — true when some present in-tree path is
+  `<dir>/<name>.py`, or has a directory segment `<name>` with a `.py` file
+  beneath it — which the indexer builds once per pass from the walk's present
+  set (the interface offered only `has(path)`; raised by the Step 15 test
+  writer, 2026-09-26). *Why (Step 15 builder's PLAN-FLAW stop, 2026-09-26,
   executed on this repository):* resolving against the root alone classed
   116 of 589 Python imports that name an in-repo module next to the
   importer (e.g. `mcp-servers/codebase-rag/mcp-server-python/config.py`
