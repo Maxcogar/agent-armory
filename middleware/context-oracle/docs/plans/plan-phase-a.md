@@ -6,7 +6,11 @@ architecture, reviewed to convergence 2026-09-04, revised twice on 2026-09-26 by
 skeleton-gap-list pass — commits `0fab6d7` and `ec3b057`). Revision of 2026-09-26
 (the plan pass): the plan consumes the architecture as of `ec3b057` and records every
 plan- and code-layer decision of `docs/reviews/2026-09-25-skeleton-gap-list-review.md`
-in the step that owns it (the per-item map is §14.5). This plan
+in the step that owns it (the per-item map is §14.5). Revised again
+2026-09-26 against the architecture at `6cff0ce`, which is the authority for this
+revision: the findings of `docs/reviews/2026-09-26-plan-pass-expert-review.md`
+(S1–S3, M1–M7, m1–m8) and `docs/reviews/2026-09-26-plan-pass-collapse-hunt.md`
+(the D-plan-39 collapse, H1–H15, R1–R3) are applied in the steps that own them. This plan
 consumes the spec and architecture and is executed by the Phase A build. Every
 step here traces to an architecture decision (`AD-n`), a spec requirement
 (`FR-*`, `AC-*`, `C-*`, `NF-1`, `P*`, `D-n`), or a ledger key (`OL-*`).
@@ -60,7 +64,7 @@ into without a redesign:
 - **Runtime + store engine (AD-2):** Node ≥ 22.16.0 floor with `init`-time
   check; TypeScript strict ESM; `node:sqlite` (WAL, STRICT tables, FTS5) behind
   the single-file `stores/adapter.ts` seam; FTS5 probe at `init` with the
-  indexed-`LIKE` fallback.
+  indexed token-prefix fallback over the oracle's own tokenizer.
 - **Repository identity (AD-3, AD-20, AD-23):** the deterministic root-commit
   / URL / realpath resolver and `<repo-key>` derivation (run by `init`, never
   on the event path), the `init`-recorded `repo_path:<root>` → key binding the
@@ -339,10 +343,13 @@ recorded in §11 with what was found.
   dots name parent packages) and the TypeScript `moduleResolution: NodeNext`
   rules (relative specifiers resolve by the written path; a `.js` specifier
   maps to its `.ts` source) — Step 15 (G12); SQLite FTS5 documentation
-  (`unicode61` separators, `tokenchars`, `remove_diacritics`, prefix queries
-  `"term"*`) and the SQLite query-optimizer overview's LIKE optimization
-  (a case-insensitive `LIKE 'x%'` uses an index only when the column or index
-  uses `NOCASE`) — executed here 2026-09-26, §11.4 — Steps 7, 14 (G16, N6);
+  (the `ascii` tokenizer: every non-ASCII codepoint is a token character and
+  every ASCII non-alphanumeric a separator; prefix queries `"term"*`), Unicode
+  Standard Annex #15 (NFKD normalization) and the Unicode general categories
+  L, N, M (letters, digits, combining marks) for the one in-house tokenizer
+  AD-2 requires, and a range scan `token >= ? AND token < ? || char(0x10FFFF)`
+  over a plain index — executed here 2026-09-26, §11.4 — Steps 7, 9, 14 (G16,
+  N6; plan-pass collapse-hunt H4, expert review M3);
   the interface segregation principle (a component receives the narrow
   reader it uses, never the store behind it) — Step 12 (G8, G17).
 
@@ -502,10 +509,13 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/scripts/exit-run.sh | create | S39 |
 | middleware/context-oracle/ctxoracle/scripts/run-tests.mjs | create | S1 |
 | middleware/context-oracle/ctxoracle/src/bar/combinator.ts | create | S16 |
+| middleware/context-oracle/ctxoracle/src/bar/combinator.ts | modify | S6 |
 | middleware/context-oracle/ctxoracle/src/blocks/answer_drift.ts | create | S25 |
-| middleware/context-oracle/ctxoracle/src/blocks/answer_drift.ts | modify | S27 |
+| middleware/context-oracle/ctxoracle/src/blocks/answer_drift.ts | modify | S6, S27 |
 | middleware/context-oracle/ctxoracle/src/blocks/health.ts | create | S26 |
+| middleware/context-oracle/ctxoracle/src/blocks/health.ts | modify | S6 |
 | middleware/context-oracle/ctxoracle/src/blocks/verdict.ts | create | S24 |
+| middleware/context-oracle/ctxoracle/src/cli/context.ts | delete | S35 |
 | middleware/context-oracle/ctxoracle/src/cli/correct.ts | create | S34 |
 | middleware/context-oracle/ctxoracle/src/cli/deinit.ts | create | S32 |
 | middleware/context-oracle/ctxoracle/src/cli/dispatch.ts | create | S1 |
@@ -520,6 +530,8 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/src/cli/note.ts | create | S35 |
 | middleware/context-oracle/ctxoracle/src/cli/status.ts | create | S33 |
 | middleware/context-oracle/ctxoracle/src/cli/tune.ts | create | S33 |
+| middleware/context-oracle/ctxoracle/src/cli/verbs_skeleton.ts | modify | S9 |
+| middleware/context-oracle/ctxoracle/src/cli/verbs_skeleton.ts | delete | S35 |
 | middleware/context-oracle/ctxoracle/src/diag/fault_codes.ts | create | S6 |
 | middleware/context-oracle/ctxoracle/src/diag/fault_writer.ts | create | S10 |
 | middleware/context-oracle/ctxoracle/src/diag/jsonl.ts | create | S6 |
@@ -528,21 +540,33 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/src/diag/session_writer.ts | create | S10 |
 | middleware/context-oracle/ctxoracle/src/diag/status.ts | create | S33 |
 | middleware/context-oracle/ctxoracle/src/diag/whisper_stats_fold.ts | create | S30 |
+| middleware/context-oracle/ctxoracle/src/diag/whisper_stats_fold.ts | modify | S9 |
 | middleware/context-oracle/ctxoracle/src/genres/command_class.ts | create | S17 |
 | middleware/context-oracle/ctxoracle/src/genres/completeness.ts | create | S18 |
+| middleware/context-oracle/ctxoracle/src/genres/completeness.ts | modify | S6 |
 | middleware/context-oracle/ctxoracle/src/genres/consequence.ts | create | S18 |
+| middleware/context-oracle/ctxoracle/src/genres/consequence.ts | modify | S6 |
 | middleware/context-oracle/ctxoracle/src/genres/coupling.ts | create | S18 |
+| middleware/context-oracle/ctxoracle/src/genres/coupling.ts | modify | S6 |
 | middleware/context-oracle/ctxoracle/src/genres/generator.ts | create | S18 |
+| middleware/context-oracle/ctxoracle/src/genres/generator.ts | modify | S6 |
 | middleware/context-oracle/ctxoracle/src/genres/orientation.ts | create | S18 |
+| middleware/context-oracle/ctxoracle/src/genres/orientation.ts | modify | S6 |
 | middleware/context-oracle/ctxoracle/src/genres/reuse.ts | create | S18 |
+| middleware/context-oracle/ctxoracle/src/genres/reuse.ts | modify | S6 |
 | middleware/context-oracle/ctxoracle/src/genres/verification.ts | create | S18 |
+| middleware/context-oracle/ctxoracle/src/genres/verification.ts | modify | S6 |
 | middleware/context-oracle/ctxoracle/src/genres/warning.ts | create | S18 |
+| middleware/context-oracle/ctxoracle/src/genres/warning.ts | modify | S6 |
 | middleware/context-oracle/ctxoracle/src/hook/adapter.ts | create | S28 |
+| middleware/context-oracle/ctxoracle/src/hook/adapter.ts | modify | S6 |
 | middleware/context-oracle/ctxoracle/src/hook/compose.ts | create | S19 |
+| middleware/context-oracle/ctxoracle/src/hook/compose.ts | modify | S6 |
 | middleware/context-oracle/ctxoracle/src/hook/delivery.ts | create | S20 |
+| middleware/context-oracle/ctxoracle/src/hook/delivery.ts | modify | S6 |
 | middleware/context-oracle/ctxoracle/src/hook/guard.ts | create | S10 |
 | middleware/context-oracle/ctxoracle/src/hook/handler.ts | create | S28 |
-| middleware/context-oracle/ctxoracle/src/hook/handler.ts | modify | S30 |
+| middleware/context-oracle/ctxoracle/src/hook/handler.ts | modify | S6, S30 |
 | middleware/context-oracle/ctxoracle/src/hook/watchdog.ts | create | S10 |
 | middleware/context-oracle/ctxoracle/src/identity/git_layout.ts | create | S14 |
 | middleware/context-oracle/ctxoracle/src/identity/home.ts | create | S4 |
@@ -553,7 +577,7 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/src/index/frontends.ts | create | S15 |
 | middleware/context-oracle/ctxoracle/src/index/generic_frontend.ts | create | S15 |
 | middleware/context-oracle/ctxoracle/src/index/indexer.ts | create | S14 |
-| middleware/context-oracle/ctxoracle/src/index/indexer.ts | modify | S30 |
+| middleware/context-oracle/ctxoracle/src/index/indexer.ts | modify | S9, S30 |
 | middleware/context-oracle/ctxoracle/src/index/path_glob.ts | create | S14 |
 | middleware/context-oracle/ctxoracle/src/index/resolvers.ts | create | S15 |
 | middleware/context-oracle/ctxoracle/src/index/search.ts | create | S14 |
@@ -561,6 +585,7 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/src/index/walk.ts | create | S14 |
 | middleware/context-oracle/ctxoracle/src/index/zone.ts | create | S14 |
 | middleware/context-oracle/ctxoracle/src/miner/cochange.ts | create | S13 |
+| middleware/context-oracle/ctxoracle/src/miner/cochange.ts | modify | S9 |
 | middleware/context-oracle/ctxoracle/src/miner/labels.ts | create | S13 |
 | middleware/context-oracle/ctxoracle/src/model/invoke.ts | create | S36 |
 | middleware/context-oracle/ctxoracle/src/qa/classify.ts | create | S23 |
@@ -592,6 +617,7 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/src/stores/dao/session_log.ts | create | S9 |
 | middleware/context-oracle/ctxoracle/src/stores/dao/stats_folds.ts | create | S9 |
 | middleware/context-oracle/ctxoracle/src/stores/dao/symbol_refs.ts | create | S9 |
+| middleware/context-oracle/ctxoracle/src/stores/dao/symbol_tokens.ts | create | S9 |
 | middleware/context-oracle/ctxoracle/src/stores/dao/symbols.ts | create | S9 |
 | middleware/context-oracle/ctxoracle/src/stores/dao/test_map.ts | create | S9 |
 | middleware/context-oracle/ctxoracle/src/stores/dao/tuning_seeds.ts | create | S12 |
@@ -640,7 +666,7 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/test/conventions/sqlite_single_importer.test.ts | create | S3 |
 | middleware/context-oracle/ctxoracle/test/fixtures/generate_large_store.ts | create | S29 |
 | middleware/context-oracle/ctxoracle/test/fixtures/generate.ts | create | S1 |
-| middleware/context-oracle/ctxoracle/test/fixtures/generate.ts | modify | S13, S14, S15, S18, S28, S30, S38 |
+| middleware/context-oracle/ctxoracle/test/fixtures/generate.ts | modify | S13, S14, S15, S16, S18, S28, S30, S38 |
 | middleware/context-oracle/ctxoracle/test/fixtures/repos/.gitkeep | create | S1 |
 | middleware/context-oracle/ctxoracle/test/fixtures/repos/answer-drift-clearly-off/ | create | S1 |
 | middleware/context-oracle/ctxoracle/test/fixtures/repos/bar-two-candidates/ | create | S1 |
@@ -661,6 +687,7 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/test/fixtures/repos/orientation-mixed-shape/ | create | S1 |
 | middleware/context-oracle/ctxoracle/test/fixtures/repos/over-threshold-file/ | create | S1 |
 | middleware/context-oracle/ctxoracle/test/fixtures/repos/pristine-tree/ | create | S1 |
+| middleware/context-oracle/ctxoracle/test/fixtures/repos/recency-weighting/ | create | S1 |
 | middleware/context-oracle/ctxoracle/test/fixtures/repos/regret-no-inflate/ | create | S1 |
 | middleware/context-oracle/ctxoracle/test/fixtures/repos/regret-true-positive/ | create | S1 |
 | middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-full/ | create | S1 |
@@ -700,6 +727,7 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/test/replay/error_mapping.test.ts | create | S28 |
 | middleware/context-oracle/ctxoracle/test/replay/export_roundtrip.test.ts | create | S32 |
 | middleware/context-oracle/ctxoracle/test/replay/fail_open.test.ts | create | S28 |
+| middleware/context-oracle/ctxoracle/test/replay/fork_reseed.test.ts | create | S28 |
 | middleware/context-oracle/ctxoracle/test/replay/hook_stream_fixtures/ | create | S28 |
 | middleware/context-oracle/ctxoracle/test/replay/hook_stream_fixtures/ | modify | S38 |
 | middleware/context-oracle/ctxoracle/test/replay/hooks_not_firing.test.ts | create | S33 |
@@ -741,6 +769,7 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/test/unit/answer_drift_catchup.test.ts | create | S25 |
 | middleware/context-oracle/ctxoracle/test/unit/answer_drift_decide.test.ts | create | S25 |
 | middleware/context-oracle/ctxoracle/test/unit/answer_drift_intake.test.ts | create | S25 |
+| middleware/context-oracle/ctxoracle/test/unit/bar_recency.test.ts | create | S16 |
 | middleware/context-oracle/ctxoracle/test/unit/bar_tiers.test.ts | create | S16 |
 | middleware/context-oracle/ctxoracle/test/unit/bar.test.ts | create | S16 |
 | middleware/context-oracle/ctxoracle/test/unit/command_class_compound.test.ts | create | S17 |
@@ -805,6 +834,8 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/test/unit/repo_key.test.ts | create | S5 |
 | middleware/context-oracle/ctxoracle/test/unit/run_tests_guard.test.ts | create | S1 |
 | middleware/context-oracle/ctxoracle/test/unit/search_semantics.test.ts | create | S14 |
+| middleware/context-oracle/ctxoracle/test/unit/skeleton_e2e.test.ts | modify | S6 |
+| middleware/context-oracle/ctxoracle/test/unit/skeleton_e2e.test.ts | delete | S28 |
 | middleware/context-oracle/ctxoracle/test/unit/spawn_wrapper.test.ts | create | S5 |
 | middleware/context-oracle/ctxoracle/test/unit/stop_outstanding_line.test.ts | create | S27 |
 | middleware/context-oracle/ctxoracle/test/unit/store_backup_holder.ts | create | S3 |
@@ -891,8 +922,9 @@ Step 13's full build, then re-verified as **Checkpoint 1R** (§9):
 - Step 1 — the `human_markers.jsonl` fixture gains `origin.kind: "human"` on
   its human entries (G26; the rule it tests is Step 21's).
 - Step 3 — `Store.transaction` is re-entrant (`SAVEPOINT` below depth 0,
-  AD-26, G9); `openStore(path, {mustExist: true})` never creates a file (N15);
-  `backupFile` exposes `node:sqlite`'s `backup()` for import (AD-5, G34).
+  AD-26, G9); `openStore(path, {mustExist: true})` never creates a file (N15)
+  and tells a missing store from an unreadable one (plan-pass collapse-hunt
+  H8); `backupFile` exposes `node:sqlite`'s `backup()` for import (AD-5, G34).
   Standard: SQLite `SAVEPOINT` docs; Fowler Unit of Work; the executed
   `DatabaseSync` behaviour (a missing path is created — §11.4).
 - Step 4 — `ensureHome` creates `<home>/diagnostics/` (AD-17, G35).
@@ -903,19 +935,25 @@ Step 13's full build, then re-verified as **Checkpoint 1R** (§9):
   types (G4, G7, G15, G18, G19, G21–G25, G29, G31, N3; AD-4, AD-14, AD-16,
   AD-17). Standard: AD-17's one-list rule; AD-4's consumer key.
 - Step 7 — the project schema: `files.in_tree`/`change_count`/
-  `unresolved_imports`, no pair counters, `labelled_touches`, the miner
-  landmine key, `seq` keys on `whisper_audit`/`corrections`/
-  `observed_actions`/`session_log`, `stats_folds`, the `fts_paths` tokenizer,
-  a `NOCASE` search index (G2, G3, G5, G16, N6, N11, N16; AD-4). Standard:
-  3NF; SQLite VACUUM rowid rule; SQLite LIKE optimization (executed).
+  `change_weight`/`unresolved_imports`, no pair counters, `pair_weight`,
+  `labelled_touches`, the miner landmine key, `seq` keys on
+  `whisper_audit`/`corrections`/`observed_actions`/`session_log`,
+  `stats_folds`, FTS tables over the in-house tokens, and the `symbol_tokens`
+  and `path_tokens` fallback tables (G2, G3, G5, G16, N6, N11, N16; AD-2,
+  AD-4, AD-13). Standard: 3NF; SQLite VACUUM rowid rule; UAX #15 (executed).
 - Step 8 — `whisper_stats` becomes the replaced replica keyed
   `(genre, project_key)`; `global_meta` holds bindings, no watermark (AD-5,
   G33, N11).
 - Step 9 — the DAO surface for the above (G2, G3, G5, G22, N5, N16).
 - Step 10 — `writeSessionEvent` takes no `seq` (N16).
 - Step 12 — the concrete `tuningReader` (project row before the NULL row,
-  re-seed, `tuning_missing`), the ordering validator, and the new seeds (G1,
-  G8, G17, G20, N13; AD-12, AD-14, AD-15, AD-26).
+  re-seed, `tuning_missing`), the ordering validator with AD-14's tier
+  invariant, and the new seeds (G1, G8, G17, G20, N13; AD-12, AD-13, AD-14,
+  AD-15, AD-26).
+- **The skeleton modules of Steps 13–39 that stop compiling** against the
+  Step 6, 7, and 9 deltas are declared in those deltas' `modify:` lists and
+  reduced by one written placeholder rule; the tests the reduction turns red
+  are marked `todo` (§9, Checkpoint 1R; review S1, collapse-hunt H12/H13).
 
 No store has shipped to any user (the skeleton ran only against scratch and
 this repository's own throwaway stores), so migrations 001, 001b, and 002 are
@@ -982,15 +1020,32 @@ order, each test-first, and Checkpoint 1R (§9) re-verifies the substrate.
 Steps 13–39 then each get their full build in step order, replacing the
 walking skeleton at the same paths; every `SKELETON:` mark in `src/` is
 removed by the step that owns its module, and Step 37's `T-37-1` fails the
-suite while any mark remains. **Test-first contract for Step 13 onward:** a
-separate agent writes each step's §12 tests from the test specification alone
-and runs them against the skeleton before the step's code changes; each must
-fail for the reason its "Fails when" clause names (a test that passes against
-the skeleton is either pinning behaviour the skeleton already has — recorded
-in the implementation log with that evidence — or is not testing the
-decision, and is rewritten). Every value a test asserts is stated in its
+suite while any mark — or any `todo` test Checkpoint 1R introduced — remains.
+**Test-first contract for Step 13 onward**, in this order:
+1. *Stubs first.* Before any test is written, the builder adds every export
+   the step's `provides:` names that the skeleton lacks as a stub whose body
+   is `throw new Error('not implemented: <name>')` (a class or type export
+   gets its declared shape with each method throwing the same way), so `tsc`
+   compiles the whole project — `src` and `test` are one `tsc` project (Step
+   1), so a test importing a missing export would otherwise fail the build of
+   every test, not fail itself. The stubs are the step's first change and are
+   replaced by its build; `T-37-1` fails while any `not implemented:` text
+   remains under `src/`.
+2. *Tests from the specification.* A separate agent writes the step's §12
+   tests from the test specification alone and runs them against the tree
+   with the stubs.
+3. *The red state counts only for the named reason.* A test over a stubbed
+   export must fail at run time on that stub's `not implemented: <name>`
+   error; a test over an export the skeleton already has must fail on its
+   "Fails when" clause. A test that passes before the step's code changes is
+   either pinning behaviour the skeleton already has — recorded in the
+   implementation log with that evidence — or is not testing the decision,
+   and is rewritten.
+Every value a test asserts is stated in its
 specification or derivable from a named seed, fixture scenario, or formula
-in the step it verifies.
+in the step it verifies. (Expert review M5: under one `tsc` project, a
+missing export was a build error, so the contract's red state could not be
+observed as specified.)
 
 **Cross-cutting conventions every step from 13 on follows (gap-list review
 G8, G9, G23/G29, N10; AD-5, AD-26).**
@@ -1025,7 +1080,7 @@ function-level tests it names.
 step: S1
 covers: [PA-10, PA-12]
 files:
-  create: [.github/workflows/context-oracle-ctxoracle.yml, middleware/context-oracle/ctxoracle/package.json, middleware/context-oracle/ctxoracle/package-lock.json, middleware/context-oracle/ctxoracle/tsconfig.json, middleware/context-oracle/ctxoracle/src/cli/dispatch.ts, middleware/context-oracle/ctxoracle/scripts/run-tests.mjs, middleware/context-oracle/ctxoracle/test/build/tsc_fixture.ts, middleware/context-oracle/ctxoracle/test/replay/transcript_fixtures/, middleware/context-oracle/ctxoracle/test/fixtures/generate.ts, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-full/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-shallow/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-shallow-no-origin/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-nongit/, middleware/context-oracle/ctxoracle/test/fixtures/repos/miner-hygiene/, middleware/context-oracle/ctxoracle/test/fixtures/repos/indexer-small/, middleware/context-oracle/ctxoracle/test/fixtures/repos/coupling-nonobvious/, middleware/context-oracle/ctxoracle/test/fixtures/repos/orientation-mixed-shape/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-mixed-language/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-observed-zero/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-same-name-collision/, middleware/context-oracle/ctxoracle/test/fixtures/repos/consequence-coupled-tests/, middleware/context-oracle/ctxoracle/test/fixtures/repos/warning-landmine/, middleware/context-oracle/ctxoracle/test/fixtures/repos/completeness-paired-change/, middleware/context-oracle/ctxoracle/test/fixtures/repos/verification-covering-test/, middleware/context-oracle/ctxoracle/test/fixtures/repos/bar-two-candidates/, middleware/context-oracle/ctxoracle/test/fixtures/repos/dedup-read-set/, middleware/context-oracle/ctxoracle/test/fixtures/repos/corpus-floor-29/, middleware/context-oracle/ctxoracle/test/fixtures/repos/answer-drift-clearly-off/, middleware/context-oracle/ctxoracle/test/fixtures/repos/pristine-tree/, middleware/context-oracle/ctxoracle/test/fixtures/repos/secret-injection/, middleware/context-oracle/ctxoracle/test/fixtures/repos/subagent-delivery/, middleware/context-oracle/ctxoracle/test/fixtures/repos/language-config-added/, middleware/context-oracle/ctxoracle/test/fixtures/repos/seeded-facts/, middleware/context-oracle/ctxoracle/test/fixtures/repos/regret-true-positive/, middleware/context-oracle/ctxoracle/test/fixtures/repos/regret-no-inflate/, middleware/context-oracle/ctxoracle/test/fixtures/repos/over-threshold-file/, middleware/context-oracle/ctxoracle/test/fixtures/repos/coupling-key-symmetry/, middleware/context-oracle/ctxoracle/test/fixtures/repos/miner-denominator/, middleware/context-oracle/ctxoracle/test/fixtures/repos/miner-labels/, middleware/context-oracle/ctxoracle/test/fixtures/repos/miner-large/, middleware/context-oracle/ctxoracle/test/fixtures/repos/indexer-walk/, middleware/context-oracle/ctxoracle/test/fixtures/repos/indexer-nongit/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-alias-unresolved/, middleware/context-oracle/ctxoracle/test/unit/package_build.test.ts, middleware/context-oracle/ctxoracle/test/unit/run_tests_guard.test.ts, middleware/context-oracle/ctxoracle/test/unit/generator_determinism.test.ts, middleware/context-oracle/ctxoracle/.gitignore, middleware/context-oracle/ctxoracle/test/fixtures/repos/.gitkeep]
+  create: [.github/workflows/context-oracle-ctxoracle.yml, middleware/context-oracle/ctxoracle/package.json, middleware/context-oracle/ctxoracle/package-lock.json, middleware/context-oracle/ctxoracle/tsconfig.json, middleware/context-oracle/ctxoracle/src/cli/dispatch.ts, middleware/context-oracle/ctxoracle/scripts/run-tests.mjs, middleware/context-oracle/ctxoracle/test/build/tsc_fixture.ts, middleware/context-oracle/ctxoracle/test/replay/transcript_fixtures/, middleware/context-oracle/ctxoracle/test/fixtures/generate.ts, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-full/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-shallow/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-shallow-no-origin/, middleware/context-oracle/ctxoracle/test/fixtures/repos/repo-key-nongit/, middleware/context-oracle/ctxoracle/test/fixtures/repos/miner-hygiene/, middleware/context-oracle/ctxoracle/test/fixtures/repos/indexer-small/, middleware/context-oracle/ctxoracle/test/fixtures/repos/coupling-nonobvious/, middleware/context-oracle/ctxoracle/test/fixtures/repos/orientation-mixed-shape/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-mixed-language/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-observed-zero/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-same-name-collision/, middleware/context-oracle/ctxoracle/test/fixtures/repos/consequence-coupled-tests/, middleware/context-oracle/ctxoracle/test/fixtures/repos/warning-landmine/, middleware/context-oracle/ctxoracle/test/fixtures/repos/completeness-paired-change/, middleware/context-oracle/ctxoracle/test/fixtures/repos/verification-covering-test/, middleware/context-oracle/ctxoracle/test/fixtures/repos/bar-two-candidates/, middleware/context-oracle/ctxoracle/test/fixtures/repos/dedup-read-set/, middleware/context-oracle/ctxoracle/test/fixtures/repos/corpus-floor-29/, middleware/context-oracle/ctxoracle/test/fixtures/repos/answer-drift-clearly-off/, middleware/context-oracle/ctxoracle/test/fixtures/repos/pristine-tree/, middleware/context-oracle/ctxoracle/test/fixtures/repos/secret-injection/, middleware/context-oracle/ctxoracle/test/fixtures/repos/subagent-delivery/, middleware/context-oracle/ctxoracle/test/fixtures/repos/language-config-added/, middleware/context-oracle/ctxoracle/test/fixtures/repos/seeded-facts/, middleware/context-oracle/ctxoracle/test/fixtures/repos/regret-true-positive/, middleware/context-oracle/ctxoracle/test/fixtures/repos/regret-no-inflate/, middleware/context-oracle/ctxoracle/test/fixtures/repos/over-threshold-file/, middleware/context-oracle/ctxoracle/test/fixtures/repos/coupling-key-symmetry/, middleware/context-oracle/ctxoracle/test/fixtures/repos/miner-denominator/, middleware/context-oracle/ctxoracle/test/fixtures/repos/miner-labels/, middleware/context-oracle/ctxoracle/test/fixtures/repos/miner-large/, middleware/context-oracle/ctxoracle/test/fixtures/repos/indexer-walk/, middleware/context-oracle/ctxoracle/test/fixtures/repos/indexer-nongit/, middleware/context-oracle/ctxoracle/test/fixtures/repos/reuse-alias-unresolved/, middleware/context-oracle/ctxoracle/test/fixtures/repos/recency-weighting/, middleware/context-oracle/ctxoracle/test/unit/package_build.test.ts, middleware/context-oracle/ctxoracle/test/unit/run_tests_guard.test.ts, middleware/context-oracle/ctxoracle/test/unit/generator_determinism.test.ts, middleware/context-oracle/ctxoracle/.gitignore, middleware/context-oracle/ctxoracle/test/fixtures/repos/.gitkeep]
   modify: []
   delete: []
 provides: [npm-ci, npm-test, npm-run-test, npm-run-build]
@@ -1138,7 +1193,7 @@ exists (the runner's count guard covers `test/replay` too, so adding it
 earlier would be a red run on an empty set), and the `cold-container` job
 `AC-20` names is added by Step 38, when its script exists.
 
-**Creates.** `.github/workflows/context-oracle-ctxoracle.yml` — CI: build + unit/integration/convention tier; `package.json` — AD-25; `tsconfig.json` — AD-25; compiles src/ and test/ into dist/; `src/cli/dispatch.ts` — the `bin` target stub (`#!/usr/bin/env node`; does no work, exits non-zero on invocation), extended by Steps 28 and 31–35 (AD-25); `scripts/run-tests.mjs` — enumerates compiled tests; refuses a zero/mismatched set; `test/build/tsc_fixture.ts` — helper: runs tsc --noEmit on one fixture, returns exit code + diagnostics; `test/replay/transcript_fixtures/` — transcript JSONL fixtures (marker-carrying, marker-less, injected-turn, lag); `test/fixtures/generate.ts` — entry point for all fixture-repo generators (D-plan-5); `test/fixtures/repos/repo-key-full/` — full history, 3 root commits; `test/fixtures/repos/repo-key-shallow/` — depth-1 clone of repo-key-full with origin; `test/fixtures/repos/repo-key-shallow-no-origin/`; `test/fixtures/repos/repo-key-nongit/` — plain directory; `test/fixtures/repos/miner-hygiene/` — planted pair, merge commit, 45-file commit, beyond-horizon commit; `test/fixtures/repos/indexer-small/` — 3 .ts files, 1 .py, 1 .sh, 1 >1 MB file, planted secret; `test/fixtures/repos/coupling-nonobvious/` — cross-directory pair + same-dir same-stem pair; `test/fixtures/repos/orientation-mixed-shape/` — low-in-degree main/cli + high-in-degree hub; `test/fixtures/repos/reuse-mixed-language/` — grammar-covered dominant + generic-frontend candidate; `test/fixtures/repos/reuse-observed-zero/` — grammar-covered symbol with observed 0 count; `test/fixtures/repos/reuse-same-name-collision/` — comment/string collisions; `test/fixtures/repos/consequence-coupled-tests/` — file co-changing with two test files; `test/fixtures/repos/warning-landmine/` — revert_chain + fix_chatter rows, low-confidence row; `test/fixtures/repos/completeness-paired-change/`; `test/fixtures/repos/verification-covering-test/` — changed region with a covering test; run / not-run / run-and-failed variants; `test/fixtures/repos/bar-two-candidates/`; `test/fixtures/repos/dedup-read-set/`; `test/fixtures/repos/corpus-floor-29/` — 29 non-excluded commits, generator adds the 30th; `test/fixtures/repos/answer-drift-clearly-off/`; `test/fixtures/repos/pristine-tree/`; `test/fixtures/repos/secret-injection/`; `test/fixtures/repos/subagent-delivery/`; `test/fixtures/repos/language-config-added/`; `test/fixtures/repos/seeded-facts/` — planted coupling + planted landmine; `test/fixtures/repos/regret-true-positive/` — a held fact and a never-triggered fact); `test/fixtures/repos/regret-no-inflate/`; `test/fixtures/repos/over-threshold-file/` — >1 MB file carrying a seeded fact (AD-24); `test/fixtures/repos/coupling-key-symmetry/` — one A–B pair, Read of A then Read of B (AD-24, Step 38); `test/fixtures/repos/miner-denominator/` — `a.txt` changed 7 times, 4 with `b.txt` (G3, Step 13); `test/fixtures/repos/miner-labels/` — revert trailer / prefix / large revert / fix-token cases (G1, G5, Step 13); `test/fixtures/repos/miner-large/` — 2,000 commits via `git fast-import` (AD-26 chunking, Step 13); `test/fixtures/repos/indexer-walk/` — ignored-tracked, deleted-but-listed, non-UTF-8, test-path and import-resolution cases (Step 14–15); `test/fixtures/repos/indexer-nongit/` — a plain directory tree (AD-12 `readdir` walk, Step 14); `test/fixtures/repos/reuse-alias-unresolved/` — a TypeScript helper imported mostly through a `tsconfig` path alias (AD-12/AD-15, Step 18); `.gitignore` — re-includes `package-lock.json` and the `test/build/` subtree for this package (the repository-root `.gitignore` ignores both by pattern; `node_modules/` and `dist/` stay ignored), so `T-1-1`/CI are not silently starved of the committed lockfile or the compile-time test tier (implementation-log/collapse-log 2026-09-19); `test/fixtures/repos/.gitkeep` — keeps the generated-at-test-time fixture-repos directory present in git.
+**Creates.** `.github/workflows/context-oracle-ctxoracle.yml` — CI: build + unit/integration/convention tier; `package.json` — AD-25; `tsconfig.json` — AD-25; compiles src/ and test/ into dist/; `src/cli/dispatch.ts` — the `bin` target stub (`#!/usr/bin/env node`; does no work, exits non-zero on invocation), extended by Steps 28 and 31–35 (AD-25); `scripts/run-tests.mjs` — enumerates compiled tests; refuses a zero/mismatched set; `test/build/tsc_fixture.ts` — helper: runs tsc --noEmit on one fixture, returns exit code + diagnostics; `test/replay/transcript_fixtures/` — transcript JSONL fixtures (marker-carrying, marker-less, injected-turn, lag); `test/fixtures/generate.ts` — entry point for all fixture-repo generators (D-plan-5); `test/fixtures/repos/repo-key-full/` — full history, 3 root commits; `test/fixtures/repos/repo-key-shallow/` — depth-1 clone of repo-key-full with origin; `test/fixtures/repos/repo-key-shallow-no-origin/`; `test/fixtures/repos/repo-key-nongit/` — plain directory; `test/fixtures/repos/miner-hygiene/` — planted pair, merge commit, 45-file commit, beyond-horizon commit; `test/fixtures/repos/indexer-small/` — 3 .ts files, 1 .py, 1 .sh, 1 >1 MB file, planted secret; `test/fixtures/repos/coupling-nonobvious/` — cross-directory pair + same-dir same-stem pair; `test/fixtures/repos/orientation-mixed-shape/` — low-in-degree main/cli + high-in-degree hub; `test/fixtures/repos/reuse-mixed-language/` — grammar-covered dominant + generic-frontend candidate; `test/fixtures/repos/reuse-observed-zero/` — grammar-covered symbol with observed 0 count; `test/fixtures/repos/reuse-same-name-collision/` — comment/string collisions; `test/fixtures/repos/consequence-coupled-tests/` — file co-changing with two test files; `test/fixtures/repos/warning-landmine/` — revert_chain + fix_chatter rows, low-confidence row; `test/fixtures/repos/completeness-paired-change/`; `test/fixtures/repos/verification-covering-test/` — changed region with a covering test; run / not-run / run-and-failed variants; `test/fixtures/repos/bar-two-candidates/`; `test/fixtures/repos/dedup-read-set/`; `test/fixtures/repos/corpus-floor-29/` — 29 non-excluded commits, generator adds the 30th; `test/fixtures/repos/answer-drift-clearly-off/`; `test/fixtures/repos/pristine-tree/`; `test/fixtures/repos/secret-injection/`; `test/fixtures/repos/subagent-delivery/`; `test/fixtures/repos/language-config-added/`; `test/fixtures/repos/seeded-facts/` — planted coupling + planted landmine; `test/fixtures/repos/regret-true-positive/` — a held fact and a never-triggered fact); `test/fixtures/repos/regret-no-inflate/`; `test/fixtures/repos/over-threshold-file/` — >1 MB file carrying a seeded fact (AD-24); `test/fixtures/repos/coupling-key-symmetry/` — one A–B pair, Read of A then Read of B (AD-24, Step 38); `test/fixtures/repos/miner-denominator/` — `a.txt` changed 7 times, 4 with `b.txt` (G3, Step 13); `test/fixtures/repos/miner-labels/` — revert trailer / prefix / large revert / fix-token cases (G1, G5, Step 13); `test/fixtures/repos/miner-large/` — 2,000 commits via `git fast-import` (AD-26 chunking, Step 13); `test/fixtures/repos/indexer-walk/` — ignored-tracked, deleted-but-listed, non-UTF-8, test-path and import-resolution cases (Step 14–15); `test/fixtures/repos/indexer-nongit/` — a plain directory tree (AD-12 `readdir` walk, Step 14); `test/fixtures/repos/reuse-alias-unresolved/` — a TypeScript helper imported mostly through a `tsconfig` path alias (AD-12/AD-15, Step 18); `test/fixtures/repos/recency-weighting/` — an old perfect pairing and a pairing that came apart, backdated commits (AD-13 recency weights, Step 16; added 2026-09-26); `.gitignore` — re-includes `package-lock.json` and the `test/build/` subtree for this package (the repository-root `.gitignore` ignores both by pattern; `node_modules/` and `dist/` stay ignored), so `T-1-1`/CI are not silently starved of the committed lockfile or the compile-time test tier (implementation-log/collapse-log 2026-09-19); `test/fixtures/repos/.gitkeep` — keeps the generated-at-test-time fixture-repos directory present in git.
 
 **Reopened 2026-09-26 — build delta.** (a) the `human_markers.jsonl` transcript fixture:
 every human entry gains `"origin":{"kind":"human"}` — the fixture had no
@@ -1306,7 +1361,7 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/stores/adapter.ts, middleware/context-oracle/ctxoracle/test/unit/stores_adapter.test.ts, middleware/context-oracle/ctxoracle/test/conventions/sqlite_single_importer.test.ts, middleware/context-oracle/ctxoracle/test/unit/concurrency.test.ts, middleware/context-oracle/ctxoracle/test/unit/concurrency_worker.ts, middleware/context-oracle/ctxoracle/test/unit/fts5_probe.test.ts, middleware/context-oracle/ctxoracle/test/unit/store_nesting.test.ts, middleware/context-oracle/ctxoracle/test/unit/store_backup.test.ts, middleware/context-oracle/ctxoracle/test/unit/store_backup_holder.ts]
   modify: []
   delete: []
-provides: [openStore, Store, StoreBusy, StoreMissing, probeFts5, backupFile]
+provides: [openStore, Store, StoreBusy, StoreMissing, StoreUnreadable, probeFts5, backupFile]
 tests: [T-3-1, T-3-2, T-3-3, T-3-4, T-3-5, T-3-6]
 depends_on: [S1, S2]
 ```
@@ -1339,8 +1394,9 @@ codebase that imports `node:sqlite`. Exports:
 - `probeFts5(db): boolean` — attempts `CREATE VIRTUAL TABLE _fts5_probe
   USING fts5(x); DROP TABLE _fts5_probe;` inside a transaction, rolling
   back on throw (AD-2's defense-in-depth probe, called by `init`, Step 31;
-  on `false` the search interface falls back to indexed `LIKE`/token-prefix
-  queries and `status` says so).
+  on `false` the search interface falls back to token-prefix range queries
+  over the `symbol_tokens` and `path_tokens` tables, which hold the same
+  in-house tokens the FTS tables index (AD-2), and `status` says so).
 Create `test/conventions/sqlite_single_importer.test.ts` (built-output grep
 over `dist/src/**/*.js`): passes only when `dist/src/stores/adapter.js` is
 the sole file containing `node:sqlite`.
@@ -1365,15 +1421,26 @@ the sole file containing `node:sqlite`.
   nesting sequence executed on Node 22.22.2.
 - **`openStore(path, opts?: { mustExist?: boolean })`.** With
   `mustExist: true` the adapter opens `pathToFileURL(path).href + '?mode=rw'`
-  and, when SQLite reports it cannot open the file, throws the typed
-  `StoreMissing` (the path is in its `message`) instead of creating a
-  database. Default (`mustExist` absent) keeps today's create-if-missing
+  and never creates a database. When SQLite refuses the open (errcode 14,
+  `SQLITE_CANTOPEN`), the adapter then `stat`s the path — nothing was
+  created, so there is no race: a `stat` that fails with `ENOENT` or
+  `ENOTDIR` throws the typed `StoreMissing` (the path is in its `message`);
+  any other outcome — the path exists (a directory, a file the process cannot
+  open) or `stat` fails with another errno (`EACCES` on a parent) — throws the
+  typed `StoreUnreadable` carrying `{path, pathKind: 'file' | 'directory' |
+  'other' | null, errno: string | null, message}` (`pathKind` null when the
+  `stat` failed). Default (`mustExist` absent) keeps today's create-if-missing
   behaviour, which `init`, the replay harness's store preparation, and the verbs that
   create stores use. *Why:* executed here 2026-09-26 on Node 22.22.2 (§11.4) — `new
   DatabaseSync(<missing path>)` **creates** the file, while the `file:` URI
   with `mode=rw` throws "unable to open database file" and creates nothing,
   and opens an existing WAL store normally even when its path holds a space,
-  `#`, and `?`. The handler (Step 28) opens only with `mustExist: true`, so an
+  `#`, and `?`; and a missing file, a file in a missing directory, and a path
+  that is a directory all fail with the same errcode 14 (plan-pass
+  collapse-hunt P2), so the error alone cannot say "deleted" — only the
+  follow-up `stat` can, and reading every CANTOPEN as a deleted store would
+  tell Max his store was deleted when it is a permission or layout problem
+  (collapse-hunt H8). The handler (Step 28) opens only with `mustExist: true`, so an
   event can never create per-repository state (review N15; AD-23 "creates
   nothing").
 - **`backupFile(sourcePath, destinationPath): Promise<void>`** — the
@@ -1431,7 +1498,8 @@ short, caller-owned, nestable write transactions + retry-once on
 other retries once and succeeds; a third contended write fails open with
 `StoreBusy`), `T-3-4` (the FTS5 probe returns `true` on this runtime and the
 probe table is gone afterwards), `T-3-5` (nesting: savepoint commit, savepoint rollback,
-outer rollback, no retry below depth 0; `mustExist` never creates), `T-3-6`
+outer rollback, no retry below depth 0; `mustExist` never creates and tells
+a missing store from an unreadable one), `T-3-6`
 (`backupFile` into a store another process holds open with uncheckpointed
 WAL frames yields an intact store holding exactly the source's rows).
 
@@ -1475,7 +1543,7 @@ channel AD-17 names) and returns `<home>/diagnostics/` plus any of those three
 that pre-existed with a looser mode. `ensureLayout(home, repoKey)` calls
 `ensureHome` first and then creates the per-project directories exactly as
 before. **Callers:** `ensureLayout` — `init` (Step 31), the replay harness's
-the replay harness's store preparation (Step 28), and the store-creating
+store preparation (Step 28), and the store-creating
 verbs (`import`, Step 32);
 `ensureHome` alone — the handler's home-channel fault path (Step 28), which
 must be able to write `repo_not_bound` or a pre-repository fault on a machine
@@ -1688,7 +1756,7 @@ step: S6
 covers: [PA-3, PA-5]
 files:
   create: [middleware/context-oracle/ctxoracle/src/diag/fault_codes.ts, middleware/context-oracle/ctxoracle/src/diag/jsonl.ts, middleware/context-oracle/ctxoracle/src/types/events.ts, middleware/context-oracle/ctxoracle/src/types/candidate.ts, middleware/context-oracle/ctxoracle/src/types/index_types.ts, middleware/context-oracle/ctxoracle/test/unit/fault_codes.test.ts, middleware/context-oracle/ctxoracle/test/unit/jsonl_writer.test.ts, middleware/context-oracle/ctxoracle/src/security/trust.ts, middleware/context-oracle/ctxoracle/src/types/consumer.ts, middleware/context-oracle/ctxoracle/src/types/headline.ts, middleware/context-oracle/ctxoracle/test/unit/consumer_key.test.ts, middleware/context-oracle/ctxoracle/test/build/typecheck_headline_literal.test.ts, middleware/context-oracle/ctxoracle/test/build/fixtures/headline_nonliteral.ts]
-  modify: []
+  modify: [middleware/context-oracle/ctxoracle/src/bar/combinator.ts, middleware/context-oracle/ctxoracle/src/genres/generator.ts, middleware/context-oracle/ctxoracle/src/genres/orientation.ts, middleware/context-oracle/ctxoracle/src/genres/coupling.ts, middleware/context-oracle/ctxoracle/src/genres/reuse.ts, middleware/context-oracle/ctxoracle/src/genres/consequence.ts, middleware/context-oracle/ctxoracle/src/genres/warning.ts, middleware/context-oracle/ctxoracle/src/genres/completeness.ts, middleware/context-oracle/ctxoracle/src/genres/verification.ts, middleware/context-oracle/ctxoracle/src/hook/compose.ts, middleware/context-oracle/ctxoracle/src/hook/delivery.ts, middleware/context-oracle/ctxoracle/src/hook/adapter.ts, middleware/context-oracle/ctxoracle/src/hook/handler.ts, middleware/context-oracle/ctxoracle/src/blocks/answer_drift.ts, middleware/context-oracle/ctxoracle/src/blocks/health.ts, middleware/context-oracle/ctxoracle/test/unit/skeleton_e2e.test.ts]
   delete: []
 provides: [Candidate, EventContext, InternalEvent, EventKind, SymbolRow, CapturedImport, ImportEdge, Pointer, Trust, assertProvenance, TuningReader, ObservedActionsReader, okEditedPaths, runs, firstHash, hashesFor, pathWrites, ConsumerKey, consumerKey, consumerRole, Headline, lit, slot]
 tests: [T-6-1, T-6-2, T-6-3, T-6-4]
@@ -1787,8 +1855,12 @@ event}`, `message` passed through `redact`, Step 11). The plan's former
 drop `whisper_dropped_unverifiable` with `detail.reason ∈ {stale_pointer,
 not_in_tree, masked_path}` (plus `genre` and `subjectKey`), which covers the
 stale-pointer case. `repo_not_bound`'s detail is `{cwd, root, reason:
-'no_binding'|'store_missing'}` (`root` null when the walk found none);
-`import_rejected`'s is `{file, check: 'quick_check_failed'|'unopenable'}`;
+'no_binding'|'store_missing'|'store_unreadable'}` (`root` null when the walk
+found none), and for `'store_unreadable'` also `{store: 'global'|'project',
+pathKind, errno}` from Step 3's `StoreUnreadable` (collapse-hunt H8);
+`import_rejected`'s is `{file, check:
+'quick_check_failed'|'unopenable'|'partial_write'}` (the last for the one
+residual between an import's two live writes, Step 32);
 `rebuild_recovered_nothing`'s carries `set: 'questions'|'delivered'` (AD-9,
 AD-16).
 
@@ -1810,10 +1882,15 @@ subagent whose `agent_id` is the string `main` distinct from the main agent.
 adapter reads their fields, AD-6), `errorText?`, `transcriptPath`,
 `promptText?`, `startSource?`, `lastAssistantMessage?`, `stopHookActive?`,
 `workingDir`, and the extracted, still-unnormalized tool facts
-`targetPathRaw?` (the file a Read/Edit/Write/MultiEdit/NotebookEdit call
+`targetPathRaw?` (the file a Read/Edit/Write/NotebookEdit call
 names), `searchTerm?` (a Grep/Glob call's pattern), `resultPathsRaw?:
-string[]` (the files a Grep/Glob call returned), and `bashCommand?` (a Bash
-call's command) — G21. *`EventContext`* is `InternalEvent` plus `consumer:
+string[]` (the files a Grep/Glob call returned), `searchResultState?:
+'listed' | 'mode_unsupported' | 'unrecognized'` (how the adapter read a
+Grep/Glob response — collapse-hunt H3), and `bashCommand?` (a Bash
+call's command) — G21. No tool set anywhere in this plan names `MultiEdit`:
+the current hooks reference documents the file tools `Write`, `Edit`, and
+`NotebookEdit` and has no `MultiEdit` match (expert review m6, fetched
+2026-09-26; AD-23 as corrected at `6cff0ce`). *`EventContext`* is `InternalEvent` plus `consumer:
 ConsumerKey`, `role`, `repoRoot` (the main repository root the store is bound
 to), `checkoutRoot` (the event's own checkout: a worktree's root, else
 `repoRoot` — AD-23), `isWorktree: boolean`, `repoKey`, `targetPath?` and
@@ -1821,10 +1898,14 @@ to), `checkoutRoot` (the event's own checkout: a worktree's root, else
 POSIX paths against `checkoutRoot` — never against `cwd`, the defect that
 silenced every path genre when a session started in a subdirectory, G21/N3),
 `context: 'edit' | 'read'` (set by the handler from the event — `PreToolUse`
-Edit/Write/MultiEdit/NotebookEdit and `Stop`/`SubagentStop` → `edit`;
+Edit/Write/NotebookEdit and `Stop`/`SubagentStop` → `edit`;
 `PostToolUse` Read/Grep/Glob and `UserPromptSubmit` → `read` — never by a
 genre, so no genre can raise its own impact, D-18; G18a), `refTs: number`
-(`schema_meta.ref_ts`, G19), `indexStale: boolean`, `historyAvailable:
+(`schema_meta.ref_ts`, G19), `indexStale: boolean` (`schema_meta.index_head`
+≠ the event checkout's `HEAD`) and `historyStale: boolean`
+(`schema_meta.last_mined_commit` ≠ that `HEAD`) — AD-14 judges staleness per
+fact class against the data the fact came from, so the two are separate
+inputs (collapse-hunt H1), `historyAvailable:
 boolean` (`schema_meta.corpus_floor_met = '1'` and
 `schema_meta.mining_in_progress` not `'1'` — N1, AD-13), `tuning:
 TuningReader`, `observed: ObservedActionsReader`, and
@@ -1833,7 +1914,7 @@ TuningReader`, `observed: ObservedActionsReader`, and
 report rumor-rule drops through, which the handler turns into
 `whisper_dropped_unverifiable` faults (AD-15, AD-17).
 *`ObservedActionsReader`* (this session and consumer): `okEditedPaths():
-string[]` (distinct paths of `outcome='ok'` Edit/Write/MultiEdit/NotebookEdit
+string[]` (distinct paths of `outcome='ok'` Edit/Write/NotebookEdit
 rows — G22; a failed Edit is not a change), `runs(): {commandClass,
 segments, outcome}[]` (Bash rows of either outcome), `firstHash(path)`,
 `hashesFor(path): string[]` (post-write hashes of `ok` edits in order),
@@ -1846,7 +1927,11 @@ G25), `factClass: 'mined' | 'structural' | 'human'`, `obvious: boolean`
 `crossFile: boolean`, `comparative: boolean` (declared per genre in its
 module header, G18d), `pointers: Pointer[]`, `support: number | null`,
 `evidence: {num: number; den: number} | null` (the ratio the headline
-states), `lastTs: number | null`, `hazard: boolean`, `trust: Trust`,
+states — raw counts, AD-14's display rule), `weightedEvidence: {num: number;
+den: number} | null` (the recency-weighted ratio the bar's confidence reads —
+`pair_weight / change_weight`, AD-13; non-null exactly when `evidence` is a
+pair ratio), `lastTs: number | null` (display and audit only; no confidence
+term reads it), `hazard: boolean`, `trust: Trust`,
 `injectionSuspect: boolean`, `heuristic: boolean` (a `symbol_refs`-derived
 count — AD-14's heuristic cap), `context`, `blastRadius: number`, `zone`,
 `headline: Headline`, `evidenceJson`. *`Pointer`* is `{kind: 'file', fileId,
@@ -1872,6 +1957,23 @@ convention test `T-19-3` scans the genre sources for it.
 *`SymbolRow`* gains nothing; *`CapturedImport`* `{specifier, kind}` is what a
 frontend returns (Step 14), resolved into an `ImportEdge` `{dst, kind}` by the
 frontend's resolver.
+
+*Checkpoint 1R adaptation of the skeleton (review S1; collapse-hunt H12,
+H13).* The `modify:` list above names the walking-skeleton modules these type
+changes stop compiling, read from the built skeleton on 2026-09-26: the bar
+combinator, the generator helper and the seven genre modules, the composer,
+delivery, the hook adapter and handler, and the two block modules (they build
+a string `headline`, read optional `Candidate` fields, call
+`TuningReader.get`, key consumers by the `'main' | 'subagent'` role, or record
+the removed `whisper_dropped_stale`), plus the skeleton end-to-end test. Each
+is reduced by §9's placeholder rule — a generator returns no candidates, a
+DAO caller that no longer exists is removed, a signature takes the new inputs
+with a documented stand-in value — and nothing else: no module gains
+behaviour a later step decides. Every placeholder carries a `// SKELETON: 1R —
+<what it stands in for>; retired by Step <n>` comment and is listed in §9's
+table; a test the reduction turns red is marked `todo` there. A file the build
+finds broken that this list does not name is expert-implement's
+`BLAST-RADIUS-EXCEEDS-PLAN` stop, not an inline edit.
 
 **Creates.** `src/types/consumer.ts` — the consumer key (AD-4); `src/types/headline.ts` — the structured headline (G24); `src/diag/fault_codes.ts` — stable code list `FAULT_CODES` (AD-17, AD-26); `src/diag/jsonl.ts` — direct-file writer; `src/types/events.ts` — EventKind, InternalEvent, EventContext; `src/types/candidate.ts` — Candidate, TuningReader; `src/types/index_types.ts` — SymbolRow, ImportEdge.
 
@@ -1953,7 +2055,7 @@ path's lookups need) and the plan additions marked `-- plan` in the DDL:
 column list omits — §16 item 5), `cochange_pairs.last_commit` (the commit
 pointer AD-15's pair headlines need — §16 item 5), `observed_actions.segments_json`, the
 `regret` table, the `classified_turns` table (D-plan-27), and the
-`path_tokens` table. `PROV` stands for the provenance block
+`path_tokens` and `symbol_tokens` tables. `PROV` stands for the provenance block
 AD-4 puts on every knowledge table:
 
 ```sql
@@ -1969,9 +2071,12 @@ CREATE TABLE schema_meta(key TEXT PRIMARY KEY, value TEXT) STRICT;
   -- staleness detector), fts_state ('fts5'|'fallback'), settings_created_by_init,
   -- claude_dir_created_by_init, pinned_interpreter (Step 31's init, the
   -- interpreter path the hooks pin; read back by status, Step 33),
-  -- regret_index_ts (Step 30: the watermark
-  -- the index-time regret pass advances past, so a cross-session revert
-  -- is reported once), store_created_at (Step 31's init: set at first
+  -- regret_index_seq (Step 30: the largest observed_actions.seq the
+  -- index-time regret pass has read, so a cross-session revert is reported
+  -- once and a row committed after the read is examined next time — expert
+  -- review M7), mined_half_life_days (Step 13: the
+  -- bar.recency_half_life_days the stored weights were mined under),
+  -- store_created_at (Step 31's init: set at first
   -- creation if absent, and overwritten whenever init genuinely re-wires
   -- a missing hook entry — the INTEGER epoch-ms moment this repository's
   -- hooks last started firing; AD-17's totally-dead detector, Step 33,
@@ -1991,6 +2096,8 @@ CREATE TABLE files(id INTEGER PRIMARY KEY, path TEXT NOT NULL UNIQUE,
   entry_score INTEGER NOT NULL DEFAULT 0,
   in_tree INTEGER NOT NULL CHECK(in_tree IN (0,1)),   -- AD-4
   change_count INTEGER NOT NULL DEFAULT 0,            -- AD-4/AD-13: support(file)
+  change_weight REAL NOT NULL DEFAULT 0,              -- AD-4/AD-13: the same commits,
+                                                      -- each weighted 2^((ts−T0)/h)
   unresolved_imports INTEGER NOT NULL DEFAULT 0,      -- AD-4/AD-12
   content_hash TEXT,     -- NULL on a history-only row never indexed (AD-4:
   mtime INTEGER,         -- no in-band sentinel; "not in the tree" is in_tree=0)
@@ -2020,7 +2127,11 @@ CREATE TABLE commits(hash TEXT PRIMARY KEY, ts INTEGER NOT NULL,
 CREATE TABLE cochange_pairs(
   a INTEGER NOT NULL REFERENCES files(id),
   b INTEGER NOT NULL REFERENCES files(id),
-  pair_count INTEGER NOT NULL, last_ts INTEGER NOT NULL,
+  pair_count INTEGER NOT NULL,
+  pair_weight REAL NOT NULL,   -- AD-4/AD-13: the pair's commits, each weighted
+                               -- 2^((ts−T0)/h); confidence = pair_weight /
+                               -- change_weight(a)
+  last_ts INTEGER NOT NULL,
   last_commit TEXT NOT NULL,   -- AD-4 (added db9ecf9, from D-plan-35): the
                                -- hash of the newest commit in the pair's
                                -- count — the "commit pointer" AD-15's
@@ -2124,11 +2235,18 @@ CREATE TABLE classified_turns(consumer TEXT NOT NULL, uuid TEXT NOT NULL,
   -- (Step 25), read by the detectors (Step 26)
 CREATE TABLE path_tokens(token TEXT NOT NULL,
   file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE) STRICT;
-  -- plan table: the indexed token-prefix path search of the LIKE fallback
+  -- plan table: the indexed token-prefix path search of the fallback
   -- (AD-2; N6); written by the indexer in both FTS states (Step 14)
--- indexes: the fallback searches (AD-2) — NOCASE so a case-insensitive
--- LIKE 'x%' can use them (executed 2026-09-26: a BINARY index is a SCAN)
-CREATE INDEX symbols_name ON symbols(name COLLATE NOCASE);
+CREATE TABLE symbol_tokens(token TEXT NOT NULL,
+  symbol_id INTEGER NOT NULL REFERENCES symbols(id) ON DELETE CASCADE) STRICT;
+  -- plan table: AD-2's normalized symbol tokens for the fallback — one row
+  -- per distinct token of a symbol's name (a table, not a column: a name such
+  -- as Foo::Bar has two tokens and a prefix query for its second must use an
+  -- index — §16 item 5); written by the indexer in both FTS states (Step 14)
+-- indexes: the fallback searches (AD-2) — plain BINARY indexes serve the
+-- range `token >= ? AND token < ? || char(0x10FFFF)` (executed 2026-09-26:
+-- SEARCH … USING INDEX); the tokens are already case-folded, so no NOCASE
+CREATE INDEX symbol_tokens_token ON symbol_tokens(token);
 CREATE INDEX path_tokens_token ON path_tokens(token);
 CREATE INDEX files_path ON files(path);
 CREATE INDEX whisper_audit_text ON whisper_audit(text);  -- AD-16 fork reseed
@@ -2144,18 +2262,22 @@ right after 001 has created `schema_meta`, from its `fts` argument (Step
 3's `probeFts5` result, which `init` passes, Step 31); on `'fallback'` it
 is skipped and never retried (the row is written once, when the key is
 absent, so a later run cannot flip it), and the search interface (Step 14)
-uses the indexed `LIKE` path (AD-2):
+uses the `symbol_tokens`/`path_tokens` range path (AD-2):
 
 ```sql
 -- 001b_phase_a_fts.sql (applied only when schema_meta.fts_state = 'fts5')
-CREATE VIRTUAL TABLE fts_symbols USING fts5(name, kind UNINDEXED,
-  file_id UNINDEXED, tokenize = "unicode61 remove_diacritics 0 tokenchars '_$'");
-CREATE VIRTUAL TABLE fts_paths USING fts5(path, file_id UNINDEXED,
-  tokenize = "unicode61 remove_diacritics 0");
+-- Both columns hold the in-house tokens (Step 14's tokenize) joined by one
+-- space; the ascii tokenizer splits exactly there, because every non-ASCII
+-- codepoint is a token character to it and the tokens hold no ASCII byte but
+-- [a-z0-9] (AD-2: "the FTS path indexes those tokens").
+CREATE VIRTUAL TABLE fts_symbols USING fts5(tokens, kind UNINDEXED,
+  symbol_id UNINDEXED, file_id UNINDEXED, tokenize = "ascii");
+CREATE VIRTUAL TABLE fts_paths USING fts5(tokens, file_id UNINDEXED,
+  tokenize = "ascii");
 ```
 
-`import_edges`, `symbol_refs`, `test_map`, `invariant_members`, and
-`path_tokens` carry no primary key, as in AD-4; AC-19's per-table dump
+`import_edges`, `symbol_refs`, `test_map`, `invariant_members`,
+`symbol_tokens`, and `path_tokens` carry no primary key, as in AD-4; AC-19's per-table dump
 orders them by every column in schema order (D-plan-4). **Do NOT create**
 `exemplars`, `recipes`,
 `env_capabilities`, `deferred_queue`, or Phase-C `genre_state` — AD-4's
@@ -2164,13 +2286,16 @@ means those arrive with their writing phase's migration.
 
 **Reopened 2026-09-26 — build delta.** Migrations 001 and 001b are edited in
 place to the DDL above (§6: no store has shipped). Against the built 001:
-- `files` gains `in_tree`, `change_count`, `unresolved_imports`;
+- `files` gains `in_tree`, `change_count`, `change_weight`,
+  `unresolved_imports`;
   `content_hash`/`mtime` become nullable; the path's injection flag is the
   PROV `injection_suspect` column (AD-4, AD-19; review G2, G3). A row with
   `in_tree = 0` is either miner-created (history-only) or a file the index
   walk no longer lists or cannot stat.
 - `cochange_pairs` loses `a_count`/`b_count` (AD-4/AD-13, G3 — the counters
-  equalled `pair_count`, so every confidence read 1.0, executed).
+  equalled `pair_count`, so every confidence read 1.0, executed) and gains
+  `pair_weight` (AD-13 at `6cff0ce`: recency weights the evidence, never the
+  result — collapse-hunt H1).
 - `cochange_pairs`, `landmines`, `labelled_touches`, `invariant_members`
   reference `files(id)` with no cascade (AD-4: a deleted file's row is kept
   while mined history references it; the former cascade destroyed a deleted
@@ -2195,21 +2320,29 @@ place to the DDL above (§6: no store has shipped). Against the built 001:
   attribution; the former exclusive-or CHECK made that row unrepresentable).
 - `stats_folds` is new (AD-4/AD-5); `whisper_audit.subject_key` is new
   (AD-4/AD-16).
-- The search indexes: `symbols_name` becomes `COLLATE NOCASE` and
-  `path_tokens` is new (see Step 14's search semantics); executed here
-  2026-09-26 (§11.4), `EXPLAIN QUERY PLAN` of `name LIKE 'help%'` was `SCAN`
-  over a BINARY index and `SEARCH … USING COVERING INDEX` over a NOCASE one,
-  so the built "indexed `LIKE`" fallback was a full scan — an O(store)
-  statement on the event path AD-23 forbids.
-- 001b: `fts_paths` uses `unicode61` with **no** `tokenchars` (G16 —
-  `tokenchars '/_-.'` made a whole path one token, so `MATCH 'util'` found
-  nothing; executed), and both FTS tables set `remove_diacritics 0` so the
-  FTS path and the fallback compare the same characters; `fts_symbols`
-  keeps an identifier (`_`, `$` included) as one token so an FTS prefix
-  query and an indexed `LIKE 'x%'` over `symbols.name` select the same
-  symbols (executed 2026-09-26: `"user"*` matches `user_name` and not
-  `getUserName`, exactly as `LIKE 'user%'` does).
-The runner (`applyMigrations`) is unchanged.
+- The search indexes: the built `symbols_name` index is **no longer
+  created** (001 is edited in place), and
+  `symbol_tokens` and `path_tokens` with plain token indexes are new (see
+  Step 14's search semantics). Executed 2026-09-26 (§11.4), the built
+  "indexed `LIKE`" fallback was a full scan over a BINARY index, and a
+  `NOCASE` index, which a `LIKE` can use, folds ASCII only: `LIKE 'über%'`
+  missed `Über` while FTS matched it, and `LIKE` matched `café`, `bar`, and
+  `method` nowhere while FTS matched `CAFÉ`, `foo-bar`/`Foo::Bar`, and
+  `my.method` (expert review M3; collapse-hunt H4, P1).
+- 001b: both FTS tables index the in-house tokens (AD-2's one tokenizer,
+  which the indexer applies) through the `ascii` tokenizer, so the FTS path and the fallback hold the
+  same tokens by construction (AD-2 at `6cff0ce`); executed 2026-09-26 over
+  `user_name`, `getUserName`, `CAFÉ`, `Über`, `foo-bar`, `my.method`,
+  `Foo::Bar`, `$store`, `İstanbul`, `Größe` and a decomposed `café`, nineteen
+  queries returned the same symbols from both tables (§11.4). The former
+  `unicode61 … tokenchars '_$'` configuration is gone: its separator rule was
+  SQLite's, not the fallback's (G16's `fts_paths` finding — a whole path read
+  as one token — is closed the same way).
+The runner (`applyMigrations`) is unchanged. The one skeleton statement this
+schema breaks at run time rather than at compile time — the generator
+helper's pair query naming `a_count` — is removed by the Step 6 delta's
+placeholder (the helper returns no rows), so Step 7 adds no `modify:` entry of
+its own (Checkpoint 1R, §9).
 
 Add `src/stores/migration_runner.ts` — `applyMigrations(store, {fts:
 boolean, scope?: 'project'|'global'})` — scope defaults to `'project'`; `'global'`
@@ -2238,7 +2371,9 @@ no copy step.
 mandatory; the uniform table-creation criterion; `in_tree`, `change_count`,
 `labelled_touches`, `seq`, `stats_folds`, `subject_key` as of 2026-09-26);
 `AD-5` (the fold's watermark keys); `AD-25` (forward-only migrations for
-shipped stores); gap-list review G2, G3, G5, G16, G33, N6, N11, N16.
+shipped stores); `AD-2` and `AD-13` at `6cff0ce` (the in-house tokens, the
+recency weights); gap-list review G2, G3, G5, G16, G33, N6, N11, N16;
+plan-pass reviews H1, H4, M3, M7.
 
 **Why this approach (Gate 3):**
 1. **The decision.** Every Phase A table now, no dormant tables; the
@@ -2343,10 +2478,10 @@ Phase B/C table exists).
 step: S9
 covers: [PA-3]
 files:
-  create: [middleware/context-oracle/ctxoracle/src/stores/dao/files.ts, middleware/context-oracle/ctxoracle/src/stores/dao/symbols.ts, middleware/context-oracle/ctxoracle/src/stores/dao/import_edges.ts, middleware/context-oracle/ctxoracle/src/stores/dao/symbol_refs.ts, middleware/context-oracle/ctxoracle/src/stores/dao/test_map.ts, middleware/context-oracle/ctxoracle/src/stores/dao/commits.ts, middleware/context-oracle/ctxoracle/src/stores/dao/cochange_pairs.ts, middleware/context-oracle/ctxoracle/src/stores/dao/landmines.ts, middleware/context-oracle/ctxoracle/src/stores/dao/invariants.ts, middleware/context-oracle/ctxoracle/src/stores/dao/human_facts.ts, middleware/context-oracle/ctxoracle/src/stores/dao/corrections.ts, middleware/context-oracle/ctxoracle/src/stores/dao/questions.ts, middleware/context-oracle/ctxoracle/src/stores/dao/classify_state.ts, middleware/context-oracle/ctxoracle/src/stores/dao/consumer_state.ts, middleware/context-oracle/ctxoracle/src/stores/dao/session_log.ts, middleware/context-oracle/ctxoracle/src/stores/dao/observed_actions.ts, middleware/context-oracle/ctxoracle/src/stores/dao/whisper_audit.ts, middleware/context-oracle/ctxoracle/src/stores/dao/faults.ts, middleware/context-oracle/ctxoracle/src/stores/dao/regret.ts, middleware/context-oracle/ctxoracle/src/stores/dao/classified_turns.ts, middleware/context-oracle/ctxoracle/src/stores/dao/whisper_stats.ts, middleware/context-oracle/ctxoracle/src/stores/dao/lessons.ts, middleware/context-oracle/ctxoracle/src/stores/dao/global_meta.ts, middleware/context-oracle/ctxoracle/src/stores/dao/schema_meta.ts, middleware/context-oracle/ctxoracle/src/stores/dao/labelled_touches.ts, middleware/context-oracle/ctxoracle/src/stores/dao/stats_folds.ts, middleware/context-oracle/ctxoracle/src/stores/dao/path_tokens.ts, middleware/context-oracle/ctxoracle/src/util/ulid.ts, middleware/context-oracle/ctxoracle/test/unit/dao_crud.test.ts, middleware/context-oracle/ctxoracle/test/build/typecheck_provenance.test.ts, middleware/context-oracle/ctxoracle/test/build/fixtures/missing_provenance.ts]
-  modify: []
+  create: [middleware/context-oracle/ctxoracle/src/stores/dao/files.ts, middleware/context-oracle/ctxoracle/src/stores/dao/symbols.ts, middleware/context-oracle/ctxoracle/src/stores/dao/import_edges.ts, middleware/context-oracle/ctxoracle/src/stores/dao/symbol_refs.ts, middleware/context-oracle/ctxoracle/src/stores/dao/test_map.ts, middleware/context-oracle/ctxoracle/src/stores/dao/commits.ts, middleware/context-oracle/ctxoracle/src/stores/dao/cochange_pairs.ts, middleware/context-oracle/ctxoracle/src/stores/dao/landmines.ts, middleware/context-oracle/ctxoracle/src/stores/dao/invariants.ts, middleware/context-oracle/ctxoracle/src/stores/dao/human_facts.ts, middleware/context-oracle/ctxoracle/src/stores/dao/corrections.ts, middleware/context-oracle/ctxoracle/src/stores/dao/questions.ts, middleware/context-oracle/ctxoracle/src/stores/dao/classify_state.ts, middleware/context-oracle/ctxoracle/src/stores/dao/consumer_state.ts, middleware/context-oracle/ctxoracle/src/stores/dao/session_log.ts, middleware/context-oracle/ctxoracle/src/stores/dao/observed_actions.ts, middleware/context-oracle/ctxoracle/src/stores/dao/whisper_audit.ts, middleware/context-oracle/ctxoracle/src/stores/dao/faults.ts, middleware/context-oracle/ctxoracle/src/stores/dao/regret.ts, middleware/context-oracle/ctxoracle/src/stores/dao/classified_turns.ts, middleware/context-oracle/ctxoracle/src/stores/dao/whisper_stats.ts, middleware/context-oracle/ctxoracle/src/stores/dao/lessons.ts, middleware/context-oracle/ctxoracle/src/stores/dao/global_meta.ts, middleware/context-oracle/ctxoracle/src/stores/dao/schema_meta.ts, middleware/context-oracle/ctxoracle/src/stores/dao/labelled_touches.ts, middleware/context-oracle/ctxoracle/src/stores/dao/stats_folds.ts, middleware/context-oracle/ctxoracle/src/stores/dao/path_tokens.ts, middleware/context-oracle/ctxoracle/src/stores/dao/symbol_tokens.ts, middleware/context-oracle/ctxoracle/src/util/ulid.ts, middleware/context-oracle/ctxoracle/test/unit/dao_crud.test.ts, middleware/context-oracle/ctxoracle/test/build/typecheck_provenance.test.ts, middleware/context-oracle/ctxoracle/test/build/fixtures/missing_provenance.ts]
+  modify: [middleware/context-oracle/ctxoracle/src/miner/cochange.ts, middleware/context-oracle/ctxoracle/src/index/indexer.ts, middleware/context-oracle/ctxoracle/src/diag/whisper_stats_fold.ts, middleware/context-oracle/ctxoracle/src/cli/verbs_skeleton.ts]
   delete: []
-provides: [schema_meta.get, schema_meta.set, schema_meta.delete, global_meta.get, global_meta.set, global_meta.delete, global_meta.keysWithPrefix, files.upsert, files.byPath, files.byId, files.all, files.ensureHistoryRow, files.markAbsentExcept, files.sweepUnreferenced, files.addChangeCount, files.resetChangeCounts, files.setUnresolvedImports, files.setEntryScore, symbols.replaceForFile, symbols.byName, symbols.byId, import_edges.replaceForFile, import_edges.inDegree, import_edges.importersOf, symbol_refs.replaceForFile, symbol_refs.refCount, test_map.replaceForFile, test_map.coveringTests, path_tokens.replaceForFile, commits.upsert, commits.exists, commits.tsOf, commits.countIncluded, commits.deleteAll, cochange_pairs.bump, cochange_pairs.partnersOf, cochange_pairs.pair, cochange_pairs.deleteAll, labelled_touches.add, labelled_touches.touchesSince, labelled_touches.deleteAll, landmines.createHuman, landmines.rebuildMinerKinds, landmines.deleteMinerKinds, landmines.forFile, invariants.create, invariants.forFile, human_facts.create, human_facts.forTarget, corrections.create, corrections.since, corrections.maxSeq, corrections.forDeny, corrections.forWhisper, questions.insertOpen, questions.openFor, questions.closeAll, questions.setStatus, questions.backfill, questions.expireOpen, classify_state.get, classify_state.set, consumer_state.has, consumer_state.hasAny, consumer_state.add, consumer_state.clear, session_log.append, session_log.forSession, session_log.lastEventTs, session_log.livenessRows, observed_actions.append, observed_actions.okEdits, observed_actions.okEditedPaths, observed_actions.okReads, observed_actions.runs, observed_actions.pathWrites, observed_actions.firstHash, observed_actions.hashesFor, observed_actions.writtenSince, regret.append, regret.forSession, regret.countsByState, classified_turns.record, classified_turns.sinceQuestionOpened, classified_turns.between, whisper_audit.append, whisper_audit.forSession, whisper_audit.denies, whisper_audit.lastKinds, whisper_audit.deliveredSubjects, whisper_audit.since, whisper_audit.maxSeq, whisper_audit.subjectKeyForText, faults.append, faults.sinceTs, faults.countByCode, stats_folds.append, stats_folds.totals, stats_folds.all, whisper_stats.replaceForProject, whisper_stats.forProject, lessons.create, lessons.all]
+provides: [schema_meta.get, schema_meta.set, schema_meta.delete, global_meta.get, global_meta.set, global_meta.delete, global_meta.keysWithPrefix, files.upsert, files.byPath, files.byId, files.all, files.ensureHistoryRow, files.markAbsentExcept, files.sweepUnreferenced, files.addChangeCount, files.resetChangeCounts, files.setUnresolvedImports, files.setEntryScore, symbols.replaceForFile, symbols.byName, symbols.byId, import_edges.replaceForFile, import_edges.inDegree, import_edges.importersOf, symbol_refs.replaceForFile, symbol_refs.refCount, test_map.replaceForFile, test_map.coveringTests, path_tokens.replaceForFile, symbol_tokens.replaceForFile, commits.upsert, commits.exists, commits.tsOf, commits.countIncluded, commits.deleteAll, cochange_pairs.bump, cochange_pairs.partnersOf, cochange_pairs.pair, cochange_pairs.deleteAll, labelled_touches.add, labelled_touches.touchesSince, labelled_touches.deleteAll, landmines.createHuman, landmines.rebuildMinerKinds, landmines.deleteMinerKinds, landmines.forFile, invariants.create, invariants.forFile, human_facts.create, human_facts.forTarget, corrections.create, corrections.since, corrections.maxSeq, corrections.forDeny, corrections.forWhisper, questions.insertOpen, questions.openFor, questions.closeAll, questions.setStatus, questions.backfill, questions.expireOpen, classify_state.get, classify_state.set, consumer_state.has, consumer_state.hasAny, consumer_state.add, consumer_state.clear, session_log.append, session_log.forSession, session_log.lastEventTs, session_log.livenessRows, session_log.latestSession, session_log.hasEnded, observed_actions.append, observed_actions.okEdits, observed_actions.okEditedPaths, observed_actions.okReads, observed_actions.runs, observed_actions.pathWrites, observed_actions.firstHash, observed_actions.hashesFor, observed_actions.writtenSinceSeq, observed_actions.maxSeq, regret.append, regret.forSession, regret.countsByState, classified_turns.record, classified_turns.sinceQuestionOpened, classified_turns.between, whisper_audit.append, whisper_audit.forSession, whisper_audit.denies, whisper_audit.lastKinds, whisper_audit.deliveredSubjects, whisper_audit.since, whisper_audit.maxSeq, whisper_audit.subjectKeyForText, faults.append, faults.sinceTs, faults.countByCode, stats_folds.append, stats_folds.totals, stats_folds.all, whisper_stats.replaceForProject, whisper_stats.forProject, lessons.create, lessons.all]
 tests: [T-9-1, T-9-2]
 depends_on: [S1, S3, S7, S8]
 ```
@@ -2376,7 +2511,7 @@ returning typed rows or void — the surface later steps call:
 | `classify_state` | `get(consumer)`, `set(consumer, offset, uuid)` |
 | `consumer_state` | `has(consumer, kind, key)`, `add(consumer, kind, key)`, `clear(consumer, kind)` |
 | `session_log` | `append(row)` (returns the ULID), `forSession(session)`, `lastEventTs(session)`, `livenessRows(open = true)` |
-| `observed_actions` | `append(row)`, `okEdits(session)`, `okReads(session)`, `runs(session)`, `pathWrites(session, sinceSeq)`, `firstHash(session, path)`, `writtenSince(path, sinceTs)` — whether any `'ok'` Edit/Write row exists for `path` with `ts > sinceTs`, across every session (Step 30's cross-session revert check: churn happened since the watermark) |
+| `observed_actions` | `append(row)`, `okEdits(session)`, `okReads(session)`, `runs(session)`, `pathWrites(session, sinceSeq)`, `firstHash(session, path)`, `writtenSinceSeq(path, sinceSeq)` — whether any `'ok'` Edit/Write/NotebookEdit row exists for `path` with `seq > sinceSeq`, across every session (Step 30's cross-session revert check: churn happened since the watermark), and `maxSeq()` |
 | `regret` | `append(row)`, `forSession(session)`, `countsByState()` |
 | `classified_turns` | `record(consumer, uuid, ts, clears, reason): 'new' \| 'updated'` — `INSERT … ON CONFLICT(consumer, uuid) DO UPDATE SET clears, reason` (`ts` unchanged), so the `resume`/`fork`/`compact` re-read of a recorded turn updates its row instead of throwing (D-plan-27); `sinceQuestionOpened(consumer)` (the assistant text turns since the newest open question, in order), `between(consumer, fromTs, toTs)` |
 | `whisper_audit` | `append(row)` (returns the ULID synchronously), `forSession(session)`, `denies(consumer, sinceTs)`, `lastKinds(consumer, n)`, `deliveredSubjects(session)` |
@@ -2402,8 +2537,9 @@ throws, alongside the human↔untrusted laundering cases.
 
 Three DAO-surface details are pinned here so they are declared rather than
 left for a reader to discover: (a) `observed_actions` classifies tools by two
-in-code sets — `EDIT_TOOLS = {Edit, Write, MultiEdit, NotebookEdit}` (the
-change/re-edit consumers `okEdits`/`pathWrites`/`writtenSince`) and
+in-code sets — `EDIT_TOOLS = {Edit, Write, NotebookEdit}` (the
+change/re-edit consumers `okEdits`/`pathWrites`/`writtenSinceSeq`; the
+current hooks reference documents no `MultiEdit` tool — expert review m6) and
 `READ_TOOLS = {Read, Grep, Glob}` (the read-set consumer `okReads`) — matching
 AD-4's consumer filter (the Edit/Write/Read tool rows, not the Bash path-write
 rows); (b) *superseded 2026-09-26* — the miner-kind landmine key is
@@ -2424,15 +2560,18 @@ surface):
   deletes their index-derived rows); `sweepUnreferenced(): number` (deletes
   `in_tree = 0` rows with `change_count = 0` that no `cochange_pairs`,
   `landmines`, `labelled_touches`, or `invariant_members` row references);
-  `addChangeCount(id, n)`, `resetChangeCounts()` (G3, AD-13);
+  `addChangeCount(id, n, weight)` (adds `n` to `change_count` and `weight`
+  to `change_weight`), `resetChangeCounts()` (sets both to 0 — the purge set,
+  AD-13) (G3, AD-13; collapse-hunt H1);
   `setUnresolvedImports(id, n)`; `setEntryScore(id, score)` (an assignment —
   it writes only when the value differs, so an unchanged pass writes nothing;
   N4). `upsert(row)` takes `in_tree` and the path's `injection_suspect`.
-- `cochange_pairs`: `bump(a, b, ts, hash)` increments `pair_count` and, when
-  `ts ≥ last_ts`, sets `last_ts = ts` and `last_commit = hash` (no per-file
-  counters, G3);
-  `partnersOf(fileId): {partnerId, pairCount, lastTs}[]` reads both `a = x`
-  and `b = x`; `deleteAll()`.
+- `cochange_pairs`: `bump(a, b, ts, hash, weight)` increments `pair_count`,
+  adds `weight` to `pair_weight` (AD-13's recency weight of that commit), and,
+  when `ts ≥ last_ts`, sets `last_ts = ts` and `last_commit = hash` (no
+  per-file counters, G3);
+  `partnersOf(fileId): {partnerId, pairCount, pairWeight, lastTs,
+  lastCommit}[]` reads both `a = x` and `b = x`; `deleteAll()`.
 - `labelled_touches` (new): `add(fileId, hash, label, ts)` (`INSERT … ON
   CONFLICT DO NOTHING`), `touchesSince(label, sinceTs): {fileId, hashes,
   count}[]` (grouped by file, distinct hashes, `ts ≥ sinceTs`),
@@ -2469,16 +2608,41 @@ surface):
   distinct paths of `outcome = 'ok'` rows whose tool ∈ `EDIT_TOOLS`);
   `hashesFor(session, path)`; `runs(session, consumer)` returns
   `command_class`, `segments_json`, and `outcome`; `pathWrites(session,
-  sinceSeq)` orders by `seq`.
-- `session_log`: `append(row)` takes no `seq`, returns `{id, seq}`.
+  sinceSeq)` orders by `seq`; `writtenSince(path, sinceTs)` is **replaced**
+  by `writtenSinceSeq(path, sinceSeq)` (`seq > sinceSeq`) and `maxSeq()` — the
+  index-time regret watermark is a `seq`, never a wall-clock `ts`, for the
+  reason the fold's is (expert review M7: a handler that stamps `ts` before the
+  pass's "now" but commits after it would be skipped forever).
+- `session_log`: `append(row)` takes no `seq`, returns `{id, seq}`;
+  `latestSession(): {session, startedTs, lastTs} | null` (the session of the
+  row with the largest `seq`, its first row's `ts`, and its newest row's
+  `ts`); `hasEnded(session): boolean` (a row with `event_type =
+  'SessionEnd'` exists) — the `--missed-question` target (AD-18; collapse-hunt
+  H5).
 - `consumer_state`: `hasAny(consumer, kind, keys[]): boolean` (the
   `incorporatedBy` check, AD-16).
 - `path_tokens` (new): `replaceForFile(fileId, tokens)`.
+- `symbol_tokens` (new, AD-2): `replaceForFile(fileId, rows: {symbolId,
+  tokens}[])` — deletes the file's symbols' token rows and inserts one row per
+  distinct token (the symbol rows cascade their tokens away on their own
+  delete).
 - Every DAO method that writes more than one statement wraps them in
   `store.transaction` (a savepoint when a caller already holds one — Step 3),
   so a DAO call alone stays atomic and a caller can compose several.
 
-**Creates.** `src/stores/dao/labelled_touches.ts`, `src/stores/dao/stats_folds.ts`, `src/stores/dao/path_tokens.ts` — the three new Phase A tables' DAOs; `src/stores/dao/files.ts`; `src/stores/dao/symbols.ts`; `src/stores/dao/import_edges.ts`; `src/stores/dao/symbol_refs.ts`; `src/stores/dao/test_map.ts`; `src/stores/dao/commits.ts`; `src/stores/dao/cochange_pairs.ts`; `src/stores/dao/landmines.ts`; `src/stores/dao/invariants.ts`; `src/stores/dao/human_facts.ts`; `src/stores/dao/corrections.ts`; `src/stores/dao/questions.ts`; `src/stores/dao/classify_state.ts`; `src/stores/dao/consumer_state.ts`; `src/stores/dao/session_log.ts`; `src/stores/dao/observed_actions.ts`; `src/stores/dao/whisper_audit.ts`; `src/stores/dao/faults.ts`; `src/stores/dao/regret.ts` — the plan-table DAO AD-18's regret row needs; `src/stores/dao/classified_turns.ts` — the per-turn classification record the deny-health detectors read across events; `src/stores/dao/whisper_stats.ts`; `src/stores/dao/lessons.ts`; `src/stores/dao/global_meta.ts` — one file per Phase A table; `src/stores/dao/schema_meta.ts` — one file per Phase A table; `src/util/ulid.ts` — ULID generator (AD-26).
+*Checkpoint 1R adaptation (review S1).* The `modify:` list above names the
+skeleton modules whose calls this surface removes or re-signs, read from the
+built skeleton on 2026-09-26: the miner (`landmines.upsert`, the old `bump`
+signature), the indexer (`files.deleteMissing`, the `upsert` row without
+`in_tree`), the whisper-stats fold (`upsertFold` and the `window_start`
+columns migration 002 no longer has), and the skeleton verb module
+(`landmines.upsert`). Each is reduced by §9's placeholder rule and marked
+`SKELETON: 1R`: a removed call is deleted with its caller's branch, a re-signed
+call passes the new inputs with the stand-in §9 lists. The handler's
+`seq`-carrying appends (this step and Step 10) are adapted in the handler the
+Step 6 delta already lists.
+
+**Creates.** `src/stores/dao/labelled_touches.ts`, `src/stores/dao/stats_folds.ts`, `src/stores/dao/path_tokens.ts`, `src/stores/dao/symbol_tokens.ts` — the four new Phase A tables' DAOs; `src/stores/dao/files.ts`; `src/stores/dao/symbols.ts`; `src/stores/dao/import_edges.ts`; `src/stores/dao/symbol_refs.ts`; `src/stores/dao/test_map.ts`; `src/stores/dao/commits.ts`; `src/stores/dao/cochange_pairs.ts`; `src/stores/dao/landmines.ts`; `src/stores/dao/invariants.ts`; `src/stores/dao/human_facts.ts`; `src/stores/dao/corrections.ts`; `src/stores/dao/questions.ts`; `src/stores/dao/classify_state.ts`; `src/stores/dao/consumer_state.ts`; `src/stores/dao/session_log.ts`; `src/stores/dao/observed_actions.ts`; `src/stores/dao/whisper_audit.ts`; `src/stores/dao/faults.ts`; `src/stores/dao/regret.ts` — the plan-table DAO AD-18's regret row needs; `src/stores/dao/classified_turns.ts` — the per-turn classification record the deny-health detectors read across events; `src/stores/dao/whisper_stats.ts`; `src/stores/dao/lessons.ts`; `src/stores/dao/global_meta.ts` — one file per Phase A table; `src/stores/dao/schema_meta.ts` — one file per Phase A table; `src/util/ulid.ts` — ULID generator (AD-26).
 
 **Source.** `AD-4`, `AD-5` (schemas); `AD-8` (audit-before-emit ordering
 demands a synchronous audit append); `AD-26` (ULIDs so concurrent writers
@@ -2550,8 +2714,11 @@ tables: `test/conventions/fault_session_writers_only.test.ts` is an import
 scan over `dist/src/**` asserting that `dist/src/stores/dao/faults.js` is imported
 only by `dist/src/diag/fault_writer.js` and `dist/src/diag/status.js`, and
 `dist/src/stores/dao/session_log.js` only by `dist/src/diag/session_writer.js`,
-`dist/src/diag/status.js`, `dist/src/diag/log.js`, and `dist/src/diag/regret.js` — the readers §5.1
-names; every other module reaches the two tables through the writers.
+`dist/src/diag/status.js`, `dist/src/diag/log.js`, `dist/src/diag/regret.js`, and
+`dist/src/cli/correct.js` — the readers §5.1 names (the last reads, never
+writes: the `--missed-question` target session, Step 34, is chosen from
+`session_log`; added 2026-09-26, since without it the verb's read would break
+this convention); every other module reaches the two tables through the writers.
 
 Create `src/hook/watchdog.ts` — the cooperative deadline the handler
 (Step 28) drives: `createDeadline({ms = 2500, now = performance.now})`
@@ -2679,7 +2846,7 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/stores/dao/tuning.ts, middleware/context-oracle/ctxoracle/src/stores/dao/tuning_seeds.ts, middleware/context-oracle/ctxoracle/test/unit/tuning_dao.test.ts, middleware/context-oracle/ctxoracle/test/unit/tuning_reader.test.ts]
   modify: []
   delete: []
-provides: [seedDefaults, tuningReader, checkTuningWrite]
+provides: [seedDefaults, tuningReader, checkTuningWrite, tuningWriteNotice]
 tests: [T-12-1, T-12-2, T-12-3]
 depends_on: [S1, S6, S8, S9]
 ```
@@ -2716,7 +2883,9 @@ measurement is read as conditional on it).
 - `security.entropy_bits_per_char` = `4.0`;
   `security.entropy_min_token_length` = `20`
 - `qa.done_claim_trailing_turns_k` = `3`
-- `bar.recency_half_life_days` = `365`; `bar.stale_index_factor` = `0.8`
+- `bar.recency_half_life_days` = `365` (the half-life `h` of AD-13's commit
+  weights; the former `bar.stale_index_factor` plan seed is superseded by the
+  architecture's `bar.stale_factor`, below)
 - `diag.hooks_not_firing_gap_s` = `600`
 
 List-valued `plan_seed` keys — the QA vocabulary AD-9 names without
@@ -2771,13 +2940,34 @@ owner-tunable via `tune` (AD-20).
   `tuning.get(store, key, projectKey?)` resolves the same way (the Step 12
   finding that it read only the NULL row is closed).
 - **`checkTuningWrite(reader, key, value): { ok: true } | { refused: string }`**
-  — AD-14's ordering invariant, enforced where `tune` writes (Step 33):
-  after the write, `bar.confidence_floor ≤ bar.suspect_confidence_cap <
-  bar.high_confidence_min` and `bar.confidence_floor ≤
-  bar.heuristic_confidence_cap < bar.high_confidence_min` must hold and
-  `bar.untrusted_trust_factor` must lie in (0, 1]; otherwise the plain-language
-  reason names the violated relation and both values (AD-20, ER M9). The seed
-  set itself satisfies it (0.6 ≤ 0.7 < 0.8; 0.9).
+  — AD-14's ordering invariant and tier invariant, enforced where `tune`
+  writes (Step 33): after the write, all of these must hold —
+  `bar.confidence_floor ≤ bar.suspect_confidence_cap <
+  bar.high_confidence_min`; `bar.confidence_floor ≤
+  bar.heuristic_confidence_cap < bar.high_confidence_min`;
+  `bar.untrusted_trust_factor` and `bar.stale_factor` each in (0, 1];
+  **`bar.untrusted_trust_factor × bar.stale_factor ≥
+  bar.high_confidence_min`** (AD-14's tier invariant: a fact with perfect
+  evidence must reach the high tier under every dampener at once, or a
+  dampener becomes a universal cap — collapse-hunt H2: without it, `tune
+  bar.untrusted_trust_factor 0.75` flagged every mined whisper uncertain, C2
+  again); and `bar.recency_half_life_days ≥ 37`. Otherwise the plain-language
+  reason names the violated relation and every value in it (AD-20, ER M9).
+  *Why 37 (a plan guard, raised in §16 item 5):* AD-13's weight
+  `2^((ts − T0)/h)` with `T0` = 2000-01-01 is an IEEE-754 double; for
+  commits dated up to 2100-01-01 (36,525 days after `T0`) the largest weight
+  is `2^(36525/h)`, and a pass's sums stay finite with ample headroom only
+  while that stays below about `2^1000` — `h` ≥ 36.5 days (executed
+  2026-09-26: `2^(36525/30)` is `Infinity`, `2^(36525/36.5)` ≈ 1.7 × 10^301,
+  §11.4). The seed set satisfies every relation (0.6 ≤ 0.7 < 0.8; 0.9 and
+  0.9 in (0, 1]; 0.9 × 0.9 = 0.81 ≥ 0.8; 365 ≥ 37).
+- **`tuningWriteNotice(key): string | null`** — the plain-language line
+  `tune` prints after an accepted write whose effect needs more than the write:
+  for `bar.recency_half_life_days`, "the stored co-change weights were mined
+  under the old half-life; the next ctxoracle index re-mines this
+  repository's history under the new one" (AD-13: "Changing `h` requires a
+  re-mine, which `tune` states"; Step 13 re-mines when
+  `schema_meta.mined_half_life_days` differs); `null` for every other key.
 - **New `architecture_default` scalars** (values AD-14, AD-12, AD-26 state,
   each marked illustrative there): `bar.high_confidence_min` = `0.8`,
   `bar.untrusted_trust_factor` = `0.9`, `bar.suspect_confidence_cap` = `0.7`,
@@ -2785,7 +2975,14 @@ owner-tunable via `tune` (AD-20).
   pass — the gap-list review's `bar.untrusted_confidence_cap` is **not**
   seeded: AD-14 superseded it with the trust dampener, because a universal cap
   below the high tier flagged every Phase A mined whisper uncertain);
-  `reuse.max_unresolved_import_share` = `0.05`; `miner.chunk_ms` = `50`.
+  `bar.stale_factor` = `0.9` (AD-14 at `6cff0ce`: one staleness factor for
+  both fact classes, replacing the plan's former `bar.stale_index_factor` 0.8,
+  whose product with the trust factor, 0.72, put every stale fact below the
+  high tier — collapse-hunt H1); `bar.hazard_full_support` = `3` (AD-14 at
+  `6cff0ce`: the support at which a miner landmine's evidence ratio reaches 1,
+  its own row so re-tuning `bar.support_min` does not re-tier every Warning —
+  collapse-hunt H10); `reuse.max_unresolved_import_share` = `0.05`;
+  `miner.chunk_ms` = `50`.
 - **New `architecture_default` lists:** `lexicon.fix_keywords` (`fix`,
   `fixes`, `fixed`, `fixing`, `bug`, `bugfix`, `hotfix` — AD-15, G1);
   `lexicon.test_path_patterns` (`**/*.test.*`, `**/*.spec.*`, `**/test_*.py`,
@@ -2811,9 +3008,11 @@ marked illustrative and calibrated on Phase A data); `AD-13` (miner
 defaults); `AD-9` (deny-loop threshold; the tunable N and length floor);
 `AD-15` (dominance k, fix_chatter k, the lexicons, the fix keywords);
 `AD-12` (test-path patterns, same-directory languages, the unresolved-share
-ceiling, the entry markers); `AD-14` (tier, trust factor, caps, their
-ordering); `AD-26` (`miner.chunk_ms`); `AD-20` (`tune` as the writer and its
-refusal); gap-list review G1, G8, G17, G20, N10, N13.
+ceiling, the entry markers); `AD-14` (tier, trust and stale factors, caps,
+the hazard full-support count, their ordering and the tier invariant); `AD-13`
+(the half-life's re-mine notice); `AD-26` (`miner.chunk_ms`); `AD-20` (`tune`
+as the writer and its refusal); gap-list review G1, G8, G17, G20, N10, N13;
+plan-pass collapse-hunt H1, H2, H10.
 
 **Why this approach (Gate 3):**
 1. **The decision.** One DAO, two provenance classes for seeds, every
@@ -2838,7 +3037,8 @@ refusal); gap-list review G1, G8, G17, G20, N10, N13.
 **Verification.** `T-12-1` (after `seedDefaults`: every key above is present
 with its value and its `source`; scalar set, list add/remove round-trip;
 re-running `seedDefaults` changes nothing), `T-12-2` (the reader's resolution order, re-seed, and
-`tuning_missing`), `T-12-3` (the ordering validator).
+`tuning_missing`), `T-12-3` (the ordering validator, the tier invariant, the
+stale-factor interval, the half-life guard, and the re-mine notice).
 
 **Impact if wrong.** Contained — a missing row is re-seeded from
 `tuning_seeds.ts` through the reader and surfaces as a `tuning_missing`
@@ -2869,7 +3069,8 @@ parser `parseNumstatZ(buf: Buffer): {commits: ParsedCommit[]; malformed:
 MalformedRecord[]}` (G6: T-13-1 feeds it malformed records directly), and
 `src/miner/labels.ts` with `isRevertLabelled(subject, body): boolean` and
 `isFixLabelled(subject, fixKeywords): boolean`. Every threshold comes from
-`opts.tuning` (G8; no literal fallbacks — N10). The one stream is
+`opts.tuning` (G8; no literal fallbacks — N10); `opts.full` is the indexer's own
+full flag, passed through unchanged (Step 14). The one stream is
 
 `git log --no-merges -M -z --numstat --reverse --format=%x1e%H%x00%at%x00%s%x00%b%x00 <range>`
 
@@ -2935,40 +3136,74 @@ keeps `fixture`, `prefix`, `suffix` out (SZZ matches keywords as words). For
 an included commit, each touched path's `files` row is found or created
 (`files.ensureHistoryRow(path, isSuspect(path))` — the injection flag is set
 when *either* writer creates the row, AD-19), its `change_count` is
-incremented by one (single-file commits included — the same population as the
-pair counts, AD-13/G3), and every canonical-ordered (`a < b` by file id) pair
-of the touched set is bumped with the commit's `ts`.
+incremented by one and its `change_weight` by the commit's weight
+`w = 2^((ts − T0) / (h × 86400))` (single-file commits included — the same
+population as the pair counts, AD-13/G3), and every canonical-ordered (`a < b`
+by file id) pair of the touched set is bumped with the commit's `ts`, hash,
+and `w`. `T0` is 946684800 (2000-01-01T00:00:00Z, epoch s) and `h` is
+`bar.recency_half_life_days`, both as AD-13 fixes them. *Why (AD-13 at
+`6cff0ce`; collapse-hunt H1):* recency weights the evidence, never the
+result — every term carries the same factor relative to any reference time,
+so `pair_weight / change_weight` is the ratio decayed to `HEAD` with no
+event-time work; a pairing that has always held keeps its ratio however old,
+and one whose files have since changed apart loses weight to the recent solo
+changes. The former rule multiplied the finished confidence by
+`0.5^(age/h)`, which silenced every perfect pairing last co-changed more than
+about 213 days before `HEAD` (0.9 × 2^(−213/365) = 0.60, the floor).
 
 **Chunked writes (AD-26).** Accumulated rows are written in chunk
 transactions: a chunk is committed as soon as its transaction has spent
 `miner.chunk_ms` writing (measured with `performance.now()` inside the
 transaction, checked after each commit's rows), and each chunk transaction
-writes its commits, `labelled_touches`, `change_count` increments, and pair
-bumps **and** sets `schema_meta.last_mined_commit` to the chunk's newest
+writes its commits, `labelled_touches`, `change_count` and `change_weight`
+increments, and pair bumps **and** sets `schema_meta.last_mined_commit` to the chunk's newest
 commit — so a crash never leaves the watermark ahead of its data. The
 landmine rebuild is one short **final** transaction (below). No transaction
 spans a `git` read.
 
-**Full mine, re-mine, and `mining_in_progress`.** A pass is *full* when
-`opts.full` is true, when `last_mined_commit` is absent, when
-`schema_meta.mining_in_progress` is already `'1'` (a full pass that crashed:
-its continuation keeps the flag), or on a history rewrite. A full pass sets
-`mining_in_progress = '1'` in its first transaction and clears it in its
-final one; while it is `'1'` the history genres produce no candidates (Step
-18 reads `EventContext.historyAvailable`). **History rewrite (G4, AD-13):**
-when the watermark exists and `git merge-base --is-ancestor <watermark> HEAD`
-exits 1 (not an ancestor) or 128 (unknown commit — the watermark object is
-gone), one **purge transaction** deletes every `commits`, `cochange_pairs`,
-and `labelled_touches` row, resets every `files.change_count` to 0, deletes
-the miner-kind landmines (`revert_chain`, `fix_chatter`; never
-`human_stated`), deletes `last_mined_commit`, and sets `mining_in_progress =
-'1'`; the pass records `history_rewritten` (`{oldWatermark, newHead}`) and
-continues as a full chunked mine of `HEAD`. *Why:* executed in the review,
-after `git commit --amend` the skeleton's second mine doubled `pair_count`
-4 → 8, kept the rewritten-away commit, and wrote no fault; the architecture's
-first fix named no purge set, so `labelled_touches` would have re-created a
-`revert_chain` citing a commit that no longer exists (AD-13, CH H1/ER M1).
-Exit 0 from `merge-base` is the incremental case.
+**Full mine, re-mine, and `mining_in_progress` — exactly two cases (expert
+review S3).**
+- *A full pass* happens when `opts.full` is true, when `last_mined_commit` is
+  absent, when `schema_meta.mining_in_progress` is already `'1'` (a full pass
+  that crashed — only a full pass ever sets the flag), when
+  `schema_meta.mined_half_life_days` differs from `bar.recency_half_life_days`
+  (the stored weights were mined under another half-life — AD-13's "changing
+  `h` requires a re-mine"; absent counts as differing only when
+  `last_mined_commit` exists), or on a history rewrite (below). **Every full
+  pass starts with the purge transaction**: it deletes every `commits`,
+  `cochange_pairs`, and `labelled_touches` row, resets every
+  `files.change_count` and `change_weight` to 0, deletes the miner-kind
+  landmines (`revert_chain`, `fix_chatter`; never `human_stated`), deletes
+  `last_mined_commit`, writes `mined_half_life_days` = the current `h`, and
+  sets `mining_in_progress = '1'` — on an empty store every delete is a no-op.
+  It then mines `HEAD` in chunks from the oldest included commit, and its
+  final transaction clears the flag.
+- *An incremental pass* is every other pass, including the continuation of an
+  incremental pass that crashed: its committed chunks advanced the watermark
+  with their data (below), so it resumes from `<watermark>..HEAD` and never
+  sets the flag.
+
+*Why:* every non-purging full pass re-reads commits whose counts are already
+stored, and `cochange_pairs.bump` and `files.addChangeCount` are increments,
+not idempotent writes — a crash continuation re-mined from `HEAD` over its
+own committed chunks, or a second `index --full`, doubled every count, the
+defect AD-13's purge set exists to prevent ("a re-mine over un-reset counts
+doubled every `change_count`"). The indexer's full flag **reaches the miner**
+(Step 14 passes it through), so ctxoracle index --full, `init` (Step 31,
+idempotent on re-run), and the replay harness's store preparation (Step 28)
+each purge and re-mine; the detached reindex the handler spawns runs `index`
+without `--full` and is incremental. While `mining_in_progress` is `'1'` the
+history genres produce no candidates (Step 18 reads
+`EventContext.historyAvailable`). **History rewrite (G4, AD-13):** when the
+watermark exists and `git merge-base --is-ancestor <watermark> HEAD` exits 1
+(not an ancestor) or 128 (unknown commit — the watermark object is gone), the
+pass records `history_rewritten` (`{oldWatermark, newHead}`) and runs as a
+full pass. *Why:* executed in the gap-list review, after `git commit --amend`
+the skeleton's second mine doubled `pair_count` 4 → 8, kept the
+rewritten-away commit, and wrote no fault; without `labelled_touches` in the
+purge set a landmine rebuild would re-create a `revert_chain` citing a commit
+that no longer exists (AD-13). Exit 0 from `merge-base` is the incremental
+case.
 
 **Final transaction.** Delete-and-rebuild the miner-kind landmines from
 `labelled_touches` (`landmines.rebuildMinerKinds`): a `revert_chain` row for
@@ -2997,7 +3232,8 @@ repairs it.
 **Creates.** `src/miner/cochange.ts` — AD-13.
 
 **Source.** `AD-13` (miner: git log stream, hygiene filters, canonical
-pairs, `change_count` denominator, chunked watermark, the purge set,
+pairs, `change_count` denominator, the recency weights `pair_weight` and
+`change_weight` with `T0` and `h`, chunked watermark, the purge set,
 `mining_in_progress`, corpus floor); `AD-15` (the labels, the derivation from
 `labelled_touches`, the per-pass rebuild); `AD-26` (chunks of
 `miner.chunk_ms`, the final transaction); `AD-19` (path injection flag at row
@@ -3023,7 +3259,10 @@ N5, N10.
 4. **What this is NOT — and why.** Not per-commit transaction lists as the
    query model (unbounded storage, aggregation at lookup). Not
    association-rule mining at query time (hook-path budget). Not recency
-   pruning (the spec chose horizon-cap; pruning deletes evidence). Not
+   pruning (the spec chose horizon-cap; pruning deletes evidence). Not a
+   recency multiplier on the finished confidence (it silenced stable
+   couplings by age — AD-13, H1). Not a full re-mine without the purge (it
+   doubled every count — S3). Not
    landmine mining via sentiment or ML (unmeasured machinery — AD-15). Not
    per-pair `a_count`/`b_count` (G3). Not one transaction per pass (414 ms of
    lock hold for 10,000 commits, measured by the architecture pass's expert
@@ -3037,7 +3276,8 @@ N5, N10.
 **Verification.** `T-13-1` (hygiene, pairs, raw paths, malformed records),
 `T-13-2` (the `change_count` denominator), `T-13-3` (history-rewrite purge),
 `T-13-4` (labels and the landmine rebuild), `T-13-5` (chunked commits: crash
-safety and the lock-hold bound).
+safety of both pass kinds, a repeated full mine that does not double, and the
+lock-hold bound).
 
 **Impact if wrong.** Contained to history genres — a broken miner starves
 Coupling, Consequence, Completeness, and Warning genres of evidence (they
@@ -3054,7 +3294,7 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/index/indexer.ts, middleware/context-oracle/ctxoracle/src/index/frontend.ts, middleware/context-oracle/ctxoracle/src/index/zone.ts, middleware/context-oracle/ctxoracle/test/unit/indexer.test.ts, middleware/context-oracle/ctxoracle/test/unit/indexer_stale.test.ts, middleware/context-oracle/ctxoracle/src/index/search.ts, middleware/context-oracle/ctxoracle/src/index/walk.ts, middleware/context-oracle/ctxoracle/src/index/path_glob.ts, middleware/context-oracle/ctxoracle/src/identity/git_layout.ts, middleware/context-oracle/ctxoracle/test/unit/indexer_walk.test.ts, middleware/context-oracle/ctxoracle/test/unit/path_glob.test.ts, middleware/context-oracle/ctxoracle/test/unit/search_semantics.test.ts]
   modify: [middleware/context-oracle/ctxoracle/test/fixtures/generate.ts]
   delete: []
-provides: [LanguageFrontend, ImportResolver, runIndex, resolveHead, refreshIfStale, symbolSearch, pathSearch, walkRepository, matchesTestPattern, readGitPointer]
+provides: [LanguageFrontend, ImportResolver, runIndex, resolveHead, refreshIfStale, tokenize, symbolSearch, pathSearch, walkRepository, matchesTestPattern, readGitPointer]
 tests: [T-14-1, T-14-2, T-14-3, T-14-4, T-14-5]
 depends_on: [S1, S3, S5, S9, S10, S11, S12, S13]
 ```
@@ -3082,8 +3322,7 @@ grammar loading stays lazy per language present while `parse` stays
 synchronous (review G14: web-tree-sitter's `Parser.init`/`Language.load`
 return promises). A parse failure is a returned value, never a throw, so the
 indexer — which holds the store — records `frontend_parse_failed` through
-`recordFault(store, …)` and it appears in `status` (the skeleton's
-`recordFault(null, …)` reached the JSONL channel only).
+`recordFault(store, …)` and it appears in `status`.
 
 Create `src/identity/git_layout.ts` — `readGitPointer(dir): {kind: 'dir',
 gitDir} | {kind: 'file', gitDir, commonDir} | null`: `<dir>/.git` as a
@@ -3117,21 +3356,34 @@ segment; no braces, classes, or negation (Node's `path.matchesGlob` is
 experimental on Node 22, AD-12 ER m3).
 
 Create `src/index/search.ts` — the one search interface (AD-2, D-plan-28),
-**token-prefix semantics on both paths** (review N6):
-`symbolSearch(store, terms): SymbolHit[]` and `pathSearch(store, terms):
-PathHit[]`. A term is lower-cased and must be a single token (a term
-containing a separator is split into tokens first, each searched, hits
-intersected). Under `fts_state = 'fts5'`: `MATCH` with each token as a quoted
-prefix query `"<token>"*` (the token's `"` doubled, so input text cannot
-inject FTS syntax). Under `'fallback'`: symbols by `name LIKE ? ESCAPE '\'`
-with `<token>%` (the NOCASE index, Step 7 — an identifier is one token in
-`fts_symbols` too, so both select the same rows); paths by the indexed range
-`token >= ? AND token < ? || char(0x10FFFF)` over `path_tokens`, whose rows
-the indexer writes for every file in both states: the path's tokens split on
-`/[^\p{L}\p{N}\p{Co}]+/u` (unicode61's separator rule) and lower-cased.
-Only `in_tree = 1` files are returned. Executed 2026-09-26 (§11.4):
-`fts_paths MATCH '"util"*'` finds a `util.ts` under `src` with the new tokenizer and
-`"b"*` finds `a_b-c.d`.
+**one tokenizer, token-prefix semantics on both paths** (review N6; AD-2 at
+`6cff0ce`; expert review M3, collapse-hunt H4):
+- `tokenize(text): string[]` — AD-2's tokenizer, in the oracle's own code:
+  `text.normalize('NFKD')`, then `toLowerCase()`, then every combining mark
+  (`\p{M}`) removed, then a split on `/[^\p{L}\p{N}]+/u` with empty pieces
+  dropped. AD-2 lists the operations (split, NFKD, drop marks, lowercase); the
+  split runs last so a decomposed accent (`e` + U+0301) never splits a word,
+  and the lowercase runs before the mark removal so a mark that lower-casing
+  produces (`İ` → `i` + U+0307) is removed too. Every token therefore holds
+  only letters and digits, and its ASCII bytes are `[a-z0-9]`.
+- `symbolSearch(store, terms): SymbolHit[]` and `pathSearch(store, terms):
+  PathHit[]`. Each term is passed through `tokenize`; each token is searched
+  as a prefix; a term's hits are the intersection over its tokens, and a term
+  with no token matches nothing. Under `fts_state = 'fts5'`: `MATCH` with each
+  token as the quoted prefix query `"<token>"*` over `fts_symbols.tokens` /
+  `fts_paths.tokens` (Step 7's `ascii` tables — a token holds no `"`, so input
+  text cannot inject FTS syntax). Under `'fallback'`: the indexed range
+  `token >= ? AND token < ? || char(0x10FFFF)` over `symbol_tokens` /
+  `path_tokens`. The indexer writes, for every symbol and every file in both
+  states, the same `tokenize` output — joined by a space into the FTS column
+  under `'fts5'`, one row per distinct token into the fallback table always —
+  so the two paths select the same rows **by construction**: the same token
+  sets, the same prefix test.
+Only `in_tree = 1` files are returned. Executed 2026-09-26 (§11.4): over
+seventeen names including `CAFÉ`, `Über`, `foo-bar`, `my.method`,
+`Foo::Bar`, `user_name`, `getUserName`, and `$store`, nineteen queries
+returned identical symbol sets from the FTS table and the fallback table, and
+the fallback's range query is `SEARCH … USING INDEX`.
 
 Create `src/index/zone.ts` (zone classification per AD-12): a marker comment
 in the head 2 KB (`@generated`, `DO NOT EDIT`, `Code generated … DO NOT
@@ -3139,8 +3391,8 @@ EDIT`), `dist/`/`build/`/lockfile path patterns, `vendor/`/`node_modules/`
 path segments, and membership of `walkRepository`'s `ignoredTracked` set
 (zone `generated`, evidence `tracked file matches an ignore pattern`); the
 evidence string is redacted and injection-flagged at capture
-(`zone_evidence_suspect`). **Every zone is parsed for symbols** (review N9:
-the skeleton skipped non-`source` zones, which no step said); Orientation and
+(`zone_evidence_suspect`). **Every zone is parsed for symbols** (N9);
+Orientation and
 Reuse exclude non-`source` candidates by zone (Step 18), so a search still
 learns "this is generated" from the zone flag rather than from silence.
 
@@ -3160,15 +3412,16 @@ Create `src/index/indexer.ts`:
   incremental by `content_hash`: an unchanged `in_tree = 1` file is not
   re-parsed; a changed or new file is parsed, its content passed through
   `redact` (Step 11) before anything derived from it is stored, and its
-  `symbols`, `import_edges`, FTS rows, `path_tokens`, `test_map` rows, and
-  `unresolved_imports` rewritten. Each captured import specifier is resolved
+  `symbols`, `import_edges`, FTS rows, `symbol_tokens`, `path_tokens`,
+  `test_map` rows, and `unresolved_imports` rewritten. Each captured import specifier is resolved
   by the frontend's `resolve`: `resolved` → an `import_edges` row, `external`
   → nothing, `unresolved` → counted into `files.unresolved_imports` (AD-12,
   CH H4). Every `files` row the indexer creates or updates has `in_tree = 1`
   and its path's injection flag (`isSuspect(path)`, AD-19). A file absent
   from the walk or unstat-able is handled by `files.markAbsentExcept`: its
-  `symbols`, `import_edges`, `symbol_refs`, `test_map`, FTS, and
-  `path_tokens` rows are deleted and `in_tree` set to 0, and the row is
+  `symbols` (and so their `symbol_tokens`), `import_edges`, `symbol_refs`,
+  `test_map`, FTS, and `path_tokens` rows are deleted and `in_tree` set to 0,
+  and the row is
   **kept** (AD-4) — never deleted while history references it;
   `files.sweepUnreferenced()` then removes `in_tree = 0` rows nothing
   references. **After every file is written:** `test_map` is rebuilt for
@@ -3199,14 +3452,17 @@ Create `src/index/indexer.ts`:
   0 when both are 0). Rejected non-UTF-8 paths are reported once as
   `path_not_utf8` (writer `'indexer'`).
   **Transactions (AD-26):** per-file rows are written in chunk transactions of
-  `miner.chunk_ms` writing time; the file's FTS and `path_tokens` rows are in
-  the same chunk as its relational rows; `schema_meta.index_head` (from
+  `miner.chunk_ms` writing time; the file's FTS, `symbol_tokens`, and
+  `path_tokens` rows are in the same chunk as its relational rows; `schema_meta.index_head` (from
   `resolveHead`), `index_stale = '0'`, `lang_capabilities`, and `walk_mode`
   are written only in the final transaction, so a crashed pass leaves the old
   `index_head` and the staleness check re-triggers it. Then `mineCochange`
-  (Step 13) runs with the same `tuning` and `diagnosticsDir`.
+  (Step 13) runs with the same `tuning`, `diagnosticsDir`, and **`full`** —
+  `runIndex`'s `full` reaches the miner, so a full index is a purged full
+  re-mine (Step 13; expert review S3).
   Under `schema_meta.fts_state = 'fts5'` one `fts_paths` row per `files` row
-  with `in_tree = 1` and one `fts_symbols` row per `symbols` row, deleted
+  with `in_tree = 1` and one `fts_symbols` row per `symbols` row, each holding
+  `tokenize(<path or name>)` joined by one space, deleted
   explicitly (`DELETE … WHERE file_id = ?`) before a file's rows are
   rewritten or when it leaves the tree — a virtual table is outside
   `ON DELETE CASCADE`'s reach; under `'fallback'` those tables do not exist.
@@ -3232,10 +3488,12 @@ Create `src/index/indexer.ts`:
   `schema_meta.index_head` to the commit `resolveHead(checkoutRoot)` returns
   (for a worktree event the worktree's own `HEAD` — AD-23; the handler never
   spawns the reindex for a worktree event, Step 28); on a
-  differing commit records the `index_stale` fault (AD-17's detector,
-  through Step 10's writer), writes `schema_meta.index_stale = '1'`
-  (cleared to `'0'` by the next completed `runIndex`), and returns
-  `{stale: true}`; on `{unresolved}` records the plan-named
+  differing commit returns `{stale: true}` and, **only on the transition** —
+  when `schema_meta.index_stale` is not already `'1'` — records the
+  `index_stale` fault (AD-17's detector, through Step 10's writer) and writes
+  `schema_meta.index_stale = '1'` (cleared to `'0'` by the next completed
+  `runIndex`), so an index that stays stale for many events writes one fault
+  and one `schema_meta` row, not one per event (expert review m3); on `{unresolved}` records the plan-named
   `head_unresolved` diagnostic (Step 6) with the reason and returns
   `{stale: false}` — an unreadable layout never spawns a reindex; it
   spawns nothing — the caller that owns a binary (the handler, Step 28)
@@ -3260,7 +3518,8 @@ Create `src/index/indexer.ts`:
 the git-listing/`readdir` walk, zone incl. the tracked-and-ignored signal,
 `entry_score` without route patterns, `import_edges` with unresolved counts,
 `symbol_refs`, `test_map` conventions, FTS5 tables, `in_tree`, incremental
-refresh, size caps, detached refresh); `AD-2` (token-prefix fallback); `AD-4`
+refresh, size caps, detached refresh); `AD-2` (one in-house tokenizer for
+both search paths, token-prefix fallback — as corrected at `6cff0ce`); `AD-4`
 (`in_tree`, rows kept while referenced); `AD-19` (path flag); gap-list review
 G2, G6, G7, G11, G13, G14, G15, N4, N6, N7, N9, N13; `AD-26`
 (mutual exclusion for the detached reindex — its "directory lock" wording
@@ -3313,7 +3572,7 @@ or one `packed-refs` scan — never a subprocess; D-plan-30).
 
 **Verification.** `T-14-3` (the walk, zones, `in_tree`, `test_map`
 conventions, UTF-8 rejection, the oversize fault), `T-14-4` (the path-glob
-dialect), `T-14-5` (search semantics agree under both FTS states), `T-14-1` (the skeleton runs on `indexer-small` and
+dialect), `T-14-5` (the one tokenizer; search semantics agree under both FTS states, non-ASCII and separator-bearing names included), `T-14-1` (the skeleton runs on `indexer-small` and
 `over-threshold-file` with an empty frontend list; every file has a
 `files` row with its zone and FTS path tokens (one `fts_paths` row per
 `files` row under `fts: true`) and no `symbols` or
@@ -3321,7 +3580,7 @@ dialect), `T-14-5` (search semantics agree under both FTS states), `T-14-1` (the
 planted secret is absent from the store; a second run over an unchanged
 tree writes nothing; the claim refuses a second concurrent reindex, and two
 real processes racing a stale claim yield exactly one owner), `T-14-2`
-(`refreshIfStale`: a moved `HEAD` records `index_stale`, sets the flag, and
+(`refreshIfStale`: a moved `HEAD` records `index_stale` once, sets the flag, and
 returns `{stale: true}`, and an unmoved `HEAD` records nothing and returns
 `{stale: false}`, on an ordinary checkout, with the branch ref packed, on a
 detached `HEAD`, and in a linked worktree; an unborn branch records
@@ -3383,8 +3642,9 @@ pooled inside the indexer process only (AD-1: no cross-process state). Create
 regexes for definitions (`function`, `class`, `def`, `fn`, shell function
 syntax, …); like every `LanguageFrontend` it returns `{symbols, imports}`
 only and writes no FTS row itself — the symbol names its regexes find are
-the words `runIndex`'s FTS writer (Step 14) inserts into `fts_symbols` for
-a generic-frontend file, the same as for a tree-sitter one.
+the names `runIndex` (Step 14) tokenizes into `fts_symbols` and
+`symbol_tokens` for a generic-frontend file, the same as for a tree-sitter
+one.
 **`import_edges` and
 `symbol_refs` are NOT produced by the generic frontend** — that absence is
 what makes a generic-frontend candidate structurally uncountable in the
@@ -3496,41 +3756,43 @@ to generic (visible in `status` per-language counts).
 step: S16
 covers: [PA-1]
 files:
-  create: [middleware/context-oracle/ctxoracle/src/bar/combinator.ts, middleware/context-oracle/ctxoracle/test/unit/bar.test.ts, middleware/context-oracle/ctxoracle/test/unit/bar_tiers.test.ts]
-  modify: []
+  create: [middleware/context-oracle/ctxoracle/src/bar/combinator.ts, middleware/context-oracle/ctxoracle/test/unit/bar.test.ts, middleware/context-oracle/ctxoracle/test/unit/bar_tiers.test.ts, middleware/context-oracle/ctxoracle/test/unit/bar_recency.test.ts]
+  modify: [middleware/context-oracle/ctxoracle/test/fixtures/generate.ts]
   delete: []
 provides: [passesBar]
-tests: [T-16-1, T-16-2]
+tests: [T-16-1, T-16-2, T-16-3]
 depends_on: [S1, S12, S13, S14]
 ```
 
 
 **What changes.** Create `src/bar/combinator.ts` exporting
 `passesBar(candidate: Candidate, tuning: TuningReader, ctx: { indexStale:
-boolean; refTs: number }): { passes: boolean; failedAxis?: 'confidence' |
-'impact' | 'marginal'; confidence: number; tier: 'high' | 'uncertain' }`
-(`ctx` comes from `EventContext`; `refTs` is `schema_meta.ref_ts`, Step 13 —
-G19: the skeleton used `Date.now()`, defeating the reference instant; no
-`HEAD` read happens here, AD-23). The three axes are a **conjunction** (no
-multiplication across axes). Every number is read from `tuning` (G8, N10).
+boolean; historyStale: boolean }): { passes: boolean; failedAxis?:
+'confidence' | 'impact' | 'marginal'; confidence: number; tier: 'high' |
+'uncertain' }` (`ctx` comes from `EventContext`, Step 6; no `HEAD` read and no
+clock read happen here, AD-23 — recency is already inside the mined weights,
+so the bar needs no reference instant). The three axes are a **conjunction**
+(no multiplication across axes). Every number is read from `tuning` (G8, N10).
 
-*Confidence* `c` (AD-14, revised 2026-09-26), in this order:
+*Confidence* `c` (AD-14 at `6cff0ce`), in this order:
 1. **Evidence ratio.** A pair fact (Coupling, Consequence, Completeness):
-   `candidate.evidence.num / candidate.evidence.den` = `pair_count /
-   change_count(target)` (AD-13/G3 — never `pair_count / a_count`). A
-   miner-kind landmine (Warning): `min(1, support / bar.support_min)` — AD-14
-   gives a hazard no ratio, and this makes a landmine whose support meets the
-   ordinary support floor as strong as a full pairing while a support-2 one
-   reads weaker (so AC-3a's below-floor hazard is delivered flagged). An
-   index-derived structural fact (Orientation, Verification's mapping, Reuse)
-   and a human fact: `1`.
-2. **Dampeners** (multiply): recency `0.5 ^ (age_days /
-   bar.recency_half_life_days)` for a mined fact, `age_days = (ctx.refTs −
-   candidate.lastTs) / 86400`, floored at 0; `bar.stale_index_factor` when
-   `ctx.indexStale` (FR-K7: staleness lowers confidence, never blocks);
-   `bar.untrusted_trust_factor` when `candidate.trust = 'untrusted_repo'`
-   (FR-X4: low trust lowers confidence). A human fact is never dampened
-   (constant-high, FR-L6).
+   `candidate.weightedEvidence.num / candidate.weightedEvidence.den` =
+   `pair_weight / change_weight(target)` — AD-13's recency-weighted
+   confidence (never `pair_count / a_count`, G3; never the raw counts the
+   headline shows). A miner-kind landmine (Warning): `min(1, support /
+   bar.hazard_full_support)` — AD-14's hazard ratio on its own row, so a
+   landmine with three or more supporting commits is as strong as a full
+   pairing while a support-2 one reads weaker (AC-3a's below-floor hazard is
+   delivered flagged). An index-derived structural fact (Orientation,
+   Verification's mapping, Reuse) and a human fact: `1`.
+2. **Dampeners** (multiply), per fact class against the data the fact came
+   from (AD-14; collapse-hunt H1): `bar.stale_factor` for a `mined` fact when
+   `ctx.historyStale` (`last_mined_commit` ≠ `HEAD`), and for a `structural`
+   fact when `ctx.indexStale` (`index_head` ≠ `HEAD`) — FR-K7: staleness
+   lowers confidence, never blocks; `bar.untrusted_trust_factor` when
+   `candidate.trust = 'untrusted_repo'` (FR-X4: low trust lowers confidence).
+   **No recency multiplier** — recency weights the evidence (AD-13), never the
+   result. A human fact is never dampened (constant-high, FR-L6).
 3. **Caps** (min over those that apply): `bar.suspect_confidence_cap` when
    `candidate.injectionSuspect`; `bar.heuristic_confidence_cap` when
    `candidate.heuristic` (a `symbol_refs` count).
@@ -3542,9 +3804,12 @@ labels are written only for horizon-included commits, so no hazard is sourced
 solely from an excluded class). **Tier:** `high` when `c ≥
 bar.high_confidence_min`, else `uncertain` — the composer's flag (Step 19)
 reads only the tier; the number is stored on the audit row, never printed
-(AD-14 display rule). Because the caps sit in [floor, high) (enforced by
-Step 12's `checkTuningWrite`), a suspect or heuristic fact that clears the
-floor is always delivered, always flagged (AD-14; review G20 as revised).
+(AD-14 display rule). Because the caps sit in [floor, high) and the trust and
+stale factors satisfy AD-14's tier invariant (both enforced by Step 12's
+`checkTuningWrite`), a suspect or heuristic fact that clears the floor is
+always delivered, always flagged, and a perfect-evidence fact reaches the high
+tier under every dampener at once (0.9 × 0.9 = 0.81 ≥ 0.8; AD-14; review G20
+as revised; collapse-hunt H2).
 
 *Decision-impact* — per-candidate properties only, no genre term and no
 intent term (D-18): passes when `candidate.context = 'edit'`, or
@@ -3558,17 +3823,28 @@ Coupling set `blastRadius: 2`, so the read-context floor always passed).
 passes unless `candidate.obvious` (AC-1's same-directory same-stem pair); a
 `structural` fact passes only when `crossFile && comparative` (Reuse's
 dominance, Orientation's aggregation). A single-file history fact (Warning's
-landmine) passes as `mined`: the reason AD-14 gives for the history class —
-invisible from a cold checkout — holds for one file as for two (§16 item 5
-records that AD-14's class list omits this case).
+landmine) passes as `mined`, for AD-14's two reasons: it aggregates over
+commits the agent has not enumerated — a revert-chain or fix-chatter label
+comes from classifying commits, the same aggregation clause that admits a
+Reuse dominance claim, not from one call the agent could make — and FR-A5a
+requires a hazard to be spoken with its confidence, which a marginal axis that
+failed it would forbid (collapse-hunt H9; D-plan-41).
+
+**Fixture built out in `test/fixtures/generate.ts`:** `recency-weighting`,
+the backdated-commit scenario `T-16-3` states (commit dates set through
+`GIT_AUTHOR_DATE`/`GIT_COMMITTER_DATE`, relative to the fixture's `HEAD`, so
+it holds on any calendar day).
 
 **Creates.** `src/bar/combinator.ts` — AD-14.
 
 **Source.** `AD-14` (the bar as conjunction of floors, no volume caps,
 hazard bypass; the tier, trust dampener, suspect and heuristic caps and their
-composition, as revised 2026-09-26); `AD-13` (the `change_count`
-denominator); `FR-A5`, `FR-A5a`, `FR-X4`, `FR-K7`; `OL-C1` (no volume/budget);
-`D-18` (no intent term in impact); gap-list review G3, G18, G19, G20, N10.
+composition, the per-class staleness factor, the hazard full-support
+count, and the tier invariant, as corrected at `6cff0ce`); `AD-13` (the
+recency-weighted `pair_weight / change_weight` confidence); `FR-A5`,
+`FR-A5a`, `FR-X4`, `FR-K7`; `OL-C1` (no volume/budget); `D-18` (no intent
+term in impact); gap-list review G3, G18, G19, G20, N10; plan-pass
+collapse-hunt H1, H2, H9, H10.
 
 **Why this approach (Gate 3):**
 1. **The decision.** Conjunction, not product; hazard bypass on the
@@ -3582,16 +3858,22 @@ denominator); `FR-A5`, `FR-A5a`, `FR-X4`, `FR-K7`; `OL-C1` (no volume/budget);
    axis a floor and each axis's failure visible.
 4. **What this is NOT — and why.** Not a top-k selector (`OL-C1`). Not a
    learned bar in Phase A (`D-12`). Not a precision floor on hazards
-   (`OL-C4`) Not a universal untrusted cap below the high tier (it flagged every Phase A
+   (`OL-C4`). Not a universal untrusted cap below the high tier (it flagged every Phase A
    mined whisper uncertain, erasing OL-C4's sure/uncertain split — AD-14
-   second pass). Not a printed confidence number (it could contradict the
-   evidence ratio the headline states).
+   second pass). Not a recency multiplier on the finished confidence (under
+   the seeds it silenced every perfect pairing older than about 213 days —
+   H1). Not index staleness applied to history facts (the mined history does
+   not go stale when the index does — H1). Not a printed confidence number (it
+   could contradict the evidence ratio the headline states).
 
 **Dependencies.** Declared above (`depends_on`).
 
 **Verification.** `T-16-1` (conjunction, failed axis, hazard bypass,
-dampeners), `T-16-2` (tier, trust dampener, caps, their composition, and the
-impact and marginal inputs).
+per-class staleness), `T-16-2` (tier, trust dampener, caps, their
+composition, the hazard full-support count, and the impact and marginal
+inputs), `T-16-3` (recency weighting end to end: a perfect pairing five years
+old stays above the floor; a pairing whose files have since changed apart
+drops below it).
 
 **Impact if wrong.** Systemic to whisper output — a broken bar over- or
 under-fires every genre. Caught by `T-16-1` and the AC-3/AC-3a/AC-4/AC-6
@@ -3688,7 +3970,7 @@ interface Generator {
 ```
 Per genre:
 - `orientation.ts` (FR-A2a, `UserPromptSubmit`): tokenize prompt, query
-  `symbolSearch`/`pathSearch` (Step 14's interface — FTS5 or the `LIKE`
+  `symbolSearch`/`pathSearch` (Step 14's interface — FTS5 or the token-table
   fallback, unseen here), rank by (match strength × co-change hub degree
   × `entry_score`), select the top 2–4 entry-point files; join
   `invariant_members` for one binding invariant when one exists for a
@@ -3743,8 +4025,9 @@ call. Every candidate carries ≥ 1 verifiable pointer; the composer (Step
 **Full build (2026-09-26 plan pass) — supersedes the per-genre bullets above
 where they differ.** Create `src/genres/generator.ts`: the `Generator`
 interface above; `blastRadiusOf(store, fileId, tuning)` = the number of the
-file's partners whose `pair_count / change_count(file) ≥
-bar.confidence_floor`, plus its `test_map` covering-test rows (G18b); and the
+file's partners whose confidence `pair_weight / change_weight(file) ≥
+bar.confidence_floor` (AD-13's recency-weighted confidence — the same ratio
+the bar reads), plus its `test_map` covering-test rows (G18b); and the
 shared rules every generator applies:
 - **History gate (N1, AD-13).** Coupling, Consequence, Completeness, and the
   miner kinds of Warning return nothing when `ctx.historyAvailable` is false
@@ -3782,15 +4065,19 @@ shared rules every generator applies:
 
 Per genre (queries, emission rule, headline — every headline is `lit` words
 and slots, Step 6; the composer's rendering is Step 19's):
-- **Orientation** (`UserPromptSubmit`): prompt tokens = `promptText` split on
-  `/[^\p{L}\p{N}_$]+/u`, lower-cased, length ≥ 3, deduplicated; each token
-  through `symbolSearch` and `pathSearch`; a file's *match strength* = the
+- **Orientation** (`UserPromptSubmit`): prompt tokens = Step 14's
+  `tokenize(promptText)` with tokens shorter than 3 characters dropped,
+  deduplicated (the same tokenizer the index was built with — AD-2); each
+  token through `symbolSearch` and `pathSearch`; a file's *match strength* = the
   number of distinct tokens matching its path or one of its symbols; *hub
   degree* = 1 + its partner count; score = match × hub × `entry_score`; files
   with `entry_score = 0` are not entry points. The top 4 by score (ties by
   path) are named when **at least 2** qualify, else silence. The binding
   invariant: the newest `invariants` row with a member among the named files
-  (L10). `blastRadius` = the number of files named. Headline: `lit('entry
+  (L10). `blastRadius` = the number of files named. `evidenceJson` records,
+  per named file, `{fileId, inDegree, markerPoints, match, hub}` (the terms of
+  its score), so the exit report can count entry points named by marker
+  against those named by in-degree (Step 39; collapse-hunt H11). Headline: `lit('entry
   points for this prompt:')`, the path slots, and when an invariant exists
   `lit('— recorded invariant:')` + `slot.human(description)`. No landmine at
   the prompt (D-26).
@@ -3798,8 +4085,9 @@ and slots, Step 6; the composer's rendering is Step 19's):
   files are `ctx.targetPath` for Read and `ctx.resultPaths` for Grep/Glob
   (G21 — a search's touched files are its results). One candidate per
   (touched T, partner P); `evidence = {num: pair_count, den:
-  change_count(T)}`, `support = pair_count`, `lastTs = last_ts`, pointers T,
-  P, `last_commit`. Headline: `[T] has changed with [P] in [num] of its last
+  change_count(T)}` (the headline's raw counts), `weightedEvidence = {num:
+  pair_weight, den: change_weight(T)}` (the bar's confidence, AD-13),
+  `support = pair_count`, `lastTs = last_ts`, pointers T, P, `last_commit`. Headline: `[T] has changed with [P] in [num] of its last
   [den] changes; latest [commit]`.
 - **Reuse** (`PostToolUse` Grep/Glob with a `searchTerm`): tokens as for
   Orientation; `symbolSearch` hits in `source`-zone, `in_tree = 1` files; the
@@ -3815,7 +4103,7 @@ and slots, Step 6; the composer's rendering is Step 19's):
   = ['identifier_match']` always, plus `'mixed_language'` when
   `lang_capabilities` lists any language with `imports: false` and files > 0.
   `blastRadius = M_X`.
-- **Consequence** (`PreToolUse` Edit/Write/MultiEdit/NotebookEdit on
+- **Consequence** (`PreToolUse` Edit/Write/NotebookEdit on
   `ctx.targetPath`): partners P of the target that are `test_map` test files;
   one candidate per P; evidence and pointers as Coupling. Headline, worded
   about **the file this edit targets** (AD-15, V20 — the model reads a
@@ -3823,20 +4111,21 @@ and slots, Step 6; the composer's rendering is Step 19's):
   failure, so "just edited" would be checkably false — L12): `[T], the file
   this edit targets, has historically changed with [P] in [num] of its last
   [den] changes; latest [commit]` + the zone literal when T is not `source`.
-  (The gap-list review's "`x.ts`, just edited" wording is superseded by the
-  architecture's second pass, CH C3 / ER S1.)
 - **Warning** (same trigger): `landmines.forFile(target)`, human rows first.
   `revert_chain`: `⚠ [T], the file this edit targets, was reverted in
   [support] commits: [c1] [c2] [c3]` (the three newest evidence hashes);
   `fix_chatter`: `⚠ [T], the file this edit targets, had [support] fix commits
   in the last [days] days: …` where `[days]` is
-  `landmine.fix_chatter_window_days` read from tuning (N10 — the skeleton
-  printed a literal 90); `human_stated`: `⚠ [T], the file this edit targets —
+  `landmine.fix_chatter_window_days` read from tuning (N10); `human_stated`: `⚠ [T], the file this edit targets —
   noted hazard: [human statement]`. `hazard = true`, `support` = the row's,
-  `lastTs` = the newest evidence commit's `commits.ts`.
+  `lastTs` = the newest evidence commit's `commits.ts`; `evidenceJson` records
+  `{kind, support, changeCount}` with `changeCount` = the target's
+  `files.change_count`, so the audit row carries the file's change count
+  beside the landmine's support (AD-14; Limitations L13 — the ratio has no
+  base-rate term, and the exit data measures whether one is needed).
 - **Completeness** (`Stop`/`SubagentStop`): for each E in
-  `ctx.observed.okEditedPaths()` (G22 — a failed Edit is not a change; the
-  skeleton's `pathWrites` read had no outcome filter), each partner P not in
+  `ctx.observed.okEditedPaths()` (G22 — a failed Edit is not a change), each
+  partner P not in
   that set: `you changed [E] but not [P], paired in [num] of its last [den]
   changes; latest [commit]`.
 - **Verification** (`Stop` with a done-claim): changed = `okEditedPaths()`;
@@ -3844,10 +4133,15 @@ and slots, Step 6; the composer's rendering is Step 19's):
   subtract every test that a class-1 segment of any observed Bash row — of
   either outcome — ran (`targets` empty ⇒ all; else each test equal to or
   under a target); for each remaining test, one candidate: `[test] covers
-  [changed]` + the run-state clause — `; not run this session` when every
-  observed Bash segment is class 2 (or none ran), else `; no recognized test
-  run touched it (recognized runners: [list])`, the list rendered from
-  `lexicon.command_class_test_runners`. Run-state never stands alone.
+  [changed]` + the run-state clause — AD-15's rule exactly: `; not run this
+  session` when every observed Bash segment is class 1 or class 2 (or none
+  ran) — each class-1 segment has already subtracted the tests it mapped, so
+  a remaining test was run by no recognized runner and nothing unrecognized
+  ran — else, when any segment is class 3, `; no recognized test run touched
+  it (recognized runners: [list])`, the list rendered from
+  `lexicon.command_class_test_runners`. Run-state never stands alone. (Expert
+  review M6: a stricter "any runner ran ⇒ weak claim" rule had diverged from
+  AD-15 with no stated reason.)
 - **Fixtures built out (G6):** `orientation-mixed-shape`,
   `coupling-nonobvious`, `reuse-mixed-language`, `reuse-observed-zero`,
   `reuse-same-name-collision`, `reuse-alias-unresolved`,
@@ -3855,7 +4149,7 @@ and slots, Step 6; the composer's rendering is Step 19's):
   `completeness-paired-change`, `verification-covering-test` — each to the
   scenario its §12 test states, every history fixture with ≥
   `miner.corpus_floor_commits` included commits so the history gate is open
-  (N1: the skeleton's e2e repository had 4 commits and still whispered).
+  (N1).
 
 **Creates.** `src/genres/generator.ts` — the Generator interface and the shared rules; `src/genres/orientation.ts` — FR-A2a; `src/genres/coupling.ts` — FR-A2b; `src/genres/reuse.ts` — FR-A2c; `src/genres/consequence.ts` — FR-A2d; `src/genres/warning.ts` — FR-A2e (⚠, FR-A5a); `src/genres/completeness.ts` — FR-A2f; `src/genres/verification.ts` — FR-A2g + done-claim recognizer (D-38).
 
@@ -3933,8 +4227,7 @@ characters; `symbol` as the name when it matches `^[\p{L}_$][\p{L}\p{N}_$]*$`,
 else `symbol#<symbolId>`; `count`, `days` as integers; `ratio` as `num of den`;
 `human` as its (already redacted, Step 35) text with whitespace runs collapsed
 to one space and cut at 200 characters with `…`. Nothing else reaches the
-text, so verbatim repo prose is unrepresentable (the skeleton ignored the
-genre headline and printed `ratio 1.00` with no target and no commit). Text
+text, so verbatim repo prose is unrepresentable. Text
 is informative, never imperative (FR-D2).
 
 **Rumor rule (FR-D1, AD-15, AD-23).** Before rendering, each pointer is
@@ -3947,8 +4240,11 @@ must be in the store's `commits` table (never a `git` subprocess), else
 `stale_pointer`. A candidate left with **no verifiable pointer** — no unmasked
 in-tree path and no commit hash — is dropped with `masked_path` when masking
 removed its last one, otherwise with the reason of its last failed pointer;
-every drop is reported through `ctx.recordDrop` (→
-`whisper_dropped_unverifiable`, AD-17). A candidate with at least one
+`compose` itself records nothing — it returns `{dropped: <reason>}`, and the
+handler (Step 28, item 11) reports every returned drop through
+`ctx.recordDrop` (→ `whisper_dropped_unverifiable`, AD-17), the same sink the
+generators use (expert review m2: `compose`'s options carry no `recordDrop`).
+A candidate with at least one
 verifiable pointer is composed with its masked slots masked.
 
 **Creates.** `src/hook/compose.ts` — whisper composer + rumor rule (AD-19, AD-15).
@@ -4019,20 +4315,22 @@ depends_on: [S1, S6, S9]
   internal delivery object `{ context: string } | null` (`null` when
   `stopHookActive` is true — the single-cycle bound, V3); the adapter
   (Step 28) is the only module that turns it into the hook's
-  `additionalContext` field, so this file names no hook field.
+  `additionalContext` field, so this file names no hook field. The `null`
+  branch is a defence only: the handler generates, audits, and marks
+  delivered nothing at a `Stop`/`SubagentStop` whose `stop_hook_active` is
+  true (Step 28, item 11), because text audited there would never reach the
+  agent (expert review S2).
 
 **Full build (2026-09-26 plan pass) — supersedes the bullets above where they
 differ.** Every function takes the `ConsumerKey` of Step 6 and touches only
-that consumer's rows (AD-4, AD-16; review G23 — executed, a Coupling whisper
-received in session `s1` silenced it in `s2` and for a second subagent, and
-one session's `startup` cleared every live session's sets).
+that consumer's rows (AD-4, AD-16; G23).
 - `perConsumerDedup(store, consumer, candidate): boolean` — withholds when
   `candidate.subjectKey` is in the consumer's `delivered` set **or**
   `consumer_state.hasAny(consumer, 'read', candidate.incorporatedBy)` (AD-16's
   incorporation per fact, G25 — the skeleton's read set held `path:` keys and
   candidates carried `coupling:` keys, so the two never matched).
 - `updateReadSet(store, consumer, ev: EventContext)` — on an `outcome = 'ok'`
-  Read, Edit, Write, MultiEdit, or NotebookEdit adds `path:<ctx.targetPath>`;
+  Read, Edit, Write, or NotebookEdit adds `path:<ctx.targetPath>`;
   on an `ok` Grep/Glob adds `path:<p>` for each of `ctx.resultPaths`.
 - `recordDelivered(store, consumer, subjectKey)` — called by the handler
   **inside the same transaction as the `whisper_audit` append** (AD-26's
@@ -4148,23 +4446,31 @@ tolerant of any shape they do not recognize (they skip it):
   whitespace trimmed. Claude Code saves hook-injected text in the transcript
   (V22) but its entry shape is not documented and was not observed here (no
   hook on this machine emits `additionalContext` — §11.4), so the rule keys
-  on the oracle's own one-line prefix (Step 19), not on a wrapper; a wrapper
-  that splits a line or rewrites the text makes the reseed recover nothing,
-  which is the loud `rebuild_recovered_nothing` (set `delivered`) case, not
-  a silent one — §15 records this gap.
+  on the oracle's own one-line prefix (Step 19), not on a wrapper. Exactly
+  one case of a failed recovery is loud: the transcript carries at least one
+  `[oracle] ` line and none of them equals an audited text — the handler then
+  records `rebuild_recovered_nothing` with `set = 'delivered'` (Step 20's
+  `carriedOracleText && recovered === 0`). When no `[oracle] ` line is found
+  at all — the likeliest result of a wrapper that splits or rewrites the text
+  — nothing is recorded, because nothing tells the reader the forked session
+  ever received a whisper; that silent case is §15's PG-6 (collapse-hunt H6).
 - `successfulToolTargets(entries): {tool, pathRaw}[]` — pairs each assistant
   `tool_use` block (`id`, `name`, and its input's `file_path`/`notebook_path`)
   with the user entry's `tool_result` block of the same `tool_use_id`, and
-  admits the pair **only when the result block carries `is_error: false`
-  explicitly** — the only outcome the reader can establish (observed in this
-  session's own transcript 2026-09-26: 227 results with `is_error: false`, 4
-  with `true`, 89 with no field — §11.4); a missing field is "not
-  established" and not admitted (AD-16's under-seed direction). Tools admitted:
-  Read, Edit, Write, MultiEdit, NotebookEdit (Grep/Glob result paths are not
+  admits the pair **unless the result block carries `is_error: true`** — the
+  observed layout marks failure, not success (V23 at `6cff0ce`: across 24
+  local transcripts no successful Read (373), Edit (89), or Write (12) result
+  carries an `is_error` field, `is_error: false` appears only on Bash results,
+  and the one failed Read carries `is_error: true`). A `tool_use` with no
+  paired `tool_result` is not admitted (its outcome is unknown). Tools
+  admitted: Read, Edit, Write, NotebookEdit (Grep/Glob result paths are not
   recoverable from the transcript's `tool_result` text without the
   undocumented structured output, so a reseeded read set holds file targets
   only). The handler normalizes `pathRaw` against the checkout root into
-  `path:` keys.
+  `path:` keys. *Why (the D-plan-39 collapse, plan-pass collapse-hunt P4):*
+  the former rule admitted only `is_error: false`, which no successful file
+  tool result carries, so the reseeded read set was always empty; AD-11's
+  `transcript_layout_changed` detector is the guard if the layout changes.
 These two functions name transcript layout fields, which is AD-11's reader's
 job; they name no hook wire field (AD-6).
 
@@ -4825,9 +5131,9 @@ Step 39 marker-presence verification.
 step: S28
 covers: [PA-4, PA-10, PA-11]
 files:
-  create: [middleware/context-oracle/ctxoracle/src/cli/hook.ts, middleware/context-oracle/ctxoracle/src/cli/index.ts, middleware/context-oracle/ctxoracle/src/cli/integrity_check.ts, middleware/context-oracle/ctxoracle/test/replay/integrity_check_verb.test.ts, middleware/context-oracle/ctxoracle/src/hook/adapter.ts, middleware/context-oracle/ctxoracle/src/hook/handler.ts, middleware/context-oracle/ctxoracle/test/replay/runner.ts, middleware/context-oracle/ctxoracle/test/replay/hook_stream_fixtures/, middleware/context-oracle/ctxoracle/test/replay/pipeline_order.test.ts, middleware/context-oracle/ctxoracle/test/conventions/hook_field_names_isolated.test.ts, middleware/context-oracle/ctxoracle/test/replay/fail_open.test.ts, middleware/context-oracle/ctxoracle/test/replay/produced_but_undelivered.test.ts, middleware/context-oracle/ctxoracle/test/replay/liveness_row.test.ts, middleware/context-oracle/ctxoracle/src/identity/repo_binding.ts, middleware/context-oracle/ctxoracle/test/unit/repo_binding.test.ts, middleware/context-oracle/ctxoracle/test/replay/repo_resolution.test.ts, middleware/context-oracle/ctxoracle/test/replay/error_mapping.test.ts, middleware/context-oracle/ctxoracle/test/replay/observation_row.test.ts, middleware/context-oracle/ctxoracle/test/replay/audit_groups.test.ts]
+  create: [middleware/context-oracle/ctxoracle/src/cli/hook.ts, middleware/context-oracle/ctxoracle/src/cli/index.ts, middleware/context-oracle/ctxoracle/src/cli/integrity_check.ts, middleware/context-oracle/ctxoracle/test/replay/integrity_check_verb.test.ts, middleware/context-oracle/ctxoracle/src/hook/adapter.ts, middleware/context-oracle/ctxoracle/src/hook/handler.ts, middleware/context-oracle/ctxoracle/test/replay/runner.ts, middleware/context-oracle/ctxoracle/test/replay/hook_stream_fixtures/, middleware/context-oracle/ctxoracle/test/replay/pipeline_order.test.ts, middleware/context-oracle/ctxoracle/test/conventions/hook_field_names_isolated.test.ts, middleware/context-oracle/ctxoracle/test/replay/fail_open.test.ts, middleware/context-oracle/ctxoracle/test/replay/produced_but_undelivered.test.ts, middleware/context-oracle/ctxoracle/test/replay/liveness_row.test.ts, middleware/context-oracle/ctxoracle/src/identity/repo_binding.ts, middleware/context-oracle/ctxoracle/test/unit/repo_binding.test.ts, middleware/context-oracle/ctxoracle/test/replay/repo_resolution.test.ts, middleware/context-oracle/ctxoracle/test/replay/error_mapping.test.ts, middleware/context-oracle/ctxoracle/test/replay/observation_row.test.ts, middleware/context-oracle/ctxoracle/test/replay/audit_groups.test.ts, middleware/context-oracle/ctxoracle/test/replay/fork_reseed.test.ts]
   modify: [.github/workflows/context-oracle-ctxoracle.yml, middleware/context-oracle/ctxoracle/src/cli/dispatch.ts, middleware/context-oracle/ctxoracle/test/fixtures/generate.ts]
-  delete: []
+  delete: [middleware/context-oracle/ctxoracle/test/unit/skeleton_e2e.test.ts]
 provides: [ctxoracle-hook, hook-integrity-check, ctxoracle-index, toInternalEvent, toHookResponse, prepareStore, findRepoRoot, lookupBinding, recordBinding, deleteBindingsFor]
 tests: [T-28-1, T-28-2, T-28-3, T-28-4, T-28-5, T-28-6, T-28-7, T-28-8, T-28-9, T-28-10, T-28-11]
 depends_on: [S1, S3, S4, S5, S6, S7, S8, S9, S10, S12, S14, S15, S16, S17, S18, S19, S20, S21, S24, S25, S26, S27]
@@ -4848,20 +5154,27 @@ type), where `InternalResponse = { deny: DenyVerdict } | { context: string }
 `permissionDecisionReason`, and a Step 20 `StopDelivery` or a whisper text
 to `additionalContext`; no other module names a wire field. The adapter also
 extracts the tool facts Step 6 names (review G21): `targetPathRaw` from
-`tool_input.file_path` (Read, Edit, Write, MultiEdit) or
+`tool_input.file_path` (Read, Edit, Write) or
 `tool_input.notebook_path` (NotebookEdit) — never `tool_input.path`, which for
 Grep/Glob is a search directory, not a target; `searchTerm` from
 `tool_input.pattern` (Grep, Glob); `bashCommand` from `tool_input.command`;
-and `resultPathsRaw` from `tool_response.filenames` when it is an array of
-strings (Grep in `files_with_matches` mode and Glob), else `[]`. The Grep/Glob
-`tool_response` schema is **not documented** ("the exact schema for both
-depends on the tool" — hooks reference, fetched 2026-09-26) and no Grep/Glob
-result was observed on this machine (§11.4), so `filenames` is the plan's
-reading of the tool's structured output, recorded in §15: a response without
-it yields `[]`, the handler records `detail_json.search_results =
-'unrecognized'` on that event's session row, and `status` prints the count
-of such events, so a wrong field name reads as a visible zero, never as a
-low floor. The convention
+and, for a Grep/Glob response, `resultPathsRaw` and `searchResultState`
+(Step 6) by exactly three cases: (1) `tool_response.mode` is present and is
+not `files_with_matches` (Grep's `content` and `count` modes, which return
+`filenames: []` whatever matched) → `resultPathsRaw = []`,
+`searchResultState = 'mode_unsupported'`; (2) otherwise, `tool_response.filenames`
+is an array of strings (Glob, and Grep in its default `files_with_matches`
+mode) → those paths, `'listed'`; (3) anything else → `[]`, `'unrecognized'`.
+The handler copies a non-`listed` state into `detail_json.search_results` on
+that event's session row, and `status` prints the two counts separately, so a
+counted zero from a mode the oracle cannot read, and a response whose shape it
+does not recognize, are each a visible zero, never a low floor (collapse-hunt
+H3: an empty `filenames` array had counted as recognized, so every content-
+or count-mode Grep was a silent zero). The Grep/Glob `tool_response` schema is
+**not documented** ("the exact schema for both depends on the tool" — hooks
+reference, fetched 2026-09-26); the field names come from the installed
+Claude Code's own output schema (collapse-hunt P5, `strings` on 2.1.283) and
+that the hook's `tool_response` is that object is unverified (§15, PG-7). The convention
 test `T-28-2` scans `dist/src/**` outside `adapter.js` for the identifiers
 that are unambiguous wire names — `hook_event_name`, `session_id`,
 `agent_id`, `agent_type`, `tool_name`, `tool_input`, `tool_response`,
@@ -4940,9 +5253,7 @@ the walk found no `.git`, one lookup per `visited` directory, nearest first
 (a path-keyed repository, AD-3 rule 3). `recordBinding(global, root, key)`
 (Step 31's `init`, and the replay harness) and `deleteBindingsFor(global,
 key)` (Step 32's `deinit --purge`). No `git` subprocess, no directory
-creation (the skeleton ran `git rev-parse`/`rev-list --max-parents=0` per
-event — unbounded on a large history — and created `projects/<key>/` for
-every directory a hook fired in, executed).
+creation (G30, N15).
 
 Create `src/hook/handler.ts` — the per-event pipeline in AD-8's fixed order,
 **as of the 2026-09-26 plan pass** (it supersedes the skeleton's order):
@@ -4964,21 +5275,29 @@ Create `src/hook/handler.ts` — the per-event pipeline in AD-8's fixed order,
    written** (no store, no project directory — N15). A hit opens the project
    store with `openStore(<home>/projects/<key>/store.db, {mustExist: true})`;
    `StoreMissing` → the same once-per-session `repo_not_bound` with `reason:
-   'store_missing'` (a binding whose store was deleted outside the tool).
+   'store_missing'` (a binding whose store was deleted outside the tool);
+   `StoreUnreadable` from either open → the same once-per-session
+   `repo_not_bound` with `reason: 'store_unreadable'` and Step 6's `{store,
+   pathKind, errno}` (a store that exists but cannot be opened — a directory
+   at the path, a permission — is never reported as deleted; collapse-hunt
+   H8).
 5. Build the `EventContext` (Step 6): `consumer = consumerKey(session,
    agentId)`, `role`, `repoRoot`, `checkoutRoot`, `isWorktree`, `repoKey`;
    `targetPath` = `ev.targetPathRaw` resolved against `ev.workingDir` when
    relative (the hooks reference states file-tool `tool_input` paths arrive
    absolute — fetched 2026-09-26, §11.4), then made relative to
    `checkoutRoot` with POSIX separators, `undefined` when outside it;
-   `resultPaths` the same over `ev.resultPathsRaw` (review G21/N3 —
-   executed, a Read from `cwd = <repo>/src` produced nothing because the
-   adapter made paths relative to `cwd`); `context` from the event (Step 6);
+   `resultPaths` the same over `ev.resultPathsRaw` (G21/N3); `context` from
+   the event (Step 6);
    one `schema_meta` read of `ref_ts`, `corpus_floor_met`,
-   `mining_in_progress`, `index_stale` for `refTs`, `historyAvailable`,
-   `indexStale` (G19, N1); for a worktree event `indexStale` is also true
-   when `resolveHead(checkoutRoot)` differs from `index_head` (AD-23: the
-   index describes the main checkout); `tuning = tuningReader(global, key,
+   `mining_in_progress`, `index_head`, and `last_mined_commit` — the first
+   three give `refTs` and `historyAvailable` (G19, N1); one `resolveHead(checkoutRoot)` (bounded
+   file reads, AD-23) for the event checkout's `HEAD`, from which
+   `indexStale = (index_head ≠ HEAD)` and `historyStale = (last_mined_commit
+   ≠ HEAD)` — AD-14's per-class staleness; an `{unresolved}` `HEAD` makes both
+   false (the same direction `refreshIfStale` takes). For a worktree event
+   this compares the worktree's own `HEAD` with the main checkout's index and
+   mined history (AD-23: they describe the main checkout); `tuning = tuningReader(global, key,
    onMissing → tuning_missing)` (G8); `observed` over this session and
    consumer; `recordDrop` → `recordFault(store, projectDiagnostics,
    {code: 'whisper_dropped_unverifiable', detail: {genre, subjectKey, reason}})`.
@@ -4991,7 +5310,10 @@ Create `src/hook/handler.ts` — the per-event pipeline in AD-8's fixed order,
    deadline hit stops the read — under-seed — and records
    `catchup_incomplete` with `detail.set = 'delivered'`);
    `reconcileDedupOnSessionStart` (Step 20) and `rebuild_recovered_nothing`
-   (`set: 'delivered'`) when it reports text carried and nothing recovered;
+   (`set: 'delivered'`) exactly when it reports `carriedOracleText` true and
+   `recovered` 0 — at least one `[oracle] ` line was found and none matched
+   an audited text; a transcript with no `[oracle] ` line records nothing
+   (Step 21; §15 PG-6);
    `handleSessionStart` (Step 27); `refreshIfStale(store, checkoutRoot)` and,
    when stale **and not a worktree event** (AD-23: indexing another tree would
    overwrite the main checkout's index), the detached reindex child `<node>
@@ -5008,16 +5330,30 @@ Create `src/hook/handler.ts` — the per-event pipeline in AD-8's fixed order,
     a Bash row), `outcome` (`ok`/`failed` per V19), `command_class` and
     `segments_json` for a Bash row (Step 17), `seq` engine-assigned (N16) —
     and applies `updateReadSet` (Step 20). For an `ok`
-    Edit/Write/MultiEdit/NotebookEdit the **post-write content hash** is
+    Edit/Write/NotebookEdit the **post-write content hash** is
     computed before that transaction (AD-23; review G32 — the regret proxy had
     no input): `stat` the target under `checkoutRoot`; above 1 MB store NULL
     and read nothing; otherwise one bounded read that stops and stores NULL on
     reaching line 20,001, else `sha256Hex` of the bytes. Then the bypass
     diagnostic (`checkDenyBypassSuspect`, Step 26).
-11. Candidate generation (the Step 18 generators whose `triggerEvents`
+11. **At a `Stop`/`SubagentStop` whose `stopHookActive` is true this item
+    is skipped entirely**: no candidate is generated — no `recognizeDoneClaim`
+    (so no FR-M4 counter entry either), no Completeness or Verification
+    candidate, no backstop line — nothing is
+    audited, nothing is marked delivered, and the session row (item 13)
+    carries `detail_json.stop_hook_active = true`. The candidates wait for
+    the next turn's `Stop`, and dedup stays honest. *Why (expert review S2):*
+    a `Stop` whisper continues the conversation (hooks reference, "The
+    conversation continues so Claude can act on it"), so every spoken `Stop`
+    ends in a second `Stop` with `stop_hook_active: true`, where `deliverStop`
+    returns `null`; a whisper audited and marked delivered there would be a
+    logged intervention that never happened — withheld for the rest of the
+    session and counted as `sent` by the fold. Otherwise: candidate generation
+    (the Step 18 generators whose `triggerEvents`
     include this event, with `ctx`) → bar (`passesBar(candidate, ctx.tuning,
     ctx)`) → dedup (`perConsumerDedup`) → compose (`compose(candidate, {store,
-    checkoutRoot, tier})`) — all outside any transaction. At
+    checkoutRoot, tier})`, each returned `{dropped}` reported through
+    `ctx.recordDrop`) — all outside any transaction. At
     `Stop`/`SubagentStop`: `recognizeDoneClaim`, Completeness + Verification
     candidates, and `outstandingQuestionLine` (Step 27's backstop candidate,
     through dedup but not the bar). **Audit-then-emit:** for each surviving
@@ -5027,8 +5363,7 @@ Create `src/hook/handler.ts` — the per-event pipeline in AD-8's fixed order,
     that whisper (fail-open). The response text is the audited texts joined
     by `\n`; when writing it to stdout throws (`EPIPE`, serialization), each
     audited id is recorded as `produced_but_undelivered` and the handler exits
-    0. At Stop the text goes through `deliverStop` honoring `stop_hook_active`
-    (Step 20).
+    0. At Stop the text goes through `deliverStop` (Step 20).
 12. `SessionEnd`: finalize the session row (the fold and the regret pass are
     added to this branch by the later step that builds them, declaring the
     edit).
@@ -5051,6 +5386,13 @@ handler finds every fixture store the way it finds an `init`-ed one; for a
 leg-1 transcript whose `cwd` is absent (Step 39) it creates an empty
 directory under the temp home, binds it to the path key, and rewrites the
 replayed events' `cwd` to that directory.
+
+**The skeleton end-to-end test is retired here.** Checkpoint 1R marked
+`test/unit/skeleton_e2e.test.ts` `todo` (its generators return no candidates
+at 1R, §9); this step's replays through the built binary cover every
+property it checked — intake, a denied edit, the answer, the allowed edit, a
+whisper, dedup — so this step deletes it (`delete:` above), which also
+removes its `todo` mark.
 
 **Fixtures built out (G6):** the replay streams under
 `test/replay/hook_stream_fixtures/` for `T-28-7`–`T-28-11`; the repositories
@@ -5078,8 +5420,9 @@ V21); `AD-8` (pipeline order load-bearing); `AD-23` (repository resolution by
 walk and binding, worktrees, the post-write hash, no layout creation);
 `AD-17` (the home-level channel, `repo_not_bound` once per session); `AD-26`
 (the handler's write groups); `AD-16` (reseed); `AD-4` (the consumer key and
-filter on `observed_actions`); V1–V6, V15, V16, V19–V22; review G10, G19,
-G21, G23/G29, G30, G31, G32, G35, N2, N3, N15, N16.
+filter on `observed_actions`); `AD-14` (per-class staleness inputs); V1–V6,
+V15, V16, V19–V23; review G10, G19, G21, G23/G29, G30, G31, G32, G35, N2, N3,
+N15, N16; plan-pass reviews S2, H1, H3, H6, H8.
 
 **Why this approach (Gate 3):**
 1. **The decision.** One adapter file; fixed pipeline order; exit 0 always;
@@ -5116,7 +5459,8 @@ truncated store and nothing on a healthy one), `T-28-7` (repository
 resolution: subdirectory, worktree, path-keyed, miss), `T-28-8` (error
 mapping), `T-28-9` (the observation row: normalized target, post-write hash,
 `seq`), `T-28-10` (audit groups: whisper + delivered in one transaction,
-the backstop audited), `T-28-11` (the fork reseed through the handler); `T-28-7`'s function-level
+the backstop audited, nothing audited or delivered at a continuation `Stop`),
+`T-28-11` (the fork reseed through the handler); `T-28-7`'s function-level
 half lives in `test/unit/repo_binding.test.ts`, its replay half in
 `test/replay/repo_resolution.test.ts`. **Checkpoint 3** runs here: every function-level test of Steps
 21–28 and the replay tests above, the first replays through the built
@@ -5286,7 +5630,7 @@ revert wherever it happens without double-counting one that spans both
   before this amendment.
 - **The end of `runIndex`** (`src/index/indexer.ts`, Step 14; `modify:`)
   calls `recordRegret(store)` with no session: **reverted** here means
-  `observed_actions.writtenSince(path, sinceTs)` (Step 9) is true — the path
+  `observed_actions.writtenSinceSeq(path, sinceSeq)` (Step 9) is true — the path
   was actually written since the watermark, so this is never evaluated on a
   path nothing touched — *and* the path's current on-disk `content_hash` —
   the value `runIndex`'s own incremental walk already computes for every
@@ -5309,14 +5653,18 @@ revert wherever it happens without double-counting one that spans both
   reads `files.content_hash`'s persisted, pre-pass value, so a match against
   that value — which is what this check requires — is never something
   `SessionEnd` could already have reported, whether the churn spanned one
-  session or several. `sinceTs` is `schema_meta.regret_index_ts` (Step 7),
-  absent until the first pass, read and advanced to the current time by
-  `schema_meta.get`/`set` (Step 9) after every `runIndex` regret pass — a
-  single-store watermark, the same shape as AD-5's project-store fold
-  watermarks —
-  so once a reverted path is reported, the next pass finds no write since
-  the advanced watermark for it and never re-flags the same revert; absent,
-  `sinceTs` is treated as epoch 0, so the first-ever pass considers the
+  session or several. `sinceSeq` is `schema_meta.regret_index_seq` (Step 7),
+  absent until the first pass: the pass reads `observed_actions.maxSeq()`
+  **before** it evaluates any path, evaluates `seq > sinceSeq` up to that
+  value, and then advances the key to it with `schema_meta.get`/`set` (Step
+  9) — a single-store `seq` watermark, the shape of AD-5's project-store fold
+  watermarks. `seq` is assigned under the single write lock, so a row a
+  concurrent handler commits after the pass's read has a larger `seq` and is
+  examined by the next pass; a wall-clock watermark advanced to "now" would
+  skip a row stamped earlier but committed later, forever (expert review M7 —
+  the race N11 found in the fold). Once a reverted path is reported, the next
+  pass finds no write since the advanced watermark for it and never re-flags
+  the same revert; absent, `sinceSeq` is treated as 0, so the first-ever pass considers the
   store's entire `observed_actions` history for the paths of store-held
   facts `runIndex` is touching regardless, per the population bound above —
   bounded by that same set, never a full-table scan. The miner's
@@ -5336,7 +5684,8 @@ here (AD-18).
 `stats_folds`, the replace-publish, the `unattributed` booking, run points);
 `AD-4` (`seq`, append-only `whisper_audit`/`corrections`); `AD-26` (single
 `BEGIN IMMEDIATE` on the project store, separate idempotent publish); review
-G32, G33, N11; `AD-18` (regret proxy, its two mandated run
+G32, G33, N11; plan-pass expert review M7 (the `seq` regret watermark);
+`AD-18` (regret proxy, its two mandated run
 points, outcome semantics of its two `observed_actions` reads); `AD-4`
 (consumer filter); `FR-L4`, `D-36`, `AC-24`.
 
@@ -5370,7 +5719,8 @@ points, outcome semantics of its two `observed_actions` reads); `AD-4`
 **Verification.** `T-30-1` (replay on `regret-true-positive` and
 `regret-no-inflate`: a regret row for the relevant churn — including a
 never-triggered fact and a cross-session revert — none for the unrelated
-churn or a same-session revert counted twice — AC-24), `T-30-2` (two
+churn or a same-session revert counted twice; a row committed after an index
+pass's read examined by the next pass — AC-24), `T-30-2` (two
 concurrent same-project folds do not double-count; a post-session
 correction reaches `whisper_stats` — AC-23's efficacy clause), `T-30-3`
 (attribution by whisper, deny, `--genre`, `--missed-question`, and
@@ -5421,12 +5771,12 @@ switch (created at Step 1, first given verbs at Step 28). Create
    `schema_meta.set('store_created_at', Date.now())` guarded by
    `schema_meta.get` so only a store where the key is absent gets it
    (`applyMigrations`, Step 7, run through its own DAO, `schema_meta.get`/
-   `set`, Step 9 — the same pair `regret_index_ts`, Step 30, already reads
+   `set`, Step 9 — the same pair `regret_index_seq`, Step 30, already reads
    and advances) — placed in this item, not item 4, so Step 28's replay
    harness (`prepareStore`, which performs items 3 and 5 for every fixture
    store, never item 4) gives every fixture store this key the same way a
    real `init` does. On
-   `false` the `LIKE` path is what `search.ts` uses. The summary names the
+   `false` the token-table fallback is what `search.ts` uses. The summary names the
    recorded state and, when this run's probe disagrees with a state
    recorded by an earlier `init` (the row is written once), says so in
    plain language and names the recovery — `deinit --purge`, then `init`
@@ -5572,26 +5922,43 @@ depends_on: [S1, S3, S4, S14, S28, S30, S31]
   review G34 — executed there, `copyFileSync` over a store another process
   held open with 200 uncheckpointed WAL frames gave "database disk image is
   malformed", while `sqlite.backup()` with the holder still open gave
-  `integrity_check: ok`). For each of the two files, in this order (global
-  first, then project, so the final publish writes into the store that
-  stays): (1) `backupFile(<dir>/<file>, <live path>.import-tmp)` (Step 3);
-  (2) `openStore(tmp).integrityCheck()` (`quick_check`); (3) on failure —
-  or when the export cannot be opened — delete the temporary file, record
-  `import_rejected` (`{file, check}`), leave both live stores untouched, and
-  exit 1 with a plain-language message naming the file; (4) on success
-  `backupFile(tmp, <live path>)`, delete the temporary file. The target
-  layout is created with `ensureLayout` (Step 4) when absent. A live store
-  that is non-empty is refused without `--replace` (unchanged); with
-  `--replace` the global import **replaces the live global store, bindings
-  included** — `import` then lists every imported `repo_path:` binding whose
-  root does not exist on this machine and tells the owner, in plain
-  language, to run `ctxoracle init` in each repository here (a binding names
-  a path, and paths differ between machines). A store busy past AD-26's
-  retry is refused with `store_busy` and changes nothing. After the project
-  store is imported, the fold's publish step (Step 30) runs for its key, so
-  the global replica equals the imported store's own `stats_folds` totals
-  (AD-5; AD-24's "an import of an older export leaving the global counts
-  equal to the imported store's own totals"). No network path exists in either verb (`FR-X7`),
+  `integrity_check: ok`). **The import is all-or-nothing** (expert review
+  M2), in three phases:
+  1. *Validate everything first.* For each of the two export files:
+     `backupFile(<dir>/<file>, <live path>.import-tmp)` (Step 3), then
+     `openStore(tmp).integrityCheck()` (`quick_check`). If either file cannot
+     be opened or fails its check, every temporary file is deleted,
+     `import_rejected` (`{file, check}`) is recorded, **neither live store has
+     been touched**, and the verb exits 1 with a plain-language message naming
+     the file.
+  2. *Prepare the global store's bindings in its temporary copy* (below).
+  3. *Write, global first, then project, then publish:* `backupFile(<global
+     tmp>, <live global>)`, then `backupFile(<project tmp>, <live project>)`,
+     then the fold's publish step (Step 30) for the project's key, so the
+     global replica equals the imported store's own `stats_folds` totals
+     (AD-5; AD-24's "an import of an older export leaving the global counts
+     equal to the imported store's own totals"); the temporary files are
+     deleted. There is no transaction across two database files, so one
+     residual remains: a failure between the two live writes (a crash, a
+     `store_busy` on the project store) leaves the new global store beside the
+     old project store. `import` then records `import_rejected` with `check:
+     'partial_write'`, prints which store was written, and names the recovery
+     — run the same `import` again, which re-validates and rewrites both.
+  The target layout is created with `ensureLayout` (Step 4) when absent. A live store
+  that is non-empty is refused without `--replace` (unchanged). **A global
+  import merges repository bindings; it never drops this machine's** (AD-5 at
+  `6cff0ce`; collapse-hunt H7): in phase 2, every `repo_path:` binding of the
+  live global store is copied into the validated temporary global store, and
+  where both hold a binding for the same path, **this machine's binding wins**
+  (it names a store that exists here); every other imported table is the
+  export's. `import` then lists, in plain language, every imported binding
+  whose root does not exist on this machine and tells the owner to run
+  `ctxoracle init` in each such repository here (a binding names a path, and
+  paths differ between machines). *Why:* replacing the bindings wholesale
+  silently unbound every repository this machine had that the export lacked,
+  and each session there went silent with only a `repo_not_bound` line. A
+  store busy past AD-26's retry at phase 3's first write is refused with
+  `store_busy` and changes nothing. No network path exists in either verb (`FR-X7`),
   and none exists anywhere in Phase A: `test/conventions/no_network_modules.test.ts`
   is an import scan over `dist/src/**` asserting that no module imports
   `http`, `https`, `http2`, `net`, `tls`, `dgram` (either specifier
@@ -5611,8 +5978,9 @@ depends_on: [S1, S3, S4, S14, S28, S30, S31]
 **Creates.** `src/cli/deinit.ts`; `src/cli/export.ts` — VACUUM INTO; `src/cli/import.ts`.
 
 **Source.** `AD-20` (verbs); `AD-5` (export via `VACUUM INTO`; import by
-temp `sqlite.backup()` → `quick_check` → `sqlite.backup()` into the live store, then
-publish; `import_rejected`; record-identical per AC-19); SQLite "How To
+temp `sqlite.backup()` → `quick_check` of both files → `sqlite.backup()` into the live
+stores, then publish; merged bindings; `import_rejected`; record-identical per
+AC-19); plan-pass reviews M2, H7; SQLite "How To
 Corrupt An SQLite Database File" §1, §1.4 and the Online Backup API; review
 G34; `AD-12`/`AD-13` (index runs both indexer and
 miner); SQLite `VACUUM` documentation (2026-09-07, §11.4).
@@ -5636,7 +6004,10 @@ miner); SQLite `VACUUM` documentation (2026-09-07, §11.4).
    directions; a copy over a live WAL store corrupts it — G34, executed —
    and `sqlite.backup()` exists on the 22.16.0 floor, V17, which is therefore
    load-bearing for import). Not a check after the overwrite (it would
-   destroy the store the check protects — AD-5, ER M12). Not a JSON export
+   destroy the store the check protects — AD-5, ER M12). Not a per-file
+   validate-then-write loop (a good global file followed by a bad project file
+   left the global store already replaced — M2). Not a wholesale replace of
+   the bindings (it unbound this machine's repositories silently — H7). Not a JSON export
    (loses STRICT constraints on import). Not a byte-compare in the test (the
    documentation says the copy is rebuilt).
 
@@ -5649,10 +6020,12 @@ afterwards), `T-32-2` (AC-19: canonical-order per-table dump before and
 after the round-trip is identical; the verbs succeed with no network
 namespace), `T-32-3` (no network module and none of the `fetch` tokens
 anywhere in `dist/src/**`), `T-32-4` (import validates before it writes:
-a corrupt export is rejected with the live store untouched; an import under a
-live WAL holder yields an intact store; an older export leaves the global
-counts equal to the imported store's totals; `deinit --purge` removes the
-binding).
+a corrupt export is rejected with the live store untouched; a good global
+file beside a corrupt project file changes neither live store; an import
+under a live WAL holder yields an intact store; an older export leaves the
+global counts equal to the imported store's totals; a global import keeps
+this machine's bindings and lists the imported ones whose roots are missing;
+`deinit --purge` removes the binding).
 
 **Impact if wrong.** Owner recovery is the main risk on export/import —
 mitigated by `T-32-2`'s record-identical check.
@@ -5730,7 +6103,11 @@ depends_on: [S1, S2, S4, S5, S9, S10, S12, S21, S26, S28, S30, S31]
   `-<v>` for list keys, `tune` alone lists keys, current values (list keys
   show members), sources, and defaults. A scalar write is first checked with
   Step 12's `checkTuningWrite`; a refused write prints the plain-language
-  reason and changes nothing, exit 1 (AD-14/AD-20; ER M9).
+  reason and changes nothing, exit 1 (AD-14/AD-20; ER M9; the tier invariant
+  and the stale-factor interval, collapse-hunt H2). An accepted write prints
+  Step 12's `tuningWriteNotice(key)` when it is non-null — for
+  `bar.recency_half_life_days`, that the next `ctxoracle index` re-mines the
+  history under the new half-life (AD-13).
 - **Full build additions (2026-09-26 plan pass).** `status` finds the
   repository the way the handler does (Step 28's `findRepoRoot` +
   `lookupBinding`); with no binding it says "this directory is not set up —
@@ -5744,8 +6121,12 @@ depends_on: [S1, S2, S4, S5, S9, S10, S12, S21, S26, S28, S30, S31]
   `imports`, the unresolved share against `reuse.max_unresolved_import_share`)
   and that `test_map` regions are whole files (AD-12); whether a full mine is
   in progress (`mining_in_progress`) and whether the corpus floor is met;
-  `whisper_dropped_unverifiable` counts per reason (AD-17); the count of
-  search events whose results were unrecognized (Step 28); the per-genre
+  `whisper_dropped_unverifiable` counts per reason (AD-17); two counts of
+  search events that yielded no result paths, kept apart — those whose Grep
+  mode the oracle cannot read (`search_results = 'mode_unsupported'`) and
+  those whose response it did not recognize (`'unrecognized'`) — (Step 28;
+  collapse-hunt H3); `repo_not_bound` lines by reason, `store_unreadable`
+  with its store and path kind (Step 28; H8); the per-genre
   trend from `stats_folds` beside the published total (AD-5); `path_not_utf8`,
   `index_path_only_oversize`, `history_rewritten`, `handler_exception`
   counts with their latest detail; and every new seed (Step 12).
@@ -5778,7 +6159,8 @@ counters' labels); `FR-M3`, `FR-M4`, `FR-M5`.
 including the 2026-09-26 additions; the reserved codes render as "not yet
 measured"; the seeds and the bypass bound are printed), `T-33-2` (`log` renders every audit row with evidence and
 pointers), `T-33-3` (`tune` round-trips scalar and list values and lists
-sources, and refuses an ordering-breaking write), `T-33-4` (`hooks_not_firing` induced, both halves: a liveness row
+sources, refuses an ordering- or tier-invariant-breaking write, and prints the
+half-life's re-mine notice), `T-33-4` (`hooks_not_firing` induced, both halves: a liveness row
 with a transcript grown past the gap and no events is flagged, the same
 session with a recent event is not; a transcript under the repository's
 slug newer than the newest liveness row with no liveness row at all is
@@ -5820,9 +6202,7 @@ depends_on: [S1, S9, S22, S23, S30, S33]
   `reuse`, `consequence`, `warning`, `completeness`, `verification`,
   `answer_drift` (else refused, listing them). Without `--genre` (and without
   `--missed-question`) the row carries no genre and the fold books it as
-  `unattributed`, never as answer-drift (AD-5, AD-18; the architecture pass's
-  CH C4 — "the genre its verb names" named nothing, so every missed Coupling
-  or Warning would have been booked as an answer-drift miss). AD-18's
+  `unattributed`, never as answer-drift (AD-5, AD-18). AD-18's
   illustrative `ctxoracle correct missed --genre coupling` is this form; the
   plan keeps the one `--verdict` flag grammar the other forms use.
 - `--missed-question "<text>" [--session <id>]`: writes a `corrections` row
@@ -5830,14 +6210,22 @@ depends_on: [S1, S9, S22, S23, S30, S33]
   `recognizeQuestions` (Step 23) with `{requireTerminalMark: false}` — the only
   caller that passes it (Max may paraphrase) — and opens the row through Step
   22's `openQuestion` for the consumer `consumerKey(<session>)` (main), where
-  `<session>` is `--session` when given, else the session of the newest
-  `liveness` row in this store (the session Max is working in); with no
-  liveness row at all the verb opens nothing and says so. *Why:* the
-  consumer key is now per session (AD-4), so "the identical deviation is
+  `<session>` is `--session` when given, else **the session of the most
+  recent event** — the newest `session_log` row by `seq`
+  (`session_log.latestSession()`, Step 9) — AD-18 at `6cff0ce`. The verb
+  always prints which session it armed, in plain language (its id, when it
+  started, and when its last event was). If that session has ended (a
+  `SessionEnd` row is recorded for it, `session_log.hasEnded`), the verb arms
+  nothing, says so, and names `--session`; with no `session_log` row at all it
+  opens nothing and says so. The `corrections` row is written in every case
+  (the miss happened, whether or not a live session can be armed). *Why:* the
+  consumer key is per session (AD-4), so "the identical deviation is
   thereafter denied" (AD-18) needs a session, and OL-C5's "their next move"
-  is the move of the agent Max is talking to — the latest session; AD-18 does
-  not name the session (§16 item 5). The row's `asked_uuid` stays null (the
-  CLI is its origin). On `'already_open'` the verb prints which limit the
+  is the move of the agent Max is talking to; the newest *liveness* row names
+  the most recently **started** session, which may be a second session or one
+  that has already ended, so a report would arm a session that can never fire
+  and no one would be told (collapse-hunt H5). The row's `asked_uuid` stays
+  null (the CLI is its origin). On `'already_open'` the verb prints which limit the
   reported miss actually hit — intake coverage ("the question is already
   open and armed; nothing to change") or move coverage ("a shell-only
   deviation stays un-deniable in Phase A") — never implying enforcement
@@ -5870,7 +6258,8 @@ collision messages); `AD-5` (the fold's `correct` run point and attribution);
 **Verification.** `T-34-1` (a `false_fire` verdict on a deny increments the
 wrongful-deny rate `status` renders and reaches `whisper_stats`), `T-34-2`
 (`--missed-question` re-arms the deny for the identical mutating deviation in
-the latest session; the two collision messages print for their cases),
+the session of the most recent event and prints which; an ended session is
+refused; the two collision messages print for their cases),
 `T-34-3` (`--genre` and the unattributed booking reach `whisper_stats` under
 the right genre).
 
@@ -5887,7 +6276,7 @@ covers: [PA-7, PA-11]
 files:
   create: [middleware/context-oracle/ctxoracle/src/cli/note.ts, middleware/context-oracle/ctxoracle/test/replay/note_project.test.ts, middleware/context-oracle/ctxoracle/test/replay/note_global.test.ts]
   modify: [middleware/context-oracle/ctxoracle/src/cli/dispatch.ts]
-  delete: []
+  delete: [middleware/context-oracle/ctxoracle/src/cli/verbs_skeleton.ts, middleware/context-oracle/ctxoracle/src/cli/context.ts]
 provides: [ctxoracle-note]
 tests: [T-35-1, T-35-2]
 depends_on: [S1, S9, S11, S31]
@@ -5908,6 +6297,18 @@ checkout root (Step 28's `findRepoRoot`) and must name a `files` row with
 `in_tree = 1`, else the verb refuses in plain language (a hazard pinned to a
 file the oracle cannot point at would never be spoken — AD-15's
 verifiable-pointer rule).
+
+**The walking skeleton's verb modules are deleted here.** The skeleton hosts
+the thin `status`, `log`, `tune`, `correct`, `note`, `export`, `import`, and
+`deinit` verbs in `src/cli/verbs_skeleton.ts` and its repository helper in
+`src/cli/context.ts` (neither is a planned module — each carries a `WALKING
+SKELETON` mark `T-37-1` rejects). Each full build of Steps 28 and 31–35
+routes its verb in `dispatch.ts` to its own module and imports neither file
+(repository resolution is Step 28's `findRepoRoot`/`lookupBinding`, store
+opening Step 3's `openStore` over Step 4's layout); this step, the last verb,
+deletes both (`delete:` above), and `npm run build` confirms nothing still
+imports them (expert review m8: `T-37-1`'s "no `verbs_skeleton`" clause had no
+step that made it true).
 
 **Creates.** `src/cli/note.ts` — routes per FR-L7.
 
@@ -6023,7 +6424,7 @@ files:
   delete: []
 provides: []
 tests: [T-37-1]
-depends_on: [S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19, S20, S21, S22, S23, S24, S25, S26, S27, S28, S29, S30, S32, S36]
+depends_on: [S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19, S20, S21, S22, S23, S24, S25, S26, S27, S28, S29, S30, S31, S32, S33, S34, S35, S36]
 ```
 
 
@@ -6033,14 +6434,19 @@ its step), compiles with the sources, and `npm test` (Step 1's runner)
 executes the full set: the runner's count guard confirms nothing was
 dropped. CI (Step 1) runs the same command at the floor and at the current
 22.x. Create `test/conventions/no_skeleton_marks.test.ts` (`T-37-1`): no
-file under `src/` contains `SKELETON` or `WALKING SKELETON`, and no module
-named `verbs_skeleton` exists — the walking skeleton's provisional choices
+file under `src/` contains `SKELETON` (which covers every `SKELETON: 1R`
+placeholder, §9), `WALKING SKELETON`, or a `not implemented:` stub (§7's
+test-first contract); no file under `test/` carries a `node:test` `todo`
+option or the text `SKELETON: 1R` (Checkpoint 1R's red tests, each retired by
+its named step); and no module named `verbs_skeleton` or `cli/context`
+exists (Step 35 deletes both) — the walking skeleton's provisional choices
 are gone only when each owning step's full build removed its mark (§7 build
 order; review N9 — the skeleton also carried unmarked omissions: the
 `hooks_not_firing`, `produced_but_undelivered`, `deny_despite_answer_text`,
 `rebuild_recovered_nothing`, `tuning_missing`, and `store_busy` writers, the
-FR-M4 counter, and the stubbed `firstHash`/`writtenSince`, built by Steps 33,
-28, 26, 27/20, 12, 28, 27, and 9/28 respectively).
+FR-M4 counter, and the stubbed `firstHash`/`writtenSinceSeq`, built by Steps 33,
+28, 26, 27/20, 12, 28, 27, and 9/28 respectively). The runner's summary at
+this step also reports `todo 0`.
 
 **Creates.** `test/conventions/no_skeleton_marks.test.ts` — T-37-1.
 
@@ -6343,10 +6749,10 @@ repository, plus the session's transcript file copied into that directory,
 and handing the directory over — and `CTXORACLE_HOME=<a fresh directory per
 export> ctxoracle import <dir>` on the report machine, never into the report
 machine's own home: his project store carries the same commit key as the
-agent's leg-2 clone of the same repository, and the global import replaces
-bindings (Step 32), so importing into the shared home would overwrite the
-agent's leg-2 store or unbind its clones; `status` is then read with the
-same `CTXORACLE_HOME`. The report lists them separately with driver "Max Cogar". The
+agent's leg-2 clone of the same repository, so importing into the shared home
+would overwrite the agent's leg-2 project store (the global import merges
+bindings, Step 32, but the project store for that key is replaced); `status`
+is then read with the same `CTXORACLE_HOME`. The report lists them separately with driver "Max Cogar". The
 outcome of each induction — fires / does not fire / fires with the row
 voided / not performed — is a line in the report.
 
@@ -6407,7 +6813,18 @@ denies), `deny_loop` and `deny_bypass_suspect` counts with the predicate's
 two error directions (Step 26's wording), and the fraction of denies that were escaped by a text
 turn versus corrected as wrongful; false-fire rate; regret rate paired
 with seeded coverage and split by `never_triggered` / held; done-claims
-with an outstanding question; the marker-presence table by declared
+with an outstanding question; **Warning's false-fire rate across its
+evidence** — the `warning` whisper rows' `false_fire` corrections over their
+count, tabulated by `support` and by the file's `change_count` from each
+row's `evidence_json` (Step 18) and by their ratio, so Phase B can judge
+whether a base-rate term is needed (AD-14; Limitations L13; collapse-hunt
+H10); **Orientation's entry points by source** — per Orientation whisper, how
+many named files scored by the entry-marker bonus (`index.entry_marker_points`,
+a basename stem in `lexicon.entry_marker_stems`) with import in-degree 0,
+against how many by in-degree, from the audit row's evidence, so the
+`plan_seed` marker weight is measured on real repositories rather than only on
+its fixture (AC-1a's low-in-degree shape; collapse-hunt H11); the
+marker-presence table by declared
 corpus origin, with L11(a) stated as *verified* only when a corpus
 declared `owner-local/interactive` holds at least one transcript and
 otherwise *not observed*; leg 2's exercised/unexercised path lists (item
@@ -6550,23 +6967,62 @@ are *runnable* at that point.
 
 - **After the reopened Steps 1–12 — Checkpoint 1R: the corrected substrate
   (2026-09-26 plan pass).** A foundation correction before new feature work
-  (§6). The reopened build includes one mechanical adaptation: the skeleton
-  modules of Steps 13–39 are edited only as far as needed to **compile**
-  against the new Step 3/6/9/12 signatures (argument and type renames, no
-  behaviour decision — each such edit is marked `SKELETON:` and is replaced by
-  its step's full build), so `npm run build` stays green. Then run the
-  unit/build/convention tier (`npm test`, count guard balanced): every test of
-  Steps 1–12 must pass, which now includes `T-3-5`, `T-3-6`, `T-5-4`, `T-5-5`, `T-6-3`,
-  `T-6-4`, `T-12-2`, `T-12-3` and the extended `T-4-1`, `T-6-1`, `T-7-1`,
-  `T-8-1`, `T-9-1`, `T-12-1`. Owner-visible sanity check: a freshly migrated
-  and seeded store shows `files.in_tree`, no `a_count` column,
-  `labelled_touches`, `stats_folds`, the `seq` columns, and `tuning` holding
-  every 2026-09-26 seed with its `source`. A skeleton test of a later step
-  (for example `test/unit/skeleton_e2e.test.ts`, whose repository has 4
-  commits and now meets no corpus floor) may be red here; each red one is
-  listed in the implementation log with its cause and goes green, or is
-  retired by its step's full build. Step 13's full build starts only after
-  this checkpoint passes.
+  (§6). The reopened deltas change types, schema, and DAO signatures that the
+  walking-skeleton modules of Steps 13–39 consume, so the build of the deltas
+  also **reduces** those modules — never adapts them with a behaviour choice
+  (expert review S1; collapse-hunt H12, H13). The files are exactly the ones
+  the Step 6 and Step 9 deltas' `modify:` lists name (Step 7's one run-time
+  break is inside a Step 6 file), read from the built skeleton on 2026-09-26;
+  a file the build finds broken that is not listed is expert-implement's
+  `BLAST-RADIUS-EXCEEDS-PLAN` stop. **The placeholder rule — the only edit
+  permitted in those files:**
+  1. *A generator returns no candidates.* Its `candidates()` body becomes
+     `return []`.
+  2. *A DAO caller that no longer exists is removed*, together with the branch
+     that only it served.
+  3. *A signature takes the new inputs with a documented stand-in value* —
+     the new parameter or field is passed, and where the skeleton has no value
+     for it the stand-in below is written.
+  Every placeholder carries `// SKELETON: 1R — <what it stands in for>;
+  retired by Step <n>`; each is removed by the named step's full build, and
+  `T-37-1` fails while any remains. The placeholders:
+
+  | File | Placeholder (rule) | Retired by |
+  |---|---|---|
+  | `src/genres/orientation.ts`, `coupling.ts`, `reuse.ts`, `consequence.ts`, `warning.ts`, `completeness.ts`, `verification.ts` | `candidates()` returns `[]` (1) — no string headline, no `a_count` read | Step 18 |
+  | `src/genres/generator.ts` | the pair query naming `a_count` is removed and the helper returns `[]` (2); `TuningReader` parameter typed to Step 6's `{num, str, list}` (3) | Step 18 |
+  | `src/bar/combinator.ts` | `passesBar(candidate, tuning, ctx)` takes Step 6's `Candidate`, `TuningReader`, and `{indexStale, historyStale}`; stand-in body `return {passes: false, failedAxis: 'confidence', confidence: 0, tier: 'uncertain'}` — unreachable while every generator returns `[]` (3) | Step 16 |
+  | `src/hook/compose.ts` | takes Step 6's `Candidate`; stand-in body `return {dropped: 'stale_pointer'}` — unreachable (3); the `whisper_dropped_stale` result type is removed (2) | Step 19 |
+  | `src/hook/delivery.ts` | consumer parameters typed `ConsumerKey` (3); the body is unchanged | Step 20 |
+  | `src/hook/adapter.ts` | `InternalEvent` built without `consumer`, with `agentId` from the wire's agent id (3) | Step 28 |
+  | `src/hook/handler.ts` | `consumer = consumerKey(session, agentId)`; `writeSessionEvent` and the `observed_actions` append without `seq`; the `whisper_dropped_stale` fault replaced by `whisper_dropped_unverifiable` with `reason: 'stale_pointer'`; `EventContext`'s new members with stand-ins — `repoRoot` = `checkoutRoot` = the skeleton's repository path, `isWorktree: false`, `historyAvailable: false`, `indexStale` and `historyStale` `false`, `refTs` = the stored `ref_ts` or 0, `tuning` = Step 12's `tuningReader` (3) | Step 28 |
+  | `src/blocks/answer_drift.ts`, `src/blocks/health.ts` | threshold reads move from `TuningReader.get` to `num`/`list` (3); consumer parameters typed `ConsumerKey` (3) | Steps 25, 26 |
+  | `src/miner/cochange.ts` | the `landmines.upsert` calls are removed — the miner writes no landmine at 1R (2); `bump` passes the commit hash it already parses and a stand-in weight `1` (3) | Step 13 |
+  | `src/index/indexer.ts` | the `files.deleteMissing` call is removed — a file gone from the tree keeps its row at 1R (2); `files.upsert` passes `in_tree: 1` and `isSuspect(path)` (3) | Step 14 |
+  | `src/diag/whisper_stats_fold.ts` | the fold body writing `window_start`/`upsertFold` is removed and the function returns `{folded: 0}` (2) | Step 30 |
+  | `src/cli/verbs_skeleton.ts` | the `note --kind landmine` branch calling `landmines.upsert` is removed and prints "not built yet" (2) | Step 35 (deletes the file) |
+
+  **Tests the reduction turns red** are marked with `node:test`'s `todo`
+  option, `{ todo: 'SKELETON: 1R — <cause>; retired by Step <n>' }`, never
+  deleted, skipped, or rewritten against the old types (collapse-hunt P7: a
+  failing `todo` test reports `todo 1`, `fail 0`, and the run exits 0). Known
+  at plan time: `test/unit/skeleton_e2e.test.ts` (its generators return no
+  candidates and its 4-commit repository meets no corpus floor) — retired by
+  Step 28, which deletes it. A further test the build finds red for this
+  reason is marked the same way, naming the step whose full build owns the
+  failing module, and recorded in the implementation log. So `npm test`, and
+  the ctxoracle CI job that runs it, **stay green at 1R** with the count guard
+  balanced (every `todo` file still counts). Then run the unit/build/convention
+  tier: every test of Steps 1–12 must pass (none may be `todo`), which now
+  includes `T-3-5`, `T-3-6`, `T-5-4`, `T-5-5`, `T-6-3`, `T-6-4`, `T-12-2`,
+  `T-12-3` and the extended `T-4-1`, `T-6-1`, `T-7-1`, `T-8-1`, `T-9-1`,
+  `T-10-3`, `T-12-1`. Owner-visible sanity check: a freshly migrated and seeded
+  store shows `files.in_tree` and `change_weight`, `cochange_pairs.pair_weight`
+  and no `a_count` column, `labelled_touches`, `stats_folds`, `symbol_tokens`,
+  the `seq` columns, and `tuning` holding every 2026-09-26 seed with its
+  `source`. Step 13's full build starts only after this checkpoint passes.
+  **Checkpoint 4 fails while any `todo` or `SKELETON` mark remains**
+  (`T-37-1`).
 
 - **After Step 20 — Checkpoint 2: the whisper path at function level.**
   Boundary between component construction and orchestration; the genres,
@@ -6591,7 +7047,9 @@ are *runnable* at that point.
   exit run; the deny path and the whisper path are exercised together for
   the first time.** Every replay test passes — `T-38-1`–`T-38-24`,
   `T-38-26`–`T-38-31`, `T-38-34` and the Step 28–35 replays — in one run,
-  with `T-37-1` confirming no `SKELETON` mark remains; the deny
+  with `T-37-1` confirming no `SKELETON` mark, `SKELETON: 1R` placeholder,
+  `not implemented:` stub, or `todo` test remains (the runner reports
+  `todo 0`); the deny
   fixtures run here *alongside* the whisper-path fixtures, never as an
   isolated first correctness gate (the collapse-log 2026-09-04 shape is a
   recognizer elaborated against its own fixtures with nothing else in
@@ -6797,13 +7255,17 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   deferrals are the job of the stoplist and the filler set (D-plan-24), not
   the floor's; both miss directions are
   measured by `deny_despite_answer_text` and human corrections);
-  `bar.recency_half_life_days` = 365 and `bar.stale_index_factor` = 0.8
-  (AD-13 names a recency dampener and FR-K7 a staleness reduction without
-  values: a one-year half-life halves a pair's evidence weight per year of
-  silence, which keeps a five-year-horizon pair alive at 1/32 rather than
-  cutting it off, and a stale index costs one fifth of confidence — enough
-  to drop a marginal candidate below the floor, not enough to silence a
-  strong one); `diag.hooks_not_firing_gap_s` = 600 (AD-17's detector
+  `bar.recency_half_life_days` = 365 (AD-13 names the half-life `h` of each
+  commit's weight in the evidence and gives no value: with `h` = one year, a
+  commit counts half as much as one a year newer, so a pairing that has
+  always held keeps its ratio at any age — a perfect pairing five years old
+  still reads 1.0 — while a pairing whose files have since changed apart is
+  outweighed within about a year by the solo changes after it; the former
+  reasoning here, that the half-life "keeps a five-year-horizon pair alive
+  at 1/32", was false against the floor — 1/32 × 0.9 = 0.028 < 0.6 — and
+  described the retired multiplier, collapse-hunt H1; the staleness factor
+  is now the architecture's `bar.stale_factor` 0.9, AD-14, no longer a plan
+  seed); `diag.hooks_not_firing_gap_s` = 600 (AD-17's detector
   compares transcript growth with event arrival; ten minutes is longer
   than any single tool call the harness allows and shorter than a session
   the owner would notice as silent); `landmine.fix_chatter_k`
@@ -7209,12 +7671,13 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   `001b_phase_a_fts.sql`, applied only when `schema_meta.fts_state =
   'fts5'` — a row the migration runner itself records from `init`'s probe
   result right after 001 creates `schema_meta`, once, never retried; the
-  `LIKE` path's indexes (`symbols_name`, `files_path`) are always created
-  by 001; one module, `src/index/search.ts`, exposes `symbolSearch` and
+  fallback's tables and indexes (`symbol_tokens`, `path_tokens`, and their
+  token indexes; `symbols_name` until the 2026-09-26 correction, D-plan-36)
+  are always created by 001; one module, `src/index/search.ts`, exposes `symbolSearch` and
   `pathSearch` with the implementation chosen by `fts_state` at call time;
   the migration runner reads the `.sql` files from the package's shipped
   `src/` tree.** *Reasoning.* AD-2 mandates that when the FTS5 probe
-  fails, search falls back to indexed `LIKE`/token-prefix queries behind
+  fails, search falls back to indexed token-prefix queries behind
   the same interface and `status` says so; a migration that creates the
   virtual tables unconditionally makes `init` fail on a runtime without
   FTS5 after announcing the fallback, and a caller that knows which
@@ -7255,7 +7718,7 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   argument lacks; leaving the order and moving only the assertions leaves
   the consumption in place. With the list as an argument, Step 14's test
   asserts exactly what Step 14 builds (files, zones, path tokens, the size
-  cap, redaction, the lock, the `LIKE`/FTS equivalence over path tokens),
+  cap, redaction, the lock, the fallback/FTS equivalence over path tokens),
   Step 15's new `T-15-3` asserts what Step 15 adds (symbols, edges,
   `symbol_refs`, `entry_score`, `test_map`, the equivalence over symbol
   tokens), nothing is doubled, and the consumption is visible to the
@@ -7317,7 +7780,7 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   previous `runIndex` pass, already read by that pass's own incremental
   diff for an unrelated purpose. Comparing the path's current on-disk hash
   to `files.content_hash`'s pre-pass value, gated by
-  `observed_actions.writtenSince(path, sinceTs)` (Step 9) being true — so
+  `observed_actions.writtenSinceSeq(path, sinceSeq)` (Step 9) being true — so
   an untouched file, which trivially always matches its own last-indexed
   hash, is never mistaken for a revert — correctly detects a net reversion
   regardless of how many edits or sessions produced it, using data Step 14
@@ -7333,23 +7796,24 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   compares against a hash produced by an edit recorded within that same
   session and never reads `files.content_hash` at all, so a match against
   that column is never something `SessionEnd` could already have reported,
-  independent of how many sessions the churn spanned. `sinceTs` — a new
-  `schema_meta.regret_index_ts` key — bounds the existence check and
-  advances after each pass, the same watermark shape AD-5 already uses for
-  the `whisper_stats` fold, so a reported cross-session revert is reported
-  once. No new table: AD-4's uniform table-creation criterion (no table
+  independent of how many sessions the churn spanned. `sinceSeq` — a new
+  `schema_meta.regret_index_seq` key holding the largest
+  `observed_actions.seq` the pass read (a `seq`, not a time, since the
+  2026-09-26 expert review's M7 — the fold's N11 race) — bounds the existence
+  check and advances after each pass, the same watermark shape AD-5 uses for
+  the fold, so a reported cross-session revert is reported once. No new table: AD-4's uniform table-creation criterion (no table
   without a same-phase writer) argues against a revert-history table
   duplicating data a boolean churn check plus `files.content_hash` already
   answers — and no code path removes an `observed_actions` row short of a
   whole-store `deinit --purge` (Step 9's DAO provides no delete/prune
   method; Step 32, line 3816, confirms `--purge` deletes the project store
-  file itself), so the `writtenSince` check is never reading a selectively
+  file itself), so the `writtenSinceSeq` check is never reading a selectively
   pruned history. Score (implements both of AD-18's run points; no new
   schema table; the two run points are disjoint by construction; correctly
   detects a revert to a value that predates every recorded edit for the
   path, which a pure `observed_actions` hash-chain comparison cannot;
   testable with a two-session replay): `files.content_hash` match gated by
-  `writtenSince` 1.0, `observed_actions.priorSessionHash` hash-chain
+  `writtenSinceSeq` 1.0, `observed_actions.priorSessionHash` hash-chain
   matching 0.4 (provably fails `T-30-1`'s own two-edit scenario — the
   target hash predates every row `observed_actions` holds for the path — a
   design this issue tried, committed, and is now withdrawing), a dedicated
@@ -7379,26 +7843,44 @@ server or CodeGraph, neither of which was available in this session (§15
 records the gap); each carries its evidence in the step it governs and its
 executed premise in §11.4. The gap-list review's own decisions are recorded in
 their owning steps (§14.5) and are not repeated here; these are the choices
-the plan made where the review and the architecture left one open.
+the plan made where the review and the architecture left one open. Each
+carries its rejected alternatives, and each has its author's four-step
+collapse test in §10A (added after both 2026-09-26 plan-pass reviews found
+none — expert review M1, collapse-hunt H14 — and written to incorporate their
+outcomes).
 
 - **D-plan-33 — The reopened substrate is built first, edited in place, and
   re-verified as Checkpoint 1R.** *Reasoning.* Steps 13–39 consume the
   corrected types, schema, and DAOs; building Step 13 on the built Step 7
   would bake `a_count` back in. No store has shipped, so an in-place edit of
   001/001b/002 is the correct form (the review's G16 reasoning); a forward
-  migration would ship a v1 schema nobody ever ran. *Rejected:* a new "Step
-  12a" (it would separate each correction from the artifact it corrects, so
-  a reader of Step 7 would read a wrong schema); forward migrations (no
-  shipped store to migrate). §6, §7, §9.
+  migration would ship a v1 schema nobody ever ran. The skeleton modules the
+  deltas break are declared in the Step 6 and 9 deltas and reduced by one
+  written placeholder rule, and the tests that reduction turns red are
+  `todo` until their step retires them, so Checkpoint 1R stays green without
+  a behaviour decision (expert review S1; collapse-hunt H12, H13). *Rejected:*
+  a new "Step 12a" (it would separate each correction from the artifact it
+  corrects, so a reader of Step 7 would read a wrong schema); forward
+  migrations (no shipped store to migrate); a "compile-only rename" adaptation
+  (false — the new required fields force genre, composer, and miner choices,
+  S1); a red build from the Step 6 delta until each step is rebuilt (the
+  checkpoint and CI would fail for months of steps, and a red suite hides new
+  failures). §6, §7, §9.
 - **D-plan-34 — A miner landmine's evidence ratio is `min(1, support /
-  bar.support_min)`.** *Reasoning.* AD-14 defines confidence from pair
-  support and ratio and gives a hazard none, while FR-A5a requires a hazard's
-  confidence to be stated (flagged); reusing the ordinary support floor makes
-  "high" mean "as supported as a whispered pair" and leaves a support-2
-  landmine uncertain, so AC-3a's below-floor hazard is delivered flagged
-  (`T-16-2`, `T-38-16`). *Rejected:* a constant tier (no per-fact
-  information — the exact defect AD-14's second pass removed); a new seed
-  (a number with no source when an existing one carries the meaning). Step 16.
+  bar.hazard_full_support)`** (adopted into AD-14; `bar.hazard_full_support`
+  seed 3, `architecture_default` since `6cff0ce`). *Reasoning.* AD-14 defined
+  confidence from pair support and ratio and gave a hazard none, while FR-A5a
+  requires a hazard's confidence to be stated (flagged); a saturating support
+  count is FR-A5a's "real vs coincidental" test in ratio form, and it leaves a
+  support-2 landmine uncertain, so AC-3a's below-floor hazard is delivered
+  flagged (`T-16-2`, `T-38-16`). The ratio has no base-rate term — three
+  reverts among 500 changes read as strong as three among four — so each
+  Warning's audit row records the file's `change_count` beside its support
+  and the exit report compares false-fire rates across them (L13; Steps 18,
+  39). *Rejected:* a constant tier (no per-fact information — the exact
+  defect AD-14's second pass removed); sharing `bar.support_min` (the plan's
+  first form: re-tuning the pair floor would re-tier every Warning as a side
+  effect — collapse-hunt H10). Steps 12, 16, 18, 39.
 - **D-plan-35 — `cochange_pairs.last_commit` and `corrections.genre` exist
   (first plan columns; adopted into AD-4 in db9ecf9).** *Reasoning.* AD-15's pair headlines require a commit pointer and
   AD-5/AD-18's fold attributes a whisper-less miss by `--genre`, yet AD-4's
@@ -7409,71 +7891,138 @@ the plan made where the review and the architecture left one open.
   *Rejected:* `git log` at compose time (forbidden on the event path);
   headlines without a commit (FR-D1's verifiable pointer becomes the file
   alone, and AD-15's column is violated). Steps 7, 9, 13, 30, 34.
-- **D-plan-36 — The fallback search is token-prefix over indexes that can
-  serve it.** *Reasoning.* N6 requires the FTS and fallback paths to agree
-  on token-prefix semantics; executed, the built `symbols_name` index was
-  never used by `LIKE` (a full scan — O(store) on the event path, which AD-23
-  forbids), and no `LIKE` over `files.path` can match a middle segment with
-  an index. A `NOCASE` name index plus identifier-whole FTS symbol tokens,
-  and a `path_tokens` table in both states, make the two paths provably the
-  same query (`T-14-5`). *Rejected:* `%term%` scans (O(store)); splitting
-  identifiers on `_` in FTS only (the paths would disagree). Steps 7, 14.
-- **D-plan-37 — `--missed-question` arms the latest session (or `--session`).**
-  *Reasoning.* The per-session consumer key (AD-4) makes "thereafter denied"
-  need a session; OL-C5's "their next move" is the move of the agent Max is
-  working with, which is the session with the newest liveness row. *Rejected:*
-  arming every session (a question asked in one session would deny in
-  another — the executed G23 defect); requiring `--session` always (a
-  non-programmer owner does not know session ids, OL-11). Step 34.
+- **D-plan-36 — Both search paths read one in-house tokenizer; the fallback
+  is token-prefix over indexed token tables.** *Reasoning.* N6 requires the
+  FTS and fallback paths to agree on token-prefix semantics; executed, the
+  built `symbols_name` index was never used by `LIKE` (a full scan — O(store)
+  on the event path, which AD-23 forbids), and no `LIKE` over `files.path`
+  can match a middle segment with an index. Step 14's `tokenize` (NFKD,
+  lowercase, combining marks removed, split on non-letter/non-digit) produces
+  every token; the indexer writes those same tokens into the FTS tables
+  (through the `ascii` tokenizer, which splits only at the spaces joining
+  them) and into `symbol_tokens`/`path_tokens`; both paths run the same
+  prefix test over the same token sets, so they are **the same by
+  construction** — not by a claim about two tokenizers agreeing (`T-14-5`).
+  The earlier form — a `NOCASE` name index beside a `unicode61` FTS table —
+  was called "provably the same query" and was not: `NOCASE` and `LIKE` fold
+  ASCII only, so `LIKE 'über%'` missed `Über`, and `LIKE` never matched
+  `café`, `bar`, or `method` inside `CAFÉ`, `foo-bar`/`Foo::Bar`,
+  `my.method` (expert review M3; collapse-hunt H4, both executed).
+  *Rejected:* `%term%` scans (O(store)); a `NOCASE`/`LIKE` fallback beside
+  SQLite's `unicode61` (two tokenizers, which disagree on non-ASCII case and
+  on punctuation); a single normalized-name column (a prefix query for a
+  name's second token cannot use its index — §16 item 5). Steps 7, 9, 14.
+- **D-plan-37 — `--missed-question` arms the session of the most recent
+  event (or `--session`), says which, and refuses an ended one** (AD-18 at
+  `6cff0ce`). *Reasoning.* The per-session consumer key (AD-4) makes
+  "thereafter denied" need a session; OL-C5's "their next move" is the move of
+  the agent Max is working with — the session whose event is newest in
+  `session_log` by `seq`. Printing the armed session lets Max see a wrong
+  choice; refusing an ended session keeps a report from arming a session that
+  can never fire. *Rejected:* the newest liveness row (the plan's first form:
+  it names the most recently *started* session, which may be a second
+  session or an ended one — collapse-hunt H5); arming every session (a
+  question asked in one session would deny in another — the executed G23
+  defect); requiring `--session` always (a non-programmer owner does not
+  know session ids, OL-11). Steps 9, 10, 34.
 - **D-plan-38 — The AC-8a backstop line is a whisper-shaped candidate that
   skips the bar and the rumor rule but not dedup or audit.** *Reasoning.* N2
   requires audit-then-emit; the line is the block's backstop, not a repository
   fact (AD-9), so the bar's axes and the pointer rule do not apply; dedup by
   the open-question set keeps the identical line from repeating at every
-  Stop while a new question still speaks (FR-A4). Step 27.
+  Stop while a new question still speaks (FR-A4). *Rejected:* emitting the
+  line outside the audit (the executed N2 defect: an intervention the FR-X6
+  trail did not hold); passing it through the bar (a question quoted back is
+  not a repository fact, so it has no evidence ratio or pointer to judge, and
+  the confidence floor would silence the block's own backstop); no dedup (the
+  identical line at every `Stop` while the question stays open — FR-A4's
+  repeat). Step 27.
 - **D-plan-39 — The fork reseed recovers oracle text by its own one-line
-  prefix and admits only `is_error: false` tool results.** *Reasoning.* The
-  injected-text shape in a transcript is undocumented and unobserved here;
-  keying on the composer's single-line `[oracle] ` form works under any
-  wrapper that keeps the line whole, and fails loudly (`rebuild_recovered_nothing`,
-  set `delivered`) otherwise. `is_error: false` is the only success signal
-  observed (227 of 320 results carry it). *Rejected:* keying on a guessed
-  attachment type (unverifiable); treating a missing `is_error` as success
-  (would over-seed the read set and withhold facts, the unsafe direction
-  AD-16 names). Steps 19, 20, 21, 28.
+  prefix and admits every tool result that does not carry `is_error: true`**
+  (AD-16 and V23 at `6cff0ce`). *Reasoning.* The injected-text shape in a
+  transcript is undocumented and unobserved here; keying on the composer's
+  single-line `[oracle] ` form works under any wrapper that keeps the line
+  whole. Exactly one failure is loud: `[oracle] ` lines found and none
+  matching an audited text records `rebuild_recovered_nothing` (set
+  `delivered`); no `[oracle] ` line at all records nothing (§15 PG-6). A
+  transcript tool result marks failure, not success: across 24 local
+  transcripts, no successful Read (373), Edit (89), or Write (12) result
+  carries an `is_error` field, and the one failed Read carries `true` (V23;
+  collapse-hunt P4). **Collapsed and rebuilt 2026-09-26:** the first form
+  admitted only `is_error: false`, citing "227 of 320 results" — a total over
+  all tools; split by tool, `false` appears only on Bash, so the read-set
+  reseed admitted nothing on any real transcript, and its test fixture pinned
+  a Read shape real transcripts do not have. *Rejected:* keying on a guessed
+  attachment type (unverifiable); requiring `is_error: false` (dead on the
+  observed layout — the collapse); dropping the read-set reseed (it is
+  implementable on the observed layout, and AD-11's
+  `transcript_layout_changed` detector guards a layout change). Steps 19, 20,
+  21, 28.
 - **D-plan-40 — Grep/Glob result paths are read from
-  `tool_response.filenames`.** *Reasoning.* G21 requires the touched files of
-  a search, which only the tool's response carries; the hooks reference
-  documents no Grep/Glob response schema, so the plan names the field it
-  reads, makes an unrecognized response a counted zero in `status`, and lists
-  the premise in §15. *Rejected:* `tool_input.path` (a directory — the
-  skeleton's defect); silence for all searches (Coupling's Grep/Glob trigger
-  in AD-15 would be dead by construction). Step 28.
-- **D-plan-41 — A single-file history fact passes the marginal axis.**
-  *Reasoning.* AD-14's history class passes because the fact is invisible
-  from a cold checkout, which is as true of one file's revert history as of
-  a pair; the class list's "cross-file" wording omits Warning, whose AC-3a
-  path would otherwise fail by construction (§16 item 5). Step 16.
-- **D-plan-42 — The handler opens stores with `mode=rw` and never creates
-  one.** *Reasoning.* Executed, `DatabaseSync` creates a missing file, so an
-  event after a store was deleted would create an empty store — per-repository
-  state without `init` (N15). The `file:` URI with `mode=rw` refuses
-  atomically; a `stat` first would leave a create-on-race window. Step 3, 28.
-- **D-plan-43 — A global import replaces bindings; the owner's exports are
-  imported into a separate home.** *Reasoning.* Bindings are paths, which
-  differ between machines, and AC-19 requires the global store to round-trip;
-  replacing and then listing the bindings whose roots are missing is honest
-  and recoverable (`init`). At the exit run the agent's leg-2 clone and Max
-  Cogar's local store share one commit key, so importing into the shared home
-  would overwrite leg-2 data (§16 item 5 raises the global-import semantics).
-  Steps 32, 39.
+  `tool_response.filenames`, except in a Grep mode that does not list files.**
+  *Reasoning.* G21 requires the touched files of a search, which only the
+  tool's response carries; the hooks reference documents no Grep/Glob
+  response schema, so the plan names the field it reads — the installed
+  Claude Code's own output schema, whose `content` and `count` Grep modes
+  return `filenames: []` whatever matched (collapse-hunt P5) — records a
+  `mode_unsupported` response and an unrecognized one as two separate counted
+  zeros in `status`, and lists the premise in §15. *Rejected:*
+  `tool_input.path` (a directory — the skeleton's defect); silence for all
+  searches (Coupling's Grep/Glob trigger in AD-15 would be dead by
+  construction); counting an empty `filenames` array as recognized (the
+  plan's first form: every content- or count-mode Grep was a silent zero —
+  collapse-hunt H3); parsing paths out of `content` (undocumented text). Steps
+  6, 28, 33.
+- **D-plan-41 — A single-file history fact passes the marginal axis**
+  (adopted into AD-14's class list). *Reasoning.* It aggregates over commits
+  the agent has not enumerated — a revert-chain or fix-chatter label is the
+  result of classifying commits, the same aggregation clause that admits a
+  Reuse dominance claim, not one call's output — and FR-A5a requires a hazard
+  to be spoken with its confidence, which a marginal axis that failed it would
+  forbid; Warning's AC-3a path would otherwise fail by construction.
+  *Rejected:* failing it as a single-file fact (AC-3a and FR-A5a dead by
+  construction); the plan's first rationale, "invisible from a cold checkout"
+  (false in a full clone: `git log -- <file>` is one call; the aggregation
+  clause is what holds — collapse-hunt H9); a Warning-only exemption from the
+  marginal axis (a genre term in the bar, which D-18 forbids). Step 16.
+- **D-plan-42 — The handler opens stores with `mode=rw`, never creates one,
+  and tells a missing store from an unreadable one.** *Reasoning.* Executed,
+  `DatabaseSync` creates a missing file, so an event after a store was
+  deleted would create an empty store — per-repository state without `init`
+  (N15). The `file:` URI with `mode=rw` refuses atomically; a `stat` first
+  would leave a create-on-race window. SQLite returns the same errcode 14 for
+  a missing file, a missing directory, and a directory at the path
+  (collapse-hunt P2), so after the refusal — when nothing was created and no
+  race exists — a `stat` decides: `ENOENT`/`ENOTDIR` is `StoreMissing`,
+  anything else `StoreUnreadable` with its own `repo_not_bound` reason
+  (collapse-hunt H8). *Rejected:* reading every CANTOPEN as a deleted store
+  (it would tell Max his store was deleted when it is a permission or layout
+  problem); a pre-open `stat` (the race). Steps 3, 6, 28.
+- **D-plan-43 — A global import merges bindings (this machine's win on the
+  same path); the owner's exports are imported into a separate home** (AD-5
+  at `6cff0ce`). *Reasoning.* Bindings are paths, which differ between
+  machines, and AC-19 requires the global store to round-trip; keeping this
+  machine's bindings and listing the imported ones whose roots are missing
+  is honest and recoverable (`init`). At the exit run the agent's leg-2 clone
+  and Max Cogar's local store share one commit key, so importing into the
+  shared home would overwrite the leg-2 project store. *Rejected:* replacing
+  the bindings wholesale (the plan's first form: it silently unbound every
+  repository this machine had that the export lacked — collapse-hunt H7);
+  the imported binding winning on the same path (it would point this
+  machine's checkout at a store key it may not hold). Steps 32, 39.
 - **D-plan-44 — A revert-labelled commit is never fix-labelled, and
   `index.entry_marker_points` is a `plan_seed` of 1.** *Reasoning.* git
   writes a revert's subject as `Revert "<original>"` (executed), so a revert
   of a fix carries the `fix` token and would count an undo as fix chatter;
   the marker weight is the one number AD-12's marker rule needs and does not
   state — 1 keeps a marker file with in-degree 0 rankable without outranking
-  a hub, and is printed with every seed. Steps 12, 13.
+  a hub, and is printed with every seed; whether it ever names a real entry
+  file is measured, not assumed — the exit report counts, per Orientation
+  whisper, the files named by the marker bonus against those named by
+  in-degree (Step 39; collapse-hunt H11). *Rejected:* letting a revert also
+  count as a fix (an undo of a fix would read as fix chatter); no marker
+  weight (a `main.ts` nothing imports scores 0 and can never be named —
+  AC-1a's first shape dead by construction). Steps 12, 13, 18, 39.
 
 ### 10A. Author's collapse-test on each load-bearing decision (`CLAUDE.md` rule 2)
 
@@ -8156,8 +8705,8 @@ collapse-hunt attacks these questions harder and hunts for the ones missing.
 3. **Answer.** The regret pass does not ride on `runIndex`'s own
    change-detection walk; it queries `observed_actions` directly for the
    paths of store-held facts — the existing population bound (AD-18) — and
-   checks `writtenSince(path, sinceTs)` for each. A net-reverted path is
-   exactly the case where `writtenSince` is true (something happened) while
+   checks `writtenSinceSeq(path, sinceSeq)` for each. A net-reverted path is
+   exactly the case where `writtenSinceSeq` is true (something happened) while
    the walk's own current-vs-last-indexed diff reads "unchanged" (nothing
    net happened) — the conjunction the walk's own optimization is not asking
    for, since it only needs the second half to decide what to re-index. The
@@ -8169,7 +8718,7 @@ collapse-hunt attacks these questions harder and hunts for the ones missing.
    DDL comment: post-write only, never the pre-tracking baseline — why a
    hash-chain comparison over `observed_actions` alone cannot detect a
    revert to that baseline); Step 9 (`files.content_hash`, already read by
-   `runIndex`'s own diff; `writtenSince`, the plain existence check); AD-5
+   `runIndex`'s own diff; `writtenSinceSeq`, the plain existence check); AD-5
    (the watermark pattern this reuses); `T-30-1` (asserts one regret row
    across both `SessionEnd` calls and both `runIndex` calls for the same
    cross-session revert to the pre-session baseline, and zero before
@@ -8200,6 +8749,234 @@ collapse-hunt attacks these questions harder and hunts for the ones missing.
    writer; the handler never waits; `FR-K7`); AD-12; §4;
    `probe:26_reindex_claim_row_race`.
 4. **Steers toward.** One reindex at a time, visibly. **Guide, not gate.**
+
+#### D-plan-33 (reopened substrate first, edited in place, Checkpoint 1R)
+
+1. **Job.** Build the whisper path on a substrate that records history
+   truthfully — the old one gave every pair ratio 1.00 (G3), so every Coupling
+   whisper would have stated a false ratio to the agent.
+2. **Hardest question.** *In-place edits of 001/001b/002 are safe only if no
+   store with the old shape exists; and the skeleton modules of Steps 13–39
+   must change to compile against the new types — who decides what they do
+   in the meantime, and what stops the suite from going red, or green by
+   deleting tests?*
+3. **Answer.** No store has shipped (the skeleton ran only against scratch
+   stores; the collapse-hunt found no `~/.ctxoracle` and no settings file
+   naming `ctxoracle`), so AD-25's forward-only rule, which governs shipped
+   stores, is not engaged. The skeleton reduction is a written rule, not a
+   judgement: the files are declared (Step 6/9 `modify:`), each placeholder
+   is one of three forms and listed with its retiring step (§9), the red
+   tests are `todo`, never deleted (a failing `todo` test exits 0 —
+   collapse-hunt P7), and `T-37-1` fails Checkpoint 4 while any mark remains
+   (expert review S1; collapse-hunt H12, H13). Cite: AD-25; AD-4; spec §11.5
+   (the foundation is honest); the expert-implement blast-radius stop.
+4. **Steers toward.** Correcting each artifact where it lives, and leaving
+   later behaviour to the step that owns it. **Guide, not gate.**
+
+#### D-plan-34 (landmine evidence ratio)
+
+1. **Job.** Give a Warning's `[confidence: uncertain]` flag a defined meaning,
+   so a hazard reaches the agent at the edit with the confidence FR-A5a says
+   it must carry.
+2. **Hardest question.** *Is `min(1, support / 3)` evidence strength, or a
+   count that saturates at 3 and says nothing about a file changed 500
+   times — so the flag is decorative?*
+3. **Answer.** It is FR-A5a's "real vs coincidental" noise test in ratio
+   form, and it does separate support 2 (uncertain) from support ≥ 3 (high
+   under the trust factor, `T-16-2`); it has no base-rate term, which the
+   plan does not hide: each Warning's audit row carries the file's
+   `change_count` beside its support, and the exit report compares
+   false-fire rates across them, so Phase B decides a base rate on data
+   (AD-14; L13; collapse-hunt D-plan-34, H10). The ratio's own row
+   (`bar.hazard_full_support`) keeps a pair-floor re-tune from re-tiering
+   every Warning. With the retired recency multiplier gone, support — not
+   age — decides the tier. Cite: FR-A5a, FR-D1, AD-14, L13.
+4. **Steers toward.** A stated confidence for every hazard, measured at
+   exit. **Guide, not gate** — the hazard path still speaks below the
+   confidence floor.
+
+#### D-plan-35 (`cochange_pairs.last_commit`, `corrections.genre`)
+
+1. **Job.** Give every pair headline a commit the agent can check (FR-D1's
+   verifiable pointer), and book each whisper-less miss against the genre
+   Max names so per-genre efficacy data is not corrupted.
+2. **Hardest question.** *Is `last_commit` really the newest co-change after
+   chunked and rewritten mines, and can a `--genre` typo create a phantom
+   genre in the fold?*
+3. **Answer.** The stream is `--reverse` (oldest first), so each bump
+   overwrites `last_commit` with a newer commit, and `bump` writes it only
+   when `ts ≥ last_ts` (`T-9-1`); a rewrite purges and re-mines (Step 13);
+   Step 34 refuses a genre outside the eight names (`T-34-3`); the CHECKs
+   match AD-4's comment. The collapse-hunt found it clean. Cite: FR-D1,
+   AD-4, AD-5, AD-18, AD-23 (no `git` at compose).
+4. **Steers toward.** Carrying facts in columns, not subprocesses. **Guide,
+   not gate.**
+
+#### D-plan-36 (one tokenizer for both search paths)
+
+1. **Job.** A machine without FTS5 must see the same Reuse, Orientation, and
+   Completeness facts as one with it — degraded mode must not quietly change
+   what the oracle tells the agent.
+2. **Hardest question.** *The first form was also called "provably the same
+   query" and failed on `Über` and `foo-bar` — what makes this one more than a
+   second unverified claim?*
+3. **Answer.** Construction, not a claim about two tokenizers: one function
+   (`tokenize`) produces every token; the indexer writes its output to both
+   the FTS column (whose `ascii` tokenizer splits only at the joining spaces,
+   since every token's ASCII bytes are `[a-z0-9]`) and the token tables; both
+   paths apply the same prefix test to the same token sets. Executed
+   2026-09-26 over seventeen names and nineteen queries including `CAFÉ`,
+   `Über`, `foo-bar`, `my.method`, `Foo::Bar`, both returned identical sets
+   (§11.4), and `T-14-5` pins them. The expert review's M3 and the
+   collapse-hunt's H4 (both executed) are what retired the first form. Cite:
+   AD-2 at `6cff0ce`; AD-23 (no O(store) statement on the event path); C-6.
+4. **Steers toward.** Identical search behaviour in both states. **Guide,
+   not gate.**
+
+#### D-plan-37 (which session `--missed-question` arms)
+
+1. **Job.** When Max reports a question the agent ignored, the block
+   (OL-C3/OL-C5) must engage in the session where he is talking to that
+   agent, and in no other.
+2. **Hardest question.** *Max runs two sessions, or the newest one has
+   ended: which session gets armed, and does anyone find out if it is the
+   wrong one?*
+3. **Answer.** The session of the most recent event (the newest
+   `session_log` row by `seq`) is the one Max is working in far more often
+   than the most recently started one (the first form's choice, which could
+   name a second or ended session — collapse-hunt H5); the verb prints which
+   session it armed, with its start and last activity, and refuses an ended
+   one, naming `--session`, so a wrong choice is visible and correctable.
+   Cite: OL-C5 ("their next move"), OL-11 (no session ids demanded of Max),
+   AD-4 (per-session consumer), AD-18 at `6cff0ce`.
+4. **Steers toward.** A reported miss arming the conversation it came from.
+   **Guide, not gate** — the deny it arms is the reactive answer-drift block
+   (OL-C3), engaged only after a reported deviation, never pre-emptive
+   (OL-R4).
+
+#### D-plan-38 (the AC-8a backstop line's path)
+
+1. **Job.** At a completion claim with Max's question unanswered, remind the
+   agent of that question (OL-12, AC-8a) and log that the reminder happened
+   (FR-X6).
+2. **Hardest question.** *Dedup stops the line at the second "done" while
+   the same question is still ignored — doesn't that let the second unbacked
+   completion claim through?*
+3. **Answer.** FR-A4 forbids repeating a fact already delivered to that
+   consumer, and AC-8a asks for "delivery, not a block"; the question is
+   still denied-on-mutation by the block itself, which is where enforcement
+   lives. The subject key is the open-question set, so a new question speaks
+   again. Skipping the bar is grounded — the line quotes Max's own text, not
+   a repository fact (AD-9); the audit is not skipped (N2). The collapse-hunt
+   found it clean. Cite: FR-A4, AC-8a, AD-9, AD-19, FR-X6.
+4. **Steers toward.** Answering the question before claiming done. **Guide,
+   not gate.**
+
+#### D-plan-39 (fork reseed: oracle-line prefix, `is_error` rule)
+
+1. **Job.** A forked session must neither repeat facts the parent was
+   already told nor withhold facts it never saw (FR-A4, D-20, AC-5).
+2. **Hardest question.** *Do the tools this rule admits ever carry the field
+   it reads — and when the oracle's text is not found at all, does anything
+   say so?*
+3. **Answer.** The first form failed the first half and collapsed: it read
+   `is_error: false`, which no successful Read, Edit, or Write result carries
+   (0 of 373, 89, 12; collapse-hunt P4), so the reseeded read set was always
+   empty. Rebuilt on the observed layout — a result is successful unless it
+   carries `is_error: true` (V23) — with `T-21-3`'s fixture rewritten to the
+   observed shapes; AD-11's `transcript_layout_changed` guards a change. The
+   second half is answered honestly rather than overstated: only "lines
+   found, none matching" is loud; "no line found" is silent and is §15's
+   PG-6, with the unverified premise that would let it be detected. Cite:
+   AD-16, V22, V23, AD-11.
+4. **Steers toward.** Under-seeding when unsure (a fact may repeat; none is
+   withheld). **Guide, not gate.**
+
+#### D-plan-40 (Grep/Glob result paths)
+
+1. **Job.** Let Coupling fire when the agent finds files by searching, not
+   only by reading (G21; AD-15's Grep/Glob trigger).
+2. **Hardest question.** *A Grep in `content` or `count` mode returns an empty
+   `filenames` array — does that read as "found nothing", the silent zero the
+   plan says it prevents?*
+3. **Answer.** It did in the first form (collapse-hunt H3). Now a response
+   whose `mode` is not `files_with_matches` is `mode_unsupported`, counted
+   apart from an unrecognized response, and both counts are printed by
+   `status` and the exit report, so the zero is visible; parsing paths out of
+   `content` is undocumented and not attempted. That the hook's
+   `tool_response` is the tool's output object is still unverified (PG-7).
+   Cite: AD-15, AD-17 ("never display absence of measurement as health"),
+   spec §11.5 (measure the floor).
+4. **Steers toward.** Coupling on the search modes that list files, and a
+   counted floor on the rest. **Guide, not gate.**
+
+#### D-plan-41 (single-file history facts pass the marginal axis)
+
+1. **Job.** Let Warning's hazards reach the agent at the edit (FR-A2e,
+   AC-3a).
+2. **Hardest question.** *P5 says a fact one `grep` returns is not a
+   whisper, and `git log -- <file>` is one call in a full clone — why is a
+   file's revert history not self-servable?*
+3. **Answer.** The first rationale ("invisible from a cold checkout") does
+   not hold, as the collapse-hunt showed (H9). What holds: the label is the
+   result of classifying commits the agent has not enumerated — AD-14's
+   aggregation clause, which also admits a Reuse dominance claim — and FR-A5a
+   requires a hazard to be spoken with its confidence, which a marginal axis
+   failing it would forbid. Cite: AD-14 at `6cff0ce`, FR-A5a, P5.
+4. **Steers toward.** Hazards at the edit, flagged. **Guide, not gate.**
+
+#### D-plan-42 (`mode=rw` opens; missing versus unreadable)
+
+1. **Job.** An event must never create per-repository state without `init`,
+   and a store problem must reach Max as what it is.
+2. **Hardest question.** *SQLite gives one error for "cannot open" — does
+   everything that error covers really mean "deleted outside the tool"?*
+3. **Answer.** No (collapse-hunt P2, H8): a missing file, a missing
+   directory, and a directory at the path all return errcode 14, and a
+   permission problem does too. After the refusal nothing was created, so a
+   `stat` without a race decides: `ENOENT`/`ENOTDIR` is `store_missing`,
+   anything else `store_unreadable` with its path kind and errno, and
+   `status` renders them apart (`T-3-5`, `T-28-7`). Cite: AD-23 ("creates
+   nothing"), AD-17, OL-10 (Max sees faults in plain language).
+4. **Steers toward.** No state without `init`; a correct diagnosis. **Guide,
+   not gate.**
+
+#### D-plan-43 (global import merges bindings; owner exports in a separate home)
+
+1. **Job.** AC-19 round-trips the global store without silencing this
+   machine's repositories, and the exit run keeps the leg-2 measurement.
+2. **Hardest question.** *Replace drops this machine's bindings for
+   repositories the export never knew — who tells Max those repositories are
+   now unbound?*
+3. **Answer.** Nobody did in the first form (collapse-hunt H7); now nothing
+   is dropped: the import merges, this machine's binding wins on the same
+   path (it names a store that exists here), and the imported bindings whose
+   roots are missing are listed with the `init` instruction. The import is
+   also all-or-nothing across its two files (expert review M2), with the one
+   cross-file residual named and its recovery stated. At the exit run a
+   separate `CTXORACLE_HOME` per export keeps Max's same-key project store
+   from overwriting the leg-2 one. Cite: AC-19, AD-5 at `6cff0ce`, AD-20
+   (bindings are paths), OL-10.
+4. **Steers toward.** A round trip that loses nothing on either machine.
+   **Guide, not gate.**
+
+#### D-plan-44 (revert is never fix; marker weight 1)
+
+1. **Job.** Count an undone fix as a revert, never as fix chatter, so Warning
+   states the right hazard; let Orientation name a real entry file
+   (`main`/`cli`) that nothing imports (AC-1a's first shape).
+2. **Hardest question.** *With weight 1, `main.ts` (in-degree 0) scores like
+   any file imported once, and Orientation multiplies by `entry_score` — on a
+   real repository, does a marker file ever reach the top four?*
+3. **Answer.** The revert half holds (git's three revert subjects all carry
+   the trailer or a `Revert "`/`Reapply "` prefix — collapse-hunt P3). The
+   marker half has no evidence either way, and the plan does not pretend it
+   does: the weight is a printed `plan_seed` (D-plan-7's discipline), and the
+   exit report counts, per Orientation whisper, the files named by marker
+   against those named by in-degree (Step 39; collapse-hunt H11), so the exit
+   run decides it. Cite: AD-12, AD-15, AC-1a, D-plan-7.
+4. **Steers toward.** Measuring the seed on real repositories. **Guide, not
+   gate.**
 
 ---
 ## 11. Verification of factual claims
@@ -8345,9 +9122,16 @@ this session; line numbers are of that revision.
   on execution failure and never on a pre-execution rejection. **Steps.**
   28, 30. **Evidence.** Read `:143`.
 - **Claim.** AD-2: `stores/adapter.ts` is the only `node:sqlite` importer;
-  FTS5 probed at `init` with an announced `LIKE` fallback. **Steps.** 2, 3.
+  FTS5 probed at `init` with an announced token-prefix fallback; both search
+  paths use one in-house tokenizer. **Steps.** 2, 3, 7, 14.
   **Evidence.** Read `:325–364`. Verbatim: "the only file allowed to import
-  node:sqlite"; "FTS5 is still probed at init".
+  node:sqlite"; "FTS5 is still probed at init". Re-read at `6cff0ce`
+  (2026-09-26): "Both paths use one tokenizer, in the oracle's own code:
+  split on every non-letter/non-digit (Unicode), NFKD-normalize, drop
+  combining marks, lowercase … So the two agree by construction, including
+  `CAFÉ`/`café`, `Über`, `foo-bar`, `my.method`, and `Foo::Bar`."; and "a
+  normalized-token column on `symbols` and a `path_tokens` table" — which
+  this plan builds as the `symbol_tokens` table, raised in §16 item 5.
 - **Claim.** AD-3: the identity rule (root-commit / normalized URL /
   realpath), `status` shows key and mode, init performs no fetch.
   **Steps.** 5. **Evidence.** Read `:366–415`. The URL normalization
@@ -8503,6 +9287,46 @@ is) and the current file.
   `:2366–2458` (`:2384`, `:2392`).
 - **Claim.** L12 and IDEAS #16: no fact precedes an Edit without a deny.
   **Steps.** 18. **Evidence.** Read `:2824–2855`.
+
+**Architecture at `6cff0ce`** (read 2026-09-26 for this revision; line numbers
+of that revision; each supersedes the matching row above where they differ):
+- **Claim.** V23: a transcript tool result is successful unless it carries
+  `is_error: true`. **Steps.** 21, 28. **Evidence.** Read `:147`.
+- **Claim.** AD-2: one in-house tokenizer (split on non-letter/non-digit,
+  NFKD, drop combining marks, lowercase) feeds both search paths, which
+  "agree by construction". **Steps.** 7, 9, 14, 18. **Evidence.** Read
+  `:352–365` (`:357`).
+- **Claim.** AD-4: `files.change_weight`, `cochange_pairs.pair_weight`.
+  **Steps.** 7, 9, 13. **Evidence.** Read `:497`, `:514`.
+- **Claim.** AD-5: a global import merges bindings; this machine's win on the
+  same path; missing roots listed. **Steps.** 32, 39. **Evidence.** Read
+  `:868–875`.
+- **Claim.** AD-13: each included commit adds `2^((ts − T0)/h)` to
+  `pair_weight` and `change_weight`, `T0` = 2000-01-01 UTC, `h` =
+  `bar.recency_half_life_days`; `confidence = pair_weight / change_weight(a)`;
+  changing `h` requires a re-mine, which `tune` states; no recency multiplier
+  on the finished confidence. **Steps.** 7, 9, 12, 13, 16, 33. **Evidence.**
+  Read `:1452–1522` (`:1464`).
+- **Claim.** AD-14: staleness per fact class (history: `last_mined_commit` ≠
+  `HEAD`; index facts: `index_head` ≠ `HEAD`) through `bar.stale_factor` seed
+  0.9; the tier invariant `bar.untrusted_trust_factor × bar.stale_factor ≥
+  bar.high_confidence_min`; `tune` refuses a break of it or a trust or stale
+  factor outside (0, 1]; the landmine ratio `min(1, support /
+  bar.hazard_full_support)`, seed 3; the single-file history class passes by
+  the aggregation clause and FR-A5a; each Warning's `change_count` recorded
+  beside its support. **Steps.** 12, 16, 18, 28, 33, 39. **Evidence.** Read
+  `:1532–1625` (`:1540`, `:1563`, `:1617`).
+- **Claim.** AD-16: the reseed admits a result unless it carries `is_error:
+  true`. **Steps.** 21, 28. **Evidence.** Read `:1846–1860` (`:1851`).
+- **Claim.** AD-18: `--missed-question` arms the session with the most recent
+  event (newest `session_log` row by `seq`, or `--session`), prints it, and
+  arms nothing for an ended session. **Steps.** 9, 34. **Evidence.** Read
+  `:2004–2013` (`:2007`).
+- **Claim.** AD-23: the post-write hash tools are Edit/Write/NotebookEdit (no
+  `MultiEdit`). **Steps.** 6, 9, 28. **Evidence.** Read `:2295`.
+- **Claim.** L13: a landmine's confidence has no base rate; the exit report
+  compares false-fire rates across support and `change_count`. **Steps.** 18,
+  39. **Evidence.** Read `:2987–2994`.
 
 ### 11.3 Claims from the ledger (`OWNER-LEDGER.md`)
 
@@ -9118,13 +9942,18 @@ TypeScript 5.9.3 from `ctxoracle/node_modules`.
   no output, exit 1. **Steps.** 14.
 - **`git merge-base --is-ancestor <unknown 40-hex> HEAD`** → `fatal: Not a
   valid commit name …`, exit 128. **Steps.** 13.
-- **FTS5 tokenizers and prefix queries.** `fts5(name, tokenize = "unicode61
+- **FTS5 tokenizers and prefix queries** (*superseded below by the one
+  in-house tokenizer*). `fts5(name, tokenize = "unicode61
   remove_diacritics 0 tokenchars '_$'")` over `user_name`, `getUserName`,
   `helper`, `café`, `$store`: `"user"*` → `user_name`; `"help"*` → `helper`;
   `"caf"*` → `café`; `"cafe"*` → nothing; `"USER"*` → `user_name`.
   `fts5(path, tokenize = "unicode61 remove_diacritics 0")` over
   `src/util.ts`, `src/db/schema.ts`, `lib/café-x.ts`, `a_b-c.d`: `"util"*`,
-  `"schem"*`, `"b"*`, `"café"*` each find their path. **Steps.** 7, 14.
+  `"schem"*`, `"b"*`, `"café"*` each find their path. Both 2026-09-26
+  reviews then executed the disagreement between this FTS configuration and
+  a `NOCASE`/`LIKE` fallback (expert review premise 2; collapse-hunt P1:
+  `café`, `émile`, `bar`, `method` each found by FTS and not by `LIKE`).
+  **Steps.** 7, 14.
 - **LIKE index use.** `EXPLAIN QUERY PLAN SELECT * FROM t WHERE name LIKE
   'help%'`: over `CREATE INDEX … ON t(name COLLATE NOCASE)` → `SEARCH t
   USING COVERING INDEX … (name>? AND name<?)`; over a plain `ON t(name)` →
@@ -9144,10 +9973,56 @@ TypeScript 5.9.3 from `ctxoracle/node_modules`.
 - **Transcript tool-result outcome field.** This session's own transcript
   (`~/.claude/projects/-home-user-agent-armory/<session>.jsonl`, read
   2026-09-26): 227 `tool_result` blocks with `is_error: false`, 4 with
-  `true`, 89 with no `is_error` field; no attachment entry of a
+  `true`, 89 with no `is_error` field — **a total over all tools, which the
+  plan first read as a success signal for file tools; corrected:** split by
+  tool across all 24 transcripts under `~/.claude/projects/` (collapse-hunt
+  P4, recorded as architecture V23), `is_error: false` appears only on Bash
+  results (845; `true` 9); Read: field absent 373, `true` 1; Edit: absent 89;
+  Write: absent 12; Grep: absent 3; Glob: absent 1. No attachment entry of a
   hook-injected `additionalContext` type (no hook on this machine emits one);
   no Grep or Glob `toolUseResult` in any transcript under
   `~/.claude/projects/`. **Steps.** 21, 28; gaps in §15.
+- **The one in-house tokenizer, both search paths** (executed 2026-09-26 for
+  this revision, scratchpad throwaway, Node v22.22.2). `tokenize(s) =
+  s.normalize('NFKD').toLowerCase().replace(/\p{M}+/gu, '')
+  .split(/[^\p{L}\p{N}]+/u).filter(Boolean)`; seventeen symbol names
+  (`user_name`, `getUserName`, `helper`, `CAFÉ`, `café_x`, `Émile`, `Über`,
+  `über_x`, `foo-bar`, `valid?`, `my.method`, `Foo::Bar`, `userXname`,
+  `$store`, `İstanbul`, `Größe`, and a decomposed `cafe` + U+0301 + `b`) written
+  both as space-joined tokens into `fts5(tokens, symbol_id UNINDEXED,
+  tokenize = "ascii")` and as one row per distinct token into a
+  `symbol_tokens(token, symbol_id)` table with a plain index. Nineteen
+  queries (`café`, `CAFE`, `über`, `Ü`, `bar`, `method`, `foo`, `user`,
+  `USER`, `name`, `get`, `help`, `valid`, `e"x*`, `istanbul`, `grösse`,
+  `größe`, `$store`, `store`), each tokenized, each token prefix-searched
+  (`MATCH '"<t>"*'` against the range `token >= ? AND token < ? ||
+  char(1114111)`), hits intersected: all nineteen **AGREE**. Samples: `bar`
+  → `foo-bar`, `Foo::Bar` on both; `café` → `CAFÉ`, `café_x`, the decomposed
+  `caféb` on both; `user` → `user_name`, `userXname` (not `getUserName`) on
+  both; `e"x*` → nothing on both, no error. `EXPLAIN QUERY PLAN` of the range
+  query: `SEARCH symbol_tokens USING INDEX st (token>? AND token<?)`.
+  **Steps.** 7, 9, 14.
+- **Premises executed by the two 2026-09-26 plan-pass reviews and relied on
+  here** (evidence in those records, not re-run): a Stop hook's
+  `additionalContext` continues the conversation, bounded by
+  `stop_hook_active` and an 8-continuation cap (expert review premise 6 —
+  Step 28's S2 rule); the hooks reference has 0 `MultiEdit` matches and
+  documents the file tools `Write`, `Edit`, `NotebookEdit` (premise 7 — m6);
+  `mode=rw` refuses a missing file, a file in a missing directory, and a
+  directory at the path, all with errcode 14 (collapse-hunt P2 — Step 3's
+  `stat` follow-up); git writes `Revert "…"`, `Reapply "…"`, and nested
+  `Revert "Reapply "…""` subjects, each with the trailer (P3 — Step 13); the
+  installed Claude Code 2.1.283 Grep output schema returns `filenames: []` in
+  `content` and `count` modes and fills it only in `files_with_matches`, and
+  Glob returns `{filenames, durationMs, numFiles, truncated}` (P5 — Step 28's
+  three cases); a failing `node:test` test marked `{todo: …}` reports
+  `todo 1`, `fail 0`, and the run exits 0 (P7 — Checkpoint 1R). **Steps.** 3,
+  13, 28; §9.
+- **AD-13's weight range** (executed 2026-09-26, same run):
+  `2^(days from 2000-01-01 to 2100-01-01 / h)` is `1.33e30` at `h` = 365,
+  `1.72e301` at 36.5, `2.63e305` at 36, and `Infinity` at 30 and 10; the
+  current exponent at `h` = 365 is about 26.75. Hence Step 12's `h ≥ 37`
+  guard. **Steps.** 12, 13.
 - **Hooks reference, fetched 2026-09-26** (`code.claude.com/docs/en/hooks.md`,
   331,440 bytes): "File-tool `tool_input` paths arrive in the same format as
   for PreToolUse: always absolute"; "The exact schema for both depends on the
@@ -9238,7 +10113,7 @@ TypeScript 5.9.3 from `ctxoracle/node_modules`.
 | S13 | T-13-1, T-13-2, T-13-3, T-13-4, T-13-5 |
 | S14 | T-14-1, T-14-2, T-14-3, T-14-4, T-14-5 |
 | S15 | T-15-1, T-15-2, T-15-3, T-15-4, T-15-5, T-15-6 |
-| S16 | T-16-1, T-16-2 |
+| S16 | T-16-1, T-16-2, T-16-3 |
 | S17 | T-17-1, T-17-2 |
 | S18 | T-18-1, T-18-2, T-18-3, T-18-4, T-18-5, T-18-6, T-18-7, T-18-8, T-18-9, T-38-10, T-38-11, T-38-12, T-38-13, T-38-14, T-38-28, T-38-29 |
 | S19 | T-19-1, T-19-2, T-19-3, T-38-19 |
@@ -9434,11 +10309,18 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     callback is asserted never invoked); (f) `openStore(<missing path>,
     {mustExist: true})` throws `StoreMissing` and the path does not exist
     afterwards; the same call on an existing WAL store whose path contains a
-    space, `#`, and `?` opens it. Technique: state-transition + decision table.
-  - **NOT asserts.** Savepoint names. **Fails when** any case's row set
+    space, `#`, and `?` opens it; (g) `openStore(<path in a missing
+    directory>, {mustExist: true})` throws `StoreMissing`; (h) `openStore(<a
+    path that is a directory>, {mustExist: true})` throws `StoreUnreadable`
+    with `pathKind: 'directory'` (collapse-hunt H8). Technique:
+    state-transition + decision table.
+  - **NOT asserts.** Savepoint names; the `EACCES` case (the test runner may
+    be root, which no mode bit refuses). **Fails when** any case's row set
     differs from the stated one, OR a nested call throws "cannot start a
     transaction within a transaction", OR `onBusyRetry` fires below depth 0,
-    OR case (f) creates the file or fails to open the existing one.
+    OR case (f) creates the file or fails to open the existing one, OR (g) is
+    not `StoreMissing` or creates the directory, OR (h) is `StoreMissing` or
+    lacks `pathKind: 'directory'`.
 
 - **T-3-6 — `backupFile` into a store another process holds open.**
   - **File.** `test/unit/store_backup.test.ts`, holder
@@ -9607,7 +10489,8 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Data.** Empty DB → migrations with `fts: true` (001, `fts_state` =
     `'fts5'` recorded, 001b) and, on a second empty DB, with `fts: false`
     (001 only; `fts_state` = `'fallback'`; `sqlite_master` holds no `fts_*`
-    table and the two `LIKE` indexes exist); the second DB migrated again
+    table and the `symbol_tokens_token` and `path_tokens_token` indexes
+    exist, and no `symbols_name` index does); the second DB migrated again
     with `fts: true` (`fts_state` still `'fallback'`, still no `fts_*`
     table — the row is written once); per knowledge
     table one valid row and one row per CHECK-constrained column violating
@@ -9616,8 +10499,9 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     `exemplars`, `recipes`, `env_capabilities`, `deferred_queue`,
     `genre_state`. **2026-09-26 cases:** a `files` row with `in_tree = 2`
     (rejected) and one with NULL `content_hash` and `in_tree = 0`
-    (accepted); `cochange_pairs` has no `a_count`/`b_count` column and
-    requires `last_commit`; deleting a `files` row that a `cochange_pairs`,
+    (accepted), whose `change_weight` defaults to 0; `cochange_pairs` has no
+    `a_count`/`b_count` column and requires `last_commit` and `pair_weight`;
+    deleting a `symbols` row cascades its `symbol_tokens` rows; deleting a `files` row that a `cochange_pairs`,
     `landmines`, or `labelled_touches` row references **fails** with a
     foreign-key error, while deleting one only `symbols`/`import_edges`/
     `path_tokens` rows reference cascades them; a second `fix_chatter` row for
@@ -9627,10 +10511,13 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     `missed`, no genre), and rejects (both ids), (neither id, `false_fire`),
     and (whisper id + genre); inserting into `whisper_audit`, `corrections`,
     `session_log`, `observed_actions` without `seq` yields `seq` 1, 2, 3 in
-    insert order; `EXPLAIN QUERY PLAN` of `SELECT * FROM symbols WHERE name
-    LIKE 'ab%'` names `symbols_name` (not `SCAN symbols`); under `fts: true`
-    `fts_paths MATCH '"util"*'` matches a row with path `src/util.ts` and
-    `fts_symbols MATCH '"user"*'` matches `user_name` and not `getUserName`.
+    insert order; `EXPLAIN QUERY PLAN` of `SELECT symbol_id FROM symbol_tokens
+    WHERE token >= 'ab' AND token < 'ab' || char(1114111)` names
+    `symbol_tokens_token` (not `SCAN`); under `fts: true`, with the rows
+    written as the indexer writes them (the tokens of `src/util.ts`, `src util
+    ts`, and of `user_name` and `getUserName`, `user name` and `getusername`),
+    `fts_paths MATCH '"util"*'` matches the path row and `fts_symbols MATCH
+    '"user"*'` matches `user_name` and not `getUserName`.
     Technique: decision table over CHECKs and the FTS flag;
     state-transition for the index. The two `fts_state` outcomes this test
     asserts against a real engine are independently reproduced by
@@ -9687,8 +10574,16 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     `markAbsentExcept` on a set missing one `in_tree = 1` file returns that
     id and leaves the row with `in_tree = 0`; `sweepUnreferenced` deletes an
     unreferenced `in_tree = 0` row and keeps one a pair references;
-    `cochange_pairs.bump(1, 2, 100, 'h1')` then `bump(1, 2, 50, 'h0')` leaves
-    `pair_count = 2`, `last_ts = 100`, `last_commit = 'h1'`; `rebuildMinerKinds`
+    `cochange_pairs.bump(1, 2, 100, 'h1', 0.5)` then `bump(1, 2, 50, 'h0',
+    0.25)` leaves `pair_count = 2`, `pair_weight = 0.75`, `last_ts = 100`,
+    `last_commit = 'h1'`; `files.addChangeCount(id, 1, 0.5)` twice leaves
+    `change_count = 2`, `change_weight = 1.0`, and `resetChangeCounts()` sets
+    both to 0; `symbol_tokens.replaceForFile` twice with different tokens
+    leaves only the second set; `observed_actions.writtenSinceSeq(p, s)` is
+    true for an `ok` Edit row with `seq > s` and false for a `failed` one and
+    for `s = maxSeq()`; `session_log.latestSession()` names the session of the
+    largest `seq`, not the one whose liveness row is newest, and
+    `hasEnded` is true only after a `SessionEnd` row; `rebuildMinerKinds`
     twice with the same rows leaves one row per `(kind, file_id)` and never
     removes a `human_stated` row; `corrections.since(0)` returns rows in
     `seq` order and `since(maxSeq())` returns none; `whisper_stats.
@@ -9742,8 +10637,8 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Verifies.** Step 10 — over `dist/src/**`, `dist/src/stores/dao/faults.js` is
     imported only by `dist/src/diag/fault_writer.js` and `dist/src/diag/status.js`;
     `dist/src/stores/dao/session_log.js` only by `dist/src/diag/session_writer.js`,
-    `dist/src/diag/status.js`, `dist/src/diag/log.js`, `dist/src/diag/regret.js` (the readers §5.1
-    names).
+    `dist/src/diag/status.js`, `dist/src/diag/log.js`, `dist/src/diag/regret.js`,
+    `dist/src/cli/correct.js` (the readers §5.1 names).
   - **Level.** Unit (import scan over `dist/src/**`).
   - **Real/doubles.** Real `dist/`; no doubles.
   - **Data.** Clean build; a seeded `import … 'stores/dao/faults.js'` in a
@@ -9831,10 +10726,12 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     with its value and `source` — including the 2026-09-26 keys
     (`bar.high_confidence_min` 0.8, `bar.untrusted_trust_factor` 0.9,
     `bar.suspect_confidence_cap` 0.7, `bar.heuristic_confidence_cap` 0.7,
+    `bar.stale_factor` 0.9, `bar.hazard_full_support` 3,
     `reuse.max_unresolved_import_share` 0.05, `miner.chunk_ms` 50, all
-    `architecture_default`; `index.entry_marker_points` 1 `plan_seed`; the
-    four new lists with the members Step 12 names) and the absence of any
-    `bar.untrusted_confidence_cap` row; set a scalar; add and remove a list member;
+    `architecture_default`; `index.entry_marker_points` 1 and
+    `bar.recency_half_life_days` 365 `plan_seed`; the four new lists with the
+    members Step 12 names) and the absence of any
+    `bar.untrusted_confidence_cap` or `bar.stale_index_factor` row; set a scalar; add and remove a list member;
     `seedDefaults` again. The load-bearing scalars are additionally pinned to
     the §10 literal values/sources (not to the seed module the seeder reads),
     so a silent drift between the seed module and the plan is caught.
@@ -9862,16 +10759,25 @@ rules 1 and 2); fixture repositories are real git repositories produced by
 
 - **T-12-3 — The ordering validator.**
   - **File.** `test/unit/tuning_reader.test.ts`.
-  - **Verifies.** Step 12's `checkTuningWrite` (AD-14, AD-20).
+  - **Verifies.** Step 12's `checkTuningWrite` and `tuningWriteNotice`
+    (AD-13, AD-14, AD-20; collapse-hunt H2).
   - **Level.** Unit (over a real seeded reader).
   - **Real/doubles.** Real function and store; no doubles.
-  - **Data.** Boundary values: suspect cap 0.6 (ok, = floor), 0.59 (refused),
-    0.8 (refused, = high), 0.79 (ok); heuristic cap likewise; trust factor
-    0, 0.0001, 1, 1.0001; floor 0.71 (refused: above both caps); high 0.7
-    (refused: at the caps). Technique: boundary value analysis.
+  - **Data.** Boundary values, each against the seeds: suspect cap 0.6 (ok,
+    = floor), 0.59 (refused), 0.8 (refused, = high), 0.79 (ok); heuristic cap
+    likewise; trust factor 0 (refused: interval), 0.0001 (refused: tier
+    invariant, 0.0001 × 0.9 < 0.8), 0.889 (ok: 0.8001), 0.888 (refused:
+    0.7992), 1 (ok), 1.0001 (refused: interval); stale factor 0 and 1.0001
+    (refused: interval), 0.888 (refused: tier invariant), 0.9 and 1 (ok); high
+    0.82 (refused: the tier invariant, 0.9 × 0.9 = 0.81 < 0.82); floor 0.71 (refused: above both caps); high 0.7 (refused: at
+    the caps); `bar.recency_half_life_days` 37 (ok), 36 (refused), 0
+    (refused); `tuningWriteNotice` for `bar.recency_half_life_days` and for
+    `bar.support_min`. Technique: boundary value analysis.
   - **NOT asserts.** Wording beyond naming the relation. **Fails when** any
     case's ok/refused differs from the stated one, OR a refusal's reason
-    does not name both keys involved.
+    does not name every key in the violated relation, OR the half-life notice
+    is null or does not name `ctxoracle index`, OR the `bar.support_min`
+    notice is not null.
 
 - **T-13-1 — Miner hygiene, pair emission, landmine classes.**
   - **File.** `test/unit/miner.test.ts`.
@@ -9954,8 +10860,11 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     Technique: equivalence partitioning (paired / solo commits).
   - **NOT asserts.** Bar outcome. **Fails when** `change_count(a) ≠ 7`, OR
     `change_count(b) ≠ 4`, OR `change_count(c) ≠ 1`, OR `pair(a, b).pair_count
-    ≠ 4`, OR `cochange_pairs` has any `a_count`/`b_count` column (the executed
-    defect stored `a_count 4`, confidence 1.00).
+    ≠ 4`, OR `change_weight(a)` or `pair(a, b).pair_weight` differs by more
+    than 1e-9 relative from the sum of `2^((ts − 946684800) / (365 × 86400))`
+    over the stated commits' author timestamps (AD-13's weight at the seeded
+    half-life), OR `cochange_pairs` has any `a_count`/`b_count` column (the
+    executed defect stored `a_count 4`, confidence 1.00).
 
 - **T-13-3 — History rewrite: one purge, a full re-mine, a fault.**
   - **File.** `test/unit/miner_rewrite.test.ts`.
@@ -9968,8 +10877,9 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     second store mining the rewritten history from scratch. Technique:
     state-transition (mined → rewritten → re-mined).
   - **NOT asserts.** Timing. **Fails when** any row of `commits`,
-    `cochange_pairs`, `labelled_touches`, `files.change_count`, or the
-    miner-kind `landmines` differs from the from-scratch store's, OR any row
+    `cochange_pairs` (weights included), `labelled_touches`,
+    `files.change_count`/`change_weight`, or the miner-kind `landmines`
+    differs from the from-scratch store's, OR any row
     cites the rewritten-away hashes (the old `HEAD`, X), OR a `human_stated`
     row planted before the rewrite is gone, OR no `history_rewritten` fault
     carries `{oldWatermark, newHead}`, OR `mining_in_progress` is not `'0'`
@@ -10006,19 +10916,33 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Level.** Integration (real `git`, real store, real processes).
   - **Real/doubles.** Real `git`; real store; fixture `miner-large` (2,000
     commits × 20 files); no doubles.
-  - **Data.** (a) `miner.chunk_ms` tuned to 0 (one commit per chunk): the
-    worker mines while the test polls `last_mined_commit`, then `SIGKILL`s it
-    after the watermark first advances past commit 500; the invariant is
-    checked, then a second mine completes; (b) at the seeded 50 ms, a full
-    mine in the worker while a second process performs 200 single-row
-    `observed_actions` appends through `store.transaction` (busy_timeout
-    100 ms + one retry). Technique: state-transition + error guessing (crash).
-  - **NOT asserts.** Throughput. **Fails when** after the kill any commit at
-    or before the watermark is absent from `commits`, OR the pair counts
-    differ from a fresh mine truncated at the watermark, OR
-    `mining_in_progress` is not `'1'` after the kill and `'0'` after the
-    completing mine, OR the completed store differs from a single
-    uninterrupted mine, OR any of the 200 appends raises `StoreBusy`.
+  - **Data.** (a) *A crashed full pass:* `miner.chunk_ms` tuned to 0 (one
+    commit per chunk): the worker runs a first (full) mine while the test
+    polls `last_mined_commit`, then `SIGKILL`s it after the watermark first
+    advances past commit 500; the invariant is checked, then a second mine
+    completes — a crash continuation, so a purged full re-mine (Step 13); (b)
+    at the seeded 50 ms, a full mine in the worker while a second process
+    performs 200 single-row `observed_actions` appends through
+    `store.transaction` (busy_timeout 100 ms + one retry); (c) *a repeated full
+    mine:* `mineCochange({full: true})` twice on the same completed store, and
+    `runIndex(…, {full: true})` once more on it; (d) *a crashed incremental
+    pass:* a store mined to commit 1,000 (the fixture's first half, by
+    mining a clone checked out there), the second 1,000 commits made
+    reachable, an incremental mine killed after its watermark first advances
+    past commit 1,500, then a mine that completes. Technique: state-transition
+    + error guessing (crash).
+  - **NOT asserts.** Throughput. **Fails when** after the kill in (a) any
+    commit at or before the watermark is absent from `commits`, OR the pair
+    counts differ from a fresh mine truncated at the watermark, OR
+    `mining_in_progress` is not `'1'` after that kill and `'0'` after the
+    completing mine, OR (a)'s completed store differs from a single
+    uninterrupted mine (any count or weight doubled — expert review S3), OR
+    any of the 200 appends raises `StoreBusy`, OR after (c) any
+    `pair_count`, `pair_weight`, `change_count`, or `change_weight` differs
+    from one mine's, OR in (d) `mining_in_progress` is ever `'1'`, the
+    completing mine re-reads a commit at or before the killed pass's
+    watermark (its `git log` range is `<watermark>..HEAD`), or the completed
+    store differs from a single uninterrupted mine.
 
 - **T-14-1 — Indexer skeleton on a small fixture repo.**
   - **File.** `test/unit/indexer.test.ts`.
@@ -10070,7 +10994,8 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     `schema_meta.reindex_owner_pid` row during the calls (Step 14's claim
     is the trace a reindex child leaves).
   - **Data.** `indexer-small` indexed; then one commit added (`HEAD` moves);
-    `refreshIfStale(store, checkoutRoot)` twice (for the worktree layout,
+    `refreshIfStale(store, checkoutRoot)` twice — the second call on the
+    still-stale index (for the worktree layout,
     `checkoutRoot` is the worktree's own root); then `runIndex` (with an empty frontend list —
     the flag clears regardless); then `refreshIfStale` again — the sequence
     run in four layouts of the same fixture: the ordinary checkout; after
@@ -10083,7 +11008,10 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     partitioning over `HEAD` layouts.
   - **NOT asserts.** Who spawns the reindex (T-28-5 observes the handler's
     child). **Fails when** the stale call records no `index_stale` fault or
-    leaves the flag unset, OR `dist/src/index/indexer.js` imports the spawn
+    leaves the flag unset, OR the second stale call records a second
+    `index_stale` fault or writes `schema_meta` again (the fault is the
+    transition only — expert review m3), OR either stale call returns
+    anything but `{stale: true}`, OR `dist/src/index/indexer.js` imports the spawn
     wrapper or `child_process`, OR a `reindex_owner_pid` row appears during
     the calls, OR the fresh call records a fault, OR `runIndex` does not clear
     the flag, OR any layout's stale call misses the moved `HEAD` or any
@@ -10101,8 +11029,9 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     `dist/a.js` and `src/api.gen.ts`; `src/k.ts`; an untracked ignored
     `dist/b.js`; a tracked `gone.ts` deleted from the working tree after
     commit (and mined history pairing it with `src/k.ts`); files named
-    `bad\xff.txt` and `bad\xfe.txt`; `src/a.test.ts` importing `src/a.ts`;
-    `tests/test_b.py` importing `b`; `pkg/x.go` and `pkg/x_test.go`;
+    `bad\xff.txt` and `bad\xfe.txt`; `src/a.ts` and `src/a.test.ts`
+    importing it; `b.py` at the root and `tests/test_b.py` importing `b`;
+    `pkg/x.go` and `pkg/x_test.go`;
     `node_modules/m/index.js`. `indexer-nongit`: a plain tree with `a.ts`,
     `.git/config` (a stray file), `node_modules/n.js`. Both indexed; then
     `src/k.ts` deleted and re-indexed. Technique: decision table over path
@@ -10140,15 +11069,26 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Level.** Integration (two real stores, `fts: true` / `fts: false`).
   - **Real/doubles.** Real stores built by the migrations and `runIndex`; no
     doubles.
-  - **Data.** Files `src/util.ts`, `src/db/schema.ts`, `lib/a_b-c.d`,
-    `lib/café-x.ts`; symbols `helper`, `user_name`, `getUserName`,
-    `$store`; queries `util`, `schem`, `b`, `café`, `help`, `user`, `USER`,
-    `get`, a term with `"` and `*` in it. Technique: equivalence partitioning
+  - **Data.** `tokenize` directly over `CAFÉ` (→ `['cafe']`), `café` (→
+    `['cafe']`), `Über` (→ `['uber']`), `foo-bar` (→ `['foo', 'bar']`),
+    `my.method` (→ `['my', 'method']`), `Foo::Bar` (→ `['foo', 'bar']`),
+    `user_name` (→ `['user', 'name']`), `getUserName` (→ `['getusername']`),
+    `$store` (→ `['store']`), and a decomposed `cafe` + U+0301 (→
+    `['cafe']`); then two stores indexed from the same files `src/util.ts`,
+    `src/db/schema.ts`, `lib/a_b-c.d`, `lib/café-x.ts` holding the symbols
+    `helper`, `user_name`, `getUserName`, `$store`, `CAFÉ`, `Über`, `foo-bar`
+    (a generic-frontend name), `my.method`, `Foo::Bar`; queries `util`,
+    `schem`, `b`, `café`, `CAFE`, `über`, `bar`, `method`, `help`, `user`,
+    `USER`, `get`, `name`, a term with `"` and `*` in it (AD-2's named cases;
+    expert review M3, collapse-hunt H4). Technique: equivalence partitioning
     + error guessing (syntax injection).
-  - **NOT asserts.** Ranking. **Fails when** any query's hit set differs
-    between the two stores, OR `util` misses `src/util.ts` (G16), OR `help`
-    misses `helper` (N6), OR `user` matches `getUserName`, OR the injected
-    term throws or matches everything.
+  - **NOT asserts.** Ranking. **Fails when** any `tokenize` result differs
+    from the stated one, OR any query's hit set differs between the two
+    stores, OR `util` misses `src/util.ts` (G16), OR `help` misses `helper`
+    (N6), OR `user` matches `getUserName`, OR `café` or `CAFE` misses `CAFÉ`,
+    OR `über` misses `Über`, OR `bar` misses `foo-bar` or `Foo::Bar`, OR
+    `method` misses `my.method`, OR the injected term throws or matches
+    everything.
 
 - **T-15-1 — Tree-sitter frontend on a TypeScript fixture.**
   - **File.** `test/unit/tree_sitter_frontend.test.ts`.
@@ -10263,35 +11203,44 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Level.** Unit (floors read from a real seeded `tuning` table).
   - **Real/doubles.** Real function; real `tuning` rows; no doubles.
   - **Data.** Candidates built with every Step 6 field set (a pair fact's
-    `evidence` is `{num: pair_count, den: change_count}`; `ctx.refTs` a fixed
-    instant) over the eight (c, i, m) pass/fail combinations; two
-    candidates both above every floor; a hazard candidate with support 2
-    below the confidence floor; a hazard candidate with support 1; two mined
-    twins differing only in `last_ts` (one at the reference instant, one two
-    half-lives older — the older must carry one quarter of the fresh
-    confidence and, sitting just above the floor when fresh, must fail it
-    when old); the same candidate with `ctx.indexStale` false and true (the
-    stale case must be reduced by `bar.stale_index_factor` and never
-    blocked). Technique: decision table +
-    boundary value on the dampeners.
+    `evidence` is `{num: pair_count, den: change_count}` and its
+    `weightedEvidence` `{num: pair_weight, den: change_weight}`) over the
+    eight (c, i, m) pass/fail combinations; two candidates both above every
+    floor; a hazard candidate with support 2 below the confidence floor; a
+    hazard candidate with support 1; two mined twins whose `evidence` is the
+    same 17/20 and whose `weightedEvidence` differ (17/20 and 8/20) and whose
+    `lastTs` differ by five years — the bar must read only
+    `weightedEvidence` and never `lastTs`; the staleness matrix — a `mined`
+    and a `structural` candidate, each under `{indexStale, historyStale}` =
+    `{false, false}`, `{true, false}`, `{false, true}`. Technique: decision
+    table + boundary value on the dampeners.
   - **NOT asserts.** ROSE-figure recovery. **Fails when** a wrong
     `failedAxis` is returned, OR two above-bar candidates yield one pass, OR
-    the support-2 hazard is suppressed, OR the support-1 hazard passes, OR
-    the recency ratio is not 1/4 within rounding, OR the stale-index case is
-    not reduced by the seeded factor.
+    the support-2 hazard is suppressed, OR the support-1 hazard passes, OR the
+    twins' confidences are not 17/20 × 0.9 and 8/20 × 0.9, OR changing only
+    `lastTs` changes any confidence (no recency multiplier — AD-13, H1), OR
+    the `mined` candidate is reduced by `bar.stale_factor` under `indexStale`
+    alone or not reduced under `historyStale`, OR the `structural` candidate
+    is reduced under `historyStale` alone or not reduced under `indexStale`
+    (AD-14's per-class staleness), OR a stale case is blocked rather than
+    reduced.
 
 - **T-16-2 — Tier, trust dampener, caps, composition, impact, marginal.**
   - **File.** `test/unit/bar_tiers.test.ts`.
   - **Verifies.** Step 16's 2026-09-26 axes (AD-14 revised; G18, G20).
   - **Level.** Unit (seeded `tuning`).
   - **Real/doubles.** Real function; real seeded reader; no doubles.
-  - **Data.** Mined pair candidates at `lastTs = refTs`, index fresh,
-    `untrusted_repo`: evidence 19/20 (0.95 × 0.9 = 0.855 → high), 13/20
-    (0.585 → fails the floor), 15/20 (0.675 → passes, uncertain); the 19/20
-    one with `injectionSuspect` (min(0.855, 0.7) = 0.7 → passes,
-    uncertain); a Reuse candidate `heuristic` with evidence 1 (0.9 → capped
-    0.7, uncertain); a `human` fact (1.0, no dampening); a landmine support 3
-    (1 × 0.9 = 0.9, high) and support 2 (0.6, uncertain); impact: read
+  - **Data.** Mined pair candidates, history and index fresh,
+    `untrusted_repo`, weighted evidence: 19/20 (0.95 × 0.9 = 0.855 → high),
+    13/20 (0.585 → fails the floor), 15/20 (0.675 → passes, uncertain); the
+    19/20 one with `injectionSuspect` (min(0.855, 0.7) = 0.7 → passes,
+    uncertain); a perfect 20/20 pair with `historyStale` (1 × 0.9 × 0.9 = 0.81
+    → high: AD-14's tier invariant); a Reuse candidate `heuristic` with
+    evidence 1 (0.9 → capped 0.7, uncertain); a `human` fact (1.0, no
+    dampening); a landmine support 3 (min(1, 3/3) × 0.9 = 0.9, high) and
+    support 2 (2/3 × 0.9 = 0.6, uncertain), and the support-3 landmine again
+    with `bar.support_min` tuned to 5 (still 0.9, high — the ratio reads
+    `bar.hazard_full_support`, H10); impact: read
     context with `blastRadius` 1 (fails), 2 (passes), 1 with zone
     `generated` (passes); marginal: a `structural` candidate not comparative
     (fails), `mined` with `obvious` (fails), `mined` single-file Warning
@@ -10299,6 +11248,34 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **NOT asserts.** Rendering. **Fails when** any `confidence` differs from
     the stated value by more than 1e-9, OR any `tier`, pass, or `failedAxis`
     differs.
+
+- **T-16-3 — Recency weights the evidence: an old perfect pairing speaks, a pairing that came apart does not.**
+  - **File.** `test/unit/bar_recency.test.ts`.
+  - **Verifies.** Steps 13 and 16 together — AD-13's recency weighting as the
+    bar reads it (collapse-hunt H1: the retired multiplier silenced every
+    perfect pairing older than about 213 days).
+  - **Level.** Integration (real `git`, real miner, real store, real bar).
+  - **Real/doubles.** Real `git`; `mineCochange`; `passesBar` over a seeded
+    `tuningReader`; fixture `recency-weighting`; no doubles.
+  - **Data.** `recency-weighting` (Step 16's fixture), with `HEAD` a recent
+    commit and ≥ 30 included commits: (a) `old_a.ts` and `old_b.ts` changed
+    together in 10 commits dated 4.9 years before `HEAD` (inside the
+    five-year horizon) and never since; (b) `apart_a.ts` and `apart_b.ts`
+    changed together in 20 commits dated 4.9 years before `HEAD`, then
+    `apart_a.ts` alone in 5 commits dated within the 30 days before `HEAD`;
+    unrelated filler commits for the corpus floor. Mined at the seeded
+    half-life (365 days); each pair's Coupling candidate built from the store
+    (`evidence` counts, `weightedEvidence` weights) and passed to `passesBar`
+    with history and index fresh. Technique: equivalence partitioning (a
+    pairing that always held / one that came apart).
+  - **NOT asserts.** Headline wording. **Fails when** (a)'s confidence is not
+    0.9 within 1e-9 (a ratio of 1 × the trust factor, whatever its age) or it
+    fails the floor or its tier is not `high`, OR (b) passes the confidence
+    floor (its raw counts read 20 of 25 = 0.8, which with the trust factor,
+    0.72, would pass; its weighted ratio, with `apart_a.ts` as the touched
+    file, is about 0.12 — 0.11 after the trust factor), OR (b)'s headline
+    evidence is not `20 of its last 25 changes` (the display stays the raw
+    counts, AD-14).
 
 - **T-17-1 — Command classifier: single segment.**
   - **File.** `test/unit/command_class.test.ts`.
@@ -10419,7 +11396,9 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     fix-chatter text's day count is not the tuned
     `landmine.fix_chatter_window_days` (the test tunes it to 30 and expects
     `30 days` — N10), OR with `historyAvailable = false` a miner-kind row
-    yields a candidate or the `human_stated` row does not.
+    yields a candidate or the `human_stated` row does not, OR a miner-kind
+    candidate's `evidenceJson` lacks `support` and `changeCount` equal to the
+    row's support and the target's `files.change_count` (L13).
 
 - **T-18-6 — Completeness generator: unchanged partner.**
   - **File.** `test/unit/genre_completeness.test.ts`.
@@ -10445,15 +11424,18 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     neither "not run" nor "no recognized run".
   - **Level.** Integration (real store from `verification-covering-test`).
   - **Real/doubles.** Real store; no doubles.
-  - **Data.** Four variants: no run; run `ok`; run `failed`; `make check`
-    (class 3); plus a Go variant (`pkg/a.go` edited, `pkg/a_test.go` covering
-    it by the same-directory rule, Step 14) with no run. Technique: decision
-    table.
+  - **Data.** Five variants: no run; run `ok`; run `failed`; `make check`
+    (class 3); a class-1 runner mapped to a different test file (`npm test
+    other.test.ts`) with no class-3 segment; plus a Go variant (`pkg/a.go`
+    edited, `pkg/a_test.go` covering it by the same-directory rule, Step 14)
+    with no run. Technique: decision table.
   - **NOT asserts.** Done-claim recognition (T-18-8). **Fails when** the
     mapping is not the headline, OR run-state stands alone, OR the strong
     claim appears with a class-3 command present, OR the run-and-failed
-    variant asserts either not-run clause, OR the Go variant yields no
-    candidate.
+    variant asserts either not-run clause, OR the mapped-elsewhere variant
+    does not carry `; not run this session` (AD-15's rule: every segment is
+    class 1 or 2 after the mapped subtraction — expert review M6), OR the Go
+    variant yields no candidate.
 
 - **T-18-8 — Done-claim recognizer errs toward silence.**
   - **File.** `test/unit/done_claim_recognizer.test.ts`.
@@ -10646,15 +11628,23 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Verifies.** Step 21's reseed helpers.
   - **Level.** Unit (parsed JSONL literals).
   - **Real/doubles.** Real functions; no doubles.
-  - **Data.** Entries: an attachment-shaped entry whose nested string holds
-    `prefix: [oracle] coupling: a` and, on a second line, `[oracle] b`; a
-    user string with no marker; `tool_use` Read `a.ts` with result
-    `is_error: false`; Edit `b.ts` with `is_error: true`; Write `c.ts` with no
-    `is_error` field; Grep with `is_error: false`; a `tool_result` whose
-    `tool_use_id` matches nothing. Technique: decision table.
+  - **Data.** Entries in the observed layout (V23; collapse-hunt P4 — a
+    successful file-tool result carries no `is_error` field, a failed one
+    carries `is_error: true`): an attachment-shaped entry whose nested string
+    holds `prefix: [oracle] coupling: a` and, on a second line, `[oracle] b`;
+    a user string with no marker; `tool_use` Read `a.ts` whose result has no
+    `is_error` field (a success); Edit `b.ts` with `is_error: true` (a
+    failure); Write `c.ts` with no `is_error` field (a success); a Read
+    `d.ts` whose result carries `is_error: false` (the Bash-style shape, still
+    a success); Grep with no `is_error` field; a `tool_use` Edit `e.ts` with
+    no paired result; a `tool_result` whose `tool_use_id` matches nothing.
+    Technique: decision table.
   - **NOT asserts.** Entry discrimination (T-21-1). **Fails when**
     `oracleLines` is not `['[oracle] coupling: a', '[oracle] b']`, OR
-    `successfulToolTargets` is not exactly `[{tool: 'Read', pathRaw: 'a.ts'}]`.
+    `successfulToolTargets` is not exactly `[{tool: 'Read', pathRaw: 'a.ts'},
+    {tool: 'Write', pathRaw: 'c.ts'}, {tool: 'Read', pathRaw: 'd.ts'}]` (in
+    transcript order: the failed Edit, the Grep, and the unpaired Edit
+    excluded).
 
 - **T-22-1 — QA state DAO: round-trips, dedup, concurrent open, re-open.**
   - **File.** `test/unit/qa_state.test.ts`.
@@ -10952,11 +11942,16 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Verifies.** Step 37 (the full build replaced the skeleton; review N9).
   - **Level.** Unit (source scan over `src/**`).
   - **Real/doubles.** Real sources; no doubles.
-  - **Data.** The source tree; a seeded temporary file containing
-    `// SKELETON: G1`. Technique: state-transition.
+  - **Data.** The source and test trees (this test's own file excluded from
+    the `test/` scan, since it names the patterns); seeded temporary files
+    containing `// SKELETON: G1`, `// SKELETON: 1R — x; retired by Step 18`,
+    `throw new Error('not implemented: x')`, and a `test/` file with `{ todo:
+    'SKELETON: 1R — x; retired by Step 28' }`. Technique: state-transition.
   - **NOT asserts.** Code quality. **Fails when** any `src/` file contains
-    `SKELETON` or `WALKING SKELETON`, OR `src/cli/verbs_skeleton.ts` exists,
-    OR the seeded mark is not detected.
+    `SKELETON`, `WALKING SKELETON`, or `not implemented:`, OR any `test/`
+    file carries a `node:test` `todo` option or `SKELETON: 1R`, OR
+    `src/cli/verbs_skeleton.ts` or `src/cli/context.ts` exists, OR any seeded
+    mark is not detected.
 
 ### 12.2 Handler and CLI tier (real built binary, real stores)
 
@@ -11052,7 +12047,9 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     `repo-key-nongit` prepared path-keyed, an event with `cwd` = a
     subdirectory of it; (d) an event from a never-`init`-ed temp git repo,
     twice in session `sx` and once in `sy`; (e) the handler with an empty
-    `CTXORACLE_HOME`. The function-level half calls `findRepoRoot` on each
+    `CTXORACLE_HOME`; (f) `indexer-small` prepared, then its project store
+    file replaced by a directory of the same name, and one event (collapse-hunt
+    H8). The function-level half calls `findRepoRoot` on each
     layout, including a submodule-shaped `.git` file without `commondir`.
     Technique: decision table over layouts.
   - **NOT asserts.** Whisper wording. **Fails when** (a) records no
@@ -11061,8 +12058,17 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     `SessionStart` spawns a reindex child or leaves `indexStale` false, OR
     (c) does not find the path-keyed store, OR (d) writes anything but one
     `repo_not_bound` line per session (two lines for `sx` + `sy` in total)
-    on the home channel, or creates any `projects/` directory or store, OR
-    (e) creates anything but `<home>/diagnostics/` and its fault, OR any
+    on the home channel and one marker file per session,
+    `<home>/diagnostics/repo_not_bound.<sha256Short(sx)>.marker` and
+    `…<sha256Short(sy)>.marker`, or creates any `projects/` directory or
+    store, OR (e) creates anything but what Step 4's `ensureHome` creates —
+    `<home>/`, an empty `<home>/global/` (no `global.db`), and
+    `<home>/diagnostics/` — plus, in `<home>/diagnostics/`, the session's
+    JSONL fault file (Step 6's `<session-short>.jsonl`) holding the one
+    `repo_not_bound` line and its `repo_not_bound.<sha256Short(session)>.marker`
+    (expert review M4), OR (f) records anything but one `repo_not_bound` with
+    `reason: 'store_unreadable'`, `store: 'project'`, `pathKind:
+    'directory'`, or records `store_missing`, or creates a store file, OR any
     event spawns `git` (the test runs the handler with a `PATH` whose `git`
     is a script that records its invocation and fails), OR `findRepoRoot`
     gives the submodule anything but its own directory as root.
@@ -11092,14 +12098,24 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Data.** Three `PostToolUse` events in one millisecond-scale burst: an
     `ok` `Edit` of `src/a.ts` (absolute `file_path`), an `ok` `Write` of a
     1.5 MB file, an `ok` `Write` of a 20,001-line 200 KB file; a
-    `PostToolUseFailure` `Edit`; a `Bash` `cd pkg && npm test` event.
-    Technique: boundary value (the two caps) + equivalence partitioning.
+    `PostToolUseFailure` `Edit`; a `Bash` `cd pkg && npm test` event; and
+    four `PostToolUse` search events in the installed Claude Code's shapes
+    (collapse-hunt P5): a Glob `{filenames: ['src/a.ts'], durationMs,
+    numFiles, truncated}`, a Grep `{mode: 'files_with_matches', filenames:
+    ['src/a.ts'], numFiles: 1}`, a Grep `{mode: 'content', numFiles: 0,
+    filenames: [], content: 'src/a.ts:1:x'}`, and a Grep response with no
+    `filenames` field. Technique: boundary value (the two caps) +
+    equivalence partitioning.
   - **NOT asserts.** Regret. **Fails when** the `Edit` row's `path` is not
     `src/a.ts` or its `content_hash` is not the SHA-256 of the file's bytes,
     OR either over-cap row's hash is not NULL, OR the failed row has a hash,
     OR the Bash row's `command_class`/`segments_json` differ from Step 17's
     classification, OR the `seq` values are not strictly increasing in event
-    order.
+    order, OR either listing search's session row carries a
+    `search_results` detail, OR the content-mode Grep's session row does not
+    carry `search_results = 'mode_unsupported'`, OR the field-less Grep's
+    does not carry `'unrecognized'` (collapse-hunt H3: an empty `filenames`
+    array must never read as a recognized zero).
 
 - **T-28-10 — Audit groups: whisper + delivered, backstop audited.**
   - **File.** `test/replay/audit_groups.test.ts`.
@@ -11109,31 +12125,46 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Data.** `coupling-nonobvious`: a `PostToolUse Read` producing a
     Coupling whisper; a `Stop` with a done-claim and one open question
     (`UserPromptSubmit` earlier in the stream); the same `Stop` stream
-    replayed with stdout closed. Technique: state-transition.
+    replayed with stdout closed; and, on `completeness-paired-change`, an
+    `ok` `Edit` of one half of a pair followed by a `Stop` with
+    `stop_hook_active: true` and a done-claim, then a `Stop` with
+    `stop_hook_active: false` (expert review S2). Technique:
+    state-transition.
   - **NOT asserts.** Wording beyond the prefix. **Fails when** the whisper's
     `whisper_audit` row and its `consumer_state` `delivered` row are not both
     present, OR the `Stop` response's last line is not the `[oracle] still
     unanswered:` line, OR that line has no `whisper_audit` row with genre
     `answer_drift_backstop` and subject `backstop:<id>` (N2 — executed, the
     skeleton had none), OR the closed-stdout replay does not record
-    `produced_but_undelivered` for each audited id.
+    `produced_but_undelivered` for each audited id, OR the
+    `stop_hook_active: true` `Stop` writes any `whisper_audit` row or
+    `consumer_state` `delivered` row, emits any output, or lacks
+    `detail_json.stop_hook_active = true` on its session row, OR the
+    following `stop_hook_active: false` `Stop` does not deliver the
+    Completeness whisper with its audit row (the candidate waited, it was not
+    lost).
 
 - **T-28-11 — The fork reseed through the handler.**
-  - **File.** `test/replay/audit_groups.test.ts`.
+  - **File.** `test/replay/fork_reseed.test.ts` (its own file — expert review
+    m5).
   - **Verifies.** Step 28 item 6 (AD-16 fork reseed; AD-17's `set`).
   - **Level.** Acceptance.
   - **Real/doubles.** Real handler; real store and transcript files; no
     doubles.
   - **Data.** Session `s1` receives a Coupling whisper (its audit text is
     known); a transcript for new session `f1` holding that exact text in a
-    nested string and one successful `Read` of the target; `SessionStart
+    nested string and one successful `Read` of the target — its
+    `tool_result` block carrying **no** `is_error` field, the observed shape
+    of a successful Read (V23; the D-plan-39 collapse); `SessionStart
     {source: fork, session_id: f1}`; then the `PostToolUse Read` that
     produced the whisper, in `f1`; a second fork `f2` whose transcript holds
-    only `[oracle] coupling: reworded`. Technique: state-transition.
+    only `[oracle] coupling: reworded`; a third fork `f3` whose transcript
+    holds no `[oracle] ` line at all. Technique: state-transition.
   - **NOT asserts.** Transcript layout (T-21-3). **Fails when** the `f1`
     Read repeats the whisper, OR `f1`'s `read` set lacks the target, OR `f2`
     does not record `rebuild_recovered_nothing` with `detail_json.set =
-    'delivered'`.
+    'delivered'`, OR `f3` records one (the no-line case is the silent PG-6
+    case, stated, not claimed loud — collapse-hunt H6).
 
 - **T-29-1 (AC-10) — Watchdog trips, fail-open, latency bound.**
   - **File.** `test/replay/watchdog.test.ts`.
@@ -11187,13 +12218,19 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     once: exactly one regret row appears, dated after `runIndex`, not after
     either `SessionEnd` — the cross-session case — and a second `runIndex`
     run immediately after records no further row for the same revert (the
-    `regret_index_ts` watermark). Technique: decision table.
+    `regret_index_seq` watermark); and, mirroring `T-30-3`'s late committer,
+    after that second pass an `ok` Edit row of a store-held fact's path —
+    whose revert the working tree then shows — is appended with a `ts`
+    **earlier** than the second pass's run time (a handler that stamped `ts`
+    before the pass but committed after it), then a third `runIndex` runs.
+    Technique: decision table + state-transition.
   - **NOT asserts.** Proxy calibration. **Fails when** any of the three TP
     cases records no regret row, OR the never-triggered row is not labelled
     `never_triggered`, OR the unrelated churn, the failed Edit, or the
     single-edit case records one, OR the cross-session case records zero or
     more than one regret row across both `SessionEnd` calls and the two
-    `runIndex` calls combined, OR it records one before `runIndex` runs.
+    `runIndex` calls combined, OR it records one before `runIndex` runs, OR
+    the third pass does not report the late-committed row's revert (M7).
 
 - **T-30-2 — Fold serialization and post-session correction reach.**
   - **File.** `test/unit/whisper_stats_fold.test.ts`.
@@ -11343,20 +12380,26 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Verifies.** Step 32's import order and binding removal (AD-5; G34).
   - **Level.** Acceptance (real CLI).
   - **Real/doubles.** Real CLI, stores, and a real holder process; no doubles.
-  - **Data.** (a) An export directory whose `project.db` is truncated to half;
-    (b) a good export imported with `--replace` while a child process holds
-    the live project store open with uncheckpointed WAL frames; (c) an export
-    taken, then more folds in the live store, then that older export
-    imported; (d) `deinit --purge` in a prepared fixture; (e) an import with a
-    binding whose root does not exist here. Technique: state-transition +
-    error guessing.
-  - **NOT asserts.** Timing. **Fails when** (a) changes either live store or
-    records no `import_rejected` or exits 0, OR (b)'s live store fails
-    `integrity_check` or holds rows other than the export's, OR any
-    `.import-tmp` file survives, OR (c)'s global `whisper_stats` differs from
-    the imported store's `stats_folds` totals, OR (d) leaves a `repo_path:`
-    binding to the purged key, OR (e) does not print the missing root with
-    the `init` instruction.
+  - **Data.** (a) An export directory whose `project.db` is truncated to half
+    and whose `global.db` is good (the good file is validated first — the
+    case where a per-file loop had already replaced the live global store,
+    expert review M2); (b) a good export imported with `--replace` while a
+    child process holds the live project store open with uncheckpointed WAL
+    frames; (c) an export taken, then more folds in the live store, then that
+    older export imported; (d) `deinit --purge` in a prepared fixture; (e) a
+    global import whose export holds a binding whose root does not exist
+    here, a binding for a path this machine also binds (to another key), and
+    lacks a binding this machine has (collapse-hunt H7). Technique:
+    state-transition + error guessing.
+  - **NOT asserts.** Timing. **Fails when** (a) changes either live store —
+    the global one included — or records no `import_rejected` or exits 0, OR
+    (b)'s live store fails `integrity_check` or holds rows other than the
+    export's, OR any `.import-tmp` file survives, OR (c)'s global
+    `whisper_stats` differs from the imported store's `stats_folds` totals,
+    OR (d) leaves a `repo_path:` binding to the purged key, OR after (e) this
+    machine's own binding is missing or its same-path binding now names the
+    export's key, OR the missing root is not printed with the `init`
+    instruction.
 
 - **T-33-1 (AC-9 rendering) — `status` renders every FR-M4 signal.**
   - **File.** `test/replay/status_renders_all.test.ts`.
@@ -11370,7 +12413,9 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     to a removed one; a home-level `repo_not_bound` line; two bindings;
     `lang_capabilities` with one `imports: false` language; three
     `whisper_dropped_unverifiable` faults, one per reason; two `stats_folds`
-    rows. No doubles.
+    rows; session rows carrying `search_results = 'mode_unsupported'` (two)
+    and `'unrecognized'` (one); a home-level `repo_not_bound` line with
+    `reason: 'store_unreadable'`. No doubles.
   - **Data.** The seeded store. Technique: decision table (each signal
     present/absent in output).
   - **NOT asserts.** Aesthetics. **Fails when** any Step 33 signal is missing,
@@ -11381,7 +12426,9 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     its start time, OR the removed-interpreter case is not named as
     missing, OR the home-level fault, either binding, the per-language
     capability and unresolved share, a drop reason's count, the walk mode, or
-    the `stats_folds` trend is absent, OR `status` run from a directory with
+    the `stats_folds` trend is absent, OR the two search counts are not
+    printed separately as 2 and 1, OR the `store_unreadable` line is rendered
+    as a deleted store, OR `status` run from a directory with
     no binding does not say it is not set up while still listing the
     home-level fault.
 
@@ -11403,12 +12450,18 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Data.** Set a scalar; add and remove a list member; list;
     `tune bar.suspect_confidence_cap 0.85` (≥ the 0.8 high tier), `tune
     bar.heuristic_confidence_cap 0.5` (< the 0.6 floor), `tune
-    bar.untrusted_trust_factor 0` and `1.2`, then `tune bar.untrusted_trust_factor 1`.
+    bar.untrusted_trust_factor 0` and `1.2`, `tune bar.untrusted_trust_factor
+    0.75` (the tier invariant: 0.75 × 0.9 < 0.8 — collapse-hunt H2), `tune
+    bar.stale_factor 0.85` (0.9 × 0.85 < 0.8), then `tune
+    bar.untrusted_trust_factor 1`; `tune bar.recency_half_life_days 180`
+    (accepted, with the re-mine notice) and `30` (refused, below 37).
     Technique: state-transition + boundary value.
   - **NOT asserts.** Bar recomputation. **Fails when** any value is lost or
-    mutated, OR the listing omits a source or a default, OR any of the four
+    mutated, OR the listing omits a source or a default, OR any of the seven
     refused writes changes a row or exits 0 or prints no reason naming the
-    violated relation, OR the value `1` is refused (the interval is (0, 1]).
+    violated relation, OR the value `1` is refused (the interval is (0, 1]),
+    OR the accepted half-life write prints no notice naming `ctxoracle
+    index`.
 
 - **T-33-4 (AC-9) — `hooks_not_firing` induced and detected by `status`.**
   - **File.** `test/replay/hooks_not_firing.test.ts`.
@@ -11466,16 +12519,21 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Real/doubles.** Real handler; real store; real CLI. No doubles.
   - **Data.** A fixture stream in session `s1` in which an indirect ask
     ("tell me whether renaming is safe") was not recognized and an `Edit`
-    went undenied; `correct --missed-question "was renaming safe"`; replay
-    the `Edit` (denied now); an `Edit` from session `s0` (older liveness row)
-    after the correction; the two collision cases (already-open; Bash-only
-    deviation); the verb run against a store with no liveness row.
-    Technique: state-transition.
+    went undenied; a session `s2` started **after** `s1` (a newer liveness
+    row) whose last event is older than `s1`'s; `correct --missed-question
+    "was renaming safe"`; replay the `Edit` in `s1` (denied now); an `Edit`
+    from `s2` and from session `s0` (older) after the correction; the two
+    collision cases (already-open; Bash-only deviation); the verb run when the
+    session of the most recent event has a `SessionEnd` row; the verb run
+    against a store with no `session_log` row. Technique: state-transition.
   - **NOT asserts.** Bash enforcement (L3). **Fails when** the re-armed deny
-    does not fire in `s1`, OR the `s0` `Edit` is denied, OR no `corrections`
-    row with `verdict = 'missed'` and `genre = 'answer_drift'` exists, OR
-    either collision case prints the wrong message, OR the no-liveness store
-    gains a question row.
+    does not fire in `s1` (the session of the most recent event — AD-18,
+    collapse-hunt H5), OR the `s2` or `s0` `Edit` is denied, OR the verb's
+    output does not name `s1` as the armed session, OR no `corrections` row
+    with `verdict = 'missed'` and `genre = 'answer_drift'` exists, OR either
+    collision case prints the wrong message, OR the ended-session case gains
+    a question row or does not say the session has ended and name
+    `--session`, OR the empty store gains a question row.
 
 - **T-34-3 — `--genre` and the unattributed booking.**
   - **File.** `test/replay/correct_genre.test.ts`.
@@ -11807,12 +12865,13 @@ and are stated on each entry.
   - **Data.** Fixture `completeness-paired-change`, an `Edit` on one half
     (T-38-14's stream), then two `Stop` events, the second with
     `stop_hook_active: true`. Technique: state-transition.
-  - **NOT asserts.** The harness's 8-cap; what the second `Stop` computes
-    before `deliverStop` returns `null`. **Fails when** the first `Stop`
+  - **NOT asserts.** The harness's 8-cap. **Fails when** the first `Stop`
     emits no `additionalContext` naming the partner, OR its `whisper_audit`
-    row is absent, OR the second emits `additionalContext`, OR either `Stop`
-    lacks its `session_log` row with `outcome` set, OR the JSONL channel
-    holds a fault line.
+    row is absent, OR the second emits `additionalContext`, OR the second
+    writes any `whisper_audit` or `delivered` row (nothing is generated at a
+    continuation `Stop` — expert review S2), OR either `Stop` lacks its
+    `session_log` row with `outcome` set, OR the JSONL channel holds a fault
+    line.
 
 - **T-38-22 (AC-11) — Planted secrets and injection payloads.**
   - **File.** `test/replay/security_ac11.test.ts`.
@@ -12065,7 +13124,7 @@ and are stated on each entry.
 | AC-10 | T-29-1, T-28-3 | A |
 | AC-11 | T-11-1..T-11-4, T-38-22, T-32-3 | A |
 | AC-12 (deterministic parts) | T-38-1, T-38-4, T-36-1 (no model path; nothing switched off) | A |
-| AC-13 | T-13-1, T-13-2, T-13-3, T-13-5, T-14-1, T-14-2, T-14-3, T-16-1 (recency and stale-index dampening cases), T-16-2 | A |
+| AC-13 | T-13-1, T-13-2, T-13-3, T-13-5, T-14-1, T-14-2, T-14-3, T-16-1 (per-class staleness cases), T-16-2, T-16-3 (recency weighting) | A |
 | AC-14 | T-19-1 | A |
 | AC-15 | T-38-23 | A |
 | AC-16 | — | C (deferred) |
@@ -12217,14 +13276,16 @@ seam.
 
 - **R15 — The reopened substrate breaks the skeleton's later steps before
   their full builds replace them.** Changing Step 6's types and Step 7's
-  schema will stop the skeleton code of Steps 13–39 compiling or passing
-  until each is rebuilt. *Mitigation:* Checkpoint 1R's mechanical compile
-  adaptation keeps the build green; the build order (§7) rebuilds Steps
-  13 onward immediately after Checkpoint 1R, each test-first; a skeleton test
-  that fails only because its step has not been rebuilt yet is expected red,
-  recorded as such in the implementation log, and never "fixed" against the
-  old types. `npm test` is green again at Checkpoint 2 for Steps 1–20 and at
-  Checkpoint 3 for Steps 1–28.
+  schema stops the skeleton code of Steps 13–39 compiling or passing until
+  each is rebuilt. *Mitigation:* the broken files are declared in the Step 6
+  and 9 deltas and reduced by §9's three-form placeholder rule, each
+  placeholder marked `SKELETON: 1R` with its retiring step; a test the
+  reduction turns red is marked `node:test` `todo` with its retiring step,
+  never deleted or "fixed" against the old types; so `npm test` and CI stay
+  green at Checkpoint 1R, and `T-37-1` fails Checkpoint 4 while any mark
+  remains (expert review S1; collapse-hunt H12, H13). *Residual:* a broken
+  file the read of the skeleton missed — handled by expert-implement's
+  blast-radius stop, not inline.
 
 ---
 ## 14. Question register
@@ -12483,7 +13544,7 @@ bin, and its closed disposition.
   SQLite lacks FTS5? **Disposition.** Answered — D-plan-28: `init` passes
   the probe's `false` to the migration runner, which applies 001, records
   `fts_state = 'fallback'` once the table exists, and skips 001b (never
-  retried); `symbolSearch`/`pathSearch` take the indexed `LIKE` path
+  retried); `symbolSearch`/`pathSearch` take the indexed token-table path
   behind the same interface, `status` prints `fts_state`; `T-7-1` and
   `T-14-1` run both paths.
 - **Q52 (Step 29).** Where and when is the ≈400 MB `large-store` built?
@@ -12687,22 +13748,25 @@ Seven passes over the assembled document, 2026-09-07.
 
 The review's summary table routes every item to a layer; each plan- or
 code-layer part is recorded in the step named here, with its reason, as the
-required behaviour plus its test. Items the architecture's second pass
-superseded are marked **rejected** with the evidence.
+required behaviour plus its test. The Notes column is a pointer only — the
+AD or step where the reason lives; an item the architecture's second pass
+superseded is marked **rejected**, **superseded**, or **refined** there
+(collapse-hunt R1: the column had repeated rationale the named decisions
+already hold).
 
 | Item | Where it lives now | Tests | Notes |
 |---|---|---|---|
-| G1 | S12 (`lexicon.fix_keywords`), S13 (labels) | T-13-4 | (c) **partly rejected**: fix detection runs after the size exclusion — AD-15 second pass (CH C1 / ER M10: a 200-file "fix lint" sweep); reverts before it, as the review decided |
-| G2 | S7, S9, S13, S14 | T-7-1, T-9-1, T-14-3 | `in_tree`, rows kept while referenced |
-| G3 | S7, S9, S13, S16 | T-13-2, T-16-2 | `change_count` denominator |
-| G4 | S6 (`history_rewritten`), S13 | T-13-3 | "one transaction … then the full mine" refined: the purge is one transaction, the re-mine is chunked (AD-13/AD-26 second pass); purge set gains `labelled_touches` |
-| G5 | S7, S9, S13 | T-13-4 | "inside the pass's transaction" superseded: one short final transaction (AD-26) |
-| G6 | S1 delta (c); `modify: generate.ts` on S13, S14, S15, S18, S28, S30, S38; S13 provides `parseNumstatZ` | T-1-3, T-13-1 | |
+| G1 | S12 (`lexicon.fix_keywords`), S13 (labels) | T-13-4 | (c) partly rejected — AD-15 |
+| G2 | S7, S9, S13, S14 | T-7-1, T-9-1, T-14-3 | AD-4 |
+| G3 | S7, S9, S13, S16 | T-13-2, T-16-2 | AD-13 |
+| G4 | S6 (`history_rewritten`), S13 | T-13-3 | refined — AD-13, AD-26 |
+| G5 | S7, S9, S13 | T-13-4 | superseded — AD-26 |
+| G6 | S1 delta (c); `modify: generate.ts` on S13, S14, S15, S16, S18, S28, S30, S38; S13 provides `parseNumstatZ` | T-1-3, T-13-1 | |
 | G7 | S5, S6, S13, S14 | T-5-4, T-5-5, T-14-3 | |
 | G8 | §7 conventions; S12 reader; signatures S13–S18, S28 | T-12-2 | |
-| G9 | S3 | T-3-5 | "Steps 13 and 14 wrap their passes" superseded by chunked units of work (AD-26) |
-| G10 | architecture V21; S28 builds no suppression | — | review: does not hold |
-| G11 | S14 (walk, non-git, remaining outputs) | T-14-3 | (c) **rejected**: AD-12 second pass restored the signal as "a tracked file that matches an ignore pattern" (ER M4, executed) |
+| G9 | S3 | T-3-5 | superseded — AD-26 |
+| G10 | architecture V21; S28 builds no suppression | — | does not hold — V21 |
+| G11 | S14 (walk, non-git, remaining outputs) | T-14-3 | (c) rejected — AD-12 |
 | G12 | S15 resolvers | T-15-1, T-15-3, T-15-5 | |
 | G13 | S14 interface, S15 capabilities and queries | T-15-6, T-18-3 | |
 | G14 | S14, S15 (`init`, failure as a value) | T-15-4 | |
@@ -12711,23 +13775,23 @@ superseded are marked **rejected** with the evidence.
 | G17 | S12 (`tuningReader`) | T-12-2 | |
 | G18 | S6, S16, S18, S28 | T-16-2, T-18-9 | |
 | G19 | S6, S13 (`ref_ts`), S16, S28 | T-13-1, T-16-1 | |
-| G20 | S12, S16, S19 | T-12-1, T-16-2, T-19-1 | `bar.untrusted_confidence_cap` **rejected**: superseded by AD-14's trust dampener (CH C2 / ER M9 — it flagged every mined whisper uncertain) |
+| G20 | S12, S16, S19 | T-12-1, T-16-2, T-19-1 | `bar.untrusted_confidence_cap` rejected — AD-14 |
 | G21 | S6, S18, S25, S28 | T-18-2, T-28-7, T-28-9 | |
 | G22 | S6, S9, S18 | T-9-1, T-18-6 | |
-| G23/G29 | S6, S20, S22, S25, S27, S28 | T-6-4, T-20-1, T-22-1, T-25-3, T-27-1 | fork premise closed by V22 (no parent id) |
-| G24 | S6, S18, S19 | T-6-3, T-19-1, T-19-3 | filename flag at row creation by either writer, own-target exception (AD-19 second pass) |
+| G23/G29 | S6, S20, S22, S25, S27, S28 | T-6-4, T-20-1, T-22-1, T-25-3, T-27-1 | V22 |
+| G24 | S6, S18, S19 | T-6-3, T-19-1, T-19-3 | AD-19 |
 | G25 | S6, S18, S20 | T-20-1, T-38-34 | |
 | G26 | S1 delta (a) (code: the fixture) | T-21-1 | |
 | G27 | S25 | T-25-3 | |
 | G28 | S22, S27 | T-22-1, T-27-1 | |
-| G30 | S28 (`repo_binding.ts`), S31 | T-28-7, T-31-1 | worktree and path-keyed walk from AD-23 |
+| G30 | S28 (`repo_binding.ts`), S31 | T-28-7, T-31-1 | AD-23 |
 | G31 | S6, S28 | T-28-8 | |
 | G32 | S28 (writer), S30 (reader) | T-28-9, T-30-1 | |
-| G33 | S7, S30 | T-30-2, T-30-3 | review's `window_start`/`window_end` rows and "the genre the verb names, or `answer_drift`" **rejected**: superseded by `stats_folds`, the replaced replica, `--genre`, and `unattributed` (AD-5 second pass, CH C4/H8, ER M6/M7) |
-| G34 | S3 (`backupFile`), S32 | T-3-6, T-32-4 | "backup, then `quick_check` the result" refined to validate a temporary copy before writing the live store (AD-5, ER M12) |
+| G33 | S7, S30 | T-30-2, T-30-3 | rejected — AD-5, AD-18 |
+| G34 | S3 (`backupFile`), S32 | T-3-6, T-32-4 | refined — AD-5 |
 | G35 | S4, S28 | T-4-1, T-28-3, T-28-7 | |
-| G36 | S39 | — (exit run) | corpus by inclusion |
-| `PreToolUse` item | S18 wording; L12 | T-18-4, T-18-5, T-38-13, T-38-29 | (c) "just edited" **rejected**: superseded by "the file this edit targets" (AD-15 second pass, CH C3 / ER S1 — a denied or failed edit made it false) |
+| G36 | S39 | — (exit run) | |
+| `PreToolUse` item | S18 wording; L12 | T-18-4, T-18-5, T-38-13, T-38-29 | (c) rejected — AD-15, L12 |
 | N1 | S13 (`corpus_floor_met`), S18 gate, fixtures ≥ 30 commits | T-13-1, T-18-9, T-38-18 | |
 | N2 | S27, S28 | T-27-2, T-28-10 | |
 | N3 | S6, S28 | T-28-7 | |
@@ -12736,7 +13800,7 @@ superseded are marked **rejected** with the evidence.
 | N6 | S7, S14 (code: `search.ts`) | T-14-5, T-15-3 | |
 | N7 | S14 | T-14-3 | |
 | N8 | S15 | T-15-3, T-15-5 | |
-| N9 | S14 (zone rule), S37 (`T-37-1`) | T-14-3, T-37-1 | "list it in the implementation log" is outside the plan (the log is out of this pass's scope); Step 37 names each unmarked omission and the step that builds it |
+| N9 | S14 (zone rule), S37 (`T-37-1`) | T-14-3, T-37-1 | S37 |
 | N10 | §7 conventions; S13, S16, S18, S19 | T-18-5 | |
 | N11 | S7 (`seq`), S30 | T-30-3 | |
 | N12 | = G22 | | |
@@ -12756,8 +13820,9 @@ Each entry carries its resolution-attempt evidence and what would close it.
   `qa.clear_length_floor_chars` 2; `landmine.fix_chatter_k` 3 within 90
   days; `security.entropy_bits_per_char` 4.0 over tokens ≥ 20 characters;
   `qa.done_claim_trailing_turns_k` 3; `bar.recency_half_life_days` 365;
-  `bar.stale_index_factor` 0.8; `diag.hooks_not_firing_gap_s` 600 (Step
-  12; reasoning in D-plan-7).
+  `diag.hooks_not_firing_gap_s` 600; `index.entry_marker_points` 1 (Step
+  12; reasoning in D-plan-7 and D-plan-44). The staleness factor is no longer
+  a plan seed: AD-14 states `bar.stale_factor` 0.9 since `6cff0ce`.
   **Attempt.** Read the architecture in full for stated values (AD-9, AD-14,
   AD-15, AD-18, AD-19 — §11.6 records the exact passages that leave them
   open); read spec §9's ROSE note (the spec "lifts no fixed operating
@@ -12801,32 +13866,53 @@ Each entry carries its resolution-attempt evidence and what would close it.
 - **PG-5 — The 2026-09-26 pass ran without Clear Thought and CodeGraph.** The
   planning skill requires both (`.claude/skills/expert-plan/SKILL.md` Steps 2
   and 6). *Attempt:* the session's tool list and its deferred-tool list were
-  read; neither server is present. *Instead:* every premise the new decisions
-  rest on was executed or read (§11.4) and each decision is written with its
-  reasoning and rejected alternatives (D-plan-33 – D-plan-44); the file map is
-  the declaration-derived §5.1 and the derivation script's build-order check.
+  read; neither server is present (nor in the revision against `6cff0ce`).
+  *Instead:* every premise the new decisions rest on was executed or read
+  (§11.4); each decision is written with its reasoning and rejected
+  alternatives (D-plan-33 – D-plan-44, §10 — D-plan-38 and D-plan-41 gained
+  theirs in the revision, expert review M1) and with its author's four-step
+  collapse test (§10A, likewise added in the revision); the file map is the
+  declaration-derived §5.1 and the derivation script's build-order check.
   *Closes when:* a session with both servers re-runs the survey (`codegraph_scan`
   with `force: true` over `ctxoracle/`, which now exists) and traces
   D-plan-33 – D-plan-44; the independent review of this pass is the check in
   the meantime.
-- **PG-6 — The shape of hook-injected text in a transcript is unobserved.**
-  *Attempt:* V22 (documented: "Claude Code saves the injected text in the
-  session transcript"); this session's transcript read for attachment types
-  (none is a hook-context type — no hook here emits `additionalContext`,
-  §11.4). *Consequence:* the fork reseed keys on the oracle's own one-line
-  prefix (D-plan-39); a wrapper that breaks the line recovers nothing, and
-  that is the loud `rebuild_recovered_nothing` (set `delivered`). *Closes
-  when:* the exit run's leg 2 (a `claude -p` session with the hooks wired,
-  Step 39) produces a transcript carrying oracle text; the report states
+- **PG-6 — The shape of hook-injected text in a transcript is unobserved,
+  and a reseed that finds no oracle line is silent.** *Attempt:* V22
+  (documented: "Claude Code saves the injected text in the session
+  transcript"); this session's transcript read for attachment types (none is
+  a hook-context type — no hook here emits `additionalContext`, §11.4).
+  *Consequence:* the fork reseed keys on the oracle's own one-line prefix
+  (D-plan-39). Exactly one failure is loud — `[oracle] ` lines found and none
+  matching an audited text records `rebuild_recovered_nothing` (set
+  `delivered`). A wrapper that splits or rewrites the line so that **no**
+  `[oracle] ` line is found records nothing: the reader cannot tell "the
+  parent was never whispered to" from "the text was saved in a shape the
+  prefix misses" (collapse-hunt H6). *Unverified premise that would make it
+  loud:* that a fork's transcript keeps the parent's entries with the
+  parent's `sessionId` values and the parent's injected lines — if it does,
+  "entries carrying a parent `sessionId` that has `whisper_audit` rows, and
+  no oracle line found" could raise `rebuild_recovered_nothing` too; it is
+  not built on an unobserved layout. *Closes when:* the exit run's leg 2 (a
+  `claude -p` session with the hooks wired, Step 39) produces a forked
+  transcript carrying oracle text; the report states the observed entry
+  shape, whether the parent's session ids and injected lines were kept, and
   whether the reseed recovered keys.
-- **PG-7 — The Grep/Glob `tool_response` schema is undocumented and
-  unobserved.** *Attempt:* the hooks reference fetched 2026-09-26 ("the exact
-  schema … depends on the tool"; no Grep/Glob example); every transcript on
-  this machine searched for a Grep/Glob `toolUseResult` (none). *Consequence:*
-  the adapter reads `tool_response.filenames` (D-plan-40), and an
-  unrecognized response is a counted zero in `status`. *Closes when:* the
-  first leg-2 session with a Grep or Glob; `T-28-9`-style assertions on a
-  captured payload are added then.
+- **PG-7 — The Grep/Glob `tool_response` schema is undocumented, and that
+  the hook receives the tool's output object is unverified.** *Attempt:* the
+  hooks reference fetched 2026-09-26 ("the exact schema … depends on the
+  tool"; no Grep/Glob example); every transcript on this machine searched for
+  a Grep/Glob `toolUseResult` (none); the installed Claude Code 2.1.283
+  binary's own Grep output schema read with `strings` in the collapse-hunt
+  (P5): `{mode?, numFiles, filenames: string[], content?, …}`, with
+  `filenames: []` in the `content` and `count` modes, and Glob's
+  `{filenames, durationMs, numFiles, truncated}`. *Not verified:* that the
+  hook's `tool_response` is that object (no hook in the container emitted a
+  payload to capture). *Consequence:* the adapter reads
+  `tool_response.filenames` except in a non-listing Grep mode (D-plan-40), and
+  both a `mode_unsupported` and an `unrecognized` response are counted zeros
+  in `status`. *Closes when:* the first leg-2 session with a Grep or Glob;
+  `T-28-9`-style assertions on a captured payload are added then.
 - **PG-8 — The lock-hold bound on the CI runner is a measurement.** AD-26's
   claim (a chunked mine keeps a concurrent handler's write under the 200 ms
   busy bound) is asserted by `T-13-5` on whatever machine runs it; a slower
@@ -12863,17 +13949,31 @@ Each entry carries its resolution-attempt evidence and what would close it.
    engineering flaw is corrected in the architecture in its own pass, with the
    reason recorded there, and the plan follows in a separate pass; only a flaw
    in an owner decision goes to Max Cogar.
-   **Resolved 2026-09-26 (architecture commit db9ecf9):** the six earlier
-   premise-maintenance items — V6's timeout clause (a timed-out `PreToolUse`
-   hook fails open silently); V14's runtime (the 0.25.10 pin); AD-12's and
-   L6's coverage ("32 of 36"); AD-26's "directory lock" (the `schema_meta`
-   claim row, D-plan-32); AD-21's scrubbed environment (the session-identity
-   set) — and the plan pass's (a)–(h): `corrections.genre` and
-   `cochange_pairs.last_commit` in AD-4 (D-plan-35); the single-file history
-   class and the landmine evidence ratio in AD-14 (D-plan-41, D-plan-34); the
-   session `--missed-question` arms in AD-18 (D-plan-37); global-import
-   semantics in AD-5 (D-plan-43); the fallback-search indexes in AD-2
-   (D-plan-36); AD-23's V6 citation.
+   **Resolved:** the items raised by the earlier passes are in the
+   architecture at commits `db9ecf9` and `6cff0ce`.
+   **Raised by this revision, for the next architecture pass** (engineering
+   items; the plan's handling is stated in the step, so the build is not
+   blocked):
+   (a) *AD-2 says "a normalized-token column on `symbols`".* A column holds
+   one value per symbol, and a name such as `Foo::Bar` or `foo-bar` has two
+   tokens; a prefix query for the second (`bar`, one of AD-2's own named
+   cases) cannot use a plain index over a column that starts with the first,
+   so the agreement AD-2 promises would fail for exactly those names. The plan
+   builds the fallback as a `symbol_tokens(token, symbol_id)` table, one row
+   per token, the same shape as `path_tokens` (Step 7; executed, §11.4).
+   Proposed fix: AD-2 and AD-4 name that table.
+   (b) *AD-13's weight `2^((ts − T0)/h)` overflows an IEEE-754 double for a
+   small `h`.* With `T0` = 2000-01-01, the weight of a 2100 commit is
+   `Infinity` at `h` = 30 days (executed, §11.4), and AD-13 states no bound
+   on `h`. The plan's `checkTuningWrite` refuses `h` < 37 days (Step 12).
+   Proposed fix: AD-13 states the bound (or computes the weights relative to a
+   later epoch it re-bases on a full mine).
+   (c) *AD-13's "changing `h` requires a re-mine, which `tune` states" leaves
+   the re-mine to Max.* The plan makes it automatic — the miner records
+   `mined_half_life_days` and a differing `h` makes the next pass a purged
+   full re-mine (Step 13) — because an incremental pass over weights mined
+   under another `h` would mix two decay rates in one ratio with no signal.
+   Proposed fix: AD-13 records the same rule.
    **Still open:** L11(a)'s status is whatever the exit report's origin-keyed
    marker table says — *verified* only if an owner-local interactive
    transcript was in the corpus; AD-16 relies on V22's documented "injected
