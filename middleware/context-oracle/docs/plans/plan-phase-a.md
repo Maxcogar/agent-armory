@@ -13950,10 +13950,9 @@ Each entry carries its resolution-attempt evidence and what would close it.
    reason recorded there, and the plan follows in a separate pass; only a flaw
    in an owner decision goes to Max Cogar.
    **Resolved:** the items raised by the earlier passes are in the
-   architecture at commits `db9ecf9` and `6cff0ce`.
-   **Raised by this revision, for the next architecture pass** (engineering
-   items; the plan's handling is stated in the step, so the build is not
-   blocked):
+   architecture at commits `db9ecf9` and `6cff0ce`; (a)–(c) below, raised by
+   this revision, were adopted as the plan builds them at `0676431`.
+   **Raised by this revision** (engineering items, now resolved):
    (a) *AD-2 says "a normalized-token column on `symbols`".* A column holds
    one value per symbol, and a name such as `Foo::Bar` or `foo-bar` has two
    tokens; a prefix query for the second (`bar`, one of AD-2's own named

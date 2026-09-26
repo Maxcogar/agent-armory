@@ -1653,3 +1653,19 @@ dampeners multiply into one threshold, compute the product at the seeds for the
 strongest possible fact and for a typical real one, and state the ages or
 conditions at which each falls below each threshold; a factor that is harmless
 alone can together be a universal cap.
+
+## 2026-09-26 — the plan pass shipped twelve decisions without their written collapse tests
+
+**What happened.** The 2026-09-26 plan pass added D-plan-33 to D-plan-44 but
+wrote no §10A collapse-test entries for them, although dominating rule 2
+requires the author's four-step test in writing before acceptance. The
+independent collapse-hunt noticed (its H14) and was, in effect, the first test
+those decisions had; one of them (D-plan-39) collapsed. The entries were added
+in the fix pass (plan commit 8162f00).
+
+**Class.** Process skip.
+
+**Standing lesson.** A pass that adds a decision adds its written collapse test
+in the same pass. An independent hunt attacks the author's answers; when there
+are none, it is doing the author's job, and the attack it exists for does not
+happen.

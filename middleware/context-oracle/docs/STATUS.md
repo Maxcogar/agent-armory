@@ -255,25 +255,38 @@ considered and left out of Phase A: the spec ties warnings to an edit, and most
 reads are not followed by one. It is recorded in `docs/IDEAS.md` (#16) with what
 Phase A data would decide it.
 
-**The plan pass is done (2026-09-26, commit 2331baf).** `docs/plans/plan-phase-a.md`
-now follows the architecture as it stands, and every plan- and code-layer
-decision from the gap-list review is recorded in the step that owns it (the
-table is plan §14.5). Steps 1–12 are reopened with "build delta" paragraphs,
-because the corrected schema, types, and data-access code they built are what
-Steps 13–39 consume. The pass raised 8 architecture flaws and 6 older premise
-corrections. All 14 are fixed in the architecture in a separate pass (db9ecf9),
-and the plan's references to them were updated after that (plan section 16, item 5).
-The plan's mechanical gates pass (`derive-plan-sections --check`/`--self-check`,
-`run-plan-probes`, `check_docs.py`). **It has not had its independent review
-yet.**
+**The plan pass is done and reviewed (2026-09-26).** `docs/plans/plan-phase-a.md`
+follows the architecture as it stands, and every plan- and code-layer decision
+from the gap-list review is recorded in the step that owns it (plan §14.5).
+Steps 1–12 are reopened with "build delta" paragraphs, because the corrected
+schema, types, and data-access code are what Steps 13–39 consume.
+
+Two independent checks each ran once:
+- the expert review (`docs/reviews/2026-09-26-plan-pass-expert-review.md`);
+- the collapse-hunt (`docs/reviews/2026-09-26-plan-pass-collapse-hunt.md`).
+
+Every finding held on checking except one detail, which contradicted observed
+transcripts and was rejected with that evidence. The fixes went in one layer
+at a time: architecture 6cff0ce, then plan 8162f00, then the architecture
+adopting the plan's answers to three flaws it raised (0676431).
+
+The most important fix is to the confidence rule. The old rule silenced any
+co-change pair not changed together in the last seven months, because it
+multiplied the result by age. Recency now weights each commit's contribution
+to the counts, so a pairing that has always held keeps its score however old
+it is. Two more fixes:
+- Warnings are no longer lost at a repeated Stop.
+- A full re-mine no longer double-counts.
+
+The lessons are in `docs/collapse-log.md` (2026-09-26). The four plan and doc
+gates pass.
 
 Next, in order:
-1. **One independent review of the plan pass,** plus the mandatory
-   collapse-hunt of its new decisions (D-plan-33 to D-plan-44). Apply every
-   finding that holds, in the layer it belongs to, one layer per pass.
-2. **Build the reopened Steps 1–12 deltas,** then re-verify them at
-   Checkpoint 1R (plan §6, §9).
-3. **Build each step fully**, in plan order from Step 13, replacing the
+1. **Build the reopened Steps 1–12 deltas,** then re-verify them at
+   Checkpoint 1R (plan §6, §9). The skeleton files the deltas break are reduced
+   by the plan's written placeholder rule, and their tests are marked `todo`
+   with the step that retires each.
+2. **Build each step fully**, in plan order from Step 13, replacing the
    `SKELETON:` marks. For each step:
    - a separate agent writes the step's §12 test from the plan's test spec
      before the code, and it must fail first;
