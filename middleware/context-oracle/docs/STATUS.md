@@ -308,9 +308,24 @@ built test-first:
 - On this repository the miner read 390 commits and counted 376 in 2.4 s.
 - `npm test`: 217 tests, 216 pass, 0 fail, 1 `todo`.
 
+**Step 14 (the structural indexer) is built and reviewed (2026-09-26).** It was
+built test-first:
+- The builder stopped once at preflight: the new shapes broke skeleton code
+  owned by later steps. §9 stand-in rows were added.
+- Independent review with hand mutation:
+  `docs/reviews/2026-09-26-step-14-build-review.md`. The suite caught 27 of 66
+  planted faults before the review's 27 added tests and 65 of 66 after.
+- The review found two serious plan flaws, both fixed:
+  - a changed set of language parsers re-indexed nothing;
+  - a branch switch lost import links for good.
+- On this repository the indexer covers 1,881 files in 3.8 s, and an unchanged
+  re-run writes nothing.
+- `npm test`: 289 tests, 285 pass, 0 fail, 4 `todo` (three wait for Step 15's
+  parsers).
+
 Next, in order:
 1. **Build each step fully**, in plan order from Step 13, replacing the
-   `SKELETON:` marks — next is Step 14 (the indexer). For each step:
+   `SKELETON:` marks — next is Step 15 (the language frontends). For each step:
    - a separate agent writes the step's §12 test from the plan's test spec
      before the code, and it must fail first;
    - mutation testing checks that the tests catch broken code;
