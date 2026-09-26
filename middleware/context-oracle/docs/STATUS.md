@@ -281,12 +281,24 @@ it is. Two more fixes:
 The lessons are in `docs/collapse-log.md` (2026-09-26). The four plan and doc
 gates pass.
 
+**Checkpoint 1R is reached (2026-09-26).** The corrected Steps 1–12 are built
+test-first. One agent wrote the tests from the plan's specifications; a
+different agent built the code without changing any expected value.
+- Code: b229c04.
+- Independent review with hand mutation testing:
+  `docs/reviews/2026-09-26-steps-1-12-build-review.md`. Before its 30 added
+  tests, the suite caught 21 of 54 realistic planted faults; after them, 54 of
+  54.
+- The review's plan fixes (ca67af7) and code fixes (c3a25f0) are in. The
+  serious one: a transaction the database abandons on its own (for example,
+  on a full disk) no longer lets later writes save one by one.
+- `npm test`: 168 tests, 167 pass, 0 fail, 1 `todo`, and CI is green. The
+  `todo` is the skeleton end-to-end test, which returns at Step 28.
+- Until Step 14 builds the real indexer, `ctxoracle init` runs but search
+  tables stay empty.
+
 Next, in order:
-1. **Build the reopened Steps 1–12 deltas,** then re-verify them at
-   Checkpoint 1R (plan §6, §9). The skeleton files the deltas break are reduced
-   by the plan's written placeholder rule, and their tests are marked `todo`
-   with the step that retires each.
-2. **Build each step fully**, in plan order from Step 13, replacing the
+1. **Build each step fully**, in plan order from Step 13, replacing the
    `SKELETON:` marks. For each step:
    - a separate agent writes the step's §12 test from the plan's test spec
      before the code, and it must fail first;
