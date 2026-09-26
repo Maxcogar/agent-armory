@@ -804,6 +804,7 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/test/unit/indexer_frontends.test.ts | create | S15 |
 | middleware/context-oracle/ctxoracle/test/unit/indexer_stale.test.ts | create | S14 |
 | middleware/context-oracle/ctxoracle/test/unit/indexer_walk.test.ts | create | S14 |
+| middleware/context-oracle/ctxoracle/test/unit/indexer_walk.test.ts | modify | S15 |
 | middleware/context-oracle/ctxoracle/test/unit/indexer.test.ts | create | S14 |
 | middleware/context-oracle/ctxoracle/test/unit/injection_negative.test.ts | create | S11 |
 | middleware/context-oracle/ctxoracle/test/unit/injection_positive.test.ts | create | S11 |
@@ -838,6 +839,7 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/test/unit/repo_key.test.ts | create | S5 |
 | middleware/context-oracle/ctxoracle/test/unit/run_tests_guard.test.ts | create | S1 |
 | middleware/context-oracle/ctxoracle/test/unit/search_semantics.test.ts | create | S14 |
+| middleware/context-oracle/ctxoracle/test/unit/search_semantics.test.ts | modify | S15 |
 | middleware/context-oracle/ctxoracle/test/unit/skeleton_e2e.test.ts | modify | S6 |
 | middleware/context-oracle/ctxoracle/test/unit/skeleton_e2e.test.ts | delete | S28 |
 | middleware/context-oracle/ctxoracle/test/unit/spawn_wrapper.test.ts | create | S5 |
@@ -1024,7 +1026,8 @@ order, each test-first, and Checkpoint 1R (§9) re-verifies the substrate.
 Steps 13–39 then each get their full build in step order, replacing the
 walking skeleton at the same paths; every `SKELETON:` mark in `src/` is
 removed by the step that owns its module, and Step 37's `T-37-1` fails the
-suite while any mark — or any `todo` test Checkpoint 1R introduced — remains.
+suite while any mark — or any `todo` test, whether Checkpoint 1R introduced
+it or Step 14 marked it for Step 15 to retire — remains.
 **Test-first contract for Step 13 onward**, in this order:
 1. *Stubs first.* Before any test is written, the builder adds every export
    the step's `provides:` names that the skeleton lacks as a stub whose body
@@ -3537,7 +3540,7 @@ files:
   create: [middleware/context-oracle/ctxoracle/src/index/indexer.ts, middleware/context-oracle/ctxoracle/src/index/frontend.ts, middleware/context-oracle/ctxoracle/src/index/zone.ts, middleware/context-oracle/ctxoracle/test/unit/indexer.test.ts, middleware/context-oracle/ctxoracle/test/unit/indexer_stale.test.ts, middleware/context-oracle/ctxoracle/src/index/search.ts, middleware/context-oracle/ctxoracle/src/index/walk.ts, middleware/context-oracle/ctxoracle/src/index/path_glob.ts, middleware/context-oracle/ctxoracle/src/identity/git_layout.ts, middleware/context-oracle/ctxoracle/test/unit/indexer_walk.test.ts, middleware/context-oracle/ctxoracle/test/unit/path_glob.test.ts, middleware/context-oracle/ctxoracle/test/unit/search_semantics.test.ts]
   modify: [middleware/context-oracle/ctxoracle/test/fixtures/generate.ts]
   delete: []
-provides: [LanguageFrontend, ImportResolver, runIndex, resolveHead, refreshIfStale, tokenize, symbolSearch, pathSearch, walkRepository, matchesTestPattern, readGitPointer]
+provides: [LanguageFrontend, ImportResolver, runIndex, resolveHead, refreshIfStale, acquireReindexClaim, releaseReindexClaim, tokenize, symbolSearch, pathSearch, walkRepository, matchesTestPattern, readGitPointer]
 tests: [T-14-1, T-14-2, T-14-3, T-14-4, T-14-5]
 depends_on: [S1, S3, S5, S9, S10, S11, S12, S13]
 ```
@@ -3573,6 +3576,16 @@ directory, or a file whose `gitdir: <path>` line names the git directory
 (relative paths joined to `dir`), whose `commondir` file, when present, names
 the common directory relative to the git directory (executed on git 2.43.0:
 a worktree's `commondir` reads `../..`, AD-23). Bounded file reads only.
+A `.git` directory counts only when it is a real git directory:
+`readGitPointer` returns `{kind: 'dir'}` only when `<dir>/.git/HEAD` exists
+as a file; a `.git` directory without `HEAD` (a stray `.git/config`, as in
+`T-14-3`'s `indexer-nongit`) is treated as absent — `null` — so the walk is
+`readdir` and `resolveHead` reports `{unresolved}`. (Step 14 test writer,
+2026-09-26: without the check, a stray `.git` directory selected git mode and
+`git ls-files` failed outside a repository; executed on git 2.43.0, `git
+rev-parse --git-dir` in a directory whose `.git/` holds only `config`
+prints `fatal: not a git repository`, so git itself does not treat it as
+one.)
 `resolveHead` (below) and the handler's repository walk (Step 28) both use it.
 
 Create `src/index/walk.ts` — `walkRepository(repoPath): {mode: 'git' |
@@ -3641,7 +3654,14 @@ learns "this is generated" from the zone flag rather than from silence.
 
 Create `src/index/indexer.ts`:
 - `runIndex(store, repoPath, {full, frontends, tuning, diagnosticsDir}):
-  Promise<IndexResult>` (async — G14). In order: `walkRepository`; `stat`
+  Promise<IndexResult | {refused: 'reindex_locked'}>` (async — G14). It
+  first takes the reindex claim (`acquireReindexClaim`, below); when the
+  claim is held by a live process it records the `reindex_locked` fault
+  (through `recordFault(store, diagnosticsDir, …)`) and resolves to
+  `{refused: 'reindex_locked'}` instead of an `IndexResult`, having written
+  no index row (Step 14 test writer, 2026-09-26: the text named a refusal
+  but no result for it, so a caller could not tell a refused run from a
+  completed one). Otherwise, in order: `walkRepository`; `stat`
   each listed path — a path whose stat fails (a tracked file deleted from the
   working tree still listed by `--cached`, executed AD-12 ER M3) is treated as
   absent; for each present file, resolve its language through
@@ -3727,7 +3747,11 @@ Create `src/index/indexer.ts`:
   subprocess (AD-23), and `runIndex` records `schema_meta.index_head`
   through this same function so the two sides compare like with like
   (D-plan-30).
-- `refreshIfStale(store, checkoutRoot): { stale: boolean }`: compares
+- `refreshIfStale(store, checkoutRoot, diagnosticsDir): { stale: boolean }`
+  — `diagnosticsDir` is where its faults' JSONL mirror goes, passed to
+  `recordFault(store, diagnosticsDir, …)` for `index_stale` and
+  `head_unresolved` (Step 14 test writer, 2026-09-26: Step 10's writer takes
+  the directory and the two-argument form had none to give it): compares
   `schema_meta.index_head` to the commit `resolveHead(checkoutRoot)` returns
   (for a worktree event the worktree's own `HEAD` — AD-23; the handler never
   spawns the reindex for a worktree event, Step 28); on a
@@ -3741,7 +3765,8 @@ Create `src/index/indexer.ts`:
   `{stale: false}` — an unreadable layout never spawns a reindex; it
   spawns nothing — the caller that owns a binary (the handler, Step 28)
   starts the detached reindex.
-  `acquireReindexClaim(store)`: the mutual exclusion `runIndex` takes
+  `acquireReindexClaim(store): {acquired: true} | {acquired: false;
+  ownerPid: number}`: the mutual exclusion `runIndex` takes
   (D-plan-32; §4) — inside one `Store.transaction` (`BEGIN IMMEDIATE`,
   Step 3) it reads `schema_meta.reindex_owner_pid`, treats the claim as
   held only when that pid is alive (`process.kill(pid, 0)`; `EPERM` counts
@@ -3749,9 +3774,16 @@ Create `src/index/indexer.ts`:
   `reindex_started_at` in the same transaction; SQLite's single writer
   makes the check and the write one step, so two reclaimers of one
   abandoned claim cannot both win (`probe:26_reindex_claim_row_race`,
-  §11.4). A held claim makes the second index refuse with a
-  `reindex_locked` diagnostic (Step 6); `runIndex` releases by deleting
-  the row in a `finally`, on completion or failure. The handler never
+  §11.4). It records no fault itself: a held claim makes `runIndex` refuse
+  with a `reindex_locked` diagnostic (Step 6) and resolve to `{refused:
+  'reindex_locked'}` (above). `releaseReindexClaim(store): void` deletes
+  the claim row inside one `Store.transaction` only when
+  `reindex_owner_pid` is the calling process's pid, so a release can never
+  drop a claim another process holds; `runIndex` calls it in a `finally`,
+  on completion or failure. Both are exported so `T-14-1`'s race drives the
+  claim directly (Step 14 test writer, 2026-09-26: the claim was used but
+  not in `provides:`, and the race needs a named release rather than raw
+  SQL in the test). The handler never
   waits on the claim (staleness merely lowers confidence, `FR-K7`); it
   reads the row.
 
@@ -3821,14 +3853,24 @@ dialect), `T-14-5` (the one tokenizer; search semantics agree under both FTS sta
 `files` row under `fts: true`) and no `symbols` or
 `import_edges` row; the > 1 MB file is path-only with a diagnostic; the
 planted secret is absent from the store; a second run over an unchanged
-tree writes nothing; the claim refuses a second concurrent reindex, and two
-real processes racing a stale claim yield exactly one owner), `T-14-2`
+tree changes no row of the index's data tables and no `entry_score`
+(per-table snapshots; `schema_meta` and `faults` excluded — every run writes
+the claim and the final `schema_meta` rows); a held claim makes `runIndex`
+resolve to `{refused: 'reindex_locked'}` with the fault, and two real
+processes calling `acquireReindexClaim` against a stale claim yield exactly
+one owner per iteration), `T-14-2`
 (`refreshIfStale`: a moved `HEAD` records `index_stale` once, sets the flag, and
 returns `{stale: true}`, and an unmoved `HEAD` records nothing and returns
 `{stale: false}`, on an ordinary checkout, with the branch ref packed, on a
 detached `HEAD`, and in a linked worktree; an unborn branch records
 `head_unresolved` and returns `{stale: false}`; a completed `runIndex`
-clears the flag).
+clears the flag). The subtests of `T-14-3` and `T-14-5` whose assertions
+need symbols or `import_edges` — rows only Step 15's frontends produce, since
+Step 14 runs with an empty frontend list (D-plan-29) — are written at this
+step and marked `node:test` `{ todo: 'needs Step 15 frontends; retired by
+Step 15' }`; every other Step 14 test passes here, none of them `todo`
+(Step 14 test writer, 2026-09-26). Step 15's Verification retires them and
+`T-37-1` fails while any `todo` remains.
 
 **Impact if wrong.** Contained per genre — a broken indexer starves
 Orientation, Reuse, Coupling; visible in `status` per-genre counts.
@@ -3842,7 +3884,7 @@ step: S15
 covers: [PA-1, PA-3]
 files:
   create: [middleware/context-oracle/ctxoracle/src/index/tree_sitter_frontend.ts, middleware/context-oracle/ctxoracle/src/index/generic_frontend.ts, middleware/context-oracle/ctxoracle/src/index/frontends.ts, middleware/context-oracle/ctxoracle/test/unit/tree_sitter_frontend.test.ts, middleware/context-oracle/ctxoracle/test/unit/generic_frontend.test.ts, middleware/context-oracle/ctxoracle/test/unit/indexer_frontends.test.ts, middleware/context-oracle/ctxoracle/test/unit/tree_sitter_frontend_fallback.test.ts, middleware/context-oracle/ctxoracle/src/index/resolvers.ts, middleware/context-oracle/ctxoracle/test/unit/import_resolvers.test.ts, middleware/context-oracle/ctxoracle/test/unit/frontend_capabilities.test.ts]
-  modify: [middleware/context-oracle/ctxoracle/test/fixtures/generate.ts]
+  modify: [middleware/context-oracle/ctxoracle/test/fixtures/generate.ts, middleware/context-oracle/ctxoracle/test/unit/indexer_walk.test.ts, middleware/context-oracle/ctxoracle/test/unit/search_semantics.test.ts]
   delete: []
 provides: [treeSitterFrontend, genericFrontend, defaultFrontends, resolveTsImport, resolvePythonImport]
 tests: [T-15-1, T-15-2, T-15-3, T-15-4, T-15-5, T-15-6]
@@ -3986,7 +4028,16 @@ with `defaultFrontends()` on `indexer-small`: `symbols`, `import_edges`,
 sets agree for symbol and path token queries; `fts_symbols` holds one row per
 `symbols` row under `fts: true`), `T-15-5` (the TypeScript and Python
 resolvers' classification table), `T-15-6` (declared capability matches
-behaviour for every default frontend).
+behaviour for every default frontend). **Retired here:** the Step 14
+subtests marked `{ todo: 'needs Step 15 frontends; retired by Step 15' }`
+— `T-14-3`'s two `import_edge` `test_map` rows (its TypeScript and Python
+test files, named in that spec) and its precondition that the fixture file
+it deletes has `symbols` rows first, and `T-14-5`'s symbol-hit clauses and
+symbol-set comparison over the four files that spec names — have their
+`todo` option removed and must pass at this step with `runIndex` given
+Step 15's `defaultFrontends(tuning)` (Step 14 test writer, 2026-09-26).
+This step's full build is not complete while any of them is `todo` or red,
+and `T-37-1` fails while any `todo` remains.
 
 **Impact if wrong.** Contained per language — a broken frontend falls back
 to generic (visible in `status` per-language counts).
@@ -5456,7 +5507,9 @@ global store (002, Step 8); `seedDefaults` (Step 12); then
 `schema_meta.get` the same way Step 31 item 3 guards it; and
 `runIndex(store, repoPath, {full: true, frontends: defaultFrontends(tuning),
 tuning, diagnosticsDir})` (Steps 14, 15; `tuning` is a `tuningReader` over the
-prepared global store) —
+prepared global store; a `{refused: 'reindex_locked'}` result throws — a
+replay's stores are private to it, so a held claim there is a harness bug,
+never a condition to tolerate) —
 the store-preparing sequence `init` (Step 31) performs, minus its settings
 write, so a replay at this step runs against the store `init` would have
 created, built through the substrate's own functions and never through DDL
@@ -5557,7 +5610,10 @@ Create `src/hook/handler.ts` — the per-event pipeline in AD-8's fixed order,
    `recovered` 0 — at least one `[oracle] ` line was found and none matched
    an audited text; a transcript with no `[oracle] ` line records nothing
    (Step 21; §15 PG-6);
-   `handleSessionStart` (Step 27); `refreshIfStale(store, checkoutRoot)` and,
+   `handleSessionStart` (Step 27); `refreshIfStale(store, checkoutRoot,
+   projectDiagnostics)` (Step 14's signature — its faults' JSONL mirror goes
+   to the project diagnostics directory, as `recordDrop`'s does; Step 14 test
+   writer, 2026-09-26) and,
    when stale **and not a worktree event** (AD-23: indexing another tree would
    overwrite the main checkout's index), the detached reindex child `<node>
    <dispatch.js> index` with `cwd = repoRoot` through Step 5's wrapper;
@@ -5655,7 +5711,7 @@ on failure; it is the detached child the `SessionStart` branch above spawns
 through Step 5's wrapper, and the off-path check the `init` and `index` verbs
 (Steps 31, 32) run (AD-17).
 
-**Creates.** `src/cli/hook.ts` — internal `hook <event> [--deadline-ms n]` verb (routes to handler); `src/cli/index.ts` — `index [--full]` verb → runIndex (Step 14) with Step 15's defaultFrontends(), the reindex child the handler spawns; `src/cli/integrity_check.ts` — internal `hook integrity-check` verb (off-path quick_check); `src/hook/adapter.ts` — the ONE file naming Claude Code hook fields (AD-6); `src/hook/handler.ts` — per-event pipeline (AD-7, AD-8); `test/replay/runner.ts` — replay harness (prepares each test's stores through the substrate's functions, then spawns the built handler through the CLI).
+**Creates.** `src/cli/hook.ts` — internal `hook <event> [--deadline-ms n]` verb (routes to handler); `src/cli/index.ts` — `index [--full]` verb → runIndex (Step 14) with Step 15's defaultFrontends(), the reindex child the handler spawns; on `{refused: 'reindex_locked'}` it prints, in plain language, that another index run is in progress and when it started, changes nothing, and exits 75 (`EX_TEMPFAIL`, sysexits.h: a temporary failure, try again later); `src/cli/integrity_check.ts` — internal `hook integrity-check` verb (off-path quick_check); `src/hook/adapter.ts` — the ONE file naming Claude Code hook fields (AD-6); `src/hook/handler.ts` — per-event pipeline (AD-7, AD-8); `test/replay/runner.ts` — replay harness (prepares each test's stores through the substrate's functions, then spawns the built handler through the CLI).
 
 **Source.** `AD-6` (event map, adapter file, `PostToolUseFailure`
 observation-only); `AD-7` (fail-open, exit 0 always, no stderr suppression —
@@ -6067,7 +6123,11 @@ switch (created at Step 1, first given verbs at Step 28). Create
    makes no promise about unknown ones).
 5. `runIndex(store, repoPath, {full: true, frontends:
    defaultFrontends(tuning), tuning, diagnosticsDir})` (Steps 14, 15) — the
-   first index — and the off-path `quick_check` (Step 3).
+   first index — and the off-path `quick_check` (Step 3). If it resolves to
+   `{refused: 'reindex_locked'}` (another index run holds the claim), `init`
+   still completes every other item, prints that an index run is already in
+   progress and when it started (the claim's `reindex_started_at`), and exits
+   0: the running pass will produce the index.
 5a. **Record the binding** (AD-20, AD-23; review G30): `findRepoRoot(repoPath)`
    (Step 28's module) gives the root — for a worktree, the **main**
    repository's root, the same root the handler's walk resolves a worktree
@@ -11436,24 +11496,45 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Data.** 3 `.ts` files (one importing another), 1 `.py`, 1 `.sh`, 1
     file > 1 MB carrying a seeded fact, a zone-evidence comment containing a
     planted secret, a `test/` file importing a source file — run with an
-    empty frontend list, the base run under `fts: true`; for the race
-    case, a planted stale claim (`schema_meta.reindex_owner_pid` holding
-    a pid that has exited) raced by two real `runIndex` child processes
-    started behind a barrier, 50 iterations. Technique: equivalence
-    partitioning over language/size/secret classes; state-transition (run
-    → unchanged re-run → concurrent claim); two-process race.
+    empty frontend list, the base run under `fts: true`; for the unchanged
+    re-run, a per-table snapshot (every row, ordered by primary key) of the
+    index's data tables — `files`, `symbols`, `import_edges`, `symbol_refs`,
+    `test_map`, `path_tokens`, `symbol_tokens`, and, under `fts: true`,
+    `fts_paths` and `fts_symbols` — taken before and after the second run,
+    with `entry_score` compared per `files` row; `schema_meta` and `faults`
+    are excluded because every run writes the claim and the final
+    `schema_meta` rows (`index_head`, `index_stale`, `lang_capabilities`,
+    `walk_mode`) and may record faults, so a whole-database
+    `total_changes()` can never stay unchanged (Step 14 test writer,
+    2026-09-26); for the refusal case, a claim held by a live process
+    (`schema_meta.reindex_owner_pid` = the pid of a child the test starts
+    and keeps alive) planted before `runIndex`; for the race case, a planted
+    stale claim (`schema_meta.reindex_owner_pid` holding a pid that has
+    exited) raced by two real child processes started behind a start
+    barrier, each of which calls `acquireReindexClaim` directly (not a full
+    run), reports whether it acquired, holds any acquired claim until both
+    children have reported (a barrier file), then calls
+    `releaseReindexClaim` — 50 iterations, the stale claim re-planted
+    before each (Step 14 test writer, 2026-09-26: two full `runIndex` runs
+    race nondeterministically, since the first can finish and release
+    before the second reads the row, so both "proceed" legitimately).
+    Technique: equivalence partitioning over language/size/secret classes;
+    state-transition (run → unchanged re-run → held claim); two-process
+    race.
   - **NOT asserts.** Symbol extraction (T-15-3); grammar-specific parse
     quality (T-15-1/2). **Fails when** any file lacks its `files` row, zone,
     or FTS path tokens, OR any `symbols` or `import_edges` row exists, OR
     the > 1 MB file is not path-only with an `index_path_only_oversize` fault
     (`cap: 'bytes'`, `lines` null), OR the secret
-    appears verbatim in the store, OR the second run writes rows — including
-    any `entry_score` update (`total_changes()` is unchanged across it —
-    N4), OR two
-    concurrent reindexes both proceed, OR any race iteration ends with
-    both children proceeding or neither, OR the claim row survives the
-    winner's completion, OR the refused child records no `reindex_locked`
-    fault, OR, under `fts: true`, the
+    appears verbatim in the store, OR the second run on the unchanged tree
+    changes, adds, or removes any row of the snapshotted data tables or any
+    `entry_score` (N4), OR, with the live claim planted, `runIndex` resolves
+    to anything but `{refused: 'reindex_locked'}`, records no
+    `reindex_locked` fault, or writes any row of the snapshotted data
+    tables, OR any race iteration ends with both children acquiring or
+    neither, OR the claim row survives the acquiring child's
+    `releaseReindexClaim`, OR a `reindex_owner_pid` row survives a completed
+    `runIndex`, OR, under `fts: true`, the
     `fts_paths` row count is not equal to the `files` row count, OR any
     `files` row lacks its `path_tokens` rows, OR — the
     whole run repeated on a
@@ -11477,7 +11558,8 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     `schema_meta.reindex_owner_pid` row during the calls (Step 14's claim
     is the trace a reindex child leaves).
   - **Data.** `indexer-small` indexed; then one commit added (`HEAD` moves);
-    `refreshIfStale(store, checkoutRoot)` twice — the second call on the
+    `refreshIfStale(store, checkoutRoot, diagnosticsDir)` (a per-test
+    temporary directory) twice — the second call on the
     still-stale index (for the worktree layout,
     `checkoutRoot` is the worktree's own root); then `runIndex` (with an empty frontend list —
     the flag clears regardless); then `refreshIfStale` again — the sequence
@@ -11505,7 +11587,9 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **File.** `test/unit/indexer_walk.test.ts`.
   - **Verifies.** Step 14's `walkRepository`, zone signals, deletion rule,
     `test_map` conventions, and faults (G2, G7, G11, G15, N7, N13; AD-12).
-  - **Level.** Integration (real `git`, real store, default frontends).
+  - **Level.** Integration (real `git`, real store; `runIndex` with an
+    empty frontend list at Step 14 — D-plan-29 — and with Step 15's
+    `defaultFrontends(tuning)` for the subtests Step 15 retires).
   - **Real/doubles.** Real `git`, filesystem, store; fixtures `indexer-walk`,
     `indexer-nongit`; no doubles.
   - **Data.** `indexer-walk`: `.gitignore` = `dist/` and `*.gen.ts`; force-added
@@ -11516,21 +11600,32 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     importing it; `b.py` at the root and `tests/test_b.py` importing `b`;
     `pkg/x.go` and `pkg/x_test.go`;
     `node_modules/m/index.js`. `indexer-nongit`: a plain tree with `a.ts`,
-    `.git/config` (a stray file), `node_modules/n.js`. Both indexed; then
-    `src/k.ts` deleted and re-indexed. Technique: decision table over path
-    classes + state-transition.
+    `.git/config` (a stray file — a `.git` directory with no `HEAD`, which
+    `readGitPointer` treats as absent, so the walk is `readdir`; Step 14's
+    `git_layout` paragraph), `node_modules/n.js`. Both indexed; then
+    `src/k.ts` deleted and re-indexed. **Step 15 subtests:** the
+    assertions that need symbols or `import_edges` — rows only Step 15's
+    frontends produce — are written at Step 14 as separate subtests marked
+    `{ todo: 'needs Step 15 frontends; retired by Step 15' }` and run with
+    `defaultFrontends(tuning)`: the `test_map` rows `src/a.test.ts →
+    src/a.ts` (`import_edge`) and `tests/test_b.py → b.py` (`import_edge`
+    — both derive from `import_edges`), and the precondition that
+    `src/k.ts` has `symbols` rows before its deletion (Step 14 test writer,
+    2026-09-26). Step 15's Verification retires them. Technique: decision
+    table over path classes + state-transition.
   - **NOT asserts.** Symbol quality. **Fails when** `dist/a.js` or
     `src/api.gen.ts` is not zone `generated` with evidence naming the ignore
     match, OR `dist/b.js` is indexed, OR `gone.ts` has `in_tree = 1` or its
     row or its pair is deleted, OR after deleting `src/k.ts` its row is not
     kept with `in_tree = 0` and no `symbols` rows, OR either `bad\x..` file
     has a row or the `path_not_utf8` fault is absent or reports count ≠ 2,
-    OR `test_map` lacks `src/a.test.ts → src/a.ts` (`import_edge`),
-    `tests/test_b.py → b.py`, or `pkg/x_test.go → pkg/x.go` (`same_dir`), OR
+    OR `test_map` lacks `pkg/x_test.go → pkg/x.go` (`same_dir`), OR
     `node_modules/` is walked in `indexer-nongit`, OR `indexer-nongit` throws
     or records `walk_mode` other than `'readdir'`, OR a file of 20,001 lines
     under 1 MB is parsed or its `index_path_only_oversize` fault lacks
-    `cap: 'lines'`.
+    `cap: 'lines'`; and, in the Step 15 subtests, when `test_map` lacks
+    `src/a.test.ts → src/a.ts` or `tests/test_b.py → b.py` (`import_edge`),
+    OR `src/k.ts` has no `symbols` row before its deletion.
 
 - **T-14-4 — The test-path glob dialect.**
   - **File.** `test/unit/path_glob.test.ts`.
@@ -11550,28 +11645,64 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **File.** `test/unit/search_semantics.test.ts`.
   - **Verifies.** Step 14's token-prefix search (N6, G16; AD-2).
   - **Level.** Integration (two real stores, `fts: true` / `fts: false`).
-  - **Real/doubles.** Real stores built by the migrations and `runIndex`; no
+  - **Real/doubles.** Real stores built by the migrations and `runIndex`
+    (an empty frontend list at Step 14 — D-plan-29 — and Step 15's
+    `defaultFrontends(tuning)` for the subtests Step 15 retires); no
     doubles.
   - **Data.** `tokenize` directly over `CAFÉ` (→ `['cafe']`), `café` (→
     `['cafe']`), `Über` (→ `['uber']`), `foo-bar` (→ `['foo', 'bar']`),
     `my.method` (→ `['my', 'method']`), `Foo::Bar` (→ `['foo', 'bar']`),
     `user_name` (→ `['user', 'name']`), `getUserName` (→ `['getusername']`),
     `$store` (→ `['store']`), and a decomposed `cafe` + U+0301 (→
-    `['cafe']`); then two stores indexed from the same files `src/util.ts`,
-    `src/db/schema.ts`, `lib/a_b-c.d`, `lib/café-x.ts` holding the symbols
-    `helper`, `user_name`, `getUserName`, `$store`, `CAFÉ`, `Über`, `foo-bar`
-    (a generic-frontend name), `my.method`, `Foo::Bar`; queries `util`,
-    `schem`, `b`, `café`, `CAFE`, `über`, `bar`, `method`, `help`, `user`,
-    `USER`, `get`, `name`, a term with `"` and `*` in it (AD-2's named cases;
-    expert review M3, collapse-hunt H4). Technique: equivalence partitioning
-    + error guessing (syntax injection).
+    `['cafe']`); then two stores indexed from the same four files, which
+    the test builds in a temporary git repository with the fixture helpers
+    `fixtureInit` and `fixtureCommit` (`test/fixtures/generate.ts`), each
+    line exactly as written:
+    - `src/util.ts`: `export function help() {}`, `export function
+      helper() {}`, `export function $store() {}`;
+    - `src/db/schema.ts`: `export function user_name() {}`, `export
+      function getUserName() {}`;
+    - `lib/café-x.ts`: `export function CAFÉ() {}`, `export function
+      Über() {}`;
+    - `lib/a_b-c.sh`: `foo-bar() { :; }`, `my.method() { :; }`,
+      `Foo::Bar() { :; }` — bash function definitions (`.sh` takes the
+      generic frontend, `bash` being outside the default table; the file
+      was `lib/a_b-c.d` before 2026-09-26, renamed so its content has a
+      language whose definition syntax admits these names — its path
+      tokens still carry `b` for the `b` query), whose
+      names bash itself accepts (executed 2026-09-26 on GNU bash 5.2.21:
+      all three define and call).
+    Under Step 15's frontends the symbols are then deterministic: the
+    TypeScript grammar parses every `.ts` line above as a
+    `function_declaration` whose `name` is the identifier as written
+    (executed 2026-09-26 on web-tree-sitter 0.25.10 with tree-sitter-wasms
+    0.1.13: `help`, `helper`, `$store`, `CAFÉ`, `Über`, `user_name`,
+    `getUserName`, no parse error), and the generic frontend's shell-function
+    form captures a bash function name as bash defines it — every character
+    before `()` that is not whitespace or a shell metacharacter — so it
+    yields `foo-bar`, `my.method`, and `Foo::Bar` (a Step 15 requirement
+    this spec states; the skeleton's `[A-Za-z_][\w-]*` form captures only
+    `foo-bar`). Queries: `util`, `schem`, `b`, `café`, `CAFE`, `über`,
+    `bar`, `method`, `help`, `user`, `USER`, `get`, `name`, a term with `"`
+    and `*` in it (AD-2's named cases; expert review M3, collapse-hunt H4).
+    **Step 15 subtests:** the symbol-hit clauses below, and the comparison
+    of `symbolSearch` hit sets between the two stores, need symbols only
+    Step 15's frontends produce; they are written at Step 14 as separate
+    subtests marked `{ todo: 'needs Step 15 frontends; retired by Step 15'
+    }` and run with `defaultFrontends(tuning)` (Step 14 test writer,
+    2026-09-26); Step 15's Verification retires them. The `tokenize`
+    table, the path hits, the two stores' `pathSearch` agreement, and the
+    injection case run at Step 14 with an empty frontend list. Technique:
+    equivalence partitioning + error guessing (syntax injection).
   - **NOT asserts.** Ranking. **Fails when** any `tokenize` result differs
-    from the stated one, OR any query's hit set differs between the two
-    stores, OR `util` misses `src/util.ts` (G16), OR `help` misses `helper`
-    (N6), OR `user` matches `getUserName`, OR `café` or `CAFE` misses `CAFÉ`,
-    OR `über` misses `Über`, OR `bar` misses `foo-bar` or `Foo::Bar`, OR
-    `method` misses `my.method`, OR the injected term throws or matches
-    everything.
+    from the stated one, OR any query's `pathSearch` hit set differs between
+    the two stores, OR `util` misses `src/util.ts` (G16), OR the injected term
+    throws or matches everything; and, in the Step 15 subtests, when any
+    query's `symbolSearch` hit set differs between the two stores, OR
+    `help` misses `helper` (N6), OR `user` matches `getUserName` or misses
+    `user_name`, OR `café` or `CAFE` misses `CAFÉ`, OR `über` misses
+    `Über`, OR `bar` misses `foo-bar` or `Foo::Bar`, OR `method` misses
+    `my.method`.
 
 - **T-15-1 — Tree-sitter frontend on a TypeScript fixture.**
   - **File.** `test/unit/tree_sitter_frontend.test.ts`.
