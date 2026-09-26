@@ -275,3 +275,34 @@ test('T-13-1n: a field is a commit header only when it is exactly 0x1e + 40 hex'
   assert.deepEqual(commits[0]?.paths.map((p) => String(p)), ['one.txt', 'two.txt'], 'a loose header split the first commit');
   assert.equal(malformed.length, 1, 'the non-hex pseudo-header is one malformed record');
 });
+
+// ---- Step 13 build review m3, m5 (T-13-1's added synthetic records) ---------
+
+test('T-13-1q: a record whose timestamp field is `1e3` is not read as a commit (m5)', () => {
+  // Plan Step 13: the author timestamp must match /^[0-9]+$/ before it is read
+  // as a number; `Number('1e3')` is 1000, the regex rejects it.
+  const { commits } = parseNumstatZ(
+    stream([
+      `\x1e${H1}`, '1e3', 'subject one', '', '', '\n1\t0\tone.txt',
+      `\x1e${H2}`, '1700000100', 'subject two', '', '', '\n1\t0\ttwo.txt',
+    ])
+  );
+  assert.ok(!commits.some((c) => c.hash === H1), 'the `1e3`-timestamp record was read as a commit');
+  assert.ok(!commits.flatMap((c) => c.paths.map((p) => String(p))).includes('one.txt'), 'the `1e3` record contributed a path');
+  assert.deepEqual(commits.map((c) => c.hash), [H2], 'the next valid header starts the next commit');
+});
+
+test('T-13-1r: a non-header leading field and its record yield exactly one miner_unparsed_numstat diagnostic (m3)', () => {
+  // Plan Step 13: "after a malformed field where a header is expected, the
+  // parser stays silent until the next valid header, counting what it skips
+  // into the same fault" — one per malformed commit record, never one per field.
+  const { commits, malformed } = parseNumstatZ(
+    stream([
+      'not-a-header', 'subject of the bad record', 'body of the bad record\n', '', '\n1\t0\tbad-one.txt', '2\t1\tbad-two.txt',
+      `\x1e${H2}`, '1700000100', 'subject two', '', '', '\n1\t0\ttwo.txt',
+    ])
+  );
+  assert.equal(malformed.length, 1, `the non-header record yielded ${malformed.length} diagnostics, not exactly one`);
+  assert.deepEqual(commits.map((c) => c.hash), [H2]);
+  assert.deepEqual(commits[0]?.paths.map((p) => String(p)), ['two.txt'], 'a skipped entry leaked into the next commit');
+});

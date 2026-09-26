@@ -35,8 +35,12 @@ export function openRepo(cwd: string, create: boolean): OpenedRepo | null {
   const key = resolveRepoKey(repoPath);
   const layout = ensureLayout(ctxoracleHome(), key.key);
   if (!create && !existsSync(layout.project)) return null;
-  const project = openStore(layout.project);
-  const global = openStore(layout.global);
+  // SKELETON: 13 — both stores open with the off-path wait (AD-26; Step 3's
+  // busyTimeoutMs 5000), so the `index`/`init` verbs' miner cannot abort on
+  // StoreBusy against a live session (plan §9 row "Step 13's skeleton store
+  // opener"); retired by Step 35
+  const project = openStore(layout.project, { busyTimeoutMs: 5000 });
+  const global = openStore(layout.global, { busyTimeoutMs: 5000 });
   if (create) {
     applyMigrations(project, { fts: probeFts5(project) });
     applyMigrations(global, { fts: false, scope: 'global' });

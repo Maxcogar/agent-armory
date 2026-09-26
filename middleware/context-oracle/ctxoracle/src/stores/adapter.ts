@@ -147,12 +147,19 @@ function cantOpenError(dbPath: string, cause: unknown): Error {
 
 /**
  * Open the store at `dbPath` in WAL mode with `foreign_keys=ON` and
- * `busy_timeout=100`. With `opts.mustExist` the file is opened through a
+ * `busy_timeout` = `opts.busyTimeoutMs` (default 100, the event path's value;
+ * the miner, the indexer and the CLI verbs open with 5000 — AD-26's off-path
+ * wait, Step 3). The retry-once rule is unchanged. With `opts.mustExist` the file is opened through a
  * `file:` URI with `mode=rw`, so a missing store is never created (N15); a
  * refusal throws `StoreMissing` or `StoreUnreadable` (see `cantOpenError`).
  * Default: create-if-missing (init, the replay harness, store-creating verbs).
  */
-export function openStore(dbPath: string, opts?: { mustExist?: boolean }): Store {
+export function openStore(dbPath: string, opts?: { mustExist?: boolean; busyTimeoutMs?: number }): Store {
+  const busyTimeoutMs = opts?.busyTimeoutMs ?? 100;
+  // The value is interpolated into a PRAGMA, so only a non-negative integer is accepted.
+  if (!Number.isInteger(busyTimeoutMs) || busyTimeoutMs < 0) {
+    throw new RangeError(`openStore: busyTimeoutMs must be a non-negative integer, not ${String(busyTimeoutMs)}`);
+  }
   let db: DatabaseSync;
   if (opts?.mustExist === true) {
     try {
@@ -166,7 +173,7 @@ export function openStore(dbPath: string, opts?: { mustExist?: boolean }): Store
   }
   db.exec('PRAGMA journal_mode = WAL');
   db.exec('PRAGMA foreign_keys = ON');
-  db.exec('PRAGMA busy_timeout = 100');
+  db.exec(`PRAGMA busy_timeout = ${busyTimeoutMs}`);
 
   // Re-entrancy depth: 0 = no transaction open on this handle (AD-26, G9).
   let depth = 0;

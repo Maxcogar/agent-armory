@@ -6,8 +6,9 @@
 // only on included commits, a revert never also a fix — is the miner's rule
 // (src/miner/cochange.ts); these functions are the pure predicates.
 
-/** git-revert(1)'s default body line: `This reverts commit <40-hex>.` */
-const REVERT_TRAILER = /^This reverts commit [0-9a-f]{40}\.$/m;
+/** git-revert(1)'s default body line: `This reverts commit <hash>.`, the hash
+ *  40 hex (SHA-1) or 64 hex (SHA-256) — AD-15, Step 13 build review M1. */
+const REVERT_TRAILER = /^This reverts commit ([0-9a-f]{40}|[0-9a-f]{64})\.$/m;
 
 /**
  * True when the commit is one git itself generated as a revert: its body holds

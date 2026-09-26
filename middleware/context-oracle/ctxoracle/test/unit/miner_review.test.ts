@@ -189,7 +189,12 @@ test('R-6: a changed bar.recency_half_life_days makes the next pass a purged ful
   const aFresh = filesDao(fresh.store).byPath('a.txt');
   assert.equal(a?.change_count, 3, 'the re-mine does not double change_count');
   assert.equal(a?.change_weight, aFresh?.change_weight, 'change_weight is the one mined at h = 730');
-  const expected = [1, 2, 3].reduce((s, d) => s + 2 ** ((fixtureTs(d) - 946_684_800) / (730 * DAY_S)), 0);
+  // AD-13's current weight (plan Step 13 at c31d87e / 6d6f21d): Σ 2^((min(ts, refTs) − E)/(730 × 86400)),
+  // E = the stored weight_epoch = refTs − 500 × 730 × 86400.
+  const refTs = Number(schemaMetaDao(e.store).get('ref_ts'));
+  const epoch = Number(schemaMetaDao(e.store).get('weight_epoch'));
+  assert.equal(epoch, refTs - 500 * 730 * DAY_S, 'weight_epoch is refTs − 500 × 730 × 86400');
+  const expected = [1, 2, 3].reduce((s, d) => s + 2 ** ((Math.min(fixtureTs(d), refTs) - epoch) / (730 * DAY_S)), 0);
   assert.ok(Math.abs((a?.change_weight ?? 0) - expected) / expected <= 1e-9, 'AD-13 weight at h = 730');
 });
 

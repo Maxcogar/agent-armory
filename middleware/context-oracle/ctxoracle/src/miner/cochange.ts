@@ -30,8 +30,10 @@ import { isSuspect } from '../security/injection.js';
 import type { TuningReader } from '../types/candidate.js';
 import { isFixLabelled, isRevertLabelled } from './labels.js';
 
-/** AD-13's fixed weight epoch: 2000-01-01T00:00:00Z in epoch seconds. */
-const T0 = 946_684_800;
+/** A full mine sets the weight epoch this many half-lives before refTs (AD-13, M3). */
+const EPOCH_HALF_LIVES = 500;
+/** An exponent `(ts − E)/h` above this forces a purged full re-mine that re-bases (AD-13, M3). */
+const MAX_EXPONENT = 1000;
 const DAY_S = 86_400;
 /** `miner.horizon_years` is converted with the Julian year (plan Step 13). */
 const YEAR_DAYS = 365.25;
@@ -60,45 +62,61 @@ export interface ParsedCommit {
   paths: Buffer[];
 }
 
-/** A record the parser could not read; reported as `miner_unparsed_numstat`, never guessed. */
+/**
+ * A record the parser could not read; reported as `miner_unparsed_numstat`,
+ * never guessed. One item per malformed entry inside a commit whose header is
+ * valid, and one item for a whole run of fields skipped after a field where a
+ * header was expected (plan Step 13, m3); the pass groups items by commit into
+ * one fault per commit.
+ */
 export interface MalformedRecord {
-  /** The commit the record sits in, or null before any header. */
+  /** The commit the record sits in, or null when no valid header precedes it. */
   commit: string | null;
-  /** The record's first 80 bytes, escaped (`escapeBytes`). */
+  /** The first malformed field's first 80 bytes, escaped (`escapeBytes`). */
   detail: string;
+  /** The number of malformed fields this item counts (1, or a skipped run's length). */
+  records: number;
 }
 
-type State = 'header' | 'ts' | 'subject' | 'body' | 'sep' | 'entry' | 'renameOld' | 'renameNew';
+type State = 'header' | 'skip' | 'ts' | 'subject' | 'body' | 'sep' | 'entry' | 'renameOld' | 'renameNew';
 
+const isHexDigit = (b: number): boolean => (b >= 0x30 && b <= 0x39) || (b >= 0x61 && b <= 0x66);
+
+/** `\x1e` followed by exactly 40 (SHA-1) or 64 (SHA-256) lower-case hex digits (M1). */
 function isHeader(f: Buffer): boolean {
-  if (f.length !== 41 || f[0] !== RS) return false;
-  for (let i = 1; i < 41; i++) {
-    const b = f[i] as number;
-    if (!((b >= 0x30 && b <= 0x39) || (b >= 0x61 && b <= 0x66))) return false;
-  }
+  if ((f.length !== 41 && f.length !== 65) || f[0] !== RS) return false;
+  for (let i = 1; i < f.length; i++) if (!isHexDigit(f[i] as number)) return false;
   return true;
 }
 
-function isCountField(f: Buffer): boolean {
-  if (f.length === 1 && f[0] === 0x2d) return true; // '-' (binary)
+/** `/^[0-9]+$/` over the field's bytes (m5: `Number` would accept '', ' 12', '1e3', '0x10'). */
+function isDecimal(f: Buffer): boolean {
   if (f.length === 0) return false;
   for (const b of f) if (b < 0x30 || b > 0x39) return false;
   return true;
 }
 
+function isCountField(f: Buffer): boolean {
+  if (f.length === 1 && f[0] === 0x2d) return true; // '-' (binary)
+  return isDecimal(f);
+}
+
 /**
  * Incremental parser over the NUL-delimited stream. `push` accepts `Buffer`
  * chunks in stream order; a commit is emitted when the next header (or the end)
- * shows it is complete. Only the field being read is held beyond the current
- * commit's paths.
+ * shows it is complete. A partial field is kept as a list of slices and
+ * concatenated once, when its NUL arrives, so a field spanning k chunks costs
+ * O(n) in its length (m4).
  */
 class NumstatZParser {
   private state: State = 'header';
-  private rest: Buffer = Buffer.alloc(0);
+  private partial: Buffer[] = [];
   private cur: ParsedCommit | null = null;
   private firstEntry = false;
   private renameMarker: Buffer | null = null;
   private renameOld: Buffer | null = null;
+  /** The open item of a skipped run (state 'skip'). */
+  private skipping: MalformedRecord | null = null;
 
   constructor(
     private readonly onCommit: (c: ParsedCommit) => void,
@@ -106,22 +124,23 @@ class NumstatZParser {
   ) {}
 
   push(chunk: Buffer): void {
-    const buf = this.rest.length === 0 ? chunk : Buffer.concat([this.rest, chunk]);
-    let start = 0;
-    for (let i = 0; i < buf.length; i++) {
-      if (buf[i] === NUL) {
-        this.field(buf.subarray(start, i));
-        start = i + 1;
-      }
+    let from = 0;
+    for (let i = chunk.indexOf(NUL, from); i !== -1; i = chunk.indexOf(NUL, from)) {
+      const tail = chunk.subarray(from, i);
+      const f = this.partial.length === 0 ? tail : Buffer.concat([...this.partial, tail]);
+      this.partial = [];
+      this.field(f);
+      from = i + 1;
     }
-    // Copy the partial field so the chunk it came from is not retained.
-    this.rest = Buffer.from(buf.subarray(start));
+    if (from < chunk.length) this.partial.push(chunk.subarray(from));
   }
 
   end(): void {
-    if (this.rest.length > 0) {
-      this.malformed(this.rest); // an unterminated final field
-      this.rest = Buffer.alloc(0);
+    if (this.partial.length > 0) {
+      const f = Buffer.concat(this.partial);
+      this.partial = [];
+      if (this.state === 'skip' && this.skipping !== null) this.skipping.records += 1;
+      else this.malformed(f); // an unterminated final field
     }
     switch (this.state) {
       case 'renameOld':
@@ -138,14 +157,24 @@ class NumstatZParser {
         this.malformed(Buffer.from(`\x1e${this.cur?.hash ?? ''}`, 'latin1'));
         this.cur = null;
         break;
+      case 'skip':
+        break;
       default:
         this.emit();
     }
+    this.skipping = null;
     this.state = 'header';
   }
 
   private malformed(record: Buffer): void {
-    this.onMalformed({ commit: this.cur?.hash ?? null, detail: escapeBytes(record.subarray(0, DETAIL_BYTES)) });
+    this.onMalformed({ commit: this.cur?.hash ?? null, detail: escapeBytes(record.subarray(0, DETAIL_BYTES)), records: 1 });
+  }
+
+  /** Open a skipped run at `f`: silent until the next valid header, counting what it skips (m3). */
+  private startSkip(f: Buffer, commit: string | null): void {
+    this.skipping = { commit, detail: escapeBytes(f.subarray(0, DETAIL_BYTES)), records: 1 };
+    this.onMalformed(this.skipping);
+    this.state = 'skip';
   }
 
   private emit(): void {
@@ -155,6 +184,7 @@ class NumstatZParser {
 
   private startCommit(f: Buffer): void {
     this.emit();
+    this.skipping = null;
     this.cur = { hash: f.subarray(1).toString('latin1'), ts: NaN, subject: '', body: '', paths: [] };
     this.state = 'ts';
   }
@@ -163,17 +193,22 @@ class NumstatZParser {
     switch (this.state) {
       case 'header':
         if (isHeader(f)) this.startCommit(f);
-        else this.malformed(f); // a leading field that is not a valid header
+        else this.startSkip(f, null); // a field where a header is expected that is not one
+        return;
+      case 'skip':
+        if (isHeader(f)) this.startCommit(f);
+        else (this.skipping as MalformedRecord).records += 1;
         return;
       case 'ts': {
-        const ts = Number(f.toString('latin1'));
-        if (!Number.isInteger(ts)) {
-          this.malformed(f);
-          this.cur = null; // the commit cannot be dated: nothing of it is used
-          this.state = 'header';
+        if (!isDecimal(f)) {
+          // A malformed timestamp: the commit cannot be dated, so its whole
+          // record is skipped (m5) as one malformed item naming its hash.
+          const hash = (this.cur as ParsedCommit).hash;
+          this.cur = null;
+          this.startSkip(f, hash);
           return;
         }
-        (this.cur as ParsedCommit).ts = ts;
+        (this.cur as ParsedCommit).ts = Number(f.toString('latin1'));
         this.state = 'subject';
         return;
       }
@@ -292,21 +327,39 @@ interface PendingCommit {
   label: TouchLabel | null;
 }
 
+/** git's stderr kept for errors and faults: its last 2 KB (plan Step 13, m2). */
+const STDERR_TAIL_BYTES = 2048;
+
+/** The last `STDERR_TAIL_BYTES` of `buf`, decoded for an error message. */
+function stderrTail(buf: Buffer): string {
+  return buf.subarray(Math.max(0, buf.length - STDERR_TAIL_BYTES)).toString('utf8').trim();
+}
+
 function git(repoPath: string, args: string[]): { status: number | null; out: string; err: string } {
   const r = oracleRunSync('git', args, { cwd: repoPath });
-  return { status: r.status, out: r.stdout.toString('utf8'), err: r.stderr.toString('utf8') };
+  return { status: r.status, out: r.stdout.toString('utf8'), err: stderrTail(r.stderr) };
 }
 
 function gitOk(repoPath: string, args: string[]): string {
   const r = git(repoPath, args);
-  if (r.status !== 0) throw new Error(`git ${args.join(' ')} exited ${String(r.status)}: ${r.err.trim()}`);
+  if (r.status !== 0) throw new Error(`git ${args.join(' ')} exited ${String(r.status)}: ${r.err}`);
   return r.out.trim();
 }
 
-/** Stream `git log` through the spawn seam, handing each stdout `Buffer` chunk to `onChunk`. */
+/**
+ * Stream `git log` through the spawn seam, handing each stdout `Buffer` chunk to
+ * `onChunk`. stderr is piped and drained as it arrives (an undrained pipe would
+ * stall git), keeping only its last 2 KB; a non-zero exit or a failed spawn
+ * rejects with an error carrying that tail (m2).
+ */
 function streamGitLog(repoPath: string, args: string[], onChunk: (b: Buffer) => void): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = oracleSpawn('git', args, { cwd: repoPath, stdout: 'pipe' });
+    const child = oracleSpawn('git', args, { cwd: repoPath, stdout: 'pipe', stderr: 'pipe' });
+    let tail: Buffer = Buffer.alloc(0);
+    child.stderr?.on('data', (b: Buffer) => {
+      const joined = tail.length === 0 ? b : Buffer.concat([tail, b]);
+      tail = Buffer.from(joined.subarray(Math.max(0, joined.length - STDERR_TAIL_BYTES)));
+    });
     let failed: unknown = null;
     child.stdout?.on('data', (b: Buffer) => {
       if (failed !== null) return;
@@ -317,10 +370,10 @@ function streamGitLog(repoPath: string, args: string[], onChunk: (b: Buffer) => 
         child.kill();
       }
     });
-    child.on('error', reject);
+    child.on('error', (e) => reject(new Error(`git ${args[0] ?? ''} failed to start: ${e.message}; stderr: ${stderrTail(tail)}`)));
     child.on('close', (code, signal) => {
       if (failed !== null) reject(failed);
-      else if (code !== 0) reject(new Error(`git ${args.join(' ')} exited ${String(code ?? signal)}`));
+      else if (code !== 0) reject(new Error(`git ${args.join(' ')} exited ${String(code ?? signal)}; stderr: ${stderrTail(tail)}`));
       else resolve();
     });
   });
@@ -330,7 +383,8 @@ function streamGitLog(repoPath: string, args: string[], onChunk: (b: Buffer) => 
  * Mine the repository's history into `commits`, `files.change_count` /
  * `change_weight`, `cochange_pairs`, and `labelled_touches`, and rebuild the
  * miner-kind landmines (plan Step 13). Every threshold is read from
- * `opts.tuning`; none has a fallback literal.
+ * `opts.tuning`; none has a fallback literal. The caller opens `store` with
+ * `busyTimeoutMs: 5000` (Step 3; AD-26's off-path wait).
  */
 export async function mineCochange(store: Store, repoPath: string, opts: MineOptions): Promise<MineResult> {
   const t = opts.tuning;
@@ -343,6 +397,7 @@ export async function mineCochange(store: Store, repoPath: string, opts: MineOpt
   const fixK = t.num('landmine.fix_chatter_k');
   const fixWindowDays = t.num('landmine.fix_chatter_window_days');
   const fixKeywords = t.list('lexicon.fix_keywords');
+  const hS = h * DAY_S;
 
   const meta = schemaMetaDao(store);
   const commits = commitsDao(store);
@@ -353,12 +408,15 @@ export async function mineCochange(store: Store, repoPath: string, opts: MineOpt
 
   const result: MineResult = { commitsSeen: 0, included: 0, excluded: 0, chunks: 0, rewritten: false, pathsRejected: 0 };
 
+  // One HEAD per pass (m1): resolved once; every later git call names this hash,
+  // so a commit made while the pass runs cannot split its reads across commits.
   // A repository with no commit has no history to mine; nothing is written.
   const headProbe = git(repoPath, ['rev-parse', '--verify', '-q', 'HEAD']);
   if (headProbe.status !== 0) return result;
   const head = headProbe.out.trim();
-  // The reference instant is HEAD's committer time, never the wall clock (G19).
-  const refTs = Number(gitOk(repoPath, ['log', '-1', '--format=%ct', 'HEAD']));
+  // The reference instant is <head>'s committer time, never the wall clock (G19);
+  // `--no-show-signature` because `log.showSignature` prints to stdout (S1).
+  const refTs = Number(gitOk(repoPath, ['log', '-1', '--no-show-signature', '--format=%ct', head]));
   const horizonTs = refTs - horizonYears * YEAR_DAYS * DAY_S;
 
   // ---- Full or incremental: exactly two cases (expert review S3). --------
@@ -366,18 +424,25 @@ export async function mineCochange(store: Store, repoPath: string, opts: MineOpt
   let full = opts.full === true || watermark === undefined || meta.get('mining_in_progress') === '1';
   const minedH = meta.get('mined_half_life_days');
   if (watermark !== undefined && (minedH === undefined || Number(minedH) !== h)) full = true;
+  // The weight epoch (M3): absent beside a watermark means weights mined under the
+  // former fixed epoch; an exponent over 1000 at <head> means it must re-base.
+  // Every ts is capped at refTs, so (refTs − E)/h is the pass's largest exponent.
+  const storedEpoch = meta.get('weight_epoch');
+  if (watermark !== undefined && (storedEpoch === undefined || (refTs - Number(storedEpoch)) / hS > MAX_EXPONENT)) full = true;
   if (watermark !== undefined) {
-    const anc = git(repoPath, ['merge-base', '--is-ancestor', watermark, 'HEAD']);
+    const anc = git(repoPath, ['merge-base', '--is-ancestor', watermark, head]);
     if (anc.status === 1 || anc.status === 128) {
       // The watermark is not an ancestor (1) or the object is gone (128): G4.
       result.rewritten = true;
       full = true;
       recordFault(store, opts.diagnosticsDir, { code: 'history_rewritten', detail: { oldWatermark: watermark, newHead: head } });
     } else if (anc.status !== 0) {
-      throw new Error(`git merge-base --is-ancestor exited ${String(anc.status)}: ${anc.err.trim()}`);
+      throw new Error(`git merge-base --is-ancestor exited ${String(anc.status)}: ${anc.err}`);
     }
   }
 
+  // A full pass re-bases the epoch to refTs − 500·h (AD-13); an incremental one keeps it.
+  const epoch = full ? refTs - EPOCH_HALF_LIVES * hS : Number(storedEpoch);
   if (full) {
     // The purge transaction (AD-13's purge set); on an empty store every delete is a no-op.
     store.transaction(() => {
@@ -388,10 +453,11 @@ export async function mineCochange(store: Store, repoPath: string, opts: MineOpt
       landmines.deleteMinerKinds();
       meta.delete('last_mined_commit');
       meta.set('mined_half_life_days', String(h));
+      meta.set('weight_epoch', String(epoch));
       meta.set('mining_in_progress', '1');
     });
   }
-  const range = full ? 'HEAD' : `${watermark as string}..HEAD`;
+  const range = full ? head : `${watermark as string}..${head}`;
 
   // ---- Stream and aggregate, outside any transaction (AD-26). -------------
   const rangeCount = Number(gitOk(repoPath, ['rev-list', '--count', '--no-merges', range]));
@@ -440,20 +506,51 @@ export async function mineCochange(store: Store, repoPath: string, opts: MineOpt
     });
   };
   const parser = new NumstatZParser(onCommit, (m) => malformed.push(m));
+  // S1: `git log` is porcelain and honours the user's configuration; every
+  // setting that changes the bytes parsed here is pinned by flag.
   await streamGitLog(
     repoPath,
-    ['log', '--no-merges', '-M', '-z', '--numstat', '--reverse', '--format=%x1e%H%x00%at%x00%s%x00%b%x00', range],
+    [
+      'log',
+      '--no-show-signature',
+      '--root',
+      '--no-textconv',
+      '--no-ext-diff',
+      '--no-merges',
+      '-M',
+      '-z',
+      '--numstat',
+      '--reverse',
+      '--format=%x1e%H%x00%at%x00%s%x00%b%x00',
+      range,
+    ],
     (b) => parser.push(b)
   );
   parser.end();
 
+  // One miner_unparsed_numstat fault per malformed commit record (m3): the
+  // parser's items grouped by commit.
+  const byCommit = new Map<string | null, { commit: string | null; records: number; first: string }>();
   for (const m of malformed) {
-    recordFault(store, opts.diagnosticsDir, { code: 'miner_unparsed_numstat', detail: { commit: m.commit, record: m.detail } });
+    const g = byCommit.get(m.commit);
+    if (g === undefined) byCommit.set(m.commit, { commit: m.commit, records: m.records, first: m.detail });
+    else g.records += m.records;
+  }
+  for (const g of byCommit.values()) {
+    recordFault(store, opts.diagnosticsDir, { code: 'miner_unparsed_numstat', detail: g });
   }
   if (result.pathsRejected > 0) {
     recordFault(store, opts.diagnosticsDir, {
       code: 'path_not_utf8',
       detail: { writer: 'miner', count: result.pathsRejected, first: rejectedSample },
+    });
+  }
+  // The completeness check (M2): the stream yielded every commit of the range.
+  const complete = result.commitsSeen === rangeCount;
+  if (!complete) {
+    recordFault(store, opts.diagnosticsDir, {
+      code: 'miner_unparsed_numstat',
+      detail: { expected: rangeCount, read: result.commitsSeen },
     });
   }
 
@@ -465,7 +562,8 @@ export async function mineCochange(store: Store, repoPath: string, opts: MineOpt
     if (c.excludeReason === null) result.included += 1;
     else result.excluded += 1;
     if (c.paths.length === 0) return;
-    const w = 2 ** ((c.ts - T0) / (h * DAY_S));
+    // AD-13's weight; ts capped at refTs (a commit cannot carry more recency than <head>).
+    const w = 2 ** ((Math.min(c.ts, refTs) - epoch) / hS);
     const ids: number[] = [];
     for (const p of c.paths) {
       const id = files.ensureHistoryRow(p, isSuspect(p), c.hash);
@@ -520,11 +618,14 @@ export async function mineCochange(store: Store, repoPath: string, opts: MineOpt
     build('revert_chain', 'revert', horizonTs, 2);
     build('fix_chatter', 'fix', refTs - fixWindowDays * DAY_S, fixK);
     landmines.rebuildMinerKinds(rows);
-    // The HEAD mined to, including a merge HEAD no chunk can name (AD-13).
-    meta.set('last_mined_commit', head);
+    if (complete) {
+      // The HEAD mined to, including a merge HEAD no chunk can name (AD-13) —
+      // only when the stream yielded every commit of the range (M2).
+      meta.set('last_mined_commit', head);
+      if (full) meta.set('mining_in_progress', '0');
+    }
     meta.set('ref_ts', String(refTs));
     meta.set('corpus_floor_met', commits.countIncluded() >= floor ? '1' : '0');
-    if (full) meta.set('mining_in_progress', '0');
     files.sweepUnreferenced();
   });
 

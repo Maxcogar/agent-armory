@@ -1050,9 +1050,15 @@ No asserted test value was changed and no test was deleted.
     at most 5 samples;
   - both are recorded after the stream, outside any transaction.
 - `merge-base` exiting with anything other than 0/1/128 throws.
-- The stream is aggregated in memory before the chunk writes. No transaction
-  is ever open across the async stream, and horizon-excluded commits keep only
-  their row fields, so memory is bounded by `miner.horizon_commits`.
+- The stream is aggregated in memory before the chunk writes, so no
+  transaction is ever open across the async stream. **Corrected 2026-09-26
+  (Step 13 build review M5):** this entry first claimed memory was "bounded by
+  `miner.horizon_commits`". That was never checked and is false. The pass
+  holds one record per commit of its whole range — horizon-excluded commits
+  keep only their row fields, but they are still held — so memory grows with
+  the range. The review measured about 168 B per commit on Node 22 (100,000
+  commits ≈ 16 MiB; 1.3 million ≈ 208 MiB), plus the decoded paths of each
+  horizon-included commit. The plan records it as limit R16.
 
 **Verified.**
 - `cd ctxoracle && npm run build && npm test` → `tsc -p tsconfig.json` clean.
@@ -1086,3 +1092,86 @@ No asserted test value was changed and no test was deleted.
 2. **`git log`'s stderr is inherited** (the amended option), so a failing git
    prints to the verb's stderr as well as rejecting the pass with its exit
    code.
+
+## Step 13 — fixes after the build review — BUILT (2026-09-26, uncommitted, pending independent review)
+
+Scope:
+- The architecture and plan amendments `c31d87e`…`e70536e`, answering
+  `docs/reviews/2026-09-26-step-13-build-review.md` (S1, M1–M5, m1–m5).
+- The CI lock-wait defect: T-13-5b showed the miner raising `StoreBusy`
+  under the event path's 100 ms `busy_timeout`.
+- Plan `6d6f21d`: three §12 specs compare weights on a common epoch, and a §9
+  row adds the skeleton store opener.
+
+Built test-first: a separate agent wrote the failing tests (T-13-1o, 1p, 1q,
+1r, T-13-2, 2a, T-13-6e, T-3-5j). No asserted value was changed by this build.
+
+**Built.**
+- **S1** (`src/miner/cochange.ts`):
+  - the stream is `git log --no-show-signature --root --no-textconv
+    --no-ext-diff --no-merges -M -z --numstat --reverse …`;
+  - the reference instant's `git log -1` carries `--no-show-signature`.
+- **M1:**
+  - a header is `\x1e` plus exactly 40 or 64 lower-case hex;
+  - the revert trailer is `([0-9a-f]{40}|[0-9a-f]{64})` (`src/miner/labels.ts`).
+- **M2:** completeness check. `commitsSeen` counts well-formed records,
+  already-mined skips included. When it differs from `rev-list --count
+  --no-merges <range>`:
+  - the pass records one `miner_unparsed_numstat {expected, read}` fault;
+  - `last_mined_commit` stays where the last chunk put it, and
+    `mining_in_progress` stays set on a full pass;
+  - the landmine rebuild, `ref_ts`, the corpus floor and the sweep still run.
+- **M3:**
+  - the full pass's purge writes `schema_meta.weight_epoch = refTs − 500·h·86400`,
+    and an incremental pass keeps it;
+  - the weight is `2^((min(ts, refTs) − E)/(h·86400))`;
+  - a missing epoch beside a watermark, or `(refTs − E)/(h·86400) > 1000`
+    (tested before the stream), makes the pass a purged full re-mine.
+- **m1:** `HEAD` is resolved once. That hash is used for `ref_ts`,
+  `merge-base`, the range count, the stream range and the final watermark.
+- **m2:**
+  - `src/util/spawn.ts` gains `stderr?: 'inherit' | 'pipe'`. stdin is ignored
+    when either stream is piped, and both defaults stay `'inherit'`, so R-11's
+    pin holds;
+  - the miner pipes git's stderr, drains it, and keeps the last 2,048 bytes.
+    A non-zero exit or a spawn error rejects with that tail, and the
+    `oracleRunSync` git errors carry a 2 KB tail as well;
+  - no fault is recorded for a git failure, since no code exists (plan
+    `6d6f21d`).
+- **m3:** the parser returns one item per malformed entry of a valid-header
+  commit, and one item (with a `records` count) for a whole run it skips after
+  a field where a header was expected; it stays silent until the next valid
+  header. The pass groups items by commit into one fault each, `{commit,
+  records, first}`.
+- **m4:** a partial field is kept as a list of slices, concatenated once when
+  its NUL arrives, with `chunk.indexOf(0, from)` scanning.
+- **m5:** a timestamp must be all decimal digits. Otherwise the record is
+  skipped as one malformed item that names its hash.
+- **Step 3** (`src/stores/adapter.ts`): `openStore(path, {busyTimeoutMs})`,
+  default 100. Only a non-negative integer is accepted (the value is
+  interpolated into the PRAGMA); anything else throws `RangeError`.
+- **§9 "Step 13's skeleton store opener"** (`src/cli/context.ts`): `openRepo`
+  opens both stores with `busyTimeoutMs: 5000`, marked `SKELETON: 13` and
+  retired by Step 35. No other change in that file.
+- **M5:** the memory claim in this step's first entry is corrected in place
+  (above).
+
+**Stop raised during the round (resolved by plan `6d6f21d`).** The rule
+"incremental passes keep the epoch" contradicted T-13-5d, T-13-6d and
+T-13-6e(b). Those specs asserted raw-weight equality with a from-scratch
+store, whose epoch comes from a later `HEAD`. The measured factor was exactly
+the epoch shift (T-13-6e: 1.003805288538339 = 2^(2/365)), and every count and
+ratio matched. R-6 still asserted the removed fixed-2000 epoch. The plan
+amended the three specs to compare on a common epoch, and the test writer
+updated them and R-6.
+
+**Verified.**
+- `cd ctxoracle && npm run build && npm test` → `tsc -p tsconfig.json`
+  clean; `# tests 217`, `# pass 216`, `# fail 0`, `# skipped 0`, `# todo 1`
+  (skeleton_e2e, `SKELETON: 1R`, Step 28).
+- The eight `miner*.test.js` files, run 3 more times: `# tests 48 # pass 48
+  # fail 0` each time.
+- `node middleware/context-oracle/.claude/skills/expert-plan/scripts/derive-plan-sections.mjs --check middleware/context-oracle/docs/plans/plan-phase-a.md`
+  → `OK: 40 steps, 13 elements, 163 test specs, 27 probes cited, regions current`.
+- `(cd middleware/context-oracle && python3 tools/check_docs.py)` →
+  `context-oracle doc-consistency check passed.`

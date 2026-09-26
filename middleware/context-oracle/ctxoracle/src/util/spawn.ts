@@ -46,12 +46,18 @@ export interface OracleSpawnOptions {
   detached?: boolean;
   scrub?: boolean;
   /**
-   * `'pipe'`: stdin ignored, stdout piped (the caller consumes `child.stdout`
-   * as `Buffer` chunks, never `setEncoding`), stderr inherited. The default
-   * stays `'inherit'`. Added by Step 13 for the miner's `git log` stream: an
-   * inherited stdout has no pipe (`child.stdout` is `null`).
+   * `'pipe'`: stdout piped (the caller consumes `child.stdout` as `Buffer`
+   * chunks, never `setEncoding`). Setting either this or `stderr` makes stdin
+   * ignored. The default stays `'inherit'`. Added by Step 13 for the miner's
+   * `git log` stream: an inherited stdout has no pipe (`child.stdout` is `null`).
    */
   stdout?: 'inherit' | 'pipe';
+  /**
+   * `'pipe'`: stderr piped; the caller must drain it (an undrained pipe stalls
+   * the child once its buffer fills). The default stays `'inherit'` (Step 13
+   * build review m2: the miner keeps git's stderr tail for its errors).
+   */
+  stderr?: 'inherit' | 'pipe';
 }
 
 export interface OracleExecOptions {
@@ -79,7 +85,11 @@ export function oracleSpawn(cmd: string, args: string[], opts: OracleSpawnOption
     env: childEnv(opts),
     detached: opts.detached === true,
     stdio:
-      opts.detached === true ? 'ignore' : opts.stdout === 'pipe' ? ['ignore', 'pipe', 'inherit'] : 'inherit',
+      opts.detached === true
+        ? 'ignore'
+        : opts.stdout === 'pipe' || opts.stderr === 'pipe'
+          ? ['ignore', opts.stdout ?? 'inherit', opts.stderr ?? 'inherit']
+          : 'inherit',
   };
   return spawn(cmd, args, spawnOpts);
 }

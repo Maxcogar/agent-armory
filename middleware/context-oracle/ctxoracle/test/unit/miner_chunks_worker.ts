@@ -58,7 +58,8 @@ async function main(): Promise<void> {
     if (repo === undefined || projectDb === undefined || globalDb === undefined || diag === undefined || mode === undefined) {
       throw new Error('miner_chunks_worker mine: expected <repo> <projectDb> <globalDb> <diagnosticsDir> <full|auto>');
     }
-    const store = openStore(projectDb);
+    // Off the event path, the miner's caller opens with busyTimeoutMs 5000 (Step 3; T-13-5b).
+    const store = openStore(projectDb, { busyTimeoutMs: 5000 });
     const global = openStore(globalDb);
     const tuning = tuningReader(global, 'miner-large', () => {});
     await mineCochange(store, repo, mode === 'full' ? { tuning, diagnosticsDir: diag, full: true } : { tuning, diagnosticsDir: diag });
@@ -71,7 +72,8 @@ async function main(): Promise<void> {
     if (repo === undefined || projectDb === undefined || globalDb === undefined || diag === undefined || stopHash === undefined) {
       throw new Error('miner_chunks_worker mine-stop: expected <repo> <projectDb> <globalDb> <diagnosticsDir> <stopHash>');
     }
-    const store = openStore(projectDb);
+    // Off the event path, the miner's caller opens with busyTimeoutMs 5000 (Step 3; T-13-5b).
+    const store = openStore(projectDb, { busyTimeoutMs: 5000 });
     const global = openStore(globalDb);
     const tuning = tuningReader(global, 'miner-branches', () => {});
     await mineCochange(stopAfterWatermark(store, stopHash), repo, { tuning, diagnosticsDir: diag });

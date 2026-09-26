@@ -9,7 +9,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -376,4 +376,82 @@ test('T-3-5i2: while the transaction is aborted, every statement and transaction
     store.transaction(() => ins(store, 9));
     assert.deepEqual(rows(store), [9], 'a later unit of work commits normally');
   });
+});
+
+// ---- Case (j) — busyTimeoutMs (plan Step 3 at e4b4455; AD-26 as corrected
+// after CI on 821c835 failed T-13-5b with the miner raising StoreBusy) --------
+//
+// Step 3: "a store opened with `busyTimeoutMs: 5000` completes a write while a
+// second process holds the lock for 1 s; one opened with the default raises
+// `StoreBusy`" (default busy_timeout 100 ms + one retry, well under 1 s).
+
+/** A second process: BEGIN IMMEDIATE + insert, writes `<marker>`, holds the lock 1 s, commits. */
+function holdLockFor1s(dbPath: string, marker: string): Promise<number | null> {
+  const holder = [
+    "const { DatabaseSync } = require('node:sqlite');",
+    "const { writeFileSync } = require('node:fs');",
+    'const [dbPath, marker] = process.argv.slice(1);',
+    'const db = new DatabaseSync(dbPath);',
+    "db.exec('PRAGMA busy_timeout = 100');",
+    "db.exec('BEGIN IMMEDIATE');",
+    "db.exec('INSERT INTO t(x) VALUES(100)');",
+    "writeFileSync(marker, 'holding');",
+    'Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1000);',
+    "db.exec('COMMIT');",
+    'db.close();',
+  ].join('\n');
+  const child = spawn(process.execPath, ['-e', holder, dbPath, marker], { stdio: ['ignore', 'ignore', 'inherit'] });
+  return new Promise((resolve, reject) => {
+    child.on('error', reject);
+    child.on('exit', (code) => resolve(code));
+  });
+}
+
+async function waitForFile(p: string): Promise<void> {
+  const deadline = Date.now() + 15_000;
+  while (!existsSync(p)) {
+    if (Date.now() > deadline) throw new Error(`timed out waiting for ${p}`);
+    await new Promise((r) => setTimeout(r, 5));
+  }
+}
+
+test('T-3-5j: busyTimeoutMs 5000 waits out a 1 s lock and commits; the default raises StoreBusy', async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'ctxoracle-busy-'));
+  const dbPath = path.join(dir, 'store.db');
+  const setup = openStore(dbPath);
+  setup.exec('CREATE TABLE t(x INTEGER)');
+  setup.close();
+  try {
+    // A store opened with busyTimeoutMs 5000 completes its write.
+    const patient = openStore(dbPath, { busyTimeoutMs: 5000 });
+    try {
+      const held = holdLockFor1s(dbPath, path.join(dir, 'held-1'));
+      await waitForFile(path.join(dir, 'held-1'));
+      let outcome = 'committed';
+      try {
+        patient.transaction(() => ins(patient, 1));
+      } catch (e) {
+        outcome = e instanceof StoreBusy ? 'StoreBusy' : `error: ${String(e)}`;
+      }
+      assert.equal(await held, 0, 'the lock holder committed');
+      assert.equal(outcome, 'committed', 'a store opened with busyTimeoutMs 5000 did not complete its write while the lock was held for 1 s');
+      assert.deepEqual(rows(patient), [1, 100]);
+    } finally {
+      patient.close();
+    }
+
+    // A store opened with the default raises StoreBusy.
+    const hasty = openStore(dbPath);
+    try {
+      const held = holdLockFor1s(dbPath, path.join(dir, 'held-2'));
+      await waitForFile(path.join(dir, 'held-2'));
+      assert.throws(() => hasty.transaction(() => ins(hasty, 2)), StoreBusy, 'the default-opened store did not raise StoreBusy');
+      assert.equal(await held, 0);
+      assert.deepEqual(rows(hasty), [1, 100, 100], 'the default-opened store wrote nothing');
+    } finally {
+      hasty.close();
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

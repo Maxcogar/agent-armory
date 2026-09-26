@@ -263,5 +263,50 @@ test('T-13-6d: an incremental pass over a branching history, stopped after the m
   });
 
   await mine(dbs, repo); // the resume: m2..HEAD still reaches s1 and s2 through the merge
-  assert.deepEqual(withStore(dbs, counts), withStore(reference, counts), 'counts after the incremental resume differ from one uninterrupted mine');
+  // Counts exactly, weights on a common epoch (plan §12 at 6d6f21d).
+  assertCommonEpoch(withStore(dbs, epochRows), withStore(reference, epochRows), 'counts after the incremental resume differ from one uninterrupted mine');
 });
+
+// ---- Weights on a common epoch (plan §12 at 6d6f21d) -------------------------
+// An incremental pass keeps its store's weight_epoch while a from-scratch mine
+// re-bases it (AD-13), so raw weights differ by exactly the factor that cancels
+// in every ratio. Each store's weight × 2^((E_store − E_ref)/(h × 86400)) must
+// equal the reference's within 1e-9 relative (h = the seeded 365 days); counts
+// are compared exactly.
+
+interface EpochRows {
+  epoch: number;
+  files: Map<string, { count: number; weight: number }>;
+  pairs: Map<string, { count: number; weight: number }>;
+}
+
+function epochRows(store: Store): EpochRows {
+  const epochText = (store.prepare("SELECT value FROM schema_meta WHERE key = 'weight_epoch'").get() as { value: string | null } | undefined)?.value;
+  const all = filesDao(store).all();
+  const pathOf = new Map(all.map((f) => [f.id, f.path]));
+  const files = new Map<string, { count: number; weight: number }>();
+  for (const f of all) if (f.change_count !== 0 || f.change_weight !== 0) files.set(f.path, { count: f.change_count, weight: f.change_weight });
+  const pairs = new Map<string, { count: number; weight: number }>();
+  for (const r of store.prepare('SELECT a, b, pair_count, pair_weight FROM cochange_pairs').all() as { a: number; b: number; pair_count: number; pair_weight: number }[]) {
+    pairs.set([pathOf.get(r.a) ?? `#${r.a}`, pathOf.get(r.b) ?? `#${r.b}`].sort().join(' | '), { count: r.pair_count, weight: r.pair_weight });
+  }
+  return { epoch: Number(epochText), files, pairs };
+}
+
+function assertCommonEpoch(actual: EpochRows, reference: EpochRows, what: string): void {
+  assert.ok(Number.isFinite(actual.epoch) && Number.isFinite(reference.epoch), `${what}: a store has no numeric weight_epoch`);
+  const factor = 2 ** ((actual.epoch - reference.epoch) / (365 * 86400));
+  for (const [kind, a, r] of [
+    ['file', actual.files, reference.files],
+    ['pair', actual.pairs, reference.pairs],
+  ] as const) {
+    assert.deepEqual([...a.keys()].sort(), [...r.keys()].sort(), `${what}: the ${kind} set differs from the reference's`);
+    for (const [key, ref] of r) {
+      const got = a.get(key);
+      assert.ok(got !== undefined);
+      assert.equal(got.count, ref.count, `${what}: ${kind} ${key} count differs from the reference's`);
+      const rel = Math.abs(got.weight * factor - ref.weight) / Math.abs(ref.weight);
+      assert.ok(rel <= 1e-9, `${what}: ${kind} ${key} weight on the common epoch differs by ${rel} relative (> 1e-9)`);
+    }
+  }
+}
