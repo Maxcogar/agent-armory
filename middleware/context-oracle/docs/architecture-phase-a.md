@@ -1510,7 +1510,12 @@ and nothing here depends on the new channel.
    (AD-26). **A commit already in `commits` is skipped, never counted again,**
    so a resumed pass is idempotent whatever order the history's branches
    interleave in. **The pass's final transaction sets `last_mined_commit` to
-   the `HEAD` it mined to**, including when `HEAD` is a merge. *Why (Step 13
+   the `HEAD` it mined to** — including when `HEAD` is a merge, and only when
+   the stream delivered every commit the range count expected; otherwise it
+   keeps the last chunk's watermark and records the shortfall as a fault, so
+   an incomplete read is never recorded as a complete one (Step 13 build
+   review M2: a stream the miner could not parse mined nothing and still
+   advanced the watermark, losing that history for good). *Why (Step 13
    test writer, 2026-09-26):* the stream excludes merges (`--no-merges`), so a
    chunk watermark can never equal a merge `HEAD` — every history fact would
    read stale forever under AD-14's `last_mined_commit ≠ HEAD` rule on a
