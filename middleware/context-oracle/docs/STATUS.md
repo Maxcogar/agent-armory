@@ -297,9 +297,20 @@ different agent built the code without changing any expected value.
 - Until Step 14 builds the real indexer, `ctxoracle init` runs but search
   tables stay empty.
 
+**Step 13 (the co-change miner) is built and reviewed (2026-09-26).** It was
+built test-first:
+- The builder stopped twice on plan flaws, each fixed in the plan first.
+- Independent review with hand mutation:
+  `docs/reviews/2026-09-26-step-13-build-review.md`. The suite caught 31 of 57
+  planted faults before the review's 19 added tests and 57 of 57 after.
+- The fixes are in, including one found by CI: the miner gave up on a busy
+  database after 200 ms, and now waits 5 s off the event path.
+- On this repository the miner read 390 commits and counted 376 in 2.4 s.
+- `npm test`: 217 tests, 216 pass, 0 fail, 1 `todo`.
+
 Next, in order:
 1. **Build each step fully**, in plan order from Step 13, replacing the
-   `SKELETON:` marks. For each step:
+   `SKELETON:` marks — next is Step 14 (the indexer). For each step:
    - a separate agent writes the step's §12 test from the plan's test spec
      before the code, and it must fail first;
    - mutation testing checks that the tests catch broken code;

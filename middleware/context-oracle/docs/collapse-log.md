@@ -1669,3 +1669,23 @@ in the fix pass (plan commit 8162f00).
 in the same pass. An independent hunt attacks the author's answers; when there
 are none, it is doing the author's job, and the attack it exists for does not
 happen.
+
+## 2026-09-26 — Step 13: a numeric-safety fix changed a quantity the plan's tests compared exactly
+
+**What happened.** To keep recency weights finite (Step 13 build review M3), the
+weight epoch was re-based per full mine (AD-13, c31d87e). The fix was right for
+its purpose, but it changed what a stored weight means: an incrementally
+extended store and a from-scratch mine now differ in raw weights by a common
+factor that cancels in every ratio. Three §12 specs and one review test compared
+raw weights exactly, so the plan contradicted itself. The Step 13 builder caught
+it as a PLAN-FLAW stop before building around it (the process working as
+intended); the specs now compare on a common epoch (6d6f21d).
+
+**Class.** Unverified — a change to a representation was checked for its own
+goal, not for every place the old representation was relied on.
+
+**Standing lesson.** When a decision changes how a stored value is represented
+(its unit, scale, origin, or encoding), list every place that reads or compares
+that value — code, specs, and tests — before recording the decision, and state
+which comparisons remain meaningful. A quantity that is only meaningful as a
+ratio must never be compared raw anywhere.
