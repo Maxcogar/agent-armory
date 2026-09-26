@@ -2533,7 +2533,15 @@ and nothing here depends on the new channel.
    events), so multiple handler processes may touch one store concurrently:
    WAL + `busy_timeout=100ms` + short write transactions (below) + retry-once
    on `SQLITE_BUSY`; on second failure the event completes whisper-less
-   (fail-open) with a `store_busy` diagnostic. The detached reindex takes a
+   (fail-open) with a `store_busy` diagnostic. **Off the event path the wait is
+   long:** the miner, the indexer, and the CLI verbs open the store with
+   `busy_timeout` 5,000 ms, because nothing there has a latency budget to
+   protect, and a background pass that gave up after 200 ms would abort
+   whenever a live session's handler held the lock for one short write group.
+   *Why (CI on 821c835, T-13-5b):* the miner, opened with the event path's
+   100 ms, raised `StoreBusy` against a second process's single-row appends
+   and the pass aborted. The handler's short writes (above) keep each wait
+   well under that bound. The detached reindex takes a
    **claim row** in `schema_meta`, inside one `BEGIN IMMEDIATE` transaction,
    released in a `finally`, and a second reindex is refused with
    `reindex_locked` (a plan-level diagnostic code); `status` shows a held claim
@@ -2611,7 +2619,8 @@ and nothing here depends on the new channel.
 3. **Why here.** The no-daemon model (AD-1) moves contention to the store; WAL
    is the mechanism that makes that safe, and the give-up path keeps NF-1.
 4. **What this is NOT.** Not a global write queue (a daemon in disguise). Not
-   long `busy_timeout` (blocks the event path — NF-1). Not DAO-owned
+   long `busy_timeout` on the event path (blocks it — NF-1); off-path writers
+   use one (above). Not DAO-owned
    transactions, which cannot compose into one atomic unit of work. Not one
    transaction per pass or per event (the lock-hold bound above).
 5. **Premise verification.** WAL enabled and exercised in V8; `FR-K7`, `FR-O3`
