@@ -7028,7 +7028,7 @@ are *runnable* at that point.
   | `src/blocks/answer_drift.ts`, `src/blocks/health.ts` | threshold reads move from `TuningReader.get` to `num`/`list` (3); consumer parameters typed `ConsumerKey` (3) | Steps 25, 26 |
   | `src/miner/cochange.ts` | the `landmines.upsert` calls are removed — the miner writes no landmine at 1R (2); `bump` passes the commit hash it already parses and a stand-in weight `1` (3) | Step 13 |
   | `src/index/indexer.ts` | the inline `DELETE FROM files` loop is removed — a file gone from the tree keeps its row at 1R (2); the `fts_paths`/`fts_symbols` inserts, which name the pre-1R columns, are removed, so `init` and `index` run at 1R with empty FTS tables (2); `files.upsert` passes `in_tree: 1` and `isSuspect(path)` (3) | Step 14 |
-  | `src/index/search.ts` | its FTS and `LIKE` bodies, which read the pre-1R columns, return `[]` (1); no caller remains at 1R | Step 14 |
+  | `src/index/search.ts` | its FTS bodies (which read the pre-1R FTS columns) and its `LIKE` bodies (which are not AD-2's token fallback) return `[]` (1); no caller remains at 1R | Step 14 |
   | `src/bar/combinator.ts` (`confidenceOf`) | stand-in body consistent with `passesBar`'s (3) | Step 16 |
   | `src/hook/handler.ts` (further) | `targetPath` keeps the skeleton's cwd-relative value, `resultPaths: []`, `context: 'read'`, `role` from `consumerRole`, an empty `observed` reader, and a `recordDrop` stand-in (3); `consumerRole(consumer) === 'main'` replaces `consumer === 'main'` here and in `decideDeny`, since the old comparison can never match a `ConsumerKey` and would switch the block off (3) | Step 28 |
   | `src/hook/adapter.ts` (further) | `targetPathRaw` carried through (3) | Step 28 |
