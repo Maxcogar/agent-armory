@@ -26,7 +26,9 @@ export async function indexVerb(args: string[]): Promise<number> {
     const tuning = tuningReader(r.global, r.key.key, (k) => recordFault(r.project, diag, { code: 'tuning_missing', detail: { key: k } }));
     const res = await runIndex(r.project, r.repoPath, {
       full: args.includes('--full'),
-      frontends: defaultFrontends(r.global, diag),
+      // Step 15 changed defaultFrontends to (tuning: TuningReader) — the shape
+      // D-plan-29 and Steps 28/31 name for this call; only the argument moved.
+      frontends: defaultFrontends(tuning),
       tuning,
       diagnosticsDir: diag,
     });

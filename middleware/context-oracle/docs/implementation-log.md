@@ -1528,3 +1528,205 @@ at `221a1bc` and `42dbbd0`. They were test-first.
     which is `sha256Hex('[]')`.
   - No `walk_errors`, `head_unresolved_since`, `indexing_in_progress` or
     `reindex_owner_pid` left behind.
+
+## Step 15 — tree-sitter frontend, generic fallback, import resolvers (AD-12, AD-2, AD-19) — BUILT (2026-09-26, uncommitted, pending independent review; one PLAN-FLAW raised, below)
+
+Built against plan Step 15 as amended at `42653ae`, test-first. A separate
+agent wrote the stubs (`src/index/resolvers.ts`, the declared overloads of
+`treeSitterFrontend` and `defaultFrontends`), the fixture additions
+(`indexer-small`'s `pkg/mod.py` + `pkg/use.py`; `indexer-walk`'s
+`src/alias.ts`), and `T-15-1`…`T-15-6`. This build replaced every stub and
+both skeleton overloads. No asserted test value was changed and no test was
+deleted.
+
+**Pinned before the build, as §7's contract requires.** `T-15-2` passed on the
+skeleton. Re-checked by compiling `HEAD`'s `generic_frontend.ts` alone and
+running the test's input through it: capabilities `{symbols: true, imports:
+false}`, symbols `greet` and `farewell`, `imports: []`. It pins behaviour the
+skeleton generic frontend already had.
+
+**Built.**
+- `src/index/tree_sitter_frontend.ts`
+  - `QUERIES` (line 100): a definitions query for 25 of the 31 table grammars
+    (`c`, `c_sharp`, `cpp`, `dart`, `elisp`, `elixir`, `go`, `java`,
+    `javascript`, `kotlin`, `objc`, `ocaml`, `php`, `python`, `rescript`,
+    `ruby`, `rust`, `scala`, `solidity`, `swift`, `systemrdl`, `tlaplus`,
+    `tsx`, `typescript`, `zig`), plus `bash`, which is outside the table
+    (T-15-4 registers it explicitly).
+  - Query conventions: `@def.<kind>` captures the declaration node, whose byte
+    span is the symbol's span (T-15-1). `@name` captures the name. `@import`
+    captures a specifier. `@import.from` captures a dots-only Python `from`
+    statement, which `expandFromImport` (line 366) expands, so
+    `from . import mod` becomes `.mod`.
+  - Imports are captured only for `typescript`, `tsx`, `javascript` and
+    `python` (`RESOLVERS`, line 285), so only those four declare
+    `imports: true`. TS/JS capture static imports, re-export sources, `import
+    x = require()`, `require('…')` and `import('…')` with a string literal.
+  - `treeSitterFrontend(lang)` (line 379) throws for a grammar with no
+    `QUERIES` entry (plan: such a grammar gets no tree-sitter frontend).
+  - `init` (via `load`, line 298): `Parser.init()` once per process;
+    `Language.load` and `new Query` once per grammar per process. A rejected
+    load is not cached.
+  - `parse` never throws. Any throwable returns `{ok: false, error}` and
+    discards the parser instance (`discardParser`, line 391), so the next file
+    gets a fresh one. Content that is not valid UTF-8 returns
+    `{ok: false, error: 'content is not valid UTF-8'}` (line 412).
+  - Spans are bytes (`byteOffsets`, line 341). web-tree-sitter reports UTF-16
+    code-unit indices: its C binding returns `byte >> 1`,
+    `node_modules/web-tree-sitter/lib/tree-sitter.c:36`.
+  - `version` (line 404) combines the grammar, the `web-tree-sitter` and
+    `tree-sitter-wasms` versions read from their `package.json`, a hash of the
+    query text, and `RESOLVER_RULES_VERSION` for a resolving frontend. A
+    change to any of them changes the frontend fingerprint.
+- `src/index/resolvers.ts`
+  - `resolveTsImport` (line 73) follows the plan's NodeNext rules. A written
+    TS/JS extension tries the file as written, and a `.js`/`.jsx`/`.mjs`/`.cjs`
+    specifier also tries its `.ts`/`.tsx`/`.mts`/`.cts` source. Any other
+    specifier tries `.ts`, `.tsx`, `.js`, `.jsx` appended, then `/index.` plus
+    each, and never the written path. A bare specifier is `external` when it
+    is `node:`-prefixed, in `module.builtinModules`, or a name in the nearest
+    `package.json`; otherwise it is `unresolved`.
+  - `resolvePythonImport` (line 110) follows PEP 328 for relative specifiers
+    (a relative miss is `unresolved`). An absolute name resolves against the
+    repository root, and a miss there is `external`.
+  - Neither resolver tries another language's extensions.
+- `src/index/generic_frontend.ts` (line 52)
+  - Identifier-shape regexes cover JS/TS `function`/`class`, Python/Ruby
+    `def`, Rust `fn`, Lua `function`, and both shell function syntaxes. Shell
+    names may be any bash word (`foo-bar`, `my.method`, `Foo::Bar`; T-14-5).
+  - `imports` is always `[]`. `version` is a hash of the regexes (line 56).
+  - The span is the definition line without its indentation.
+  - Text that is not valid UTF-8 is decoded as latin1, so spans stay exact
+    byte offsets.
+- `src/index/frontends.ts` — `defaultFrontends(tuning)` (line 14): one
+  frontend per `index.ext_to_grammar` grammar that has a `QUERIES` entry,
+  sorted, then `genericFrontend`.
+- `src/index/indexer.ts`
+  - Generic fallback, line 677: a file whose parse returns `{ok: false}` (or
+    throws) is recorded once as `frontend_parse_failed {lang, path, error}`,
+    then parsed by the generic frontend. Its generic symbols are stored and it
+    contributes no edges.
+  - Line 559: the generic frontend's `init` is awaited whenever the list holds
+    it and anything is walked.
+- `src/stores/dao/tuning_seeds.ts` — `.lua=lua` removed; the comment now says
+  31 grammars.
+- Retired:
+  - both `SKELETON: 14` frontend marks (plan §9 row "Step 14's skeleton
+    frontends");
+  - the old overloads;
+  - the three Step 14 `todo` subtests, with their `todo` marks and the
+    `defaultFrontendsFromTuning` alias removed. These are `indexer_walk.test.ts`'s
+    two `T-14-3 (Step 15)` subtests and `search_semantics.test.ts`'s
+    `T-14-5 (Step 15)`. All three pass.
+
+**Callers owned by later steps.** `src/cli/index.ts` and `src/cli/init.ts`
+still carry `SKELETON: 14` for Steps 28/31. Each call site changed only
+`defaultFrontends(r.global, diag)` to `defaultFrontends(tuning)`, the value
+the verb already built, and a comment was added there. No §9 row names this
+argument. The builder treated the change as covered because D-plan-29 names
+these two callers of `defaultFrontends`, and Steps 28 and 31 (plan lines 5807
+and 6424) state the `defaultFrontends(tuning)` call. A reviewer should confirm
+that reading.
+
+**Plan silences decided in the code (each commented where made).**
+- **The grammars that get a query.** Six table grammars have none, and their
+  extensions fall to the generic frontend (`lang_capabilities` records
+  `generic`):
+  - `css`, `html`, `json` and `toml` are style, markup and data formats with
+    no named declaration;
+  - `embedded_template` and `vue` parse only the template layer, so the
+    embedded code is an opaque text node.
+- **Which definitions are symbols.** Only named declarations the language
+  binds: functions, methods, classes, types, modules, and top-level constants.
+  Local variables are never symbols. A top-level binding whose value loads a
+  module (`const x = require(…)`, `await import(…)`, zig `@import`) is
+  dropped by `isModuleBinding` (line 271). Otherwise it would be a same-named
+  false symbol beside the real one (P4).
+- **Order for a `.js` specifier.** The TypeScript source (`.ts`, `.tsx`) is
+  tried before the written `.js`, which is TypeScript's own order.
+- **Trailing-slash specifiers** (`./d/`) try only `index.*`.
+- **Python absolute `from X import y`** is captured as `X`; `from . import *`
+  as `.`.
+- **Non-UTF-8 content** is `{ok: false}` for tree-sitter, which leads to the
+  generic fallback and one fault. The generic frontend decodes it as latin1.
+
+**Verification actually run** (2026-09-26, `ctxoracle/`).
+- `npm run build`: clean.
+- `npm test`: `# tests 305`, `# pass 304`, `# fail 0`, `# todo 1`. The one
+  `todo` is Step 28's `skeleton_e2e`.
+- The 12 frontend and indexer files (`tree_sitter_frontend`,
+  `tree_sitter_frontend_fallback`, `generic_frontend`, `frontend_capabilities`,
+  `import_resolvers`, `indexer*`) were run 3 more times: `tests 82`,
+  `pass 82`, `fail 0` each time. `search_semantics` was also run 3 more times:
+  `tests 3`, `pass 3` each time.
+- `derive-plan-sections --check`: `OK: 40 steps, 13 elements, 165 test specs,
+  27 probes cited, regions current`.
+- `check_docs.py`: passed.
+- This repository was indexed into a scratch `CTXORACLE_HOME` with
+  `defaultFrontends`. `git status --porcelain --untracked-files=all` showed
+  nothing new afterwards.
+  - First pass: 1,888 files present, 1,888 written, 8 path-only, 5,135
+    symbols, 1,106 import edges, 2,428 `symbol_refs`, 326 `test_map`, 400
+    commits mined, 8.36 s.
+  - Unchanged re-run: 0 written, 0.35 s.
+  - Per language (files / symbols / resolved / unresolved / unresolved share):
+
+    | Language | Frontend | Files | Symbols | Resolved | Unresolved | Share |
+    |---|---|---|---|---|---|---|
+    | `unknown` | generic | 1,038 | 424 | 0 | 0 | n/a |
+    | `typescript` | tree-sitter | 391 | 2,421 | 1,047 | 18 | 0.017 |
+    | `json` | generic | 171 | 0 | — | — | — |
+    | `javascript` | tree-sitter | 109 | 581 | 51 | 91 | 0.641 |
+    | `python` | tree-sitter | 98 | 883 | 2 | 0 | 0.000 |
+    | `c_sharp` | tree-sitter | 66 | 789 | — | — | — |
+    | `toml` | generic | 9 | 0 | — | — | — |
+    | `tsx` | tree-sitter | 4 | 4 | 6 | 0 | 0.000 |
+    | `html` | generic | 2 | 33 | — | — | — |
+
+  - Faults: one `frontend_parse_failed`,
+    `skills/api-endpoint-mapper/scripts/scan_endpoint.py`, which starts with
+    byte `0xff` and is not UTF-8. It fell back to the generic frontend. There
+    were 8 `index_path_only_oversize` faults.
+  - Of the 91 JavaScript unresolved imports, 51 are in
+    `mcp-servers/codegraph-mcp/tests`, imports of `../dist/*.js` (untracked
+    build output); 36 are `@/…` aliases in the two `test-project`s; 4 are the
+    undeclared `@babel/*` packages. All are unresolved by the stated rules.
+
+**PLAN-FLAW raised (not built around; routed to the planning step).** Plan
+Step 15 says a Python absolute name that is not under the repository root is
+`external`, because it must then be "the standard library or an installed
+distribution".
+- On this repository that premise is false.
+  - Of 591 Python imports, the resolver found 2 resolved, 0 unresolved and 589
+    external.
+  - 116 of the 589 external imports name an in-repo module under an ancestor
+    directory of the importing file. That directory is where the script's own
+    directory, or a project root, sits on `sys.path`.
+  - Examples: `mcp-servers/codebase-rag/mcp-server-python/config.py` importing
+    `utils.paths`, and `mcp-servers/FeatureCAM-MCP/tests/test_live.py`
+    importing `featurecam_mcp_server`.
+- So Python records `imports: true` with an unresolved share of 0.000 while
+  about one in five imports lost its edge. This is the observed-zero versus
+  never-counted failure that AD-12's unresolved count exists to expose (CH
+  H4). Reuse would count those helpers as observed-zero.
+- Proposed fix, for the plan:
+  - resolve an absolute name against the importing file's ancestor
+    directories, nearest first, then the repository root, as Python's
+    `sys.path[0]` rule does;
+  - keep `external` only when no in-repo module or package with that
+    top-level name exists, otherwise count the import `unresolved`;
+  - add `T-15-5` cells for both rules.
+- The current code implements the plan's rule as written, and `T-15-5`
+  passes against it.
+
+**Observations for the reviewer (not flaws in the plan's rules).**
+- `from . import name`, where `name` is an attribute of the package's
+  `__init__.py` rather than a module, is captured as `.name` and counted
+  unresolved, because the resolver cannot tell the two apart from the
+  specifier alone.
+- A TS/JS import of an existing non-code file (`./App.css`) is `unresolved`
+  under the plan's rule, since TypeScript NodeNext resolves only TS/JS files.
+  This would raise the share in React-style repositories. None occurred here.
+- `test/unit/indexer_review.test.ts` RV-25, headed "§9 stand-in (retired by
+  Step 15)", still passes against the built generic frontend. It is not in
+  Step 15's `files.modify` and was left unchanged.

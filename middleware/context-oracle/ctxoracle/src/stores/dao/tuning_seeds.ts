@@ -61,9 +61,11 @@ export const SCALAR_SEEDS: ScalarSeed[] = [
   { key: 'index.entry_marker_points', value: '1', source: 'plan_seed' },
 ];
 
-// The ext -> grammar table (32 grammars the pinned runtime loads and parses, §4).
-// Each member is `<ext>=<grammar>`; elm/ql/yaml/bash are excluded by cause and
-// fall to the generic frontend.
+// The ext -> grammar table (the 31 grammars the pinned runtime loads and parses
+// error-free on every repeated parse, plan §4 and Step 15; AD-12/L6). Each
+// member is `<ext>=<grammar>`; elm/ql/yaml/bash/lua are excluded by cause
+// (lua: ERROR trees for valid source after its first parse in a process, with
+// no throw — Step 15) and fall to the generic frontend.
 const EXT_TO_GRAMMAR: [string, string][] = [
   ['.c', 'c'], ['.h', 'c'],
   ['.cs', 'c_sharp'],
@@ -79,7 +81,6 @@ const EXT_TO_GRAMMAR: [string, string][] = [
   ['.js', 'javascript'], ['.mjs', 'javascript'], ['.cjs', 'javascript'], ['.jsx', 'javascript'],
   ['.json', 'json'],
   ['.kt', 'kotlin'], ['.kts', 'kotlin'],
-  ['.lua', 'lua'],
   ['.m', 'objc'], ['.mm', 'objc'],
   ['.ml', 'ocaml'], ['.mli', 'ocaml'],
   ['.php', 'php'],

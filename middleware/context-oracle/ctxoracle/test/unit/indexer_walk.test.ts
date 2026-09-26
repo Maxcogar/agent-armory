@@ -6,15 +6,12 @@
 // Step 14 (D-plan-29). Both indexed; then `src/k.ts` deleted and re-indexed.
 // Technique: decision table over path classes + state-transition.
 //
-// Step 15 subtests (`todo: 'needs Step 15 frontends; retired by Step 15'`):
-// the assertions that need symbols or `import_edges` — the `test_map` rows
+// Step 15 subtests (their `todo` marks retired by Step 15): the assertions
+// that need symbols or `import_edges` — the `test_map` rows
 // `src/a.test.ts -> src/a.ts` and `tests/test_b.py -> b.py` (`import_edge`),
 // and the precondition that `src/k.ts` has `symbols` rows before its deletion
 // — run on their own `indexer-walk` copy with Step 15's
-// `defaultFrontends(tuning)`. Until Step 15 changes that export's signature
-// from the skeleton's `(global, diagnosticsDir)`, the call goes through a
-// typed alias (`defaultFrontendsFromTuning`); Step 15, which modifies this
-// file, removes the alias when it retires the todos.
+// `defaultFrontends(tuning)`.
 //
 // Expected values come from the fixture and Step 14's text: the tracked-and-
 // ignored zone evidence `tracked file matches an ignore pattern`; `test_map`
@@ -35,8 +32,6 @@ import { applyMigrations } from '../../src/stores/migration_runner.js';
 import { seedDefaults, tuningReader } from '../../src/stores/dao/tuning.js';
 import { runIndex } from '../../src/index/indexer.js';
 import { defaultFrontends } from '../../src/index/frontends.js';
-import type { LanguageFrontend } from '../../src/index/frontend.js';
-import type { TuningReader } from '../../src/types/candidate.js';
 import { generateFixture, INDEXER_WALK } from '../fixtures/generate.js';
 
 const root = mkdtempSync(path.join(tmpdir(), 'ctxoracle-walk-'));
@@ -52,12 +47,9 @@ function newStores(name: string): { store: Store; global: Store } {
   return { store, global };
 }
 
-/** Step 15's declared `defaultFrontends(tuning)` (see the header). */
-const defaultFrontendsFromTuning = defaultFrontends as unknown as (tuning: TuningReader) => LanguageFrontend[];
-
 async function index(store: Store, global: Store, repo: string, withFrontends = false): Promise<void> {
   const tuning = tuningReader(global, path.basename(repo), () => {});
-  const frontends = withFrontends ? defaultFrontendsFromTuning(tuning) : [];
+  const frontends = withFrontends ? defaultFrontends(tuning) : [];
   await runIndex(store, repo, { full: false, frontends, tuning, diagnosticsDir: diag });
 }
 
@@ -181,7 +173,6 @@ test('T-14-3: after src/k.ts is deleted and re-indexed its row is kept with in_t
 
 // --- Step 15 subtests: indexed with defaultFrontends(tuning) on their own copy.
 
-const TODO = 'needs Step 15 frontends; retired by Step 15';
 const walk15 = path.join(root, 'indexer-walk-15');
 let s15: { store: Store; global: Store } | undefined;
 let indexed15: Promise<void> | undefined;
@@ -198,7 +189,7 @@ process.on('exit', () => {
   s15?.global.close();
 });
 
-test('T-14-3 (Step 15): test_map holds the import_edge rows of the TypeScript and Python test files', { todo: TODO }, async () => {
+test('T-14-3 (Step 15): test_map holds the import_edge rows of the TypeScript and Python test files', async () => {
   const s = await frontendIndex();
   const rows = testMapRows(s.store);
   for (const expected of ['src/a.test.ts -> src/a.ts (import_edge)', 'tests/test_b.py -> b.py (import_edge)']) {
@@ -206,7 +197,7 @@ test('T-14-3 (Step 15): test_map holds the import_edge rows of the TypeScript an
   }
 });
 
-test('T-14-3 (Step 15): src/k.ts has symbols rows before its deletion', { todo: TODO }, async () => {
+test('T-14-3 (Step 15): src/k.ts has symbols rows before its deletion', async () => {
   const s = await frontendIndex();
   const k = file(s.store, 'src/k.ts');
   assert.ok(k !== undefined && k.in_tree === 1, 'src/k.ts is not in the tree');

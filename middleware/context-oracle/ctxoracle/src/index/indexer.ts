@@ -6,7 +6,10 @@
 // `readdir`, `walk.ts`), and per present file: classifies its zone, applies the
 // ingestion caps (ASVS 5.0 V5), parses it through the frontend the caller
 // passed (D-plan-29 — the frontend list is an argument, so an empty list
-// indexes paths, zones and tokens only), and writes its rows. Everything a
+// indexes paths, zones and tokens only), and writes its rows. A file whose
+// frontend's parse fails (`{ok: false}` or a throw) is recorded once as
+// `frontend_parse_failed` and parsed by the generic frontend when the list
+// holds it (Step 15), so it keeps generic symbols and contributes no edges. Everything a
 // search or genre reads later is written here, and — under `fts_state =
 // 'fts5'` — the FTS rows beside the relational ones, deleted explicitly
 // (a virtual table is outside `ON DELETE CASCADE`'s reach).
@@ -551,9 +554,9 @@ async function indexPass(store: Store, repoPath: string, opts: IndexOptions): Pr
     const f = byLang.get(lang);
     if (f !== undefined) await tryInit(f);
   }
-  if (generic !== undefined && [...presentLangs].some((l) => { const f = byLang.get(l); return f === undefined || disabled.has(f); })) {
-    await tryInit(generic);
-  }
+  // The generic frontend is awaited whenever the list holds it and anything is
+  // walked, since any tree-sitter parse can fail and fall back to it (Step 15).
+  if (generic !== undefined && listed.length > 0) await tryInit(generic);
   const frontendFor = (lang: string): LanguageFrontend | undefined => {
     const f = byLang.get(lang);
     if (f !== undefined && !disabled.has(f)) return f;
@@ -659,23 +662,35 @@ async function indexPass(store: Store, repoPath: string, opts: IndexOptions): Pr
     };
     const fe = frontendFor(lang);
     if (fe !== undefined) {
-      let parsed: ReturnType<LanguageFrontend['parse']>;
-      try {
-        parsed = fe.parse(p, bytes);
-      } catch (e) {
-        parsed = { ok: false, error: e instanceof Error ? e.message : String(e) };
-      }
+      const parseWith = (f: LanguageFrontend): ReturnType<LanguageFrontend['parse']> => {
+        try {
+          return f.parse(p, bytes);
+        } catch (e) {
+          return { ok: false, error: e instanceof Error ? e.message : String(e) };
+        }
+      };
+      let used = fe;
+      let parsed = parseWith(fe);
       if (!parsed.ok) {
+        // Exactly one fault per failed file, naming its language and path.
         parseFailures.push({ lang, path: p, error: redact(parsed.error).redacted.slice(0, ERROR_MAX_CHARS) });
-      } else {
+        // Generic fallback (Step 15): the file is parsed by the generic
+        // frontend, its generic symbols are stored, and it contributes no
+        // import_edges (the generic frontend declares imports: false).
+        if (fe !== generic && generic !== undefined && !disabled.has(generic)) {
+          used = generic;
+          parsed = parseWith(generic);
+        }
+      }
+      if (parsed.ok) {
         // Symbols are parsed from the file's own bytes so their spans address
         // the file on disk (the rumor rule re-resolves spans there, AD-15);
         // every string derived from the content is redacted before it is
         // stored (Step 11, AD-19). Import specifiers are never stored.
-        if (fe.capabilities.symbols) pf.symbols = parsed.symbols.map((s) => ({ ...s, name: redact(s.name).redacted }));
-        if (fe.capabilities.imports) {
+        if (used.capabilities.symbols) pf.symbols = parsed.symbols.map((s) => ({ ...s, name: redact(s.name).redacted }));
+        if (used.capabilities.imports) {
           pf.imports = parsed.imports;
-          pf.frontend = fe;
+          pf.frontend = used;
         }
       }
     }

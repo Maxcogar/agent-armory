@@ -17,13 +17,10 @@
 //     the path tokens src/util/ts, src/db/schema/ts, lib/cafe/x/ts,
 //     lib/a/b/c/sh — and the injected terms, which must neither throw nor
 //     match everything.
-//   - Step 15 subtest (`todo: 'needs Step 15 frontends; retired by Step
-//     15'`): the same two stores indexed with Step 15's
-//     `defaultFrontends(tuning)`; every query's `symbolSearch` hit set
-//     compared between them, and the symbol-hit clauses. Until Step 15 changes
-//     that export's signature from the skeleton's `(global, diagnosticsDir)`,
-//     the call goes through a typed alias (`defaultFrontendsFromTuning`);
-//     Step 15, which modifies this file, removes it when it retires the todo.
+//   - Step 15 subtest (its `todo` mark retired by Step 15): the same two
+//     stores indexed with Step 15's `defaultFrontends(tuning)`; every query's
+//     `symbolSearch` hit set compared between them, and the symbol-hit
+//     clauses.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -36,8 +33,6 @@ import { seedDefaults, tuningReader } from '../../src/stores/dao/tuning.js';
 import { runIndex } from '../../src/index/indexer.js';
 import { tokenize, pathSearch, symbolSearch } from '../../src/index/search.js';
 import { defaultFrontends } from '../../src/index/frontends.js';
-import type { LanguageFrontend } from '../../src/index/frontend.js';
-import type { TuningReader } from '../../src/types/candidate.js';
 import { fixtureInit, fixtureCommit } from '../fixtures/generate.js';
 
 const root = mkdtempSync(path.join(tmpdir(), 'ctxoracle-search-'));
@@ -93,9 +88,6 @@ const PATH_HITS: Record<string, string[]> = {
   '"*': [], // no token: matches nothing
 };
 
-/** Step 15's declared `defaultFrontends(tuning)` (see the header). */
-const defaultFrontendsFromTuning = defaultFrontends as unknown as (tuning: TuningReader) => LanguageFrontend[];
-
 let repo: string | undefined;
 function filesRepo(): string {
   if (repo === undefined) {
@@ -118,7 +110,7 @@ async function indexedStore(name: string, fts: boolean, withFrontends: boolean):
   seedDefaults(global);
   try {
     const tuning = tuningReader(global, 'search-semantics', () => {});
-    const frontends = withFrontends ? defaultFrontendsFromTuning(tuning) : [];
+    const frontends = withFrontends ? defaultFrontends(tuning) : [];
     await runIndex(store, filesRepo(), { full: false, frontends, tuning, diagnosticsDir: diag });
   } finally {
     global.close();
@@ -167,7 +159,7 @@ test('T-14-5: pathSearch hit sets agree under fts5 and fallback and follow token
   }
 });
 
-test('T-14-5 (Step 15): symbolSearch hit sets agree under both stores and meet the symbol clauses', { todo: 'needs Step 15 frontends; retired by Step 15' }, async () => {
+test('T-14-5 (Step 15): symbolSearch hit sets agree under both stores and meet the symbol clauses', async () => {
   const ftsStore = await indexedStore('symbols', true, true);
   const fbStore = await indexedStore('symbols', false, true);
   try {
