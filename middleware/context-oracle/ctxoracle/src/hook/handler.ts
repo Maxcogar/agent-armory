@@ -40,6 +40,7 @@ import { verificationGenerator, recognizeDoneClaim } from '../genres/verificatio
 import { oracleSpawn } from '../util/spawn.js';
 import { foldWhisperStats } from '../diag/whisper_stats_fold.js';
 import type { ObservedActionsReader } from '../types/events.js';
+import { consumerKey, consumerRole } from '../types/consumer.js';
 
 const GENERATORS = [
   orientationGenerator,
@@ -86,27 +87,58 @@ export function runHandler(stdin: string, kindArg: EventKind, opts: { deadlineMs
     if (!existsSync(layout.project) || !existsSync(layout.global)) return { stdout: '' }; // not initialized: fail open
     store = openStore(layout.project);
     global = openStore(layout.global);
-    const t = tuningReader(global);
+    const projectStore = store;
+    const t = tuningReader(global, key, (k) =>
+      recordFault(projectStore, diagnosticsDir, { code: 'tuning_missing', detail: { key: k } })
+    );
     const meta = schemaMetaDao(store);
-    // SKELETON: G29 — the plan derives the consumer key as (session_id,
-    // agent_id | 'main') but types it 'main' | 'subagent' and denies on
-    // `consumer !== 'main'`; the skeleton keeps the role as the store key.
-    const consumer = ev.consumer;
+    // SKELETON: 1R — Step 6's consumer key (one agent in one session, AD-4) and
+    // the role derived from it for FR-O6's main-only scope; retired by Step 28
+    const consumer = consumerKey(ev.session, ev.agentId);
+    const role = consumerRole(consumer);
     const oa = observedActionsDao(store);
+    // SKELETON: 1R — stands in for the session's observed-actions reader (Step
+    // 6's reshaped ObservedActionsReader); nothing reads it while every
+    // generator returns []; retired by Step 28
     const reader: ObservedActionsReader = {
-      okEdits: () => oa.okEdits(ev!.session),
-      okReads: () => oa.okReads(ev!.session),
-      runs: () => oa.runs(ev!.session),
-      pathWrites: (p) => oa.pathWrites(ev!.session, 0).filter((x) => x === p).length,
+      okEditedPaths: () => [],
+      runs: () => [],
       firstHash: () => undefined,
-      writtenSince: () => 0,
+      hashesFor: () => [],
+      pathWrites: () => [],
     };
+    const rawTarget = ev.targetPathRaw;
     const ctx: EventContext = {
       ...ev,
-      repoPath,
+      consumer,
+      role,
+      // SKELETON: 1R — EventContext's new members with the §9 stand-ins:
+      // repoRoot = checkoutRoot = the skeleton's repository path, isWorktree
+      // false, historyAvailable false, indexStale and historyStale false, refTs =
+      // the stored ref_ts or 0, tuning = Step 12's tuningReader; targetPath is
+      // the skeleton's cwd-relative normalization (N3 unfixed), resultPaths []
+      // and context 'read', and recordDrop records Step 6's
+      // whisper_dropped_unverifiable (all unread while every generator returns
+      // []); retired by Step 28
+      repoRoot: repoPath,
+      checkoutRoot: repoPath,
+      isWorktree: false,
       repoKey: key,
-      indexStale: meta.get('index_stale') === '1',
-      observedActions: reader,
+      targetPath:
+        rawTarget === undefined ? undefined : path.isAbsolute(rawTarget) ? path.relative(ev.workingDir, rawTarget) : rawTarget,
+      resultPaths: [],
+      context: 'read',
+      refTs: Number(meta.get('ref_ts') ?? 0),
+      indexStale: false,
+      historyStale: false,
+      historyAvailable: false,
+      tuning: t,
+      observed: reader,
+      recordDrop: (genre, subjectKey, reason) =>
+        recordFault(projectStore, diagnosticsDir, {
+          code: 'whisper_dropped_unverifiable',
+          detail: { genre, subjectKey, reason },
+        }),
     };
     let response: InternalResponse = {};
 
@@ -121,7 +153,6 @@ export function runHandler(stdin: string, kindArg: EventKind, opts: { deadlineMs
       writeSessionEvent(store, {
         session: ev.session,
         consumer,
-        seq: 0,
         event_type: 'liveness',
         ts: Date.now(),
         detail_json: JSON.stringify({ transcriptPath: ev.transcriptPath, transcriptBytes: bytes }),
@@ -136,12 +167,12 @@ export function runHandler(stdin: string, kindArg: EventKind, opts: { deadlineMs
     deadline.check();
 
     // 5. Question intake
-    if (ev.kind === 'UserPromptSubmit' && consumer === 'main' && ev.promptText !== undefined) {
+    if (ev.kind === 'UserPromptSubmit' && role === 'main' && ev.promptText !== undefined) {
       intakeFromPrompt(store, consumer, ev.promptText, t);
     }
 
     // 6. Transcript catch-up + health (main consumer only, AD-11)
-    if (consumer === 'main' && ev.transcriptPath !== '' && existsSync(ev.transcriptPath)) {
+    if (role === 'main' && ev.transcriptPath !== '' && existsSync(ev.transcriptPath)) {
       const cu = catchUpTranscript(store, diagnosticsDir, consumer, ev.transcriptPath, t, {
         expired: () => {
           try {
@@ -159,7 +190,7 @@ export function runHandler(stdin: string, kindArg: EventKind, opts: { deadlineMs
 
     // 7. Block check
     if (ev.kind === 'PreToolUse' && ev.toolName !== undefined) {
-      const v = decideDeny(store, ev.session, consumer, ev.toolName, ev.targetPath);
+      const v = decideDeny(store, ev.session, consumer, ev.toolName, ctx.targetPath);
       if (v !== null) response = { deny: v };
     }
 
@@ -173,31 +204,35 @@ export function runHandler(stdin: string, kindArg: EventKind, opts: { deadlineMs
       oa.append({
         session: ev.session,
         consumer,
-        seq: Date.now(),
         tool: ev.toolName ?? 'unknown',
-        path: cmd !== undefined ? pathWriteTarget(cmd) : (ev.targetPath ?? null),
+        path: cmd !== undefined ? pathWriteTarget(cmd) : (ctx.targetPath ?? null),
         command_class: cls,
         outcome: ev.kind === 'PostToolUse' ? 'ok' : 'failed',
         ts: Date.now(),
       });
-      if (ev.kind === 'PostToolUse') updateReadSet(store, consumer, ev.toolName ?? '', ev.targetPath);
+      if (ev.kind === 'PostToolUse') updateReadSet(store, consumer, ev.toolName ?? '', ctx.targetPath);
       if (cmd !== undefined && ev.kind === 'PostToolUse') checkDenyBypassSuspect(store, diagnosticsDir, consumer, cmd);
     }
     deadline.check();
 
     // 9. Candidates → bar → dedup → compose → audit-then-emit
     if (!('deny' in response)) {
-      const refTs = Math.floor(Date.now() / 1000); // SKELETON: G19
       const cands: Candidate[] = GENERATORS.filter((g) => g.triggerEvents.includes(ev!.kind)).flatMap((g) => g.candidates(ctx, store!, t));
       const texts: { text: string; c: Candidate; conf: number }[] = [];
       for (const c of cands) {
         deadline.check();
-        if (!passesBar(c, t, { indexStale: ctx.indexStale, refTs }).passes) continue;
+        if (!passesBar(c, t, { indexStale: ctx.indexStale, historyStale: ctx.historyStale }).passes) continue;
         if (!perConsumerDedup(store, consumer, c)) continue;
-        const conf = confidenceOf(c, t, { indexStale: ctx.indexStale, refTs });
+        const conf = confidenceOf(c, t, { indexStale: ctx.indexStale, historyStale: ctx.historyStale });
         const out = compose(c, repoPath, store, conf);
         if ('dropped' in out) {
-          recordFault(store, diagnosticsDir, { code: 'whisper_dropped_stale', detail: { subject: c.subjectKey } });
+          // SKELETON: 1R — the removed whisper_dropped_stale is recorded as
+          // whisper_dropped_unverifiable with the compose drop reason; retired by
+          // Step 28
+          recordFault(store, diagnosticsDir, {
+            code: 'whisper_dropped_unverifiable',
+            detail: { genre: c.genre, subjectKey: c.subjectKey, reason: out.dropped },
+          });
           continue;
         }
         texts.push({ text: out.text, c, conf });
@@ -230,7 +265,6 @@ export function runHandler(stdin: string, kindArg: EventKind, opts: { deadlineMs
     writeSessionEvent(store, {
       session: ev.session,
       consumer,
-      seq: Date.now(),
       event_type: ev.kind,
       ts: Date.now(),
       latency_ms: Date.now() - started,

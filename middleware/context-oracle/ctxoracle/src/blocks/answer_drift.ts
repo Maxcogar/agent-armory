@@ -1,7 +1,12 @@
 // The answer-drift block (Steps 25, 27; AD-9, AD-10, OL-C3, OL-C5, D-41, D-plan-27).
 // Phase A's only verdict caller. WALKING SKELETON.
+// SKELETON: 1R — threshold reads use Step 6's `TuningReader.num`/`list` (no
+// fallback literal) and consumer parameters are Step 6's `ConsumerKey`, with
+// FR-O6's main-only deny read from `consumerRole(consumer)`; retired by Step
+// 25 (§9: answer_drift.ts and health.ts, Steps 25, 26)
 import type { Store } from '../stores/adapter.js';
 import type { TuningReader } from '../types/candidate.js';
+import { consumerRole, type ConsumerKey } from '../types/consumer.js';
 import { TranscriptReader, TranscriptLayoutChanged } from '../transcript/reader.js';
 import { recognizeQuestions, recognizeClearing, recognizeMove } from '../qa/classify.js';
 import {
@@ -18,7 +23,7 @@ import { whisperAuditDao } from '../stores/dao/whisper_audit.js';
 import { recordFault } from '../diag/fault_writer.js';
 import { makeDenyVerdict, type DenyVerdict } from './verdict.js';
 
-export function intakeFromPrompt(store: Store, consumer: string, promptText: string, t: TuningReader): number {
+export function intakeFromPrompt(store: Store, consumer: ConsumerKey, promptText: string, t: TuningReader): number {
   let opened = 0;
   for (const q of recognizeQuestions(promptText, t.list('lexicon.stoplist'))) {
     if (openQuestion(store, { consumer, questionText: q.questionText, contentHash: q.contentHash }) !== 'already_open') opened += 1;
@@ -38,7 +43,7 @@ export interface CatchUpResult {
 export function catchUpTranscript(
   store: Store,
   diagnosticsDir: string,
-  consumer: string,
+  consumer: ConsumerKey,
   transcriptPath: string,
   t: TuningReader,
   deadline: { expired(): boolean }
@@ -85,7 +90,7 @@ export function catchUpTranscript(
         d.text,
         t.list('lexicon.deferral_stoplist'),
         t.list('lexicon.deferral_filler'),
-        Number(t.get('qa.clear_length_floor_chars') ?? '2')
+        t.num('qa.clear_length_floor_chars')
       );
       turns.record(consumer, d.uuid, ts, r.clears, r.reason ?? null);
       res.newTurns.push({ uuid: d.uuid, ts, clears: r.clears });
@@ -108,11 +113,11 @@ export function catchUpTranscript(
 export function decideDeny(
   store: Store,
   session: string,
-  consumer: string,
+  consumer: ConsumerKey,
   toolName: string,
   targetPath: string | undefined
 ): DenyVerdict | null {
-  if (consumer !== 'main' || !recognizeMove(toolName)) return null;
+  if (consumerRole(consumer) !== 'main' || !recognizeMove(toolName)) return null;
   const open = getOpenQuestions(store, consumer);
   if (open.length === 0) return null;
   const reason = `answer Max's question first: ${open.map((q) => `"${q.question_text}"`).join('; ')}`;
@@ -127,7 +132,7 @@ export function decideDeny(
   return makeDenyVerdict(reason, id);
 }
 
-export function handleSessionStart(store: Store, consumer: string, source: string): void {
+export function handleSessionStart(store: Store, consumer: ConsumerKey, source: string): void {
   if (source === 'startup' || source === 'clear') {
     expireOnStartup(store, consumer);
     advanceBookmark(store, consumer, 0, null);
@@ -139,7 +144,7 @@ export function handleSessionStart(store: Store, consumer: string, source: strin
   }
 }
 
-export function outstandingQuestionLine(store: Store, consumer: string, doneClaimFired: boolean): string | null {
+export function outstandingQuestionLine(store: Store, consumer: ConsumerKey, doneClaimFired: boolean): string | null {
   if (!doneClaimFired) return null;
   const open = getOpenQuestions(store, consumer);
   if (open.length === 0) return null;

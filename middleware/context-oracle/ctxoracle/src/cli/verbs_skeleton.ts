@@ -11,8 +11,6 @@ import { tuning } from '../stores/dao/tuning.js';
 import { correctionsDao } from '../stores/dao/corrections.js';
 import { humanFactsDao } from '../stores/dao/human_facts.js';
 import { lessonsDao } from '../stores/dao/lessons.js';
-import { landminesDao } from '../stores/dao/landmines.js';
-import { filesDao } from '../stores/dao/files.js';
 import { foldWhisperStats } from '../diag/whisper_stats_fold.js';
 import { recognizeQuestions } from '../qa/classify.js';
 import { openQuestion } from '../qa/state.js';
@@ -158,12 +156,10 @@ export function noteVerb(args: string[]): number {
     const ki = args.indexOf('--kind');
     const kind = ki >= 0 ? args[ki + 1] : undefined;
     if (kind === 'landmine' && file !== undefined) {
-      const fileId =
-        filesDao(r.project).byPath(file)?.id ??
-        filesDao(r.project).upsert({ path: file, lang: 'unknown', zone: 'unknown', contentHash: '', mtime: 0, prov: human });
-      landminesDao(r.project).upsert({ kind: 'human_stated', fileId, evidence: fact, support: null, prov: human });
-      out(`landmine recorded on ${file}`);
-      return 0;
+      // SKELETON: 1R — the `note --kind landmine` branch called the removed
+      // `landmines.upsert` and is removed; retired by Step 35 (deletes the file)
+      out('note --kind landmine: not built yet');
+      return 1;
     }
     // SKELETON: --kind invariant / target_correction are not built.
     humanFactsDao(r.project).create({ statement: fact, targetKind: file === undefined ? 'repo' : 'file', targetRef: file ?? '', statedAt: Date.now(), prov: human });

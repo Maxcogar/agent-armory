@@ -20,7 +20,6 @@ import { recordFault } from '../diag/fault_writer.js';
 import { commitsDao } from '../stores/dao/commits.js';
 import { cochangePairsDao } from '../stores/dao/cochange_pairs.js';
 import { filesDao } from '../stores/dao/files.js';
-import { landminesDao } from '../stores/dao/landmines.js';
 import { schemaMetaDao } from '../stores/dao/schema_meta.js';
 import { tuning } from '../stores/dao/tuning.js';
 
@@ -130,12 +129,6 @@ export interface MineResult {
   headCommit: string | null;
 }
 
-function push(m: Map<string, string[]>, k: string, v: string): void {
-  const list = m.get(k);
-  if (list === undefined) m.set(k, [v]);
-  else list.push(v);
-}
-
 function num(store: Store, key: string, fallback: number): number {
   const v = tuning.get(store, key);
   const n = v === null ? NaN : Number(v);
@@ -146,13 +139,17 @@ function git(repoPath: string, args: string[]): string {
   return oracleExecFileSync('git', args, { cwd: repoPath, maxBuffer: 256 * 1024 * 1024 });
 }
 
-/** Mine `watermark..HEAD` into commits, cochange_pairs and landmines. */
+/**
+ * Mine `watermark..HEAD` into commits and cochange_pairs.
+ * SKELETON: 1R — the miner writes no landmine at 1R: the `landmines.upsert`
+ * calls (removed from the Step 9 DAO) are deleted together with the
+ * revert/fix-hit collection that only they served; retired by Step 13
+ */
 export function mineCochange(store: Store, repoPath: string, opts: MineOptions): MineResult {
   const meta = schemaMetaDao(store);
   const commits = commitsDao(store);
   const pairs = cochangePairsDao(store);
   const files = filesDao(store);
-  const landmines = landminesDao(store);
 
   let head: string;
   try {
@@ -167,8 +164,6 @@ export function mineCochange(store: Store, repoPath: string, opts: MineOptions):
   const horizonYears = num(g, 'miner.horizon_years', 5);
   const horizonCommits = num(g, 'miner.horizon_commits', 10000);
   const floor = num(g, 'miner.corpus_floor_commits', 30);
-  const chatterK = num(g, 'landmine.fix_chatter_k', 3);
-  const chatterWindowS = num(g, 'landmine.fix_chatter_window_days', 90) * DAY_S;
   const horizonTs = refTs - horizonYears * 365 * DAY_S;
 
   // SKELETON: history-rewrite handling (G4). An unreachable watermark falls back
@@ -204,6 +199,9 @@ export function mineCochange(store: Store, repoPath: string, opts: MineOptions):
         contentHash: '',
         mtime: 0,
         prov: { prov_kind: 'commit', prov_ref: hash, trust: 'untrusted_repo' },
+        // SKELETON: 1R — `files.upsert` takes `in_tree`; a miner-created row is
+        // history-only (AD-4), so the stand-in is 0; retired by Step 13
+        in_tree: 0,
       });
     fileId.set(p, id);
     return id;
@@ -212,8 +210,6 @@ export function mineCochange(store: Store, repoPath: string, opts: MineOptions):
   let included = 0;
   let pairsWritten = 0;
   let unparsed = 0;
-  const revertHits = new Map<string, string[]>();
-  const fixHits = new Map<string, string[]>();
 
   // `git log` lists newest first; the commit-count horizon counts from HEAD back.
   store.transaction(() => {
@@ -235,48 +231,17 @@ export function mineCochange(store: Store, repoPath: string, opts: MineOptions):
       const ids = touched.map((p) => idFor(p, c.hash)).sort((a, b) => a - b);
       for (let a = 0; a < ids.length; a++) {
         for (let b = a + 1; b < ids.length; b++) {
-          // SKELETON: G3 — bump's a_count/b_count are the Step 9 stand-in, not
-          // per-file totals (and the per-pair column is itself a 2NF flaw).
-          pairs.bump(ids[a] as number, ids[b] as number, c.ts);
+          // SKELETON: 1R — `bump` takes the commit hash (parsed above) and AD-13's
+          // recency weight, whose stand-in is 1 (no per-file counts are written
+          // at 1R); retired by Step 13
+          pairs.bump(ids[a] as number, ids[b] as number, c.ts, c.hash, 1);
           pairsWritten += 1;
         }
       }
-      if (isRevertLabelled(c.subject)) for (const p of touched) push(revertHits, p, c.hash);
-      if (isFixLabelled(c.subject) && c.ts >= refTs - chatterWindowS) for (const p of touched) push(fixHits, p, c.hash);
     });
 
     meta.set('last_mined_commit', head);
   });
-
-  // SKELETON: G9 — `landmines.upsert` opens its own transaction and
-  // `Store.transaction` does not nest, so these writes cannot join the pass's
-  // transaction above: a crash between the two leaves the watermark advanced
-  // without its landmines.
-  // SKELETON: G5 — landmines are computed from this pass only; an incremental
-  // pass cannot recount earlier labelled commits, and aged-out rows are never
-  // removed.
-  {
-    for (const [p, hashes] of revertHits) {
-      if (hashes.length < 2) continue;
-      landmines.upsert({
-        kind: 'revert_chain',
-        fileId: idFor(p, hashes[0] as string),
-        evidence: `revert-labelled commits: ${hashes.join(', ')}`,
-        support: hashes.length,
-        prov: { prov_kind: 'commit', prov_ref: hashes[0] as string, trust: 'untrusted_repo' },
-      });
-    }
-    for (const [p, hashes] of fixHits) {
-      if (hashes.length < chatterK) continue;
-      landmines.upsert({
-        kind: 'fix_chatter',
-        fileId: idFor(p, hashes[0] as string),
-        evidence: `fix-labelled commits in the trailing window: ${hashes.join(', ')}`,
-        support: hashes.length,
-        prov: { prov_kind: 'commit', prov_ref: hashes[0] as string, trust: 'untrusted_repo' },
-      });
-    }
-  }
 
   return {
     commitsSeen: parsed.length,

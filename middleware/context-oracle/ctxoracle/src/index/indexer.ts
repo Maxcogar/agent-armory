@@ -18,6 +18,7 @@ import { schemaMetaDao } from '../stores/dao/schema_meta.js';
 import { tuning } from '../stores/dao/tuning.js';
 import { recordFault } from '../diag/fault_writer.js';
 import { redact } from '../security/redact.js';
+import { isSuspect } from '../security/injection.js';
 import { sha256Hex } from '../util/hash.js';
 import { oracleExecFileSync } from '../util/spawn.js';
 import { mineCochange, type MineResult } from '../miner/cochange.js';
@@ -207,6 +208,9 @@ export async function runIndex(store: Store, repoPath: string, opts: IndexOption
       const head = content.subarray(0, 2048).toString('utf8');
       const zone = classifyZone(p, head);
       const prov = { prov_kind: 'repo_span' as const, prov_ref: p, trust: 'untrusted_repo' as const };
+      // SKELETON: 1R — `files.upsert` takes `in_tree` (1: the walk listed the
+      // file) and the path's injection flag, `isSuspect(path)`, as the row's
+      // PROV injection_suspect (AD-4, AD-19); retired by Step 14
       const id = files.upsert({
         path: p,
         lang,
@@ -216,7 +220,8 @@ export async function runIndex(store: Store, repoPath: string, opts: IndexOption
         entryScore: ENTRY_MARKER.test(p) ? 1 : 0,
         contentHash: hash,
         mtime: Math.floor(statSync(abs).mtimeMs),
-        prov,
+        prov: { ...prov, injection_suspect: isSuspect(p) },
+        in_tree: 1,
       });
       known.set(p, id);
       indexed += 1;
@@ -256,17 +261,9 @@ export async function runIndex(store: Store, repoPath: string, opts: IndexOption
       const deg = edges.inDegree(id);
       if (deg > 0) store.prepare('UPDATE files SET entry_score = entry_score + ? WHERE id = ?').run(deg, id);
     }
-    // SKELETON: G2 — remove files the tree no longer has, but keep the miner's
-    // placeholder rows (content_hash '') so history-only paths keep their pairs.
-    const present = new Set(paths);
-    for (const f of files.all()) {
-      if (present.has(f.path) || f.content_hash === '') continue;
-      if (fts) {
-        store.prepare('DELETE FROM fts_paths WHERE file_id = ?').run(f.id);
-        store.prepare('DELETE FROM fts_symbols WHERE file_id = ?').run(f.id);
-      }
-      store.prepare('DELETE FROM files WHERE id = ?').run(f.id);
-    }
+    // SKELETON: 1R — the deletion of files the tree no longer lists (the
+    // skeleton's inline equivalent of the removed `files.deleteMissing`, G2) is
+    // removed: a file gone from the tree keeps its row at 1R; retired by Step 14
 
     const h = resolveHead(repoPath);
     const headCommit = 'commit' in h ? h.commit : null;

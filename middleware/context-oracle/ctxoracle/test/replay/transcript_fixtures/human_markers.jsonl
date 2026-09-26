@@ -1,2 +1,2 @@
-{"type":"user","uuid":"hm-1","timestamp":"2026-01-01T00:00:00Z","message":{"role":"user","content":[{"type":"text","text":"where do notification preferences live?"}]}}
+{"type":"user","uuid":"hm-1","origin":{"kind":"human"},"timestamp":"2026-01-01T00:00:00Z","message":{"role":"user","content":[{"type":"text","text":"where do notification preferences live?"}]}}
 {"type":"assistant","uuid":"hm-2","timestamp":"2026-01-01T00:00:05Z","message":{"role":"assistant","content":[{"type":"text","text":"Looking into it."}]}}

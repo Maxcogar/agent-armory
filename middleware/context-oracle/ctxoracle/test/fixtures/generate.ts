@@ -188,6 +188,20 @@ const generators: Record<string, (dir: string) => void> = {
   'seeded-facts': (dir) => trivial(dir, 'seeded-facts'),
   'regret-true-positive': (dir) => trivial(dir, 'regret-true-positive'),
   'regret-no-inflate': (dir) => trivial(dir, 'regret-no-inflate'),
+  // Reopened 2026-09-26 (Step 1 build delta (b); §5.1): deterministic
+  // single-commit baselines, elaborated to their planted scenario by the
+  // consuming step, exactly like the partial entries above —
+  // coupling-key-symmetry (Step 38), miner-denominator / miner-labels /
+  // miner-large (Step 13), indexer-walk / indexer-nongit (Step 14),
+  // reuse-alias-unresolved (Step 18), recency-weighting (Step 16).
+  'coupling-key-symmetry': (dir) => trivial(dir, 'coupling-key-symmetry'),
+  'miner-denominator': (dir) => trivial(dir, 'miner-denominator'),
+  'miner-labels': (dir) => trivial(dir, 'miner-labels'),
+  'miner-large': (dir) => trivial(dir, 'miner-large'),
+  'indexer-walk': (dir) => trivial(dir, 'indexer-walk'),
+  'indexer-nongit': (dir) => trivial(dir, 'indexer-nongit'),
+  'reuse-alias-unresolved': (dir) => trivial(dir, 'reuse-alias-unresolved'),
+  'recency-weighting': (dir) => trivial(dir, 'recency-weighting'),
   'over-threshold-file'(dir) {
     // A >1 MB file carrying a seeded fact (AD-24 size cap).
     initRepo(dir);

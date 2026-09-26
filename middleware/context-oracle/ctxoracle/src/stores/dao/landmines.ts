@@ -1,20 +1,13 @@
-// landmines DAO (Step 9). Hazard markers on files. ULID id; provenance required.
-// `upsert` dedups on (kind, file_id, evidence): re-mining the same landmine
-// updates its support rather than creating a duplicate (no natural unique key
-// besides the ULID, so the dedup is done in code).
+// landmines DAO (Step 9; reopened 2026-09-26 build delta, G5/N5). Hazard markers
+// on files. ULID id; provenance required. The miner kinds are keyed
+// `(kind, file_id)` by the partial unique index `landmines_miner_key` and written
+// only by `rebuildMinerKinds` (the former `upsert`, keyed on evidence, produced
+// one row per mining pass); human_stated rows are written only by `createHuman`.
 import type { Store } from '../adapter.js';
 import { provCreateValues, type Provenance } from '../../security/trust.js';
 import { ulid } from '../../util/ulid.js';
 
 export type LandmineKind = 'revert_chain' | 'fix_chatter' | 'human_stated';
-
-export interface LandmineUpsert {
-  kind: LandmineKind;
-  fileId: number;
-  evidence: string;
-  support?: number | null;
-  prov: Provenance;
-}
 
 export interface LandmineRecord {
   id: string;
@@ -30,53 +23,74 @@ export interface LandmineRecord {
   updated_at: number;
 }
 
+/** One miner-kind row; the miner key is `(kind, file_id)` (`landmines_miner_key`). */
+export interface MinerLandmineRow {
+  kind: 'revert_chain' | 'fix_chatter';
+  fileId: number;
+  evidence: string;
+  support?: number | null;
+  prov: Provenance;
+}
+
+/** The `human_stated` writer's row (`note --kind landmine`, Step 35). */
+export interface HumanLandmineCreate {
+  fileId: number;
+  evidence: string;
+  support?: number | null;
+  prov: Provenance;
+}
+
 export interface LandminesDao {
-  upsert(row: LandmineUpsert): string;
+  /** The file's landmines, human rows first (AC-23), then by id. */
   forFile(fileId: number): LandmineRecord[];
+  /**
+   * Delete every revert_chain/fix_chatter row and insert `rows` (one per
+   * `(kind, file_id)`), atomically — inside the caller's transaction when there
+   * is one. Never touches a human_stated row.
+   */
+  rebuildMinerKinds(rows: MinerLandmineRow[]): void;
+  /** Delete every revert_chain/fix_chatter row (a full re-mine, AD-13). */
+  deleteMinerKinds(): void;
+  /** Write one human_stated row; returns its ULID. Human provenance only. */
+  createHuman(row: HumanLandmineCreate): string;
 }
 
 export function landminesDao(store: Store): LandminesDao {
+  const insert = (id: string, kind: LandmineKind, fileId: number, evidence: string, support: number | null, prov: Provenance, now: number): void => {
+    store
+      .prepare(
+        `INSERT INTO landmines(id, kind, file_id, evidence, support,
+           prov_kind, prov_ref, trust, injection_suspect, created_at, updated_at)
+         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(id, kind, fileId, evidence, support, ...provCreateValues(prov, now, now));
+  };
   return {
-    upsert(row) {
-      const now = Date.now();
-      return store.transaction(() => {
-        const existing = store
-          .prepare('SELECT id FROM landmines WHERE kind = ? AND file_id = ? AND evidence = ?')
-          .get(row.kind, row.fileId, row.evidence) as { id: string } | undefined;
-        provCreateValues(row.prov, now, now); // validate provenance (FR-X4)
-        if (existing !== undefined) {
-          store
-            .prepare(
-              `UPDATE landmines SET support = ?, prov_kind = ?, prov_ref = ?, trust = ?,
-                 injection_suspect = ?, updated_at = ? WHERE id = ?`
-            )
-            .run(
-              row.support ?? null,
-              row.prov.prov_kind,
-              row.prov.prov_ref,
-              row.prov.trust,
-              row.prov.injection_suspect === true ? 1 : 0,
-              now,
-              existing.id
-            );
-          return existing.id;
-        }
-        const id = ulid(now);
-        const prov = provCreateValues(row.prov, now, now);
-        store
-          .prepare(
-            `INSERT INTO landmines(id, kind, file_id, evidence, support,
-               prov_kind, prov_ref, trust, injection_suspect, created_at, updated_at)
-             VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-          )
-          .run(id, row.kind, row.fileId, row.evidence, row.support ?? null, ...prov);
-        return id;
-      });
-    },
     forFile(fileId) {
       return store
-        .prepare('SELECT * FROM landmines WHERE file_id = ? ORDER BY id')
+        .prepare("SELECT * FROM landmines WHERE file_id = ? ORDER BY (kind = 'human_stated') DESC, id")
         .all(fileId) as LandmineRecord[];
+    },
+    rebuildMinerKinds(rows) {
+      const now = Date.now();
+      store.transaction(() => {
+        store.prepare("DELETE FROM landmines WHERE kind IN ('revert_chain','fix_chatter')").run();
+        for (const r of rows) insert(ulid(now), r.kind, r.fileId, r.evidence, r.support ?? null, r.prov, now);
+      });
+    },
+    deleteMinerKinds() {
+      store.prepare("DELETE FROM landmines WHERE kind IN ('revert_chain','fix_chatter')").run();
+    },
+    createHuman(row) {
+      // A human_stated row is the owner's statement; any other provenance would
+      // relabel repo-derived text as owner-stated (FR-X4).
+      if (row.prov.prov_kind !== 'human') {
+        throw new Error(`landmines.createHuman: human_stated requires human provenance, not ${JSON.stringify(row.prov.prov_kind)} (FR-X4)`);
+      }
+      const now = Date.now();
+      const id = ulid(now);
+      insert(id, 'human_stated', row.fileId, row.evidence, row.support ?? null, row.prov, now);
+      return id;
     },
   };
 }

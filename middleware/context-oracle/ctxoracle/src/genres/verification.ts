@@ -24,6 +24,8 @@ export const verificationGenerator: Generator = {
   genre: 'verification',
   triggerEvents: ['Stop'],
   candidates() {
+    // SKELETON: 1R — stands in for the verification generator over Step 6's Candidate (no
+    // string headline, no a_count read); retired by Step 18
     return [];
   },
 };

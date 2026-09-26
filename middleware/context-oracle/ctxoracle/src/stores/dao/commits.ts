@@ -14,6 +14,8 @@ export interface CommitsDao {
   exists(hash: string): boolean;
   tsOf(hash: string): number | undefined;
   countIncluded(): number;
+  /** Empty the commit index (a full re-mine, AD-13). */
+  deleteAll(): void;
 }
 
 export function commitsDao(store: Store): CommitsDao {
@@ -39,6 +41,9 @@ export function commitsDao(store: Store): CommitsDao {
     countIncluded() {
       const row = store.prepare('SELECT count(*) AS n FROM commits WHERE excluded = 0').get() as { n: number };
       return row.n;
+    },
+    deleteAll() {
+      store.prepare('DELETE FROM commits').run();
     },
   };
 }

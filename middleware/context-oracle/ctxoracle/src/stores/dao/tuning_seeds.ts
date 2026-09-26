@@ -40,9 +40,25 @@ export const SCALAR_SEEDS: ScalarSeed[] = [
   { key: 'security.entropy_bits_per_char', value: '4.0', source: 'plan_seed' },
   { key: 'security.entropy_min_token_length', value: '20', source: 'plan_seed' },
   { key: 'qa.done_claim_trailing_turns_k', value: '3', source: 'plan_seed' },
+  // The half-life h of AD-13's commit weights (the former bar.stale_index_factor
+  // plan seed is superseded by the architecture's bar.stale_factor, below).
   { key: 'bar.recency_half_life_days', value: '365', source: 'plan_seed' },
-  { key: 'bar.stale_index_factor', value: '0.8', source: 'plan_seed' },
   { key: 'diag.hooks_not_firing_gap_s', value: '600', source: 'plan_seed' },
+  // Reopened 2026-09-26 (Step 12 build delta) — architecture_default scalars the
+  // architecture states, each marked illustrative there (AD-14, AD-12, AD-26).
+  // The gap-list review's bar.untrusted_confidence_cap is NOT seeded: AD-14
+  // superseded it with the trust dampener.
+  { key: 'bar.high_confidence_min', value: '0.8', source: 'architecture_default' },
+  { key: 'bar.untrusted_trust_factor', value: '0.9', source: 'architecture_default' },
+  { key: 'bar.suspect_confidence_cap', value: '0.7', source: 'architecture_default' },
+  { key: 'bar.heuristic_confidence_cap', value: '0.7', source: 'architecture_default' },
+  { key: 'bar.stale_factor', value: '0.9', source: 'architecture_default' },
+  { key: 'bar.hazard_full_support', value: '3', source: 'architecture_default' },
+  { key: 'reuse.max_unresolved_import_share', value: '0.05', source: 'architecture_default' },
+  { key: 'miner.chunk_ms', value: '50', source: 'architecture_default' },
+  // plan_seed: the score a marker-stem file adds to its import in-degree
+  // (entry_score = in-degree + points); AD-12 names the markers but no weight.
+  { key: 'index.entry_marker_points', value: '1', source: 'plan_seed' },
 ];
 
 // The ext -> grammar table (32 grammars the pinned runtime loads and parses, §4).
@@ -146,5 +162,26 @@ export const LIST_SEEDS: ListSeed[] = [
     key: 'index.ext_to_grammar',
     source: 'architecture_default',
     values: EXT_TO_GRAMMAR.map(([ext, grammar]) => `${ext}=${grammar}`),
+  },
+  // Reopened 2026-09-26 (Step 12 build delta) — architecture_default lists.
+  {
+    key: 'lexicon.fix_keywords', // AD-15, G1
+    source: 'architecture_default',
+    values: ['fix', 'fixes', 'fixed', 'fixing', 'bug', 'bugfix', 'hotfix'],
+  },
+  {
+    key: 'lexicon.test_path_patterns', // AD-12, N13
+    source: 'architecture_default',
+    values: ['**/*.test.*', '**/*.spec.*', '**/test_*.py', '**/*_test.go', '**/__tests__/**', 'test/**', 'tests/**'],
+  },
+  {
+    key: 'lexicon.test_same_dir_languages', // AD-12
+    source: 'architecture_default',
+    values: ['go'],
+  },
+  {
+    key: 'lexicon.entry_marker_stems', // AD-12's path-convention markers (no route registration)
+    source: 'architecture_default',
+    values: ['main', 'index', 'cli', 'app'],
   },
 ];

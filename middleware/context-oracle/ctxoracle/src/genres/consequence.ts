@@ -7,6 +7,8 @@ export const consequenceGenerator: Generator = {
   genre: 'consequence',
   triggerEvents: ['PreToolUse'],
   candidates() {
+    // SKELETON: 1R — stands in for the consequence generator over Step 6's Candidate (no
+    // string headline, no a_count read); retired by Step 18
     return [];
   },
 };

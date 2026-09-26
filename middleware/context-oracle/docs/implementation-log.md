@@ -761,3 +761,158 @@ End to end (`test/unit/skeleton_e2e.test.ts`, real binary, real git repo):
 - **Step 36.** `src/model/invoke.ts`; nothing imports it.
 - **Step 39, checked for feasibility.** Leg 2's repositories (`Maxcogar/NOVA`,
   `Maxcogar/Nova-Integrations`) can be attached to a session. Leg 1 has G36.
+
+---
+
+## Reopened Steps 1–12 — the 2026-09-26 build deltas + Checkpoint 1R — BUILT (2026-09-26, uncommitted, pending independent review)
+
+Built against the "Reopened 2026-09-26 — build delta" paragraphs of plan Steps 1,
+3, 4, 5, 6, 7, 8, 9, 10, 12 and §9's Checkpoint 1R placeholder rule. Test-first:
+a separate agent wrote the stubs and the new/revised §12 tests; this build
+replaced every stub (`grep -rn "STUB\|not implemented" src` → no match) and
+tightened every stub widening (`FileUpsert.in_tree`, `seq?` on the session and
+observed-action inputs, `bump`'s optional `hash`/`weight`, `tuningReader`'s
+optional `projectKey`/`onMissing` and its `get`) to the plan's types. No asserted
+test value was changed and no test was deleted.
+
+### Per step — what was built
+
+- **Step 1.** `human_markers.jsonl`'s human entry gains `"origin":{"kind":"human"}`
+  (G26); `markerless_user.jsonl` untouched. `generate.ts` gains deterministic
+  single-commit baselines for `coupling-key-symmetry`, `miner-denominator`,
+  `miner-labels`, `miner-large`, `indexer-walk`, `indexer-nongit`,
+  `reuse-alias-unresolved` and `recency-weighting` (34 names).
+- **Step 3.** `Store.transaction` is re-entrant: depth counter; depth 0 is
+  `BEGIN IMMEDIATE`/`COMMIT` with the retry-once-then-`StoreBusy` path
+  unchanged; depth > 0 is `SAVEPOINT sp<depth>`/`RELEASE`, `ROLLBACK TO` +
+  `RELEASE` on a throw, no busy retry, `onBusyRetry` ignored.
+  `openStore(path, {mustExist: true})` opens `pathToFileURL(path).href +
+  '?mode=rw'`; on errcode 14 a `stat` decides `StoreMissing` (ENOENT/ENOTDIR)
+  vs `StoreUnreadable {path, pathKind, errno}`. `backupFile` wraps
+  `sqlite.backup()` with the source opened `readOnly`.
+- **Step 4.** `ensureHome(home)` creates `<home>/`, `global/`, `diagnostics/`
+  at 0o700 and reports pre-existing loose ones; `ensureLayout` calls it first.
+- **Step 5.** `oracleRunSync` (`spawnSync`, no encoding; status returned, never
+  thrown; a failure to start the child is thrown). `src/util/path_bytes.ts`:
+  `splitNul`, `decodePathBytes` (fatal UTF-8), `escapeBytes`.
+- **Step 6.** `FAULT_CODES` is the delta's 29 codes (`whisper_dropped_stale`
+  removed). `consumerKey`/`consumerRole` (`src/types/consumer.ts`); `lit`/`slot`
+  (`src/types/headline.ts`); `InternalEvent`, `ObservedActionsReader`,
+  `EventContext` (with `DropReason`), `Candidate` (every field required),
+  `Pointer` (`kind`-tagged), `TuningReader {num, str, list}` reshaped as the
+  delta states; the old `Consumer` type is removed.
+- **Steps 7, 8.** Migrations 001, 001b and 002 edited in place to the plan DDL
+  (the `test_map.source` CHECK the built 001 lacked is now present; the
+  `symbols_name` index is gone; `whisper_stats` keyed `(genre, project_key)`
+  with `published_at`).
+- **Step 9.** The delta's DAO surface: `files` (`deleteMissing` removed;
+  `ensureHistoryRow`, `markAbsentExcept`, `sweepUnreferenced`, `addChangeCount`,
+  `resetChangeCounts`, `setUnresolvedImports`, `setEntryScore`; `upsert` takes
+  `in_tree`), `cochange_pairs` (`bump(a, b, ts, hash, weight)`, `partnersOf`
+  reshaped, `deleteAll`), `labelled_touches`, `landmines` (`upsert` removed;
+  `rebuildMinerKinds`, `deleteMinerKinds`, `createHuman`; human rows first),
+  `commits.deleteAll`, `corrections` (`since`/`maxSeq`, `genre`; `sinceTs`
+  removed), `whisper_audit` (`subject_key`, `since`, `maxSeq`,
+  `subjectKeyForText`; `deliveredSubjects` returns subject keys),
+  `stats_folds`, `whisper_stats` (`replaceForProject`/`forProject`;
+  `upsertFold` removed), `schema_meta`/`global_meta` `delete`,
+  `global_meta.keysWithPrefix`, `observed_actions` (`append` without `seq`,
+  `segments_json`, `runs(session, consumer)` returning rows, `okEditedPaths`,
+  `hashesFor`, `writtenSinceSeq`, `maxSeq`; `writtenSince` removed;
+  `pathWrites` ordered by `seq`; `EDIT_TOOLS` no longer names `MultiEdit`, per
+  the Step 9 table (a)), `session_log` (`append` without `seq` returning
+  `{id, seq}`, `latestSession`, `hasEnded`), `consumer_state.hasAny`,
+  `path_tokens`, `symbol_tokens`.
+- **Step 10.** `writeSessionEvent` takes no `seq` and returns `{id, seq}`.
+- **Step 12.** `tuningReader(global, projectKey, onMissing)` (project row
+  before the NULL row; list members of whichever level has any; re-seed with
+  the seed `source` and one `onMissing` per key; unknown key throws; per-reader
+  cache), `tuning.get(store, key, projectKey?)`, `checkTuningWrite` (reports
+  every violated relation with every value in it), `tuningWriteNotice`; seeds:
+  `bar.stale_index_factor` removed, the eight new `architecture_default`
+  scalars, `index.entry_marker_points` 1 (`plan_seed`), the four new lists.
+
+### Checkpoint 1R — the skeleton reduction
+
+Placeholders written, each marked `// SKELETON: 1R — …; retired by Step <n>`
+(27 marks; all within the Step 6/9 `modify:` lists and §9's table rows):
+genres ×7 → `candidates()` returns `[]` (Step 18); `generator.ts` pair query
+removed / helper returns `[]` and the `TuningReader` parameter note (Step 18);
+`combinator.ts` `passesBar` stand-in and a `confidenceOf` stand-in (Step 16);
+`compose.ts` → `{dropped: 'stale_pointer'}` (Step 19); `delivery.ts` consumer
+parameters `ConsumerKey` (Step 20); `adapter.ts` without `consumer`, with
+`agentId` and `targetPathRaw` (Step 28); `handler.ts` consumer key + role, the
+observed-actions reader stand-in, `EventContext` stand-ins, the
+`whisper_dropped_unverifiable {reason: 'stale_pointer'}` fault, appends without
+`seq` (Step 28); `answer_drift.ts` (Step 25) and `health.ts` (Step 26) `num`/
+`list` reads and `ConsumerKey` parameters; `cochange.ts` landmine writes removed,
+`bump(…, c.hash, 1)`, and `files.upsert` `in_tree: 0` (Step 13); `indexer.ts`
+`files.upsert` with `in_tree: 1` + `isSuspect(path)`, and the tree-deletion loop
+removed (Step 14); `whisper_stats_fold.ts` → `{folded: 0}` (Step 30);
+`verbs_skeleton.ts` `note --kind landmine` → "not built yet" (Step 35).
+
+`test/unit/skeleton_e2e.test.ts` is marked `todo` (`SKELETON: 1R — …; retired by
+Step 28`); no other test turned red, so it is the only `todo`.
+
+### Verification actually run
+
+- `cd ctxoracle && npm run build` → `tsc -p tsconfig.json`, no diagnostics.
+- `npm test` (exit 0): `# tests 125`, `# pass 124`, `# fail 0`, `# todo 1`
+  (`not ok 77 - skeleton: … # TODO SKELETON: 1R …`). Every Steps 1–12 test
+  passes and none is `todo`: T-1-1…T-1-3, T-2-1, T-3-1…T-3-6 (T-3-5 ×8),
+  T-4-1 ×4, T-5-1…T-5-5, T-6-1…T-6-4, T-7-1 ×13, T-8-1, T-9-1 ×22, T-9-2,
+  T-10-1…T-10-4, T-11-1…T-11-5, T-12-1, T-12-2 ×4, T-12-3 ×26.
+- Owner-visible sanity check (script over the built `dist/`, fresh stores,
+  `fts: true` + `seedDefaults`): `files` has `in_tree`, `change_count`,
+  `change_weight`, `unresolved_imports`; `cochange_pairs` is `a, b,
+  pair_count, pair_weight, last_ts, last_commit` (no `a_count`);
+  `labelled_touches`, `stats_folds`, `symbol_tokens`, `path_tokens` exist; `seq`
+  is `INTEGER pk=1` on `whisper_audit`, `corrections`, `observed_actions`,
+  `session_log`; 26 STRICT project tables; `tuning` holds 87
+  `architecture_default` + 90 `plan_seed` rows, the new keys with their
+  sources, and no `bar.stale_index_factor` row.
+- `node middleware/context-oracle/.claude/skills/expert-plan/scripts/derive-plan-sections.mjs --check middleware/context-oracle/docs/plans/plan-phase-a.md`
+  → `OK: 40 steps, 13 elements, 157 test specs, 27 probes cited, regions current`.
+- `python3 tools/check_docs.py` → `context-oracle doc-consistency check passed.`
+
+### Findings
+
+1. **Step 7's "one run-time break" premise is false.** The plan says the
+   generator helper's `a_count` query is the only statement the schema breaks
+   at run time. The skeleton indexer's FTS writes (`INSERT INTO fts_paths(path,
+   file_id)`, `INSERT INTO fts_symbols(name, kind, file_id)`) and
+   `src/index/search.ts`'s FTS reads name the pre-1R columns. Observed:
+   skeleton_e2e's `init` fails with `table fts_paths has no column named path`.
+   Neither is a compile break, no placeholder form covers them, and
+   `search.ts` is in no `modify:` list; both were left unchanged. At 1R
+   `ctxoracle init`/`index` on an FTS5 store fails until Step 14. `search.ts`
+   has no remaining caller (Orientation is reduced). The todo reason names
+   this cause alongside the plan's.
+2. **§9's indexer row names a call the skeleton does not make.** The indexer
+   never called `files.deleteMissing`; it deleted absent files with inline
+   `DELETE FROM files` SQL, which the no-cascade schema now refuses for any
+   file mined history references. The loop was removed to get the row's stated
+   effect ("a file gone from the tree keeps its row at 1R").
+3. **Stand-ins the §9 table does not enumerate** were needed for the code to
+   compile, and all are in listed files: `confidenceOf` in `combinator.ts`
+   (reads the removed `Candidate.ratio`); the miner's `files.upsert` `in_tree: 0`
+   (the upsert is now required to take `in_tree`); the handler's
+   `targetPath`, `resultPaths`, `context`, `role`, `observed`, `recordDrop`;
+   `consumerRole(consumer)` in place of `consumer === 'main'` in `decideDeny`
+   and the handler. The skeleton's `===`/`!==` against `'main'` on a
+   `ConsumerKey` would never match, so it would have silently disabled the block.
+4. **Plan silences decided in the code, each commented where made.**
+   - `ObservedActionsReader.runs().segments` is typed `unknown[] | null`,
+     because `SegmentClass` is Step 17's.
+   - `ensureHistoryRow`'s `prov_ref` is the path (the DAO is given no hash).
+   - `decodePathBytes` uses `ignoreBOM: true`. The default strips a leading
+     EF BB BF, which would key two byte strings as one path — the G7 defect
+     class.
+   - `landmines.createHuman` refuses non-`human` provenance (FR-X4).
+   - `markAbsentExcept` and `consumer_state.hasAny` bind their id/key lists
+     through `json_each(?)`, so a large tree never meets SQLite's
+     host-parameter limit.
+   - `checkTuningWrite` returns `{ok: true}` for keys outside AD-14's relations.
+5. **Step 1 delta (b) says "seven" names; §5.1 and Step 1's `create:` list add
+   an eighth, `recency-weighting`.** T-1-3 pins the §5.1 list, so all eight are
+   generated.

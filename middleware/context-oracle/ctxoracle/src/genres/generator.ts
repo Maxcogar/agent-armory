@@ -9,23 +9,19 @@ import type { Candidate, TuningReader } from '../types/candidate.js';
 export interface Generator {
   readonly genre: string;
   readonly triggerEvents: EventKind[];
+  // SKELETON: 1R — `tuning` is Step 6's `TuningReader` ({num, str, list});
+  // retired by Step 18
   candidates(ctx: EventContext, store: Store, tuning: TuningReader): Candidate[];
 }
 
 /** Shared lookup: the co-change partners of `path`, with their paths. */
 export function partnersOfPath(store: Store, path: string): { path: string; pairCount: number; aCount: number; lastTs: number }[] {
-  const f = store.prepare('SELECT id FROM files WHERE path = ?').get(path) as { id: number } | undefined;
-  if (f === undefined) return [];
-  return (
-    store
-      .prepare(
-        `SELECT CASE WHEN p.a = ? THEN fb.path ELSE fa.path END AS path, p.pair_count AS pairCount,
-                CASE WHEN p.a = ? THEN p.a_count ELSE p.b_count END AS aCount, p.last_ts AS lastTs
-           FROM cochange_pairs p JOIN files fa ON fa.id = p.a JOIN files fb ON fb.id = p.b
-          WHERE p.a = ? OR p.b = ? ORDER BY p.pair_count DESC`
-      )
-      .all(f.id, f.id, f.id, f.id) as { path: string; pairCount: number; aCount: number; lastTs: number }[]
-  );
+  // SKELETON: 1R — stands in for the partner lookup; the pair query named the
+  // removed `a_count`/`b_count` columns and is removed (Step 7 schema); retired
+  // by Step 18
+  void store;
+  void path;
+  return [];
 }
 
 /** Same directory + same stem: the obvious pair AC-1 suppresses (AD-14 marginal value). */

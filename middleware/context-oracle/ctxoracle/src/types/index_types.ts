@@ -15,3 +15,12 @@ export interface ImportEdge {
   dst: string;
   kind: string;
 }
+
+/**
+ * What a frontend returns for one import (reopened Step 6 build delta), resolved
+ * into an `ImportEdge` by the frontend's resolver (Step 14). Type-only.
+ */
+export interface CapturedImport {
+  specifier: string;
+  kind: string;
+}

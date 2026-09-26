@@ -4,6 +4,7 @@ import type { Store } from '../adapter.js';
 export interface SchemaMetaDao {
   get(key: string): string | undefined;
   set(key: string, value: string): void;
+  delete(key: string): void;
 }
 
 export function schemaMetaDao(store: Store): SchemaMetaDao {
@@ -16,6 +17,9 @@ export function schemaMetaDao(store: Store): SchemaMetaDao {
     },
     set(key, value) {
       store.prepare('INSERT OR REPLACE INTO schema_meta(key, value) VALUES(?, ?)').run(key, value);
+    },
+    delete(key) {
+      store.prepare('DELETE FROM schema_meta WHERE key = ?').run(key);
     },
   };
 }

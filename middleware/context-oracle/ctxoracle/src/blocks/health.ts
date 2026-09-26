@@ -1,8 +1,12 @@
 // Deny health detectors (Step 26, AD-9, AD-17). WALKING SKELETON: the
 // path-write predicate and the loop detector are built; the lag and
 // despite-answer detectors are minimal.
+// SKELETON: 1R — threshold reads use Step 6's `TuningReader.num` (no fallback
+// literal) and consumer parameters are Step 6's `ConsumerKey`; retired by Step
+// 26
 import type { Store } from '../stores/adapter.js';
 import type { TuningReader } from '../types/candidate.js';
+import type { ConsumerKey } from '../types/consumer.js';
 import { whisperAuditDao } from '../stores/dao/whisper_audit.js';
 import { classifiedTurnsDao } from '../stores/dao/classified_turns.js';
 import { recordFault } from '../diag/fault_writer.js';
@@ -24,8 +28,8 @@ export function pathWriteTarget(command: string): string | null {
   return null;
 }
 
-export function checkDenyLoop(store: Store, diagnosticsDir: string, consumer: string, t: TuningReader): boolean {
-  const k = Number(t.get('deny.loop_threshold') ?? '3');
+export function checkDenyLoop(store: Store, diagnosticsDir: string, consumer: ConsumerKey, t: TuningReader): boolean {
+  const k = t.num('deny.loop_threshold');
   const denies = whisperAuditDao(store).denies(consumer, 0).slice(-k);
   if (denies.length < k) return false;
   const first = denies[0]!.ts;
@@ -38,7 +42,7 @@ export function checkDenyLoop(store: Store, diagnosticsDir: string, consumer: st
 export function checkDenyAfterAnswerLag(
   store: Store,
   diagnosticsDir: string,
-  consumer: string,
+  consumer: ConsumerKey,
   newTurns: { uuid: string; ts: number; clears: boolean }[]
 ): void {
   const denies = whisperAuditDao(store).denies(consumer, 0);
@@ -49,7 +53,7 @@ export function checkDenyAfterAnswerLag(
   }
 }
 
-export function checkDenyBypassSuspect(store: Store, diagnosticsDir: string, consumer: string, command: string): void {
+export function checkDenyBypassSuspect(store: Store, diagnosticsDir: string, consumer: ConsumerKey, command: string): void {
   const target = pathWriteTarget(command);
   if (target === null) return;
   const lastDeny = whisperAuditDao(store).denies(consumer, 0).at(-1);

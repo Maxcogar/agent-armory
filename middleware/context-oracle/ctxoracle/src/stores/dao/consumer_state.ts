@@ -8,6 +8,8 @@ export interface ConsumerStateDao {
   has(consumer: string, kind: ConsumerStateKind, key: string): boolean;
   add(consumer: string, kind: ConsumerStateKind, key: string): void;
   clear(consumer: string, kind: ConsumerStateKind): void;
+  /** Whether any of `keys` is present for (consumer, kind) — the `incorporatedBy` check (AD-16). */
+  hasAny(consumer: string, kind: ConsumerStateKind, keys: string[]): boolean;
 }
 
 export function consumerStateDao(store: Store): ConsumerStateDao {
@@ -29,6 +31,17 @@ export function consumerStateDao(store: Store): ConsumerStateDao {
     },
     clear(consumer, kind) {
       store.prepare('DELETE FROM consumer_state WHERE consumer = ? AND kind = ?').run(consumer, kind);
+    },
+    hasAny(consumer, kind, keys) {
+      if (keys.length === 0) return false;
+      return (
+        store
+          .prepare(
+            `SELECT 1 AS n FROM consumer_state
+             WHERE consumer = ? AND kind = ? AND subject_key IN (SELECT value FROM json_each(?)) LIMIT 1`
+          )
+          .get(consumer, kind, JSON.stringify(keys)) !== undefined
+      );
     },
   };
 }

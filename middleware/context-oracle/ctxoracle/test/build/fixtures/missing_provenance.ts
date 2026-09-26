@@ -19,7 +19,10 @@ declare const store: Store;
 filesDao(store).upsert({ path: 'a', lang: 'ts', zone: 'source', contentHash: 'h', mtime: 1 });
 symbolsDao(store).replaceForFile(1, [{ name: 'x', kind: 'function', spanStart: 0, spanEnd: 1 }]);
 testMapDao(store).replaceForFile(1, [{ regionGlob: 'g', source: 's' }]);
-landminesDao(store).upsert({ kind: 'revert_chain', fileId: 1, evidence: 'e' });
+// Reopened 2026-09-26 (Step 9 build delta): `landmines.upsert` is removed; the
+// landmine knowledge writers are `createHuman` and `rebuildMinerKinds`.
+landminesDao(store).createHuman({ fileId: 1, evidence: 'e' });
+landminesDao(store).rebuildMinerKinds([{ kind: 'revert_chain', fileId: 1, evidence: 'e' }]);
 invariantsDao(store).create({ description: 'd' }, []);
 humanFactsDao(store).create({ statement: 's', targetKind: 'file', targetRef: 'a', statedAt: 1 });
 lessonsDao(store).create({ statement: 's' });
