@@ -4272,11 +4272,24 @@ they differ.**
   328: a specifier with `n` leading dots resolves against the `n − 1`-th
   parent package of `fromPath`'s directory (`.mod` from `pkg/use.py` →
   `pkg/mod.py` or `pkg/mod/__init__.py`; `from . import mod` is captured as
-  `.mod`); an absolute dotted name resolves against the repository root
-  (`a.b` → `a/b.py` or `a/b/__init__.py`) → `resolved` when it exists,
-  otherwise `external` (Python has no alias mechanism in the language; an
-  absolute name outside the repository is the standard library or an
-  installed distribution). A relative Python specifier that does not exist →
+  `.mod`); an absolute dotted name is looked up the way Python's
+  `sys.path[0]` rule does for a script — against the importing file's own
+  directory, then each ancestor directory in turn, nearest first, up to and
+  including the repository root (`a.b` → `<dir>/a/b.py` or
+  `<dir>/a/b/__init__.py`) — and is `resolved` at the first hit. With no
+  hit it is `external` only when no in-repo module or package with the same
+  top-level name (`a`) exists anywhere in the repository (then it is the
+  standard library or an installed distribution); otherwise it is
+  `unresolved` (the name is the repository's own, reached through a path
+  the resolver cannot see, e.g. a package installed from the repository or
+  a `sys.path` edit). *Why (Step 15 builder's PLAN-FLAW stop, 2026-09-26,
+  executed on this repository):* resolving against the root alone classed
+  116 of 589 Python imports that name an in-repo module next to the
+  importer (e.g. `mcp-servers/codebase-rag/mcp-server-python/config.py`
+  importing `utils.paths`) as external, so Python showed an unresolved share
+  of 0.000 while about one import link in five was missing — the
+  observed-zero-versus-never-counted failure AD-12's unresolved count exists
+  to expose (CH H4). A relative Python specifier that does not exist →
   `unresolved`. No resolver ever tries another language's extensions (the
   skeleton tried `.py` for TypeScript and `.ts` for Python — review G12;
   executed there, `from .mod import f` produced 0 edges).
@@ -12384,7 +12397,15 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     `os` (external), `pkg.sub.m` (resolved), `pkg/sub/m2.ts` present but
     `.m2` absent (unresolved, never `.ts` — the present file is `m2.ts`, so
     a resolver that tried `.ts` would resolve it and the cell would catch
-    it; Step 15 test writer, 2026-09-26). Technique: decision table.
+    it; Step 15 test writer, 2026-09-26). Ancestor lookup (Step 15 builder's
+    stop): from `tools/sub/run.py` with `tools/helpers/x.py` present,
+    `helpers.x` → resolved to `tools/helpers/x.py` (found at the ancestor
+    `tools/`, not the root); from `tools/sub/run.py` with
+    `tools/sub/local.py` present, `local` → resolved (the importer's own
+    directory first); `json` with no in-repo `json` module → external;
+    `tools.missing` with `tools/` present but no `missing` module under any
+    ancestor → unresolved (the top-level name is the repository's own).
+    Technique: decision table.
   - **NOT asserts.** Parse capture. **Fails when** any cell differs.
 
 - **T-15-6 — Declared capability matches behaviour.**
