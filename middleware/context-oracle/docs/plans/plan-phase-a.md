@@ -3170,9 +3170,10 @@ the whole history is never one buffer in Node (no `maxBuffer` ceiling on a
 large repository). **git's stderr (Step 13 build review m2)** is drained as
 it arrives (an undrained pipe would stall git once its buffer fills),
 keeping only its last 2 KB (2,048 bytes); a non-zero exit or a failed spawn
-rejects the pass with an error whose message carries that tail, and any
-fault recorded for the failure carries the same tail, escaped, as
-`detail.stderr`. *Why:* an inherited stderr reaches nobody under the hook's
+rejects the pass with an error whose message carries that tail (a git
+failure has no fault code of its own, so the error — which the calling verb
+or the detached reindex reports — is where the tail goes; builder's stop
+report, 2026-09-26). *Why:* an inherited stderr reaches nobody under the hook's
 detached reindex (`stdio: 'ignore'`), and the rejection carried only the
 exit code, so the reason a mine failed was lost. `<range>` is
 `<watermark>..<head>` for an incremental pass and `<head>` for a full one.
@@ -7242,6 +7243,7 @@ are *runnable* at that point.
   | `src/miner/cochange.ts` | the `landmines.upsert` calls are removed — the miner writes no landmine at 1R (2); `bump` passes the commit hash it already parses and a stand-in weight `1` (3) | Step 13 |
   | `src/index/indexer.ts` | the inline `DELETE FROM files` loop is removed — a file gone from the tree keeps its row at 1R (2); the `fts_paths`/`fts_symbols` inserts, which name the pre-1R columns, are removed, so `init` and `index` run at 1R with empty FTS tables (2); `files.upsert` passes `in_tree: 1` and `isSuspect(path)` (3) | Step 14 |
   | `src/index/indexer.ts` — Step 13's skeleton caller (made during Step 13's build, after 1R) | the skeleton `runIndex` builds the miner's `TuningReader` as `tuningReader(global, resolveRepoKey(repoPath).key)` and maps `MineResult.included` onto its existing `IndexResult.mine.commitsIncluded`, so the skeleton `index`/`init` verbs compile unchanged; both marked `SKELETON: 13` (3) | Step 14 |
+  | `src/cli/context.ts` — Step 13's skeleton store opener (made during Step 13's build) | the skeleton `openRepo` opens both stores with `busyTimeoutMs: 5000`, the off-path wait (AD-26), so the `index`/`init` verbs' miner cannot abort on `StoreBusy` against a live session; marked `SKELETON: 13` (3) | Step 35 (deletes the file) |
   | `src/index/search.ts` | its FTS bodies (which read the pre-1R FTS columns) and its `LIKE` bodies (which are not AD-2's token fallback) return `[]` (1); no caller remains at 1R | Step 14 |
   | `src/bar/combinator.ts` (`confidenceOf`) | stand-in body consistent with `passesBar`'s (3) | Step 16 |
   | `src/hook/handler.ts` (further) | `targetPath` keeps the skeleton's cwd-relative value, `resultPaths: []`, `context: 'read'`, `role` from `consumerRole`, an empty `observed` reader, and a `recordDrop` stand-in (3); `consumerRole(consumer) === 'main'` replaces `consumer === 'main'` here and in `decideDeny`, since the old comparison can never match a `ConsumerKey` and would switch the block off (3) | Step 28 |
@@ -11354,7 +11356,7 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     not incremental), OR `s1` or `s2` is not in `commits` after the stop, OR
     after the resume (whose range `m2..HEAD` still reaches `s1` and `s2`
     through the merge) any file's `change_count` or `change_weight`, or any
-    pair's `pair_count` or `pair_weight`, differs from the reference store's.
+    pair's `pair_count` or `pair_weight`, differs from the reference store's. (Weights are compared **on a common epoch**: each store's weight × 2^((E_store − E_ref)/(h × 86400)) must equal the reference's within 1e-9 relative, E being each store's `weight_epoch`; counts are compared exactly. An incremental pass keeps its store's epoch while a from-scratch mine re-bases it, so raw weights differ by exactly the factor AD-13 says cancels — raised by the Step 13 builder's stop, 2026-09-26.)
 
 - **T-13-6e — A stream that yields fewer commits than the range holds never claims `HEAD`.**
   - **File.** `test/unit/miner_git_env.test.ts`.
@@ -11386,7 +11388,7 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     hash, OR `mining_in_progress` is not `'0'`; OR after either completing
     mine `last_mined_commit` is not `HEAD`'s hash, `mining_in_progress` is not
     `'0'`, or any `change_count`, `change_weight`, `pair_count`, or
-    `pair_weight` differs from the reference store's.
+    `pair_weight` differs from the reference store's. (Weights are compared **on a common epoch**: each store's weight × 2^((E_store − E_ref)/(h × 86400)) must equal the reference's within 1e-9 relative, E being each store's `weight_epoch`; counts are compared exactly. An incremental pass keeps its store's epoch while a from-scratch mine re-bases it, so raw weights differ by exactly the factor AD-13 says cancels — raised by the Step 13 builder's stop, 2026-09-26.)
 
 - **T-13-5 — Chunked commits: crash safety and the lock-hold bound.**
   - **File.** `test/unit/miner_chunks.test.ts`, worker
@@ -11423,7 +11425,7 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     from one mine's, OR in (d) `mining_in_progress` is ever `'1'`, the
     completing mine re-reads a commit at or before the killed pass's
     watermark (its `git log` range is `<watermark>..HEAD`), or the completed
-    store differs from a single uninterrupted mine.
+    store differs from a single uninterrupted mine. (Weights are compared **on a common epoch**: each store's weight × 2^((E_store − E_ref)/(h × 86400)) must equal the reference's within 1e-9 relative, E being each store's `weight_epoch`; counts are compared exactly. An incremental pass keeps its store's epoch while a from-scratch mine re-bases it, so raw weights differ by exactly the factor AD-13 says cancels — raised by the Step 13 builder's stop, 2026-09-26.)
 
 - **T-14-1 — Indexer skeleton on a small fixture repo.**
   - **File.** `test/unit/indexer.test.ts`.
