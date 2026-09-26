@@ -1389,8 +1389,16 @@ and nothing here depends on the new channel.
    the Step 15 test writer, 2026-09-26, with repeated parses, which the one
    parse per grammar of the 2026-09-11 probe could not show), mapped by a **configurable**
    extension→grammar table with defaults; a **generic frontend** (line-based
-   definition heuristics + path/word tokens into FTS) covers everything else, so
-   no language is invisible (C-6: adding a language = adding a grammar file or a
+   definition heuristics + path/word tokens into FTS) covers every other
+   *source* file, so no language is invisible. It extracts symbols only from
+   text files that are code: a file with a NUL byte in its first 8 KB is binary
+   and gets path tokens only, and prose and data formats (Markdown,
+   reStructuredText, plain text, JSON, YAML, CSV and similar, listed in the
+   tuning row `index.generic_no_symbol_exts`) get path tokens only. *Why (Step
+   15 build review M3, 2026-09-26, executed on this repository):* 317 of the
+   generic frontend's 424 symbols came from `.md` files and 4 from a binary
+   `.bin` file — false symbols that Reuse and Orientation would present as
+   code (P4). The rule means (C-6: adding a language = adding a grammar file or a
    config row, never a redesign). **Every frontend declares its capabilities**
    per language — `{ symbols: boolean, imports: boolean }` — recorded per
    language and shown in `status`, so coverage is measured, not claimed. A
@@ -2112,6 +2120,17 @@ and nothing here depends on the new channel.
      pattern rules for known secret shapes (keys, tokens, PEM blocks,
      `KEY=value` credential forms) plus a high-entropy-token heuristic;
      redactions are replacements with a stable marker, counted in diagnostics.
+     **An identifier is not free text:** a symbol name the parser captured as a
+     declaration name gets the pattern rules only, never the entropy
+     heuristic, and the entropy heuristic runs with the tuned
+     `security.entropy_*` values wherever it runs. *Why (Step 15 build review
+     M4, 2026-09-26, executed on this repository):* the entropy rule stripped
+     70 real declaration names (61 of 789 C# symbols, e.g.
+     `T11_DiscoveryWorkflowTests`), silencing facts about real code; a
+     high-entropy identifier is a code name, while a secret still matches the
+     pattern rules or appears in a string or comment, where the full rule set
+     applies. The residual risk — a secret used as a declaration name — is
+     added to L5.
    - **Pointer-only composition (`FR-X2`/`FR-X3`, T1):** Phase A whispers carry
      **no verbatim repo-derived text at all** — pointers (`path:line-span`,
      commit hashes), numbers, and names only. This is stricter than the spec's
@@ -2930,7 +2949,9 @@ criterion is pinned there and its mechanism lives in the named decisions.)
 - **L4 — Repo-identity residual.** A repository that merges an unrelated
   history after `init` changes its root set and thus its key; `status` shows
   the key and mode so the change is visible; export/import is the recovery.
-- **L5 — Redaction is pattern+entropy, not perfect.** A low-entropy,
+- **L5 — Redaction is pattern+entropy, not perfect.** A secret written as a
+  declaration name gets only the pattern rules (AD-19: identifiers are not
+  free text). A low-entropy,
   unpatterned secret can pass. Pointer-only composition keeps it out of
   whispers; stores remain local under 0700. Residual risk accepted and stated.
 - **L6 — Grammar inventory unverified at architecture time; two Reuse-facing
