@@ -1730,3 +1730,89 @@ distribution".
 - `test/unit/indexer_review.test.ts` RV-25, headed "§9 stand-in (retired by
   Step 15)", still passes against the built generic frontend. It is not in
   Step 15's `files.modify` and was left unchanged.
+
+## Step 15 — the Python resolver's ancestor lookup and `RepoFiles.hasTopLevelModule` — BUILT (2026-09-26, uncommitted, pending independent review)
+
+This closes the PLAN-FLAW raised in the Step 15 record above. The plan chose
+option A:
+- `d616f1f` amends the Python resolver rule;
+- `115d176`/`f22ce6b` add `RepoFiles.hasTopLevelModule(name)` and put
+  `src/index/frontend.ts` in Step 15's modify list.
+
+The test writer then added, uncommitted:
+- the new member on the interface and on both test fakes;
+- a throwing stub on the indexer's `repoFiles`;
+- four `T-15-5` ancestor-lookup cells, three of which failed as named.
+
+This build replaced the stub. No asserted value was changed and no test was
+deleted. The coordinator also confirmed that the skeleton `index`/`init`
+verbs' `defaultFrontends(tuning)` argument change is covered: Steps 28 and 31
+state that call.
+
+**Built.**
+- `src/index/resolvers.ts`:
+  - Line 129: an absolute name is looked up from the importing file's own
+    directory, then each ancestor in turn, nearest first, up to and including
+    the repository root. The first hit is `resolved`. This is Python's
+    `sys.path[0]` rule.
+  - Line 139: with no hit, the import is `external` only when
+    `repo.hasTopLevelModule(<first dotted segment>)` is false; otherwise it
+    is `unresolved`.
+  - `RESOLVER_RULES_VERSION` is now `resolvers-s15.2` (line 22). The Python
+    and TS/JS frontends' `version` therefore changes, and stores indexed
+    before this change re-parse through the frontend fingerprint.
+- `src/index/indexer.ts:732`: the real `hasTopLevelModule`. On its first call
+  in a pass it builds, from the pass's final present set, a set of every
+  `.py` file's stem and every directory segment above a `.py` file, as the
+  plan states. It is then a set lookup.
+
+**Verification actually run** (2026-09-26).
+- `npm run build`: clean. No `not implemented:` text remains under `src/`.
+- `npm test`: `# tests 309`, `# pass 308`, `# fail 0`, `# todo 1`. The one
+  `todo` is Step 28's `skeleton_e2e`.
+- The 13 frontend, indexer and search files (`tree_sitter_frontend`,
+  `tree_sitter_frontend_fallback`, `generic_frontend`, `frontend_capabilities`,
+  `import_resolvers`, `search_semantics`, `indexer*`) were run 3 more times:
+  `tests 89`, `pass 89`, `fail 0`, `todo 0` each time.
+- `derive-plan-sections --check`: `OK: 40 steps, 13 elements, 165 test specs,
+  27 probes cited, regions current`, exit 0.
+- `check_docs.py`: passed.
+- This repository was indexed at `f22ce6b` into a scratch `CTXORACLE_HOME`
+  with `defaultFrontends`. `git status --porcelain --untracked-files=all`
+  showed nothing new afterwards.
+  - First pass: 1,888 files present, all written; 5,140 symbols; 1,216 import
+    edges (was 1,106); 2,735 `symbol_refs`; 340 `test_map`; 404 commits;
+    8.72 s.
+  - Unchanged re-run: 0 written, 0.37 s.
+  - `lang_capabilities`, resolved edges / unresolved (share):
+
+    | Language | Resolved edges | Unresolved | Share |
+    |---|---|---|---|
+    | `typescript` | 1,047 | 18 | 0.017 |
+    | `javascript` | 51 | 91 | 0.641 |
+    | `python` | 112 | 42 | 0.273 (was 2 / 0 / 0.000) |
+    | `tsx` | 6 | 0 | 0.000 |
+
+  - Captured imports by kind, re-parsed with the same frontends and the same
+    `RepoFiles` rules:
+
+    | Language | Resolved | Unresolved | External |
+    |---|---|---|---|
+    | `python` | 118 | 42 | 431 (was 589) |
+    | `typescript` | 1,056 | 18 | 588 |
+    | `javascript` | 53 | 91 | 249 |
+    | `tsx` | 6 | 0 | 0 |
+
+    Resolved imports exceed edges because edges are de-duplicated per
+    (source, destination).
+  - Python's 42 unresolved imports are names the repository owns but that no
+    ancestor directory holds. Examples:
+    - `xsect.*` from `mcp-servers/cross-section-tool/tests/…`: the package
+      lives under that project's `src/` (a src layout, reached only through
+      the installed package);
+    - `config` and `query` from `hooks/rag-context.py` and its copy under
+      `Project-Claude-Configs/`.
+  - Python's share of 0.273 is above the seeded
+    `reuse.max_unresolved_import_share` of 0.05. So on this repository Reuse
+    will treat Python as it treats an `imports: false` language, as AD-12
+    intends when edges are missing.

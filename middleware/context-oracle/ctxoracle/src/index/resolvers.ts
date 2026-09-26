@@ -19,7 +19,7 @@ import type { ImportResolution, RepoFiles } from './frontend.js';
  * `version` (Step 14 build review S1), so a rule change here re-parses every
  * file through the frontend fingerprint. Changed by hand with any rule.
  */
-export const RESOLVER_RULES_VERSION = 'resolvers-s15.1';
+export const RESOLVER_RULES_VERSION = 'resolvers-s15.2';
 
 const UNRESOLVED: ImportResolution = { kind: 'unresolved' };
 const EXTERNAL: ImportResolution = { kind: 'external' };
@@ -96,8 +96,8 @@ export function resolveTsImport(fromPath: string, specifier: string, repo: RepoF
 }
 
 // ---------------------------------------------------------------------------
-// Python — PEP 328 relative imports; absolute dotted names against the
-// repository root.
+// Python — PEP 328 relative imports; absolute dotted names by the
+// `sys.path[0]` ancestor lookup.
 
 /** `a.b` under `dir` → `a/b.py`, then `a/b/__init__.py` (the empty module path → `dir/__init__.py`). */
 function moduleCandidates(dir: string, dotted: string): string[] {
@@ -121,9 +121,20 @@ export function resolvePythonImport(fromPath: string, specifier: string, repo: R
     return firstPresent(moduleCandidates(dir, rest), repo);
   }
   if (rest === '') return UNRESOLVED;
-  // Python has no alias mechanism in the language: an absolute name that is
-  // not a module under the repository root is the standard library or an
-  // installed distribution (plan Step 15).
-  const found = firstPresent(moduleCandidates('.', rest), repo);
-  return found.kind === 'resolved' ? found : EXTERNAL;
+  // An absolute name is looked up the way Python's `sys.path[0]` rule does for
+  // a script: the importing file's own directory, then each ancestor in turn,
+  // nearest first, up to and including the repository root; the first hit is
+  // `resolved` (plan Step 15 as amended at d616f1f — resolving against the
+  // root alone classed 116 of 589 in-repo imports on this repository external).
+  let dir = path.posix.dirname(fromPath);
+  for (;;) {
+    const found = firstPresent(moduleCandidates(dir, rest), repo);
+    if (found.kind === 'resolved') return found;
+    if (dir === '.' || dir === '') break;
+    dir = path.posix.dirname(dir);
+  }
+  // No hit: the standard library or an installed distribution only when no
+  // in-repo module or package has the top-level name; otherwise the name is
+  // the repository's own, reached through a path the resolver cannot see.
+  return repo.hasTopLevelModule(rest.split('.')[0] as string) ? UNRESOLVED : EXTERNAL;
 }

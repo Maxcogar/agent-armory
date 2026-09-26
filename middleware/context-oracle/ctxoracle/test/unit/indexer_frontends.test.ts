@@ -58,6 +58,21 @@ const diag = path.join(root, 'diagnostics');
 const repo = path.join(root, 'indexer-small');
 generateFixture('indexer-small', repo);
 
+/**
+ * `RepoFiles.hasTopLevelModule` over a literal path list, by the rule Step 15
+ * states: some path is `<dir>/<name>.py`, or has a directory segment `<name>`
+ * with a `.py` file beneath it.
+ */
+function hasTopLevelModuleIn(paths: Iterable<string>, name: string): boolean {
+  for (const p of paths) {
+    if (!p.endsWith('.py')) continue;
+    const segs = p.split('/');
+    if (segs[segs.length - 1] === `${name}.py`) return true;
+    if (segs.slice(0, -1).includes(name)) return true;
+  }
+  return false;
+}
+
 const TOKENS = ['help', 'util', 'mod', 'schem', 'user'];
 
 async function indexed(fts: boolean, fixtureRepo = repo, name = 'indexer-small'): Promise<Store> {
@@ -175,7 +190,11 @@ test('T-15-3: pkg/use.py’s two import forms are each captured and each resolve
     const specs = r.imports.map((i) => i.specifier);
     assert.equal(specs.filter((x) => x === '.mod').length, 2, `from .mod import f and from . import mod are not both captured as .mod (got ${JSON.stringify(specs)})`);
     const present = new Set<string>(INDEXER_SMALL.paths);
-    const files: RepoFiles = { has: (p) => present.has(p), nearestPackageJsonDeps: () => new Set<string>() };
+    const files: RepoFiles = {
+      has: (p) => present.has(p),
+      nearestPackageJsonDeps: () => new Set<string>(),
+      hasTopLevelModule: (name) => hasTopLevelModuleIn(present, name),
+    };
     assert.equal(typeof py.resolve, 'function', 'the python frontend lacks resolve');
     for (const spec of specs.filter((x) => x === '.mod')) {
       assert.deepEqual(py.resolve?.('pkg/use.py', spec, files), { kind: 'resolved', dst: 'pkg/mod.py' }, `${spec} does not resolve to pkg/mod.py`);

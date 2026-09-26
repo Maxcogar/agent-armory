@@ -27,6 +27,12 @@ export interface RepoFiles {
   has(path: string): boolean;
   /** The dependency names of the nearest `package.json` at or above `fromPath`'s directory. */
   nearestPackageJsonDeps(fromPath: string): ReadonlySet<string>;
+  /**
+   * Whether some present in-tree path is `<dir>/<name>.py`, or has a directory
+   * segment `<name>` with a `.py` file beneath it (Step 15; the Python
+   * resolver's "the top-level name is the repository's own" test).
+   */
+  hasTopLevelModule(name: string): boolean;
 }
 
 export type ImportResolver = (fromPath: string, specifier: string, repo: RepoFiles) => ImportResolution;

@@ -708,6 +708,7 @@ async function indexPass(store: Store, repoPath: string, opts: IndexOptions): Pr
 
   // ---- Resolution, against this pass's final present set (m5, self-import). ----
   const pkgCache = new Map<string, ReadonlySet<string>>();
+  let pyTopLevel: Set<string> | null = null;
   const repoFiles: RepoFiles = {
     has: (p) => presentSet.has(p),
     nearestPackageJsonDeps(fromPath) {
@@ -725,6 +726,20 @@ async function indexPass(store: Store, repoPath: string, opts: IndexOptions): Pr
         if (dir === '.' || dir === '' || dir === '/') return new Set();
         dir = path.posix.dirname(dir);
       }
+    },
+    // Built once per pass from the final present set (plan Step 15, 115d176):
+    // every `.py` file's stem and every directory segment above a `.py` file.
+    hasTopLevelModule(name) {
+      if (pyTopLevel === null) {
+        pyTopLevel = new Set<string>();
+        for (const p of presentSet) {
+          if (!p.endsWith('.py')) continue;
+          const segs = p.split('/');
+          pyTopLevel.add((segs[segs.length - 1] as string).slice(0, -'.py'.length));
+          for (const d of segs.slice(0, -1)) pyTopLevel.add(d);
+        }
+      }
+      return pyTopLevel.has(name);
     },
   };
   for (const pf of pending) {
