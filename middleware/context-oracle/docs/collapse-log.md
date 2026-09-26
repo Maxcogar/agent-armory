@@ -1617,3 +1617,39 @@ totals. **Standing lesson:** a watermark that can be reset must not feed an
 additive aggregate held somewhere else — keep the cursor, the rows, and the
 running totals in the same store, and publish a replaceable copy, so every
 replay is idempotent.
+
+## 2026-09-26 — the plan pass: a success test keyed on a field successes never carry, and a dampener that silenced the stable facts
+
+**What happened.** The independent collapse-hunt of the 2026-09-26 plan pass
+(`docs/reviews/2026-09-26-plan-pass-collapse-hunt.md`) ran the numbers and the
+transcripts the plan's decisions rested on. Both defects were caught by the
+independent pass, before build, not by Max Cogar.
+
+- **D-plan-39 (fork reseed of the read set) collapsed.** It admitted a
+  Read/Edit/Write result only when it carried `is_error: false`. Across 24 real
+  transcripts that field appears only on Bash results; successful Read, Edit and
+  Write results carry no `is_error` at all. The reseeded read set was therefore
+  always empty, silently, and the plan's own fixture gave a Read a shape real
+  transcripts never have, so the test would have pinned the dead behaviour. The
+  plan's "227 of 320 carry it" was a total across tools, never split by the tools
+  the rule reads. Fixed in AD-16: successful unless `is_error: true` (V23).
+- **The confidence recency dampener (AD-14, plan Step 16).** Multiplying the
+  finished confidence by `0.5^(age/365)` under a 0.9 trust factor made a perfect
+  pairing go silent after about 213 days, and index staleness applied to history
+  facts flagged every mined whisper uncertain whenever the index lagged. Fixed in
+  AD-13/AD-14: recency weights the evidence counts, staleness is judged per fact
+  class, and a tier invariant keeps a perfect fact reachable as sure.
+
+**Class.** D-plan-39 **unverified** (a rule over an observed field, checked
+against an aggregate that hid the per-tool split); the dampener
+**mechanism-not-mission** (each factor was justified alone; nobody computed
+what their product did to the facts the phase exists to deliver).
+
+**Standing lesson.** (1) When a rule keys on an observed field, count the field
+split by exactly the population the rule reads — an aggregate over a wider
+population can hide that the rule's own population never carries it. A fixture
+must use the observed shape, not the shape the rule expects. (2) When several
+dampeners multiply into one threshold, compute the product at the seeds for the
+strongest possible fact and for a typical real one, and state the ages or
+conditions at which each falls below each threshold; a factor that is harmless
+alone can together be a universal cap.

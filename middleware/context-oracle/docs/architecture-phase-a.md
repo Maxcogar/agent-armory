@@ -144,6 +144,7 @@ forward as "prior pass."
 | V20 | **When the model reads `PreToolUse` `additionalContext`.** The `PreToolUse` decision-control table: `additionalContext` is "String added to Claude's context alongside the tool result." The "Add context for Claude" section: for `PreToolUse` (and `PostToolUse`/`PostToolUseFailure`) the reminder appears "next to the tool result", and "Claude reads the reminder on the next model request" | Current hooks reference, `code.claude.com/docs/en/hooks.md`, fetched 2026-09-26; both sentences quoted verbatim from the fetched page (review record `docs/reviews/2026-09-25-skeleton-gap-list-review.md`, "Unverified item — whispers on `PreToolUse`") | The hook runs before the tool, but the model first sees a `PreToolUse` whisper **after the tool call**, with its result — which may be a failure or a permission denial, since "Permission denials fire `PreToolUse`" (hooks reference, re-read in review record 2026-09-26, CH) and the text is kept if the call fails (FR-O2). A Warning or Consequence on `PreToolUse` Edit/Write therefore informs the move *after* the call (revise, proceed, or retry), never the decision to edit, and is worded about the file the edit targets, never as an edit that happened (AD-15 headline wording; L12). Supersedes the spec's former "injected before the tool runs" phrasing (FR-O2/C-4, corrected 2026-09-26). |
 | V21 | "Stderr from a hook that exits 0 goes to the debug log only, never the transcript, and Claude never sees it." | Current hooks reference, `code.claude.com/docs/en/hooks.md`, fetched 2026-09-26, quoted verbatim (review record 2026-09-25, G10). Observed in the same review on Node 22.22.2: the built handler's stderr was empty on `SessionStart`/`PostToolUse`/`status` with `NODE_NO_WARNINGS` unset — an observation on one Node version, not a guarantee | The handler always exits 0 (AD-7), so anything on its stderr — including `node:sqlite`'s `ExperimentalWarning` — never reaches the model's context. **No warning-suppression mechanism is built**; the hazard does not exist on this contract. |
 | V22 | **`SessionStart` input does not name a parent session**, and injected context is saved in the transcript. The documented `SessionStart` input is the common fields (`session_id`, `transcript_path`, `cwd`, …) plus `source`, `model`, `agent_type`, `session_title`, and — on `resume`/`fork` — four resume-cost fields; `fork` is "A new session forked from an existing one". Separately: "Claude Code saves the injected text in the session transcript." | Current hooks reference, `code.claude.com/docs/en/hooks.md` ("SessionStart input" table and "Add context for Claude"), fetched 2026-09-26. This is the documented field list, not an observed fork payload | Closes the review's open premise (G23/G29): a forked session arrives under a **new** `session_id` with no parent pointer, so AD-16's fork reseed reads the forked transcript itself — questions by AD-9's offset-0 rebuild, the delivered set from the oracle-injected text the transcript carries. |
+| V23 | **Transcript tool results mark failure, not success.** Across 24 local transcripts: `is_error: false` appears only on Bash results (845); no successful Read (373), Edit (89), or Write (12) result carries an `is_error` field; the one failed Read carries `is_error: true` | Executed 2026-09-26 in the plan-pass collapse-hunt (`docs/reviews/2026-09-26-plan-pass-collapse-hunt.md`), Claude Code 2.1.283. An observation of one version's undocumented layout (V12), not a contract | AD-16's reseed classifies a result as successful unless it carries `is_error: true`; AD-11's layout-change detector is the guard if this changes. |
 
 ---
 
@@ -351,9 +352,17 @@ and nothing here depends on the new channel.
    `init` (create a temp `fts5` virtual table) as defense-in-depth against
    non-standard builds (a distro Node compiled with different flags); on that
    failure path, search falls back to token-prefix queries over indexes that can
-   serve them — a `COLLATE NOCASE` index on `symbols(name)` and a `path_tokens`
-   table of path segments — behind the same interface, with the same
-   token-prefix semantics as the FTS path, and `status` says so plainly.
+   serve them — a normalized-token column on `symbols` and a `path_tokens` table
+   of path segments, each with a plain index — behind the same interface, and
+   `status` says so plainly. **Both paths use one tokenizer, in the oracle's own
+   code:** split on every non-letter/non-digit (Unicode), NFKD-normalize, drop
+   combining marks, lowercase. The FTS path indexes those tokens (and the query
+   is normalized the same way); the fallback stores the same tokens. So the two
+   agree by construction, including `CAFÉ`/`café`, `Über`, `foo-bar`,
+   `my.method`, and `Foo::Bar`. *(Corrected 2026-09-26, second time: a
+   `COLLATE NOCASE` index folds ASCII only, and FTS5's own tokenizer and a `LIKE`
+   fallback disagreed on non-ASCII case and on punctuation — executed in both
+   plan-pass reviews, collapse-hunt H4 / expert M3.)*
    *(Corrected 2026-09-26: this said "indexed `LIKE`/token-prefix"; executed in
    the plan pass, a plain index on `symbols(name)` is not used by `LIKE` — a
    full scan, O(store), which AD-23 forbids on the event path — and no `LIKE`
@@ -485,6 +494,10 @@ and nothing here depends on the new channel.
          change_count INTEGER NOT NULL DEFAULT 0,
                                           -- support(file): included commits
                                           -- touching the file (AD-13)
+         change_weight REAL NOT NULL DEFAULT 0,
+                                          -- the same commits, each weighted
+                                          -- 2^((ts − T0)/h) (AD-13's
+                                          -- recency weighting)
          unresolved_imports INTEGER NOT NULL DEFAULT 0,
                                           -- captured import specifiers the
                                           -- frontend classified unresolved
@@ -498,7 +511,7 @@ and nothing here depends on the new channel.
                     -- entry-point in-degree; confidence-capped as a heuristic
    test_map(test_file→files, region_glob, source, …prov)   -- FR-A2g mapping
    commits(hash PRIMARY KEY, ts, entity_count, excluded INTEGER, exclude_reason)
-   cochange_pairs(a→files, b→files, pair_count, last_ts, last_commit,
+   cochange_pairs(a→files, b→files, pair_count, pair_weight, last_ts, last_commit,
                   PRIMARY KEY(a,b))                        -- last_commit: the
                   -- newest included commit touching both, the commit pointer
                   -- AD-15's pair headlines carry (no git subprocess at compose,
@@ -852,10 +865,14 @@ and nothing here depends on the new channel.
    import refuses with `store_busy` and changes nothing. *Why the order:*
    checking after the overwrite destroys the store the check exists to protect
    (review record 2026-09-26, ER M12).
-   **Importing a global store replaces this machine's repository bindings.**
-   Bindings are paths (AD-20), and paths differ between machines, so after a
-   global import `import` lists every imported binding whose root does not
-   exist here, in plain language, and `init` in the checkout re-records it.
+   **Importing a global store merges repository bindings; it never drops this
+   machine's.** Bindings are paths (AD-20), and paths differ between machines.
+   A global import keeps every binding this machine had, adds the imported ones
+   (on the same path, this machine's binding wins), and lists, in plain
+   language, every imported binding whose root does not exist here; `init` in a
+   checkout re-records it. *(Plan-pass collapse-hunt H7: replacing silently
+   dropped this machine's bindings the export lacked, and every session in
+   those checkouts went silent.)*
    **A foreign project store is imported into a separate home**
    (`CTXORACLE_HOME`), never into a home that already holds a store for the
    same repository key: two checkouts of one repository share one key (AD-3),
@@ -1436,13 +1453,32 @@ and nothing here depends on the new channel.
    commits excluded (`FR-K2`, MSR/HERZIG grounding is the spec's); transactions
    > 30 entities excluded (illustrative cap, tunable — `FR-K2`); history horizon
    default 5 years or 10,000 commits, whichever first (tunable, `FR-K2`
-   "configurable recency-weighted horizon"); recency recorded per pair
-   (`last_ts`) and used as a confidence dampener (recency weighting), tunable.
+   "configurable recency-weighted horizon"); recency weights each commit's
+   contribution to the counts (below), and `last_ts` is recorded per pair for
+   display, tunable.
    Aggregation: canonical-ordered file-pair counts, plus a per-file change count
    stored once on the file (`files.change_count`, AD-4), incremented for every
    *included* commit that touches the file — single-file commits included, so
    it counts the same population as the pair counts;
-   `confidence(a→b) = pair_count / change_count(a)`; `support = pair_count`.
+   `confidence(a→b) = pair_weight / change_weight(a)`; `support = pair_count`.
+   **Recency weights the evidence, never the result.** Each included commit at
+   time `ts` adds `2^((ts − T0)/h)` to `cochange_pairs.pair_weight` of every
+   pair it touches and to `files.change_weight` of every file it touches, where
+   `T0` is a fixed epoch (2000-01-01 UTC) and `h` is
+   `bar.recency_half_life_days`. Because every term carries the same factor
+   relative to any reference time, `pair_weight / change_weight` equals the
+   ratio of weights decayed to `HEAD` — computed with no event-time work, and
+   independent of when it is read. A pairing that has always held stays at its
+   ratio however old it is; a pairing whose files have since changed apart
+   loses weight to the recent solo changes. Changing `h` requires a re-mine,
+   which `tune` states. *Why (review record 2026-09-26, plan-pass collapse-hunt
+   H1):* the earlier rule multiplied the finished confidence by
+   `0.5^(age/h)`; with the 0.9 trust factor, a perfect pairing last changed
+   together more than about 213 days before `HEAD` fell below the 0.6 floor
+   (0.9 × 2^(−213/365) = 0.60), so the oracle went silent on exactly the
+   stable couplings, and a fact read as sure only when under about 62 days old.
+   FR-K2 asks for a recency-weighted horizon (ROSE); ROSE weights and windows
+   the transactions it mines, it does not decay the rule it derives.
    (**Superseded 2026-09-26:** `pair_count / a_count` over a counter kept on the
    pair row, which could not see commits touching `a` alone and so equalled
    `pair_count` — every confidence 1.0, the floor never filtering; review
@@ -1480,7 +1516,9 @@ and nothing here depends on the new channel.
 4. **What this is NOT.** Not per-commit transaction lists as the query model
    (unbounded growth, aggregation at lookup time). Not association-rule mining
    at query time (hook-path budget). Not recency *pruning* (the spec chose
-   horizon-cap + recorded recency; pruning deletes evidence).
+   horizon-cap + recorded recency; pruning deletes evidence). Not a recency
+   multiplier on the finished confidence (it silenced stable couplings by age —
+   H1 above).
 5. **Premise verification.** `git log --no-merges --numstat` exercised on this
    repo this session (V13's commands ran against the same git); `FR-K2`, `FR-A6`
    read at spec §11.1/§5.2; the counter defect executed in the review record
@@ -1496,10 +1534,17 @@ and nothing here depends on the new channel.
 1. **Decision.** A candidate is spoken iff **all three** axes clear their own
    floor (`FR-A5`'s conjunction — no multiplication, so no axis launders
    another):
-   - **Confidence** `c`: evidence-derived. History facts: `support` and
-     `confidence` from `cochange_pairs`, dampened by staleness (`FR-K7`) and
-     recency, then dampened by trust (`FR-X4`: low trust lowers confidence).
-     Human facts: high by construction (`FR-L6`).
+   - **Confidence** `c`: evidence-derived. History facts: `support` and the
+     recency-weighted `confidence` from `cochange_pairs` (AD-13), dampened by
+     staleness (`FR-K7`) and trust (`FR-X4`: low trust lowers confidence).
+     Human facts: high by construction (`FR-L6`). **Staleness is judged per
+     fact class, against the data the fact came from:** a history fact is
+     stale when `schema_meta.last_mined_commit` ≠ `HEAD`; an index-derived fact
+     (Orientation, Reuse, Verification's mapping) when `index_head` ≠ `HEAD`.
+     Either multiplies by `bar.stale_factor` (seed 0.9). *Why (plan-pass
+     collapse-hunt H1):* index staleness says nothing about mined history, and
+     applying it to history facts flagged every mined whisper uncertain
+     whenever the index lagged.
      **The high-confidence tier, the trust dampener, and the caps are tuning
      rows (AD-5).** `bar.high_confidence_min` (seed 0.8, the skeleton
      composer's literal it replaces) is the threshold at or above which a fact
@@ -1514,14 +1559,19 @@ and nothing here depends on the new channel.
      silently dropped and never presented as sure. The identifier-match
      heuristic cap on `symbol_refs`-derived Reuse facts (AD-12, L6;
      `bar.heuristic_confidence_cap`, seed 0.7) is a cap with the same placement.
-     **Composition:** dampen first (staleness, recency, trust), then take the
-     min() over every applicable cap. **Display:** the headline always shows the
+     **Composition:** dampen first (staleness, trust), then take the min() over
+     every applicable cap. **The tier invariant:** a fact with perfect evidence
+     must be able to reach the high tier under every dampener at once, so
+     `bar.untrusted_trust_factor × bar.stale_factor ≥ bar.high_confidence_min`
+     (seeds 0.9 × 0.9 = 0.81 ≥ 0.8); otherwise a dampener becomes a universal
+     cap and the flag stops separating strong evidence from weak — AD-14's C2
+     defect by another route (plan-pass collapse-hunt H1, H2). **Display:** the headline always shows the
      raw evidence ("17 of its last 20 changes"); the confidence value itself is
      never printed — it decides only whether the `[confidence: uncertain]` flag
      is shown, so no whisper states a number that contradicts its own
      evidence. `tune` (AD-20) rejects any write that breaks
-     `bar.confidence_floor` ≤ each cap < `bar.high_confidence_min`, or puts the
-     trust factor outside (0, 1]. The cap seeds (0.7) are illustrative
+     `bar.confidence_floor` ≤ each cap < `bar.high_confidence_min`, breaks the
+     tier invariant above, or puts the trust or stale factor outside (0, 1]. The cap seeds (0.7) are illustrative
      architect defaults like the floors below, chosen strictly inside
      [0.6, 0.8) so neither sits on a boundary of the interval the ordering
      requires; the trust-factor seed is likewise illustrative, and all of them
@@ -1550,9 +1600,11 @@ and nothing here depends on the new channel.
      *single-file current-state* facts fail — the agent's own tools surface
      them in one call (AC-1's obviousness clause: a same-directory/same-stem
      pair is suppressed); *history-derived* facts, single-file (a Warning's
-     revert or fix history) or cross-file, pass by construction (invisible
-     from a cold checkout — the test is visibility, not file count), as do
-     human-stated facts
+     revert or fix history) or cross-file, pass by construction: they
+     aggregate over commits the agent has not enumerated (the same aggregation
+     clause that admits a Reuse dominance claim), and FR-A5a requires a hazard
+     to be spoken with its confidence, which an axis that failed it would
+     forbid — as do human-stated facts
      the agent has no channel to; *cross-file current-state* facts (the Reuse
      class) pass **only when comparative or aggregative over a set the agent
      has not enumerated** — a dominance claim over candidates passes, a bare
@@ -1562,10 +1614,15 @@ and nothing here depends on the new channel.
      floor; they require only the **noise floor** (real vs coincidental
      evidence: `support ≥ 2` and not sourced solely from an excluded-commit
      class) and are delivered with confidence stated (`FR-D1`). A miner
-     landmine's evidence ratio is `min(1, support / bar.support_min)`, the
-     ordinary support floor, so "high" means as supported as a whispered pair
-     and a support-2 landmine is delivered flagged uncertain; a
-     `human_stated` landmine is high by construction (`FR-L6`).
+     landmine's evidence ratio is `min(1, support / bar.hazard_full_support)`
+     (its own tuning row, seed 3, so re-tuning the pair floor `bar.support_min`
+     does not re-tier every Warning — plan-pass collapse-hunt H10); a
+     support-2 landmine is delivered flagged uncertain; a `human_stated`
+     landmine is high by construction (`FR-L6`). The ratio has no base-rate
+     term — three reverts among a file's 500 changes read as strong as three
+     among four; Phase A records each Warning's `change_count` beside its
+     support on the audit row so the exit data can measure whether a base rate
+     is needed (Limitations L13).
      *(Added 2026-09-26: a hazard had no ratio, so its stated confidence had no
      definition, and the class list above omitted the single-file history
      fact; raised by the plan pass, plan D-plan-34, D-plan-41.)*
@@ -1791,8 +1848,13 @@ and nothing here depends on the new channel.
    recovery failure would inflate the exit run's delivery counts with repeats. The `read` set is rebuilt from the transcript's
    Read/Grep/Glob and Edit/Write tool results through AD-11's reader, admitting
    only results the reader can classify as successful (the `'ok'` classes AD-4's
-   filter admits). The tool-result layout is undocumented (V12), so a result
-   whose outcome the reader cannot establish is not admitted. That under-seeds
+   filter admits). A tool result is successful unless it carries
+   `is_error: true` (V23: successful Read, Edit, and Write results carry no
+   `is_error` field at all, and the one failed Read observed carried `true`, so
+   requiring `is_error: false` admitted nothing and the reseeded read set was
+   always empty — plan-pass collapse-hunt, D-plan-39 collapse). If the layout
+   changes, AD-11's `transcript_layout_changed` fires. A result whose outcome
+   the reader cannot establish at all is not admitted. That under-seeds
    the `read` set. The cost is that the oracle may speak a fact the agent had
    already read for itself. It never withholds a fact about a file the agent did
    not read. Questions
@@ -1942,8 +2004,12 @@ and nothing here depends on the new channel.
    (`ctxoracle correct --missed-question "<q>"`); the text is routed **through
    the same question recognizer as every other opener** (minus the `?`
    requirement — Max may paraphrase), so it opens a question row in **the
-   session with the newest liveness row** (or the one named by `--session`), and
-   the identical deviation is thereafter denied in that session. *(Why,
+   session with the most recent event** (the newest `session_log` row by `seq`,
+   or the one named by `--session`), the CLI prints which session it armed, and
+   the identical deviation is thereafter denied in that session. If that session
+   has ended (its `SessionEnd` is recorded), the CLI arms nothing and says so,
+   naming `--session`. *(Plan-pass collapse-hunt H5: the newest liveness row is
+   the most recently started session, which may have ended.)* *(Why,
    2026-09-26: the consumer key is per session (AD-4), so "thereafter denied"
    needs a session; arming every session is the executed G23 defect, and a
    non-programmer owner does not know session ids. Plan D-plan-37.)* On a hash collision with an
@@ -2117,7 +2183,11 @@ and nothing here depends on the new channel.
    `CLAUDE_CODE_SESSION_ID`, `CLAUDE_CODE_REMOTE_SESSION_ID`,
    `CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_PID`, `CLAUDE_CODE_ENTRYPOINT`,
    executed 2026-09-07, plan §11.4) removed, not every `CLAUDE_*` variable,
-   since host auth must survive; `--bare` is banned (V10 — it severs
+   since host auth must survive; the list is one Claude Code version's
+   snapshot, and Phase B re-derives it by execution against the version it
+   ships on before relying on it (plan-pass collapse-hunt H15: the 2026-09-26
+   container exported five further session-related variables whose effect on a
+   child session was not executed); `--bare` is banned (V10 — it severs
    host auth). The per-environment probe cache (`env_capabilities` —
    `ok`/`failed`/`untested`, so degraded mode is entered deterministically and
    announced, `FR-J2`/`FR-M4`) is **specified here and created by the Phase B
@@ -2222,7 +2292,7 @@ and nothing here depends on the new channel.
    worktree has its own root, so an owner session in a worktree or a moved
    checkout produced zero whispers that the exit data would read as a low
    floor; **the post-write content
-   hash** — on `PostToolUse` for Edit/Write/MultiEdit/NotebookEdit with outcome
+   hash** — on `PostToolUse` for Edit/Write/NotebookEdit with outcome
    `ok`, one read of the target file to hash it for `observed_actions`'
    post-write hash (the `FR-L4` regret proxy's input, AD-18), bounded by the
    AD-12 ingestion cap: the byte cap is checked by `stat` before any read (above
@@ -2914,6 +2984,14 @@ criterion is pinned there and its mechanism lives in the named decisions.)
   Owner-visible, in plain language: warnings about an edit reach the agent right
   after it tries the edit, not before (review record 2026-09-25, "Unverified
   item — whispers on `PreToolUse`").
+- **L13 — A landmine's confidence has no base rate.** A Warning's evidence
+  ratio is its support against a fixed full-support count (AD-14), so three
+  reverts among a file's 500 changes read as strong as three among four. Phase A
+  records each Warning's `change_count` beside its support on the audit row, and
+  the exit report compares false-fire rates across that ratio, which decides
+  whether Phase B adds a base-rate term. Owner-visible, in plain language: a
+  warning about a file that changes constantly may overstate how risky it is
+  (plan-pass collapse-hunt, D-plan-34).
 
 ## Standards governing this architecture
 
