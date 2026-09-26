@@ -1540,3 +1540,80 @@ also simply correct for scanning any live tree. Verified by five consecutive
 green full-suite runs. Do **not** "fix" this by forcing the test runner
 serial — the robustness belongs in the scan, and serial execution would only
 hide the same latent race for real dist scanning.
+
+## 2026-09-26 — the architecture pass from the skeleton gap-list review: four collapses, each a rule true on the path its author pictured and false on a path next to it
+
+**What happened.** Commit `0fab6d7` recorded the architecture-level decisions of
+`docs/reviews/2026-09-25-skeleton-gap-list-review.md` in
+`docs/architecture-phase-a.md`. The mandatory independent collapse-hunt
+(`docs/reviews/2026-09-26-architecture-pass-collapse-hunt.md`) found four
+decisions that collapsed, alongside nine holes; the same-day expert review
+(`docs/reviews/2026-09-26-architecture-pass-expert-review.md`) independently
+found C3 (as S1), C1's keyword-matching half (as M10), and C2's unenforced
+cap ordering (as M9). All four were
+caught by the independent passes, before plan or build, not by Max Cogar.
+
+- **C1 (AD-15 landmine labels).** Label detection was placed before the
+  transaction-size exclusion because "a revert of a large commit is still a
+  revert". That reason covers git-generated reverts only, but the rule moved
+  fix-keyword labels too, so a 200-file "fix lint" sweep would label 200 files
+  as fix-chatter — exactly the tangled-commit noise HERZIG, which FR-K2 and
+  FR-D3 cite, says large commits inject. The keyword match was also left
+  unspecified (substring matching labels "fixture", "prefix", "suffix").
+  Fixed: reverts before the exclusion, fix keywords after it, whole-token and
+  case-insensitive.
+- **C2 (AD-14 trust caps).** FR-X4 says low trust "lowers" confidence. The pass
+  chose the strongest reading — every `untrusted_repo` fact capped below the
+  high tier — without saying why the weaker reading (a dampener) fails FR-X4.
+  Every Phase A mined fact is `untrusted_repo`, so the `[confidence: uncertain]`
+  flag was on every mined whisper: it carried no per-fact information, erased
+  OL-C4's uncertain-versus-sure distinction for the whole phase, and left the
+  exit data unable to compare false-fire rates between tiers. Fixed: a trust
+  dampener, caps only for injection-suspect and identifier-heuristic facts,
+  ordered and enforced by `tune`.
+- **C3 (AD-15 Warning/Consequence wording).** "`x.ts`, just edited, was
+  reverted…" was written against the success path of `PreToolUse`. The event
+  also fires when the edit is permission-denied ("Permission denials fire
+  `PreToolUse`", hooks reference) or fails, and FR-O2 keeps the text either
+  way, so the headline asserted an edit that never happened — FR-D1's worst
+  output. The pass also kept `PreToolUse` over `PostToolUse` with no stated
+  reason. Fixed: headlines name "the file this edit targets"; `PreToolUse` is
+  kept because the retry of a denied or failed edit needs the hazard too.
+- **C4 (AD-5 fold attribution).** A whisper-less `missed` correction was
+  attributed to "the genre its verb names", but no `ctxoracle correct` form
+  carries a genre, so every missed Coupling or Warning Max reported would have
+  been booked as an answer-drift miss, corrupting the per-genre efficacy data
+  Phase B calibrates from. Fixed: an optional `--genre`, otherwise
+  `unattributed`, never answer-drift.
+
+**Class.** C1 **wrong-check** (a rationale checked for one member of a pair,
+applied to both); C2 **mechanism-not-mission** (the cap was justified by
+defining the tier, not by what the flag tells the agent); C3 and C4
+**unverified** (C3 asserted a fact about an action from an event that does not
+imply the action; C4 wrote a rule over an input no interface provides).
+
+**Standing lesson.** Each of the four was correct on the path its author was
+picturing and false on a path next to it. Before a decision is written: (1)
+when one rationale covers two cases, state it for each case separately — if
+it only holds for one, the rule is two rules; (2) when a requirement admits a
+weaker and a stronger reading, say why the weaker one fails before choosing the
+stronger, and state what the stronger one does to the data the phase exists to
+produce; (3) a whisper's wording must be true on every path the triggering
+event fires on, including failure and denial, so check the event's firing
+conditions, not its common case; (4) every input a rule reads must be traced
+to the interface that supplies it — a rule that references a field, flag, or
+argument no surface provides is hollow as written. The evidence stays in the
+collapse-hunt record; the fixes are in `docs/architecture-phase-a.md` AD-5,
+AD-14, AD-15, AD-18, and L12.
+
+**A fifth defect, in the fix itself.** The first fix for the collapse-hunt's
+H8 (the fold watermark in the global store over a project store's restarting
+`seq`) bound the watermark to a store generation and reset it to 0 on a
+mismatch. The agent applying the fixes found it double-counts: import an older
+export, the watermark resets, and rows the surviving global running sum already
+counted are folded again. Fixed by keeping the watermarks and a per-fold ledger
+in the project store and making the global row a replaced copy of that store's
+totals. **Standing lesson:** a watermark that can be reset must not feed an
+additive aggregate held somewhere else — keep the cursor, the rows, and the
+running totals in the same store, and publish a replaceable copy, so every
+replay is idempotent.

@@ -222,21 +222,45 @@ reviewer ran the code for every behavioral claim.
   - **N4:** `entry_score` grows on every index run.
 - **None is an owner decision.**
 
+**The architecture pass is done (2026-09-26).** The review's architecture-level
+decisions are recorded in `docs/architecture-phase-a.md`. The two required
+independent checks of that pass each ran once:
+- the collapse-hunt (`docs/reviews/2026-09-26-architecture-pass-collapse-hunt.md`)
+  found 4 collapses (C1–C4) and 9 holes;
+- the expert review (`docs/reviews/2026-09-26-architecture-pass-expert-review.md`)
+  found 19 findings, mostly the same defects.
+
+Every finding held on checking, and all of them are fixed in the architecture in
+one pass. The four collapses and one defect in a first fix are logged in
+`docs/collapse-log.md` (2026-09-26). The main fixes:
+- Warnings name "the file this edit targets" and never say "just edited", because
+  an edit can be refused or can fail.
+- Mining writes in short chunks. One long write had held the lock for 414 ms,
+  which switched the answer-first block off during a refresh.
+- The uncertain flag now separates strong evidence from weak; it had been on
+  every whisper.
+- Whisper-less "missed" reports no longer count as answer-drift.
+- Efficacy counts cannot be double-counted after an import.
+The plan was not touched.
+
 **One fact for Max, in plain words:** a warning attached to an edit reaches the
-agent only *after* the edit has already run. Current hooks reference
+agent right *after* it tries the edit, not before. Current hooks reference
 (`code.claude.com/docs/en/hooks.md`, fetched 2026-09-26): `PreToolUse` context is
 added "alongside the tool result", and "Claude reads the reminder on the next
-model request". Warning before an edit would take a deny, which is the
-pre-emptive gate already rejected (OL-R4). So hazard warnings move to the moment
-the agent first reads or searches the file, which comes before editing it. The
-post-edit version stays, framed as "the file you just edited has this history".
-Spec C-4's wording ("injected before the tool runs") gets a factual correction.
+model request". Warning before the edit would take a deny, which is the
+pre-emptive gate already rejected (OL-R4). So the warning is worded about the
+file the edit targets, and it informs what the agent does next: revise, retry, or
+move on. Giving the warning earlier, when the agent first reads the file, was
+considered and left out of Phase A: the spec ties warnings to an edit, and most
+reads are not followed by one. It is recorded in `docs/IDEAS.md` (#16) with what
+Phase A data would decide it.
 
 Next, in order:
-1. **Verify the review's findings,** then record each decision in the layer the
-   review names: architecture for AD-4/5/9/12–17/19/23/26 and the V-table, the
-   C-4 wording in the spec, plan and code for the rest. A finding that does not
-   hold on checking is rejected with evidence.
+1. **The plan pass.** Bring `docs/plans/plan-phase-a.md` in line with the
+   architecture as it now stands, and record the plan- and code-layer decisions
+   from the gap-list review (the items it routes to "plan" or "code"). The plan
+   pass changes the plan only; a flaw it finds in the architecture is raised,
+   not patched in the same pass.
 2. **Build each step fully**, in plan order from Step 13, replacing the
    `SKELETON:` marks. For each step:
    - a separate agent writes the step's §12 test from the plan's test spec
