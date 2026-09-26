@@ -201,17 +201,43 @@ choice. Several were found only by running the code:
 - **G3:** the per-pair file counts break second normal form, so every coupling
   ratio reads 1.00.
 
+**The one independent review of the gap list is done**
+(`docs/reviews/2026-09-25-skeleton-gap-list-review.md`, 2026-09-26). The
+reviewer ran the code for every behavioral claim.
+- **24 gaps hold,** several worse than logged:
+  - **G3:** a file that changed 7 times, 4 of them with its partner, got ratio
+    1.00 instead of 4/7, so the pair wrongly passes the 0.6 floor.
+  - **G4:** a history rewrite doubles the pair counts.
+  - **G5:** an incremental pass creates duplicate `fix_chatter` rows.
+  - **G23/G29:** a question asked in one session denied an Edit in another.
+  - **G34:** a copy import gave "database disk image is malformed", while
+    importing through `backup()` gave `ok`.
+- **7 partially hold,** and **1 does not:** G10, since the hooks reference sends
+  a successful hook's stderr only to the debug log.
+- **16 new gaps (N1–N16),** including:
+  - **N1:** the corpus floor is never enforced.
+  - **N2:** the Stop "still unanswered" line has no audit row.
+  - **N3:** when the session's working directory is a subdirectory, every
+    path-based genre goes silent.
+  - **N4:** `entry_score` grows on every index run.
+- **None is an owner decision.**
+
+**One fact for Max, in plain words:** a warning attached to an edit reaches the
+agent only *after* the edit has already run. Current hooks reference
+(`code.claude.com/docs/en/hooks.md`, fetched 2026-09-26): `PreToolUse` context is
+added "alongside the tool result", and "Claude reads the reminder on the next
+model request". Warning before an edit would take a deny, which is the
+pre-emptive gate already rejected (OL-R4). So hazard warnings move to the moment
+the agent first reads or searches the file, which comes before editing it. The
+post-edit version stays, framed as "the file you just edited has this history".
+Spec C-4's wording ("injected before the tool runs") gets a factual correction.
+
 Next, in order:
-1. **One independent review of the gap list.** A neutral subagent is given the
-   gap list, the spec, the architecture and the plan. For each gap it checks the
-   evidence, proposes the decision and its source, and says which layer the
-   decision belongs in. Several gaps are architecture-level: G3, G8/G17, G9,
-   G16, G23/G29 and G30. The review runs once; its findings are verified and
-   fixed, and it is not repeated until zero.
-2. **Record the decisions** in the layer that owns each one: architecture for
-   the design gaps (for example the G3 schema change and the G29 consumer key),
-   plan and code for the rest.
-3. **Build each step fully**, in plan order from Step 13, replacing the
+1. **Verify the review's findings,** then record each decision in the layer the
+   review names: architecture for AD-4/5/9/12–17/19/23/26 and the V-table, the
+   C-4 wording in the spec, plan and code for the rest. A finding that does not
+   hold on checking is rejected with evidence.
+2. **Build each step fully**, in plan order from Step 13, replacing the
    `SKELETON:` marks. For each step:
    - a separate agent writes the step's §12 test from the plan's test spec
      before the code, and it must fail first;
@@ -237,8 +263,8 @@ Still to do from 2026-09-25:
 
 ## Open items
 
-- **The runtime-pin and sandbox premises settle the first time the build's CI
-  runs.** Behaviour at the Node 22.16.0 engines floor is executed only by CI's
+- **Runtime pin — settled 2026-09-26:** the ctxoracle suite passed in CI on Node
+  22.16.0 (the engines floor) and on 22.x. **Sandbox premise, still open:** Behaviour at the Node 22.16.0 engines floor is executed only by CI's
   matrix entry; whether `unshare -rn` works on the GitHub Actions runner image is
   still open (the optional `09_unshare_no_network.optional` probe is evidence for
   this container, not for the GHA runner).
