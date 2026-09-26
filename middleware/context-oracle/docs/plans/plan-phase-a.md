@@ -3211,7 +3211,14 @@ escaped first 80 bytes of the first of them — never one per field: after a
 malformed field where a header is expected, the parser stays silent until
 the next valid header, counting what it skips into the same fault (Step 13
 build review m3: the resync paths reported every subject, body, separator,
-and entry of a bad record as its own fault). **The parser keeps a partial
+and entry of a bad record as its own fault). **What the parser returns vs
+what is recorded:** `parseNumstatZ`'s `malformed` list holds one item per
+malformed entry inside a commit whose header is valid (`T-13-1m`: two bad
+entries, two items) and **one** item for a whole run of fields skipped after
+a field where a header was expected (`T-13-1r`); the pass then groups the
+items by commit into the one fault per commit described above (raised by the
+Step 13 test writer: the two tests needed the parser/fault split stated).
+**The parser keeps a partial
 field as a list of `Buffer` slices** and concatenates them once, when the
 field's terminating NUL arrives, searching each new chunk for NUL with
 `chunk.indexOf(0, from)` from where the last search stopped — so a field that
@@ -10592,7 +10599,13 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     transaction within a transaction", OR `onBusyRetry` fires below depth 0,
     OR case (f) creates the file or fails to open the existing one, OR (g) is
     not `StoreMissing` or creates the directory, OR (h) is `StoreMissing` or
-    lacks `pathKind: 'directory'`, OR case (i) leaves row 3 without row 1.
+    lacks `pathKind: 'directory'`, OR case (i) leaves row 3 without row 1,
+    OR case (j) fails.
+  - **Case (j) — the off-path lock wait (AD-26; CI on 821c835).** A second
+    process takes the write lock (`BEGIN IMMEDIATE` and an insert), signals,
+    holds it 1 s, then commits. A store opened with `busyTimeoutMs: 5000`
+    completes its own write after the holder commits (rows `[1, 100]`); a store
+    opened with the default raises `StoreBusy` and writes nothing.
   - **Case (i) — engine-abandoned transaction (Steps 1–12 build review
     S1).** `PRAGMA max_page_count` is capped just above the table's size;
     the outer inserts 1, an inner call inserts a row too large to fit
