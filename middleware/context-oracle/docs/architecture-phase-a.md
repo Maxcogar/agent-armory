@@ -1472,11 +1472,20 @@ and nothing here depends on the new channel.
    **Recency weights the evidence, never the result.** Each included commit at
    time `ts` adds `2^((ts − T0)/h)` to `cochange_pairs.pair_weight` of every
    pair it touches and to `files.change_weight` of every file it touches, where
-   `T0` is a fixed epoch (2000-01-01 UTC), `h` is `bar.recency_half_life_days`,
-   and `ts − T0` is taken in days, the unit of `h`. **Bound:** a weight must stay
-   a finite double, so `(ts − T0)/h < 1000`; `tune` refuses `h` below 37 days,
-   which keeps every commit before 2100 in range (executed: at `h` = 30 a 2100
-   commit's weight is `Infinity`; at 37 it is about 1.5e297). Because every term carries the same factor
+   `T0` is the store's weight epoch, `h` is `bar.recency_half_life_days`, `ts`
+   is the commit's author time capped at `refTs` (`HEAD`'s committer time), and
+   `ts − T0` is taken in days, the unit of `h`. **Bound:** a weight must stay a
+   finite, non-zero double. Each full mine sets the epoch to `refTs − 500·h`
+   days (`schema_meta.weight_epoch`), and incremental passes keep it; a commit
+   whose exponent `(ts − T0)/h` would exceed 1000 makes the pass a purged full
+   re-mine, which re-bases. With `ts ≤ refTs` and the horizon bounding `ts`
+   below (AD-13's 5 years ≈ 49 half-lives at the 37-day floor), every exponent
+   of a fresh mine lies in about [450, 500], whatever dates a repository
+   carries; `tune` still refuses `h` below 37 days. *Why (Step 13 build review
+   M3, 2026-09-26):* a fixed 2000 epoch overflowed on one far-future author
+   date — executed: a commit dated 3237 read both files' weights back as NULL
+   at `h` = 365 — and capping `ts` alone cannot help when `HEAD`'s own date is
+   absurd. Re-basing changes no ratio, because every term shares the factor. Because every term carries the same factor
    relative to any reference time, `pair_weight / change_weight` equals the
    ratio of weights decayed to `HEAD` — computed with no event-time work, and
    independent of when it is read. A pairing that has always held stays at its
@@ -1745,7 +1754,8 @@ and nothing here depends on the new channel.
    them (`FR-D3`).
 
    **The labels.** *Revert-labelled* = a commit git itself generated as a revert:
-   the body trailer `This reverts commit <40-hex>.`, git-revert(1)'s default
+   the body trailer `This reverts commit <hash>.` with a 40- or 64-hex object
+   name (SHA-1 or SHA-256 repositories — Step 13 build review M1), git-revert(1)'s default
    message, with the subject prefixes `Revert "` / `Reapply "` as the fallback
    for a message without the trailer (executed 2026-09-26 on git 2.43.0:
    `git revert --no-edit HEAD` wrote subject `Revert "both"` and body
