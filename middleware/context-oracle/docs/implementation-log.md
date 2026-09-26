@@ -971,3 +971,118 @@ Verification run:
   → `OK: 40 steps, 13 elements, 157 test specs, 27 probes cited, regions current`.
 - `(cd middleware/context-oracle && python3 tools/check_docs.py)` →
   `context-oracle doc-consistency check passed.`
+
+## Step 13 — co-change miner (AD-13, AD-15, AD-26) — BUILT (2026-09-26, uncommitted, pending independent review)
+
+Built against plan Step 13 as amended at `277b0a2` (after this builder's
+preflight stop: `oracleSpawn` had no stdout pipe; Step 9's `ensureHistoryRow`
+contract and `T-9-1r15` contradicted an in-DAO re-point; the indexer caller
+cascaded into `src/cli/`). Test-first: a separate agent wrote the stubs, the
+fixtures (`generate.ts`) and `T-13-1`…`T-13-6`; this build replaced every stub.
+No asserted test value was changed and no test was deleted.
+
+**Built.**
+- `src/miner/labels.ts` — `isRevertLabelled(subject, body)` (the
+  `^This reverts commit [0-9a-f]{40}\.$` body line, else a `Revert "` /
+  `Reapply "` subject) and `isFixLabelled(subject, fixKeywords)` (the
+  lower-cased subject split on `/[^\p{L}\p{N}]+/u`, whole-token equality).
+- `src/miner/cochange.ts` — replaced in full; the skeleton overloads,
+  `MineOptions {global}`, the string parser, and every `SKELETON:` mark
+  (G2, G4, G8, the fix-keyword rule, and the three `SKELETON: 1R` marks) are
+  gone.
+  - `parseNumstatZ(buf)` over an incremental byte-level parser: NUL-only split,
+    headers only where one is expected, subject/body/rename identities read
+    positionally. Malformed records (a non-header leading field, an entry
+    lacking `<added>\t<deleted>\t`, a truncated rename, a truncated header)
+    come back as `{commit, detail}` with the escaped first 80 bytes.
+  - `mineCochange(store, repoPath, {tuning, diagnosticsDir, full?}):
+    Promise<MineResult>`, with `git log` streamed through
+    `oracleSpawn({stdout: 'pipe'})` as `Buffer` chunks.
+  - Full vs incremental follows the plan's exactly-two-cases rule. The
+    rewrite check (`merge-base --is-ancestor` 1/128) records
+    `history_rewritten`.
+  - The purge transaction.
+  - `rev-list --count --no-merges` gives the horizon position; the horizon is
+    judged per pass.
+  - Per-commit labels: reverts before the size exclusion; fixes only on
+    included commits, never on a revert.
+  - AD-13 weights.
+  - Chunk transactions closed by `miner.chunk_ms`, each advancing the
+    watermark.
+  - The already-mined skip.
+  - The final transaction: landmine rebuild with `prov_ref` = newest counted
+    hash; watermark = the mined `HEAD`; `ref_ts`; `corpus_floor_met`;
+    `mining_in_progress = '0'` on a full pass; `sweepUnreferenced`.
+- `src/stores/dao/files.ts` — `repointStaleCommitProv(id, hash): boolean`.
+  `ensureHistoryRow` is unchanged (`T-9-1r15` holds).
+- `src/util/spawn.ts` — `OracleSpawnOptions.stdout?: 'inherit' | 'pipe'`
+  (`'pipe'` = stdin ignored, stdout piped, stderr inherited; the default is
+  unchanged).
+- `src/index/indexer.ts` — the §9 row "Step 13's skeleton caller":
+  - `tuningReader(opts.global, resolveRepoKey(repoPath).key, …tuning_missing)`;
+  - `opts.full` passed through;
+  - `IndexResult.mine` narrowed to `{commitsIncluded}`, mapped from
+    `MineResult.included`.
+
+  Both are marked `SKELETON: 13`, retired by Step 14. `src/cli/*` is untouched.
+
+**Plan silences decided in the code (each commented where made).**
+- A repository with no `HEAD` (no commit): the pass writes nothing and returns
+  a zero result.
+- A commit row is written immediately before its own paths. Chunks close on
+  elapsed time after any commit, so the plan's "a chunk writes its `commits`
+  rows before its `ensureHistoryRow` calls" is realized per commit. The
+  property it exists for — a path's first-naming commit is in `commits` when
+  its provenance is checked — holds.
+- A non-empty separator field (git always writes it empty) is read as an
+  entry, so a shape-less one is reported as malformed.
+- A header whose `%at` is not an integer is malformed, and that commit is
+  dropped.
+- `lexicon.fix_keywords` members are compared lower-cased (AD-15:
+  "case-insensitively").
+- A size-excluded revert creates its files' history rows (`ensureHistoryRow`
+  plus re-point) for its `labelled_touches`, but adds no counts.
+- `entity_count` is the number of distinct raw paths, rejected ones included.
+- Faults:
+  - one `miner_unparsed_numstat` per malformed record, detail
+    `{commit, record}`;
+  - one `path_not_utf8` per pass, detail `{writer: 'miner', count, first}` with
+    at most 5 samples;
+  - both are recorded after the stream, outside any transaction.
+- `merge-base` exiting with anything other than 0/1/128 throws.
+- The stream is aggregated in memory before the chunk writes. No transaction
+  is ever open across the async stream, and horizon-excluded commits keep only
+  their row fields, so memory is bounded by `miner.horizon_commits`.
+
+**Verified.**
+- `cd ctxoracle && npm run build && npm test` → `tsc -p tsconfig.json` clean.
+  `# tests 191`, `# pass 190`, `# fail 0`, `# skipped 0`, `# todo 1` (the
+  `SKELETON: 1R` skeleton_e2e mark, Step 28). All of these pass: T-13-1a…k,
+  T-13-2, T-13-3, T-13-4a…c, T-13-5a…d, T-13-6a…c.
+- `miner_chunks` + `miner_branches` run 5 times in a row: 7/7 each time.
+- `node middleware/context-oracle/.claude/skills/expert-plan/scripts/derive-plan-sections.mjs --check middleware/context-oracle/docs/plans/plan-phase-a.md`
+  → `OK: 40 steps, 13 elements, 158 test specs, 27 probes cited, regions current`.
+- `(cd middleware/context-oracle && python3 tools/check_docs.py)` →
+  `context-oracle doc-consistency check passed.`
+- Real repository run on this repository (`HEAD` `277b0a2`). The stores were in
+  a scratch directory, and `git status` was identical before and after.
+  - First (full) pass: `commitsSeen 390, included 376, excluded 14` (all
+    size), `chunks 1`, `pathsRejected 0`, 2,398 ms. `git log -M` alone takes
+    2,265 ms here.
+  - Second (idle incremental) pass: 0 commits, 18 ms.
+  - Store after the passes:
+    - 590 `files` rows, 4,376 pairs, 118 labelled touches;
+    - 5 `fix_chatter` rows, no `revert_chain`, no faults;
+    - `corpus_floor_met '1'`, `mining_in_progress '0'`;
+    - `last_mined_commit` = `HEAD`, `mined_half_life_days '365'`.
+
+**Findings.**
+1. **SHA-256 repositories are not mined.** The header and the revert trailer
+   are specified as 40 hex. In a repository with `extensions.objectFormat =
+   sha256`, `%H` is 64 hex, so every field would be reported as a malformed
+   record: one fault row per field, and nothing mined. Proposed fix: accept 40
+   or 64 hex in both, or detect the object format once and record a single
+   fault. This is a plan-level item, left as the plan states.
+2. **`git log`'s stderr is inherited** (the amended option), so a failing git
+   prints to the verb's stderr as well as rejecting the pass with its exit
+   code.

@@ -49,6 +49,12 @@ export interface FilesDao {
   all(): FileRecord[];
   /** Insert-if-absent a history-only row (in_tree 0, lang/zone 'unknown', NULL hash/mtime, commit/untrusted_repo, prov_ref = commitHash); returns its id; never changes an existing row. */
   ensureHistoryRow(path: string, injectionSuspect: boolean, commitHash: string): number;
+  /**
+   * Set the row's `prov_ref` to `commitHash` when its `prov_kind = 'commit'` and
+   * its `prov_ref` names no row in `commits` (a purge removed it); returns
+   * whether it changed (Step 13, AD-13 commit provenance after a purge).
+   */
+  repointStaleCommitProv(id: number, commitHash: string): boolean;
   /** Set in_tree = 0 on every in_tree = 1 row whose id is not listed; returns those ids (ascending). */
   markAbsentExcept(listedPresentIds: number[]): number[];
   /** Delete in_tree = 0 rows with change_count = 0 that no history-derived row references; returns the count. */
@@ -127,6 +133,16 @@ export function filesDao(store: Store): FilesDao {
           .get(path, ...prov) as { id: number };
         return r.id;
       });
+    },
+    repointStaleCommitProv(id, commitHash) {
+      const r = store
+        .prepare(
+          `UPDATE files SET prov_ref = ?, updated_at = ?
+           WHERE id = ? AND prov_kind = 'commit'
+             AND NOT EXISTS (SELECT 1 FROM commits c WHERE c.hash = files.prov_ref)`
+        )
+        .run(commitHash, Date.now(), id);
+      return Number(r.changes) > 0;
     },
     markAbsentExcept(listedPresentIds) {
       // json_each keeps the id list a single bound parameter, so a large tree

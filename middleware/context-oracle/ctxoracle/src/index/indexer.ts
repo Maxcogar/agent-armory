@@ -15,13 +15,14 @@ import { filesDao } from '../stores/dao/files.js';
 import { symbolsDao } from '../stores/dao/symbols.js';
 import { importEdgesDao } from '../stores/dao/import_edges.js';
 import { schemaMetaDao } from '../stores/dao/schema_meta.js';
-import { tuning } from '../stores/dao/tuning.js';
+import { tuning, tuningReader } from '../stores/dao/tuning.js';
 import { recordFault } from '../diag/fault_writer.js';
 import { redact } from '../security/redact.js';
 import { isSuspect } from '../security/injection.js';
 import { sha256Hex } from '../util/hash.js';
 import { oracleExecFileSync } from '../util/spawn.js';
-import { mineCochange, type MineResult } from '../miner/cochange.js';
+import { mineCochange } from '../miner/cochange.js';
+import { resolveRepoKey } from '../identity/repo_key.js';
 
 const MAX_BYTES = 1_000_000;
 const MAX_LINES = 20_000;
@@ -41,7 +42,10 @@ export interface IndexResult {
   symbols: number;
   importEdges: number;
   head: string | null;
-  mine: MineResult | null;
+  /** SKELETON: 13 — the skeleton's mine summary; Step 13's `MineResult.included`
+   *  is mapped onto `commitsIncluded` so the skeleton verbs compile unchanged;
+   *  retired by Step 14 */
+  mine: { commitsIncluded: number } | null;
   refused?: 'reindex_locked';
 }
 
@@ -273,7 +277,15 @@ export async function runIndex(store: Store, repoPath: string, opts: IndexOption
     const headCommit = 'commit' in h ? h.commit : null;
     if (headCommit !== null) schemaMetaDao(store).set('index_head', headCommit);
     schemaMetaDao(store).set('index_stale', '0');
-    const mine = mineCochange(store, repoPath, { diagnosticsDir: opts.diagnosticsDir, global: opts.global });
+    // SKELETON: 13 — the miner's TuningReader is bound here to
+    // `resolveRepoKey(repoPath).key` over the skeleton's global store, and
+    // `MineResult.included` is mapped onto `IndexResult.mine.commitsIncluded`
+    // (plan §9 row "Step 13's skeleton caller"); retired by Step 14
+    const mineTuning = tuningReader(opts.global, resolveRepoKey(repoPath).key, (k) =>
+      recordFault(store, opts.diagnosticsDir, { code: 'tuning_missing', detail: { key: k } })
+    );
+    const mined = await mineCochange(store, repoPath, { tuning: mineTuning, diagnosticsDir: opts.diagnosticsDir, full: opts.full });
+    const mine = { commitsIncluded: mined.included };
     return { filesSeen: paths.length, filesIndexed: indexed, pathOnly, symbols: symbolCount, importEdges: edgeCount, head: headCommit, mine };
   } finally {
     releaseReindexClaim(store);

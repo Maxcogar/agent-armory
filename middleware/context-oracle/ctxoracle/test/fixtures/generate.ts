@@ -95,6 +95,234 @@ function trivial(dir: string, marker = 'fixture'): void {
   commit(dir, [{ path: 'README.md', content: `# ${marker}\n` }], { message: 'init', day: 0 });
 }
 
+/** The pinned author/committer identity and date for a fixture-relative instant. */
+function dateEnv(day: number, sec = 0): Record<string, string> {
+  const date = ISO(ANCHOR + day * DAY + sec);
+  return {
+    GIT_AUTHOR_NAME: AUTHOR_NAME,
+    GIT_AUTHOR_EMAIL: AUTHOR_EMAIL,
+    GIT_AUTHOR_DATE: date,
+    GIT_COMMITTER_NAME: AUTHOR_NAME,
+    GIT_COMMITTER_EMAIL: AUTHOR_EMAIL,
+    GIT_COMMITTER_DATE: date,
+  };
+}
+
+/** `git revert --no-edit <rev>` at a pinned date: git writes `Revert "<subject>"` + the trailer. */
+function revert(dir: string, rev: string, day: number, sec = 0): void {
+  git(dir, ['revert', '--no-edit', rev], dateEnv(day, sec));
+}
+
+// --- Helpers exported for the tests that change a generated fixture ---------
+// (T-13-3 rewrites miner-labels' history; T-13-4 adds commits after a first
+// mine; T-13-5 clones miner-large). Same pinned identity, dates, and isolated
+// git config as the generators, so a test's own commits are deterministic too.
+
+/** Run git in a fixture repo with the generators' isolated config (and a pinned date when `at` is given). */
+export function fixtureGit(dir: string, args: string[], at?: { day: number; sec?: number }): string {
+  return git(dir, args, at === undefined ? {} : dateEnv(at.day, at.sec ?? 0));
+}
+
+/** Initialise an empty fixture repo in `dir` (replaced) with the generators' pinned config. */
+export function fixtureInit(dir: string): void {
+  initRepo(dir);
+}
+
+/** Write `files` and commit them at `ANCHOR + day·86400 + sec` with `message`. */
+export function fixtureCommit(dir: string, files: WriteEntry[], opts: CommitOpts): void {
+  commit(dir, files, opts);
+}
+
+/** The fixture timeline's epoch-seconds instant for `day`/`sec` (ANCHOR-relative). */
+export function fixtureTs(day: number, sec = 0): number {
+  return ANCHOR + day * DAY + sec;
+}
+
+// --- Step 13 miner fixtures (plan §12 T-13-1 .. T-13-5 Data fields) ----------
+
+/** The miner-hygiene planted pair (cross-directory) and its partner. */
+export const HYGIENE = {
+  pairA: 'left/alpha.txt',
+  partner: 'right/beta.txt',
+  headDay: 60,
+  /** 6 years (6 × 365.25 days, rounded up) before HEAD — beyond the 5-year horizon. */
+  ancientDay: 60 - 2192,
+  specialPaths: ['caf\u00e9.txt', 'back\\slash.txt', 'ta\tb.txt', 'ne\nwl.txt', 'we\u001eird.txt'],
+  arrowPath: 'a => b.txt',
+  binaryPath: 'bin.dat',
+  bulkPaths: Array.from({ length: 43 }, (_, i) => `bulk/f${String(i).padStart(2, '0')}.txt`),
+  revertFile: 'rv.txt',
+  fixFile: 'fx.txt',
+} as const;
+
+function minerHygiene(dir: string): void {
+  const H = HYGIENE;
+  initRepo(dir);
+  let beta = 0;
+  const betaEdit = (): WriteEntry => ({ path: H.partner, content: `beta ${++beta}\n` });
+  // Beyond the horizon: touches the pair (must not count) and a file only it touches.
+  commit(
+    dir,
+    [
+      { path: H.pairA, content: 'alpha ancient\n' },
+      { path: H.partner, content: 'beta ancient\n' },
+      { path: 'ancient.txt', content: 'ancient\n' },
+    ],
+    { message: 'ancient change', day: H.ancientDay }
+  );
+  commit(dir, [{ path: 'old.txt', content: 'line one\nline two\nline three\nline four\n' }], { message: 'add old', day: 1 });
+  // The planted pair: 5 co-changes.
+  for (let i = 0; i < 5; i++) {
+    commit(
+      dir,
+      [
+        { path: H.pairA, content: `alpha ${i}\n` },
+        betaEdit(),
+      ],
+      { message: `pair change ${i}`, day: 2 + i }
+    );
+  }
+  // A 45-file commit (size-excluded) that touches the pair.
+  commit(
+    dir,
+    [{ path: H.pairA, content: 'alpha bulk\n' }, betaEdit(), ...H.bulkPaths.map((p) => ({ path: p, content: 'bulk\n' }))],
+    { message: 'bulk sweep', day: 7 }
+  );
+  // One merge commit (excluded by --no-merges) whose own resolution touches the pair.
+  git(dir, ['checkout', '-q', '-b', 'side']);
+  commit(dir, [{ path: 'side.txt', content: 'side\n' }], { message: 'side work', day: 8 });
+  git(dir, ['checkout', '-q', 'main']);
+  commit(dir, [{ path: 'main.txt', content: 'main\n' }], { message: 'main work', day: 9 });
+  // (stderr piped: `--no-commit` reports "stopped before committing" there.)
+  execFileSync('git', ['merge', '-q', '--no-ff', '--no-commit', 'side'], {
+    cwd: dir,
+    stdio: 'pipe',
+    env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null', ...dateEnv(10) },
+  });
+  writeFiles(dir, [{ path: H.pairA, content: 'alpha merge\n' }, betaEdit()]);
+  git(dir, ['add', '-A']);
+  git(dir, ['commit', '-q', '-m', 'merge side'], dateEnv(10));
+  git(dir, ['branch', '-q', '-D', 'side']);
+  // Two revert-labelled commits on one file (git-generated, with the trailer).
+  commit(dir, [{ path: H.revertFile, content: 'rv 0\n' }], { message: 'add rv', day: 11 });
+  commit(dir, [{ path: H.revertFile, content: 'rv 1\n' }], { message: 'edit rv', day: 12 });
+  revert(dir, 'HEAD', 13);
+  commit(dir, [{ path: H.revertFile, content: 'rv 2\n' }], { message: 'edit rv again', day: 14 });
+  revert(dir, 'HEAD', 15);
+  // A rename in place (old.txt -> new.txt, identical content) with the partner.
+  git(dir, ['mv', 'old.txt', 'new.txt']);
+  commit(dir, [betaEdit()], { message: 'rename old to new', day: 16 });
+  // The raw special-byte paths, each co-changing with the partner in one commit.
+  H.specialPaths.forEach((p, i) => {
+    commit(dir, [{ path: p, content: `special ${i}\n` }, betaEdit()], { message: `add special ${i}`, day: 17 + i });
+  });
+  // A real file literally named `a => b.txt` (a plain add, not a rename).
+  commit(dir, [{ path: H.arrowPath, content: 'arrow\n' }, betaEdit()], { message: 'add arrow file', day: 22 });
+  // A binary file (numstat `-\t-`).
+  commit(dir, [{ path: H.binaryPath, content: Buffer.from([0, 1, 2, 0, 255, 0, 3]) }, betaEdit()], {
+    message: 'add binary',
+    day: 23,
+  });
+  // Three fix-labelled commits on another file within the 90 days before HEAD.
+  commit(dir, [{ path: H.fixFile, content: 'fx 1\n' }], { message: 'fix one', day: 50 });
+  commit(dir, [{ path: H.fixFile, content: 'fx 2\n' }], { message: 'fix two', day: 51 });
+  commit(dir, [{ path: H.fixFile, content: 'fx 3\n' }], { message: 'fix three', day: 52 });
+  commit(dir, [{ path: 'README.md', content: '# miner-hygiene\n' }], { message: 'readme', day: H.headDay });
+}
+
+/** miner-denominator (T-13-2): a.txt in 7 commits, 4 with b.txt; c.txt alone once. */
+function minerDenominator(dir: string): void {
+  initRepo(dir);
+  for (let i = 0; i < 4; i++) {
+    commit(
+      dir,
+      [
+        { path: 'a.txt', content: `a ${i}\n` },
+        { path: 'b.txt', content: `b ${i}\n` },
+      ],
+      { message: `a and b ${i}`, day: 1 + i }
+    );
+  }
+  for (let i = 4; i < 7; i++) {
+    commit(dir, [{ path: 'a.txt', content: `a ${i}\n` }], { message: `a alone ${i}`, day: 1 + i });
+  }
+  commit(dir, [{ path: 'c.txt', content: 'c\n' }], { message: 'c alone', day: 8 });
+}
+
+/** miner-labels timeline (T-13-3, T-13-4): day offsets from ANCHOR. */
+export const LABELS = {
+  headDay: 200,
+  /** Days for T-13-4's three incremental `fix e/f/g` commits (after HEAD). */
+  incrementalDays: [201, 202, 203],
+  bigPaths: Array.from({ length: 40 }, (_, i) => `big/b${String(i).padStart(2, '0')}.txt`),
+  lintPaths: Array.from({ length: 39 }, (_, i) => `lint/l${String(i).padStart(2, '0')}.txt`),
+  fixSubjects: ['Fix: a', 'bug-fix b', 'hotfix c', 'fixing d'],
+  nonFixSubjects: ['add fixture', 'prefix cleanup', 'suffix'],
+} as const;
+
+function minerLabels(dir: string): void {
+  const L = LABELS;
+  initRepo(dir);
+  // old.txt: fix commits 100 days before HEAD (window 90 -> no fix_chatter).
+  for (let i = 0; i < 3; i++) {
+    commit(dir, [{ path: 'old.txt', content: `old ${i}\n` }], { message: `fix old ${i}`, day: L.headDay - 100, sec: i });
+  }
+  // x.txt: substring-only subjects -> no label.
+  L.nonFixSubjects.forEach((m, i) => {
+    commit(dir, [{ path: 'x.txt', content: `x ${i}\n` }], { message: m, day: 150, sec: i });
+  });
+  // big/: a 40-file commit (size-excluded) reverted by a 40-file revert.
+  commit(dir, L.bigPaths.map((p) => ({ path: p, content: 'big\n' })), { message: 'add big', day: 160 });
+  revert(dir, 'HEAD', 161);
+  // s.txt: a 40-file `fix lint` commit (size-excluded -> no fix label).
+  commit(
+    dir,
+    [{ path: 's.txt', content: 's\n' }, ...L.lintPaths.map((p) => ({ path: p, content: 'lint\n' }))],
+    { message: 'fix lint', day: 162 }
+  );
+  // v.txt: subject `Revert "fix v"` with no trailer (the subject fallback).
+  commit(dir, [{ path: 'v.txt', content: 'v\n' }], { message: 'Revert "fix v"', day: 163 });
+  // f.txt: four included fix-labelled commits.
+  L.fixSubjects.forEach((m, i) => {
+    commit(dir, [{ path: 'f.txt', content: `f ${i}\n` }], { message: m, day: 190 + i });
+  });
+  // r.txt: two commits, each reverted with `git revert --no-edit`; HEAD is the
+  // revert of the second (commit X of T-13-3).
+  commit(dir, [{ path: 'r.txt', content: 'r one\n' }], { message: 'edit r one', day: 196 });
+  revert(dir, 'HEAD', 197);
+  commit(dir, [{ path: 'r.txt', content: 'r two\n' }], { message: 'edit r two', day: 198 });
+  revert(dir, 'HEAD', L.headDay);
+}
+
+/** miner-large (T-13-5): 2,000 commits x 20 files, one hour apart, via `git fast-import`. */
+export const LARGE = { commits: 2000, files: 20, startDay: 1, stepSec: 3600 } as const;
+
+function minerLarge(dir: string): void {
+  initRepo(dir);
+  const parts: string[] = [];
+  for (let i = 1; i <= LARGE.commits; i++) {
+    const ts = ANCHOR + LARGE.startDay * DAY + i * LARGE.stepSec;
+    const msg = `large ${i}\n`;
+    parts.push('commit refs/heads/main\n');
+    parts.push(`mark :${i}\n`);
+    parts.push(`author ${AUTHOR_NAME} <${AUTHOR_EMAIL}> ${ts} +0000\n`);
+    parts.push(`committer ${AUTHOR_NAME} <${AUTHOR_EMAIL}> ${ts} +0000\n`);
+    parts.push(`data ${Buffer.byteLength(msg)}\n${msg}`);
+    for (let f = 0; f < LARGE.files; f++) {
+      const content = `f${f} c${i}\n`;
+      parts.push(`M 100644 inline f${String(f).padStart(2, '0')}.txt\ndata ${Buffer.byteLength(content)}\n${content}`);
+    }
+    parts.push('\n');
+  }
+  execFileSync('git', ['fast-import', '--quiet'], {
+    cwd: dir,
+    input: parts.join(''),
+    env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null' },
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  git(dir, ['reset', '-q', '--hard', 'main']);
+}
+
 // --- Fixture generators ------------------------------------------------------
 //
 // Each entry plants the scenario its §5.1 description / consuming-test Data
@@ -160,7 +388,7 @@ const generators: Record<string, (dir: string) => void> = {
 
   // Miner / index / genre fixtures — deterministic baseline repos here;
   // full planted scenarios are completed at their consuming steps (13–38).
-  'miner-hygiene': (dir) => trivial(dir, 'miner-hygiene'),
+  'miner-hygiene': minerHygiene, // T-13-1 (Step 13)
   'indexer-small': (dir) => trivial(dir, 'indexer-small'),
   'coupling-nonobvious': (dir) => trivial(dir, 'coupling-nonobvious'),
   'orientation-mixed-shape': (dir) => trivial(dir, 'orientation-mixed-shape'),
@@ -195,9 +423,9 @@ const generators: Record<string, (dir: string) => void> = {
   // miner-large (Step 13), indexer-walk / indexer-nongit (Step 14),
   // reuse-alias-unresolved (Step 18), recency-weighting (Step 16).
   'coupling-key-symmetry': (dir) => trivial(dir, 'coupling-key-symmetry'),
-  'miner-denominator': (dir) => trivial(dir, 'miner-denominator'),
-  'miner-labels': (dir) => trivial(dir, 'miner-labels'),
-  'miner-large': (dir) => trivial(dir, 'miner-large'),
+  'miner-denominator': minerDenominator, // T-13-2 (Step 13)
+  'miner-labels': minerLabels, // T-13-3, T-13-4 (Step 13)
+  'miner-large': minerLarge, // T-13-5 (Step 13)
   'indexer-walk': (dir) => trivial(dir, 'indexer-walk'),
   'indexer-nongit': (dir) => trivial(dir, 'indexer-nongit'),
   'reuse-alias-unresolved': (dir) => trivial(dir, 'reuse-alias-unresolved'),

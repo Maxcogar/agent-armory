@@ -45,6 +45,13 @@ export interface OracleSpawnOptions {
   env?: NodeJS.ProcessEnv;
   detached?: boolean;
   scrub?: boolean;
+  /**
+   * `'pipe'`: stdin ignored, stdout piped (the caller consumes `child.stdout`
+   * as `Buffer` chunks, never `setEncoding`), stderr inherited. The default
+   * stays `'inherit'`. Added by Step 13 for the miner's `git log` stream: an
+   * inherited stdout has no pipe (`child.stdout` is `null`).
+   */
+  stdout?: 'inherit' | 'pipe';
 }
 
 export interface OracleExecOptions {
@@ -71,7 +78,8 @@ export function oracleSpawn(cmd: string, args: string[], opts: OracleSpawnOption
     cwd: opts.cwd,
     env: childEnv(opts),
     detached: opts.detached === true,
-    stdio: opts.detached === true ? 'ignore' : 'inherit',
+    stdio:
+      opts.detached === true ? 'ignore' : opts.stdout === 'pipe' ? ['ignore', 'pipe', 'inherit'] : 'inherit',
   };
   return spawn(cmd, args, spawnOpts);
 }
