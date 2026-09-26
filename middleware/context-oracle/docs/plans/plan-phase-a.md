@@ -406,7 +406,16 @@ what the spec and mission already decide). The architecture is not edited;
   nothing asserts the trap); `yaml`'s and `bash`'s external scanners import
   symbols the runtime never exports (`_Znwm`/`_ZdlPv`; `isalpha`), so
   `yaml` throws a `TypeError` on its first parse and `bash` on any `case …
-  esac`, and the parser instance that threw is dead afterwards. Separately,
+  esac`, and the parser instance that threw is dead afterwards. Of the 32
+  that set and parse without throwing, 31 parse valid source error-free on
+  every repeated parse: `lua` loads and never throws, but after its first
+  parse in a process it returns trees with ERROR/MISSING nodes for valid
+  source (Step 15 test writer, 2026-09-26, found with repeated parses;
+  `probe:20_grammar_inventory` now parses each candidate's valid sample
+  three times with a fresh `Parser` each and once more after every other
+  grammar has parsed, and counts an ERROR/MISSING tree as a failure — the
+  one parse of `"\n"` per grammar it made on 2026-09-11 could not show
+  this). Separately,
   a source file that imports `web-tree-sitter` does not compile under Step
   1's `tsconfig` unless `@types/emscripten` is installed and named in
   `types` — the package's `.d.ts` references the global `EmscriptenModule`
@@ -416,10 +425,15 @@ what the spec and mission already decide). The architecture is not edited;
   `web-tree-sitter` 0.25.10 and adds the dev pin `@types/emscripten` 1.41.6
   with `"types": ["node", "emscripten"]` (D-plan-2 re-derived); the default
   `index.ext_to_grammar` table (seeded by Step 12, enumerated in Step 15)
-  is the 32 usable grammars, with `elm`, `ql`, `yaml` and `bash` excluded
-  by cause and their extensions falling to the generic frontend — AD-12's
-  "every language for which `tree-sitter-wasms` ships a grammar" is, by
-  execution, every grammar the pinned runtime can load *and parse*; Step
+  is the 31 usable grammars, with `elm`, `ql`, `yaml`, `bash` and `lua`
+  excluded by cause and their extensions falling to the generic frontend —
+  AD-12's "every language for which `tree-sitter-wasms` ships a grammar"
+  is, by execution, every grammar the pinned runtime can load *and parse
+  correctly on repeated parses* (32 corrected to 31 and `lua` excluded,
+  Step 15 test writer, 2026-09-26, following architecture AD-12/L6 as
+  corrected that day: an ERROR tree returned without a throw never reaches
+  the throw fallback below, so a usable grammar is one whose every
+  repeated parse of valid source is error-free); Step
   15's frontend catches every throwable a parse raises (a `TypeError` from
   an unresolved scanner import, a `RuntimeError` from a trap), discards
   that parser instance, indexes the file through the generic frontend and
@@ -578,7 +592,7 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/src/index/frontends.ts | create | S15 |
 | middleware/context-oracle/ctxoracle/src/index/generic_frontend.ts | create | S15 |
 | middleware/context-oracle/ctxoracle/src/index/indexer.ts | create | S14 |
-| middleware/context-oracle/ctxoracle/src/index/indexer.ts | modify | S9, S13, S30 |
+| middleware/context-oracle/ctxoracle/src/index/indexer.ts | modify | S9, S13, S15, S30 |
 | middleware/context-oracle/ctxoracle/src/index/path_glob.ts | create | S14 |
 | middleware/context-oracle/ctxoracle/src/index/resolvers.ts | create | S15 |
 | middleware/context-oracle/ctxoracle/src/index/search.ts | create | S14 |
@@ -623,6 +637,7 @@ tests that use it name it in their Data fields.
 | middleware/context-oracle/ctxoracle/src/stores/dao/symbols.ts | create | S9 |
 | middleware/context-oracle/ctxoracle/src/stores/dao/test_map.ts | create | S9 |
 | middleware/context-oracle/ctxoracle/src/stores/dao/tuning_seeds.ts | create | S12 |
+| middleware/context-oracle/ctxoracle/src/stores/dao/tuning_seeds.ts | modify | S15 |
 | middleware/context-oracle/ctxoracle/src/stores/dao/tuning.ts | create | S12 |
 | middleware/context-oracle/ctxoracle/src/stores/dao/whisper_audit.ts | create | S9 |
 | middleware/context-oracle/ctxoracle/src/stores/dao/whisper_stats.ts | create | S9 |
@@ -2984,8 +2999,11 @@ test`, `yarn test`, `pytest`, `cargo test`, `go test`, `jest`, `mocha`,
 `find`, `head`, `tail`, `wc`), `lexicon.completion_claim` (`done`,
 `complete`, `completed`, `implemented`, `fixed`, `finished`). The one
 list-valued `architecture_default` key is `index.ext_to_grammar`, the
-default extension → grammar table Step 15 enumerates (32 grammars; `elm`,
-`ql`, `yaml` and `bash` excluded by executed cause, §4). All list keys are
+default extension → grammar table Step 15 enumerates (31 grammars; `elm`,
+`ql`, `yaml`, `bash` and `lua` excluded by executed cause, §4 — `lua`
+removed from the seed and 32 corrected to 31 by the Step 15 test writer,
+2026-09-26, because after its first parse in a process it returns ERROR
+trees for valid source without throwing). All list keys are
 owner-tunable via `tune` (AD-20).
 
 **Reopened 2026-09-26 — build delta.**
@@ -4133,7 +4151,7 @@ step: S15
 covers: [PA-1, PA-3]
 files:
   create: [middleware/context-oracle/ctxoracle/src/index/tree_sitter_frontend.ts, middleware/context-oracle/ctxoracle/src/index/generic_frontend.ts, middleware/context-oracle/ctxoracle/src/index/frontends.ts, middleware/context-oracle/ctxoracle/test/unit/tree_sitter_frontend.test.ts, middleware/context-oracle/ctxoracle/test/unit/generic_frontend.test.ts, middleware/context-oracle/ctxoracle/test/unit/indexer_frontends.test.ts, middleware/context-oracle/ctxoracle/test/unit/tree_sitter_frontend_fallback.test.ts, middleware/context-oracle/ctxoracle/src/index/resolvers.ts, middleware/context-oracle/ctxoracle/test/unit/import_resolvers.test.ts, middleware/context-oracle/ctxoracle/test/unit/frontend_capabilities.test.ts]
-  modify: [middleware/context-oracle/ctxoracle/test/fixtures/generate.ts, middleware/context-oracle/ctxoracle/test/unit/indexer_walk.test.ts, middleware/context-oracle/ctxoracle/test/unit/search_semantics.test.ts]
+  modify: [middleware/context-oracle/ctxoracle/src/index/indexer.ts, middleware/context-oracle/ctxoracle/src/stores/dao/tuning_seeds.ts, middleware/context-oracle/ctxoracle/test/fixtures/generate.ts, middleware/context-oracle/ctxoracle/test/unit/indexer_walk.test.ts, middleware/context-oracle/ctxoracle/test/unit/search_semantics.test.ts]
   delete: []
 provides: [treeSitterFrontend, genericFrontend, defaultFrontends, resolveTsImport, resolvePythonImport]
 tests: [T-15-1, T-15-2, T-15-3, T-15-4, T-15-5, T-15-6]
@@ -4143,26 +4161,35 @@ depends_on: [S1, S14]
 
 **What changes.** Create `src/index/tree_sitter_frontend.ts` exporting
 `treeSitterFrontend(lang): LanguageFrontend`, which implements
-`LanguageFrontend` by loading the grammar `tree-sitter-wasms/out/<lang>.wasm`
-(the package's documented output directory, V14; path resolved with
-`import.meta.resolve`), parsing via `web-tree-sitter`, extracting symbols
+`LanguageFrontend` by loading the grammar `tree-sitter-wasms/out/tree-sitter-<lang>.wasm`
+(the package's documented output directory and its file naming, V14 —
+every shipped file is `tree-sitter-<lang>.wasm`, `probe:20_grammar_inventory`;
+path resolved with `import.meta.resolve`; Step 15 test writer, 2026-09-26), parsing via `web-tree-sitter`, extracting symbols
 and imports via per-language tree-sitter queries. The default
 `index.ext_to_grammar` table (seeded by Step 12) is: `.c`/`.h` → `c`;
 `.cs` → `c_sharp`; `.cc`/`.cpp`/`.cxx`/`.hpp`/`.hh` → `cpp`; `.css` →
 `css`; `.dart` → `dart`; `.el` → `elisp`; `.ex`/`.exs` → `elixir`;
 `.erb`/`.ejs` → `embedded_template`; `.go` → `go`; `.html`/`.htm` →
 `html`; `.java` → `java`; `.js`/`.mjs`/`.cjs`/`.jsx` → `javascript`;
-`.json` → `json`; `.kt`/`.kts` → `kotlin`; `.lua` → `lua`; `.m`/`.mm` →
+`.json` → `json`; `.kt`/`.kts` → `kotlin`; `.m`/`.mm` →
 `objc`; `.ml`/`.mli` → `ocaml`; `.php` → `php`; `.py`/`.pyi` → `python`;
 `.res`/`.resi` → `rescript`; `.rb` → `ruby`; `.rs` → `rust`;
 `.scala`/`.sc` → `scala`; `.sol` → `solidity`; `.swift` → `swift`; `.rdl`
 → `systemrdl`; `.tla` → `tlaplus`; `.toml` → `toml`; `.tsx` → `tsx`;
 `.ts`/`.mts`/`.cts` → `typescript`; `.vue` → `vue`; `.zig` → `zig` — the
-32 grammars the pinned runtime loads and parses (§4,
-`probe:20_grammar_inventory`). `elm`, `ql`, `yaml` and `bash` ship but
-are excluded by executed cause (a language ABI below the runtime's
-minimum; scanner imports the runtime never exports), so `.elm`, `.ql`,
-`.yml`/`.yaml` and `.sh`/`.bash` take the generic frontend. A parse that
+31 grammars the pinned runtime loads and parses valid source error-free on
+every repeated parse (§4, `probe:20_grammar_inventory`). `elm`, `ql`,
+`yaml`, `bash` and `lua` ship but are excluded by executed cause (a
+language ABI below the runtime's minimum; scanner imports the runtime never
+exports; for `lua`, ERROR trees for valid source after its first parse in a
+process, without a throw), so `.elm`, `.ql`, `.yml`/`.yaml`, `.sh`/`.bash`
+and `.lua` take the generic frontend. (`lua` removed from the table and 32
+corrected to 31, Step 15 test writer, 2026-09-26: a grammar is usable only
+if every repeated parse of valid source is error-free — a parse that
+returns an ERROR tree without throwing is never caught by the throw
+fallback below, so a `lua` file would be indexed from a broken tree with no
+`frontend_parse_failed` and no visible signal; architecture AD-12/L6 as
+corrected 2026-09-26.) A parse that
 throws — a `TypeError` from an unresolved scanner import, a `RuntimeError`
 from a trap — is caught whatever its class: the frontend discards that
 parser instance (one that threw is dead afterwards, executed), indexes
@@ -4207,13 +4234,35 @@ they differ.**
   `Language.load` for its grammar; `parse` returns `{ok: false, error}` on any
   throwable (the parser instance that threw is discarded and a fresh one is
   used next — executed §4), and the indexer falls back to the generic
-  frontend and records `frontend_parse_failed` with the store (Step 14).
+  frontend and records `frontend_parse_failed` with the store.
+- **Generic fallback in the indexer (`src/index/indexer.ts`, modified).**
+  Step 14's `runIndex` records a `frontend_parse_failed` for a file whose
+  frontend's `parse` returns `{ok: false}` (or throws) but indexes no
+  symbols for it. This step changes that branch: such a file is parsed by
+  the generic frontend (`lang === '*'`; its `init()` is awaited before the
+  first parse whenever the frontend list holds it, since any tree-sitter
+  parse can fail), its generic symbols are stored,
+  it contributes no `import_edges` (the generic frontend declares
+  `imports: false`), and exactly one `frontend_parse_failed` is recorded
+  for it, naming its language and path. (Step 15 test writer, 2026-09-26:
+  the fallback this step and T-15-4 require lives in `indexer.ts`, which
+  the step's `files.modify` did not name.)
 - **Resolvers (G12; `src/index/resolvers.ts`).** `resolveTsImport(fromPath,
   specifier, repo)` — TypeScript `moduleResolution: NodeNext` for relative
-  specifiers (`./`, `../`): the written path if it exists; a `.js`/`.jsx`/
-  `.mjs`/`.cjs` specifier also tries its source `.ts`/`.tsx`/`.mts`/`.cts`;
-  an extensionless one tries `.ts`, `.tsx`, `.js`, `.jsx`, then `/index.` +
-  those; first existing file wins → `resolved`. A bare specifier whose
+  specifiers (`./`, `../`): when the specifier's extension is a TS/JS
+  extension (`.ts` `.tsx` `.js` `.jsx` `.mjs` `.cjs` `.mts` `.cts`), the
+  written path if it exists, and a `.js`/`.jsx`/`.mjs`/`.cjs` specifier
+  also tries its source `.ts`/`.tsx`/`.mts`/`.cts`; any other specifier —
+  extensionless, or ending in a non-TS/JS extension — tries the written
+  path with `.ts`, `.tsx`, `.js`, `.jsx` appended, then `/index.` + those,
+  and never the written path itself; first existing file wins →
+  `resolved`, and nothing found → `unresolved`. So `./py.py` from a `.ts`
+  file is `unresolved` even when `py.py` exists (T-15-5's table;
+  TypeScript NodeNext resolves only to TS/JS files — Step 15 test writer,
+  2026-09-26: the unconditional "written path if it exists" contradicted
+  both the table and the no-cross-language rule below). A dotted basename
+  such as `./user.service` therefore takes the appending branch
+  (`user.service.ts`), because `.service` is not a TS/JS extension. A bare specifier whose
   package name (`name` or `@scope/name`) is in the nearest `package.json`'s
   `dependencies`/`devDependencies`/`peerDependencies`/`optionalDependencies`,
   or that is a Node builtin (`node:`-prefixed or in `module.builtinModules`),
@@ -4275,7 +4324,8 @@ fault and the exhausted parser instance is not reused), `T-15-3` (the indexer ru
 with `defaultFrontends()` on `indexer-small`: `symbols`, `import_edges`,
 `symbol_refs`, `entry_score`, `test_map` populate; the FTS and fallback hit
 sets agree for symbol and path token queries; `fts_symbols` holds one row per
-`symbols` row under `fts: true`), `T-15-5` (the TypeScript and Python
+`symbols` row under `fts: true`; on the `indexer-walk` fixture, the alias file's
+`@/util` import is counted unresolved in the typescript share), `T-15-5` (the TypeScript and Python
 resolvers' classification table), `T-15-6` (declared capability matches
 behaviour for every default frontend). **Retired here:** the Step 14
 subtests marked `{ todo: 'needs Step 15 frontends; retired by Step 15' }`
@@ -7063,9 +7113,13 @@ in `test/fixtures/generate.ts` (G6) every fixture only a `T-38` replay uses:
   (Step 1) — it enumerates the `.wasm` files shipped in the installed
   `tree-sitter-wasms` package, loads each grammar the default
   `index.ext_to_grammar` table names through `web-tree-sitter`, parses a
-  one-line sample with each, and fails the test on any missing,
-  unloadable or non-parsing grammar, or on an excluded grammar (§4)
-  appearing in the table.
+  valid sample with each three times with a fresh `Parser` each and once
+  more after every table grammar is loaded, and fails the test on any
+  missing or unloadable grammar, on any of those parses throwing or
+  returning a tree with an ERROR/MISSING node, or on an excluded grammar
+  (§4: `elm`, `ql`, `yaml`, `bash`, `lua`) appearing in the table (Step 15 test writer, 2026-09-26 —
+  the usable-grammar rule of `probe:20_grammar_inventory`; one parse
+  without a throw passed `lua`, whose later parses return ERROR trees).
 - `test/build_time/marker_presence.ts` (L11(a)): exports
   `markerPresence(corpora)`, which counts the user entries of every
   transcript under each of one or more `{machine, mode, dir}` corpora by
@@ -7704,7 +7758,8 @@ D-plan-26), and the ordering of §7 as a whole (D-plan-1, D-plan-18).
   manifests (no install scripts, no native code) — a property that holds
   for 0.25.10 as well — and never a grammar load; executed 2026-09-11 (§4),
   0.26.13 and 0.27.0 load none of the 36 shipped grammars and 0.25.10 loads
-  34 and parses 32, so the pin is the newest runtime that works with the
+  34, parses 32 without throwing and 31 error-free on repeated parses
+  (`lua` returns ERROR trees after its first parse — Step 15 test writer, 2026-09-26), so the pin is the newest runtime that works with the
   grammar package AD-25 names, and a range would admit 0.26.x, which does
   not. The pin is plan-owned — the architecture decides packages (AD-25),
   never versions — and moves in either direction only with
@@ -10279,18 +10334,37 @@ of that revision; each supersedes the matching row above where they differ):
   `export class Language { … static load(input: string | Uint8Array):
   Promise<Language>; }`.
 - **Claim.** Under `web-tree-sitter` 0.25.10 the 36 grammars
-  `tree-sitter-wasms` 0.1.13 ships split into 32 usable, 2 ABI-rejected and
-  2 with unresolved scanner imports; a parser instance that threw is dead
-  afterwards; the `Query` API works. **Steps.** 1, 12, 15, 38; §4;
-  D-plan-2. **Evidence.** Executed `probe:20_grammar_inventory`
-  2026-09-11 in the layout reproduction, which prints exactly:
+  `tree-sitter-wasms` 0.1.13 ships split into 31 usable, 2 ABI-rejected,
+  2 with unresolved scanner imports, and 1 (`lua`) that returns ERROR trees
+  for valid source on repeated parses without throwing; a parser instance
+  that threw is dead afterwards; the `Query` API works. **Steps.** 1, 12,
+  15, 38; §4; D-plan-2. **Evidence.** Re-executed
+  `probe:20_grammar_inventory` (Step 15 test writer, 2026-09-26: the probe now loads every
+  candidate, parses each one's valid sample three times with a fresh
+  `Parser` each and once more after every other grammar has parsed, and
+  counts a tree with an ERROR/MISSING node as a failure, not only a throw;
+  a grammar is usable only if every such parse is error-free), which
+  prints: the first three lines below unchanged; the `yaml`, both `bash`
+  and the `typescript` lines below unchanged, now printed before the
+  candidate check; then `candidates (32 grammars; all loaded, then each
+  valid sample parsed 3 times with a fresh Parser each and once more after
+  every other grammar has parsed): error-free on every parse: 31; not
+  usable: lua (ERROR/MISSING)` and `default table (31 grammars): c c_sharp
+  cpp css dart elisp elixir embedded_template go html java javascript json
+  kotlin objc ocaml php python rescript ruby rust scala solidity swift
+  systemrdl tlaplus toml tsx typescript vue zig` (which of `lua`'s parses
+  err depends on heap state — its first is clean when it is parsed right
+  after its own load early in a process — so the probe names the outcome,
+  never the parse number). The 2026-09-11 execution, in the layout
+  reproduction, printed exactly:
   `web-tree-sitter 0.25.10; grammars shipped: 36`; `elm: loads; language
   ABI 12; setLanguage throws: Incompatible language version N.
   Compatibility range 13 through 15` and the same for `ql` with ABI 10
   (the two are loaded first, before any large side module has consumed
   heap, and the probe reads `Language#version` — the load-time trap is
   memory-layout-dependent and never asserted); `default table (32
-  grammars): setLanguage + parse without throwing: 32; failed: none`;
+  grammars): setLanguage + parse without throwing: 32; failed: none` (one
+  parse of `"\n"` each — superseded by the 2026-09-26 candidate check);
   `yaml: loads; first parse throws: TypeError: resolved is not a function`;
   `bash: loads; a case…esac parse throws: TypeError: resolved is not a
   function`; `bash: the parser instance that threw is dead afterwards
@@ -12198,9 +12272,13 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     doubles.
   - **Data.** Two `.ts` files from `indexer-small`, one importing the other
     as `./util.js` where only `util.ts` exists. Technique: state-transition
-    (source → parse → rows).
-  - **NOT asserts.** Every symbol kind. **Fails when** a symbol is lost, a
-    span is wrong, or the `./util.js` import does not yield an
+    (source → parse → rows). A symbol's span is its declaration node's
+    byte span — from the start of the declaration to its end — which
+    contains the name; the test asserts each span lies within the file's
+    bytes and covers the bytes of the symbol's name (Step 15 test writer, 2026-09-26).
+  - **NOT asserts.** Every symbol kind; a span's exact end byte. **Fails
+    when** a symbol is lost, a span falls outside the file or does not
+    cover its name's bytes, or the `./util.js` import does not yield an
     `import_edges` row to `util.ts`, OR the frontend's declared capabilities
     are not `{symbols: true, imports: true}`.
 
@@ -12223,11 +12301,21 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Real/doubles.** Real `web-tree-sitter` and the shipped `bash` grammar
     registered explicitly through the frontend list `runIndex` takes as an
     argument (D-plan-29 — `bash` is outside the default table, §4); real
-    `node:sqlite`; no doubles.
+    `node:sqlite` and a real global store; no doubles.
   - **Data.** Two `.sh` files: one containing `case x in a) ;; esac` (whose
     parse throws a `TypeError` under the pinned runtime, executed) and one
     without, indexed with `treeSitterFrontend('bash')` ahead of
-    `genericFrontend`. Technique: error guessing (the executed throw);
+    `genericFrontend`. **Setup:** because `bash` is excluded from the
+    default table, `.sh` otherwise maps to no grammar and the file's
+    language is `unknown`; the test therefore adds `.sh → bash` to
+    `index.ext_to_grammar` through the tuning list writer on a real seeded
+    global store — Step 12's `tuning.addToList(global,
+    'index.ext_to_grammar', '.sh=bash', 'owner')` (the `TuningReader` itself
+    only reads, and caches for its lifetime, so the member is added before
+    the reader `runIndex` uses is built) — and asserts as a precondition that after the
+    run `schema_meta.lang_capabilities.bash.frontend = 'tree-sitter'` (the
+    `bash` frontend was actually selected, so the fallback is exercised,
+    not bypassed) (Step 15 test writer, 2026-09-26). Technique: error guessing (the executed throw);
     state-transition (throw → discard → fresh instance).
   - **NOT asserts.** Bash parse quality. **Fails when** the `case` file
     lacks its generic-frontend `files`/`symbols` rows, OR no
@@ -12246,22 +12334,37 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     `user` — each a prefix of a token, never a whole path — N6);
     `fts_symbols` holds one row per `symbols` row under `fts: true`;
     `schema_meta.lang_capabilities` lists `typescript` and `python` with
-    `imports: true` and `bash` (the `.sh` file) with frontend `generic`,
-    `imports: false`.
+    `imports: true`, and the `.sh` file's recorded language (`unknown`,
+    since `bash` is excluded from the default table) with frontend
+    `generic`, `imports: false` (Step 15 test writer, 2026-09-26). The same `runIndex` with
+    `defaultFrontends()` on `indexer-walk` covers the alias case: `src/alias.ts`
+    (importing `@/util`, with no `package.json` declaring any `@` package)
+    has `files.unresolved_imports = 1`, and
+    `lang_capabilities.typescript.unresolved` equals the sum of
+    `unresolved_imports` over that run's in-tree `typescript` files, so the
+    alias import is counted in the typescript unresolved share (AD-12; CH
+    H4) (Step 15 test writer, 2026-09-26).
   - **Level.** Integration.
   - **Real/doubles.** Real `node:sqlite`; real `web-tree-sitter` +
-    `tree-sitter-wasms` grammars; fixture `indexer-small`; no doubles.
-  - **Data.** The 3 `.ts` files (one importing another), 1 `.py`, 1 `.sh`,
-    and the `test/` file importing a source file. Technique: equivalence
-    partitioning over language, with the FTS flag as a second partition.
+    `tree-sitter-wasms` grammars; fixtures `indexer-small` and
+    `indexer-walk`; no doubles.
+  - **Data.** `indexer-small`: the 3 `.ts` files (one importing another),
+    the three `.py` files (`tool.py`, `pkg/mod.py`, `pkg/use.py`), 1 `.sh`,
+    and the `test/` file importing a source file (Step 15 test writer, 2026-09-26); `indexer-walk`'s
+    `src/alias.ts`. Technique: equivalence partitioning over language, with
+    the FTS flag as a second partition.
   - **NOT asserts.** Grammar-specific parse quality (T-15-1/2); the skeleton
-    properties (T-14-1). **Fails when** an expected `symbols`,
-    `import_edges`, `symbol_refs`, `entry_score`, or `test_map` row is
-    missing, OR the two flags' hit sets differ for any listed token, OR a
-    prefix token (`help`, `schem`) finds nothing under either flag, OR,
-    under `fts: true`, the `fts_symbols` row count is not equal to the
-    `symbols` row count, OR `lang_capabilities` differs from the stated
-    entries.
+    properties (T-14-1); that a token with no fixture file behind it finds
+    something (`help`, `schem` — T-14-5, whose symbol-hit clauses are
+    retired into passing at this step, covers those tokens positively; the
+    former clause here was dropped (Step 15 test writer, 2026-09-26)). **Fails when** an expected
+    `symbols`, `import_edges`, `symbol_refs`, `entry_score`, or `test_map`
+    row is missing, OR the two flags' hit sets differ for any listed token
+    (all five), OR, under `fts: true`, the `fts_symbols` row count is not
+    equal to the `symbols` row count, OR `lang_capabilities` differs from
+    the stated entries, OR `src/alias.ts`'s `unresolved_imports ≠ 1`, OR
+    `lang_capabilities.typescript.unresolved` differs from the typescript
+    files' `unresolved_imports` sum.
 
 - **T-15-5 — Import resolvers: the classification table.**
   - **File.** `test/unit/import_resolvers.test.ts`.
@@ -12278,8 +12381,10 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     (→ unresolved), `./py.py` (a `.py` file exists → unresolved: no
     cross-language resolution). Python from `pkg/sub/u.py`: `.m`
     (`pkg/sub/m.py`), `..n` (`pkg/n/__init__.py`), `.missing` (unresolved),
-    `os` (external), `pkg.sub.m` (resolved), `pkg/sub/m.ts` present but
-    `.m2` absent (unresolved, never `.ts`). Technique: decision table.
+    `os` (external), `pkg.sub.m` (resolved), `pkg/sub/m2.ts` present but
+    `.m2` absent (unresolved, never `.ts` — the present file is `m2.ts`, so
+    a resolver that tried `.ts` would resolve it and the cell would catch
+    it; Step 15 test writer, 2026-09-26). Technique: decision table.
   - **NOT asserts.** Parse capture. **Fails when** any cell differs.
 
 - **T-15-6 — Declared capability matches behaviour.**
@@ -12289,8 +12394,11 @@ rules 1 and 2); fixture repositories are real git repositories produced by
   - **Level.** Integration (real grammars).
   - **Real/doubles.** Real `web-tree-sitter` and grammars; no doubles.
   - **Data.** For each frontend: a one-file sample in its language with one
-    definition and one relative import of a sibling. Technique: equivalence
-    partitioning (declared true / false).
+    definition and one relative import of a sibling — except `systemrdl`,
+    whose sample has a definition and no import, because the language's only
+    file inclusion is the `` `include `` preprocessor directive and the
+    shipped grammar cannot parse it (an ERROR node, executed) (Step 15 test writer, 2026-09-26). Technique:
+    equivalence partitioning (declared true / false).
   - **NOT asserts.** Query completeness. **Fails when** a frontend declaring
     `imports: true` yields no captured import or lacks `resolve`, OR one
     declaring `imports: false` yields any, OR one declaring `symbols: true`
@@ -14185,12 +14293,15 @@ and are stated on each entry.
   - **Real/doubles.** Real installed `tree-sitter-wasms`, real
     `web-tree-sitter`. No doubles.
   - **Data.** The default `index.ext_to_grammar` table Step 15 enumerates,
-    and the four excluded grammars. Technique: equivalence partitioning
-    (each grammar present/loadable/parsing; excluded/not).
-  - **NOT asserts.** Parse quality. **Fails when** any grammar the default
-    table names is missing from the package, fails to load, or fails to
-    parse a one-line sample, OR any of `elm`, `ql`, `yaml`, `bash` is
-    present in the table.
+    one valid sample per table grammar, and the five excluded grammars.
+    Technique: equivalence partitioning (each grammar
+    present/loadable/parsing error-free on repeated parses; excluded/not).
+  - **NOT asserts.** Parse quality beyond an error-free tree. **Fails
+    when** any grammar the default table names is missing from the
+    package, fails to load, or, on any of its sample's three fresh-`Parser`
+    parses or its parse after every table grammar is loaded, throws or
+    returns a tree with an ERROR/MISSING node, OR any of `elm`, `ql`,
+    `yaml`, `bash`, `lua` is present in the table (Step 15 test writer, 2026-09-26).
 
 ### 12.4 Coverage reconciliation
 
@@ -14290,8 +14401,8 @@ Ordered by potential to cause Phase A to miss its goal, most severe first.
   `prompt`).
 
 - **R6 — `tree-sitter-wasms` 0.1.13 does not ship a usable grammar for a
-  language Max Cogar's repositories need** (four shipped grammars are
-  already excluded by executed cause — §4). Mitigation: T-38-33 at build; the generic frontend
+  language Max Cogar's repositories need** (five shipped grammars are
+  already excluded by executed cause — §4; `lua` the fifth, Step 15 test writer, 2026-09-26). Mitigation: T-38-33 at build; the generic frontend
   keeps those languages searchable and Reuse-safe (incomparable-set
   silence); a missing grammar becomes a `tune index.ext_to_grammar` row or a
   checked-in `dylink.0` WASM grammar (the §16 exit) without a redesign (C-6).
