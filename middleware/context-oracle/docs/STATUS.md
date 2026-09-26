@@ -264,10 +264,10 @@ Still to do from 2026-09-25:
 ## Open items
 
 - **Runtime pin — settled 2026-09-26:** the ctxoracle suite passed in CI on Node
-  22.16.0 (the engines floor) and on 22.x. **Sandbox premise, still open:** Behaviour at the Node 22.16.0 engines floor is executed only by CI's
-  matrix entry; whether `unshare -rn` works on the GitHub Actions runner image is
-  still open (the optional `09_unshare_no_network.optional` probe is evidence for
-  this container, not for the GHA runner).
+  22.16.0 (the engines floor) and on 22.x.
+- **Sandbox premise — still open:** whether `unshare -rn` works on the GitHub
+  Actions runner image. The optional `09_unshare_no_network.optional` probe is
+  evidence for this container only, not for the runner.
 - **L11(a)** — human-marker presence is measured on interactive transcripts; the
   plan reports it *verified* only when an owner-local interactive transcript is in
   the exit corpus, otherwise *not observed*.
