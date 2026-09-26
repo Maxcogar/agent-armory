@@ -10977,7 +10977,8 @@ rules 1 and 2); fixture repositories are real git repositories produced by
     shape with the side branch's commits dated between two `main` commits,
     mined with `miner.chunk_ms` = 0 and the pass stopped (a thrown error
     injected through the worker of T-13-5) after the first chunk whose
-    newest commit is on `main`, then resumed: `change_count`, `pair_count`,
+    newest commit is a `main` commit mined *after* a side-branch commit (not
+    the fork point, where a resume cannot double-count), then resumed: `change_count`, `pair_count`,
     and the weights equal one uninterrupted mine's; (c) a path touched only
     by a commit that a history rewrite drops, and a path first touched by a
     dropped commit and again by a kept one: after the purge and re-mine, the
