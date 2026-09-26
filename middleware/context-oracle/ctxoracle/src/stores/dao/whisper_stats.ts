@@ -1,37 +1,48 @@
-// whisper_stats DAO (Step 9, AD-5). Global per-(genre, project, window) fold of
-// whisper outcomes. `upsertFold` writes the recomputed window rows.
+// whisper_stats DAO (Step 9; reopened 2026-09-26 build delta, AD-5). The global
+// replica of each project's stats_folds totals, keyed (genre, project_key). The
+// fold's publish step replaces a project's rows wholesale, so an import, a
+// purge, or a replaced store can neither strand nor double-count a row.
 import type { Store } from '../adapter.js';
 
-export interface WhisperStatFold {
+/** One replica row of a project's totals. */
+export interface WhisperStatRow {
   genre: string;
-  projectKey: string;
   sent: number;
   correctedFalse: number;
   correctedMissed: number;
-  windowStart: number;
-  windowEnd: number;
+}
+
+export interface WhisperStatRecord {
+  genre: string;
+  project_key: string;
+  sent: number;
+  corrected_false: number;
+  corrected_missed: number;
+  published_at: number;
 }
 
 export interface WhisperStatsDao {
-  upsertFold(rows: WhisperStatFold[]): void;
+  /** Delete the project's rows and insert `rows`, atomically (inside the caller's transaction when there is one). */
+  replaceForProject(projectKey: string, rows: WhisperStatRow[], publishedAt: number): void;
+  forProject(projectKey: string): WhisperStatRecord[];
 }
 
 export function whisperStatsDao(store: Store): WhisperStatsDao {
   return {
-    upsertFold(rows) {
+    replaceForProject(projectKey, rows, publishedAt) {
       store.transaction(() => {
+        store.prepare('DELETE FROM whisper_stats WHERE project_key = ?').run(projectKey);
         const ins = store.prepare(
-          `INSERT INTO whisper_stats(genre, project_key, sent, corrected_false, corrected_missed,
-             window_start, window_end)
-           VALUES(?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(genre, project_key, window_start) DO UPDATE SET
-             sent = excluded.sent, corrected_false = excluded.corrected_false,
-             corrected_missed = excluded.corrected_missed, window_end = excluded.window_end`
+          `INSERT INTO whisper_stats(genre, project_key, sent, corrected_false, corrected_missed, published_at)
+           VALUES(?, ?, ?, ?, ?, ?)`
         );
-        for (const r of rows) {
-          ins.run(r.genre, r.projectKey, r.sent, r.correctedFalse, r.correctedMissed, r.windowStart, r.windowEnd);
-        }
+        for (const r of rows) ins.run(r.genre, projectKey, r.sent, r.correctedFalse, r.correctedMissed, publishedAt);
       });
+    },
+    forProject(projectKey) {
+      return store
+        .prepare('SELECT * FROM whisper_stats WHERE project_key = ? ORDER BY genre')
+        .all(projectKey) as WhisperStatRecord[];
     },
   };
 }

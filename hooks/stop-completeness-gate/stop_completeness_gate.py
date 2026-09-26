@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import sys; sys.exit(0)  # DISABLED per owner (Max Cogar) request 2026-09-17; restore via git to re-enable
 """Stop hook - Completeness Gate.
 
 Fires on every Stop event (every time the main agent would end its turn).
@@ -82,6 +81,21 @@ to ask is still "incomplete" for the same reason.
 Reply with ONLY a single JSON object, no markdown fences, no other text:
 {"complete": true or false, "reason": "one or two sentences, specific to this exchange, naming exactly what is missing, narrowed, or hedged if incomplete"}
 """
+
+
+# Session-identity variables removed from the judge's environment. Inherited,
+# they attach the nested `claude -p` to the live parent session (executed
+# 2026-09-26: an unscrubbed child reported the parent's session_id; scrubbed,
+# a fresh one). Same set as middleware/context-oracle/ctxoracle/src/util/spawn.ts
+# SCRUBBED_ENV (verified 2026-09-07). Authentication variables are kept.
+_SESSION_ENV = (
+    "CLAUDECODE",
+    "CLAUDE_CODE_SESSION_ID",
+    "CLAUDE_CODE_REMOTE_SESSION_ID",
+    "CLAUDE_CODE_CHILD_SESSION",
+    "CLAUDE_PID",
+    "CLAUDE_CODE_ENTRYPOINT",
+)
 
 
 def _emit(payload):
@@ -173,7 +187,7 @@ def build_prompt(user_text, assistant_text):
 
 def run_judge(user_text, assistant_text):
     prompt = build_prompt(user_text, assistant_text)
-    env = os.environ.copy()
+    env = {k: v for k, v in os.environ.items() if k not in _SESSION_ENV}
     env[_RECURSION_GUARD_ENV] = "1"
     try:
         proc = subprocess.run(

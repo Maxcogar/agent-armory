@@ -6,7 +6,10 @@
 import type { Store } from '../stores/adapter.js';
 import { sessionLogDao, type SessionEventInput } from '../stores/dao/session_log.js';
 
-/** Write one session_log event; returns its ULID id. */
-export function writeSessionEvent(store: Store, event: SessionEventInput): string {
+/**
+ * Write one session_log event; returns its ULID id and the `seq` the engine
+ * assigned (Step 10 build delta, N16: the caller passes no `seq`).
+ */
+export function writeSessionEvent(store: Store, event: SessionEventInput): { id: string; seq: number } {
   return sessionLogDao(store).append(event);
 }

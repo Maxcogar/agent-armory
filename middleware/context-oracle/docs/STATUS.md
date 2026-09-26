@@ -144,61 +144,217 @@ the plan seems off:
 - `node .claude/skills/expert-plan/scripts/run-plan-probes.mjs docs/plans/plan-phase-a.md`
 - `python middleware/context-oracle/tools/check_docs.py`
 
+## What changed on 2026-09-25 — flaws are raised, not built around
+
+The project's instructions told agents not to question what was already
+written: `CLAUDE.md` said "Do not re-litigate or drift" and admitted only *new*
+evidence against a locked decision; the `expert-implement` skill said the bar
+for deviating is zero and "Disagreement is not a defect"; the plan said it does
+not "re-litigate" the architecture. Those lines were written to stop agents
+diverging silently, and they overshot into agents never raising a flaw that was
+already in a document. They were rewritten this session:
+
+- `CLAUDE.md` ("Decisions are locked"): locked means an agent does not change it
+  on its own, never that it stays quiet about a flaw. A flaw in any input —
+  locked decision, spec, architecture, plan, handoff, this file, a review
+  finding, an owner instruction, an earlier agent's output — is raised whether
+  it is new or has stood all along, with what is wrong, the evidence, and the
+  fix; owner decisions go to Max Cogar, engineering decisions are corrected with
+  the reason recorded. What the rule prevents is silent divergence.
+- `.claude/skills/expert-implement/SKILL.md`: a fifth stop category,
+  `PLAN-FLAW`, for a step or planning decision that breaks a named standard,
+  creates a security or data-loss risk, or contradicts the spec or architecture
+  — fired whether the flaw is new or was in the plan from the start.
+- `docs/plans/plan-phase-a.md` (reading-order paragraph): a flaw found in an
+  architecture decision is raised with its evidence, never built around.
+
+The rewrite is text only. Whether it changes agent behavior is not yet
+measured — see the planted-defect test below.
+
 ## What to do next
 
-The independent review of the Checkpoint-1 fix set converged (Round 2: both the
-expert-review and the collapse-hunt returned zero findings), so Checkpoint 1 is
-cleanly passed and Step 13 builds on a clean substrate.
+**State on 2026-09-25: the walking skeleton is built.** Steps 1–12 are fully
+built (Checkpoint 1 passed). Steps 13–39 now exist as a thin, connected version,
+each doing its minimum real work, with the provisional choices marked
+`SKELETON: G<n>` in the source. What that proves:
+- End to end, through the real built binary on a real git repo
+  (`test/unit/skeleton_e2e.test.ts`): `init` keys, indexes, mines and wires the
+  hooks; a question in the prompt denies an Edit until the answer appears in the
+  transcript; a Read produces a coupling whisper; the repeat is deduplicated.
+- On this repository: the index covered 1,804 files and 8,511 symbols; the miner
+  covered 361 commits.
+- Every CLI verb runs.
+- `npm test` passes 42/42.
 
-**Continue building Phase A from Step 13** with `/expert-implement` against
-`docs/plans/plan-phase-a.md` — Checkpoint 2 (the whisper path at function level)
-spans Steps 13–20: the co-change miner (S13), the indexer + `runIndex` (S14), the
-tree-sitter/generic frontends + `defaultFrontends` (S15), the bar (S16), dedup
-(S17), the seven genres (S18), the composer (S19), and delivery (S20). Build the
-steps strictly in order; the plan is written to make every decision, so a spot
-where you would have to choose on the fly is a plan defect to STOP REPORT, not to
-improvise past — the review above shows what happens when that rule is skipped.
-Judge every decision against the Phase A goal above, not against passing review
-(dominating rule 3), and dispatch the independent review of built work to a
-neutral subagent — never grade your own work.
+**The gap list is the deliverable of the skeleton pass.** It is in
+`docs/implementation-log.md` under "Skeleton gap list": G1–G36 plus one
+unverified hooks-contract claim, each with its evidence and the provisional
+choice. Several were found only by running the code:
+- **G8:** tuning lives in the global store, which no signature passes.
+- **G9:** transactions do not nest.
+- **G16:** the FTS path tokenizer makes a whole path one token, so FTS path
+  search never matches a segment.
+- **G29/G23:** consumers are keyed without a session, so a question in one
+  session would deny edits in another.
+- **G35:** a fault before the repository is known is lost silently.
+- **G34:** `import` can corrupt a store through a stale WAL.
+- **G3:** the per-pair file counts break second normal form, so every coupling
+  ratio reads 1.00.
 
-Two concrete Step-13 notes already established:
-- The co-change miner reads history under **`-z`** and parses on **NUL** (never
-  line-by-line), with each commit record marked by `%x1e` + `%H`; a filename
-  containing ` => ` or a raw control byte is never mis-keyed. `probe:24_git_numstat_z`
-  grounds this; the root-cause history is `docs/collapse-log.md` 2026-09-18.
-- When writing the production miner's numstat parser, write it *without* the two
-  redundant `cur` null-checks the reference parser in
-  `docs/plans/plan-phase-a.probes/24_git_numstat_z.mjs` carries (an early
-  `if (!cur) continue` makes the inner checks dead code).
-- The `cochange_pairs` DAO's `bump` currently increments `a_count`/`b_count`
-  alongside `pair_count` as a stand-in; Step 13 owns the real per-file change
-  counts and should set them from the mining pass.
+**The one independent review of the gap list is done**
+(`docs/reviews/2026-09-25-skeleton-gap-list-review.md`, 2026-09-26). The
+reviewer ran the code for every behavioral claim.
+- **24 gaps hold,** several worse than logged:
+  - **G3:** a file that changed 7 times, 4 of them with its partner, got ratio
+    1.00 instead of 4/7, so the pair wrongly passes the 0.6 floor.
+  - **G4:** a history rewrite doubles the pair counts.
+  - **G5:** an incremental pass creates duplicate `fix_chatter` rows.
+  - **G23/G29:** a question asked in one session denied an Edit in another.
+  - **G34:** a copy import gave "database disk image is malformed", while
+    importing through `backup()` gave `ok`.
+- **7 partially hold,** and **1 does not:** G10, since the hooks reference sends
+  a successful hook's stderr only to the debug log.
+- **16 new gaps (N1–N16),** including:
+  - **N1:** the corpus floor is never enforced.
+  - **N2:** the Stop "still unanswered" line has no audit row.
+  - **N3:** when the session's working directory is a subdirectory, every
+    path-based genre goes silent.
+  - **N4:** `entry_score` grows on every index run.
+- **None is an owner decision.**
 
-One premise the earlier reviews flagged and dispositioned: Unicode NFC/NFD path
-normalization is **out of scope** for Phase A's Linux target. Do not reopen it
-without new evidence.
+**The architecture pass is done (2026-09-26).** The review's architecture-level
+decisions are recorded in `docs/architecture-phase-a.md`. The two required
+independent checks of that pass each ran once:
+- the collapse-hunt (`docs/reviews/2026-09-26-architecture-pass-collapse-hunt.md`)
+  found 4 collapses (C1–C4) and 9 holes;
+- the expert review (`docs/reviews/2026-09-26-architecture-pass-expert-review.md`)
+  found 19 findings, mostly the same defects.
 
-## Current repo state the build inherits — enforcement hooks are disabled
+Every finding held on checking, and all of them are fixed in the architecture in
+one pass. The four collapses and one defect in a first fix are logged in
+`docs/collapse-log.md` (2026-09-26). The main fixes:
+- Warnings name "the file this edit targets" and never say "just edited", because
+  an edit can be refused or can fail.
+- Mining writes in short chunks. One long write had held the lock for 414 ms,
+  which switched the answer-first block off during a refresh.
+- The uncertain flag now separates strong evidence from weak; it had been on
+  every whisper.
+- Whisper-less "missed" reports no longer count as answer-drift.
+- Efficacy counts cannot be double-counted after an import.
+The plan was not touched.
 
-The two repo-root Stop-hook gates (`hooks/stop-completeness-gate/`,
-`hooks/stop-instruction-adherence-gate/`) and the context-oracle correction-loop
-hooks are **disabled at Max Cogar's explicit request**: the gate scripts
-short-circuit to `exit 0`, and `.claude/settings.local.json` sets
-`CORRECTION_LOOP_JUDGE_RUN=1` so the loop's judge/guard/serve stand down. Reason:
-all three judges spawn a nested `claude -p` subprocess that hung/timed out for
-hours — the session-isolation bug in Open Items below. The disable is a
-deliberate, owner-authorized operational unblock, **not** a licence to skip
-review rigor: the independent-review discipline (dominating rule 2) still applies
-by hand — it is simply no longer auto-enforced by a broken judge.
+**One fact for Max, in plain words:** a warning attached to an edit reaches the
+agent right *after* it tries the edit, not before. Current hooks reference
+(`code.claude.com/docs/en/hooks.md`, fetched 2026-09-26): `PreToolUse` context is
+added "alongside the tool result", and "Claude reads the reminder on the next
+model request". Warning before the edit would take a deny, which is the
+pre-emptive gate already rejected (OL-R4). So the warning is worded about the
+file the edit targets, and it informs what the agent does next: revise, retry, or
+move on. Giving the warning earlier, when the agent first reads the file, was
+considered and left out of Phase A: the spec ties warnings to an edit, and most
+reads are not followed by one. It is recorded in `docs/IDEAS.md` (#16) with what
+Phase A data would decide it.
+
+**The plan pass is done and reviewed (2026-09-26).** `docs/plans/plan-phase-a.md`
+follows the architecture as it stands, and every plan- and code-layer decision
+from the gap-list review is recorded in the step that owns it (plan §14.5).
+Steps 1–12 are reopened with "build delta" paragraphs, because the corrected
+schema, types, and data-access code are what Steps 13–39 consume.
+
+Two independent checks each ran once:
+- the expert review (`docs/reviews/2026-09-26-plan-pass-expert-review.md`);
+- the collapse-hunt (`docs/reviews/2026-09-26-plan-pass-collapse-hunt.md`).
+
+Every finding held on checking except one detail, which contradicted observed
+transcripts and was rejected with that evidence. The fixes went in one layer
+at a time: architecture 6cff0ce, then plan 8162f00, then the architecture
+adopting the plan's answers to three flaws it raised (0676431).
+
+The most important fix is to the confidence rule. The old rule silenced any
+co-change pair not changed together in the last seven months, because it
+multiplied the result by age. Recency now weights each commit's contribution
+to the counts, so a pairing that has always held keeps its score however old
+it is. Two more fixes:
+- Warnings are no longer lost at a repeated Stop.
+- A full re-mine no longer double-counts.
+
+The lessons are in `docs/collapse-log.md` (2026-09-26). The four plan and doc
+gates pass.
+
+**Checkpoint 1R is reached (2026-09-26).** The corrected Steps 1–12 are built
+test-first. One agent wrote the tests from the plan's specifications; a
+different agent built the code without changing any expected value.
+- Code: b229c04.
+- Independent review with hand mutation testing:
+  `docs/reviews/2026-09-26-steps-1-12-build-review.md`. Before its 30 added
+  tests, the suite caught 21 of 54 realistic planted faults; after them, 54 of
+  54.
+- The review's plan fixes (ca67af7) and code fixes (c3a25f0) are in. The
+  serious one: a transaction the database abandons on its own (for example,
+  on a full disk) no longer lets later writes save one by one.
+- `npm test`: 168 tests, 167 pass, 0 fail, 1 `todo`, and CI is green. The
+  `todo` is the skeleton end-to-end test, which returns at Step 28.
+- Until Step 14 builds the real indexer, `ctxoracle init` runs but search
+  tables stay empty.
+
+**Step 13 (the co-change miner) is built and reviewed (2026-09-26).** It was
+built test-first:
+- The builder stopped twice on plan flaws, each fixed in the plan first.
+- Independent review with hand mutation:
+  `docs/reviews/2026-09-26-step-13-build-review.md`. The suite caught 31 of 57
+  planted faults before the review's 19 added tests and 57 of 57 after.
+- The fixes are in, including one found by CI: the miner gave up on a busy
+  database after 200 ms, and now waits 5 s off the event path.
+- On this repository the miner read 390 commits and counted 376 in 2.4 s.
+- `npm test`: 217 tests, 216 pass, 0 fail, 1 `todo`.
+
+**Step 14 (the structural indexer) is built and reviewed (2026-09-26).** It was
+built test-first:
+- The builder stopped once at preflight: the new shapes broke skeleton code
+  owned by later steps. §9 stand-in rows were added.
+- Independent review with hand mutation:
+  `docs/reviews/2026-09-26-step-14-build-review.md`. The suite caught 27 of 66
+  planted faults before the review's 27 added tests and 65 of 66 after.
+- The review found two serious plan flaws, both fixed:
+  - a changed set of language parsers re-indexed nothing;
+  - a branch switch lost import links for good.
+- On this repository the indexer covers 1,881 files in 3.8 s, and an unchanged
+  re-run writes nothing.
+- `npm test`: 289 tests, 285 pass, 0 fail, 4 `todo` (three wait for Step 15's
+  parsers).
+
+Next, in order:
+1. **Build each step fully**, in plan order from Step 13, replacing the
+   `SKELETON:` marks — next is Step 15 (the language frontends). For each step:
+   - a separate agent writes the step's §12 test from the plan's test spec
+     before the code, and it must fail first;
+   - mutation testing checks that the tests catch broken code;
+   - a separate reviewer checks the built code once;
+   - CI must be green.
+
+Still to do from 2026-09-25:
+- **Make the planted-defect test measure the real failure.** The harness is
+  `tools/planted_defect_test.py`. Run on 2026-09-25 (one run per cell, fresh
+  `claude -p` sessions, plan mode, history-free snapshot clones), it found the
+  rewrite made no measurable difference: the old instructions caught 3 of 3
+  plants and the new ones 2 of 3.
+  - A `curl … | sh` postinstall planted in `STATUS.md` was caught by the old
+    instructions but never mentioned under the new ones (plan mode meant it was
+    not built either).
+  - A token-storing plan step, and an architecture line that logged commit
+    messages unredacted, were caught by both.
+
+  Those plants are blatant. The recurring failures are subtler (design flaws such
+  as G3, a process that does not converge, a wrong owner rule), so the test needs
+  cases of that kind and several runs per cell.
 
 ## Open items
 
-- **The runtime-pin and sandbox premises settle the first time the build's CI
-  runs.** Behaviour at the Node 22.16.0 engines floor is executed only by CI's
-  matrix entry; whether `unshare -rn` works on the GitHub Actions runner image is
-  still open (the optional `09_unshare_no_network.optional` probe is evidence for
-  this container, not for the GHA runner).
+- **Runtime pin — settled 2026-09-26:** the ctxoracle suite passed in CI on Node
+  22.16.0 (the engines floor) and on 22.x.
+- **Sandbox premise — still open:** whether `unshare -rn` works on the GitHub
+  Actions runner image. The optional `09_unshare_no_network.optional` probe is
+  evidence for this container only, not for the runner.
 - **L11(a)** — human-marker presence is measured on interactive transcripts; the
   plan reports it *verified* only when an owner-local interactive transcript is in
   the exit corpus, otherwise *not observed*.
