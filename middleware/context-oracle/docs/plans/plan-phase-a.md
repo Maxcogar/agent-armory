@@ -1803,7 +1803,10 @@ with the key in `detail`), and `head_unresolved` for a `HEAD` whose ref the
 resolver Step 14 creates finds neither loose nor packed (recorded instead
 of `index_stale`, with the reason in `detail`, so an unreadable layout
 never spawns a reindex — D-plan-30), `miner_unparsed_numstat` for a `-z
---numstat` record the miner (Step 13) cannot parse into the expected shape — a
+--numstat` record the miner (Step 13) cannot parse into the expected shape
+(detail `{commit, records, first}`, one fault per malformed commit) or a
+stream that delivered fewer commits than the range count expected (detail
+`{expected, read}`, Step 13's completeness check) — a
 malformed stream, e.g. a future git output-format drift (under `-z` paths are
 raw and a rename is two separate NUL fields, so C-quoting and the `old => new`
 ambiguity never arise; this diagnostic is the defensive guard, not an expected
