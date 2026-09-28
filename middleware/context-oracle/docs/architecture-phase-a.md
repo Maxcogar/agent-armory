@@ -35,7 +35,14 @@ that finding, recorded with the reason that backs it where it is applied. Where 
 tested behaviour (hooks reference fetched 2026-09-28; DE, PD, Claude Code 2.1.283),
 which the spec's FR-O2, C-4, FR-A2d, §5.1 and AC-1c do not yet say: those lines are
 **pending spec sign-off R-1…R-5** (Max Cogar, under M38), and each restatement is
-marked so.
+marked so. **AC-3's over-cap case is pending the same sign-off:** AC-3 says "Two
+candidates meeting the bar at one event are both delivered", and a response over
+the harness's 10,000-character cap reaches the model as a file path and a
+2,000-character preview (V24), so whether its later whispers are "delivered" is a
+question about AC-3's text; AD-16 marks its restatement so, and the behaviour it
+builds meanwhile is pending owner decision `OL-C1` (R2-1; round-2 review,
+`docs/reviews/2026-09-28-architecture-review-round2.md`, whose findings are cited
+as `(R2-n; <source>)` where applied).
 
 **Relationship to the 2026-07 whole-scope architecture record.**
 `docs/architecture-context-oracle.md` is a banner-marked historical record that
@@ -170,7 +177,7 @@ forward as "prior pass."
 | V21 | "Stderr from a hook that exits 0 goes to the debug log only, never the transcript, and Claude never sees it." | Current hooks reference, `code.claude.com/docs/en/hooks.md`, fetched 2026-09-26, quoted verbatim (review record 2026-09-25, G10). Observed in the same review on Node 22.22.2: the built handler's stderr was empty on `SessionStart`/`PostToolUse`/`status` with `NODE_NO_WARNINGS` unset — an observation on one Node version, not a guarantee | The handler always exits 0 (AD-7), so anything on its stderr — including `node:sqlite`'s `ExperimentalWarning` — never reaches the model's context. **No warning-suppression mechanism is built**; the hazard does not exist on this contract. |
 | V22 | **`SessionStart` input does not name a parent session**, and injected context is saved in the transcript. The documented `SessionStart` input is the common fields (`session_id`, `transcript_path`, `cwd`, …) plus `source`, `model`, `agent_type`, `session_title`, and — on `resume`/`fork` — four resume-cost fields; `fork` is "A new session forked from an existing one". Separately: "Claude Code saves the injected text in the session transcript." | Current hooks reference, `code.claude.com/docs/en/hooks.md` ("SessionStart input" table and "Add context for Claude"), fetched 2026-09-26; re-fetched 2026-09-28 with the Agent SDK TypeScript reference (`code.claude.com/docs/en/agent-sdk/typescript.md`): `SessionStartHookInput` = `BaseHookInput` (`session_id`, `transcript_path`, `cwd`, `prompt_id?`, `permission_mode?`, `effort?`, `agent_id?`, `agent_type?`) plus `source: "startup" \| "resume" \| "clear" \| "compact" \| "fork"` — no parent-session field in either type, and the SessionStart input section never mentions a parent (G-11; settlements). This is the documented field list, **not an observed fork payload**: no forked session exists locally to observe, so what the fork's transcript file holds (the SDK: a fork "starts with a copy of the original's history") and which `sessionId` its copied entries carry are not observed | Closes the review's open premise (G23/G29): a forked session arrives under a **new** `session_id` with no parent pointer, so AD-16's fork reseed reads the forked transcript itself — questions by AD-9's offset-0 rebuild, the delivered set from the oracle-injected text the transcript carries — reading **every** entry whatever its `sessionId` field, so the unobserved copy cannot be silently filtered out (AD-16). The plan's optional fork probe (`claude -p --output-format json`, then `--resume <id> --fork-session`, both `SessionStart` inputs captured by a hook) settles the unobserved part for the `--fork-session` route only; `/fork` and `/branch` are documented as the same `source` and are not observed. This row keeps "not an observed fork payload" until the probe has run, then cites its output (R-139's premise, G-11; settlements). |
 | V23 | **Transcript tool results mark failure, not success.** Across 24 local transcripts: `is_error: false` appears only on Bash results (845); no successful Read (373), Edit (89), or Write (12) result carries an `is_error` field; the one failed Read carries `is_error: true` | Executed 2026-09-26 in the plan-pass collapse-hunt (`docs/reviews/2026-09-26-plan-pass-collapse-hunt.md`), Claude Code 2.1.283. An observation of one version's undocumented layout (V12), not a contract | AD-16's reseed classifies a result as successful unless it carries `is_error: true`; AD-11's layout-change detector is the guard if this changes. |
-| V24 | **A hook's `additionalContext` is capped at 10,000 characters.** "A hook's `additionalContext`, `systemMessage`, and `initialUserMessage` strings, and its plain stdout, are capped at 10,000 characters"; each string "on its own, even when several hooks run for the same event"; over it, Claude Code "saves the output to a file in the session directory and replaces it with the file path and a preview of up to the first 2,000 characters", with "no setting or environment variable to raise it", and "doesn't ask Claude to read the file" | Current hooks reference, `code.claude.com/docs/en/hooks.md`, fetched 2026-09-28 with `curl` (the lines quoted; the review's copy of the same day reads identically) | AD-16's composer rule keeps a response within the cap and orders whispers by rank; what happens when the cleared whispers do not fit is pending owner decision (`OL-C1`); R-20's name bound waits on that decision (AD-12) (F-22; settlement (a)). |
+| V24 | **A hook's `additionalContext` is capped at 10,000 characters.** "A hook's `additionalContext`, `systemMessage`, and `initialUserMessage` strings, and its plain stdout, are capped at 10,000 characters"; each string "on its own, even when several hooks run for the same event"; over it, Claude Code "saves the output to a file in the session directory and replaces it with the file path and a preview of up to the first 2,000 characters", with "no setting or environment variable to raise it", and "doesn't ask Claude to read the file" | Current hooks reference, `code.claude.com/docs/en/hooks.md`, fetched 2026-09-28 with `curl` (the lines quoted; the review's copy of the same day reads identically); its "Add context for Claude" section says the same: "If a value exceeds 10,000 characters, Claude Code writes the text to a file in the session directory and passes Claude the file path with a preview of up to the first 2,000 characters instead. Claude can read the file, but Claude Code doesn't ask it to." | Over the cap the **whole** string is replaced, so every whisper past its first 2,000 characters reaches the model only inside a file it is not asked to read. AD-16's composer sends every cleared whisper whole, in rank order, and records `response_over_cap` when the response exceeds the cap — the interim rule pending owner decision `OL-C1` (options: send all, withhold, or defer to the next event); AC-3's over-cap case is pending spec sign-off beside R-1…R-5; R-20's name bound waits on that decision (AD-12) (F-22; settlement (a); R2-1, R2-2). |
 
 ---
 
@@ -256,9 +263,11 @@ reconciliation (`D-20`).
    sign-off R-1…R-5), so these are written as facts about the file the edit
    targets, never as an edit that happened (AD-15).
 6. Bar (AD-14), dedup (AD-16), compose (pointer-carrying, non-imperative,
-   `[oracle]`-prefixed — `FR-D1`/`FR-D2`; whole whispers in rank order within
-   the harness's 10,000-character `additionalContext` cap, withholding when they
-   do not all fit pending owner decision (`OL-C1`), AD-16), audit-log-then-emit: the whisper is
+   `[oracle]`-prefixed — `FR-D1`/`FR-D2`; every cleared whisper, whole, in rank
+   order; over the harness's 10,000-character `additionalContext` cap all of them
+   are still sent and `response_over_cap` is recorded, Claude Code then passing
+   the model a file path and a 2,000-character preview — the interim rule
+   pending owner decision `OL-C1`, AD-16), audit-log-then-emit: the whisper is
    written to `whisper_audit` first; only a logged whisper is returned as
    `additionalContext` (AD-19).
 7. Diagnostics row (event, candidates, outcome, latency). Exit 0.
@@ -554,6 +563,11 @@ and nothing here depends on the new channel.
                                                  -- re-weight marker: 'all' or a
                                                  -- floor time),
                                                  -- head_unresolved_since (AD-23),
+                                                 -- migration_refused (the
+                                                 -- fingerprint and forward-
+                                                 -- migration checksum of a
+                                                 -- failed forward migration;
+                                                 -- below, R2-7),
                                                  -- repo_key, keying_mode,
                                                  -- last_mined_commit (the watermark:
                                                  -- the HEAD the last completed pass
@@ -608,9 +622,12 @@ and nothing here depends on the new channel.
                                           -- for pair_count only
          change_weight REAL NOT NULL DEFAULT 0,
                                           -- the same commits, each weighted
-                                          -- 2^((ts − E)/h), E =
-                                          -- schema_meta.weight_epoch (AD-13's
-                                          -- recency weighting; F-15)
+                                          -- 2^((ts − E)/h), E = wepoch × h
+                                          -- (AD-13's recency weighting; F-15)
+         wepoch INTEGER NULL,             -- the grid index of the epoch
+                                          -- change_weight is scaled to
+                                          -- (AD-13's exact rescale; added by
+                                          -- 003 with no constraint; R2-5)
          unresolved_imports INTEGER NOT NULL DEFAULT 0,
                                           -- captured import specifiers the
                                           -- frontend classified unresolved
@@ -624,15 +641,20 @@ and nothing here depends on the new channel.
                     -- entry-point in-degree; confidence-capped as a heuristic
    test_map(test_file→files, region_glob, source, …prov)   -- FR-A2g mapping
    commits(hash PRIMARY KEY, ts, entity_count, excluded INTEGER, exclude_reason,
-           weight REAL NULL)
+           weight REAL NULL, wepoch INTEGER NULL, fix_lexicon TEXT NULL)
                   -- one row per commit of the pass's target set T(HEAD) only
                   -- (AD-13), size-excluded ones included so their labels and
                   -- reasons stay; a commit beyond either horizon has no row;
                   -- weight: the recency term the commit added to every sum it
                   -- contributed to (NULL when it contributes nothing),
                   -- recomputed with the sums by AD-13's re-weight when
-                  -- refTs, the epoch or h changes (added by 003 as a
-                  -- column with no constraint)
+                  -- refTs or h changes, and multiplied by an exact power
+                  -- of two by its rescale when the epoch moves; wepoch:
+                  -- the grid index of the epoch weight is scaled to;
+                  -- fix_lexicon: the digest of the lexicon.fix_keywords
+                  -- list its fix label was computed with (AD-13's
+                  -- re-classification, R2-6). All three added by 003 as
+                  -- columns with no constraint (R2-5, R2-6)
    commit_touches(commit_hash TEXT NOT NULL REFERENCES commits(hash),
                   file_id INTEGER NOT NULL REFERENCES files(id),
                   PRIMARY KEY (commit_hash, file_id)) STRICT, WITHOUT ROWID
@@ -643,8 +665,10 @@ and nothing here depends on the new channel.
                   -- miner.horizon_commits × miner.max_transaction_entities
                   -- = 10,000 × 30 = 300,000 rows at the seeds; created by
                   -- 003_phase_a_project.sql
-   cochange_pairs(a→files, b→files, pair_count, pair_weight, last_ts, last_commit,
-                  PRIMARY KEY(a,b))                        -- last_commit: the
+   cochange_pairs(a→files, b→files, pair_count, pair_weight, wepoch, last_ts,
+                  last_commit, PRIMARY KEY(a,b))
+                  -- wepoch: as on files (added by 003, no constraint; R2-5)
+                  --                                          last_commit: the
                   -- included commit touching both with the greatest ts, ties
                   -- broken by the greater hash — one rule for the mine's upsert
                   -- and the eviction's recompute (AD-13); the commit pointer
@@ -897,12 +921,37 @@ and nothing here depends on the new channel.
      `trust = 'human'`, and the `human_stated` landmines). Whether every such row
      has a target column is checked, read-only, before its first write: where a
      column has no equivalent, the migration fails and changes nothing — it
-     never drops the row.
-   - *a checksum mismatch, or an unknown fingerprint* → the open is refused,
-     nothing is written, and `store_schema_refused`
-     (`{reason: 'checksum_mismatch'|'unknown_fingerprint', migration}`) is
+     never drops the row. **It ends in the state 003 leaves a checksummed
+     store in:** the current set's checksums recorded, 003's tables and columns
+     present, and `history_reset_pending = 1` and `mining_in_progress = 1`
+     written in its last transaction, so the next index pass (the spawned
+     child's own, below) resets and re-mines the history exactly as it does
+     after 003 (R2-7). This is the path **every existing store takes**: the
+     runner at `HEAD` records `schema_version` `'1'` and no checksums
+     (`src/stores/migration_runner.ts`), so no store built so far — Max Cogar's
+     included (CR§1) — reaches 003 as a pending checksummed migration.
+     **A forward migration that fails is refused, not left pending** (R2-7): the
+     failing CLI open records `store_migration_failed`
+     (`{fingerprint, migration, table, column}`, AD-17) on the JSONL channel and
+     in its error output, writes one `schema_meta` row, `migration_refused`,
+     holding the fingerprint and the checksum of the forward migration that
+     failed (its only write: no schema or data change), and exits non-zero. The
+     schema check reads that row: a store whose fingerprint and shipped forward
+     migration still match it is **refused** (`store_schema_refused`,
+     `reason: 'migration_failed'`), so the hook path spawns nothing for it and
+     `status` gives the same plain-language `export-human` route as for any
+     refusal (below); a later build that ships a changed forward migration for
+     that fingerprint no longer matches the row and tries again. *Why:* left
+     pending, the store would spawn an `index` child on every `SessionStart` and
+     `UserPromptSubmit`, each failing the same way, with the event path silent
+     and no code telling the owner why.
+   - *a checksum mismatch, an unknown fingerprint, or a failed forward
+     migration (above)* → the open is refused, nothing is written, and
+     `store_schema_refused`
+     (`{reason: 'checksum_mismatch'|'unknown_fingerprint'|'migration_failed', migration}`) is
      recorded on the JSONL channel. The CLI says in plain language that the store was built
-     by another build, offers `ctxoracle export-human <file>` (every row whose
+     by another build (for a failed forward migration: that a row you wrote
+     had nowhere to go in the new layout, naming its table and column), offers `ctxoracle export-human <file>` (every row whose
      provenance or trust is `human`, read by column name, written to a JSON
      file, reporting any row it could not read), and explains that rebuilding
      (`deinit --purge`, then `init`) deletes those rows unless they were
@@ -934,9 +983,9 @@ and nothing here depends on the new channel.
    constraints. Because of this, the execution time of such ALTER TABLE commands
    is independent of the amount of data in the table", `sqlite.org/lang_altertable.html`,
    fetched 2026-09-28; the same page says a column added with a `CHECK` is
-   tested against every existing row, which is why 003 adds `commits.weight`
-   with none and keeps `file_parse` as a new table instead of a checked
-   column) — plus a fixed number of `schema_meta` rows. A step whose cost grows
+   tested against every existing row, which is why 003 adds `commits.weight`,
+   `commits.fix_lexicon` and the three `wepoch` columns with none and keeps
+   `file_parse` as a new table instead of a checked column) — plus a fixed number of `schema_meta` rows. A step whose cost grows
    with the stored rows never runs in the migration's transaction:
    - *deleting derived rows* (rows an index or mining pass rebuilds, such as
      003's history reset, AD-13) is recorded by the migration as a pending
@@ -953,12 +1002,25 @@ and nothing here depends on the new channel.
      the old table — before the emptied old table is dropped; the migration's
      checksum is recorded in the last chunk's transaction, so the store stays
      pending, and the event path silent, until then, and a crash resumes at the
-     next CLI open.
+     next CLI open. **A chunked forward migration runs only under the reindex
+     claim** (AD-26's `reindex.lock`, taken before the first chunk and held until
+     the last chunk's transaction commits): the one-transaction rule above
+     (re-reading the applied set after `BEGIN IMMEDIATE`) excludes a second
+     migrator only for a migration that is one transaction, and a chunked one
+     spans many, while every CLI verb migrates on open, so without the claim two
+     opens could interleave chunks and one reach the drop of the old table
+     while the other was still copying. A CLI open that finds the store pending
+     on a chunked migration and is refused the claim reports that a migration is
+     running (the holder's pid and start time, as `reindex_locked` gives them)
+     and exits non-zero without touching the store (R2-10; round-2 review).
    *Why (F-1, F-3, F-4):* a check that called every shipped file pending made
    001b permanently pending in every `'fallback'` store; a pending migration
    silenced every event until the owner happened to run a verb, and this
-   correction ships one (003) that every existing store — Max Cogar's included
-   (CR§1) — would have waited on; and a migration that deleted every mined row in
+   correction ships a schema change that every existing store — Max Cogar's
+   included (CR§1) — would have waited on, reached through the fingerprint
+   branch and its forward migration, since no existing store records checksums
+   (above; R2-7 corrects the earlier "ships one (003)", which implied those
+   stores took 003 as a pending checksummed migration); and a migration that deleted every mined row in
    one transaction contradicted AD-26's bound (the one measured write of that
    size held the lock 414 ms, AD-26). The spawn is off the event path, so NF-1
    is untouched; the silence it ends lasts from the upgrade until the first
@@ -1851,35 +1913,77 @@ and nothing here depends on the new channel.
    from text files that are code: a file with a NUL byte in its first **8000
    bytes** is binary and gets path tokens only (git's own binary test reads that
    many: `#define FIRST_FEW_BYTES 8000`, `xdiff-interface.c`; the former "8 KB"
-   had no source), and prose and data formats get path tokens only. The
-   prose/data list is the tuning row `index.generic_no_symbol_exts` (matched as a
-   case-insensitive file-name suffix, so `.json.example` is a member), **seeded
-   by one rule from GitHub Linguist at a pinned commit** (`main` at `d0921d1`,
-   `languages.yml` and `heuristics.yml`, fetched 2026-09-28): (i) every extension
-   Linguist gives to a language of `type: prose` or `type: data` that no language
-   of `type: programming` or `type: markup` also claims — 385 of the 441
-   extensions those 202 languages carry (counted 2026-09-28); and (ii) of the 56
-   extensions such a language shares with a programming or markup language, the
-   ones whose `heuristics.yml` disambiguation ends in a pattern-less rule — the
-   language Linguist itself assigns when no content pattern matches — naming a
-   prose or data language: `.bst`, `.fr`, `.md` (Markdown; GCC Machine
-   Description needs `^(;;|\(define_)`), `.pkl`, `.sql`, `.tl` and `.typ`. Every
-   other shared extension (`.ts`, `.rs`, `.pm`, `.inc` and the rest) is left off,
-   so a code language keeps its generic symbols (C-6). 392 extensions in all; the
-   seed is a committed source file generated once by a script from the two
-   pinned files and pinned by a test that re-derives the count (F-10; the former
-   seed was 16 of the 441 from 12 hand-picked languages, with no selection rule).
-   The cost this rule accepts, stated: a data language whose files do declare
-   named things — SQL, GraphQL and Protocol Buffer are all `type: data` in
-   Linguist — gets path tokens only from the generic frontend (a grammar-covered
-   one is unaffected, since the row applies to the generic frontend alone) until
-   its extension is removed from the row. **A deny-list,
+   had no source), and prose formats get path tokens only. The prose list is
+   the tuning row `index.generic_no_symbol_exts`, **seeded by one rule from
+   GitHub Linguist at a pinned commit** (`main` at `d0921d1`, `languages.yml`
+   and `heuristics.yml`, fetched 2026-09-28): (i) every extension Linguist gives
+   to a language of `type: prose` that no other language claims — 35 of the 42
+   extensions its 18 prose languages carry (counted 2026-09-28 by the generator
+   below, run with Python 3 and PyYAML 6.0.1); and (ii) of the 7 extensions a
+   prose language shares with another language, the ones whose
+   `heuristics.yml` disambiguation ends in a pattern-less rule — the language
+   Linguist itself assigns when no content pattern matches — naming a prose
+   language: `.fr` and `.txt` (Text) and `.md` (Markdown; GCC Machine
+   Description needs `^(;;|\(define_)`). `.asc`, `.ncl` and `.scd` end in a
+   rule with a pattern, and `.nb` has no disambiguation, so they are left off.
+   **38 extensions in all.** Each pattern-less rule the rule meets names one
+   language, so no list-valued fallback arises (the former rule's `.mod` named
+   `[Linux Kernel Module, AMPL]` and made its count 393, not the 392 it stated).
+   *Why prose, and only prose (R2-4; round-2 review):* the row's job is the
+   files that declare no names the oracle should index, and the defect it fixes
+   is the generic frontend's definition regexes (`function f(`, `class C`,
+   `def f`, `fn f`, `f() {` — `src/index/generic_frontend.ts`) matching where no
+   definition is. In prose they match the code a document quotes — 317 of the
+   generic frontend's 424 symbols came from `.md` files (below) — and prose is
+   natural-language text, which declares nothing; Linguist's own example of
+   the type is exactly that format ("defined as `data` (e.g. SQL) or `prose`
+   (e.g. Markdown) languages", `docs/how-linguist-works.md` at `d0921d1`).
+   Linguist's `type` is a statistics category ("By default only languages of
+   type `programming` or `markup` in [`languages.yml`] are included in the
+   language statistics", `docs/overrides.md` at `d0921d1`), so it is used here
+   only as the published, pinned list of which languages are prose, not as a
+   judgement of which formats declare names. `type: data` is **not** listed: it
+   mixes serialisation formats (JSON, YAML, CSV), which declare no names, with
+   schema and query languages that do (SQL, GraphQL and Protocol Buffer are all
+   `type: data`), and no Linguist field separates the two; and the defect does
+   not arise for data files: executed 2026-09-28 over every tracked text file of
+   `Maxcogar/agent-armory` at `f08d7da` (NUL-byte files skipped, as the
+   frontend skips them) with the generic frontend's seven regexes, `.json`
+   (171 files), `.yaml`/`.yml` (15), `.toml` (9), `.jsonl` (7), `.xml` (2),
+   `.lock` (2) and `.sql` (10) yielded **0** definition-shaped lines, against
+   318 from `.md` (893 files). **The cost this rule accepts, stated:** a data
+   file with a line that happens to match a definition regex — a YAML block
+   scalar holding a shell function, say — yields a false symbol until its
+   extension is added to the row; none did on the owner's repository.
+   **Matching, longest extension first:** the row is matched as a
+   case-insensitive file-name suffix, and a file is denied only when the
+   longest Linguist extension its name ends in is on the row. The generator
+   emits, as the row's exceptions, every non-prose Linguist extension that ends
+   in a listed one — `.coffee.md` (Literate CoffeeScript) and `.8xp.txt` (TI
+   Program) at `d0921d1` — so a code file ending in a listed suffix keeps its
+   generic symbols (C-6); under the former prose-and-data list five code or
+   markup extensions (`.coffee.md`, `.nim.cfg`, `.8xp.txt`, `.emacs.desktop`,
+   `.antlers.xml`) matched a listed suffix (R2-4, executed in the round-2
+   review). **Where the source data lives:** the two pinned Linguist files are
+   committed with Linguist's MIT licence notice, their commit and their sha256
+   in `ctxoracle/vendor/linguist/`, beside the generator script; the seed — 38
+   suffixes and 2 exceptions — is a committed source file the generator wrote;
+   a test pins the seed's contents and counts and the pinned files' sha256, and
+   does **not** re-derive the list at test time, because that needs a YAML
+   parser the package does not carry (AD-25: the build is `tsc` only and fetches
+   nothing). Re-deriving is re-running the generator by hand when the pin
+   moves. *(Corrected 2026-09-28, R2-4: the seed was every `prose` and `data`
+   extension, 392 by its own count and 393 by its rule, backed by the
+   statistics category rather than by the job, matched by plain suffix, and
+   pinned by a test that needed files the build did not carry; F-10's former
+   seed was 16 of the 441 from 12 hand-picked languages, with no selection
+   rule.)* **A deny-list,
    not an allow-list of code extensions**, because C-6 requires that no
    language be invisible: an unlisted code language (`.ps1`, say) still gets
    generic symbols, where an allow-list would silently drop every code language
    nobody listed. The cost runs the other way and is stated here: an unlisted
-   prose or markup format still yields false symbols until it is added to the
-   row. *Why (Step 15 build review M3, 2026-09-26, executed on this
+   prose format, or a data file of the kind above, still yields false symbols
+   until it is added to the row. *Why (Step 15 build review M3, 2026-09-26, executed on this
    repository):* 317 of the generic frontend's 424 symbols came from `.md` files
    and 4 from a binary `.bin` file — false symbols that Reuse and Orientation
    would present as code (P4). *(Corrected 2026-09-28: the list was "and
@@ -1970,10 +2074,11 @@ and nothing here depends on the new channel.
    Python set no maximum). The one primary-source bound on what a name costs
    downstream is the harness's 10,000-character cap on an `additionalContext`
    string (AD-16's composer rule), and a per-name bound follows from it only once
-   the composer's rule for whispers that do not fit is decided: a whisper made
-   longer than the cap by a long name is one such case, and whether such
-   whispers may be withheld is pending Max Cogar's decision (OL-C1; AD-16). The
-   bound is derived from that rule when it is made, not chosen now. **A file's derived rows depend on more
+   the rule for whispers that do not fit is decided: a whisper made longer than
+   the cap by a long name is one such case, sent whole under AD-16's interim
+   rule, and whether such whispers are sent whole, withheld or deferred to the
+   next event is pending Max Cogar's decision (`OL-C1`; AD-16; R2-1). The
+   bound is derived from that decision when it is made, not chosen now. **A file's derived rows depend on more
    than its own bytes, so re-resolution is driven by dependency tracking:** for
    each importer the indexer stores every resolution query its resolver made
    (`resolution_probes`, AD-4; F-7) —
@@ -2039,7 +2144,10 @@ and nothing here depends on the new channel.
    batch files each cites there (the scanner sources, the isolation runs and the
    `tsc` traces executed in B9; Linguist's `vendor.yml` and the zone runs in
    B8a; the Linguist `languages.yml` membership above fetched and counted
-   2026-09-28), and G-9 with Flaw 2 (Node's `modules` page and the `tsc` traces
+   2026-09-28, and the prose rule's counts, its two suffix exceptions and the
+   zero definition-shaped lines in the owner's data files executed 2026-09-28
+   for R2-4, with `docs/how-linguist-works.md` and `docs/overrides.md` at
+   `d0921d1` fetched with `curl`), and G-9 with Flaw 2 (Node's `modules` page and the `tsc` traces
    executed in the settlements and their review). Addresses:
    `FR-K1`, `FR-K7`, C-3, C-6, NF-1, AC-17, AC-20.
 
@@ -2107,54 +2215,122 @@ and nothing here depends on the new channel.
    `confidence(a→b) = pair_weight / change_weight(a)`; `support = pair_count`,
    ROSE's "support count", "the number of transactions the rule has been derived
    from" (R-40; B3a E-7: "support" had named both counts).
+   **Hub degree** — the co-change factor of Orientation's rank (AD-15) — is read
+   from these pairs, not stored: a file's hub degree is `1 +` the number of
+   `cochange_pairs` rows naming it as `a` or `b`, its degree (number of
+   neighbours) in the co-change graph, every stored pair counted whatever its
+   count or weight. The `1 +` keeps a file with no stored pair rankable in a
+   multiplicative score; counting partners rather than summing weights ranks a
+   file by how many files move with it rather than by how much history it has
+   (a weight sum grows with every co-change of one pair). It is the agents' choice, the same one the
+   plan's Orientation step computes (R2-8: no section defined it), and like the
+   rank's other factors it is judged on Phase A exit data.
 
    **The target set and the reconcile — one rule for every pass.** `T(H)` = the
    commits printed by `git log --no-merges --max-count=<miner.horizon_commits>
    --format=%H%x00%at <H>` whose `min(%at, refTs)` is at least
    `refTs − miner.horizon_years × 365.25 × 86400`, where `H` is the pass's `HEAD`.
    It is the set a fresh mine of `H` includes, stated as a function of `H` alone.
-   `S` = the hashes in `commits`. Each pass **re-weights** the stored commits
-   whose term has changed (below), then **evicts** `D = S \ T`, then **mines**
+   `S` = the hashes in `commits`. Each pass **rescales and re-weights** the
+   stored rows whose term has changed and **re-classifies** the stored commits
+   whose mining-time tuning has (below), then **evicts** `D = S \ T`, then **mines**
    `A = T \ S`. *(Symbols, F-15: the evicted set was also called `E`, the name
    of the weight epoch, and the pass's `HEAD` was `h`, the name of the half-life;
    here `D` is the evicted set, `H` the pass's `HEAD`, `E` the epoch and `h` the
    half-life, throughout AD-13.)*
    - *Re-weight* (chunked, bounded and yielded per AD-26; settlement (d), F-5,
-     F-6). A stored term depends on the commit's author time and on three
-     quantities of the store: `refTs` (the cap), the epoch `E` and the half-life
-     `h`. After `refTs` is validated (G-8) and before the evict step, let `R0`,
-     `E0` and `h0` be the stored `ref_ts`, `weight_epoch` and
+     F-6; R2-5, R2-11). A stored term depends on the commit's author time and on
+     three quantities of the store: `refTs` (the cap), the epoch `E` and the
+     half-life `h`. After `refTs` is validated (G-8) and before the evict step,
+     let `R0`, `E0` and `h0` be the stored `ref_ts`, `weight_epoch` and
      `mined_half_life_days`, and `E1` the epoch rule's value for this pass's
-     `refTs` and `h` (below). The **re-weight set** `W` is: every commit with a
-     non-NULL `weight` when `h0 ≠ h`, when `E0 ≠ E1`, or when any of the three is
-     absent; otherwise, when `R0 ≠ refTs`, the commits with a non-NULL `weight`
-     and `ts > min(R0, refTs)` — exactly those whose `min(ts, ·)` differs
-     between the two instants, since for `ts ≤ min(R0, refTs)` both minima are
-     `ts` — which covers `refTs` moving either way (a commit capped at `R1` also
-     changes when `refTs` rises to `R2` with `R1 < R2 < ts`, F-5); otherwise
-     `W = ∅`. For each commit of `W`, `commits.weight` is **recomputed**,
-     `2^((min(ts, refTs) − E1)/h)`, and every file and pair it touches is
-     recomputed from `commit_touches` joined to `commits.weight` with the
-     evict step's recompute. Recomputing, never multiplying, is what makes the
-     step repeatable: applying it twice writes the same values. *Crash rule:* when
-     this pass's `refTs`, `E1` or `h` differs from the stored value, or one is
-     absent — whether or not `W` is empty, because the pass's own newly mined
-     commits carry terms computed at those inputs — the pass's first
-     transaction writes `schema_meta.reweight_pending` — `'all'` for the
-     whole-set case, else the time `min(R0, refTs)`, lowered to the smaller of
-     that and any floor already pending — and sets `mining_in_progress = 1`; the final transaction writes `ref_ts`,
-     `weight_epoch` and `mined_half_life_days` and deletes the marker. A pass that
-     finds the marker unions its own `W` with the marker's set (`'all'`, or every
-     weighted commit with `ts` above the pending floor), so a commit a crashed
-     pass re-weighted at another `refTs` or `h` is re-weighted again whatever
-     the next pass's inputs are: the review's rule "re-applying step 2 writes the
-     same value" holds only when the retry sees the same `refTs` and `h`, and the
-     marker removes that condition. *Cost:* `W` is normally empty — its
-     `refTs` case is the commits whose author time is later than a tip's
-     committer time, the ones `miner_ts_capped` counts (below) — and is the
-     whole horizon only when `h` changes or the epoch moves, which the epoch
-     rule makes once per half-life; one query over at most
-     `miner.horizon_commits` rows finds it, off the event path.
+     `refTs` and `h` (below), with grid index `e1 = E1 / h`. Each change has
+     its own mechanism, run in this order:
+     1. **A changed `h`, or a store missing any of the three while it holds
+        weighted commits, is a full recompute** — the **re-weight set** `W` is
+        every commit with a non-NULL `weight`. No rescale exists for it: a term
+        `2^((ts − E)/h)` taken at another `h` is not a common multiple of the
+        old one, since the exponent's slope changes with `h`.
+     2. **An epoch move at an unchanged `h` is an exact rescale, never a
+        recompute** (B5 verification ruling 2: "stored sums are rescaled by the
+        exact common factor"). Every weighted row — `commits.weight`,
+        `files.change_weight`, `cochange_pairs.pair_weight` — carries the grid
+        index of the epoch it is scaled to (`wepoch`, an integer, AD-4); each
+        row whose `wepoch ≠ e1` is multiplied by `2^(wepoch − e1)` and its
+        `wepoch` set to `e1`, in chunks of rows selected by `wepoch ≠ e1`, one
+        UPDATE per group of rows sharing a `wepoch`, with no join and no read
+        of `commit_touches`. *Exact:* both indices are integers, so the factor
+        is a power of two, and multiplying a binary64 double by a power of two
+        changes only its exponent, so the product is exact while it stays a
+        normal number (executed on Node 22.22.2: `2 ** k` equal to the
+        bit-built power for every integer `k` in [−1022, 1023], and
+        `x · 2^k · 2^−k = x` in 10^6 random trials). A term is computed in the
+        split form `f · 2^(n − e)`, with `n = ⌊ts / h⌋` and
+        `f = 2^((ts − n·h)/h)` in [1, 2) (`ts` capped, in days), so its only
+        dependence on the epoch is that exact power of two, and a rescaled
+        term equals bit for bit the one a fresh mine computes at `e1`; computed
+        as `2^((ts − E)/h)` in one step, the two would differ by the rounding
+        of the exponent. *Resumable without a marker:* each row's `wepoch` says
+        what it is scaled to, so applying the rescale twice changes nothing, a
+        crash leaves every row correct for its own index, and the retry
+        rescales every row not at its own pass's `e1`, whichever epoch the
+        crashed pass was moving to. A row that would leave the normal range can
+        belong only to commits the same pass then evicts (the half-life floor
+        below keeps every in-horizon term normal at `E1`), and the evict step
+        recomputes or deletes it. The rescale is not run while
+        `reweight_pending = 'all'`: the recompute of case 1 rewrites every row
+        at `e1`, and a row it has not reached yet may carry an index on another
+        `h`'s grid.
+     3. **A moved `refTs` changes only the capped terms:** when `R0 ≠ refTs`,
+        `W` gains the commits with a non-NULL `weight` and
+        `ts > min(R0, refTs)` — exactly those whose `min(ts, ·)` differs
+        between the two instants, since for `ts ≤ min(R0, refTs)` both minima
+        are `ts` — which covers `refTs` moving either way (a commit capped at
+        `R1` also changes when `refTs` rises to `R2` with `R1 < R2 < ts`,
+        F-5).
+     For each commit of `W`, `commits.weight` is **recomputed** in the split
+     form at `e1`, and every file and pair it touches is recomputed from
+     `commit_touches` joined to `commits.weight` with the evict step's
+     recompute, every row it writes carrying `wepoch = e1`; recomputing, never multiplying, is what makes this step
+     repeatable: applying it twice writes the same values. *Crash rule:* when
+     this pass's `refTs` or `h` differs from the stored value, or one of the
+     three is absent — whether or not `W` is empty, because the pass's own
+     newly mined commits carry terms computed at those inputs — the pass's
+     first transaction writes `schema_meta.reweight_pending` — `'all'` for case
+     1, else the floor time `min(R0, refTs)` — and sets
+     `mining_in_progress = 1`; the final transaction writes `ref_ts`,
+     `weight_epoch` and `mined_half_life_days` and deletes the marker. **A new
+     marker merges with a pending one:** two floors give the smaller floor, and
+     `'all'` absorbs any floor in either order — a pending `'all'` stays
+     `'all'` when a floor arrives, and a pending floor becomes `'all'` when case
+     1 arrives (R2-11: the merge stated only floor with floor). A pass that
+     finds the marker unions its own `W` with the marker's set (`'all'`, or
+     every weighted commit with `ts` above the pending floor), so a commit a
+     crashed pass re-weighted at another `refTs` or `h` is re-weighted again
+     whatever the next pass's inputs are: the review's rule "re-applying step 2
+     writes the same value" holds only when the retry sees the same `refTs` and
+     `h`, and the marker removes that condition. The epoch needs no marker,
+     since the per-row `wepoch` carries it. *Cost and silence (R2-5):* `W` is
+     normally empty — its `refTs` case is the commits whose author time is
+     later than a tip's committer time, the ones `miner_ts_capped` counts
+     (below) — and is the whole horizon only when `h` changes, which only a
+     `tune` of `h` or a store upgrade causes (`tune` says so); an epoch move,
+     which the epoch rule makes once per half-life of `refTs` (about every
+     1.79 days at the half-life floor, every 365 days at the seed), is the
+     rescale. Measured on a synthetic store at the horizon's seeds (10,000
+     commits, 3,000 files, 300,000 `commit_touches` rows, 289,606 pair rows;
+     Node 22.22.2 on 4 cores, WAL, `synchronous = NORMAL`, AD-26's 50 ms
+     chunks and 30 ms gaps; a throwaway benchmark run 2026-09-28): the rescale
+     took **0.16 to 0.18 s** in 2 chunk transactions (three runs; longest
+     hold 90.8 to 111.1 ms, below the 150 ms bound), against 26.3 and 26.4 s
+     in 243 to 250 chunk transactions for a chunked recompute of every term and
+     sum from `commit_touches` (two runs; that implementation's chunk holds
+     were not tuned to the bound, so its figure is an order of magnitude, not a
+     design measurement). The history genres are silent under
+     `mining_in_progress` for the whole pass, so an epoch move adds under a
+     second of that silence at the seeds where the recompute it replaces added
+     tens of seconds, and a changed `h` adds the recompute's tens of seconds. One query over at most
+     `miner.horizon_commits` rows finds `W`, off the event path.
    - *Evict* (chunked, bounded and yielded per AD-26): per commit, read its
      `commit_touches` file ids; delete its `commit_touches`, `labelled_touches`
      and `commits` rows; then **recompute**, from `commit_touches` joined to
@@ -2171,17 +2347,21 @@ and nothing here depends on the new channel.
      fed oldest first, the pinned flags, `-M -z --numstat` and the settled
      format; each commit is classified, labelled and counted as below, and a
      contributing commit also writes its `commit_touches` rows and
-     `commits.weight`, computed with `E1`, `h` and this pass's `refTs`.
-   - If the re-weight, `D` and `A` together take more than one write
-     transaction, the first sets `mining_in_progress = 1`. The **final
+     `commits.weight`, computed in the split form with `E1`, `h` and this
+     pass's `refTs`, every row it writes carrying `wepoch = e1`.
+   - If the rescale, the re-weight, the re-classification (below), `D` and `A`
+     together take more than one write transaction, the first sets
+     `mining_in_progress = 1`. The **final
      transaction** writes the watermark, `last_mined_ref`, `ref_ts`,
      `weight_epoch` and `mined_half_life_days`, deletes `reweight_pending`,
      records `history_rewritten` or `branch_changed` if either applies (below),
      rebuilds the miner landmines, and clears the flag.
    - A **full mine is this pass with `S = ∅`**.
-   - *Crash:* every re-weight, evict or mine transaction updates rows and sums
-     together, so a crash leaves `S` consistent with the sums; the next pass
-     recomputes `W` (with the pending marker), `D` and `A` from `S` and finishes
+   - *Crash:* every rescale, re-weight, re-classification, evict or mine
+     transaction updates rows and sums together, so a crash leaves `S`
+     consistent with the sums; the next pass rescales every row not at its
+     `e1`, recomputes `W` (with the pending marker), the re-classification set,
+     `D` and `A` from `S` and finishes
      the work, a full pass exactly like an incremental one. No recorded range is
      needed. *Why one rule (C-3 as
      corrected, settlements):* if a pass that needs `C` chunk transactions is
@@ -2190,16 +2370,27 @@ and nothing here depends on the new channel.
      repeated interruption (a reboot, a manual kill, the out-of-memory killer),
      leaving the history genres silent under `mining_in_progress`.
    - *Equality:* after any completed pass every count equals a fresh mine of `H`
-     exactly (both are functions of `T` and each commit's touched set), and every
-     stored term equals a fresh mine's at the same `refTs`: the re-weight makes
-     each term `2^((min(ts, refTs) − E)/h)`, the function of the commit and the
-     current `refTs` a fresh mine computes, and the epoch rule gives both stores
-     the same `E` for the same `refTs` and `h`. Every weight therefore equals a
-     fresh mine's to within summation rounding (the same positive terms in
-     another order: relative error at most `(n − 1) · 2^−53` per sum,
+     exactly — both are functions of `T`, each commit's touched set, and the
+     miner tuning in force, since the re-classification below re-applies the
+     current `miner.max_transaction_entities` and `lexicon.fix_keywords` to
+     every stored commit (R2-6) — and every stored term equals a fresh mine's at
+     the same `refTs`: the re-weight makes each term the split form of
+     `2^((min(ts, refTs) − E)/h)`, the function of the commit and the current
+     `refTs` a fresh mine computes, the epoch rule gives both stores the same
+     `E` for the same `refTs` and `h`, and a rescaled term equals the fresh
+     one bit for bit (above). A rescaled sum is the stored sum times a power of
+     two, and rounding commutes with that scaling, so it equals the sum of the
+     fresh terms in the incremental store's order. Every weight therefore
+     equals a fresh mine's to within summation rounding (the same positive
+     terms in another order: relative error at most `(n − 1) · 2^−53` per sum,
      `n ≤ 10,000`, so ≤ 1.2 × 10^−12; tests use relative tolerance
-     2.3 × 10^−12, twice that bound), with **no exception**, whichever way
-     `refTs` has moved. *(Corrected 2026-09-28 by settlement (d), F-5, F-16:
+     2.3 × 10^−12, twice that bound), whichever way `refTs` has moved and
+     whatever the stored commits were mined with. The clause covers exactly the
+     tuning keys listed below and no other input; a key added to the miner
+     later needs its own entry there before the clause can claim it. *(Corrected
+     2026-09-28, R2-6: the clause said "with **no exception**" while the size
+     exclusion and the fix label depended on tuning read at mining time that no
+     rule re-applied to stored commits.)* *(Corrected 2026-09-28 by settlement (d), F-5, F-16:
      this clause carried an exception — a stored term capped at an earlier
      pass's `refTs` differed from a fresh mine's "if `refTs` later moves below
      that commit's author time" until the commit was evicted — which was a
@@ -2224,6 +2415,45 @@ and nothing here depends on the new channel.
    one out), silencing the history genres each time, the opposite of AC-13's
    "append refreshes incrementally"; slack past the horizon lets beyond-horizon
    commits contribute edges, which AC-13 forbids.
+
+   **Mining-time tuning is re-applied to stored commits (R2-6; round-2
+   review).** Every tuning key the miner reads, and what a change to it does to
+   stored rows: `miner.horizon_commits` and `miner.horizon_years` define `T`,
+   which every pass recomputes, so a changed horizon is evicted or mined by the
+   reconcile itself; `bar.recency_half_life_days` is the re-weight's case 1
+   (above); `miner.chunk_ms` and `miner.chunk_gap_ms` pace the writes and no
+   stored row depends on them; `miner.corpus_floor_commits` (`FR-A6`) is
+   compared, where the history genres read it, with the count of contributing
+   rows in `commits`, and is never stored as a flag, so a tuned floor applies
+   at the next event. The two keys whose effect is stored per commit are
+   re-applied by the pass's **re-classification**, run after the re-weight
+   and before the evict step, chunked, each chunk one transaction, the row
+   itself the record of its progress, so a crash needs no marker:
+   - `miner.max_transaction_entities`: `commits` keeps each commit's
+     `entity_count` and `excluded` flag, so the pass selects every stored
+     commit of `T` (the rest are evicted anyway) whose flag differs from `entity_count > miner.max_transaction_entities`
+     at the current value. A contributing commit now over the key is removed
+     from the sums from stored data — its `commit_touches` and fix rows
+     deleted and its files and pairs recomputed by the evict step's recompute —
+     and kept in `commits` with `excluded = 1`, its reason and a NULL
+     `weight`, its revert
+     labels kept (a revert label comes from any commit of `T`, size-excluded or
+     not, AD-15). An excluded commit now within the key has no stored touched
+     set (excluded commits keep no `commit_touches` rows), so its `commits` row
+     is deleted and it is mined again in this pass's `A`, fed to the same
+     `--no-walk --stdin` stream as any commit of `T \ S`.
+   - `lexicon.fix_keywords`: each `commits` row records the digest of the list
+     its fix label was computed with (`commits.fix_lexicon`, AD-4), so the pass
+     selects every contributing stored commit of `T` whose digest differs from
+     the current list's, re-reads their subjects with `git log --no-walk=unsorted --stdin
+     --format=%H%x00%s` (the miner stores no message text, AD-19, so the subject
+     comes from git; every such commit is in `T`, so its object is reachable),
+     rewrites their fix rows in `labelled_touches` from `commit_touches`, and
+     sets the digest; the final transaction's landmine rebuild then carries the
+     new labels.
+   `tune` says, when either key is written, how many stored commits the next
+   pass will re-classify. The history genres wait under `mining_in_progress`
+   as for any pass of more than one transaction.
 
    **The watermark** (B5 verification ruling 1, kept for its readers).
    `schema_meta.last_mined_commit` is the `HEAD` resolved once when the pass
@@ -2301,7 +2531,8 @@ and nothing here depends on the new channel.
    `commits.weight` is `003_phase_a_project.sql`, a new file after
    `002_phase_a_global.sql` (AD-4's schema check: never an edit of 001). Its one
    transaction holds only row-count-independent steps (AD-4's migration bound):
-   the new tables, the column, deleting `last_mined_commit`, `last_mined_ref`,
+   the new tables, the columns (`commits.weight`, `commits.fix_lexicon` and the
+   `wepoch` columns, R2-5, R2-6), deleting `last_mined_commit`, `last_mined_ref`,
    `ref_ts` and `weight_epoch`, and setting `history_reset_pending = 1` and
    `mining_in_progress = 1`. The **reset** is the data step that marker names,
    run by the next index pass before its reconcile, in bounded, yielded chunks
@@ -2312,8 +2543,11 @@ and nothing here depends on the new channel.
    pass then mines with `S = ∅`, and its final transaction clears
    `mining_in_progress`. A crash leaves whichever marker is still set, and the
    next pass resumes from it; `status` says the history is being re-mined. The
-   pass that runs it is the detached child the first `SessionStart` after the
-   upgrade spawns (AD-4), or any `index`. None of those rows is
+   pass that runs it is the detached child the first `SessionStart` or
+   `UserPromptSubmit` after the upgrade spawns (AD-4; R2-8), or any `index`. A
+   store built before checksums reaches the same state through its forward
+   migration, which ends with the same two markers set (AD-4; R2-7), so the
+   reset and re-mine are the same for it. None of those rows is
    human-provenance, so this is not the purge CR§1 and store-recovery forbid,
    and it is the only way `S` becomes consistent with `commit_touches`: a store
    migrated with `commits` rows and an empty `commit_touches` could never evict
@@ -2324,7 +2558,8 @@ and nothing here depends on the new channel.
    it.)*
 
    **Recency weights the evidence, never the result.** Each contributing commit
-   at time `ts` adds `2^((ts − E)/h)` to `cochange_pairs.pair_weight` of every
+   at time `ts` adds `2^((ts − E)/h)` — computed in the split form
+   `f · 2^(n − e)` (the re-weight above) — to `cochange_pairs.pair_weight` of every
    pair it touches, to `files.change_weight` of every file it touches, and as its
    own `commits.weight`, where `E` is the store's weight epoch
    (`schema_meta.weight_epoch`), `h` is `bar.recency_half_life_days`, and `ts` is
@@ -2336,15 +2571,18 @@ and nothing here depends on the new channel.
    band, so two stores' epochs, a fresh mine's and an incremental one's, need not
    lie on one half-life grid). The epoch moves only when `refTs` crosses a grid
    line, in whole half-lives either way (`refTs` can move back — a checkout of an
-   older tip); the move makes the re-weight set every weighted commit (above),
-   which recomputes every term and sum at the new epoch in chunked, yielded,
-   resumable transactions under `mining_in_progress` — never one transaction
-   multiplying every row by `2^(−k)`, which at the horizon's seeds rewrites
-   every pair row in one hold — the one measured write of that order, 349,905
-   pair upserts for 10,000 commits, held the lock 414 ms (AD-26), beyond its
-   150 ms bound — and which could not be resumed after a crash because a
-   multiplication applied twice is not the same as once. Every term shares the
-   epoch, so no ratio changes and **no git read is needed to re-base**.
+   older tip); the move is the re-weight's exact rescale (case 2 above): every
+   weighted row multiplied by the power of two `2^(wepoch − e1)`, in chunked,
+   yielded transactions under `mining_in_progress`, each row carrying its own
+   epoch index so that the rescale is resumable after a crash and applying it
+   twice changes nothing — never one transaction multiplying every row, which
+   at the horizon's seeds rewrites every pair row in one hold (the one measured
+   write of that order, 349,905 pair upserts for 10,000 commits, held the lock
+   414 ms, AD-26, beyond its 150 ms bound), and never a recompute of every term
+   and sum from `commit_touches` (tens of seconds of silence at the seeds
+   against under a second, measured above). Every term on one row shares its
+   epoch, a reader sees no row mid-rescale (the history genres wait under the
+   flag), so no ratio changes and **no git read is needed to re-base**.
    **The only floor is
    underflow:** an in-horizon term's exponent lies in `[−365.25·Y/h, 1)`, and the
    weights are read as a ratio, so a weight must stay a *normal* double (a
@@ -2361,9 +2599,9 @@ and nothing here depends on the new channel.
    once per pass that caps any; F-8).
    The miner records the half-life it mined with
    (`schema_meta.mined_half_life_days`); **when `h` has changed, the next pass
-   re-weights every stored commit from the store** — the re-weight above, with
-   `W` the whole set, recomputing each `commits.weight` from `commits.ts`, this
-   pass's `refTs` and the new `h` at the new epoch, then every sum from
+   re-weights every stored commit from the store** — the re-weight's case 1
+   above, with `W` the whole set, recomputing each `commits.weight` from
+   `commits.ts`, this pass's `refTs` and the new `h` at the new epoch, then every sum from
    `commit_touches`, chunked and yielded under `mining_in_progress` — so a ratio
    never mixes two decay rates, and a store missing any of `ref_ts`,
    `weight_epoch` and `mined_half_life_days` while it holds weighted commits is
@@ -2376,7 +2614,17 @@ and nothing here depends on the new channel.
    ruling 2 re-bases exactly instead, 37 had no derivation, and the floor is the
    relation above because `tune` accepted `miner.horizon_years` = 200 at `h` = 37
    and an in-horizon commit then stored weight 0 and a 0/0 pair with no fault
-   (executed). B6 verification item 3's substance — a ratio never mixes two
+   (executed). **The rescale is ruling 2's mechanism, restored in chunked,
+   per-row form** (R2-5): the revision before it (F-16) replaced the rescale
+   with a full recompute from `commit_touches` on every epoch move, citing the
+   150 ms bound against one multiplying transaction, while this paragraph still
+   named ruling 2 as the basis — a departure from the ruling that was not
+   recorded as one. The bound is a reason against one transaction, not against
+   the multiplication, and the per-row `wepoch` keeps the ruling's exact
+   common factor while chunking it, so the ruling stands as settled, and the
+   measured silence (above) is a fraction of a second where the recompute's
+   was tens of seconds, once per half-life. A changed `h` is the one case with
+   no common factor, so it alone is recomputed. B6 verification item 3's substance — a ratio never mixes two
    decay rates ("changing h forces a re-mine") — is kept by the re-weight; the
    re-mine itself was kept only because aggregate sums could not be re-derived
    without git, and `commits.ts`, `commit_touches` and `ref_ts` now hold
@@ -2385,7 +2633,8 @@ and nothing here depends on the new channel.
    *(Corrected 2026-09-28: a changed `h` was "a purged full re-mine",
    automatically, which cleared every history table and silenced the history
    genres for a whole re-mine with git reads; the epoch re-base was one
-   multiplying transaction.)*
+   multiplying transaction, and then, before R2-5, a full recompute on every
+   epoch move.)*
    ROSE is cited only for weighting the mined changes — FR-K2 asks
    for a recency-weighted horizon, and ROSE weights and windows the transactions
    it mines; the exponential half-life form and the ratio-against-floor
@@ -2465,8 +2714,9 @@ and nothing here depends on the new channel.
    stable couplings by age — H1 above). Not a purge on a rewrite, a branch
    switch or a changed half-life, not the union of mined tips, and not a fixed
    mined ref (above). Not an equality exception for a moved `refTs` (the
-   re-weight removes its cause, settlement (d)), and not an epoch re-base in one
-   multiplying transaction (above).
+   re-weight removes its cause, settlement (d)), not an epoch re-base in one
+   multiplying transaction, and not a full recompute on an epoch move (above;
+   R2-5).
 5. **Premise verification.** `git log --no-merges --numstat` exercised on this
    repo this session (V13's commands ran against the same git); `FR-K2`, `FR-A6`
    read at spec §11.1/§5.2; the counter defect executed in the review record
@@ -2483,7 +2733,12 @@ and nothing here depends on the new channel.
    re-weight's set and recompute from settlement (d) (the cap at `refTs` read
    in `src/miner/cochange.ts` there), with its crash marker derived above; the
    fixed-origin epoch, the store-side half-life re-weight and the chunked reset
-   from F-16, F-6, F-3 and F-4; git's 4,096-byte report buffer read in `usage.c`
+   from F-16, F-6, F-3 and F-4; the per-row exact rescale from B5 verification
+   ruling 2 (R2-5), its power-of-two exactness executed on Node 22.22.2 and its
+   duration against a chunked recompute measured on a synthetic store at the
+   horizon's seeds (both 2026-09-28, throwaway scripts; figures above), the
+   marker merge (R2-11) and the re-classification of stored commits (R2-6;
+   the keys read in `src/miner/cochange.ts`); git's 4,096-byte report buffer read in `usage.c`
    at v2.43.0 (fetched 2026-09-28). Addresses:
    `FR-K2`, `FR-A6`, AC-1, AC-6, AC-13.
 
@@ -2770,7 +3025,7 @@ and nothing here depends on the new channel.
 
    | Genre | Trigger | Query / mechanism | Headline (the non-self-servable fact) |
    |---|---|---|---|
-   | Orientation `FR-A2a` | `UserPromptSubmit` | prompt tokens → FTS5 over symbols/paths; rank by (match strength × co-change hub degree × `entry_score`, all produced — AD-12/AD-13); join `invariant_members` for one binding invariant **where a matching row exists** — in Phase A `invariants` is written only by the human channel (`note`), so on an un-annotated repo Orientation delivers entry points alone (disclosed, L10; invariant count shown in `status`) | 2–4 entry-point files (+ the binding invariant when one is recorded); **no task-shape landmines** (`D-26` — those fire at the edit) |
+   | Orientation `FR-A2a` | `UserPromptSubmit` | prompt tokens → FTS5 over symbols/paths; rank by (match strength × co-change hub degree × `entry_score`, all produced — AD-12/AD-13; hub degree = 1 + the file's `cochange_pairs` partner count, AD-13), and while `mining_in_progress` is set by (match strength × `entry_score`) alone, since hub degree would multiply partial pair counts (AD-13; R2-8); join `invariant_members` for one binding invariant **where a matching row exists** — in Phase A `invariants` is written only by the human channel (`note`), so on an un-annotated repo Orientation delivers entry points alone (disclosed, L10; invariant count shown in `status`) | 2–4 entry-point files (+ the binding invariant when one is recorded); **no task-shape landmines** (`D-26` — those fire at the edit) |
    | Coupling `FR-A2b` | `PostToolUse` Read/Grep/Glob | `cochange_pairs` partners of the touched file above bar | partner file(s) with **both** directional ratios — `pair_count / change_count(touched)` and `pair_count / change_count(partner)` ("17 of its last 20 changes; 17 of the partner's last 200") — + commit pointer, so the pair's one canonical key (AD-16) suppresses nothing the agent was not told (R-30 (a); B3b E-17) |
    | Reuse `FR-A2c` | `PostToolUse` Grep/Glob (a functionality search) | searched term → symbols FTS gives the **candidate set**; `symbol_refs` gives each candidate's referencing-file count; X is *canonical* when its count **dominates the runner-up** (≥ k×, tunable, stored) — **and only when every candidate in the set is evidence-comparable**: a candidate whose `symbol_refs` support is structurally absent (a language whose frontend declares `imports: false` — its count sits at 0 by construction, not by observation) marks the set incomparable and **no dominance crown is claimed** (silence — the safe direction, since dominance arithmetic alone cannot separate a structurally-uncountable true convention from a covered rival). **The discriminator is the candidate language's declared `imports` capability (AD-12), not its stored count and not ext→grammar table membership**: a candidate whose language declares `imports: false` (the generic frontend, or a grammar with no written imports query) is structurally uncounted → incomparable; so is a candidate whose language's repo-wide unresolved-import share exceeds `reuse.max_unresolved_import_share` (AD-12; its counts miss the imports that never resolved, e.g. `tsconfig` path aliases — review record 2026-09-26, CH H4); a symbol in an `imports: true` language whose count is 0 is *observed*-0 and stays comparable, so an unimported symbol is never over-silenced. (*Superseded 2026-09-26:* keying on table membership would read a tabled grammar with no imports query — 0 edges by construction — as observed zero and crown a rival, the failure this rule exists to prevent; review record 2026-09-25, G13) | The **comparative** convention fact: "of the N **symbols matching this search**, X is the one M files use; the runner-up has m" — the set is named for what it is (a lexical match set, restricted to same-kind symbols; FTS cannot certify functional substitutability, so the text never claims it), and the identifier-match heuristic's false-positive class (same-named symbols, matches in comments/strings) is stated in the whisper's evidence, as is the mixed-language caveat (`imports: false` languages have no `import_edges`, so dominance systematically favors `imports: true` candidates — L6). A bare reference count is one grep and never ships (P5); dominance over an un-enumerated alternative set is what the agent cannot cheaply self-serve. No dominant candidate → silence |
    | Consequence `FR-A2d` | `PreToolUse` Edit/Write | coupled **test files** of the target (pairs where partner ∈ `test_map`); zone flag of target | historically-coupled tests + zone flag; never a raw call-site count alone — worded as a fact about **the file this edit targets** ("`x.ts`, the file this edit targets, has historically changed with `x.test.ts` in 7 of its last 9 changes: …"), never "just edited" — the model reads it next to the tool result, on the next model request, whether the call ran, failed or was denied (V20; pending spec sign-off R-1…R-5) |
@@ -3034,42 +3289,104 @@ and nothing here depends on the new channel.
    when `stop_hook_active` is true the handler emits nothing on that channel
    (V3), making the single-cycle bound structural. The deny path is never
    wired to Stop events (AD-10's caller set).
-   **The response cap and the order of whispers (F-22; settlement (a)).** The
-   harness caps what one response can deliver: "A hook's additionalContext,
-   systemMessage, and initialUserMessage strings, and its plain stdout, are
-   capped at 10,000 characters"; over the cap it "saves the output to a file in
-   the session directory and replaces it with the file path and a preview of up
-   to the first 2,000 characters", and it "doesn't ask Claude to read the file,
-   so keep anything Claude must always see within the cap" (hooks reference,
-   `code.claude.com/docs/en/hooks.md`, fetched 2026-09-28). A whisper beyond the
-   cap would reach the model only as a file it is not asked to open, so the
-   composer's rule is: **the response's one `additionalContext` string is built
-   from whole whispers — never a cut whisper, since a cut pointer or ratio is
-   FR-D1's unverifiable claim — in rank order, highest first, and is kept within
-   10,000 characters**. The rank is the bar's own axes, with no
-   genre term (P9; `D-18`): decision-impact `i` descending, then confidence `c`
+   **The response cap and the order of whispers (F-22; settlement (a); R2-1,
+   R2-2, R2-3; round-2 review and coordinator rulings).** The harness caps what
+   one response can deliver: "A hook's additionalContext, systemMessage, and
+   initialUserMessage strings, and its plain stdout, are capped at 10,000
+   characters", measured per string. What Claude Code does with a longer one,
+   in the reference's words: "If a value exceeds 10,000 characters, Claude Code
+   writes the text to a file in the session directory and passes Claude the
+   file path with a preview of up to the first 2,000 characters instead. Claude
+   can read the file, but Claude Code doesn't ask it to." (hooks reference,
+   `code.claude.com/docs/en/hooks.md`, "Add context for Claude", fetched
+   2026-09-28 with `curl`). So over the cap the **whole** string is replaced:
+   the model is handed a file path and the string's first 2,000 characters,
+   and every whisper past those 2,000 characters reaches it only inside a file
+   it is not asked to open.
+   **The composer's rule:** the response's one `additionalContext` string is
+   built from **whole whispers** — never a cut whisper, since a cut pointer or
+   ratio is FR-D1's unverifiable claim — and holds **every whisper that clears
+   the bar at the event, in rank order, highest first**. When they fit within
+   10,000 characters the model reads all of them. **When they do not, the
+   composer still delivers every one of them, whole, in rank order, in that one
+   response, and records `response_over_cap` with the response's length**
+   (`{event, whispers, chars}`, AD-17); Claude Code then substitutes the file
+   and the 2,000-character preview quoted above. This is the interim rule until
+   Max Cogar decides `OL-C1`'s over-cap question (below; coordinator ruling on
+   R2-1), and it is the one the written decisions already fix: AC-3, "Two
+   candidates meeting the bar at one event are both delivered", and `OL-C1`, "a
+   malfunction is surfaced by diagnostics, never by suppressing whispers" —
+   sending everything holds nothing back, and the substitution is recorded
+   rather than hidden. Whether a whisper the model receives only inside that
+   file counts as "delivered" is a question about AC-3's text, so **AC-3's
+   over-cap case is pending spec sign-off beside R-1…R-5** (Max Cogar, under
+   M38). A single whisper longer than the cap (a long name, AD-12) is the same
+   case and is sent whole the same way. Every response, over the cap or not,
+   records its composed length in `session_log.detail_json`, so the exit data
+   show how often the case arises; no measurement of response length exists
+   yet, and no volume term exists to keep a response under the cap (AD-14).
+   **Pending owner decision (`OL-C1`): what the oracle does when the cleared
+   whispers exceed the cap.** Facts for the decision: over 10,000 characters
+   Claude Code replaces the whole string with a file path and a preview of its
+   first 2,000 characters and does not ask the model to read the file. The
+   options are: **send all** (the interim rule above — nothing is held back,
+   and the model sees the preview and the path, with the rest in the file);
+   **withhold** (send the whole whispers that fit within 10,000 characters, in
+   rank order, and hold the rest back, each time recorded); or **defer to the
+   next event** (send the whole whispers that fit now, and the rest at the
+   consumer's next event). Withholding and deferring each make a limit decide
+   whether or when a cleared whisper speaks, which `OL-C1` ("at no point should
+   an arbitrary limit influence how that operates") makes Max Cogar's call, not
+   this document's; the plain-language question goes to him through
+   `docs/STATUS.md`, not from here. The rank below is the order all three
+   options follow. R-20's name bound (AD-12) waits on this decision.
+   **The rank.** Decision-impact `i` descending, then confidence `c`
    descending (a hazard's stated confidence, AD-14), then the generator's own
    order (Orientation's entry-point rank, Completeness's first-edit order,
    AD-15), then subject key. At `Stop` the outstanding-question line
    (`FR-B4`, AC-8a) is placed before every whisper: it is not a bar candidate,
    and it is the delivery of the owner-confirmed block's backstop (`OL-C3`).
    The rank orders the response; it never decides whether a whisper speaks
-   (the bar does, AD-14; `OL-C1`). When the cleared whispers fit, which is
-   every case the rule can decide alone, the response is all of them in that
-   order. **When the whispers that clear the bar at
-   one event do not all fit, withholding is pending owner decision (`OL-C1`):**
-   meeting the cap then needs some cleared whisper not to be delivered in that
-   response, which is a limit influencing whether the oracle speaks, and
-   `OL-C1` ("at no point should an arbitrary limit influence how that
-   operates") makes that Max Cogar's call, not this document's. No volume term
-   exists to keep a response under the cap (AD-14), and no measurement of
-   response length exists yet. Whatever that decision, every response records its
-   composed length in `session_log.detail_json`, and a response whose cleared
-   whispers do not all fit records `response_over_cap`
-   (`{event, whispers, chars}`, AD-17), so the exit data show how often the case
-   arises. *(Added 2026-09-28, F-22: no decision said how a response that could
-   exceed the cap is kept within it; the review found the cap while settling
-   (a), and neither this document nor the spec named it.)*
+   (the bar does, AD-14; `OL-C1`). *Its job:* under the interim rule it decides
+   which whispers fall inside the 2,000-character preview the model is shown,
+   and under withholding or deferral it would decide which are held back, so
+   it is a load-bearing decision, not a formatting choice. *Its backing, step by
+   step (R2-3):* (1) the only per-candidate measures of worth the spec defines
+   are the bar's three axes (§5.2, `FR-A5`: confidence, decision-impact,
+   marginal value), so the rank is built from them, with no genre term, since
+   `D-18` fixes "Equal genre base weight" and `FR-A5` gives decision-impact
+   "no genre term" (`P9`); (2) marginal value cannot order, because every Phase
+   A `m` is a pass or a fail by fact class (AD-14), so every cleared whisper
+   holds the same value; (3) impact comes before confidence because the mission
+   ranks a fact by what it does to the decision ("Deliver the fact that would
+   change the agent's next decision", `CLAUDE.md`), which is what `FR-A5`'s
+   decision-impact measures ("materially consequential to the code being
+   touched"), while confidence says whether the evidence is real, and every
+   cleared non-hazard whisper already has evidence above its floor; confidence
+   first would also put every uncertain hazard — spoken below the confidence
+   floor by `FR-A5a` and `OL-C4` — after every sure fact, so a flagged Warning
+   would fall past the preview whenever the response overflows, the uncertain
+   warning `OL-C4` chose to voice; (4) the order is lexicographic, not a
+   combined score, because `i` is an ordinal (AD-14) and a product or sum of an
+   ordinal with a ratio has no meaning (an ordinal scale supports order
+   comparisons only — Stevens, "On the Theory of Scales of Measurement",
+   *Science* 103, 1946), and a combined score would let high confidence outrank
+   a higher impact, the laundering `FR-A5` rules out for the bar ("None
+   laundered by another being high"); (5) generator order and subject key only
+   break ties, so the order is total and deterministic, which the replay
+   fixtures need. *Alternatives weighed:* confidence first (rejected at 3); a
+   combined score (rejected at 4); a genre order (forbidden by `D-18`); the
+   order candidates are generated in (it carries no worth, and would make the
+   pipeline's genre sequence decide). No spec or ledger line orders whispers,
+   so this is the agents' engineering decision (`OL-11`), backed by the
+   derivation above, not by a spec line. *(Added 2026-09-28, F-22: no decision
+   said how a response that could exceed the cap is kept within it; the review
+   found the cap while settling (a), and neither this document nor the spec
+   named it. Corrected 2026-09-28, R2-1–R2-3: the rule said the response "is
+   kept within 10,000 characters" while saying withholding was pending, two
+   rules that contradict each other; it left the over-cap behaviour unstated, said a whisper past the
+   cap reached the model "only as a file" when the whole string is replaced,
+   named one option where three exist, and gave the rank no reason.)*
 2. **Standard.** `FR-A4`, `FR-D5`, `FR-O6`, `FR-B4`, `D-20` governing; V3/V5 are
    the verified channel facts.
 3. **Why here.** Dedup state is exactly the state that must survive process
@@ -3082,6 +3399,8 @@ and nothing here depends on the new channel.
    `decision:"block"` at Stop for delivery (surfaced as an error — V3; the
    spec chose `additionalContext`, `FR-B4`). Not re-delivery suppression by
    time window (a cap in disguise; the bar and the sets are the only filters).
+   Not withholding or deferring cleared whispers over the cap (pending
+   `OL-C1`, above).
 5. **Premise verification.** V3, V5, V22 (no parent session in `SessionStart`
    input; injected text saved in the transcript — the documented field list,
    fetched 2026-09-26, not an observed fork payload); the consumer-key,
@@ -3095,8 +3414,10 @@ and nothing here depends on the new channel.
    the subject-key direction and the delivered-set
    recovery from `docs/reviews/2026-09-26-architecture-pass-collapse-hunt.md`
    (H2, H3) and `docs/reviews/2026-09-26-architecture-pass-expert-review.md`
-   (M8); the 10,000-character cap read in the hooks reference, fetched
-   2026-09-28 (F-22), with the canonical Coupling key verified at build by the
+   (M8); the 10,000-character cap and the over-cap substitution read in the
+   hooks reference, fetched 2026-09-28 with `curl` (F-22; R2-1, R2-2: both the
+   "Over the limit" bullet and the "Add context for Claude" sentence quoted
+   above), the rank's derivation from spec §5.2, `D-18` and `OL-C4` (R2-3), with the canonical Coupling key verified at build by the
    `coupling-key-symmetry` fixture (AD-24: Read of A, then Read of B, delivers
    the A–B Coupling fact once, with both ratios); `FR-A4`, `FR-B4`, `D-20` read at spec
    §5.1/§8/§12. Addresses: `FR-A4`, `FR-D5`, `FR-O6`, `FR-B4`, AC-4, AC-5,
@@ -3183,8 +3504,16 @@ and nothing here depends on the new channel.
      — AD-13), `miner_stream_incomplete` (a pass that did not mine every commit
      it fed, so the watermark stayed — AD-13), `head_unresolved` (a `HEAD` that
      resolves through neither a loose ref nor `packed-refs`, recorded on the
-     transition — AD-23), `response_over_cap` (a response whose cleared whispers
-     do not all fit the harness's 10,000-character cap — AD-16) (F-8, F-19, F-22),
+     transition — AD-23), `response_over_cap` (a response whose cleared
+     whispers, all sent whole, exceed the harness's 10,000-character cap, so
+     Claude Code passes the model a file path and a 2,000-character preview
+     instead; `{event, whispers, chars}` — AD-16; R2-1), `reindex_lock_replaced`
+     (a reindex claimant refused because `reindex.lock` no longer named the file
+     it locked, or the project store was gone, `{before: {dev, ino} | null,
+     after: {dev, ino} | null, storeMissing}` — AD-26; R2-13),
+     `store_migration_failed` (a forward migration from a known older
+     fingerprint that found a human-provenance column with no target and changed
+     nothing, `{fingerprint, migration, table, column}` — AD-4; R2-7) (F-8, F-19, F-22),
      and two reserved codes whose detectors
      belong to later phases — `model_path_down` (Phase B; Phase A has no model
      path and `status` says so) and `missed_skill_block` (Phase C, `FR-C4`) —
@@ -3212,8 +3541,10 @@ and nothing here depends on the new channel.
      bypass-suspect signals, active suppressing conditions (store corrupt,
      layout changed, FTS fallback, an active `tuning_invalid` — every event
      silent until it is fixed, with the fixing command, AD-14 — a refused store
-     schema, a pending migration or data step with the command that finishes
-     it (AD-4, F-3), and `mining_in_progress` — whose
+     schema, a failed forward migration (refused the same way, with the
+     `export-human` route, AD-4; R2-7), a pending migration or data step with
+     the command that finishes it (AD-4, F-3), an unresolved `HEAD` while
+     `head_unresolved_since` is set (AD-23; R2-12), and `mining_in_progress` — whose
      suppressed events are counted), and correct-silence announcements (`FR-M3`:
      "observed N events, spoke at M — the silence was the bar working", rendered
      **only** here, never into the agent's context, `D-22`), from which the
@@ -3247,6 +3578,8 @@ and nothing here depends on the new channel.
    and Flaw 3 for the two reconcile outcomes); the codes F-8 found unnamed or
    dropped, `head_unresolved` (F-19; RC-27), `response_over_cap` (F-22), the
    pending-store condition (F-3) and the horizon (F-14) from the correction
+   review; `reindex_lock_replaced` (R2-13), `store_migration_failed` (R2-7) and
+   the over-cap delivery `response_over_cap` records (R2-1) from the round-2
    review.
    Addresses: `FR-M1`–`FR-M5`, `FR-X6`, AC-9.
 
@@ -3608,7 +3941,16 @@ and nothing here depends on the new channel.
    outcome), never read as fresh, and the fault `head_unresolved` is recorded on
    the transition only (`schema_meta.head_unresolved_since`, cleared when a later
    resolution succeeds; not `index_stale`) (F-19; RC-27: B5 verification item
-   10, B8b E-14).
+   10, B8b E-14). **An unresolved `HEAD` is no ground for a spawn** (R2-12):
+   "`index_head` or the mined tip differs from `HEAD`" cannot be evaluated
+   without a `HEAD`, and in a reftable repository no file read ever resolves
+   one, so a spawn on that ground would start a reindex on every `SessionStart`
+   that could never clear the condition. The other spawn grounds below (the
+   pass markers, a pending store) still apply; the dampening stays;
+   `head_unresolved` stays among `status`'s active conditions, saying that the
+   event path cannot read this repository's refs and that `ctxoracle index`,
+   which resolves `HEAD` through `git` off the event path, refreshes the index
+   and the history when run by hand.
    Then one indexed `global_meta` lookup of that
    root's `init`-recorded binding (AD-20), in the global store **opened
    read-only**: `node:sqlite` opened read-write creates a missing file, and its
@@ -3640,7 +3982,8 @@ and nothing here depends on the new channel.
    (the staleness check's `HEAD` read — the bounded file reads above, not a
    subprocess — and the detached reindex/`quick_check` spawns,
    fire-and-forget, never awaited; the reindex is spawned when `index_head` or
-   the mined tip differs from `HEAD`, when `mining_in_progress`,
+   the mined tip differs from a resolved `HEAD` (never on this ground when
+   `HEAD` is unresolved, above; R2-12), when `mining_in_progress`,
    `history_reset_pending` or `reweight_pending` is set, and when the schema
    check finds the store pending (AD-4), so an unfinished pass or an upgrade
    never waits for the owner's own CLI use — F-3; the pending-store spawn is
@@ -3797,18 +4140,35 @@ and nothing here depends on the new channel.
      fold and its replace-publish, AD-5) and to an import of an older export
      leaving the global counts equal to the imported store's own totals;
      **store upgrade and re-weight cases** (the correction review's fixes,
-     F-1–F-6, F-16, F-22): a `'fallback'` store opens clean on the hook path and
+     F-1–F-6, F-16, F-22, and the round-2 review's, R2-1–R2-12): a `'fallback'` store opens clean on the hook path and
      on a CLI open; a pending store's `SessionStart` spawns the index child,
-     whose migration transaction holds the lock below 150 ms on a store at the
-     horizon's seeds and whose chunked reset resumes after a kill; an invalid
+     and so does its `UserPromptSubmit` in a session already running when the
+     build is upgraded, a second child exiting `reindex_locked` (R2-8); the
+     child's migration transaction holds the lock below 150 ms on a store at the
+     horizon's seeds and its chunked reset resumes after a kill; a
+     pre-checksum store takes the fingerprint branch and ends with the current
+     checksums, `history_reset_pending = 1` and `mining_in_progress = 1`, and
+     one whose forward migration finds a human column with no target records
+     `store_migration_failed`, is refused on every later open and is not
+     spawned for again (R2-7); a second CLI open during a chunked forward
+     migration reports it and exits without touching the store (R2-10); an
+     unresolved `HEAD` spawns no reindex on the staleness ground (R2-12); an invalid
      stored tuning row makes a `PreToolUse` with an open question emit neither a
      deny nor a whisper and records `tuning_invalid` (AC-10); after a pass whose
      `refTs` rose past a capped commit's cap, and after one that changed `h`,
      every weight equals a fresh mine's within the stated tolerance, including
      when the pass was killed mid-re-weight and the retry ran at another
-     `refTs`; a response whose cleared whispers fit is at most 10,000 characters
-     with its whispers in rank order, and one whose cleared whispers exceed it
-     records `response_over_cap` (its delivery pending `OL-C1`, AD-16); AC-1a's fixture covers **both entry-point shapes**
+     `refTs`; after an epoch move, the rescaled store's every weight equals a
+     fresh mine's at the new epoch within the same tolerance, including when
+     the rescale was killed part-way and the retry moved to a third epoch
+     (R2-5); after `miner.max_transaction_entities` is lowered and then raised,
+     and after `lexicon.fix_keywords` gains a word, every count, label and
+     landmine equals a fresh mine's (R2-6); a crashed pass's `'all'` marker
+     survives a later floor and a floor becomes `'all'` (R2-11); a response
+     whose cleared whispers fit is at most 10,000 characters with its whispers
+     in rank order, and one whose cleared whispers exceed it holds every one of
+     them, whole and in rank order, and records `response_over_cap` with its
+     length (the interim rule pending `OL-C1`, AD-16; R2-1); AC-1a's fixture covers **both entry-point shapes**
      (a low-in-degree `main`/`cli` file carried by path markers, and a
      high-in-degree hub). Two **build-time verifications** are named here
      because fixtures cannot settle them from inside this container: marker
@@ -3847,9 +4207,11 @@ and nothing here depends on the new channel.
    repo — both work in a cold container over the harness's own network access.
    Build: `tsc` only. Migrations are forward-only and fixed once applied, each
    recorded by checksum and checked on every open (AD-4's schema check); the
-   pre-checksum fingerprints and the generic frontend's prose/data seed are
-   committed source files generated once by a script and pinned by tests, so
-   the build reads no `git log` and fetches nothing (AD-4, AD-12; F-17, F-10).
+   pre-checksum fingerprints and the generic frontend's prose seed are
+   committed source files generated once by a script and pinned by tests, the
+   seed's two pinned Linguist source files committed beside its generator with
+   their MIT notice and sha256, so the build reads no `git log` and fetches
+   nothing (AD-4, AD-12; F-17, F-10, R2-4).
    **Vendored grammar WASMs are allowed, under provenance and checksum rules**,
    because two shipped grammars are unusable (AD-12) and neither replacement
    can be an npm dependency: `@tree-sitter-grammars/tree-sitter-lua` 0.4.1
@@ -3940,8 +4302,19 @@ and nothing here depends on the new channel.
    (`projects/<repo-key>/`, AD-3), left in the default rollback-journal mode,
    because `EXCLUSIVE` excludes other connections' reads only outside WAL
    ("EXCLUSIVE and IMMEDIATE are the same in WAL mode", `sqlite.org`). Its
-   holders are `runIndex`, the miner run by the `index` verb, and the detached
-   reindex spawned from `SessionStart`: each stats the path (`dev`, `ino`),
+   holders are `runIndex`, the miner run by the `index` verb, the detached
+   reindex spawned from `SessionStart`, the pending-store child spawned from
+   `SessionStart` or `UserPromptSubmit` (AD-4; R2-8), and a CLI open running a
+   chunked forward migration (AD-4; R2-10), each taking it once per process
+   and keeping it across the migration and, for `index`, the pass that follows:
+   each stats the path (`dev`, `ino`) — if the stat finds no file (`ENOENT`,
+   the first claimant after `init`, since `node:sqlite` creates the file on
+   open), it opens the path through `node:sqlite`, which creates the file,
+   closes it, and starts again from the stat; if the project directory itself
+   is gone, that open fails and the claimant refuses as below (R2-9; executed
+   on Node 22.22.2, 2026-09-28: an open under a missing directory threw
+   `unable to open database file`, and an open and close of a new path left a
+   0-byte file) — then
    opens it with the stores' `busy_timeout` 100 ms, runs `BEGIN EXCLUSIVE`, and
    keeps that transaction open, writing nothing, until the pass ends; a
    `finally` runs `ROLLBACK` and closes it, and `SQLITE_BUSY` from `BEGIN
@@ -3957,8 +4330,10 @@ and nothing here depends on the new channel.
    names** (F-23): it stats the path again and proceeds only when it still names
    the same `(dev, ino)` as before the open, and then opens the project store
    with `mustExist`; if either fails it runs `ROLLBACK`, closes, and refuses
-   (`{refused: 'reindex_lock_replaced'}`, recorded as `reindex_locked` with that
-   reason). *Why:* `deinit --purge` deletes the directory, `reindex.lock` included, while
+   (`{refused: 'reindex_lock_replaced'}`, recorded as its own fault
+   `reindex_lock_replaced` with the two identities and whether the store was
+   missing — AD-17; a replaced file has no holder to name, so it is not given
+   `reindex_locked`'s holder shape, R2-13). *Why:* `deinit --purge` deletes the directory, `reindex.lock` included, while
    holding the lock, and a claimant already waiting in `BEGIN EXCLUSIVE` holds an open
    descriptor to the file being unlinked; once `deinit` exits that claimant
    acquires the lock on the deleted file while a later claimant creates and
@@ -3969,10 +4344,29 @@ and nothing here depends on the new channel.
    `close`, `prepare`, `exec`, `function`, `location`, `aggregate`,
    `createSession`, `applyChangeset`, `enableLoadExtension`, `loadExtension` —
    executed 2026-09-28). The file a waiter holds open cannot have its inode
-   number reused while it is open, so a replacement always differs from it; the
-   residual is a replacement between the claimant's first stat and its open
-   that later reuses that stat's inode number, which needs two unlink-and-create
-   cycles inside that window, each made only by a `deinit` holding the lock.
+   number reused while it is open, so a replacement always differs from it.
+   *The residual, stated exactly (R2-9):* let the pre-open stat see file Z and
+   the open get file X — Z unlinked and X created at the path between the stat
+   and the open, which frees Z's inode number. The check then passes wrongly
+   only if the path later names a third file Y whose inode number equals Z's;
+   X stays open, so Y is not X, and Y may be created at any time up to the
+   post-acquire stat, including while the claimant waits in `BEGIN EXCLUSIVE`.
+   So only the first replacement must fall inside the stat–open window; the
+   second may fall anywhere before the post-acquire stat. Each unlink is made
+   only by a `deinit --purge` holding the lock, and the second also needs the
+   file system to hand Z's freed inode number to Y.
+   *The alternative not chosen:* a lock file that is never unlinked — kept
+   outside the purged directory (for example `~/.ctxoracle/locks/<repo-key>.lock`)
+   — removes the residual and the identity check with it, because the path
+   would always name one file. It is not chosen because `deinit --purge`
+   removes the project's whole directory so that nothing of a purged project
+   is left behind (AD-20), and a lock kept outside it would outlive every purge,
+   one file per repository ever initialised; against that, the residual needs
+   two purges racing one waiting claimant, an `init` recreating the store
+   before its post-acquire check (which opens the store with `mustExist`), and
+   an inode number reused inside that interval. What it costs if it happens is
+   stated, not minimised: two passes on one store at once, the double writer
+   the claim exists to prevent.
    Immediately after the check, the holder commits
    `schema_meta.reindex_owner_pid` and `reindex_started_at` in the project store
    (one transaction) and deletes both in its `finally` before releasing the
@@ -4056,9 +4450,10 @@ and nothing here depends on the new channel.
      in `Store.transaction` as written here (Flaw 1, settlements' review).
    - *A mining or index pass.* It commits in bounded chunks. `git log` is
      streamed and aggregated outside any transaction; each chunk is one
-     transaction that writes its rows — for the miner, its evictions or its
-     commits with their `commit_touches` and weights, `change_count`
-     increments, pairs, and `labelled_touches` (AD-13) — and nothing to the
+     transaction that writes its rows — for the miner, its rescaled rows, its
+     re-weighted or re-classified commits, its evictions or its commits with
+     their `commit_touches` and weights, `change_count` increments, pairs, and
+     `labelled_touches` (AD-13) — and nothing to the
      watermark, which only the final transaction writes. **Elapsed time is
      checked before each write**, and a chunk commits once it has spent
      `miner.chunk_ms` (tuning, AD-5; seed 50 ms, illustrative) writing, so a
@@ -4082,7 +4477,8 @@ and nothing here depends on the new channel.
    - *A mining pass whose evictions and additions take more than one write
      transaction* runs with `schema_meta.mining_in_progress = 1`, set in its
      first transaction (for a re-weight, the one that writes
-     `reweight_pending`; for 003's reset, the migration's own, AD-13) and
+     `reweight_pending`; for an epoch rescale or a re-classification, its first
+     chunk, R2-5, R2-6; for 003's reset, the migration's own, AD-13) and
      cleared in its final one; the history genres produce no candidates while
      it is set (AD-13), so no reader sees partial counts, and `status` lists the
      condition (AD-17).
@@ -4672,7 +5068,7 @@ criterion is pinned there and its mechanism lives in the named decisions.)
 | POSIX.1-2024 `fcntl`, `_Exit` and signal termination (`pubs.opengroup.org`) | AD-26 | the reindex lock released with its holder process |
 | Flyway `validate` (`documentation/command/validate.md`) | AD-4, AD-5 | per-migration checksums checked on every open |
 | Shore, "Fail Fast", IEEE Software 2004 | AD-4, AD-13, AD-14 | refusal without data loss; input validation before any write; no seed substitution for an invalid stored value |
-| GitHub Linguist `vendor.yml`, `languages.yml`, `heuristics.yml` and `generated.rb` (fetched 2026-09-28, `main` at `d0921d1`, and in B8a) | AD-12 | any-depth `dist/`/`vendor(s)/`/`node_modules/`; the prose/data deny-list seed and its rule for shared extensions; the lockfile names |
+| GitHub Linguist `vendor.yml`, `languages.yml`, `heuristics.yml` and `generated.rb` (fetched 2026-09-28, `main` at `d0921d1`, and in B8a) | AD-12 | any-depth `dist/`/`vendor(s)/`/`node_modules/`; which languages are `prose` (the deny-list seed, its rule for shared extensions and its longer-extension exceptions — the type used as a published list, not as a judgement of what declares names; `docs/how-linguist-works.md` and `docs/overrides.md` for what the type is, R2-4); the lockfile names |
 | Node.js v22 `modules` (CommonJS `LOAD_AS_FILE`) and Vite `resolve.extensions`; TypeScript 5.9.3 `--traceResolution` | AD-12 | the TS/JS resolver's written-path-first rule, `.json` last, source before the written `.js` |
 | C11 (N1570) §7.22.3 and the tree-sitter external-scanner contract | AD-12, AD-25 | the grammar usability rule and the Lua/Swift cause |
 
