@@ -1,0 +1,6 @@
+Z1: 26 transactions in the recompute pass; killed after 1..25, tuned back to 365: max relative ratio error vs a fresh mine 6.115e-16; with no tune back (h 20): 6.340e-16
+F5-6: older tip past the bound true; recompute killed after 13 of 26; next pass at the newer tip inside the old bound true; max relative ratio error vs a fresh mine 3.459e-16
+R8-7: a recompute (h 365 -> 30) and a mine of 61 commits in one pass of 28 transactions, killed after 1..27 or not: max relative ratio error vs a fresh mine 6.073e-16
+REP: 20 passes each killed after 5 transactions: 20 killed; after them recompute_pending 1, mining_in_progress 1, mined_half_life_days 365; one uninterrupted pass: max relative ratio error 5.185e-16
+
+105 checks passed, 0 failed

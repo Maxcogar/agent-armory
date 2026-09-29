@@ -1,0 +1,11 @@
+== store A: 6 legacy files
+file:///tmp/claude-0/-home-user-agent-armory/779c0f74-86b0-5e8f-b02d-811e78ed3f66/scratchpad/archr9/crash/rec/r8/test-rebuild.mjs:121
+  const pRep = JSON.parse(np.prepare("SELECT detail_json FROM faults WHERE code = 'store_rebuilt'").get().detail_json);
+                                                                                                         ^
+
+TypeError: Cannot read properties of undefined (reading 'detail_json')
+    at contentChecks (file:///tmp/claude-0/-home-user-agent-armory/779c0f74-86b0-5e8f-b02d-811e78ed3f66/scratchpad/archr9/crash/rec/r8/test-rebuild.mjs:121:106)
+    at file:///tmp/claude-0/-home-user-agent-armory/779c0f74-86b0-5e8f-b02d-811e78ed3f66/scratchpad/archr9/crash/rec/r8/test-rebuild.mjs:214:15
+
+Node.js v22.22.2
+exit 1

@@ -1,0 +1,1 @@
+bench: commits 10000, commit_touches 80607, files 2000, pairs 549213; one full recompute 25.8 s in 282 transactions (longest hold 99.9 ms; 8.4 s of it in 30 ms gaps)

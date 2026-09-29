@@ -1,0 +1,8 @@
+K1 first mine (h 365, refTs unchanged) killed after 4 transactions: killed; store {"commits":200,"mined_half_life_days":"absent","weight_epoch":"absent"}
+K1 then 20 passes, each killed after 1 transactions: commits after each [200,200,200,200,200,200,200,200,200,200,200,200,200,200,200,200,200,200,200,200]; store {"commits":200,"recompute_pending":1,"mined_half_life_days":"absent"}; an uninterrupted first mine needs C = 9 transactions
+K1 one uninterrupted pass then: 23 transactions, commits 400, max relative ratio error vs a fresh mine 4.572e-16
+K1 first mine (h 365, refTs unchanged) killed after 4 transactions: killed; store {"commits":200,"mined_half_life_days":"absent","weight_epoch":"absent"}
+K1 then 20 passes, each killed after 5 transactions: commits after each [200,200,200,200,200,200,200,200,200,200,200,200,200,200,200,200,200,200,200,200]; store {"commits":200,"recompute_pending":1,"mined_half_life_days":"absent"}; an uninterrupted first mine needs C = 9 transactions
+K1 one uninterrupted pass then: 23 transactions, commits 400, max relative ratio error vs a fresh mine 4.572e-16
+K2 lexicon.fix_keywords tuned (digest old -> new), a reconcile with D = S of 400 commits in chunks of 50 (an uninterrupted pass: 17 transactions); 30 passes each killed after 10: commits at the new values after each [100,400,100,400,100,400,100,400,100,400,100,400,100,400,100,400,100,400,100,400,100,400,100,400,100,400,100,400,100,400]; digest old
+K2 one uninterrupted pass then: 17 transactions, digest new
