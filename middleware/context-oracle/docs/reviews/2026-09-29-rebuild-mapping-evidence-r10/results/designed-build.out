@@ -1,0 +1,5 @@
+210c210
+<     if (!(halfLife >= 37)) {
+---
+>     if (!(halfLife >= 365.25 * v('miner.horizon_years') / 1022)) {
+exit 0

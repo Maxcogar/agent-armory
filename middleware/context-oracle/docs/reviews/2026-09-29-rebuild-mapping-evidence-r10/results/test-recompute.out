@@ -1,0 +1,26 @@
+Z1: 25 transactions in the recompute pass; killed after 1..24, tuned back to 365 (superseded, recorded; after 24, the recompute's last transaction, a new recompute): max relative ratio error vs a fresh mine 6.115e-16; with no tune back (resumed, h 20): 8.372e-15
+Z1r: 200 random orders of 1-4 tunes of h (365, 20, 50), each pass killed after 1-30 transactions or not, then one pass: max relative ratio error 8.372e-15; recompute_superseded 80, mining_resumed 210 records
+F5-6: older tip past the bound true; recompute killed after 12 of 25; next pass at the newer tip inside the old and the recompute's bound true; resumed, epoch the recompute's; max relative ratio error vs a fresh mine 5.428e-14
+R8-7: a recompute (h 365 -> 30) and a mine of 61 commits in one pass of 27 transactions, killed after 1..26 or not, then a pass one day later: max relative ratio error vs a fresh mine (the future-dated commit capped where it was mined) 3.751e-15
+K1: first mine killed after 4 of C = 9 transactions: commits 200, mined_half_life_days 365, weight_epoch 1790000000; then every pass killed after 1: complete after 5 more passes (6 in all); recompute_pending never set true; records ["mining_resumed","mining_resumed","mining_resumed","mining_resumed","mining_resumed"]; error 0.000e+0
+K1: first mine killed after 4 of C = 9 transactions: commits 200, mined_half_life_days 365, weight_epoch 1790000000; then every pass killed after 5: complete after 1 more passes (2 in all); recompute_pending never set true; records ["mining_resumed"]; error 0.000e+0
+K1 killed after k, then one pass (k: commits kept + the next pass's transactions): 1:50+8 2:100+7 3:150+6 4:200+5 5:250+4 6:300+3 7:350+2 8:400+1
+KR: recompute pass of C = 25 transactions; every pass killed after 1: complete after 25 passes; mining_resumed records 24, last {interrupted: 24}; epoch the first pass's true; error 8.169e-15
+KR: recompute pass of C = 25 transactions; every pass killed after 5: complete after 5 passes; mining_resumed records 4, last {interrupted: 4}; epoch the first pass's true; error 8.139e-15
+K2: L0 -> L1, a reconcile with D = S of 400 commits in chunks of 50 (an uninterrupted pass: C = 17 transactions); passes each killed after 10: commits at L1 after each [100,"completed"]; digest L1; commits by digest L1:400; error 0.000e+0
+K2: L0 -> L1, a reconcile with D = S of 400 commits in chunks of 50 (an uninterrupted pass: C = 17 transactions); passes each killed after 1: commits at L1 after each [0,0,0,0,0,0,0,0,50,100,150,200,250,300,350,400,"completed"]; digest L1; commits by digest L1:400; error 0.000e+0
+K2 tune back during the eviction: after the kill 250 commits, digest L0; after a pass at L0: digest L0, L0:400, error 7.197e-16. Second tune during the mine: after the kill digest L1, L1:100; after a pass at L2: digest L2, L2:400, error 0.000e+0
+K10-RM: a recompute (h 365 -> 20) and a mine of 100 new commits on 20 new files in one pass, C = 28; killed after K, then one pass: transactions differ from C - K for 0 of 27 values of K ; max relative ratio error 4.765e-16
+K10-RM every pass killed after 1: complete after 28 passes (C = 28); weight_epoch the recompute's true; records ["mining_resumed"]; error 4.765e-16
+K10-RM every pass killed after 2: complete after 14 passes (C = 28); weight_epoch the recompute's true; records ["mining_resumed"]; error 4.765e-16
+K10-RM every pass killed after 3: complete after 10 passes (C = 28); weight_epoch the recompute's true; records ["mining_resumed"]; error 4.765e-16
+T3 first mine killed after 4, h tuned 365 -> 50, every pass killed after 1: complete after 22 passes (C = 22); commits 400; error 3.351e-16
+T3 first mine killed after 4, h tuned 365 -> 50, every pass killed after 5: complete after 5 passes (C = 22); commits 400; error 3.351e-16
+RW: recompute pass of 25 transactions killed after 1..24, commits' and pairs' rowids reversed, then the next pass: max relative ratio error 8.372e-15
+MV mined_half_life_days deleted: pass completed; mined_with_missing [["mined_half_life_days"]]; weight_epoch this pass's (a recompute); error 4.769e-16
+MV weight_epoch deleted: pass completed; mined_with_missing [["weight_epoch"]]; weight_epoch this pass's (a recompute); error 4.769e-16
+MV mined_fix_lexicon_digest deleted: pass completed; mined_with_missing [["mined_fix_lexicon_digest"]]; weight_epoch the first mine's; error 6.414e-16
+BS: killed true; pending epoch T0 true; the older tip past its bound true; next pass completed; recompute_superseded [{"from":"T0","to":"OLDER"}]; error 3.405e-16
+
+375 checks passed, 0 failed
+exit 0

@@ -1,0 +1,4 @@
+mined_half_life_days deleted: pass completed in 19 transactions; commits with a NULL or NaN weight 0; weight_epoch now 1790864000; records ["mined_with_missing"]; max relative ratio error vs a fresh mine 4.769e-16
+weight_epoch deleted: pass completed in 19 transactions; commits with a NULL or NaN weight 0; weight_epoch now 1790864000; records ["mined_with_missing"]; max relative ratio error vs a fresh mine 4.769e-16
+mined_fix_lexicon_digest deleted: pass completed in 10 transactions; commits with a NULL or NaN weight 0; weight_epoch now 1790000000; records ["mined_with_missing"]; max relative ratio error vs a fresh mine 6.414e-16
+exit 0
