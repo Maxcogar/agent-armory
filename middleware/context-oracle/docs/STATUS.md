@@ -38,8 +38,17 @@ every Phase A decision against this goal (`CLAUDE.md` dominating rule 3).
 - Also recorded: the coordinator rulings and hook tests of 2026-09-28,
   `docs/reviews/2026-09-28-branch-audit-*`.
 
-**Step 2 has not started.** The spec, the architecture, the plan and the code
-are as they stood when the audit finished (`c00819e`).
+**The whole spec was audited too (2026-09-29).**
+- What: all 1,142 lines, split into 269 units.
+- How: each part had a first audit, a second opinion and an adjudication,
+  verified by the coordinator.
+- Result: 146 lines stand, 106 need changing, 2 are removed and 8 cannot be
+  settled until Max Cogar answers or a measurement is made.
+- Record: `docs/reviews/2026-09-29-spec-audit-verification.md`, which also
+  records two errors (one the coordinator's own) and reconciles the three parts.
+
+**Step 2, the corrections, has not started.** The spec, architecture, plan and
+code are as they stood when the branch audit finished (`c00819e`).
 
 **A post-audit correction attempt was removed.**
 - Commits `630d4b5` … `2c201a0` held a correction register, gap settlements, an
@@ -59,43 +68,48 @@ as Max Cogar asked.
 
 ## What to do next
 
-1. **The spec comes first, and it waits on Max Cogar's answer to question 1**
-   (whether to audit the whole spec).
-   - The architecture is derived from the spec, and the plan from both. So
-     neither is corrected until the spec they rest on is settled: correcting
-     them on a spec that may still change is work that may have to be redone.
-   - If the whole spec is audited, run that audit the same way as the branch
-     audit.
-   - Then correct the spec with Max Cogar's sign-off on every changed line:
-     the audit's spec findings, the edit-warning wording (question 3), and
-     anything the whole-spec audit finds.
-2. **Then correct the architecture, then the plan, once each, from the audit
-   verifications** (the defect and correction lists in each
-   `…-B<n>-verification.md`):
+1. **Wait for Max Cogar's answers** to the questions below. Nothing moves until
+   then.
+2. **Correct the spec**, with his sign-off on every changed line:
+   - the spec audit's 106 replacements and 2 removals, as the adjudications and
+     the verification's reconciliation write them;
+   - the lines his answers settle.
+3. **Then correct the architecture, then the plan, once each**, from the branch
+   audit verifications and the corrected spec:
    - fix each defect at its root cause with a correct design;
    - never answer a requirement with a narrowed claim, a stated limitation, a
      fallback or an exclusion;
-   - judge every review finding on its merits against the design and its
-     sources, never apply one because a rule says to;
-   - check every plan step's dependencies together.
-3. **Then rebuild the code from the corrected plan.**
+   - judge every review finding on its merits, never apply one because a rule
+     says to.
+4. **Then rebuild the code.**
 
 ## Questions for Max Cogar (plain language)
 
-1. **Should the whole spec be audited, not just the parts this branch relied
-   on?** The spec was signed off without being read line by line, and the audit
-   found wrong spec lines (for example, when edit warnings arrive).
-2. **The repo-wide `CLAUDE.md`** (at the repository root, outside this project)
-   still says to apply *all* review findings, which you have said is wrong. It is
-   outside the project, so it stays as it is unless you say to change it.
-3. **Sign-off on the edit-warning wording in the spec.** In plain terms:
-   - The warning arrives right after the edit runs, not before it.
-   - If another hook blocks the edit, the warning still reaches the agent.
-   - If a permission rule blocks an edit to a file, Claude Code rejects it before
-     the oracle sees it.
+The spec audit's questions, with their evidence, are in
+`docs/reviews/2026-09-29-spec-audit-verification.md`.
 
-   The evidence (Claude Code 2.1.283, tested) is
-   `docs/reviews/2026-09-28-branch-audit-hook-context-permission-denial.md`.
+1. Will you check the oracle's warnings yourself (for example, with
+   `ctxoracle correct`), or should agents do all the checking?
+2. The automatic check for skipped skill steps: is that what you meant by
+   "JUST A SMALL FEATURE", or should it be smaller?
+3. Should the skill block also fire when "STEERING ISNT WORKING", as you said?
+   The spec dropped that.
+4. "A more deterministic trigger" for spotting a skill: decided only from what
+   the agent does, or also allowed to use a model limited to the skill's steps?
+5. "Sandbox compatibility is required": your own computer, Claude Code cloud
+   sessions, a computer with no internet — which of these?
+6. The oracle's memory is lost when a cloud session ends. Is that acceptable, or
+   should it be kept somewhere that survives?
+7. Should the oracle's test run use your own projects and your Claude Code
+   conversation records?
+8. Skill steps done only "in the agent's head" can't be checked. Accept that, or
+   change your skills so those steps leave a trace?
+9. One spec line puts an agent's words in your name. May it be replaced with
+   your own recorded words?
+10. The repo-wide `CLAUDE.md`, outside this project, still says to apply *all*
+    review findings. Change it to match what you decided?
+11. Sign-off on the edit-warning wording: the warning arrives with the edit's
+    result, and it survives a failed tool call (Claude Code changelog 2.1.110).
 
 ## Open items
 
