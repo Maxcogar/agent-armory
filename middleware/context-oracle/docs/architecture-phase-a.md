@@ -626,20 +626,22 @@ and nothing here depends on the new channel.
                                                  -- whisper_audit.seq and
                                                  -- corrections.seq; they live
                                                  -- beside the rows they index),
-                                                 -- mining_in_progress (1 while a
-                                                 -- mining pass whose recompute,
-                                                 -- evictions and additions take
-                                                 -- more than one write transaction
-                                                 -- runs; AD-13, AD-26),
+                                                 -- mining_in_progress (set while a
+                                                 -- mining pass's recompute,
+                                                 -- evictions or additions are
+                                                 -- unfinished; its value counts
+                                                 -- the passes that started them,
+                                                 -- AD-13, AD-26, R9-6),
                                                  -- the mined-with values
                                                  -- mined_half_life_days,
                                                  -- mined_max_transaction_entities
                                                  -- and mined_fix_lexicon_digest
                                                  -- (AD-13, M-17),
-                                                 -- recompute_pending (1 while a
+                                                 -- recompute_pending (while a
                                                  -- full recompute is started and
-                                                 -- not finished; AD-13, F5-6,
-                                                 -- R8-2),
+                                                 -- not finished: its inputs and
+                                                 -- progress {h, epoch, done};
+                                                 -- AD-13, F5-6, R9-1),
                                                  -- reindex_owner_pid and
                                                  -- reindex_started_at (information
                                                  -- for status and the refusal
@@ -987,9 +989,10 @@ and nothing here depends on the new channel.
      runs at the root the upward walk found. It derives that repository's key
      by AD-3's rule, as `init` does, because no legacy build recorded a binding
      to look up. Its binding rule is AD-4's, below, for each state of that
-     key's store: legacy, it rebuilds and binds; current, it binds only the
-     root its own rebuild bound, and records `repo_not_bound` for any other;
-     none, it records `repo_not_bound` (R8-1; AD-23). That child's CLI open applies
+     key's store: legacy, it rebuilds and binds (the binding recorded before
+     the rename, R9-3); current, it binds nothing, so a root already bound is
+     served and any other records `repo_not_bound`; none, it records
+     `repo_not_bound` (R8-1, R9-3; AD-23). That child's CLI open applies
      the migration or runs the rebuild. On the event path the check is
      a file-existence test and the checksum compare, nothing that grows with
      the store (AD-23). A refused store is not spawned for: its fix is the
@@ -1287,7 +1290,8 @@ and nothing here depends on the new channel.
         `global/global.db`), and `origin` is `local`, or `import` for the
         rebuild `import` runs on a legacy export (AD-5): together they select
         the file's own record (AD-20; R8-5). `root`, in a project store's
-        record, is the root step 6 binds (R8-1). Each unplaced entry is
+        record, is the root step 5 binds (R8-1, R9-3), and `status` names it
+        (R9-9, below). Each unplaced entry is
         `{table, rows, reason}`, with
         `key` and `value` for a meta key or a tuning row and `rowid` for a refused row.
         For a file of no known layout the record has `unread`, with
@@ -1309,7 +1313,20 @@ and nothing here depends on the new channel.
         was written after it. A kill between the rename and a JSONL-only record
         left a rebuilt store with no record, and the next run, finding the new
         name, never wrote one, so the refused tunings were reported nowhere.
-     5. It ends the read transaction, closes the temporary file, deletes the
+     5. For a project store, it records the binding `repo_path:<root>` → key
+        (AD-20) in the global store, **before the rename** (R9-3). No legacy
+        build records a binding (fact 4), so without this step the handler's
+        lookup would miss every repository after the upgrade. *Why before the
+        rename* (round-9 review, R9-3): a kill after this step and before the
+        rename leaves the root bound to a store that is still legacy, which the
+        hook path's legacy-store spawn rebuilds, its ordinary path for a bound
+        legacy store (above); a kill after the rename leaves nothing to
+        complete. In the round-8 order, rename then binding, a kill between the
+        two left the store current and the root unbound. Only the child could
+        complete that binding, and the handler spawns it on a miss only while
+        some legacy store exists: with none the root missed, and with an
+        unrelated orphan legacy store it was bound (the review's V2).
+     6. It ends the read transaction, closes the temporary file, deletes the
         new name's `-journal`, `-wal` and `-shm`, and renames the file to the
         new name. It then copies the record to the JSONL channel (the
         home-level one for the global store). *Why the deletion* (R8-3; round-8
@@ -1331,10 +1348,6 @@ and nothing here depends on the new channel.
         same check (below) and deletes the same companions first; that path is
         not prototyped. A process that still holds the purged store open is
         the purge's concurrent-writer residual (AD-20), not closed here.
-     6. For a project store, it records the binding `repo_path:<root>` → key
-        (AD-20) in the global store. No legacy build records a binding (fact 4),
-        so without this step the handler's lookup would miss every repository
-        after the upgrade.
 
    **The first index and mine then run.** In the `ctxoracle index` child, they
    run as its ordinary pass. Any other verb's rebuild ends at step 6. A rebuilt
@@ -1353,16 +1366,32 @@ and nothing here depends on the new channel.
    - global and project: after the discard, after the creation, mid-copy, after
      the copy, after the close and after the rename;
    - between the two rebuilds;
-   - after the binding.
+   - for the project store, after the binding (step 5, before the close).
 
    Every legacy database file stayed byte-identical (sha256). The next run
-   completed, and every content check passed after it (the round-8 evidence's
-   `results/test-rebuild.out`: `1537 checks passed, 0 failed`; the round-7
-   evidence gave 1,519, the round-6 evidence 1,502 and the rebuild evidence
-   1,400 before the later cases). A kill
-   before the rename leaves only a temporary file, which step 1 discards. After
-   the rename, the store is current, and the next run redoes step 6 for the
-   root its record names, and for no other (R8-1, below).
+   completed, and every content check passed after it (the round-9 evidence's
+   `results/test-rebuild.out`: `1571 checks passed, 0 failed`; the round-8
+   evidence gave 1,537, the round-7 evidence 1,519, the round-6 evidence 1,502
+   and the rebuild evidence 1,400 before the later cases). A kill before the
+   binding leaves only a temporary file, which step 1 discards, and the root
+   unbound, so a miss spawns the child, which rebuilds and binds (below). A
+   kill after the binding and before the rename leaves the root bound and the
+   store legacy, so the legacy-store spawn rebuilds it. After the rename the
+   store is current and the root bound, and nothing is left to complete
+   (R9-3). *Executed through the hook path* (the round-9 evidence's
+   `handlerEvent`, the order before the miss rule: a legacy global store, the
+   binding lookup, a bound legacy store's spawn, the miss; the review's V2 on
+   stores A and C): after each of the 14 kills, a `SessionStart` at the root
+   spawns the child where the store is legacy or the global store is, the
+   child exits 0 with the root bound, and the session's `UserPromptSubmit` is
+   served; after the kill following the rename the first event is served. No
+   `repo_not_bound` is recorded, and every outcome is the same with an
+   unrelated orphan legacy store present. The mutant that records the
+   binding after the rename (round 8's order) fails. Which spawn rebuilds a
+   store killed between its binding and its rename does not matter to this
+   outcome: the root's own store is legacy, so the miss rule would spawn the
+   same child (a mutant that routes it there passes the test, and is not
+   counted).
 
    **Failure** (F5-11, R6-8). A failure after step 1 — a full disk or an I/O
    error:
@@ -1381,12 +1410,31 @@ and nothing here depends on the new channel.
    record's `stage` field is removed: the prototype never produced it, and the
    error names the failure.
 
-   A legacy file that cannot be opened, or whose schema cannot be read, is not
-   a failure (R6-1, R7-3). The error is a property of the file, and it fails
-   the same way on every run. The file is handled as one of no known layout:
-   rebuilt from the repository, unread, and kept as it is, with its per-table
-   counts where they can be read. `status` names it and where it is kept, and
-   the purge refuses while it exists (AD-20).
+   A legacy file whose open or schema read fails on its content
+   (`SQLITE_CORRUPT` or `SQLITE_NOTADB`), or whose schema reads but matches no
+   known layout, is not a failure (R6-1, R7-3). That is a property of the file
+   and fails the same way on every run. The file is handled as one of no known
+   layout: rebuilt from the repository, unread, and kept as it is, with its
+   per-table counts where they can be read. `status` names it and where it is
+   kept, and the purge refuses while it exists (AD-20). **Any other error of
+   the open or the schema read** (`SQLITE_BUSY` or `SQLITE_LOCKED`,
+   `SQLITE_CANTOPEN`, `SQLITE_IOERR`, `SQLITE_NOMEM`) is a condition of the
+   moment, not of the file: it is the failure above, `store_rebuild_failed`,
+   and the store stays legacy and is retried (R9-4; round-9 review: the
+   round-8 text classed every such error as the file's, against its own rule
+   for table reads, and a lock of the moment left a known-layout file carried
+   by nothing and never read again). SQLite documents such locks in WAL mode:
+   "the second connection might get an SQLITE_BUSY error" while the last
+   connection to a database closes and cleans up, and "An exclusive lock is
+   held during recovery" (`sqlite.org/wal.html`, fetched 2026-09-29, the
+   round-9 evidence's `results/sources.out`); old builds' hook processes open and close the legacy file (below).
+   Executed (the round-9 evidence, the review's V1 on B and C): with the
+   legacy file held in `EXCLUSIVE` locking mode inside a write transaction,
+   the rebuild exits 1 with `database is locked`, records
+   `store_rebuild_failed`, and leaves the new name absent and the store
+   legacy; after the lock is released the next run carries every owner row
+   (B: 2, 4, 3, 1; C: 3, 4, 4, 1) and the file is fully carried. The mutant
+   that classes the lock as the file's fails.
 
    **A known-layout file with a table that fails to read is carried table by
    table** (R8-4; round-8 review). A read of one of its tables that fails on
@@ -1394,8 +1442,33 @@ and nothing here depends on the new channel.
    or the copy) rolls back that table's copy alone, under its own savepoint.
    The table is recorded as an unplaced whole-table entry with `unread`, its
    row count where it can still be counted (else `rows` null) and the error,
-   and its digest and count are null. Every other table is carried by its
-   rule. A row whose legacy `files` row cannot be read is unplaced by the
+   and its digest and count in the record are null, whether the digest's read
+   or the copy's failed (R9-5: the round-8 prototype kept a copy-failed
+   table's digest and count). Every other table is carried by its
+   rule. **Whether a table reads is decided by reads of the table itself**
+   (R9-5; round-9 review): the copy's count, and a no-writer table's count,
+   are table scans (`count(*)` with `NOT INDEXED`), because SQLite answers a
+   plain `count(*)` from an index where one exists (executed, SQLite 3.51.2:
+   `EXPLAIN QUERY PLAN SELECT count(*) FROM human_facts` gives `SCAN
+   human_facts USING COVERING INDEX sqlite_autoindex_human_facts_1`, and with
+   `NOT INDEXED` gives `SCAN human_facts`; "The "NOT INDEXED" clause specifies
+   that no index shall be used when accessing the preceding table, including
+   implied indices create by UNIQUE and PRIMARY KEY constraints",
+   `sqlite.org/lang_indexedby.html`, fetched 2026-09-29), so a damaged index
+   alone made a table whose every row reads look unread and carried none of
+   it. The count reported for a table that could not be read stays a
+   plain `count(*)`, which may still answer from an index where the table's
+   own pages fail (below: `session_log`'s 13). The rebuild reads no index of
+   the legacy file, so an index-only fault is neither observed nor recorded:
+   every row is carried, and the new store builds its own indexes. *Order of
+   reads and writes* (R9-8): every legacy read that can fail a table as a
+   whole — its rows, read in full, and its count — runs before the table's
+   first write. The one legacy read inside the row loop, the `files` lookup
+   of the id translation, fails only its row (unplaced by the per-row rule).
+   So a table's rollback never discards a `files` row the translation's cache
+   still holds; an implementation that reads a table's rows while it writes
+   them must instead drop, on that table's rollback, the cache entries created
+   inside it. A row whose legacy `files` row cannot be read is unplaced by the
    existing per-row rule (step 3), with the error. The file is then not fully
    carried, so `status` names the table and the purge refuses (AD-20).
    *Which error is the file's:* only an error raised by a statement on the
@@ -1411,7 +1484,8 @@ and nothing here depends on the new channel.
    unplaced entry with its `rows`. A corrupt `files` page still leaves the
    rows that need a file id behind, each unplaced by name, while every owner
    row that needs none is carried.
-   Executed (the round-8 evidence):
+   Executed (the round-8 evidence, and the round-9 evidence, whose test
+   repeats every case):
    - store B with `session_log`'s root page overwritten (the round-7 review's
      Y5 and the round-8 review's Z4): `human_facts` 2, `corrections` 4,
      `questions` 3 and `invariants` 1 are carried, the counts the kept file
@@ -1420,8 +1494,18 @@ and nothing here depends on the new channel.
      is kept byte-identical, and a second run is a no-op;
    - `invariant_members` (Y5b), whose count also fails: unplaced with `rows`
      null;
-   - the no-writer table `regret`, whose count reads its primary-key index,
-     with that index's root page overwritten: unplaced with `rows` null;
+   - an index alone damaged (the round-9 review's V4, and round 8's Y5c): with
+     the primary-key index's root page of `human_facts` on B, `corrections` on
+     C, or the no-writer `regret` on B overwritten, a plain `count(*)` throws
+     "database disk image is malformed" while a scan reads 2, 4 and 0 rows.
+     Round 8 recorded each table unread (`rows` null) and carried 0 rows;
+     round 9 carries 2 and 4, records no entry for the empty `regret`, and the
+     file is fully carried. The mutants that count the copy's or a no-writer
+     table's rows with a plain `count(*)` each fail;
+   - a `SQLITE_CORRUPT` injected on the legacy connection at the copy of
+     `human_facts`, after its digest was taken (a test hook): one unread entry
+     with `rows` 2, the digest and count null, `corrections` carried. The
+     mutant that keeps the digest and count fails;
    - store B's `files` root page overwritten: both `invariant_members` rows
      unplaced one by one with the error, the owner tables carried;
    - a `SQLITE_CORRUPT` injected into the new store's first `human_facts`
@@ -1442,49 +1526,65 @@ and nothing here depends on the new channel.
 
    **Repositories not yet bound after the global rebuild** (F5-5, R6-3). After
    a global rebuild no binding names any repository, until each repository's own
-   rebuild records one (step 6). While `projects/` holds a legacy project store,
+   rebuild records one (step 5). While `projects/` holds a legacy project store,
    a `store.db` with no `project.db` beside it, a binding miss spawns the
    rebuild child, once per session (above), and the handler records no
    `repo_not_bound` for it (AD-23). The child derives the key from the root
    the walk found, and **acts on each state of that key's store** (R8-1;
    round-8 review: the text gave the legacy and no-store states only, so a
    current store's miss was recorded nowhere, and the prototype bound it):
-   - *legacy* (a `store.db`, no `project.db`): it rebuilds, and step 6 binds
+   - *legacy* (a `store.db`, no `project.db`): it rebuilds, and step 5 binds
      this root. The rebuild writes `store_rebuilt`; a failure writes
      `store_rebuild_failed` (below). The next event finds the binding.
-   - *current* (a `project.db`, whatever its schema state): it binds only when
-     the store's own local rebuild record (`store_rebuilt`, `origin` `local`)
-     names this root in its `root` field. That is the run after a kill between
-     step 5's rename and step 6, which completes that rebuild's own binding
-     (**Crash, tested**, above). For any other root it records
-     `repo_not_bound` (`{root, key, session}`) on the home-level channel and
-     binds nothing: a second clone or a moved checkout of a repository whose
-     store is current misses until `init` is re-run there, as AD-23's miss rule
-     says. Completing the recorded root's binding is not a silent `init`: it
-     is the binding the recorded rebuild was already making for that root, and
-     no other root gains one.
+     **A departure from AD-23's miss rule, stated** (R9-9; round-9 review):
+     this binds whichever root fires first, a second clone or a moved
+     checkout included, not necessarily the root `init` ran at. *Why:* no
+     legacy build recorded a binding (fact 4) or a root in its store
+     (executed on the three real stores: no `schema_meta` value names a
+     path but `pinned_interpreter`, the Node binary), and a clone carries the
+     same committed hook wiring, so the first root to fire is the only
+     evidence there is. *Consequence:* the root
+     `init` ran at then misses visibly, `repo_not_bound` once per session,
+     until `init` is re-run there, as AD-23 says of a fresh clone. `status`
+     names the root the rebuild bound (the record's `root`) beside the
+     rebuild's other facts, so the owner can see which checkout it was.
+     Executed (the review's V3): a `git clone` of repository B fires first
+     while B's store is legacy; the child rebuilds, binds the clone and
+     records it as `root`; a new session at B's own root records
+     `repo_not_bound`.
+   - *current* (a `project.db`, whatever its schema state): it binds nothing.
+     A root that already has its binding is served; any other root records
+     `repo_not_bound` (`{root, key, session}`) on the home-level channel: a
+     second clone or a moved checkout of a repository whose store is current
+     misses until `init` is re-run there, as AD-23's miss rule says. *(R9-3:
+     round 8 also bound the root the store's own record named, to complete a
+     binding a kill between the rename and the binding had cut off. That run
+     happened only while some unrelated legacy store existed. The binding now
+     precedes the rename (step 5), so no current store owes a binding, and the
+     completion is removed.)*
    - *none* (neither file): it records `repo_not_bound` the same way.
 
    So the outcome at a root does not depend on whether an unrelated legacy
    store is present: without one the handler records the same
-   `repo_not_bound` itself (AD-23). Each is once per session: the handler's
-   marker bounds both its own fault and the spawn (AD-17). Executed (the
-   round-8 evidence's `childBinding` and `handlerMiss`; the round-8 review's
-   Z3): with an orphan legacy store present, a `git clone` of rebuilt
-   repository B derives B's key, whose store is current. The handler spawns
-   once, the child records one `repo_not_bound` naming the clone's root and
-   binds nothing, and the session's second event does nothing. With the orphan
-   removed, a new session's handler records the same fault itself. B's own
-   root re-run finds its binding, a key with no store records the fault, and
-   the kill after the rename is followed by a run that binds B (every kill
-   case's content checks read the binding). The mutants that bind any current
-   store (round 7's reading), that never complete the recorded root's binding,
-   that record nothing for a key with no store, and that have the handler
-   record the fault while a legacy store exists (R7-6's defect) each fail the
-   test. (R7-6; round-7 review: the handler recorded `repo_not_bound` on the
-   first miss of every upgraded repository, so `status` told the owner to
-   re-run `init` where the child then bound it.) Any other miss is recorded as
-   the ordinary miss is, `repo_not_bound` once per session.
+   `repo_not_bound` itself (AD-23), and after any kill of the rebuild the
+   root is bound through the legacy-store spawn or the miss's spawn of its
+   own legacy store (**Crash, tested**, above; the review's V2). Each is once
+   per session: the handler's marker bounds both its own fault and the spawn
+   (AD-17). Executed (the round-9 evidence's `childBinding`, `handlerMiss`
+   and `handlerEvent`; the round-8 review's Z3): with an orphan legacy store
+   present, a `git clone` of rebuilt repository B derives B's key, whose
+   store is current. The handler spawns once, the child records one
+   `repo_not_bound` naming the clone's root and binds nothing, and the
+   session's second event does nothing. With the orphan removed, a new
+   session's handler records the same fault itself. B's own root re-run
+   finds its binding, and a key with no store records the fault. The mutants
+   that bind any current store (round 7's reading), that record nothing for a
+   key with no store, and that have the handler record the fault while a
+   legacy store exists (R7-6's defect) each fail the test. (R7-6; round-7
+   review: the handler recorded `repo_not_bound` on the first miss of every
+   upgraded repository, so `status` told the owner to re-run `init` where the
+   child then bound it.) Any other miss is recorded as the ordinary miss is,
+   `repo_not_bound` once per session.
 
    *Why a file test, not recorded rows* (R6-3; round-6 review). The earlier
    design wrote a `legacy_pending:<key>` row per legacy project directory at the
@@ -1837,6 +1937,22 @@ and nothing here depends on the new channel.
    directory's model, `test-recompute.mjs`, with the review's Z1. Thirty-five
    mutants each fail their test: the eighteen above, three of them re-anchored
    to the revised text, and seventeen for round 8.
+
+   The round-9 review's changes are executed in the round-9 evidence
+   (`docs/reviews/2026-09-29-rebuild-mapping-evidence-r9/`), on the same
+   stores: the binding recorded before the rename and the hook path after
+   every kill (R9-3), only a content error of the open or schema read classed
+   as the file's (R9-4), tables counted by a scan and a copy-failed table's
+   digest and count null (R9-5), the named build bindings (R9-7), and the
+   stated departure for the first root to fire (R9-9), with the review's cases
+   V1–V4. The test gave 1,571 checks, 0 failed (1,526 and 45 with `HEAD`'s
+   validator, every failure the designed-outcome check). The miner's resume
+   (R9-1, R9-2, R9-6) is executed in the same directory's model,
+   `test-recompute.mjs`, with the review's K1 and K2. Forty-seven mutants
+   each fail their test: round 8's thirty-five less two it replaces (the
+   completion by the record's root, gone with R9-3, and round 7's resume,
+   now R9-1c), four of them re-anchored to the revised text, and fourteen for
+   round 9 (the evidence's `results/mutants.out`).
 
    The layouts' DDL is quoted from `git show b229c04:` and
    `git show 59cc05c:…/migrations/`.
@@ -3072,18 +3188,24 @@ and nothing here depends on the new channel.
      store records the values it was mined with — `mined_half_life_days`,
      `weight_epoch`, `mined_max_transaction_entities` and
      `mined_fix_lexicon_digest` (a digest of the list's members in sorted
-     order) — written **only in the pass's final transaction**. After `refTs` is
-     validated (G-8) and before the evict step, the pass compares them with the
-     current values:
-     1. **A changed `h`, a store missing a mined-with value while it holds
-        weighted commits, or an epoch past its bound (below) is a full
+     order) — written in the pass's final transaction, and earlier only where
+     every stored commit is by then computed under them: a first mine's first
+     transaction and the transaction that ends case 2's eviction (below; R9-1,
+     R9-2). After `refTs` is validated (G-8) and before the evict step, the
+     pass compares them with the current values:
+     1. **A changed `h`, or an epoch past its bound (below), is a full
         recompute** at a new epoch, `E` = this pass's `refTs`: every
         `commits.weight` is recomputed from `commits.ts`, capped as below, and
         every file's and pair's sums from `commit_touches` joined to
         `commits.weight` with the evict step's recompute — a store-side
         recompute, with no git read. No rescale exists for a changed `h`: a term
         taken at another `h` is not a common multiple of the old one, since the
-        exponent's slope changes with `h`.
+        exponent's slope changes with `h`. *(R9-1: the trigger "a store missing
+        a mined-with value while it holds weighted commits" is removed. Its one
+        reachable cause was a killed first mine, which wrote the values only in
+        its final transaction; a first mine now writes them in its first
+        transaction (below), and a rebuilt store carries no commits (AD-4), so
+        no store holds commits without them.)*
      2. **A changed `miner.max_transaction_entities` or `lexicon.fix_keywords`
         makes the pass a reconcile with `D = S`** (M-20): the existing eviction
         of every stored commit, then the existing mine of `T`, which
@@ -3092,108 +3214,170 @@ and nothing here depends on the new channel.
         cost, stated: the history genres are silent under `mining_in_progress`
         for one full mine after a `tune` of either key, which only the owner
         causes; `tune` says, when either key is written, that the next pass
-        re-mines the history.
+        re-mines the history. **The pass writes both values in the transaction
+        that ends the eviction of `D = S`** (R9-2; round-9 review): from then on
+        every stored commit was classified at the current values, so a crash
+        during the mine resumes as an ordinary reconcile (`D = S \ T`,
+        `A = T \ S`), and a crash during the eviction finds the values still
+        stale and evicts the commits left. That transaction is where the
+        reconcile's target is recorded: at the start of the re-mine, not at the
+        pass's first transaction, because written there a crash during the
+        eviction would leave commits classified at the old values under the new
+        digest, and the next pass would keep them (the mutant that does so
+        fails). Written only in the final transaction (the round-8 text), every
+        pass after a crash took `D = S` again and evicted the commits the
+        crashed pass had re-mined, so under repeated interruption the pass never
+        completed (the review's K2: the re-mined commits alternated between 100
+        and 400 of 400). A `tune` of either key during the eviction or the mine
+        needs no rule of its own: the next pass compares the values as they
+        stand and evicts, or re-mines, what differs. *Executed on the model*
+        (the round-9 evidence's `recompute.mjs`, below; one classifying key
+        stands for both): 400 commits in chunks of 50 (an uninterrupted pass:
+        `C` = 17 transactions), every pass killed after 10 transactions:
+        complete after 2 passes; killed after 1: after 17, every commit
+        classified at the new value and every ratio equal to a fresh mine's. A
+        tune back during the eviction re-mines the 150 evicted commits at the
+        old value; a second tune during the mine evicts and re-mines at the
+        newest. The mutants that write the digest only in the final
+        transaction, or in the first, each fail.
      Recomputing, never multiplying, is what makes case 1 repeatable: applying
-     it twice writes the same values. *Crash rule:* a crash leaves the
-     mined-with values as they were, since only the final transaction writes
-     them, and `mining_in_progress` set. For a changed `h`, a changed digest or
-     a missing value, the difference is stored, so the next pass finds it and
-     does the same work again from whatever rows the crash left (every
-     transaction updates rows and sums together, below; M-17, M-19).
+     it twice writes the same values. *Crash rule* (C-3, settled; R9-1, R9-2):
+     a crash leaves `mining_in_progress` set and the mined-with values as the
+     last committed transaction left them, and every transaction updates rows
+     and sums together (below; M-19), so the next pass continues from the rows
+     the crash left: a crashed first mine has its values and is continued as
+     an ordinary pass (below); a crash during case 2's eviction or mine is
+     continued as above; a crash during a recompute leaves `recompute_pending`,
+     and the next pass resumes it (below). *(The collapse hunt's M-17 said a
+     crashed pass "does the same work again". C-3, settled for every full
+     pass, has it resume; the round-9 review found that the M-17 wording,
+     followed for case 1 and case 2, made neither complete under repeated
+     interruption, so C-3 governs.)*
      **An epoch past its bound is not stored** (F5-6; round-5 review). That
      trigger is a function of the pass's own `refTs`. So case 1's first
-     transaction writes `schema_meta.recompute_pending` = 1, and the pass's
-     final transaction deletes it. A pass that finds it set runs case 1,
-     whatever its own compare finds.
+     transaction writes `schema_meta.recompute_pending`, the recompute's own
+     inputs (below), and the pass's final transaction deletes it. A pass that
+     finds it set finishes that recompute, or supersedes it, whatever its own
+     compare finds.
      **One epoch per pass** (R8-7; round-8 review: the text said a mined
      commit's weight is computed with "the store's `E`", while `weight_epoch`
      is written only in the final transaction, so a pass that recomputed and
-     then mined read the old epoch by the letter). A pass that runs a full
-     recompute uses its own `refTs` as `E` for all of its work:
-     - the recompute weights every stored commit with it and caps `ts` at it;
+     then mined read the old epoch by the letter). A pass that starts a full
+     recompute uses its own `refTs` as `E` for all of its work, and a pass that
+     resumes one uses the recompute's stored epoch (R9-1, below):
+     - the recompute weights every stored commit with it and caps `ts` at it,
+       the recompute's own `refTs`, whichever pass computes the row;
      - the pass's mine weights its new commits with it and caps their `ts` at
-       it, as every mine caps at its pass's `refTs`;
-     - the final transaction writes it as `weight_epoch`, with the current `h`
-       as `mined_half_life_days`.
+       the pass's own `refTs`, as every mine does (for the pass that starts the
+       recompute the two are one value);
+     - the final transaction writes it as `weight_epoch`, with the
+       recompute's `h` (the current one) as `mined_half_life_days`.
 
-     A pass with no recompute uses the stored `weight_epoch`. With `E = refTs`
+     A pass with no recompute uses the stored `weight_epoch`, and a first mine
+     its own `refTs`. With `E = refTs`
      every in-horizon exponent lies in `[−365.25·Y/h, 0]`, inside the bound by
      the floor relation below, so a recompute's own epoch is never past it.
-     **An interrupted recompute starts again from its first row** (R8-2;
-     round-8 review). The pass that finds `recompute_pending` recomputes every
-     row at its own `refTs` and the current `h`, as an uninterrupted recompute
-     does, so no row keeps a value from the interrupted pass. *Why, and the
-     mechanism removed:* round 7 made the recompute resume after a stored
-     `recompute_done` row (R7-9), recomputing the rows after it at the stored
-     epoch and the current `h`. After a tune of `h`, an interruption and a tune
-     back, the rows before `recompute_done` kept the interrupted pass's `h`, and
-     the next pass's compare found `mined_half_life_days` unchanged. So ratios
-     mixed two decay rates with no fault. That is the defect case 1 exists to
-     prevent: M-17 gives its job as "a ratio never mixes two decay rates after
-     the owner tunes `h`", for FR-K2's recency-weighted horizon, and its design
-     has a crashed recompute do "the same work again". The round-8 review
-     executed the defect on a model: relative ratio errors up to 10.11.
-     Storing the recompute's own `h` beside its epoch would also make a resume
-     exact, but it adds a stored input and needs exactness shown for every
-     order of tunes and interruptions. A restart needs neither: the pass that
-     completes computes every row from the same inputs. What the restart gives
-     up is completion under repeated interruption (*cost*, below). The epoch of
-     the interrupted start carries nothing once every row is recomputed, so
-     the marker holds no epoch, and the earlier rule's second recompute, for a
-     marked epoch past the bound of the finishing pass's `refTs`, cannot occur.
-     *Executed on a model* (the round-8 evidence's `recompute.mjs` and
-     `test-recompute.mjs`: the pass's recompute, mine and final transaction over
-     `bench-epoch.mjs`'s synthetic store, 40 files and 400 commits, with no git
-     read and no eviction; not the miner; R6-11):
-     - The round-8 review's case: mined at `h` = 365, tuned to 20, the
-       recompute pass (26 transactions) killed after each of 1 to 25, tuned
-       back to 365, the next pass. The largest relative error of a confidence
-       ratio against a fresh mine is 6.1 × 10⁻¹⁶ (6.3 × 10⁻¹⁶ with no tune
-       back), against 10.11 under the round-7 resume.
+     **An interrupted recompute resumes under its own inputs** (R9-1;
+     round-9 review; C-3). Its first transaction stores them in
+     `schema_meta.recompute_pending` = `{h, epoch, done}`: the half-life; the
+     epoch, which is also the cap, since a recompute's `E` is its own `refTs`
+     (R8-7, above); and `done`, the last row it finished, as a table and a
+     rowid (`{t, r}`, in the order `commits`, `files`, `pairs`), which every
+     recompute transaction advances together with the rows it names. A pass
+     that finds the key compares the current `h` with the stored one, and its
+     own `refTs` with the stored epoch's bound:
+     - equal, and inside the bound: it **resumes** after `done` with the
+       stored `h` and epoch, and its evict and mine then use that epoch, as an
+       incremental pass uses the stored one. Every row of the recompute is
+       computed from the inputs it started with, wherever it was interrupted;
+     - otherwise (a `tune` of `h` while the recompute is unfinished, or a
+       checkout past the stored epoch's bound): it **starts a new recompute**
+       from the first row at its own inputs, replaces the key, and records
+       `recompute_superseded` (`{from: {h, epoch}, to: {h, epoch}}`) in that
+       transaction. Rows are never computed from two sets of inputs.
+
+     The final transaction writes the stored epoch and `h` as `weight_epoch`
+     and `mined_half_life_days` and deletes the key. *Why* (the round-9 review,
+     R9-1): C-3, settled, has a crashed full pass resume, and pins it with a
+     test that kills every pass after one chunk and asserts completion within
+     `C` passes. Round 7's resume (R7-9) recomputed the rows after its
+     watermark at the current `h` and stored no `h`, so a tune of `h`, an
+     interruption and a tune back mixed two decay rates (R8-2: ratio errors up
+     to 10.11), which is the defect case 1 exists to prevent (M-17: "a ratio
+     never mixes two decay rates after the owner tunes `h`", for FR-K2's
+     recency-weighted horizon). Round 8 answered with a restart, exact but
+     never complete under repeated interruption, and recorded no reason for
+     departing from C-3 (R9-1). Storing the recompute's own inputs keeps both
+     properties: exactness, because no row is computed from inputs other than
+     the recompute's and a changed `h` starts over instead of mixing; and
+     termination, because each committed transaction keeps its rows. *Every
+     transaction carries work* (R9-1, R9-6): a pass's bookkeeping (the
+     markers, the stored inputs, a first mine's values, the records) is
+     written in its first work transaction, never in one of its own, so a
+     pass killed after its first transaction has kept one chunk.
+     *Executed on a model* (the round-9 evidence's `recompute.mjs` and
+     `test-recompute.mjs`: the pass's recompute, case 2's eviction, the mine
+     and the final transaction over `bench-epoch.mjs`'s synthetic store, 40
+     files and 400 commits, one classifying key standing for both, no git
+     read and no horizon eviction; not the miner; R6-11):
+     - The round-8 review's Z1: mined at `h` = 365, tuned to 20, the
+       recompute pass (25 transactions) killed after each of 1 to 24, tuned
+       back to 365, the next pass. The pending recompute is superseded and
+       recorded once, and the largest relative error of a confidence ratio
+       against a fresh mine is 6.1 × 10⁻¹⁶. With no tune back, the next pass
+       resumes at the recompute's own epoch and does only the transactions
+       left: error at most 8.4 × 10⁻¹⁵.
+     - 200 random orders of one to four tunes of `h` (365, 20 or 50), each
+       pass killed after 1 to 30 transactions or not, then one pass: error at
+       most 8.4 × 10⁻¹⁵ (81 supersessions, 210 resumptions recorded).
      - F5-6's case (`bench-epoch.mjs`'s shape): at `h` = 1.787, a recompute at a
        tip 30 days older is killed half-way, and the next pass runs on the newer
-       tip, inside the old bound. It recomputes because of the marker, and the
-       error is 3.5 × 10⁻¹⁶. Under the rule with no marker that pass recomputes
-       nothing, and the rows mix two epochs: `bench-epoch.mjs` measured an
-       error of 1.000 (ratios read about 10⁻⁵ of their value), and 5.4 × 10⁻¹⁴
-       with its marker.
-     - A recompute (`h` 365 to 30) and a mine of 61 new commits in one pass,
-       one of them author-dated past every `refTs`, killed after each of its
-       transactions or not at all: error at most 6.1 × 10⁻¹⁶, and the
-       future-dated commit's term is `2^0`, capped at the pass's epoch.
-     - Four mutants each fail that test: the round-7 resume restored, the
-       marker not read, the mine at the stored epoch, and the recompute's cap
-       at the stored epoch.
+       tip, inside the old bound and the recompute's. It resumes because of
+       the marker and keeps the recompute's epoch, and the error is 5.4 × 10⁻¹⁴.
+       Under the rule with no marker that pass recomputes nothing, and the rows
+       mix two epochs: `bench-epoch.mjs` measured an error of 1.000 (ratios
+       read about 10⁻⁵ of their value).
+     - A recompute (`h` 365 to 30) and a mine of 61 new commits in one pass
+       (27 transactions), one of them author-dated past every `refTs`, killed
+       after each of its transactions or not, then a pass one day later: the
+       recompute keeps its epoch; a stored commit authored after the first
+       mine's tip is re-capped at the recompute's own `refTs`; the
+       future-dated commit's term is capped at the `refTs` of the pass that
+       mined it; and the error against a fresh mine with that commit capped
+       there is at most 3.8 × 10⁻¹⁵ (the capped-commit exception, below).
+     - C-3 on a recompute: every pass killed after 1 transaction completes
+       after 25 passes (`C` = 25), after 5 transactions after 5 passes, with
+       `mining_resumed` recorded 24 and 4 times, error 8.2 × 10⁻¹⁵.
+     - The mutants that fail it: the round-8 restart, the resume at the
+       current `h` (round 7's defect), the resume at the resuming pass's
+       `refTs`, the supersession unrecorded, the marker not read, the mine at
+       the stored epoch, the recompute's cap at the stored epoch, and the
+       bookkeeping in a transaction of its own.
      - Treating any leftover `mining_in_progress` as a full recompute would
        also mend F5-6's case without a key. But it would turn every killed
        incremental pass into a whole-horizon recompute.
 
-     *Cost, silence, and the limitation the restart leaves:* a changed `h` or
-     an epoch past its bound recomputes the whole horizon, chunked and yielded
-     per AD-26, with the history genres silent under `mining_in_progress` while
-     it runs. **An interruption before the pass's final transaction discards
-     the recompute's work, so while interruptions keep arriving before it ends
-     it never finishes, and the history genres stay silent** (L19). The silence is
-     not hidden: `status` lists `mining_in_progress` among the suppressing
-     conditions (AD-17; OL-10). Executed on the model: 20 passes, each killed
-     after 5 transactions, leave `recompute_pending` and `mining_in_progress`
-     set and `mined_half_life_days` at its old value; the first pass that is
-     not interrupted ends it, with an error of 5.2 × 10⁻¹⁶. What can interrupt
-     a pass is what ends its process (a reboot, a manual kill, the
-     out-of-memory killer) and a chunk that fails `store_busy` (AD-26: none in
-     1,437 chunk transactions measured under load). *The window, on a model:*
-     the model's recompute of a synthetic store at the seeded
-     `miner.horizon_commits` (10,000 commits, 80,607 touches, 2,000 files,
-     549,213 pairs), chunked at the 50 ms and 30 ms seeds, took 25.8 s in 282
-     transactions (the round-8 evidence's `results/bench.out`). That is a
-     model's figure, not the miner's; it sizes the time in which an
-     interruption makes a recompute start again at tens of seconds, not hours.
-     No spec or ledger line requires a recompute to finish under
-     repeated interruption. FR-K2 requires the recency weighting, which the
-     restart keeps exact, and OL-10 requires the failure to be visible, which
-     `mining_in_progress` in `status` is. C-3's termination claim covers the
-     evict and the mine (below), not the recompute. It happens only when the
-     owner tunes `h`, or when a tip lies past the epoch's bound. **How often,
+     *Cost and silence:* a changed `h` or an epoch past its bound recomputes
+     the whole horizon, chunked and yielded per AD-26, with the history genres
+     silent under `mining_in_progress` while it runs. An interruption keeps
+     the work done, and a pass that finds `mining_in_progress` set records
+     `mining_resumed` (`{interrupted}`, the number of passes that started this
+     work and did not finish, which the key holds), so `status` says in plain
+     words that the history recalculation was interrupted and resumed that
+     many times (R9-6; OL-10). What can interrupt a pass is what ends its
+     process (a reboot, a manual kill, the out-of-memory killer) and a chunk
+     that fails `store_busy` (AD-26: none in 1,437 chunk transactions measured
+     under load). *The window, on a model:* the model's recompute of a
+     synthetic store at the seeded `miner.horizon_commits` (10,000 commits,
+     80,607 touches, 2,000 files, 549,213 pairs), chunked at the 50 ms and
+     30 ms seeds, took 25.8 s in 282 transactions (the round-8 evidence's
+     `results/bench.out`; the bench is unchanged in round 9). That is a
+     model's figure, not the miner's; it sizes the silence of one recompute
+     at tens of seconds, not hours. The recompute does not finish while each
+     pass supersedes it, a `tune` of `h` or a checkout past its bound during
+     every recompute: those are the owner's own changes, each recorded (L19).
+     It happens only when the owner tunes `h`, or when a tip lies past the
+     epoch's bound. **How often,
      derived** (F5-6): a checkout's tip may lie below the epoch's tip by at
      most the backward margin `1,022·h − 365.25·Y` days before the lower bound
      forces a recompute. Printed by `bench-epoch.mjs`:
@@ -3207,10 +3391,9 @@ and nothing here depends on the new channel.
 
      The forward margin at every `h` is `B = 1,008` half-lives. So at the seeded
      365 days a recompute follows only a `tune` of `h`, since the bound is never
-     reached in practice. Near the floor, nearly every checkout of an older tip
-     — a branch switch — is a full recompute that silences the history genres
-     while it runs, and there the restart's exposure is largest: an
-     interruption during any of those recomputes discards it.
+     reached in practice (a killed first mine no longer leads to one, R9-1).
+     Near the floor, nearly every checkout of an older tip — a branch switch —
+     is a full recompute that silences the history genres while it runs.
    - *Evict* (chunked, bounded and yielded per AD-26): per commit, read its
      `commit_touches` file ids; delete its `commit_touches`, `labelled_touches`
      and `commits` rows; then **recompute**, from `commit_touches` joined to
@@ -3228,30 +3411,53 @@ and nothing here depends on the new channel.
      format; each commit is classified, labelled and counted as below, and a
      contributing commit also writes its `commit_touches` rows and
      `commits.weight`, computed with the pass's `E` (the stored
-     `weight_epoch`, or this pass's `refTs` when the pass runs a full recompute
-     or is a first mine; R8-7, above), `h` and this pass's `refTs`.
-   - If the recompute, `D` and `A` together take more than one write
-     transaction, the first sets `mining_in_progress = 1`. The **final
+     `weight_epoch`; the recompute's epoch when the pass starts or resumes a
+     full recompute; this pass's `refTs` for a first mine; R8-7, R9-1, above),
+     `h` and this pass's `refTs`.
+   - The pass's first recompute, evict or mine transaction, together with its
+     work, sets `mining_in_progress`: to 1, or, when a crashed pass left it
+     set, to one more, recording `mining_resumed` (above; R9-6). The **final
      transaction** writes the watermark, `last_mined_ref` and the four
      mined-with values, records `history_rewritten` or `branch_changed` if
      either applies (below), rebuilds the miner landmines, and clears the flag.
-   - A **full mine is this pass with `S = ∅`**.
+   - A **full mine is this pass with `S = ∅`**. **Its first transaction
+     writes the four mined-with values** with its first chunk (R9-1; round-9
+     review): no earlier row exists for them to mix with, and a later `tune`
+     still differs from them and starts case 1 or case 2. So a killed first
+     mine is continued as an ordinary pass. Written only in the final
+     transaction (the round-8 text), they left a killed first mine's store
+     holding weighted commits and no values, which case 1 made a full
+     recompute that, under round 8's restart, never completed under repeated
+     interruption (the review's K1: 200 of 400 commits after 20 passes each
+     killed after one transaction). *Executed* (the round-9 evidence, K1): a
+     first mine of 400 commits (`C` = 9 transactions) killed after 4 keeps 200
+     commits and its values; every later pass killed after 1 transaction
+     completes after 5 more passes (6 in all), killed after 5 after one more;
+     a first mine killed after each `k` of its transactions is completed by
+     one pass of exactly `C − k` transactions, equal to a fresh mine. The
+     mutant that writes the values only in the final transaction fails.
    - *Crash:* every recompute, evict or mine transaction updates rows and sums
      together, so a crash leaves `S` consistent with the sums; the next pass
-     runs again a recompute `recompute_pending` marks (above; F5-6, R8-2),
-     compares the mined-with values again and recomputes `D` and `A` from `S`
-     and finishes the work, a full pass exactly like an incremental one. The evict and mine
-     need no recorded range. *Why one rule (C-3 as
-     corrected, settlements):* if a pass that needs `C` chunk transactions is
-     interrupted after `j ≥ 1` of them, resuming keeps the `j` and completes
-     within `C` passes, while purging and restarting need never complete under
-     repeated interruption (a reboot, a manual kill, the out-of-memory killer),
-     leaving the history genres silent under `mining_in_progress`. The claim
-     covers the evict and mine transactions. It does not cover case 1's full
-     recompute, which starts again after each interruption (above; R8-2): the
-     round-7 resume, R7-9's answer to R6-11, is removed because it made
-     ratios mix two decay rates after a tune back, and the limitation it
-     answered is stated above with its size.
+     resumes a recompute `recompute_pending` marks, or supersedes it (above;
+     F5-6, R9-1), compares the mined-with values again and recomputes `D` and
+     `A` from `S` and finishes the work, a full pass exactly like an
+     incremental one. The evict and mine need no recorded range. *Why one
+     rule (C-3 as corrected, settlements):* if a pass that needs `C` chunk
+     transactions is interrupted after `j ≥ 1` of them, resuming keeps the `j`
+     and completes within `C` passes, while purging and restarting need never
+     complete under repeated interruption (a reboot, a manual kill, the
+     out-of-memory killer), leaving the history genres silent under
+     `mining_in_progress`. **The claim covers every transaction of the pass**:
+     case 1's recompute (resumed after `done`), case 2's eviction and re-mine,
+     a first mine, and the evict and mine of an incremental pass (R9-1, R9-2;
+     round-9 review: the round-8 text excepted the recompute, and case 2 and a
+     killed first mine did not have the property though the text claimed it).
+     Each transaction carries at least one chunk of work, so `j ≥ 1` holds for
+     any pass killed after its first commit. Executed on the model: C-3's
+     kill-every-pass case completes within `C` passes for a first mine (K1),
+     a recompute (above) and case 2 (K2, above). The bound is for
+     interruptions: a recompute superseded by a `tune` of `h` or a checkout
+     past its bound starts over, recorded (above; L19).
    - *Equality:* after any completed pass every count equals a fresh mine of `H`
      exactly — both are functions of `T`, each commit's touched set, and the
      miner tuning in force, since a change to either classifying key makes the
@@ -3563,7 +3769,7 @@ and nothing here depends on the new channel.
    marks `in_tree = 0` when no such row references it is deleted by the indexer
    in the same pass (R-40; B3a E-7: no rule said who removes such a row, or
    when).
-   While `mining_in_progress = 1`, the history genres —
+   While `mining_in_progress` is set, the history genres —
    Coupling, Consequence, Warning (from miner-kind landmines; a `human_stated`
    row is not history-derived and still fires), Completeness — produce no
    candidates, because their counts are partial; for the same reason
@@ -4344,9 +4550,9 @@ and nothing here depends on the new channel.
      bounds AD-4's legacy-store spawn, which takes the fault's place while
      `projects/` holds a legacy project store (R7-6; round-7 review); the
      spawned child then writes the same fault on this channel for a derived key
-     whose store is current and did not record this root, or that has no store
-     (AD-4's three states; R8-1), so the miss is recorded once per session
-     either way. **The
+     whose store is current and this root is not bound to, or that has no
+     store (AD-4's three states; R8-1, R9-3), so the miss is recorded once per
+     session either way. **The
      marker's lifetime is its session's**: the same session's `SessionEnd` event
      deletes it, whether or not it now finds the binding (a rebuild child may
      have bound the repository meanwhile), so the markers do not accumulate one
@@ -4400,6 +4606,11 @@ and nothing here depends on the new channel.
      AD-13), `git_failed` (any git subprocess failure on an off-path pass,
      `{writer, subcommand, status, signal, stderrTail}` — AD-13),
      `miner_ref_ts_invalid` (a `refTs` the miner refused — AD-13),
+     `mining_resumed` (a pass that found `mining_in_progress` set,
+     `{interrupted}`: how many passes started the unfinished work — AD-13,
+     R9-6), `recompute_superseded` (an unfinished recompute replaced by one at
+     a changed `h` or past its epoch's bound, `{from: {h, epoch}, to: {h,
+     epoch}}` — AD-13, R9-1),
      `write_hold_exceeded` (at most one per pass: the longest write-lock hold
      over 150 ms and the count of such holds — AD-26), `reindex_locked` (a
      reindex refused while another holds the lock, with the holder's pid and
@@ -4456,12 +4667,16 @@ and nothing here depends on the new channel.
      a legacy store awaiting its rebuild with the command that runs it, the
      latest `store_rebuild_failed` with its error, each legacy project
      directory still present (R6-3), and, after a
-     rebuild, what was carried, where the old file is kept, every value not
+     rebuild, what was carried, the repository root it bound (AD-4, R9-9),
+     where the old file is kept, every value not
      carried with its reason, and each table whose carried rows the old file
      changed since (AD-4; M-3; F5-11, F5-18, R6-2), an unresolved `HEAD` while
      `head_unresolved_since` is set (AD-23; R2-12, R3-2: its facts dampened, the
      refresh made at each session start by the early-exit child), and `mining_in_progress` — whose
-     suppressed events are counted), and correct-silence announcements (`FR-M3`:
+     suppressed events are counted, with, in plain words, how many times the
+     unfinished history pass was interrupted and resumed (`mining_resumed`)
+     and each recalculation superseded by a changed half-life or a checkout
+     (`recompute_superseded`; AD-13, R9-6)), and correct-silence announcements (`FR-M3`:
      "observed N events, spoke at M — the silence was the bar working", rendered
      **only** here, never into the agent's context, `D-22`), from which the
      events suppressed under `mining_in_progress` are excluded, since that
@@ -4685,7 +4900,7 @@ and nothing here depends on the new channel.
    store the next claimant would rebuild, and re-running it completes. A
    journal or WAL a kill leaves beside a deleted database is harmless because
    every creation of that name deletes the name's `-journal`, `-wal` and
-   `-shm` first (AD-4 step 5; R8-3; round-8 review: this said SQLite deletes
+   `-shm` first (AD-4 step 6; R8-3; round-8 review: this said SQLite deletes
    them, which `pager.c` does only when the database is empty at open, and a
    rebuilt file is renamed in populated, so the purged store's WAL was replayed
    into it, the review's Z6 and Z6b). Executed
@@ -5109,10 +5324,15 @@ and nothing here depends on the new channel.
    `project.db`, it records no `repo_not_bound`; on `SessionStart` and
    `UserPromptSubmit` it writes the marker and spawns AD-4's rebuild child at the
    root the walk found (on any other event it waits for one of those). The child
-   acts on the state of the store of the key it derives (AD-4; R8-1): legacy, it
-   rebuilds and binds; current, it binds only the root that store's own
-   rebuild recorded and otherwise records `repo_not_bound`; none, it records
-   `repo_not_bound`. So a second clone or a moved checkout of a repository
+   acts on the state of the store of the key it derives (AD-4; R8-1, R9-3):
+   legacy, it rebuilds and binds, recording the binding before the rename;
+   current, it binds nothing and records `repo_not_bound` for a root not
+   already bound; none, it records `repo_not_bound`. In the legacy state the
+   first root to fire is the one bound, a second clone included, and the
+   root `init` ran at then misses visibly until `init` is re-run there
+   (AD-4's stated departure, R9-9). A binding lookup that finds the root
+   bound to a store that is still legacy (a rebuild killed between its
+   binding and its rename) is AD-4's legacy-store spawn, not a miss. So a second clone or a moved checkout of a repository
    whose store is current misses visibly, as below, whether or not an
    unrelated legacy store exists (R7-6; round-7 review: recording the fault
    here told the owner to re-run `init` where the child then bound the
@@ -5323,17 +5543,17 @@ and nothing here depends on the new channel.
      spawn is made once per `session_id`, so a second
      `UserPromptSubmit` of the session spawns none (R6-3, R6-8); **a legacy store
      is rebuilt beside** (M-3; F5-1–F5-4, F5-8, F5-11, F5-12; R6-1–R6-4,
-     R6-7–R6-9; R7-1–R7-5, R7-8; R8-1, R8-3–R8-6).
-     This case is the round-8 evidence's test, run on the rebuild evidence's real
+     R6-7–R6-9; R7-1–R7-5, R7-8; R8-1, R8-3–R8-6; R9-3–R9-5, R9-7, R9-9).
+     This case is the round-9 evidence's test, run on the rebuild evidence's real
      stores:
      - the stores are A and B (the `b229c04` layout) and C (the
        `4dd0f00`/`4e070ce` layout), each written by the historical builds'
        `init`, `tune`, `correct`, `note` and hook events, with the rows no verb
        reaches written through those builds' own DAOs;
-     - the test is the round-8 evidence's `test-rebuild.mjs`, run with the
+     - the test is the round-9 evidence's `test-rebuild.mjs`, run with the
        build's own tuning validator (the test's build argument). Its one
        outcome-pinning check expects `bar.recency_half_life_days 10` carried and
-       served and `bar.no_such_key 1` refused (R6-4, R7-1). The round-8 evidence
+       served and `bar.no_such_key 1` refused (R6-4, R7-1). The round-9 evidence
        runs it with a stand-in for that validator (AD-4). `HEAD`'s own validator
        fails that check; that run is `HEAD`-only evidence, not part of this
        case;
@@ -5348,9 +5568,18 @@ and nothing here depends on the new channel.
        - the exports it imports: the mapping (`RULES`), the legacy-file rule
          (`legacyNotCarried`), the file test (`legacyProjects`), the checksum
          (`migrationChecksum`), the layout test (`detectLayout`), the rename
-         onto a new name (`publishStore`) and the handler's miss rule
-         (`handlerMiss`);
-       - the test hooks `REBUILD_KILL_AT` and `REBUILD_FAULT`.
+         onto a new name (`publishStore`), the handler's miss rule
+         (`handlerMiss`) and the hook path's order before it (`handlerEvent`);
+       - the test hooks `REBUILD_KILL_AT` and `REBUILD_FAULT`;
+       - the build argument's modules (R9-7; round-9 review: the list omitted
+         them), at these paths under
+         `<build>/middleware/context-oracle/ctxoracle/dist/src/` with these
+         exports: `stores/dao/tuning.js` (`tuningReader`, `checkTuningWrite`,
+         and `seedDefaults`, which the prototype calls), `stores/dao/tuning_seeds.js`
+         (`SCALAR_SEEDS`, `LIST_SEEDS`), `stores/dao/files.js` (`filesDao`),
+         `identity/repo_key.js` (`resolveRepoKey`) and, called by the prototype,
+         `stores/adapter.js` (`probeFts5`). The build must provide them at those
+         paths, or the implementation rebinds them with the rest.
 
        The implementation rebinds only these, to its own entry points, and
        every `check` stays as it is.
@@ -5392,7 +5621,22 @@ and nothing here depends on the new channel.
        arrives, the table is one unplaced whole-table entry with its count or
        null, the file is kept and not carried, and a second run is a no-op; a
        corrupt `files` page unplaces each row needing a file id; a content
-       error of the new store fails the rebuild (R7-3, R8-4; Y5, Z4);
+       error of the new store fails the rebuild (R7-3, R8-4; Y5, Z4); a table
+       whose copy fails after its digest was taken has a null digest and count
+       (R9-5);
+     - a table whose primary-key index alone is damaged, while a scan reads
+       every row, is carried by its rule, on either layout and for a no-writer
+       table (R9-5; the round-9 review's V4 and round 8's Y5c);
+     - a lock held on the legacy file while the rebuild reads its schema fails
+       the rebuild (`store_rebuild_failed`) and leaves the store legacy, and the
+       run after the lock is released carries every owner row (R9-4; V1);
+     - after a kill at each of the 14 steps, the hook path at the root (the
+       binding lookup, the legacy-store spawn, the miss rule) binds and serves
+       it with no `repo_not_bound`, with an unrelated orphan legacy store
+       present and with none, the same either way (R9-3; V2);
+     - a second clone that fires first while the store is legacy is bound and
+       recorded as the rebuild's root, and the root `init` ran at then misses
+       visibly (R9-9's stated departure; V3);
      - a stale WAL beside the new name is not replayed into the rebuilt store,
        including after a purge killed with a hot WAL and a rebuild from either
        layout (R8-3; Z2, Z6, Z6b);
@@ -5419,17 +5663,20 @@ and nothing here depends on the new channel.
        carried row, and a Coupling whisper for the pair that now holds the old
        ids is still delivered (F5-1).
      - A full recompute at a new epoch is killed mid-way and the next pass runs
-       at a `refTs` inside the old bound. It recomputes every row because
+       at a `refTs` inside the old bound. It finishes the recompute because
        `recompute_pending` is set, and every ratio equals a fresh mine's within
        the tolerance (F5-6). The owner tunes `h`, the recompute is killed after
        each of its transactions in turn, the owner tunes `h` back, and the next
-       pass leaves every ratio equal to a fresh mine's at the restored `h`
-       (R8-2; the round-8 review's Z1). A pass that recomputes and mines, killed
-       in either phase, uses one epoch and one cap (R8-7). Every pass killed
-       before its recompute ends leaves `mining_in_progress` set, and `status`
-       lists it (R8-2's stated limitation). The round-8 evidence's
-       `test-recompute.mjs` is the executed shape, a model of the pass over a
-       small synthetic store, not the miner (R6-11).
+       pass supersedes the pending recompute, records it, and leaves every
+       ratio equal to a fresh mine's at the restored `h`; with no tune back it
+       resumes at the recompute's own inputs (R8-2, R9-1; the round-8 review's
+       Z1); the same holds for random orders of tunes and kills. A pass that
+       recomputes and mines, killed in either phase, uses one epoch and the
+       recompute's cap (R8-7). C-3's kill-every-pass case completes within `C`
+       passes for a first mine, a recompute and case 2's reconcile, and each
+       resumption is recorded (R9-1, R9-2, R9-6; the round-9 review's K1, K2).
+       The round-9 evidence's `test-recompute.mjs` is the executed shape, a
+       model of the pass over a small synthetic store, not the miner (R6-11).
 
      Two rebuilders of one global store started together publish exactly one
      store (the lock), and the loser records `rebuild_locked`; **the human-entered
@@ -5463,13 +5710,24 @@ and nothing here depends on the new channel.
      `refTs` more than `B` half-lives past `E`, and one far enough below it),
      every confidence ratio equals a fresh mine's within 1 × 10^−11, including
      when the recompute was killed part-way and the retry ran at another
-     `refTs` (M-17, M-18); a commit whose author time is later than the tip it
+     `refTs` (M-17, M-18); a recompute killed after `k` of its transactions is
+     resumed by the next pass, which does only the transactions left at the
+     recompute's own `h` and epoch, and with every pass killed after one
+     transaction it completes within `C` passes, each resumption recorded as
+     `mining_resumed`, while a `tune` of `h` during it supersedes it, recorded
+     as `recompute_superseded` (C-3; R9-1, R9-6); a first mine killed after `k`
+     chunks is completed by the next pass mining only `T \ S`, and with every
+     pass killed after one chunk it completes within `C` passes (C-3; R9-1;
+     the round-9 review's K1); a commit whose author time is later than the tip it
      was mined under keeps its capped term after the tip moves, is counted by
      `miner_ts_capped`, and is the only commit whose term differs from a fresh
      mine's (M-19, L15); after `miner.max_transaction_entities` is lowered and
      then raised, and after `lexicon.fix_keywords` gains a word, the next pass
      is a reconcile with `D = S` and every count, label and landmine equals a
-     fresh mine's (R2-6; M-20), a revert whose subject gains a listed fix
+     fresh mine's (R2-6; M-20), and with every pass after the `tune` killed
+     after one transaction, and after ten, it completes within `C` passes with
+     every commit classified at the new values (C-3; R9-2; the round-9
+     review's K2), a revert whose subject gains a listed fix
      keyword stays revert-labelled with no fix row, and after
      `landmine.fix_chatter_k` or `landmine.fix_chatter_window_days` is tuned the
      next completed pass's landmines equal a fresh mine's (R3-9); a tuned
@@ -5580,7 +5838,7 @@ and nothing here depends on the new channel.
    1 ms). A chunk transaction that still raises `StoreBusy` fails the pass
    visibly: the verb's error channel records `store_busy`
    (`{writer: 'miner'|'indexer', phase}`) and exits non-zero, and the next pass
-   resumes (AD-13), except a full recompute, which starts again (AD-13, R8-2). *(Corrected 2026-09-28: off-path writers used
+   resumes (AD-13): the recompute, case 2's reconcile and a first mine included (C-3; R9-1, R9-2). *(Corrected 2026-09-28: off-path writers used
    `busy_timeout` 5,000 ms "because … a background pass that gave up after
    200 ms would abort whenever a live session's handler held the lock for one
    short write group". That reason is false — one short write group cannot
@@ -5800,10 +6058,11 @@ and nothing here depends on the new channel.
      rebuild (AD-15) is one short final transaction. An index pass writes
      `schema_meta.index_head` only in its final transaction, so a crashed pass
      leaves the old `index_head` and the staleness check re-triggers it.
-   - *A mining pass whose evictions and additions take more than one write
-     transaction* runs with `schema_meta.mining_in_progress = 1`, set in its
-     first transaction (for a recompute or a reconcile with `D = S`, its first
-     chunk, AD-13) and cleared in its final one; the history genres produce no candidates while
+   - *A mining pass whose recompute, evictions and additions take more than
+     one write transaction* runs with `schema_meta.mining_in_progress` set in
+     its first transaction, together with that transaction's first chunk of
+     work (AD-13, R9-6; its value counts the passes that started the work),
+     and cleared in its final one; the history genres produce no candidates while
      it is set (AD-13), so no reader sees partial counts, and `status` lists the
      condition (AD-17).
 
@@ -6429,18 +6688,27 @@ criterion is pinned there and its mechanism lives in the named decisions.)
   Owner-visible, in plain language: after an upgrade, run `ctxoracle init`
   again in each repository, or notes typed through the old version stay in the
   old file.
-- **L19 — A full recompute that keeps being interrupted never finishes.** A
-  recompute of the co-change weights (AD-13's case 1: after a `tune` of the
-  half-life, or a checkout of a tip past the epoch's bound) starts again from
-  its first row after each interruption, since resuming it mixed two decay
-  rates after a tune back (R8-2). Until one pass runs to its end, the history
-  genres stay silent under `mining_in_progress`, which `status` lists. Size:
-  one recompute's run time per attempt (AD-13 gives a model's figure); at the
-  seeded half-life a recompute follows only a `tune` of it, and near the
-  half-life floor nearly every branch switch to an older tip starts one.
-  Owner-visible, in plain language: after changing how fast history fades, the
-  history-based hints stay off until the recalculation has run once without
-  the machine being shut down or the process killed.
+- **L19 — A full recompute is silent while it runs, and starts over when its
+  inputs change.** A recompute of the co-change weights (AD-13's case 1:
+  after a `tune` of the half-life, or a checkout of a tip past the epoch's
+  bound) keeps the history genres silent under `mining_in_progress` until it
+  finishes. An interruption does not cost its work: the next pass resumes it
+  under the inputs it started with, so under repeated interruption it
+  completes within `C` passes, C-3's bound (R9-1; round 8's L19, "a full
+  recompute that keeps being interrupted never finishes", is withdrawn with
+  the restart that caused it). What still restarts it is a change of those
+  inputs before it finishes, a further `tune` of `h` or a checkout past its
+  epoch's bound, because finishing under the old inputs would mix two decay
+  rates or epochs (M-17, R8-2); each is recorded as `recompute_superseded`,
+  and each resumption as `mining_resumed`, which `status` shows (R9-6). Size:
+  one recompute's run time (AD-13 gives a model's figure, tens of seconds at
+  the seeded horizon); at the seeded half-life a recompute follows only a
+  `tune` of it, and near the half-life floor nearly every branch switch to an
+  older tip starts one. Owner-visible, in plain language: after changing how
+  fast history fades, the history-based hints stay off until the
+  recalculation has finished; shutting the machine down or killing the
+  process only pauses it, while changing the setting again before it
+  finishes starts it over.
 
 ## Standards governing this architecture
 
