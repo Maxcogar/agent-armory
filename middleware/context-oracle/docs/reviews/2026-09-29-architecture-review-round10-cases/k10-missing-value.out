@@ -1,0 +1,3 @@
+mined_half_life_days deleted: pass completed in 19 transactions; commits with a NULL or NaN weight 0; weight_epoch now 1790864000; records []; max relative ratio error vs a fresh mine 4.769e-16
+weight_epoch deleted: pass threw: NOT NULL constraint failed: files.change_weight; commits with a NULL or NaN weight 1; weight_epoch now undefined; records []; max relative ratio error vs a fresh mine 5.326e-1
+mined_fix_lexicon_digest deleted: pass completed in 10 transactions; commits with a NULL or NaN weight 0; weight_epoch now 1790000000; records []; max relative ratio error vs a fresh mine 6.414e-16

@@ -1,0 +1,13 @@
+OK   T1 incremental mine of 200 new commits, every pass killed after 1: complete after 5 passes (C = 5); max relative ratio error 8.509e-16; commits 400, settled true
+OK   T1 incremental mine of 200 new commits, every pass killed after 3: complete after 2 passes (C = 5); max relative ratio error 8.509e-16; commits 400, settled true
+OK   T2 h 365->20 and lex L0->L1 in one pass, every pass killed after 1: complete after 41 passes (C = 41); max relative ratio error 0.000e+0; commits at L1 400/400, settled true, records ["mining_resumed"]
+OK   T2 h 365->20 and lex L0->L1 in one pass, every pass killed after 4: complete after 11 passes (C = 41); max relative ratio error 0.000e+0; commits at L1 400/400, settled true, records ["mining_resumed"]
+OK   T3 first mine killed after 4, h tuned 365->50, every pass killed after 1: complete after 22 passes (C = 22); max relative ratio error 3.351e-16; commits 400, weight_epoch 1790000000
+OK   T3 first mine killed after 4, h tuned 365->50, every pass killed after 5: complete after 5 passes (C = 22); max relative ratio error 3.351e-16; commits 400, weight_epoch 1790000000
+OK   T4 case 2 with the tip advancing a day per pass, every pass killed after 1: complete after 17 passes (C = 17); commits not at L1 0; commits 400; digest L1
+OK   T4 case 2 with the tip advancing a day per pass, every pass killed after 10: complete after 2 passes (C = 17); commits not at L1 0; commits 400; digest L1
+OK   T5 recompute with the tip advancing a day per pass, every pass killed after 1: complete after 25 passes (C = 25); max relative ratio error 8.169e-15; superseded 0; epoch the first pass's true
+OK   T5 recompute with the tip advancing a day per pass, every pass killed after 5: complete after 5 passes (C = 25); max relative ratio error 8.139e-15; superseded 0; epoch the first pass's true
+OK   T6 300 random orders of tunes of h and lex with kills, then one pass: 0 orders wrong; max relative ratio error 8.509e-15
+
+0 failed

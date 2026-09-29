@@ -1,0 +1,6 @@
+A project (b229c04): reads that use an index: schema_meta meta rows: SCAN schema_meta USING INDEX sqlite_autoindex_schema_meta_1 | files lookup: SEARCH files USING INTEGER PRIMARY KEY (rowid=?)
+A global (b229c04): reads that use an index: global_meta meta rows: SCAN global_meta USING INDEX sqlite_autoindex_global_meta_1
+B project (b229c04): reads that use an index: schema_meta meta rows: SCAN schema_meta USING INDEX sqlite_autoindex_schema_meta_1 | files lookup: SEARCH files USING INTEGER PRIMARY KEY (rowid=?)
+B global (b229c04): reads that use an index: global_meta meta rows: SCAN global_meta USING INDEX sqlite_autoindex_global_meta_1
+C project (4dd0f00-4e070ce): reads that use an index: schema_meta meta rows: SCAN schema_meta USING INDEX sqlite_autoindex_schema_meta_1 | files lookup: SEARCH files USING INTEGER PRIMARY KEY (rowid=?)
+C global (4dd0f00-4e070ce): reads that use an index: global_meta meta rows: SCAN global_meta USING INDEX sqlite_autoindex_global_meta_1
