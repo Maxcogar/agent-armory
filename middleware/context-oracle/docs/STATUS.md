@@ -59,16 +59,26 @@ as Max Cogar asked.
 
 ## What to do next
 
-1. **Correct the documents once, from the audit verifications** (the defect and
-   correction lists in each `…-B<n>-verification.md`):
+1. **The spec comes first, and it waits on Max Cogar's answer to question 1**
+   (whether to audit the whole spec).
+   - The architecture is derived from the spec, and the plan from both. So
+     neither is corrected until the spec they rest on is settled: correcting
+     them on a spec that may still change is work that may have to be redone.
+   - If the whole spec is audited, run that audit the same way as the branch
+     audit.
+   - Then correct the spec with Max Cogar's sign-off on every changed line:
+     the audit's spec findings, the edit-warning wording (question 3), and
+     anything the whole-spec audit finds.
+2. **Then correct the architecture, then the plan, once each, from the audit
+   verifications** (the defect and correction lists in each
+   `…-B<n>-verification.md`):
    - fix each defect at its root cause with a correct design;
    - never answer a requirement with a narrowed claim, a stated limitation, a
      fallback or an exclusion;
    - judge every review finding on its merits against the design and its
      sources, never apply one because a rule says to;
-   - order: architecture, then the plan (with every plan step's dependencies
-     checked together), then the spec items, which need Max Cogar's sign-off.
-2. **Then rebuild the code from the corrected plan.**
+   - check every plan step's dependencies together.
+3. **Then rebuild the code from the corrected plan.**
 
 ## Questions for Max Cogar (plain language)
 
