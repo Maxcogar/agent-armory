@@ -1,0 +1,112 @@
+== store A: 6 legacy files
+FAIL A clean the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   clean: exit 0; 3243 bytes of report; re-run states [{"scope":"global","state":"current"},{"scope":"project","state":"current"}]
+FAIL A after kill at g1-discarded the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at g1-discarded: signal SIGKILL; next run exit 0; states rebuilt,rebuilt
+FAIL A after kill at g2-created the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at g2-created: signal SIGKILL; next run exit 0; states rebuilt,rebuilt
+FAIL A after kill at g3-mid-copy the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at g3-mid-copy: signal SIGKILL; next run exit 0; states rebuilt,rebuilt
+FAIL A after kill at g4-copied the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at g4-copied: signal SIGKILL; next run exit 0; states rebuilt,rebuilt
+FAIL A after kill at g5-closed the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at g5-closed: signal SIGKILL; next run exit 0; states rebuilt,rebuilt
+FAIL A after kill at g6-renamed the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at g6-renamed: signal SIGKILL; next run exit 0; states current,rebuilt
+FAIL A after kill at g7-global-done the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at g7-global-done: signal SIGKILL; next run exit 0; states current,rebuilt
+FAIL A after kill at p1-discarded the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at p1-discarded: signal SIGKILL; next run exit 0; states current,rebuilt
+FAIL A after kill at p2-created the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at p2-created: signal SIGKILL; next run exit 0; states current,rebuilt
+FAIL A after kill at p3-mid-copy the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at p3-mid-copy: signal SIGKILL; next run exit 0; states current,rebuilt
+FAIL A after kill at p4-copied the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at p4-copied: signal SIGKILL; next run exit 0; states current,rebuilt
+FAIL A after kill at p5-closed the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at p5-closed: signal SIGKILL; next run exit 0; states current,rebuilt
+FAIL A after kill at p6-renamed the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at p6-renamed: signal SIGKILL; next run exit 0; states current,current
+FAIL A after kill at p7-bound the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at p7-bound: signal SIGKILL; next run exit 0; states current,current
+== store B: 6 legacy files
+FAIL B clean the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   clean: exit 0; 3243 bytes of report; re-run states [{"scope":"global","state":"current"},{"scope":"project","state":"current"}]
+FAIL B after kill at g1-discarded the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at g1-discarded: signal SIGKILL; next run exit 0; states rebuilt,rebuilt
+FAIL B after kill at g2-created the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at g2-created: signal SIGKILL; next run exit 0; states rebuilt,rebuilt
+FAIL B after kill at g3-mid-copy the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at g3-mid-copy: signal SIGKILL; next run exit 0; states rebuilt,rebuilt
+FAIL B after kill at g4-copied the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at g4-copied: signal SIGKILL; next run exit 0; states rebuilt,rebuilt
+FAIL B after kill at g5-closed the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at g5-closed: signal SIGKILL; next run exit 0; states rebuilt,rebuilt
+FAIL B after kill at g6-renamed the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at g6-renamed: signal SIGKILL; next run exit 0; states current,rebuilt
+FAIL B after kill at g7-global-done the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at g7-global-done: signal SIGKILL; next run exit 0; states current,rebuilt
+FAIL B after kill at p1-discarded the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at p1-discarded: signal SIGKILL; next run exit 0; states current,rebuilt
+FAIL B after kill at p2-created the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at p2-created: signal SIGKILL; next run exit 0; states current,rebuilt
+FAIL B after kill at p3-mid-copy the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at p3-mid-copy: signal SIGKILL; next run exit 0; states current,rebuilt
+FAIL B after kill at p4-copied the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at p4-copied: signal SIGKILL; next run exit 0; states current,rebuilt
+FAIL B after kill at p5-closed the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at p5-closed: signal SIGKILL; next run exit 0; states current,rebuilt
+FAIL B after kill at p6-renamed the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at p6-renamed: signal SIGKILL; next run exit 0; states current,current
+FAIL B after kill at p7-bound the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at p7-bound: signal SIGKILL; next run exit 0; states current,current
+== store C: 6 legacy files
+FAIL C clean the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   clean: exit 0; 2998 bytes of report; re-run states [{"scope":"global","state":"current"},{"scope":"project","state":"current"}]
+FAIL C after kill at g1-discarded the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at g1-discarded: signal SIGKILL; next run exit 0; states rebuilt,rebuilt
+FAIL C after kill at g2-created the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at g2-created: signal SIGKILL; next run exit 0; states rebuilt,rebuilt
+FAIL C after kill at g3-mid-copy the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at g3-mid-copy: signal SIGKILL; next run exit 0; states rebuilt,rebuilt
+FAIL C after kill at g4-copied the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at g4-copied: signal SIGKILL; next run exit 0; states rebuilt,rebuilt
+FAIL C after kill at g5-closed the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at g5-closed: signal SIGKILL; next run exit 0; states rebuilt,rebuilt
+FAIL C after kill at g6-renamed the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at g6-renamed: signal SIGKILL; next run exit 0; states current,rebuilt
+FAIL C after kill at g7-global-done the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at g7-global-done: signal SIGKILL; next run exit 0; states current,rebuilt
+FAIL C after kill at p1-discarded the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at p1-discarded: signal SIGKILL; next run exit 0; states current,rebuilt
+FAIL C after kill at p2-created the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at p2-created: signal SIGKILL; next run exit 0; states current,rebuilt
+FAIL C after kill at p3-mid-copy the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at p3-mid-copy: signal SIGKILL; next run exit 0; states current,rebuilt
+FAIL C after kill at p4-copied the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at p4-copied: signal SIGKILL; next run exit 0; states current,rebuilt
+FAIL C after kill at p5-closed the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at p5-closed: signal SIGKILL; next run exit 0; states current,rebuilt
+FAIL C after kill at p6-renamed the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at p6-renamed: signal SIGKILL; next run exit 0; states current,current
+FAIL C after kill at p7-bound the designed outcome: half-life 10 carried and served, bar.no_such_key refused: this build's validator refuses 10: not the designed validator
+   kill at p7-bound: signal SIGKILL; next run exit 0; states current,current
+== another layout: exit 0; project {"scope":"project","state":"rebuilt","legacyPath":"<work>/test/D-other-layout/projects/c6d653fb7aac/store.db","layout":null,"carried":{},"unplaced":[],"dropped"
+   side files the read-only open created: projects/c6d653fb7aac/store.db-shm, projects/c6d653fb7aac/store.db-wal
+   X1 legacyNotCarried: {"reason":"layout unknown: its rows were not read","rows":{"schema_meta":15,"files":5,"symbols":3,"import_edges":1,"symbol_refs":1,"test_map":1,"commits":7,"cochange_pairs":3,"landmines":0,"labelled_touches":2,"invariants":1,"invariant_members":2,"human_facts":2,"corrections":4,"stats_folds":0,"questions":3,"classify_state":2,"consumer_state":2,"session_log":13,"observed_actions":3,"regret":0,"whisper_audit":5,"faults":0,"classified_turns":0,"path_tokens":15,"symbol_tokens":3,"fts_symbols":3,"fts_paths":5}}
+== unreadable legacy file: exit 0; project state rebuilt, layout null, unreadable "file is not a database"
+   E legacyNotCarried: {"reason":"the file could not be read (file is not a database)","rows":null}
+== X2: after repoC exit 0 global:rebuilt:4dd0f00-4e070ce project:rebuilt:4dd0f00-4e070ce; legacy projects ["2b9215453e99","deadbeef0000"]; after repoX exit 0 global:current: project:rebuilt:b229c04; legacy projects ["deadbeef0000"]
+== X3: rebuild exit 0; b229c04 tune exit 0 (bar.confidence_floor = 0.7); tuning rows legacy 171 -> 171; legacy floor ["0.7"], rebuilt ["0.65"]; before {"reason":"rows not carried","unplacedRows":2,"changedSince":[]}; after {"reason":"rows not carried","unplacedRows":2,"changedSince":[{"table":"tuning","rowsAtRebuild":4,"rowsNow":4}]}
+== R6-8: exit 0; project rebuilt; unplaced [{"table":"invariant_members","rows":1,"rowid":3,"reason":"files.id 99999: no legacy row"},{"table":"invariant_members","rows":1,"rowid":4,"reason":"FOREIGN KEY constraint failed"}]
+== R6-9: 29 schema rows hold a CR; exit 0; project rebuilt, layout b229c04
+== Y1 A: rebuild exit 0; b229c04 note exit 0; before null; after {"reason":"rows not carried","unplacedRows":0,"changedSince":[{"table":"human_facts","rowsAtRebuild":2,"rowsNow":3}]}
+== Y1 C: rebuild exit 0; 59cc05c note exit 0; before null; after {"reason":"rows not carried","unplacedRows":0,"changedSince":[{"table":"human_facts","rowsAtRebuild":3,"rowsNow":4}]}
+== Y2: rebuild exit 0; questions rows updated 1; legacyNotCarried {"reason":"rows not carried","unplacedRows":0,"changedSince":[{"table":"questions","rowsAtRebuild":3,"rowsNow":3}]}
+== Y3: export exit 0; layouts ["b229c04","b229c04"]; export rebuilt exit 0; local rebuild exit 0; own {"reason":"rows not carried","unplacedRows":1,"changedSince":[]}; after the import {"reason":"no rebuild record"}; rebuilt then unreadable {"reason":"the file could not be read (file is not a database)","rows":null}
+== Y5: session_log root page 38 overwritten; run 1 exit 0 project rebuilt unreadable "database disk image is malformed"; run 2 exit 0 current,current; legacyNotCarried {"reason":"the file could not be read (database disk image is malformed)","rows":{"schema_meta":15,"files":5,"symbols":3,"import_edges":1,"symbol_refs":1,"test_map":1,"commits":7,"cochange_pairs":3,"landmines":0,"labelled_touches":2,"invariants":1,"invariant_members":2,"human_facts":2,"corrections":4,"stats_folds":0,"questions":3,"classify_state":2,"consumer_state":2,"session_log":13,"observed_actions":3,"regret":0,"whisper_audit":5,"faults":0,"classified_turns":0,"path_tokens":15,"symbol_tokens":3,"fts_symbols":3,"fts_paths":5}}
+== Y5b: invariant_members root page 23 overwritten; run 1 exit 0 project rebuilt unreadable "database disk image is malformed"; run 2 exit 0 current,current; legacyNotCarried {"reason":"the file could not be read (database disk image is malformed)","rows":{"schema_meta":15,"files":5,"symbols":3,"import_edges":1,"symbol_refs":1,"test_map":1,"commits":7,"cochange_pairs":3,"landmines":0,"labelled_touches":2,"invariants":1,"invariant_members":null,"human_facts":2,"corrections":4,"stats_folds":0,"questions":3,"classify_state":2,"consumer_state":2,"session_log":13,"observed_actions":3,"regret":0,"whisper_audit":5,"faults":0,"classified_turns":0,"path_tokens":15,"symbol_tokens":3,"fts_symbols":3,"fts_paths":5}}
+== Y6: 001_phase_a_project.sql LF 91a6894ec0dc8523 CRLF 91a6894ec0dc8523; 001b_phase_a_fts.sql LF 488686ad29b35187 CRLF 488686ad29b35187; 002_phase_a_global.sql LF a3af88cacdc7dde0 CRLF a3af88cacdc7dde0
+== R7-8: rebuild exit 0; files diagnostics project.db project.db.pre-import-1 store.db store.db-shm store.db-wal; kills: diagnostics: SIGKILL left [project.db reindex.lock]; project.db: SIGKILL left [reindex.lock]; project.db.pre-import-1: SIGKILL left [diagnostics project.db reindex.lock]; store.db: SIGKILL left [diagnostics project.db project.db.pre-import-1 reindex.lock store.db-shm store.db-wal]; store.db-shm: SIGKILL left [diagnostics project.db project.db.pre-import-1 reindex.lock]; store.db-wal: SIGKILL left [diagnostics project.db project.db.pre-import-1 reindex.lock store.db-shm]
+
+1474 checks passed, 45 failed
