@@ -1,8 +1,0 @@
-Y1 A: rebuild exit 0; b229c04 note -> 0 fact recorded; legacy human_facts 2 -> 3, rebuilt 2; before null; after {"reason":"rows not carried","unplacedRows":0,"changedSince":["human_facts"]}
-Y1 C: rebuild exit 0; 59cc05c note -> 0 fact recorded; legacy human_facts 3 -> 4, rebuilt 3; before null; after {"reason":"rows not carried","unplacedRows":0,"changedSince":["human_facts"]}
-Y2: rebuild exit 0; questions rows updated 1; legacyNotCarried {"reason":"rows not carried","unplacedRows":0,"changedSince":["questions"]}
-Y3: HEAD export -> 0 exported to <work>/r7/Y3-export; layouts ["b229c04","b229c04"]; export rebuilt exit 0 global:rebuilt:b229c04 project:rebuilt:b229c04; export human_facts 2, corrections 4, questions 3, invariants 1; rebuilt human_facts 2, corrections 4, questions 3, invariants 1
-Y3: local rebuild exit 0; own record: {"reason":"rows not carried","unplacedRows":1,"changedSince":[]}; after the import the latest record's legacyPath is Y3-export-home/projects/c6d653fb7aac/store.db (the file checked is Y3-local/projects/c6d653fb7aac/store.db); legacyNotCarried null; hand_added_key still in the legacy file: 1
-Y3: after the import, a legacy file that is not a database: legacyNotCarried throws: file is not a database
-Y5: session_log root page 38 overwritten; run 1 exit 1 {"scope":"project","state":"failed","code":"store_rebuild_failed","legacyPath":"<work>/r7/Y5/projects/c6d653fb7aac/store.db","error":"database disk image is malformed"}; run 2 exit 1 project state failed error "database disk image is malformed"; project.db exists false
-Y6: 001_phase_a_project.sql sha256 LF 91a6894ec0dc8523 CRLF 1bcf3052ab2eadc6 equal false

@@ -1,2 +1,0 @@
-B global locked: rebuild exit 1, global failed, error "database is locked", layout null, new name absent true; released: owner tuning rows 4, lessons 1; re-run exit 0 rebuilt,rebuilt; owner tuning rows in the new store 3 (+ 1 refused, recorded unplaced), lessons 1
-C global locked: rebuild exit 1, global failed, error "database is locked", layout null, new name absent true; released: owner tuning rows 5, lessons 2; re-run exit 0 rebuilt,rebuilt; owner tuning rows in the new store 4 (+ 1 refused, recorded unplaced), lessons 2

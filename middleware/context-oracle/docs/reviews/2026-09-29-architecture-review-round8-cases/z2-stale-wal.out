@@ -1,2 +1,0 @@
-Z2 (a) writer signal SIGKILL; before ["project.db","project.db-shm","project.db-wal"]; after unlinking project.db ["project.db-shm","project.db-wal"]; empty open: rows 0; files ["project.db","project.db-shm"]
-Z2 (b) writer signal SIGKILL; before ["project.db","project.db-shm","project.db-wal"]; after unlinking project.db ["project.db-shm","project.db-wal"]; populated file renamed in: tables ["human_facts"]; human_facts rows 50; quick_check ok

@@ -1,7 +1,0 @@
-mutant [owner tuning row inserted beside the seed (F5-2)]: test exit 1; 1250 checks passed, 150 failed; first failure: FAIL A clean tuning bar.confidence_floor served: Expected values to be strictly equal: |  | '0.6' !== '0.65' |
-mutant [file ids copied as numbers (R4-2)]: test exit 1; Node.js v22.22.2; first failure: FAIL A clean run exits 0: [{"scope":"global","state":"rebuilt","legacyPath":"/tmp/claude-0/-home-user-agent-ar
-mutant [tuning not validated (F5-3)]: test exit 1; 1355 checks passed, 45 failed; first failure: FAIL A clean tuning bar.no_such_key served: tuning: unknown scalar key "bar.no_such_key" (not in tuning_seeds)
-mutant [legacy file opened read-write and written]: test exit 1; 1314 checks passed, 86 failed; first failure: FAIL A clean run leaves legacy files byte-identical: Expected values to be strictly deep-equal: | + actual - e
-mutant [subject_key carried with legacy ids (F5-1)]: test exit 1; 1370 checks passed, 30 failed; first failure: FAIL A clean whisper_audit rows arrive: Expected values to be strictly equal: |  | 2 !== 0 | 
-mutant [questions not carried (F5-8)]: test exit 1; 1310 checks passed, 45 failed; first failure: FAIL A clean owner-typed tables are non-empty where the verbs wrote them: questions
-mutant [store_rebuilt record missing from the new store]: test exit 1; Node.js v22.22.2; first failure: 

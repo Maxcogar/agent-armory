@@ -1,4 +1,0 @@
-sqlite 3.51.2
-VACUUM INTO: commits rowids kept true null; cochange_pairs rowids kept true null
-VACUUM: commits rowids kept true null; cochange_pairs rowids kept true null
-exit 0

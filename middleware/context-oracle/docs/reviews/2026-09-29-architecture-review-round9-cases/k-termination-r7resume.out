@@ -1,6 +1,0 @@
-K1 first mine (h 365, refTs unchanged) killed after 4 transactions: killed; store {"commits":200,"mined_half_life_days":"absent","weight_epoch":"absent"}
-K1 then 20 passes, each killed after 1 transactions: commits after each [200,200,200,200,200,200,200,200,200,200,200,200,200,200,200,200,200,200,250,250]; store {"commits":250,"recompute_pending":1,"mined_half_life_days":"absent"}; an uninterrupted first mine needs C = 9 transactions
-K1 one uninterrupted pass then: 6 transactions, commits 400, max relative ratio error vs a fresh mine 4.572e-16
-K1 first mine (h 365, refTs unchanged) killed after 4 transactions: killed; store {"commits":200,"mined_half_life_days":"absent","weight_epoch":"absent"}
-K1 then 20 passes, each killed after 5 transactions: commits after each [200,200,200,300,350,"completed"]; store {"commits":400,"recompute_pending":"absent","mined_half_life_days":365}; an uninterrupted first mine needs C = 9 transactions
-K1 one uninterrupted pass then: 1 transactions, commits 400, max relative ratio error vs a fresh mine 4.572e-16

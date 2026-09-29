@@ -12,74 +12,6 @@ below; it will be consumed by the Phase A plan.
 the sentence uses it for — the discipline the collapse-log's 2026-08-25 entry exists
 to enforce.
 
-**Branch-audit correction pass (2026-09-28).** Every decision changed by the audit of
-the branch since `de66831` cites, where the change is made, the register item it
-implements and the ruling that settles it, as `(R-n; <file>)`. The files, all in
-`docs/reviews/`: *register* = `2026-09-28-branch-audit-correction-register.md`;
-*settlements* = `2026-09-28-branch-audit-gap-settlements.md` **as corrected by**
-`2026-09-28-branch-audit-gap-settlements-review.md` (each settlement applies with the
-review's "Change required"; "Flaw 1–3" are the review's three raised flaws); *CR§1* /
-*CR§2* = `2026-09-28-branch-audit-coordinator-rulings-schema-and-edit-timing.md` §1/§2,
-§1 **as corrected by** *store-recovery* =
-`2026-09-28-branch-audit-coordinator-ruling-correction-store-recovery.md`; *DE* =
-`2026-09-28-branch-audit-hook-context-on-denied-edit.md`; *PD* =
-`2026-09-28-branch-audit-hook-context-permission-denial.md`; *Bn verification* /
-*Bnx E-k* = `2026-09-26-branch-audit-Bn-verification.md` / that part's adjudication
-entry. **Correction review (2026-09-28).** A decision changed by the independent
-review of that correction cites its finding as `(F-n; <source>)` or, where it also
-implements a register item, `(R-n / F-n; <source>)`; *F-n* and *settlement (a)–(d)*
-are the findings and settlements of
-`docs/reviews/2026-09-28-architecture-correction-review.md`, each applied as checked
-against its source, and a *coordinator ruling* is the coordinator's instruction for
-that finding, recorded with the reason that backs it where it is applied. Where this document restates `PreToolUse` timing it follows the documented and
-tested behaviour (hooks reference fetched 2026-09-28; DE, PD, Claude Code 2.1.283),
-which the spec's FR-O2, C-4, FR-A2d, §5.1 and AC-1c do not yet say: those lines are
-**pending spec sign-off R-1…R-5** (Max Cogar, under M38), and each restatement is
-marked so. **AC-3's over-cap case also goes to Max Cogar, but it is not a
-wording correction like R-1…R-5** (those are harness facts, "not a design choice
-put to him", CR§2 as the register carries it, §2.1): AC-3 says "Two candidates meeting the bar at one event
-are both delivered", and a response over the harness's 10,000-character cap
-reaches the model as a file path and a 2,000-character preview (V24), so
-whether its later whispers are "delivered" is a question about AC-3's text that
-bears on owner decision `OL-C1`; AD-16 marks its restatement so, and the
-behaviour it builds meanwhile is pending that decision (R2-1; round-2 review,
-`docs/reviews/2026-09-28-architecture-review-round2.md`, whose findings are cited
-as `(R2-n; <source>)` where applied; R3-6). **Round-3 review (2026-09-28).** A
-decision changed by the independent review
-`docs/reviews/2026-09-28-architecture-review-round3.md` cites its finding as
-`(R3-n; <source>)`; a figure measured for that revision cites the committed
-script that produced it, in `docs/reviews/2026-09-28-architecture-round3-bench/`
-(written *the bench* below; Node 22.22.2, its SQLite 3.51.2, 4 cores,
-2026-09-28). **Collapse hunt and round-4 review (2026-09-28).** A decision
-changed by `docs/reviews/2026-09-28-architecture-collapse-hunt.md` cites its
-verdict as `(M-n; collapse hunt)`, and one changed by a round-4 finding it left
-standing (`docs/reviews/2026-09-28-architecture-review-round4.md`) cites it as
-`(R4-n; round-4 review)`; a mechanism the hunt cut is removed, not marked, and
-where it named a stated limitation instead, the limitation is written where the
-rule sat and in Limitations (R4-11: the figures of cut mechanisms are removed
-with them, and no figure claims an AD-24 fixture that re-measures it unless
-AD-24 names one). **Round-5 review (2026-09-28).** A decision changed by
-`docs/reviews/2026-09-28-architecture-review-round5.md` cites its finding as
-`(F5-n; round-5 review)`. The store rebuild those findings concern was settled
-by execution rather than by another prose revision. A prototype of the mapping
-was run against real legacy stores that the historical builds wrote, and a test
-checked it, with a kill at every step. A figure measured for that revision
-(F5-6, F5-10) cites its committed script. All of it is in
-`docs/reviews/2026-09-28-rebuild-mapping-evidence/` (*the rebuild evidence*;
-Node 22.22.2, 2026-09-29), whose `README.md` builds its inputs. **Round-6 review
-(2026-09-29).** A decision changed by
-`docs/reviews/2026-09-29-architecture-review-round6.md` cites its finding as
-`(R6-n; round-6 review)`. The rebuild's changes were made in a revised copy of
-the prototype and its test, run on stores built by the rebuild evidence's
-`README.md`: `docs/reviews/2026-09-29-rebuild-mapping-evidence-r6/` (*the
-round-6 evidence*), whose `README.md` records the commands and outputs.
-**Round-7 review (2026-09-29).** A decision changed by
-`docs/reviews/2026-09-29-architecture-review-round7.md` cites its finding as
-`(R7-n; round-7 review)`. The rebuild's changes were made in a revised copy of
-the round-6 prototype and test, run on the same stores:
-`docs/reviews/2026-09-29-rebuild-mapping-evidence-r7/` (*the round-7
-evidence*), whose `README.md` records the commands and outputs.
-
 **Relationship to the 2026-07 whole-scope architecture record.**
 `docs/architecture-context-oracle.md` is a banner-marked historical record that
 predates the blocking rebuild (`CLAUDE.md`: never a base to edit). It is treated
@@ -195,7 +127,7 @@ forward as "prior pass."
 | V3 | `Stop`/`SubagentStop` deliver context two ways — `decision: "block"`+`reason` (surfaced as an error) and `hookSpecificOutput.additionalContext` ("without displaying a hook error notification") — both bounded by `stop_hook_active` and an 8-consecutive-continuation cap | Same reference, fetched 2026-08-29 | Confirmed. `FR-B4` uses `additionalContext`, once, honoring `stop_hook_active`. |
 | V4 | `SubagentStop` input carries `agent_id`, `agent_type`, `agent_transcript_path`, `last_assistant_message`; subagent hooks are keyed per consumer | Same reference (SubagentStop payload example; SDK type), fetched 2026-08-29 | Confirmed — **for `SubagentStop` input only**; whether subagent tool events carry `agent_transcript_path` is unverified, and nothing in Phase A depends on it (AD-11 reads transcripts for the main consumer only). `FR-O6` delivery keys exist. |
 | V5 | `UserPromptSubmit` input carries `prompt`; `SessionStart.source ∈ {startup, resume, clear, compact, fork}` | Same reference (payload examples; SDK type), fetched 2026-08-29 | Confirmed. AD-9's question intake and AD-16's `D-20` reconciliation read exactly these fields. |
-| V6 | Hook timeouts: 600 s default for command hooks (30 s under `UserPromptSubmit`); SessionEnd hooks share a 1.5 s budget, raised up to 60 s to match a configured per-hook timeout; a timed-out hook's output is discarded, "so on most events a timed-out hook renders no decision", and "on `PreToolUse`, by contrast, a timed-out command hook lets the tool call continue" | `hooks-guide` Limitations + `env-vars` + agent-sdk hooks page, fetched 2026-08-29; the timeout clause re-read in the hooks reference 2026-09-07 (plan §4, §11.4) | A timed-out handler **fails open**: its output is discarded, so nothing the handler emitted survives, a deny included; whether the harness shows a notice for a timed-out `PreToolUse` hook the reference does not state (it documents one for `UserPromptSubmit`). *(Corrected 2026-09-28: this said the handler "fails open silently … with no trace", which reaches past the reference's own scope — R-7; B5a E-1, hooks reference fetched 2026-09-28.)* AD-23's cooperative deadline and blocking-call inventory therefore exist so a slow event ends inside the deadline and writes its `latency_breach` diagnostic (`NF-1`, `FR-O3`, `OL-10`) **for the enumerated event-path calls** (never claimed in the abstract). *(Corrected 2026-09-26: this row said a timed-out `PreToolUse` hook prevents the tool from running — fail-closed — which the 2026-09-07 hooks reference contradicts; raised in `docs/plans/plan-phase-a.md` sections 4 and 16.)* |
+| V6 | Hook timeouts: 600 s default for command hooks (30 s under `UserPromptSubmit`); SessionEnd hooks share a 1.5 s budget, raised up to 60 s to match a configured per-hook timeout; a timed-out hook's output is discarded, "so on most events a timed-out hook renders no decision", and "on `PreToolUse`, by contrast, a timed-out command hook lets the tool call continue" | `hooks-guide` Limitations + `env-vars` + agent-sdk hooks page, fetched 2026-08-29; the timeout clause re-read in the hooks reference 2026-09-07 (plan §4, §11.4) | A timed-out handler **fails open silently**: whatever it would have emitted, including a deny, is discarded with no trace. AD-23's cooperative deadline and blocking-call inventory therefore exist so a slow event ends inside the deadline and writes its `latency_breach` diagnostic (`NF-1`, `FR-O3`, `OL-10`) **for the enumerated event-path calls** (never claimed in the abstract). *(Corrected 2026-09-26: this row said a timed-out `PreToolUse` hook prevents the tool from running — fail-closed — which the 2026-09-07 hooks reference contradicts; raised in `docs/plans/plan-phase-a.md` sections 4 and 16.)* |
 | V7 | Stock `node:sqlite` ships FTS5 **from v22.16.0** | Executed here: `CREATE VIRTUAL TABLE … fts5` succeeds on Node v22.22.2 (LTS 'Jod', `process.release.sourceUrl` = nodejs.org v22.22.2); `PRAGMA compile_options` lists `ENABLE_FTS5`; `deps/sqlite/sqlite.gyp` fetched per tag 2026-08-29: **0** FTS5 matches at v22.15.0, **1** at v22.16.0 ("sqlite: enable common flags", nodejs/node#57621, in the 22.16.0 changelog) | **The spec's C-2 factual note (2026-08-16: FTS5 absent, nodejs/node #56951 open) is superseded.** The C-2 *requirement* is met by the built-in engine with zero dependencies — on Node ≥ 22.16.0, which is why AD-2's floor is 22.16.0, not C-1's unflagged-since figure (22.13.0, still true, still recorded in the spec). |
 | V8 | Cold-spawn cost of the whole per-event handler shape: Node process start + store open + WAL + STRICT DDL + FTS5 virtual table + insert + query | Executed here 5×: 45–54 ms full process wall time; in-process store work 1.8 ms. **Excludes `PRAGMA integrity_check`**, which the collapse-hunt measured at 543 ms (`quick_check` 189 ms) on a 410 MB store as one uninterruptible synchronous statement (review record 2026-08-29) — which is why AD-17 keeps integrity checks **off** the event path | NF-1 (p95 ≤ 1.5 s) has ~30× headroom over a spawn-per-event process model whose event path is bounded lookups only (AD-23's inventory). AD-1 rests on this. |
 | V9 | The host-CLI piggyback works in this environment with no separate credentials, as the design would ship it | Executed here: `claude -p --model claude-haiku-4-5 --tools "" --max-turns 1 --output-format json` → `is_error:false`, `num_turns:1`, result `"ok"`; wall 4.4 s (API 2.05 s) | Confirms `OL-2`/`OL-7` path and re-confirms NF-1's corollary: a model call can never sit on the synchronous hook path. Phase A makes no model calls; this pins the Phase B seam's latency class. |
@@ -209,11 +141,10 @@ forward as "prior pass."
 | V17 | `VACUUM INTO '<file>'` executes on `node:sqlite` and round-trips data (SQLite 3.51.2 bundled); the module-level `backup()` API was **added in Node v22.16.0** (official v22.x API docs) | `VACUUM INTO` executed here 2026-08-29 (source→dest copy verified by query); `backup()` version per the v22.x API docs as recorded in the 2026-08-29 expert-review record | Export (AD-5) uses `VACUUM INTO` — engine-level, version-immune. Import (AD-5) uses `backup()`, which exists only from v22.16.0, so AD-2's 22.16.0 floor is load-bearing for import. *(Corrected 2026-09-26: this row said import also used `VACUUM INTO` and did not depend on the floor, after AD-5 had moved import to `backup()` — review record 2026-09-26, CH R1 / ER M13.)* |
 | V18 | A subagent hook's context does **not** reach the parent, and the documented parent channel exists: "To inject context back into the parent session rather than the subagent, a PostToolUse hook on the Agent tool should be used instead" | Current hooks reference (SubagentStop section), fetched 2026-08-29, quoted verbatim | The spec-§13 open item is no longer an unknown: C-4's assumption ("does not propagate") is now documented fact, and the parent-injection option the spec anticipated exists. Nothing in Phase A changes; recorded as premise maintenance (Limitations L9). |
 | V19 | `PostToolUse` "fires after a tool executes successfully" and carries `tool_name`/`tool_input`/`tool_response`; **a failing executing tool fires `PostToolUseFailure` instead**, whose `error` string "generally begins with an exit code line" for Bash (the docs' own example payload is a failing `npm test`); `PostToolUseFailure` does **not** fire for pre-execution rejections — permission denials included | Current hooks reference (PostToolUse + PostToolUseFailure sections and payload examples), fetched 2026-08-29 | Failure outcomes (`observed_actions.outcome='failed'`) are producible **only** from `PostToolUseFailure`, so AD-6 wires it observation-only; a `PreToolUse` deny never generates one (the oracle's own denies cannot pollute the outcome record); `tool_name`/`tool_input` on tool events are the documented inputs AD-15's generators read. |
-| V20 | **When the model reads `PreToolUse` `additionalContext`.** The `PreToolUse` decision-control table: `additionalContext` is "String added to Claude's context alongside the tool result." The "Add context for Claude" section: for `PreToolUse` (and `PostToolUse`/`PostToolUseFailure`) the reminder appears "next to the tool result", and "Claude reads the reminder on the next model request" | Current hooks reference, `code.claude.com/docs/en/hooks.md`, fetched 2026-09-26; both sentences quoted verbatim from the fetched page (review record `docs/reviews/2026-09-25-skeleton-gap-list-review.md`, "Unverified item — whispers on `PreToolUse`"). Re-fetched 2026-09-28 (CR§2: the same two quotes and "Permission denials fire `PreToolUse`"), and the denial cases tested on Claude Code 2.1.283, `claude -p`, in throwaway `/tmp` directories with a marker-file hook (DE cases A–C; PD: Bash allowed ×2, Bash deny rule ×4, `Edit(./f.txt)` deny rule ×3, another hook's deny ×1) | The hook runs before the tool, but the model first reads a `PreToolUse` whisper **next to the tool result, on the next model request** — whether the call ran, failed, or was denied. When another hook denies the call (DE case B) or a permission rule denies a Bash call (PD), the hook runs and the text reaches the model next to the denial. An `Edit` **path deny rule** (tested; a `Read` rule not tested — F-18) is rejected before hooks run, with the validation result shape (`tool_use_error`), so the oracle is **not invoked** and has nothing to deliver (PD; DE case C; inferred from the result shape plus the marker file — the reference does not name the stage that enforces it). Limits: one Claude Code version, headless `-p` only, the Bash and Edit tools, one path-rule form (PD). A Warning or Consequence on `PreToolUse` Edit/Write therefore informs the move *after* the call (revise, proceed, or retry), never the decision to edit, and is worded about the file the edit targets, never as an edit that happened (AD-15 headline wording; L12). *(Corrected 2026-09-28: this row said "the text is kept if the call fails (FR-O2)"; that clause is on no page of the hooks reference (CR§2: `webquote.py` exit 1) — R-8; CR§2, DE, PD. The spec's FR-O2 still carries it: **pending spec sign-off R-1…R-5**.)* |
+| V20 | **When the model reads `PreToolUse` `additionalContext`.** The `PreToolUse` decision-control table: `additionalContext` is "String added to Claude's context alongside the tool result." The "Add context for Claude" section: for `PreToolUse` (and `PostToolUse`/`PostToolUseFailure`) the reminder appears "next to the tool result", and "Claude reads the reminder on the next model request" | Current hooks reference, `code.claude.com/docs/en/hooks.md`, fetched 2026-09-26; both sentences quoted verbatim from the fetched page (review record `docs/reviews/2026-09-25-skeleton-gap-list-review.md`, "Unverified item — whispers on `PreToolUse`") | The hook runs before the tool, but the model first sees a `PreToolUse` whisper **after the tool call**, with its result — which may be a failure or a permission denial, since "Permission denials fire `PreToolUse`" (hooks reference, re-read in review record 2026-09-26, CH) and the text is kept if the call fails (FR-O2). A Warning or Consequence on `PreToolUse` Edit/Write therefore informs the move *after* the call (revise, proceed, or retry), never the decision to edit, and is worded about the file the edit targets, never as an edit that happened (AD-15 headline wording; L12). Supersedes the spec's former "injected before the tool runs" phrasing (FR-O2/C-4, corrected 2026-09-26). |
 | V21 | "Stderr from a hook that exits 0 goes to the debug log only, never the transcript, and Claude never sees it." | Current hooks reference, `code.claude.com/docs/en/hooks.md`, fetched 2026-09-26, quoted verbatim (review record 2026-09-25, G10). Observed in the same review on Node 22.22.2: the built handler's stderr was empty on `SessionStart`/`PostToolUse`/`status` with `NODE_NO_WARNINGS` unset — an observation on one Node version, not a guarantee | The handler always exits 0 (AD-7), so anything on its stderr — including `node:sqlite`'s `ExperimentalWarning` — never reaches the model's context. **No warning-suppression mechanism is built**; the hazard does not exist on this contract. |
-| V22 | **`SessionStart` input does not name a parent session**, and injected context is saved in the transcript. The documented `SessionStart` input is the common fields (`session_id`, `transcript_path`, `cwd`, …) plus `source`, `model`, `agent_type`, `session_title`, and — on `resume`/`fork` — four resume-cost fields; `fork` is "A new session forked from an existing one". Separately: "Claude Code saves the injected text in the session transcript." | Current hooks reference, `code.claude.com/docs/en/hooks.md` ("SessionStart input" table and "Add context for Claude"), fetched 2026-09-26; re-fetched 2026-09-28 with the Agent SDK TypeScript reference (`code.claude.com/docs/en/agent-sdk/typescript.md`): `SessionStartHookInput` = `BaseHookInput` (`session_id`, `transcript_path`, `cwd`, `prompt_id?`, `permission_mode?`, `effort?`, `agent_id?`, `agent_type?`) plus `source: "startup" \| "resume" \| "clear" \| "compact" \| "fork"` — no parent-session field in either type, and the SessionStart input section never mentions a parent (G-11; settlements). This is the documented field list, **not an observed fork payload**: no forked session exists locally to observe, so what the fork's transcript file holds (the SDK: a fork "starts with a copy of the original's history") and which `sessionId` its copied entries carry are not observed | Closes the review's open premise (G23/G29): a forked session arrives under a **new** `session_id` with no parent pointer, so AD-16's fork reseed reads the forked transcript itself — questions by AD-9's offset-0 rebuild, the delivered set from the oracle-injected text the transcript carries — reading **every** entry whatever its `sessionId` field, so the unobserved copy cannot be silently filtered out (AD-16). The plan's optional fork probe (`claude -p --output-format json`, then `--resume <id> --fork-session`, both `SessionStart` inputs captured by a hook) settles the unobserved part for the `--fork-session` route only; `/fork` and `/branch` are documented as the same `source` and are not observed. This row keeps "not an observed fork payload" until the probe has run, then cites its output (R-139's premise, G-11; settlements). |
+| V22 | **`SessionStart` input does not name a parent session**, and injected context is saved in the transcript. The documented `SessionStart` input is the common fields (`session_id`, `transcript_path`, `cwd`, …) plus `source`, `model`, `agent_type`, `session_title`, and — on `resume`/`fork` — four resume-cost fields; `fork` is "A new session forked from an existing one". Separately: "Claude Code saves the injected text in the session transcript." | Current hooks reference, `code.claude.com/docs/en/hooks.md` ("SessionStart input" table and "Add context for Claude"), fetched 2026-09-26. This is the documented field list, not an observed fork payload | Closes the review's open premise (G23/G29): a forked session arrives under a **new** `session_id` with no parent pointer, so AD-16's fork reseed reads the forked transcript itself — questions by AD-9's offset-0 rebuild, the delivered set from the oracle-injected text the transcript carries. |
 | V23 | **Transcript tool results mark failure, not success.** Across 24 local transcripts: `is_error: false` appears only on Bash results (845); no successful Read (373), Edit (89), or Write (12) result carries an `is_error` field; the one failed Read carries `is_error: true` | Executed 2026-09-26 in the plan-pass collapse-hunt (`docs/reviews/2026-09-26-plan-pass-collapse-hunt.md`), Claude Code 2.1.283. An observation of one version's undocumented layout (V12), not a contract | AD-16's reseed classifies a result as successful unless it carries `is_error: true`; AD-11's layout-change detector is the guard if this changes. |
-| V24 | **A hook's `additionalContext` is capped at 10,000 characters.** "A hook's `additionalContext`, `systemMessage`, and `initialUserMessage` strings, and its plain stdout, are capped at 10,000 characters"; each string "on its own, even when several hooks run for the same event"; over it, Claude Code "saves the output to a file in the session directory and replaces it with the file path and a preview of up to the first 2,000 characters", with "no setting or environment variable to raise it", and "doesn't ask Claude to read the file" | Current hooks reference, `code.claude.com/docs/en/hooks.md`, fetched 2026-09-28 with `curl` (the lines quoted; the review's copy of the same day reads identically); its "Add context for Claude" section says the same: "If a value exceeds 10,000 characters, Claude Code writes the text to a file in the session directory and passes Claude the file path with a preview of up to the first 2,000 characters instead. Claude can read the file, but Claude Code doesn't ask it to." | Over the cap the **whole** string is replaced, so every whisper past its first 2,000 characters reaches the model only inside a file it is not asked to read, and the whisper that straddles character 2,000 reaches it cut (FR-D1). The reference's own advice is "keep anything Claude must always see within the cap" (the same page, "Reading the file"). AD-16's composer sends every cleared whisper whole, in a fixed order, and records `response_over_cap` when the response exceeds the cap — the interim rule pending owner decision `OL-C1` (options: send all, withhold, or defer to the next event); the cut preview is a stated limitation until that decision (L16; M-25); AC-3's over-cap case goes to Max Cogar with that decision (not as a wording correction like R-1…R-5); R-20's name bound waits on that decision (AD-12) (F-22; settlement (a); R2-1, R2-2; R3-6; the page re-fetched with `curl` on 2026-09-28, `code.claude.com/docs/en/hooks.md`, its "Over the limit" and "Reading the file" bullets, R4-11). |
 
 ---
 
@@ -248,14 +179,8 @@ ctxoracle correct / note / tune ← FR-D4 / FR-L6 human channel; tunables (AD-18
 ctxoracle export / import       ← FR-K9 (AD-5)
 
 Stores (outside the repo tree, AD-3):
-  ~/.ctxoracle/projects/<repo-key>/project.db   (project store, AD-4)
-  ~/.ctxoracle/projects/<repo-key>/reindex.lock (the reindex claim's lock
-                                                 database, AD-26)
-  ~/.ctxoracle/global/global-store.db           (global store, AD-5)
-  ~/.ctxoracle/global/rebuild.lock              (the global rebuild's lock
-                                                 database, AD-4, AD-26)
-  store.db / global.db at the same places       (legacy stores, only read,
-                                                 AD-4)
+  ~/.ctxoracle/projects/<repo-key>/store.db     (project store, AD-4)
+  ~/.ctxoracle/global/global.db                 (global store, AD-5)
   ~/.ctxoracle/projects/<repo-key>/diagnostics/ (JSONL fault channel, AD-17)
   ~/.ctxoracle/diagnostics/                     (home-level JSONL fault channel for
                                                  faults before a repository is
@@ -274,28 +199,9 @@ reconciliation (`D-20`).
 2. Guard: `CTXORACLE_INTERNAL` unset → proceed. Parse stdin; derive consumer key
    `(session_id, agent_id | "main")` (AD-4).
 3. Resolve the repository by the bounded upward walk and the `init`-recorded
-   path→key binding, read from the global store opened **read-only** (AD-23; no
-   `git` subprocess; a worktree resolves to its main repository). Two tests
-   come before the miss rule (F5-5; AD-4, AD-23):
-   - The global store is legacy when `global-store.db` is absent and
-     `global/global.db` is present. The handler then records `store_legacy` on
-     the home-level channel and, on `SessionStart` and `UserPromptSubmit`,
-     spawns the rebuild child at the root the walk found, once per session.
-   - A binding miss while `projects/` holds a legacy project store (a
-     `store.db` with no `project.db`) is recorded as any miss is, below, and on
-     those two events also spawns the rebuild child, once per session (R6-3).
-
-   Otherwise a miss — no binding, or no global store at all — means not
-   initialized: exit 0 silent, with nothing written except the once-per-session
-   `repo_not_bound` fault on the home-level channel (AD-17). Open the project store (WAL; ~2 ms, V8) and check its schema
-   (AD-4: a store whose applied migrations differ from the ones its `fts_state`
-   selects is refused, one with a migration still to apply is pending, and a
-   legacy store — only an old-name file present — awaits its rebuild; in each
-   case the event is silent, a fault goes to the JSONL channel, and nothing is
-   written to any store; on `SessionStart` and `UserPromptSubmit` a pending or
-   legacy store still gets the detached `ctxoracle index` child, whose CLI open
-   migrates or rebuilds it — F-1, F-3; M-3). Build the
-   tuning reader (AD-14: any invalid stored row silences the whole event, F-2). Run the transcript catch-up: read
+   path→key binding (AD-23; no `git` subprocess; a worktree resolves to its main
+   repository); a miss → not initialized, exit 0 silent, nothing written except
+   the once-per-session `repo_not_bound` fault on the home-level channel (AD-17). Open the project store (WAL; ~2 ms, V8). Run the transcript catch-up: read
    `transcript_path` from the per-consumer bookmark offset to EOF; classify each
    completed entry (new user questions opened, assistant text turns cleared
    against open questions); advance the bookmark (AD-9/AD-11).
@@ -306,28 +212,17 @@ reconciliation (`D-20`).
    the audit write fails, no deny is emitted (fail-open, AD-19). Otherwise:
 5. Candidate generation for the genres this event triggers (Consequence, Warning
    on Edit/Write; Coupling/Reuse fire on PostToolUse). Store queries only. The
-   model reads a `PreToolUse` whisper next to the tool result, on the next model
-   request, whether the call ran, failed or was denied (V20; pending spec
-   sign-off R-1…R-5), so these are written as facts about the file the edit
-   targets, never as an edit that happened (AD-15).
+   model reads a `PreToolUse` whisper next to the tool result (V20), which may
+   be a failure or a permission denial, so these are written as facts about the
+   file the edit targets, never as an edit that happened (AD-15).
 6. Bar (AD-14), dedup (AD-16), compose (pointer-carrying, non-imperative,
-   `[oracle]`-prefixed — `FR-D1`/`FR-D2`; every cleared whisper, whole, in a
-   fixed order; over the harness's 10,000-character `additionalContext` cap all
-   of them are still sent, and `response_over_cap` is recorded — the interim rule
-   pending owner decision `OL-C1`, AD-16, whose 2,000-character preview may then
-   end partway through a whisper, L16), audit-log-then-emit: the whisper is
+   `[oracle]`-prefixed — `FR-D1`/`FR-D2`), audit-log-then-emit: the whisper is
    written to `whisper_audit` first; only a logged whisper is returned as
    `additionalContext` (AD-19).
 7. Diagnostics row (event, candidates, outcome, latency). Exit 0.
 
 On any error or watchdog firing anywhere in 2–7: exit 0 with no output — no deny,
-no whisper, a best-effort direct-to-file diagnostic. This is `FR-O3` as the spec
-states it: "Any shim/service error, timeout, or missing store yields silence —
-and, on a block path, **emits no deny, so the agent's action proceeds** — never
-an error in the agent's flow" (spec L508–L510). An invalid stored tuning row is
-one such error and is not contained more narrowly: it silences the whole event —
-no whisper and no deny — and is recorded as `tuning_invalid` (AD-14; F-2; spec
-FR-O3, coordinator ruling).
+no whisper, a best-effort direct-to-file diagnostic (`FR-O3`).
 
 ### Project structure (the skeleton the implementer builds inside)
 
@@ -457,48 +352,16 @@ and nothing here depends on the new channel.
    `init` (create a temp `fts5` virtual table) as defense-in-depth against
    non-standard builds (a distro Node compiled with different flags); on that
    failure path, search falls back to token-prefix queries over indexes that can
-   serve them — a `symbol_tokens(token, symbol_id)` table and a
-   `path_tokens(token, file_id)` table of the path's in-house tokens, one row per
-   token, each with a plain index on the token (a name such as `Foo::Bar` is two
-   tokens, so a prefix query for `bar` needs a row per token, not one column; a
-   path segment such as `foo-bar.ts` is three tokens, so a table of segments would
-   miss `src/foo-bar.ts` for `bar`) — behind the same interface, and
-   `status` says so plainly. The store's search state is recorded once
-   (`schema_meta.fts_state`, `'fts5'` or `'fallback'`) and never retried, and the
-   fallback tables are **written only under `fts_state = 'fallback'`** (migration
-   001 creates them in both states, empty under `'fts5'`, so one DDL serves both):
-   no requirement, test or state transition reads them in an `'fts5'` store. If a
-   later pass finds a reason to write them in both states, it is recorded here with
-   its source first. **Both paths use one tokenizer, in the oracle's own
-   code:** NFKD-normalize, drop combining marks, **then** split on every
-   non-letter/non-digit (Unicode), then lowercase. **Invariant:** every token is
-   letters and digits only, lower-case. Normalizing first is what makes the
-   invariant hold: split first, a kept `\p{N}` codepoint can NFKD-expand into
-   separators (`x⑴y` became the token `x(1)y`, which both FTS5 tokenizers
-   re-split), and the fallback would then store a token the FTS path does not
-   (B5a E-18, executed). Under the corrected order `x⑴y` → `x`, `1`, `y`; `x¼y` →
-   `x1`, `4y`; `İstanbul` → `istanbul`; every output letters and digits (executed
-   2026-09-28, Node 22.22.2). The FTS path indexes those tokens joined by spaces
-   under the named FTS5 tokenizer **`ascii`**, which passes a lower-case
-   letter/digit token through unchanged (it splits only on ASCII
-   non-alphanumerics and folds only ASCII case, so it is a pass-through exactly
-   because of the invariant — `unicode61`'s own case folding and diacritic removal
-   would be a second folding by design), and the query is tokenized the same way;
-   the fallback stores the same tokens. So paths **and** symbols agree by
-   construction — symbols through `symbol_tokens`, a folded key of the same
-   tokens, not a `NOCASE` column that folds ASCII only — including `CAFÉ`/`café`,
-   `Über`, `foo-bar`, `my.method`, and `Foo::Bar`. **`_` and `$` are separators**,
-   like every other non-letter/non-digit: keeping them as token characters would
-   break the letters-and-digits invariant the `ascii` pass-through rests on (it
-   would need a `tokenchars` option on one path and a special case on the other),
-   and a snake_case identifier's parts are then searchable exactly as `foo-bar`'s
-   are (`name` finds `user_name`); what it costs is that `user_name` no longer
-   matches as one token, and a camelCase name stays one token (`getusername`).
-   *(Corrected 2026-09-28: the order was split-then-normalize, the path table was
-   "a table of path segments", AD-4 kept both fallback tables "in both search
-   states" with no reason on record, and no FTS5 tokenizer was named — R-10; B5
-   verification ruling 3, B5a E-18, B5c E-1, E-2, B4 p1 E-13.)*
-   *(Corrected 2026-09-26, second time: a
+   serve them — a `symbol_tokens(token, symbol_id)` table and a `path_tokens`
+   table of path segments, each with a plain index on the token (a name such as
+   `Foo::Bar` is two tokens, so a prefix query for `bar` needs a row per token,
+   not one column) — behind the same interface, and
+   `status` says so plainly. **Both paths use one tokenizer, in the oracle's own
+   code:** split on every non-letter/non-digit (Unicode), NFKD-normalize, drop
+   combining marks, lowercase. The FTS path indexes those tokens (and the query
+   is normalized the same way); the fallback stores the same tokens. So the two
+   agree by construction, including `CAFÉ`/`café`, `Über`, `foo-bar`,
+   `my.method`, and `Foo::Bar`. *(Corrected 2026-09-26, second time: a
    `COLLATE NOCASE` index folds ASCII only, and FTS5's own tokenizer and a `LIKE`
    fallback disagreed on non-ASCII case and on punctuation — executed in both
    plan-pass reviews, collapse-hunt H4 / expert M3.)*
@@ -537,17 +400,11 @@ and nothing here depends on the new channel.
 
    ```
    ~/.ctxoracle/
-     global/global-store.db
-     global/rebuild.lock                   # the global rebuild's lock database (AD-4, AD-26)
-     projects/<repo-key>/project.db
-     projects/<repo-key>/reindex.lock      # the reindex claim's lock database (AD-26)
+     global/global.db
+     projects/<repo-key>/store.db
      projects/<repo-key>/diagnostics/<session-short>.jsonl
      diagnostics/<session-short>.jsonl     # home-level fault channel (AD-17)
    ```
-
-   A store an earlier build made at the old names (`global/global.db`,
-   `projects/<repo-key>/store.db`) is a legacy store: it is kept where it is and
-   only read, by the rebuild that replaces it (AD-4; M-3).
 
    `<repo-key>` = first 12 hex of SHA-256 over the identity string, chosen by one
    deterministic rule:
@@ -605,49 +462,17 @@ and nothing here depends on the new channel.
    --   injection_suspect INTEGER NOT NULL DEFAULT 0,      -- FR-X3
    --   created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
 
-   schema_meta(key TEXT PRIMARY KEY, value TEXT) -- the per-migration checksums
-                                                 -- (the schema check below; they
-                                                 -- replace the legacy
-                                                 -- schema_version, which no
-                                                 -- checksummed store holds, R6-7),
-                                                 -- fts_state (AD-2; it selects the
-                                                 -- migration set, below),
-                                                 -- head_unresolved_since (AD-23),
-                                                 -- repo_key, keying_mode,
-                                                 -- last_mined_commit (the watermark:
-                                                 -- the HEAD the last completed pass
-                                                 -- mined to) and last_mined_ref (the
-                                                 -- ref it was mined on, or the
-                                                 -- detached marker; AD-13),
-                                                 -- weight_epoch, index_head,
+   schema_meta(key TEXT PRIMARY KEY, value TEXT) -- schema_version, repo_key, keying_mode,
+                                                 -- last_mined_commit, index_head,
                                                  -- fold_watermark_audit,
                                                  -- fold_watermark_corrections
                                                  -- (AD-5's fold watermarks, over
                                                  -- whisper_audit.seq and
                                                  -- corrections.seq; they live
                                                  -- beside the rows they index),
-                                                 -- mining_in_progress (set while a
-                                                 -- mining pass's recompute,
-                                                 -- evictions or additions are
-                                                 -- unfinished; its value counts
-                                                 -- the passes that started them,
-                                                 -- AD-13, AD-26, R9-6),
-                                                 -- the mined-with values
-                                                 -- mined_half_life_days,
-                                                 -- mined_max_transaction_entities
-                                                 -- and mined_fix_lexicon_digest
-                                                 -- (AD-13, M-17),
-                                                 -- recompute_pending (while a
-                                                 -- full recompute is started and
-                                                 -- not finished: its inputs and
-                                                 -- progress {h, epoch, done};
-                                                 -- AD-13, F5-6, R9-1),
-                                                 -- reindex_owner_pid and
-                                                 -- reindex_started_at (information
-                                                 -- for status and the refusal
-                                                 -- message only; the claim itself
-                                                 -- is the lock, AD-26),
-                                                 -- the tuning_invalid marker (AD-14)
+                                                 -- mining_in_progress (1 during a
+                                                 -- full (re-)mine; AD-13, AD-26),
+                                                 -- mined_half_life_days (AD-13)
    files(id, path UNIQUE, lang, zone CHECK(zone IN
          ('source','generated','vendored','build_output','unknown')),
          zone_evidence, zone_evidence_suspect INTEGER DEFAULT 0,
@@ -670,15 +495,12 @@ and nothing here depends on the new channel.
                                           -- landmines. Miner-created rows get
                                           -- in_tree=0, zone='unknown'.
          change_count INTEGER NOT NULL DEFAULT 0,
-                                          -- frequency(file), ROSE's term: the
-                                          -- contributing commits touching the
-                                          -- file (AD-13); "support" is kept
-                                          -- for pair_count only
+                                          -- support(file): included commits
+                                          -- touching the file (AD-13)
          change_weight REAL NOT NULL DEFAULT 0,
                                           -- the same commits, each weighted
-                                          -- 2^((ts − E)/h), E the store's
-                                          -- weight epoch (AD-13's recency
-                                          -- weighting; F-15)
+                                          -- 2^((ts − T0)/h) (AD-13's
+                                          -- recency weighting)
          unresolved_imports INTEGER NOT NULL DEFAULT 0,
                                           -- captured import specifiers the
                                           -- frontend classified unresolved
@@ -691,35 +513,13 @@ and nothing here depends on the new channel.
                     -- heuristic (AD-12); feeds the Reuse headline (AD-15) and
                     -- entry-point in-degree; confidence-capped as a heuristic
    test_map(test_file→files, region_glob, source, …prov)   -- FR-A2g mapping
-   commits(hash PRIMARY KEY, ts, entity_count, excluded INTEGER, exclude_reason,
-           weight REAL NULL)
-                  -- one row per commit of the pass's target set T(HEAD) only
-                  -- (AD-13), size-excluded ones included so their labels and
-                  -- reasons stay; a commit beyond either horizon has no row;
-                  -- weight: the recency term the commit added to every sum it
-                  -- contributed to (NULL when it contributes nothing),
-                  -- recomputed with the sums by AD-13's recompute when h
-                  -- changes or the epoch is moved (M-17, M-18)
-   commit_touches(commit_hash TEXT NOT NULL REFERENCES commits(hash),
-                  file_id INTEGER NOT NULL REFERENCES files(id),
-                  PRIMARY KEY (commit_hash, file_id)) STRICT, WITHOUT ROWID
-                  -- + INDEX (file_id, commit_hash); the file ids each
-                  -- contributing commit added to change_count and the pair
-                  -- counts, so an eviction recomputes the sums from what the
-                  -- miner itself recorded (AD-13). Bounded by the horizon:
-                  -- miner.horizon_commits × miner.max_transaction_entities
-                  -- = 10,000 × 30 = 300,000 rows at the seeds; in the first
-                  -- checksummed set (below; M-6)
-   cochange_pairs(a→files, b→files, pair_count, pair_weight, last_ts,
-                  last_commit, PRIMARY KEY(a,b))
-                  --                                          last_commit: the
-                  -- included commit touching both with the greatest ts, ties
-                  -- broken by the greater hash — one rule for the mine's upsert
-                  -- and the eviction's recompute (AD-13); the commit pointer
+   commits(hash PRIMARY KEY, ts, entity_count, excluded INTEGER, exclude_reason)
+   cochange_pairs(a→files, b→files, pair_count, pair_weight, last_ts, last_commit,
+                  PRIMARY KEY(a,b))                        -- last_commit: the
+                  -- newest included commit touching both, the commit pointer
                   -- AD-15's pair headlines carry (no git subprocess at compose,
                   -- AD-23)                        -- a<b canonical; FR-K2;
-                  -- no per-file counters here: frequency(a) is
-                  -- files.change_count
+                  -- no per-file counters here: support(a) is files.change_count
    landmines(id, kind CHECK(kind IN ('revert_chain','fix_chatter','human_stated')),
              file_id→files, evidence NOT NULL, support INTEGER, …prov)  -- FR-K3..K5
              -- miner kinds (revert_chain, fix_chatter): at most ONE row per
@@ -853,53 +653,12 @@ and nothing here depends on the new channel.
                  -- INTEGER PRIMARY KEY", and export is VACUUM INTO (AD-5);
                  -- id stays the ULID other tables reference (AD-26)
    faults(id, ts, code, detail_json, session NULL)          -- FR-M2
-   fts_symbols / fts_paths (FTS5, tokenize='ascii') -- over AD-2's in-house tokens
+   fts_symbols / fts_paths (FTS5)                -- over AD-2's in-house tokens
    symbol_tokens(token, symbol_id→symbols)       -- AD-2's fallback: one row per
                                                  -- normalized name token
-   path_tokens(token, file_id→files)             -- one row per path token;
-                                                 -- both fallback tables written
-                                                 -- only under fts_state =
-                                                 -- 'fallback' (created empty by
-                                                 -- 001 otherwise; AD-2)
-   -- In the first checksummed set with commit_touches and commits.weight
-   -- above (F-7; 003's former contents, folded in — M-6):
-   resolution_probes(importer_file_id INTEGER NOT NULL REFERENCES files(id),
-                     probe_kind TEXT NOT NULL CHECK(probe_kind IN
-                       ('path','manifest','name')),
-                     probe_key TEXT NOT NULL,   -- a repo-relative path (a probed
-                                                -- candidate or the manifest read),
-                                                -- or a top-level name queried;
-                                                -- never a specifier (AD-19)
-                     present INTEGER NULL CHECK(present IN (0,1)),
-                                                -- path/name: the answer given
-                     manifest_hash TEXT NULL,   -- manifest: the content hash read
-                     PRIMARY KEY (importer_file_id, probe_kind, probe_key))
-                     STRICT, WITHOUT ROWID
-                     -- + INDEX (probe_kind, probe_key): a path that appears or
-                     -- disappears, or a manifest whose hash changes, finds its
-                     -- importers (AD-12's dependency tracking, R-19). Deleted
-                     -- with the importer's symbols and import_edges.
-   lang_capabilities(lang TEXT PRIMARY KEY,
-                     frontend TEXT NOT NULL CHECK(frontend IN ('tree_sitter','generic')),
-                     frontend_digest TEXT NOT NULL,  -- R-19's per-language
-                                                     -- fingerprint: content digest
-                                                     -- of grammar WASM, query,
-                                                     -- frontend and resolver code
-                     symbols INTEGER NOT NULL CHECK(symbols IN (0,1)),
-                     imports INTEGER NOT NULL CHECK(imports IN (0,1)),
-                     test_map TEXT NOT NULL CHECK(test_map IN
-                       ('import_edges','same_dir','none')),
-                     exclusion_cause TEXT NULL)      -- a grammar still excluded
-                     STRICT                          -- and why (AD-12, R-14)
-   file_parse(file_id INTEGER PRIMARY KEY REFERENCES files(id),
-              outcome TEXT NOT NULL CHECK(outcome IN ('error_tree','parse_failed')),
-              content_hash TEXT NOT NULL) STRICT
-              -- a row only for a file whose last parse was not clean: an
-              -- ERROR-tree parse (counted per language in status by a GROUP BY
-              -- over this table, so no count is stored twice) or a parse that
-              -- threw and fell to the generic frontend (R-20's re-parse mark:
-              -- the next pass in which the grammar is enabled re-parses a
-              -- parse_failed file even if content_hash is unchanged)
+   path_tokens(token, file_id→files)             -- one row per path-segment
+                                                 -- token; both kept in both
+                                                 -- search states (AD-2)
    ```
 
    All writes go through DAOs; the learned-record entry point accepts only
@@ -916,907 +675,19 @@ and nothing here depends on the new channel.
    **Table-creation criterion (applied uniformly):** a table exists in a
    phase's store only if that phase has a writer for it. Where the spec fixes a
    schema's *form* (FR-K3–K5), the form is designed here; the table itself
-   arrives with the migration of the phase that first writes it (a new migration
-   file, never an edit of an applied one — the schema check below). This is the same ground
+   arrives with the migration of the phase that first writes it (AD-25's
+   forward-only `schema_version` makes that trivial). This is the same ground
    on which AD-5 declines the Phase C `genre_state` ladder — one criterion,
    no exceptions: `exemplars`/`recipes` (Phase B/C writers), the FR-J5
    `deferred_queue` (Phase B, AD-22), and the piggyback probe cache
    (`env_capabilities`, Phase B, AD-21) are all created by their writing
    phase's migration, not shipped dormant.
-
-   **The store schema check — migrations are fixed once applied (both stores).**
-   A changed schema is a new migration; an applied one is never edited. When a
-   migration runs, a checksum of that migration file's text, with CRLF read as
-   LF, is stored in `schema_meta` (`global_meta` for the global store). The
-   same commit's files differ in bytes between an LF and a CRLF checkout (the
-   layout test below), so a checksum of the bytes would refuse a store or an
-   export moved between the two. Flyway's checksum, the standard below, is
-   "encoding and line-ending independent" (`ChecksumCalculator.java`, fetched
-   2026-09-29; R7-2; round-7 review). In the round-7 evidence the checksum is
-   equal over each migration file's LF and CRLF text, and the mutant that
-   checksums the bytes fails the test. **The migrations a store
-   must hold are the ones its own state selects** (F-1;
-   `src/stores/migration_runner.ts`, which applies `001b_phase_a_fts.sql` only
-   when `fts_state = 'fts5'`): for a project store, `001_phase_a_project.sql`,
-   then `001b_phase_a_fts.sql` only under `fts_state = 'fts5'`, then every later
-   project migration; for the global store, `002_phase_a_global.sql` and every
-   later global one. **That first checksummed set holds the whole Phase A
-   schema**, `commit_touches`, `commits.weight`, `resolution_probes`,
-   `lang_capabilities` and `file_parse` included, and there is no
-   `003_phase_a_project.sql` (M-6): no store records checksums yet, so no
-   checksummed store can need a later step to reach those tables, and every
-   store built so far is legacy (below) and is rebuilt, not migrated. In a
-   `'fallback'` store 001b is neither applied nor pending, so a fallback store
-   opens clean on the hook path and on a CLI open and never has FTS5 DDL applied
-   on the build that lacks FTS5 (AD-2: the search state is recorded once and
-   never retried); a test pins it — a `'fallback'` store opens clean on the hook
-   path and on a CLI open (AD-24). On **every** open — each CLI verb, the hook
-   path, `import` — the stored checksums are compared with the shipped files of
-   that selected set: the migrations the store has applied must match them,
-   and those of the set it has not yet applied are pending. Outcomes:
-   - *checksums match* → open; a pending migration is applied by a CLI open
-     (`init`, `index` and the other verbs), inside one transaction that re-reads
-     the applied set after `BEGIN IMMEDIATE`, so two CLI opens racing to migrate
-     apply it once. The step is recorded as `store_migrated`
-     (`{from, applied: [file…]}`).
-   - *a checksum mismatch* → the open is refused, nothing is written, and
-     `store_schema_refused` (`{reason: 'checksum_mismatch', migration}`) is
-     recorded on the JSONL channel. A mismatch means a build edited a migration
-     a store has already applied, against the rule above — a defect of the
-     build, fixed in the build — so the CLI says in plain language that this
-     build's migration files differ from the ones the store was built with,
-     that nothing was changed, and that the store is kept as it is; no route
-     offered deletes it (`deinit --purge` refuses as below).
-   - *the hook path* writes nothing to any store in every case: a store that is
-     refused, pending (a migration of its set not yet applied) or legacy
-     (below) makes the event silent (the agent is not blocked, `FR-O3`) and
-     records `store_schema_refused`, `store_migration_pending`
-     (`{pending: [file…]}`) or `store_legacy` (`{legacyPath}`) on the JSONL
-     channel (AD-7's direct file write; for a legacy global store, whose
-     bindings the handler cannot read, the home-level channel). **A pending or
-     legacy store is migrated or rebuilt without waiting for the owner** (F-3;
-     M-7, M-8): on `SessionStart` and on `UserPromptSubmit` — the latter so a
-     session already running when the build is upgraded is not silent until
-     its next `SessionStart` — the handler still spawns the detached
-     `ctxoracle index` child (fire-and-forget, `CTXORACLE_INTERNAL=1`, AD-23's
-     inventory; only while the store is pending or legacy, which ends when the
-     first child's migration commits or its rebuild is renamed into place, and
-     a second child finding the lock held exits with `reindex_locked`), run at
-     the bound repository root — for a worktree event, the main repository's
-     root the binding names, so it never indexes the worktree's tree (AD-23's
-     worktree rule). When the global store is legacy, or a binding misses while
-     `projects/` holds a legacy project store (below; F5-5, R6-3), the child
-     runs at the root the upward walk found. It derives that repository's key
-     by AD-3's rule, as `init` does, because no legacy build recorded a binding
-     to look up. Its binding rule is AD-4's, below, for each state of that
-     key's store: legacy, it rebuilds and binds (the binding recorded before
-     the rename, R9-3); current, it binds nothing, so a root already bound is
-     served and any other records `repo_not_bound`; none, it records
-     `repo_not_bound` (R8-1, R9-3; AD-23). That child's CLI open applies
-     the migration or runs the rebuild. On the event path the check is
-     a file-existence test and the checksum compare, nothing that grows with
-     the store (AD-23). A refused store is not spawned for: its fix is the
-     build's (above). **A legacy-store spawn is made at most once per
-     `session_id`** (R6-3, R6-8; round-6 review), deduplicated by the one
-     home-level marker per `session_id` that also bounds `repo_not_bound`
-     (AD-17). So a legacy
-     store no repository on the machine derives any more, or a rebuild that
-     fails for a reason outside the build (a full disk, an I/O error; below),
-     costs one child per session, not one per prompt, and a later session
-     retries it. `status` lists a refused schema, a pending migration and
-     a legacy store among the active suppressing conditions, each with the
-     command that resolves it (AD-17).
-
-   **Legacy stores are rebuilt beside, never migrated in place** (M-3; M-2,
-   M-4, M-5, M-9 cut with the mechanism this replaces). **The mapping below was
-   settled by execution, not by prose** (round-5 review, whose findings are cited
-   as `(F5-n; round-5 review)`, `docs/reviews/2026-09-28-architecture-review-round5.md`).
-   A prototype of the rebuild was run against real legacy stores that the
-   historical builds wrote, and a test checked it. The prototype, the test, the
-   commands that build the stores and every output are in
-   `docs/reviews/2026-09-28-rebuild-mapping-evidence/` (*the rebuild evidence*
-   below; its `README.md` rebuilds the inputs, and its facts 1–7 are the
-   repository facts the mapping rests on, each with the `git` command that shows
-   it in `out/facts.out`).
-
-   *Which stores are legacy.* Every store built so far is legacy. The runner at
-   `HEAD` records `schema_version` `'1'` and no checksums
-   (`src/stores/migration_runner.ts`). Max Cogar has run `init` (CR§1), so a
-   store may hold rows he typed. Checksummed stores take new file names:
-   `projects/<repo-key>/project.db` and `global/global-store.db` (AD-3). A store
-   is legacy while its new-name file is absent and its old-name file is present.
-
-   *What the tool does to a legacy file.* The tool never writes or renames a
-   legacy **database file**. The only path that deletes one is `deinit --purge`,
-   which deletes only a project's `store.db`, and only under AD-20's one rule
-   for a legacy file: without `--discard-human` it refuses while that file is
-   not fully carried (R6-1). No path of the tool deletes `global/global.db`
-   (F5-13).
-
-   A rename would also risk leaving a handle open on a file the name no longer
-   names (`sqlite.org/howtocorrupt.html`, "talking to different database files
-   with the same name"). A read-only open of a WAL database whose `-wal` and
-   `-shm` are absent creates an empty `-wal` and a `-shm` index beside it, as any
-   SQLite reader does. The database file stays byte-identical (the rebuild
-   evidence, fact 7; the test's sha256 check).
-
-   **Two known source layouts, each mapped table by table and tested.** A
-   legacy file's layout is found by comparison. Its `sqlite_master` rows
-   `(type, name, tbl_name, sql)`, FTS objects aside, are compared with the rows
-   that the committed migration files of each known set produce. That is one
-   `SELECT`, compared with DDL the build ships. The comparison is exact except
-   that a CRLF line ending in the `sql` text is read as LF (R6-9; store-recovery
-   item 1's "normalised"). The reason is a known transformation of the files the
-   legacy runner executed. It read the `.sql` files from its checkout at run
-   time, and SQLite keeps a `CREATE` statement's text as it was run (executed:
-   `CREATE TABLE u(\r\n a text…` reads back with its `\r\n`). The repository's
-   `.gitattributes` sets `* text=auto`. Under it, a text file's "line endings
-   are converted on checkin and checkout", and with no `eol` attribute or
-   configuration "the default is eol=crlf on Windows and eol=lf on all other
-   platforms" (`git-scm.com/docs/gitattributes`, fetched 2026-09-29; R7-2). So
-   a checkout on Windows builds a store whose DDL differs from the committed
-   files only in line endings. The migration checksums read CRLF as LF for the
-   same reason (above). Nothing else is normalised,
-   because no other transformation of those files is known, and each further
-   normalisation could equate DDL that differs. The round-6 evidence's CRLF store
-   is identified as the `b229c04` layout and carried; its mutant, which compares
-   without this step, fails the test.
-   - **The `b229c04` set.** `HEAD` still ships it unchanged. Every build from
-     `b229c04` to `HEAD` writes it. `b229c04`'s own `init` creates both stores and
-     then stops at its first index (store A of the evidence).
-   - **The `4dd0f00`/`4e070ce` set.** Every build up to `59cc05c` writes it, and
-     so does every later build, since a later build opens such a store without
-     migrating it (the runner returns on `schema_version ≥ 1`).
-
-   **Both layouts can hold owner-typed rows.** `tune`, `correct` and `note` are
-   first registered at `59cc05c` (2026-09-25 23:56), which still ships the older
-   set; store C of the evidence holds the rows that build wrote (fact 1).
-
-   *This corrects the coordinator fact*
-   `2026-09-28-branch-audit-coordinator-fact-legacy-layouts.md`. That fact says
-   `dispatch.ts` registers the three verbs "from `b229c04`" and concludes that
-   one layout needs a mapping, but `git show 59cc05c:…/dispatch.ts` registers all
-   three. A single mapping would have left the older layout's owner rows unread,
-   against store-recovery's "carries every human-provenance row across". So the
-   older layout gets its own enumerated mapping, tested the same way. The reason
-   is recorded here as an engineering correction (`CLAUDE.md`, "Raise flaws").
-
-   *Any other layout.* No build made one. A hand-edited, foreign or unreadable
-   file lands here, and it is rebuilt from the repository: its rows are not
-   carried, and the file is left as it is. Where its schema can be read, the
-   rebuild counts each table's rows and records them (`unreadRows`); `status`
-   says nothing was carried from it, gives those counts and where it is kept,
-   and `deinit --purge` refuses while it exists (AD-20's one rule; R6-1;
-   store-recovery item 3, "reports any row it could not read"). The test shows
-   this on a store whose DDL was edited (store D, the round-6 review's X1: 2
-   owner `human_facts` rows counted, the rule refusing) and on a file that is not
-   a database (store E: the rule refusing, its rows uncountable).
-
-   There is no general copy "by column name". It is removed because it could not
-   say which of two rows for one key is served (F5-2) or which columns hold ids
-   (F5-1).
-
-   **The mapping.** The prototype's rule table covers every table and every
-   column of both layouts (`rebuild.mjs`, `RULES`). It prints its own table,
-   column by column (the round-6 evidence's `results/mapping-rules.out`, whose
-   table is the rebuild evidence's `out/mapping-rules.out` unchanged), and it
-   refuses a layout table that has no rule. By source table:
-
-   | Project store, `b229c04` layout | Rule |
-   |---|---|
-   | `schema_meta` | Per key. **Carried as-is:** `store_created_at`, `settings_created_by_init`, `claude_dir_created_by_init`, `pinned_interpreter`, `identity`, `fold_watermark_audit`, `fold_watermark_corrections`. **Written fresh:** `fts_state` (FTS5 probed as `init` probes it); `repo_key` and `keying_mode` (below); the migration checksums. **Not carried, replaced by the checksums:** `schema_version` (R6-7). **Not carried** (the first index and mine write them): `index_head`, `index_stale`, `last_mined_commit`, `mined_half_life_days`, `mining_in_progress`, `ref_ts`, `corpus_floor_met`, `lang_capabilities`, `walk_mode`, `frontend_fingerprint`, `weight_epoch`, `head_unresolved_since`, `indexing_in_progress`, `reindex_owner_pid`, `reindex_started_at`. **Unplaced:** `regret_index_seq` and any unlisted key. |
-   | `files` | Not carried, since it is derived. For each path a carried row references, a row is created: `in_tree = 0`, `lang` and `zone` `'unknown'`, NULL hash and `mtime`, and the legacy row's provenance and injection flag. The first index upserts it by its `UNIQUE` path and keeps its id (checked with `HEAD`'s files DAO). |
-   | `symbols`, `import_edges`, `symbol_refs`, `test_map`, `commits`, `cochange_pairs`, `labelled_touches`, `path_tokens`, `symbol_tokens`, `fts_symbols`, `fts_paths` | Not carried. They are derived from the repository and its history, and the first index and mine rebuild them. |
-   | `landmines` | Rows with `kind = 'human_stated'`: every column as-is, and `file_id` translated (legacy `files.id`, then legacy `files.path`, then the new `files.id`). Miner kinds are not carried: the mine rebuilds them from `labelled_touches`. |
-   | `invariants` | As-is. |
-   | `invariant_members` | As-is, with `file_id` translated. |
-   | `human_facts` | As-is. `target_ref` is a path or empty, never an id. |
-   | `corrections` | As-is, `seq` included. |
-   | `stats_folds` | As-is, with the two fold watermarks. |
-   | `questions`, `classify_state` | As-is. |
-   | `consumer_state` | Rows whose `subject_key` is `path:<path>`: as-is. Any other row is not carried, and is counted. |
-   | `session_log`, `observed_actions`, `faults`, `classified_turns` | As-is. |
-   | `whisper_audit` | As-is, with `subject_key` written NULL (counted when it was non-NULL). |
-   | `regret` | Not carried. No build writes it (fact 6); a legacy row is recorded as unplaced. |
-
-   **Project store, `4dd0f00`/`4e070ce` layout.** The same rules apply, with
-   these differences:
-   - `corrections` and `whisper_audit` have no `seq`. It is assigned 1…n in
-     legacy order `(ts, rowid)`.
-   - `corrections.genre` and `whisper_audit.subject_key` do not exist, so they
-     are written NULL. Every legacy correction names a whisper or a deny, as its
-     `CHECK` required.
-   - `session_log.seq` and `observed_actions.seq` were per-session counters
-     supplied by the caller. They are replaced by the engine-assigned `seq`, in
-     legacy order `(ts, rowid)`.
-   - `observed_actions.segments_json` is written NULL.
-   - The layout has no `stats_folds`, `labelled_touches`, `path_tokens` or
-     `symbol_tokens`.
-
-   **Global store, both layouts.**
-   - `global_meta`:
-     - `repo_path:*` rows are carried as-is, though no build writes one
-       (fact 4);
-     - `schema_version` is replaced by the checksum;
-     - the older layout's `whisper_stats_watermark:*` goes with the replica it
-       marks;
-     - any other key is unplaced.
-   - `whisper_stats`:
-     - `b229c04` layout: carried as-is. No build of the layout writes it, and it
-       stays consistent with the carried `stats_folds`.
-     - Older layout: not carried. It is a windowed replica, and the fold
-       republishes it from the carried rows from watermark 0.
-   - `lessons`: as-is.
-   - `tuning`: the merge below.
-
-   *Why these tables are carried.* The repository cannot recreate them:
-   - The owner's input: the human-entered list below.
-   - The audit trail (`FR-X6`), which is also the genre a correction is booked
-     to (AD-5).
-   - The live session state: `questions`, `classify_state`, the read set and
-     `observed_actions`. A session running across the upgrade — the one M-8's
-     `UserPromptSubmit` spawn exists for — keeps its open questions, its catch-up
-     bookmark, its read set and its edit set (F5-8).
-   - The session diagnostics (`session_log`, `faults`, `classified_turns`).
-     `status` and `log` read them (`FR-M1`, `FR-M2`), and Phase A's exit data is
-     read from them.
-
-   The earlier text left the session diagnostics in the kept legacy file. It also
-   said the `corrections` row recording a `--missed-question` is carried and that
-   re-running the command re-arms the question. No build writes such a row
-   (fact 5): the `questions` row is the only record of that input.
-
-   A carried `questions` row whose consumer is the role key `main` matches no
-   consumer of AD-4's key. Every `--missed-question` row of every build has that
-   key, and so does every row of the older layout. It matched none in the builds
-   that wrote it either. It is carried for the owner's text.
-
-   *Why ids are translated, or not carried.* `files.id` is a rowid alias assigned
-   in walk order, so an id copied as a number names a different file, or none
-   (R4-2; the evidence's mutant that copies ids fails). A file reference is
-   therefore translated by its path.
-
-   A subject key can hold ids that cannot be translated this way. AD-16's keys
-   embed file ids (`coupling:<id>:<id>`, `orientation:<ids>`, …) and symbol ids
-   (`reuse:<symbol id>`). The first index assigns symbol ids after the copy, so
-   none can be translated at copy time. So a subject key is not carried:
-   `whisper_audit.subject_key` is written NULL, and a `consumer_state` row that is
-   not a `path:` key is dropped. That can only under-seed a later `resume` or
-   `fork` reseed: a fact may repeat once, and none is withheld (AD-16's safe
-   direction; F5-1's second option).
-
-   No build writes such a key, since every genre returns `[]` and the handler
-   appends no subject key (fact 3). So the rule changes nothing in any existing
-   store. F5-1's first option, translation, would be code with no input.
-
-   **Tuning: the owner's rows replace the key's rows** (F5-2, F5-3).
-   1. The new global store is seeded as `init` seeds it.
-   2. The keys with legacy `source = 'owner'` rows are taken in the order the
-      owner wrote them. Each key's rows are checked with AD-14's validator
-      exactly as `tune` checks a write: a known key, a finite number for a
-      numeric seed, and the ordering and tier relations, checked against the
-      values already in the new store.
-   3. A key that passes has its rows in the new store deleted and the owner's
-      rows inserted, in one transaction. So a scalar keeps one row (AD-5), and
-      the tuning reader serves the owner's value.
-   4. A refused row is not written. It is recorded as unplaced with the
-      validator's reason, and the seed is served.
-   5. Rows of any other source are not carried. A key the owner never tuned
-      takes this build's seed.
-
-   Every legacy `tune` replaces the whole key with one row, list keys included
-   (fact 2). So no legacy store records a list member's removal by a row's
-   absence. The earlier list-key rule is withdrawn (R4-1 item 6: replace a key's
-   seeds when its "legacy member set differs from the new store's seeded set").
-   It could not tell an owner's edit from a seed a later build changed (F5-3 (2)).
-
-   Executed on stores A, B and C, through `HEAD`'s tuning reader and a stand-in
-   for AD-14's validator, which does not exist yet (R6-4, R7-1): `HEAD`'s
-   `checkTuningWrite` (`src/stores/dao/tuning.ts`) with its half-life floor of
-   37 days replaced by AD-13's designed relation, `365.25 ×
-   miner.horizon_years / 1022`, about 1.79 days at the seeds (the round-7
-   evidence's `designed-build.sh`; nothing else changed):
-   - `bar.confidence_floor 0.65` is served;
-   - `lexicon.stoplist` is served as `['who cares?']`;
-   - `bar.no_such_key 1` is refused, named with the reason, and nothing is
-     served;
-   - `bar.recency_half_life_days 10` is carried and served;
-   - `index.ext_to_grammar` serves this build's seed, without `'.lua=lua'`;
-   - no scalar key has two rows.
-
-   The test takes the build whose validator it uses as an argument. Its check
-   of each owner row's served value accepts either outcome: carried and served,
-   or refused with the validator's reason and the seed served. One check pins an
-   outcome: `bar.recency_half_life_days 10` is carried and served and
-   `bar.no_such_key 1` is refused (R7-1; round-7 review: the earlier text said
-   the test accepted either outcome while it pinned `HEAD`'s refusal of 10). Run
-   with `HEAD`'s own validator, which refuses 10 ("must be at least 37"), the
-   test fails exactly that check, 45 times (3 stores × 15 runs). That run is
-   `HEAD`-only evidence and not part of the acceptance case (AD-24).
-
-   Four of the evidence's mutants fail the test: the one that inserts beside
-   the seed, the one that skips the validator, the one that carries the
-   subject keys, and the one that refuses the half-life with a fixed 37-day
-   floor instead of the build's validator (R7-1).
-
-   **Who rebuilds.** Every CLI open that would write a legacy store runs the
-   rebuild first, the spawned child's `ctxoracle index` among them. `status` and
-   `log` only report the legacy store, and `deinit --purge` refuses by AD-20's one
-   rule (a legacy file not yet rebuilt is not fully carried).
-
-   *The rebuild*, under the store's lock: the project's `reindex.lock` (AD-26),
-   or for the global store `global/rebuild.lock`, a lock database of the same
-   kind. It starts only after re-checking, with the lock held, that the new-name
-   file is still absent. The global store is rebuilt first when it is legacy,
-   since the project rebuild records its binding there.
-     1. It discards any temporary file an earlier rebuild left, with its
-        `-journal`, `-wal` and `-shm` (F5-12: a stale WAL beside a re-created
-        file is the mispairing `howtocorrupt.html` names). The lock held shows
-        that no rebuild is running.
-     2. It opens the legacy file **read-only** and starts one read transaction,
-        so every table is read from one snapshot, even while a process of an
-        old build still writes the file (F5-12). It then identifies the layout.
-
-        It creates the new store at `<new name>.rebuild-tmp` in rollback-journal
-        mode, so no `-wal`/`-shm` sits beside a file about to be renamed; the
-        store's opener sets WAL on its first open.
-
-        It applies the migration set the new store's own state selects and
-        records their checksums. For a project store, it first probes FTS5 as
-        `init` does and records `fts_state`, and it records `repo_key` and
-        `keying_mode` (F5-4).
-        - *Why a fresh probe:* the new store's migrations are applied by this
-          runtime. A legacy `'fallback'` recorded by another Node would keep FTS5
-          off for the new store's whole life, since AD-2 never retries.
-        - *Where the key comes from:* the key and mode are AD-3's rule at the
-          repository root, derived as `init` and every legacy build's open derive
-          them. No legacy store records either.
-
-        For the global store, it writes `init`'s seed rows.
-     3. It copies by the mapping, in one transaction on the temporary file. A
-        row the new layout refuses (a constraint, a foreign key the new store
-        enforces) or whose file id has no legacy `files` row is not written. It is
-        recorded as unplaced with the error, and the copy goes on (R6-8). A read
-        of a legacy table that fails on the file's content leaves that table
-        unread, and any other error fails the rebuild (both below; R8-4). No build writes such a row:
-        `node:sqlite` enforces foreign keys by default, so the round-6 evidence
-        writes its two with that enforcement off, as a hand edit would.
-     4. It records the rebuild **in the same file**: `store_rebuilt` (AD-17), as a
-        `faults` row in a project store and as `global_meta.store_rebuilt` in the
-        global store, which has no `faults` table. The record's fields are
-        `{legacyPath, legacyRel, origin, root, layout, carried, legacyDigests,
-        legacyCounts, unplaced, dropped, nulled}`. `legacyRel` is the legacy
-        file's path relative to the home (`projects/<key>/store.db` or
-        `global/global.db`), and `origin` is `local`, or `import` for the
-        rebuild `import` runs on a legacy export (AD-5): together they select
-        the file's own record (AD-20; R8-5). `root`, in a project store's
-        record, is the root step 5 binds (R8-1, R9-3), and `status` names it
-        (R9-9, below). Each unplaced entry is
-        `{table, rows, reason}`, with
-        `key` and `value` for a meta key or a tuning row and `rowid` for a refused row.
-        For a file of no known layout the record has `unread`, with
-        `unreadRows` (`{table: rows}`, `rows` null for a table that cannot be
-        counted; R7-4) where its schema can be read, and `unreadable` (the
-        error) where the file or one of its tables cannot be read. An
-        unplaced entry for a whole table (a no-writer table) has its row count
-        in `rows`, and so does a table that could not be read, with `unread`
-        and `rows` null where it cannot be counted (R8-4, below); any other
-        entry has `rows` 1. **The unplaced rows** are the
-        sum of `rows` (R6-7: the earlier `legacy_unplaced` key counted entries,
-        not rows, and is removed; status and the purge read the record).
-        `legacyDigests` is a SHA-256 per carried table over the rows its rule
-        carries, in `rowid` order, taken in the read snapshot (R6-2; below), and
-        `legacyCounts` the number of those rows (R7-5), each null for a table
-        that could not be read.
-
-        The record is written before the rename because the test failed when it
-        was written after it. A kill between the rename and a JSONL-only record
-        left a rebuilt store with no record, and the next run, finding the new
-        name, never wrote one, so the refused tunings were reported nowhere.
-     5. For a project store, it records the binding `repo_path:<root>` → key
-        (AD-20) in the global store, **before the rename** (R9-3). No legacy
-        build records a binding (fact 4), so without this step the handler's
-        lookup would miss every repository after the upgrade. *Why before the
-        rename* (round-9 review, R9-3): a kill after this step and before the
-        rename leaves the root bound to a store that is still legacy, which the
-        hook path's legacy-store spawn rebuilds, its ordinary path for a bound
-        legacy store (above); a kill after the rename leaves nothing to
-        complete. In the round-8 order, rename then binding, a kill between the
-        two left the store current and the root unbound. Only the child could
-        complete that binding, and the handler spawns it on a miss only while
-        some legacy store exists: with none the root missed, and with an
-        unrelated orphan legacy store it was bound (the review's V2).
-     6. It ends the read transaction, closes the temporary file, deletes the
-        new name's `-journal`, `-wal` and `-shm`, and renames the file to the
-        new name. It then copies the record to the JSONL channel (the
-        home-level one for the global store). *Why the deletion* (R8-3; round-8
-        review): under the lock, with the new name re-checked absent, a
-        companion file at that name belongs to no database, only to a purged
-        or crashed store's. SQLite drops such a file only beside an empty
-        database (`pager.c`: `pagerOpenWalIfPresent` and `hasHotJournal` act on
-        it only when `nPage == 0`), and a populated file renamed in is not
-        empty, so a stale WAL would be replayed into the rebuilt store.
-        Executed (the round-8 evidence; the review's Z2, Z6 and Z6b): a stale
-        WAL of 50 rows beside a populated file renamed in plainly yields the 50
-        purged rows, and through the rename step 1 row, the rebuilt one; after
-        a purge killed with a hot `project.db-wal` and a `store.db` of either
-        layout re-created, the rebuilt store holds none of the purged store's
-        keys, one `store_rebuilt` record, and `quick_check` `ok`. The mutant
-        without the deletion fails. `import`'s rebuild of a legacy export is
-        this rebuild (the prototype's, run with `--origin import`). `init`'s
-        creation of a new-name store is made under the same lock after the
-        same check (below) and deletes the same companions first; that path is
-        not prototyped. A process that still holds the purged store open is
-        the purge's concurrent-writer residual (AD-20), not closed here.
-
-   **The first index and mine then run.** In the `ctxoracle index` child, they
-   run as its ordinary pass. Any other verb's rebuild ends at step 6. A rebuilt
-   store has no `index_head`, so the next `SessionStart`'s staleness check,
-   which spawns the index when `index_head` differs from a resolved `HEAD`, spawns
-   it (AD-23; R6-7: the earlier text named an `index_stale = '1'` key, which no
-   key list defines and no check reads, and it is not written). So a `note`,
-   `correct` or `tune` after an upgrade waits for the copy, not for a first index
-   and mine (F5-17).
-
-   The copy writes only the temporary file, which no other connection opens. So
-   its one transaction delays no waiter and needs no chunking.
-
-   **Crash, tested.** The test killed the prototype at each of 14 steps on each
-   of the three stores:
-   - global and project: after the discard, after the creation, mid-copy, after
-     the copy, after the close and after the rename;
-   - between the two rebuilds;
-   - for the project store, after the binding (step 5, before the close).
-
-   Every legacy database file stayed byte-identical (sha256). The next run
-   completed, and every content check passed after it (the round-9 evidence's
-   `results/test-rebuild.out`: `1571 checks passed, 0 failed`; the round-8
-   evidence gave 1,537, the round-7 evidence 1,519, the round-6 evidence 1,502
-   and the rebuild evidence 1,400 before the later cases). A kill before the
-   binding leaves only a temporary file, which step 1 discards, and the root
-   unbound, so a miss spawns the child, which rebuilds and binds (below). A
-   kill after the binding and before the rename leaves the root bound and the
-   store legacy, so the legacy-store spawn rebuilds it. After the rename the
-   store is current and the root bound, and nothing is left to complete
-   (R9-3). *Executed through the hook path* (the round-9 evidence's
-   `handlerEvent`, the order before the miss rule: a legacy global store, the
-   binding lookup, a bound legacy store's spawn, the miss; the review's V2 on
-   stores A and C): after each of the 14 kills, a `SessionStart` at the root
-   spawns the child where the store is legacy or the global store is, the
-   child exits 0 with the root bound, and the session's `UserPromptSubmit` is
-   served; after the kill following the rename the first event is served. No
-   `repo_not_bound` is recorded, and every outcome is the same with an
-   unrelated orphan legacy store present. The mutant that records the
-   binding after the rename (round 8's order) fails. Which spawn rebuilds a
-   store killed between its binding and its rename does not matter to this
-   outcome: the root's own store is legacy, so the miss rule would spawn the
-   same child (a mutant that routes it there passes the test, and is not
-   counted).
-
-   **Failure** (F5-11, R6-8). A failure after step 1 — a full disk or an I/O
-   error:
-   - records `store_rebuild_failed` (`{legacyPath, error}`) on the JSONL
-     channel;
-   - leaves the new name absent and the store legacy;
-   - exits non-zero.
-
-   The legacy-store spawn is made once per session (above), so a later session
-   retries, and `status` shows the latest record with its error. A failure that
-   recurs, such as a disk that stays full, recurs once per session and is shown
-   each time. The round-6 review's alternative, the refused store's rule
-   (record once, no spawn until the build changes), is not used: these failures
-   are cleared outside the build, and that rule would not retry once they are.
-   A row the new layout refuses is unplaced (step 3), not a failure. The earlier
-   record's `stage` field is removed: the prototype never produced it, and the
-   error names the failure.
-
-   A legacy file whose open or schema read fails on its content
-   (`SQLITE_CORRUPT` or `SQLITE_NOTADB`), or whose schema reads but matches no
-   known layout, is not a failure (R6-1, R7-3). That is a property of the file
-   and fails the same way on every run. The file is handled as one of no known
-   layout: rebuilt from the repository, unread, and kept as it is, with its
-   per-table counts where they can be read. `status` names it and where it is
-   kept, and the purge refuses while it exists (AD-20). **Any other error of
-   the open or the schema read** (`SQLITE_BUSY` or `SQLITE_LOCKED`,
-   `SQLITE_CANTOPEN`, `SQLITE_IOERR`, `SQLITE_NOMEM`) is a condition of the
-   moment, not of the file: it is the failure above, `store_rebuild_failed`,
-   and the store stays legacy and is retried (R9-4; round-9 review: the
-   round-8 text classed every such error as the file's, against its own rule
-   for table reads, and a lock of the moment left a known-layout file carried
-   by nothing and never read again). SQLite documents such locks in WAL mode:
-   "the second connection might get an SQLITE_BUSY error" while the last
-   connection to a database closes and cleans up, and "An exclusive lock is
-   held during recovery" (`sqlite.org/wal.html`, fetched 2026-09-29, the
-   round-9 evidence's `results/sources.out`); old builds' hook processes open and close the legacy file (below).
-   Executed (the round-9 evidence, the review's V1 on B and C): with the
-   legacy file held in `EXCLUSIVE` locking mode inside a write transaction,
-   the rebuild exits 1 with `database is locked`, records
-   `store_rebuild_failed`, and leaves the new name absent and the store
-   legacy; after the lock is released the next run carries every owner row
-   (B: 2, 4, 3, 1; C: 3, 4, 4, 1) and the file is fully carried. The mutant
-   that classes the lock as the file's fails.
-
-   **A known-layout file with a table that fails to read is carried table by
-   table** (R8-4; round-8 review). A read of one of its tables that fails on
-   the file's content (`SQLITE_CORRUPT` or `SQLITE_NOTADB`, during the digest
-   or the copy) rolls back that table's copy alone, under its own savepoint.
-   The table is recorded as an unplaced whole-table entry with `unread`, its
-   row count where it can still be counted (else `rows` null) and the error,
-   and its digest and count in the record are null, whether the digest's read
-   or the copy's failed (R9-5: the round-8 prototype kept a copy-failed
-   table's digest and count). Every other table is carried by its
-   rule. **Whether a table reads is decided by reads of the table itself**
-   (R9-5; round-9 review): the copy's count, and a no-writer table's count,
-   are table scans (`count(*)` with `NOT INDEXED`), because SQLite answers a
-   plain `count(*)` from an index where one exists (executed, SQLite 3.51.2:
-   `EXPLAIN QUERY PLAN SELECT count(*) FROM human_facts` gives `SCAN
-   human_facts USING COVERING INDEX sqlite_autoindex_human_facts_1`, and with
-   `NOT INDEXED` gives `SCAN human_facts`; "The "NOT INDEXED" clause specifies
-   that no index shall be used when accessing the preceding table, including
-   implied indices create by UNIQUE and PRIMARY KEY constraints",
-   `sqlite.org/lang_indexedby.html`, fetched 2026-09-29), so a damaged index
-   alone made a table whose every row reads look unread and carried none of
-   it. The count reported for a table that could not be read stays a
-   plain `count(*)`, which may still answer from an index where the table's
-   own pages fail (below: `session_log`'s 13). The rebuild reads no index of
-   the legacy file, so an index-only fault is neither observed nor recorded:
-   every row is carried, and the new store builds its own indexes. *Order of
-   reads and writes* (R9-8): every legacy read that can fail a table as a
-   whole — its rows, read in full, and its count — runs before the table's
-   first write. The one legacy read inside the row loop, the `files` lookup
-   of the id translation, fails only its row (unplaced by the per-row rule).
-   So a table's rollback never discards a `files` row the translation's cache
-   still holds; an implementation that reads a table's rows while it writes
-   them must instead drop, on that table's rollback, the cache entries created
-   inside it. A row whose legacy `files` row cannot be read is unplaced by the
-   existing per-row rule (step 3), with the error. The file is then not fully
-   carried, so `status` names the table and the purge refuses (AD-20).
-   *Which error is the file's:* only an error raised by a statement on the
-   legacy connection is classed as the file's content. The same error code
-   from the new store, a fault of the new file or the machine, fails the
-   rebuild, which is retried (**Failure**, above). *Why* (round-8 review: the
-   round-7 exit handled the whole file as unreadable, so the owner's readable
-   rows were served by nothing and carried by no route, and the store was then
-   current, so no later run read the file again). The round-7 reason for not
-   carrying the tables that read, that it "needs a partial copy, partial
-   digests and a record the rule must read table by table", was false: the
-   digests and counts were already per table, and a whole table was already an
-   unplaced entry with its `rows`. A corrupt `files` page still leaves the
-   rows that need a file id behind, each unplaced by name, while every owner
-   row that needs none is carried.
-   Executed (the round-8 evidence, and the round-9 evidence, whose test
-   repeats every case):
-   - store B with `session_log`'s root page overwritten (the round-7 review's
-     Y5 and the round-8 review's Z4): `human_facts` 2, `corrections` 4,
-     `questions` 3 and `invariants` 1 are carried, the counts the kept file
-     reads, where round 7 carried 0 of each. Store C (the other layout):
-     3, 4, 4 and 1 carried. `session_log` is unplaced with `rows` 13, the file
-     is kept byte-identical, and a second run is a no-op;
-   - `invariant_members` (Y5b), whose count also fails: unplaced with `rows`
-     null;
-   - an index alone damaged (the round-9 review's V4, and round 8's Y5c): with
-     the primary-key index's root page of `human_facts` on B, `corrections` on
-     C, or the no-writer `regret` on B overwritten, a plain `count(*)` throws
-     "database disk image is malformed" while a scan reads 2, 4 and 0 rows.
-     Round 8 recorded each table unread (`rows` null) and carried 0 rows;
-     round 9 carries 2 and 4, records no entry for the empty `regret`, and the
-     file is fully carried. The mutants that count the copy's or a no-writer
-     table's rows with a plain `count(*)` each fail;
-   - a `SQLITE_CORRUPT` injected on the legacy connection at the copy of
-     `human_facts`, after its digest was taken (a test hook): one unread entry
-     with `rows` 2, the digest and count null, `corrections` carried. The
-     mutant that keeps the digest and count fails;
-   - store B's `files` root page overwritten: both `invariant_members` rows
-     unplaced one by one with the error, the owner tables carried;
-   - a `SQLITE_CORRUPT` injected into the new store's first `human_facts`
-     insert (a test hook): the rebuild fails, the new name stays absent, the
-     store stays legacy and the legacy files byte-identical, and the next run
-     carries every row.
-
-   The read transaction ends by `ROLLBACK`, because on a file with a content
-   error its `COMMIT` reports the same corruption; it wrote nothing. The
-   mutants that fail the rebuild on the digest's or the copy's content error,
-   that carry nothing from a file with any unreadable table (round 7's exit),
-   that class the new store's error as the file's, and that fail a whole table
-   for a row whose `files` row cannot be read each fail the test.
-
-   A child that finds `global/rebuild.lock` held exits and records
-   `rebuild_locked`, the global lock's analogue of `reindex_locked`. The holder
-   completes the rebuild.
-
-   **Repositories not yet bound after the global rebuild** (F5-5, R6-3). After
-   a global rebuild no binding names any repository, until each repository's own
-   rebuild records one (step 5). While `projects/` holds a legacy project store,
-   a `store.db` with no `project.db` beside it, a binding miss spawns the
-   rebuild child, once per session (above), and the handler records no
-   `repo_not_bound` for it (AD-23). The child derives the key from the root
-   the walk found, and **acts on each state of that key's store** (R8-1;
-   round-8 review: the text gave the legacy and no-store states only, so a
-   current store's miss was recorded nowhere, and the prototype bound it):
-   - *legacy* (a `store.db`, no `project.db`): it rebuilds, and step 5 binds
-     this root. The rebuild writes `store_rebuilt`; a failure writes
-     `store_rebuild_failed` (below). The next event finds the binding.
-     **A departure from AD-23's miss rule, stated** (R9-9; round-9 review):
-     this binds whichever root fires first, a second clone or a moved
-     checkout included, not necessarily the root `init` ran at. *Why:* no
-     legacy build recorded a binding (fact 4) or a root in its store
-     (executed on the three real stores: no `schema_meta` value names a
-     path but `pinned_interpreter`, the Node binary), and a clone carries the
-     same committed hook wiring, so the first root to fire is the only
-     evidence there is. *Consequence:* the root
-     `init` ran at then misses visibly, `repo_not_bound` once per session,
-     until `init` is re-run there, as AD-23 says of a fresh clone. `status`
-     names the root the rebuild bound (the record's `root`) beside the
-     rebuild's other facts, so the owner can see which checkout it was.
-     Executed (the review's V3): a `git clone` of repository B fires first
-     while B's store is legacy; the child rebuilds, binds the clone and
-     records it as `root`; a new session at B's own root records
-     `repo_not_bound`.
-   - *current* (a `project.db`, whatever its schema state): it binds nothing.
-     A root that already has its binding is served; any other root records
-     `repo_not_bound` (`{root, key, session}`) on the home-level channel: a
-     second clone or a moved checkout of a repository whose store is current
-     misses until `init` is re-run there, as AD-23's miss rule says. *(R9-3:
-     round 8 also bound the root the store's own record named, to complete a
-     binding a kill between the rename and the binding had cut off. That run
-     happened only while some unrelated legacy store existed. The binding now
-     precedes the rename (step 5), so no current store owes a binding, and the
-     completion is removed.)*
-   - *none* (neither file): it records `repo_not_bound` the same way.
-
-   So the outcome at a root does not depend on whether an unrelated legacy
-   store is present: without one the handler records the same
-   `repo_not_bound` itself (AD-23), and after any kill of the rebuild the
-   root is bound through the legacy-store spawn or the miss's spawn of its
-   own legacy store (**Crash, tested**, above; the review's V2). Each is once
-   per session: the handler's marker bounds both its own fault and the spawn
-   (AD-17). Executed (the round-9 evidence's `childBinding`, `handlerMiss`
-   and `handlerEvent`; the round-8 review's Z3): with an orphan legacy store
-   present, a `git clone` of rebuilt repository B derives B's key, whose
-   store is current. The handler spawns once, the child records one
-   `repo_not_bound` naming the clone's root and binds nothing, and the
-   session's second event does nothing. With the orphan removed, a new
-   session's handler records the same fault itself. B's own root re-run
-   finds its binding, and a key with no store records the fault. The mutants
-   that bind any current store (round 7's reading), that record nothing for a
-   key with no store, and that have the handler record the fault while a
-   legacy store exists (R7-6's defect) each fail the test. (R7-6; round-7
-   review: the handler recorded `repo_not_bound` on the first miss of every
-   upgraded repository, so `status` told the owner to re-run `init` where the
-   child then bound it.) Any other miss is recorded as the ordinary miss is,
-   `repo_not_bound` once per session.
-
-   *Why a file test, not recorded rows* (R6-3; round-6 review). The earlier
-   design wrote a `legacy_pending:<key>` row per legacy project directory at the
-   global rebuild, and only that key's own rebuild deleted it. So a row outlived
-   a repository that no longer derives its key (deleted, moved while path-keyed,
-   or re-rooted), travelled in a global export, and was lost when a global import
-   replaced the live store. While any row remained, every miss on the machine
-   was reported as `store_legacy`, not `repo_not_bound`, and spawned a child on
-   every prompt (the review's X2: `legacy_pending:deadbeef0000`, an orphan, stayed
-   after both real repositories were rebuilt). The file test is the definition of
-   a legacy store (above), so it is true exactly while the file is there, needs
-   no end of life, and no export or import carries it. The round-6 evidence's X2
-   shows the file test naming the second repository after the first rebuild,
-   only the orphan after both, and nothing once the orphan's directory is gone.
-   `status` lists each legacy project directory still present, with its path.
-   It says the store is rebuilt at the next session or verb run in the
-   repository that derives its key. It also says that when no repository on this
-   machine derives that key any more (deleted, moved while path-keyed, or
-   re-rooted), the store is kept as it is, and no command carries its rows,
-   which stay readable only in that file (R7-10; round-7 review: the earlier
-   sentence named only a repository that is gone).
-
-   **Rows written after the rebuild** (F5-18, R6-2). A build that predates this
-   design can keep writing the legacy file, because hooks are wired to the build
-   that ran `init` (AD-20). The rebuild does not carry those rows. `status`
-   recomputes the carried rows' digests over the legacy file, in one read
-   transaction, and compares them with the record's `legacyDigests`. It names
-   each table whose carried rows changed, with its carried row count at the
-   rebuild and now (`legacyCounts`; R7-5). It says those changes were not carried
-   and are kept in the legacy file, and that running `init` from this build wires
-   the hooks to it. They are not merged later: L18.
-
-   *Why a digest, not a count* (R6-2; round-6 review). Every build's `tune`
-   deletes the key's rows and inserts one, so a count does not change. Executed
-   (the round-6 evidence's X3): after store A's rebuild, `b229c04`'s
-   `tune bar.confidence_floor 0.7` on the legacy home left `tuning` at 171 rows
-   before and after, while the legacy file served 0.7 and the rebuilt store 0.65.
-   The digest named `tuning`, and the mutant that reduces the digest to a count
-   fails that check. An update in place, such as a `questions` status change, is
-   seen the same way. The digest covers only the rows a rule carries: the owner's
-   `tuning` rows, not the seeds an old build may re-seed, and a meta table's
-   carried keys, not the index keys an old build's pass rewrites. The count is
-   kept beside the digest, as R6-2 asked, because a digest does not say how many
-   rows (R7-5; round-7 review: the last revision dropped the counts without a
-   reason). A changed table's rows that the rebuild did not carry number at
-   least the count now less the count at the rebuild, and at most the count
-   now. Executed in the round-7 evidence: an old build's `note` after the
-   rebuild (the round-7 review's Y1) gives `human_facts` 2 then 3 on store A and
-   3 then 4 on store C, and the in-place `questions` update (Y2) 3 and 3. The
-   mutant that drops the counts fails the test.
-
-   *Why the lock and the re-check around the rename.* Without them, two
-   rebuilders of one store would both rename (two children, or a child and a CLI
-   verb). The second would replace a store the first had published and a verb may
-   already have written. The global store can be rebuilt from any repository's
-   child, which that repository's `reindex.lock` does not exclude, so it takes its
-   own lock. Under the lock, with the new name re-checked absent, the rename
-   replaces nothing. So every creation of a new-name store, `init`'s included, is
-   made the same way: under its lock, after the same check. (The collapse hunt's
-   M-3 design ran the global copy inside the project child's `reindex.lock`,
-   which leaves two repositories' children free to race on the global store; the
-   separate lock is this correction's, recorded here.)
-
-   - *What `status` says* (M-3 item 5), in plain words, from the legacy file's
-     own `store_rebuilt` record (the local record whose `legacyRel` is that
-     file's path in the home; AD-20, R7-4, R8-5):
-     - that the store was rebuilt by this build, and from which layout;
-     - that the notes, corrections, tunings, lessons, questions and session
-       history it held were carried, with their counts;
-     - where the old file is kept;
-     - every value not carried, by table, key and reason (a tuning the
-       validator refused, with its reason);
-     - each table that could not be read, with its row count or that it could
-       not be counted, and that its rows stay only in the kept file (R8-4);
-     - each table whose carried rows the old file changed since, with its counts
-       (above);
-     - for a file of no known layout, that nothing was carried from it, with its
-       per-table row counts, and that it could not be read where it could not.
-
-     While a store is still legacy, `status` says the store is waiting for its
-     rebuild and names the command that runs it. After a failed rebuild, it gives
-     the error.
-
-   *Why rebuild beside, and the departure it records (M-3).* Store-recovery
-   items 1–3 settle recovery as:
-   - a fingerprint of the store's own DDL, compared with every earlier migration
-     set;
-   - a forward migration written and tested per old schema, which "carries every
-     human-provenance row across";
-   - for an unknown fingerprint, `export-human`/`import-human` around CR§1's
-     "`ctxoracle deinit --purge` then `init`" route.
-
-   Item 5's tests test those. **This design replaces that mechanism, and records
-   the departure here** (`CLAUDE.md`: an engineering decision is corrected "with
-   the reason recorded where the change is made").
-
-   It keeps store-recovery's requirements:
-   - "Refusing must not destroy data." Nothing is deleted, the legacy file is
-     only read, and every human-entered row is copied or, where it is not,
-     named in `status`, kept in that file, and protected by the purge's
-     refusal (AD-20's one rule). That includes a file of no known layout, whose
-     rows are counted, not carried (R6-1; round-6 review: the earlier rule saw
-     such a file only through `legacy_unplaced` and `legacyCounts`, which its
-     rebuild left at 0 and absent, so under AD-5's reading a plain purge
-     deleted it).
-   - Item 3's report of the rows an unknown schema holds: `unreadRows`, in
-     `status` and in the purge's message. Item 3's `export-human` route is cut
-     (M-9); the rows stay readable in the kept file.
-   - The known-schema identification. The layout comparison above is that
-     fingerprint, restricted to the two sets that exist, and normalised only in
-     line endings (R6-9).
-   - CR§1's "There is no automatic purge and no silent re-migrate." Nothing is
-     purged, and the rebuild is recorded (`store_rebuilt`) and shown (`status`).
-
-   The reasons for the change:
-   - The stores that exist were built by exactly two branch DDL sets
-     (`4dd0f00`/`4e070ce` and `b229c04`; collapse hunt, facts 1–2).
-   - A forward migration had to end in the state the former 003 left, with every
-     derived row reset for the next pass to re-mine, so it moved rows only to
-     discard them.
-   - Its parts each produced defects of their own (R4-1, R4-2, R4-4, R4-5, R4-8,
-     R4-9, R4-10): the fingerprint list, the per-schema migration, its read-only
-     pre-check, its chunked move, `export-human` and `import-human`. A copy from
-     a file that is never written can have none of them.
-
-   Store-recovery item 4 (`deinit --purge` refuses unless `--discard-human`)
-   stands, simplified (AD-20; M-10).
-
-   **The human-entered list** (the human-rows correction,
-   `2026-09-28-branch-audit-coordinator-ruling-correction-human-rows.md`, as
-   narrowed by R4-1; M-13). Human-entered is defined **by the writer, not by a
-   column**. A test on a column value finds rows only in tables that have that
-   column, and `corrections` and the global `tuning` table have no provenance
-   column (R4-1).
-
-   The writers are the verbs whose input the owner types: `note`,
-   `note --global`, `correct` (every verdict, `--missed-question` included) and
-   `tune`. Any later verb whose input the owner types joins the set when it is
-   added. `init`, `index`, `import`, `deinit`, `export`, `status`, `log` and
-   `hook` are **not** writers of the list. They write rows derived from the
-   repository, its git history, hook events or a copied store, which a rebuild
-   recreates or carries (R4-1: the correction's "any owner-invoked verb" took them
-   in, and its enforcement test would then have put every derived table on the
-   list).
-
-   The list names every table a listed verb writes, and what marks a row there as
-   human-entered:
-   - `corrections`: every row (`correct`; append-only, no provenance column);
-   - `human_facts`: every row (`note`);
-   - `invariants` and `invariant_members`: every row (`note`, their only writer,
-     L10);
-   - `landmines`: the rows with `kind = 'human_stated'` (`note`);
-   - global `tuning`: the rows with `source = 'owner'` (`tune`);
-   - global `lessons`: every row (`note --global`);
-   - `questions`: the row `correct --missed-question` opens. It has no marking
-     column (R4-1), so the purge's count takes the table's open rows.
-
-   The fold's writes when `correct` runs it hold no human-entered row: `stats_folds`,
-   the two `schema_meta` fold watermarks and the global `whisper_stats` replica
-   (AD-5). The rebuild carries every listed table; the test checks each.
-
-   The list is named "human-entered" to keep it apart from `FR-X4`'s
-   "human-provenance" trust sense above (R4-1). Its users are `deinit --purge`'s
-   count (AD-20) and the enforcement test.
-
-   **The list is enforced by a test** (human-rows correction item 2; AD-24). The
-   test runs each listed verb against a fixture store pair: `note` with and
-   without `--file`, `note --global`, `correct` with each verdict and with
-   `--missed-question`, and `tune` on a scalar key and on a list key (an add and a
-   remove). It compares every table's rows before and after, and **fails when a
-   verb changed a table the list does not name**, so the list cannot drift from
-   the code.
-
-   The comparison leaves out what records the verb's run rather than its input
-   (F5-15): the `faults` table (every open may record `store_migrated` and the
-   like), the JSONL channel, and every `schema_meta` or `global_meta` key other
-   than the two fold watermarks, such as the `tuning_invalid` marker,
-   `reindex_owner_pid` and a binding. The fold's writes are compared, and pass,
-   because the list names them as its non-human part above. The excluded verbs
-   are outside the test by the definition above.
-
-   **Every migration transaction is bounded like every other writer's** (F-4;
-   AD-26's target: below 150 ms). It holds only steps whose cost does not grow
-   with the stored rows — `CREATE TABLE`, `CREATE INDEX` on a table the same
-   migration creates, and `ALTER TABLE … ADD COLUMN` with no constraint ("No
-   changes are made to table content for renames or column addition without
-   constraints. Because of this, the execution time of such ALTER TABLE commands
-   is independent of the amount of data in the table", `sqlite.org/lang_altertable.html`,
-   fetched 2026-09-28; the same page says a column added with a `CHECK` is
-   tested against every existing row, so a later migration adds a column with
-   none, or a new table instead of a checked column) — plus a fixed number of
-   `schema_meta` rows. A step whose cost grows with the stored rows never runs in
-   a migration's transaction (M-1). The first checksummed set is applied only
-   to an empty store — a new one, or a rebuild's temporary file — so it ships
-   no such step.
-   *Why (F-1, F-3, F-4):* a check that called every shipped file pending made
-   001b permanently pending in every `'fallback'` store; a pending migration
-   silenced every event until the owner happened to run a verb; and a migration
-   that deleted every mined row in one transaction contradicted AD-26's target
-   (the one measured write of that size held the lock 414 ms, AD-26). The spawn
-   is off the event path, so NF-1 is untouched; the silence it ends lasts from
-   the upgrade until the first `SessionStart` or `UserPromptSubmit` after it has
-   spawned a child and that child's migration has committed or its rebuild has
-   been renamed into place.
-   There is **no automatic purge and no silent re-migrate**, and nothing deletes
-   a human-entered row without `--discard-human`: `deinit --purge` refuses as
-   AD-20 states, once (M-10; F5-7; R6-1).
-   *Why checksums (R-35; CR§1, store-recovery):* the runner recorded
-   `schema_version` `'1'` for every schema it ever built and returned early on
-   `≥ 1`, while the migration files were edited in place after `4dd0f00` (125
-   insertions, 40 deletions since `de66831`), so a store built by any earlier
-   build — Max Cogar's included; he has run `init` ("yes i used that before",
-   recorded in CR§1) — opened as current and ran code against tables that were
-   not there. Flyway's `validate` is the standard: "Validate works by storing a
-   checksum (CRC32 for SQL migrations) when a migration is executed." Its
-   checksum "is encoding and line-ending independent" (Flyway's
-   `flyway-core/…/resolver/ChecksumCalculator.java`, which sums each line as
-   `readLine` returns it, without its terminator; R7-2). A
-   checksum, not a hand-bumped number, catches an edit nobody remembered to
-   bump; and a refusal must not destroy data (fail-fast, Shore, IEEE Software
-   2004), so a store no checksum describes is rebuilt beside, from a file kept
-   as it is. The earlier "no store has shipped" premise is withdrawn: it was
-   never verified, and the check does not depend on it.
 2. **Standard.** `FR-K6` governing; database-normalization practice (3NF: a
    fact that depends only on the file — its change count — is stored once, with
    the file, and never duplicated into pair rows; no in-band sentinel stands for
    a missing attribute, so "not in the tree" is `in_tree = 0`, never an empty
-   `content_hash`); Zimmermann et al., IEEE TSE 31(6) 2005 (the "(occurrence)
-   frequency of a set x in a set of transactions D" — the number of transactions
-   containing A, the denominator AD-13 needs; ROSE keeps "support count" for "the
-   number of transactions the rule has been derived from", which is
-   `pair_count` — R-40; B3a E-7); Flyway `validate` for the schema check; SQLite's `ALTER TABLE` cost rule for the migration bound; OWASP
+   `content_hash`); Zimmermann et al., IEEE TSE 31(6) 2005 (support(A) is the
+   number of transactions containing A — the denominator AD-13 needs); OWASP
    ASI06 (memory/context poisoning) drives the trust-and-suspect columns.
    **Superseded 2026-09-26** (review record 2026-09-25, G2/G3/G5/G23): the
    earlier `cochange_pairs.a_count`/`b_count` counters — declared then as a
@@ -1855,110 +726,22 @@ and nothing here depends on the new channel.
    Not a role-keyed consumer (`main`/`subagent` as the key): executed in the
    review of 2026-09-25 (G23), a role key let a question asked in one session
    deny an Edit in another, silenced a Coupling whisper in a second session and
-   for a second subagent after the first had received it; and, **by code
-   reading** in the same review (not executed), a role key let one session's
-   catch-up start from another session's byte offset and one session's
+   for a second subagent after the first had received it, and let one session's
    `SessionStart startup` clear every other live session's dedup sets.
    `OL-C5` binds "their next move" — the agent that was asked — so the key is
-   the agent in its session. *(Corrected 2026-09-28: all four were called
-   executed; the review marks the last two "By code reading" — R-39; B3a E-9.)*
+   the agent in its session.
 5. **Premise verification.** STRICT/CHECK/FTS5 execute on this Node (V7, V8);
    `FR-K1`–`FR-K9`, `FR-L1`, `FR-L6`, `FR-X4`, `FR-X6`, `FR-A4` read at spec
    §11.1, §11.3, §7.2, §5.1. The `in_tree`, `change_count`, `labelled_touches`,
    consumer-key, and `seq` changes follow the review record
    `docs/reviews/2026-09-25-skeleton-gap-list-review.md` (G2, G3, G5, G23/G29,
-   G33/N11), whose defects were executed on the built skeleton except N11 and
-   G23's byte-offset and `startup` items, which the review reasoned from code
-   (R-39; B3a E-9, E-12); the `seq`
+   G33/N11), whose defects were executed on the built skeleton; the `seq`
    rationale is the SQLite VACUUM documentation (`sqlite.org/lang_vacuum.html`,
    fetched 2026-09-26); the second-pass changes follow
    `docs/reviews/2026-09-26-architecture-pass-collapse-hunt.md` (H2, H4, H8, H9)
    and `docs/reviews/2026-09-26-architecture-pass-expert-review.md` (M3 executed
-   there on git 2.43.0; M6, M8, S2); the 2026-09-28 correction review's
-   changes — the state-selected migration set (F-1, read in
-   `src/stores/migration_runner.ts`), the pending-store spawn (F-3), the
-   migration bound (F-4, `sqlite.org/lang_altertable.html` fetched 2026-09-28),
-   the fault codes (F-8) and the R-19/R-20 storage (F-7); the collapse hunt's —
-   the rebuild beside a kept legacy file in place of the fingerprint, forward
-   migration, pre-check, chunked move and `export-human`/`import-human` (M-2 to
-   M-5, M-9; the two DDL sets and the human-row writers read there in `git log`
-   and `src/cli/verbs_skeleton.ts`), 003 folded into the first checksummed set
-   (M-6), the writer-based list (M-13) — and the round-4 review's, the verb set
-   and the list-key removals (R4-1), file references by path (R4-2, the rowid
-   alias read in `001_phase_a_project.sql` and the path-keyed upsert in
-   `src/stores/dao/files.ts`) and the global store covered (R4-15).
-
-   The round-5 review's changes to the rebuild are **executed** in the rebuild
-   evidence (2026-09-29):
-   - three real legacy stores, built by `b229c04`, by `HEAD` with `b229c04`'s
-     verbs, and by `59cc05c` then `b229c04`;
-   - the two layouts' mapping, generated per column;
-   - the tuning merge validated as `tune` validates (F5-2, F5-3);
-   - subject keys not carried (F5-1);
-   - `fts_state`, `repo_key` and `keying_mode` written fresh (F5-4);
-   - the live session tables carried (F5-8);
-   - the record inside the file before the rename, the `-wal`/`-shm` discard and
-     the one read snapshot (F5-11, F5-12);
-   - the binding (F5-5);
-   - the kill at each of 14 steps, with sha256 identity of every legacy
-     database file.
-
-   The test gave 1,400 checks, 0 failed. Seven one-rule mutants of the prototype
-   each fail it. Facts 1–7 of that directory's `README.md` are read in `git`
-   (`out/facts.out`). The one executed side effect is SQLite's: a read-only open
-   creates a `-wal`/`-shm` beside a WAL file that had none.
-
-   The round-6 review's changes are **executed** in the round-6 evidence
-   (2026-09-29), on the same stores, rebuilt by the rebuild evidence's commands:
-   the one legacy-file rule (R6-1), the carried-rows digest (R6-2), the file test
-   in place of the pending rows (R6-3), the refused row unplaced (R6-8), the
-   CRLF-normalised layout test (R6-9), the removed keys (R6-7) and the pinned
-   `HEAD` validator refusal (R6-4), with the review's cases X1, X2 and X3. The
-   revised test gave 1,502 checks, 0 failed. Eleven one-rule mutants each fail
-   it: the seven above and one each for R6-1, R6-2, R6-8 and R6-9.
-
-   The round-7 review's changes are executed in the round-7 evidence, on the same
-   stores: the test run with a stand-in for the build's own validator (R7-1),
-   the line-ending independent checksum (R7-2), a corrupt table page (R7-3), the
-   record found by its file (R7-4), the counts beside the digests (R7-5) and the
-   purge's deletion order (R7-8), with the review's cases Y1–Y6. The test gave
-   1,519 checks, 0 failed. Eighteen one-rule mutants each fail it: the eleven
-   above and seven for round 7.
-
-   The round-8 review's changes are executed in the round-8 evidence, on the
-   same stores: the binding decision for each state of the derived key's store
-   and the handler's miss rule (R8-1), the companions deleted before the rename
-   (R8-3), the table-by-table carry of a file with an unreadable table and the
-   new store's errors kept apart (R8-4), the record selected by `legacyRel` and
-   `origin`, with counts and a command where it has none (R8-5), and the named
-   interface (R8-6), with the review's cases Z2–Z6b. The test gave 1,537 checks,
-   0 failed (1,492 and 45 with `HEAD`'s validator, every failure the
-   designed-outcome check). The recompute (R8-2, R8-7) is executed in the same
-   directory's model, `test-recompute.mjs`, with the review's Z1. Thirty-five
-   mutants each fail their test: the eighteen above, three of them re-anchored
-   to the revised text, and seventeen for round 8.
-
-   The round-9 review's changes are executed in the round-9 evidence
-   (`docs/reviews/2026-09-29-rebuild-mapping-evidence-r9/`), on the same
-   stores: the binding recorded before the rename and the hook path after
-   every kill (R9-3), only a content error of the open or schema read classed
-   as the file's (R9-4), tables counted by a scan and a copy-failed table's
-   digest and count null (R9-5), the named build bindings (R9-7), and the
-   stated departure for the first root to fire (R9-9), with the review's cases
-   V1–V4. The test gave 1,571 checks, 0 failed (1,526 and 45 with `HEAD`'s
-   validator, every failure the designed-outcome check). The miner's resume
-   (R9-1, R9-2, R9-6) is executed in the same directory's model,
-   `test-recompute.mjs`, with the review's K1 and K2. Forty-seven mutants
-   each fail their test: round 8's thirty-five less two it replaces (the
-   completion by the record's root, gone with R9-3, and round 7's resume,
-   now R9-1c), four of them re-anchored to the revised text, and fourteen for
-   round 9 (the evidence's `results/mutants.out`).
-
-   The layouts' DDL is quoted from `git show b229c04:` and
-   `git show 59cc05c:…/migrations/`.
-
-   Addresses: those, plus `FR-M1`/`FR-M2` (the `session_log`/`faults` surface)
-   and AC-13.
+   there on git 2.43.0; M6, M8, S2). Addresses: those, plus `FR-M1`/`FR-M2` (the
+   `session_log`/`faults` surface) and AC-13.
 
 ### AD-5 — Global-store schema and fact routing
 
@@ -1966,10 +749,8 @@ and nothing here depends on the new channel.
 
    ```sql
    global_meta(key TEXT PRIMARY KEY, value TEXT)
-                                             -- repository bindings (AD-20),
-                                             -- a rebuilt store's record
-                                             -- store_rebuilt (AD-4)
-                                             -- and other home-level keys; holds NO
+                                             -- repository bindings (AD-20) and
+                                             -- other home-level keys; holds NO
                                              -- fold watermark (AD-5: the
                                              -- watermarks live in each project
                                              -- store's schema_meta)
@@ -2036,11 +817,7 @@ and nothing here depends on the new channel.
                                              -- rows sharing its key and `tune`
                                              -- adds/removes a row;
                                              -- WRITER: seeded at init, changed
-                                             -- via `ctxoracle tune` (AD-20);
-                                             -- every stored row is validated
-                                             -- when the reader is built (AD-14)
-                                             -- and by `import` before it writes
-                                             -- (below)
+                                             -- via `ctxoracle tune` (AD-20)
    lessons(id, statement, evidence_json, …prov)
                                              -- cross-project, human channel;
                                              -- WRITER: `ctxoracle note --global`
@@ -2078,97 +855,30 @@ and nothing here depends on the new channel.
    import, and purge carry or remove together; the global row is then a
    replaceable copy of that unit's totals, so no replacement can inflate or
    strand a count. What it costs: `deinit --purge` removes that project's
-   efficacy history with the rest of its data, which is what a purge means —
-   and it **deletes that project's `whisper_stats` rows** in the global store in
-   the same verb, because a replica is by definition a copy of a store's totals
-   and a purged store has none; keeping them would count data no store holds
-   (R-34 (a); B3b E-8: AD-5 and AD-20 disagreed on what a purge did to the
-   replica). What else the purge deletes, and when it refuses, is AD-20's one
-   rule (store-recovery item 4; M-10; F5-7; R6-1).
-   The
+   efficacy history with the rest of its data, which is what a purge means. The
    earlier text also named one watermark key per project in one comment and
    two in another; there are now exactly two, both in `schema_meta`.
    `export` (`FR-K9`) writes each store to a single file via **`VACUUM INTO`**
    (engine-level, executed and round-trip-verified — V17). **`import` never
-   overwrites a database file, opens its source files read-only, and validates
-   everything before it writes either live store**, in three phases:
-   (1) *validate both* — for each export file, `backup()` it into a temporary
-   `<live path>.import-tmp` database beside the store and, on that temporary
-   copy, run `PRAGMA quick_check`, AD-4's schema check (matching migration
-   checksums; a checksum mismatch is refused — M-12), the `repo_key` check (the
-   project copy's `schema_meta.repo_key` must equal the destination's; a copy
-   whose `keying_mode` differs — a path-keyed store restored after a re-clone —
-   is refused unless the owner passes an explicit override), and AD-14's tuning
-   validator over the incoming `tuning` rows (a row it refuses is named); on any
-   failure, delete every temporary file, write the fault `import_rejected`
-   (AD-17), leave both live stores untouched, and exit non-zero with a
-   plain-language message naming the file and the check.
-   *An export with no checksums* was made by an earlier build, by `VACUUM INTO`
-   of a legacy file (F5-9). It is handled in this order:
-   1. It is `backup()`ed to its own temporary file.
-   2. Its layout is identified as AD-4 identifies a legacy file.
-   3. AD-4's mapping rebuilds it into a fresh `.import-tmp` created with the
-      current migrations, and the checks above run on that copy.
-
-   No legacy build writes `schema_meta.repo_key` or `keying_mode` (rebuild
-   evidence: stores A, B and C hold neither), so a legacy export carries no key to
-   check. It is refused unless the owner passes the same explicit override, and
-   with it the rebuilt copy takes the destination's key and mode. The refusal
-   says, in plain words, that the export's repository cannot be verified, and
-   names the export's layout (R6-10; round-6 review). *Why the same override
-   suffices:* the `keying_mode` override also admits a copy whose key differs
-   from the destination's, since a store's key follows its mode (AD-3). In both
-   cases the tool cannot establish that the export is this repository's, and
-   the override is the owner's statement that it is. A second flag would carry
-   the same meaning, and the message now says which case applies. An export of
-   no known layout is refused. A legacy global export's rebuild writes no
-   pending rows, since none exist (AD-4; R6-3), so nothing in it names another
-   machine's `projects/` directories.
-
-   The derived tables of such an import are empty until the next index and mine
-   rebuild them. So AC-19's record-identity round-trip applies to checksummed
-   exports, the only ones this build writes, and not to a legacy export.
-   (2) *prepare* — merge this machine's live bindings into the validated
-   temporary global copy (below), so the `backup()` of phase 3 preserves them;
-   (3) *write* — `backup()` the temporary project copy into the live project
-   store, then the temporary global copy into the live global store, then run
+   overwrites a database file, and validates before it writes the live store**,
+   in this order: (1) `backup()` the export into a temporary database file beside
+   the store; (2) run `PRAGMA quick_check` on the temporary file; (3) on failure,
+   delete the temporary file, write the fault `import_rejected` (AD-17), leave
+   the live store untouched, and exit non-zero with a plain-language message;
+   (4) on success, `backup()` the temporary file into the live store, then run
    the fold's publish step (above) so the global replica matches the imported
-   store, then delete the temporary files. **Before phase 3 writes, each live
-   store it will replace is kept as a file beside it** — `backup()` to
-   `<live path>.pre-import-<ts>` — and the import reports each kept path, so no
-   row a live store held, human-entered or not, is destroyed by an import, and
-   no flag or export file is needed (M-11; store-recovery's "never replace a
-   store holding human rows without exporting them first"; R4-10: the verb
-   surface `import <file>` names no other file to check against). `backup(sourceDb,
-   destinationPath)` from `node:sqlite` (available from the 22.16.0 floor, V17)
-   takes the engine's locks and is WAL-correct; if the live store stays busy past
-   AD-26's retry, import refuses with `store_busy` and changes nothing. There is
-   no transaction across two database files, so one residual remains: a failure
-   between the two live writes leaves the new project store beside the old
-   global one. A failure the process survives (a `store_busy` on the second
-   write) records `import_rejected` with `check: 'partial_write'`, names the
-   store written, and names the recovery — re-run the same `import`, which
-   re-validates and rewrites both. A **crash** records nothing; it is detected at
-   the next `import` or `status`, which report any `.import-tmp` file surviving
-   beside a live store. *Why this order:* checking after the overwrite destroys
-   the store the check exists to protect (review record 2026-09-26, ER M12), so
-   both files are validated first; project before global because a failure
-   between them then leaves a new project store beside an unchanged global —
-   no binding points anywhere new and the publish simply has not run — whereas
-   global-first would leave merged bindings naming an imported project key
-   whose store was never written; and a crash is made visible at the next run,
-   because the process that caused it cannot record it (R-34 (b), (c); B3b E-10,
-   B5a E-23, B5b H2 E-18, E-19, CR§1, store-recovery).
+   store. `backup(sourceDb, destinationPath)`
+   from `node:sqlite` (available from the 22.16.0 floor, V17) takes the engine's
+   locks and is WAL-correct; if the live store stays busy past AD-26's retry,
+   import refuses with `store_busy` and changes nothing. *Why the order:*
+   checking after the overwrite destroys the store the check exists to protect
+   (review record 2026-09-26, ER M12).
    **Importing a global store merges repository bindings; it never drops this
    machine's.** Bindings are paths (AD-20), and paths differ between machines.
    A global import keeps every binding this machine had, adds the imported ones
    (on the same path, this machine's binding wins), and lists, in plain
    language, every imported binding whose root does not exist here; `init` in a
-   checkout re-records it. Because the merge keeps every live binding, no live
-   binding is removed, so the list of removed live bindings R-34 (d) asks the
-   report to carry is empty by construction (B5a E-5: that list was the
-   alternative to merging; B5a E-23 keeps the merge).
-   *(Plan-pass collapse-hunt H7: replacing silently
+   checkout re-records it. *(Plan-pass collapse-hunt H7: replacing silently
    dropped this machine's bindings the export lacked, and every session in
    those checkouts went silent.)*
    **A foreign project store is imported into a separate home**
@@ -2179,13 +889,7 @@ and nothing here depends on the new channel.
    export into one's own home is the ordinary use (AC-19's round-trip) and is
    unchanged. *(Added 2026-09-26: the import
    procedure was written for "the live store" only; raised by the plan pass,
-   plan D-plan-43.)* An imported store in such a home has no live binding on
-   this machine (its bindings name the exporter's paths), so `status` and `log`
-   take a **key- or home-addressed read form** that names the store by repo key
-   within `CTXORACLE_HOME` (for example `status --key <key>`), read-only, and
-   refuse with a plain message when the key names no store there. `init` is never
-   the way to read it: `init` runs the first index into the store of that key,
-   overwriting the imported index tables (R-34 (e); B4 p3 E-4).
+   plan D-plan-43.)*
    *Why:* copying a file over a live store corrupts it — executed in the review
    of 2026-09-25 (G34): a store held open by a second process with 200
    uncheckpointed WAL frames, overwritten with `copyFileSync`, reopened with a
@@ -2230,15 +934,8 @@ and nothing here depends on the new channel.
    watermark, the `unattributed` booking, and the validate-then-write import
    order from `docs/reviews/2026-09-26-architecture-pass-collapse-hunt.md` (H8,
    C4) and `docs/reviews/2026-09-26-architecture-pass-expert-review.md` (M6, M7,
-   M12), reasoned from the document's own text, not executed; the 2026-09-28
-   corrections — the purge's replica deletion, the three-phase import with its
-   checks, write order and crash detection, and the key-addressed read form —
-   from the register (R-34, R-35), B3b E-8, E-10, B4 p3 E-4, B5a
-   E-5, E-23, B5b H2 E-18, E-19, CR§1 and store-recovery, each reasoned from the
-   text those records quote; the kept pre-import copy and the legacy export
-   rebuilt from (M-11, M-12, collapse hunt), and the legacy export's key and
-   record-identity statement (F5-9; AD-4's rebuild evidence). Addresses: `FR-L7`,
-   `FR-K9`, `OL-6`.
+   M12), reasoned from the document's own text, not executed. Addresses:
+   `FR-L7`, `FR-K9`, `OL-6`.
 
 ### AD-6 — Hook wiring and the event map
 
@@ -2249,13 +946,13 @@ and nothing here depends on the new channel.
 
    | Hook event | Phase A work | Output channel |
    |---|---|---|
-   | `UserPromptSubmit` | **question intake from the `prompt` input field** (AD-9 — the question exists before the agent's first move); Orientation candidate (`FR-A2a`); when the schema check finds the store pending or legacy, the detached index child only (AD-4, F-3, M-8) | `hookSpecificOutput.additionalContext` (V15; plain stdout is the documented alternative) |
-   | `PreToolUse` (matcher `*`) | catch-up; block check (`FR-B1`); Consequence/Warning candidates (`FR-A2d`/`FR-A2e`) | `permissionDecision` deny (blocks only) / `additionalContext` (whispers — read by the model next to the tool result on the next model request, whether the call ran, failed or was denied; an `Edit` path deny rule (tested; a `Read` rule not tested — F-18) rejects the call before hooks run, so this event does not fire for it — R-8; V20, CR§2, DE, PD; pending spec sign-off R-1…R-5) |
+   | `UserPromptSubmit` | **question intake from the `prompt` input field** (AD-9 — the question exists before the agent's first move); Orientation candidate (`FR-A2a`) | `hookSpecificOutput.additionalContext` (V15; plain stdout is the documented alternative) |
+   | `PreToolUse` (matcher `*`) | catch-up; block check (`FR-B1`); Consequence/Warning candidates (`FR-A2d`/`FR-A2e`) | `permissionDecision` deny (blocks only) / `additionalContext` (whispers — read by the model next to the tool result, after the tool has run, V20) |
    | `PostToolUse` (matcher `*`) | read-set update; `observed_actions` append (`outcome='ok'` — the event is success-only, V19); Coupling/Reuse candidates (`FR-A2b`/`FR-A2c`) | `additionalContext` |
    | `PostToolUseFailure` (matcher `*`) | **observation only**: `observed_actions` append with `outcome='failed'` set **unconditionally by the event itself** (the `error` exit-code parse is best-effort enrichment of `command_class`/detail, never a precondition — V19's "generally begins" is a hedge, and a non-Bash failure must still append) — without this wiring a run-and-failed test looks *never run*, and Verification would emit the checkably-false "not run" (`FR-D1`) while the `FR-L4` failure clause starves; the run-state consumers therefore read these rows (AD-4's split filter) | **none** — no `permissionDecision` (spec `FR-O2`/`FR-B3` require none be emitted here) and no context channel used |
    | `Stop` | done-claim check; Completeness + Verification whisper; outstanding-question line (`FR-B4`, AC-8a) | `hookSpecificOutput.additionalContext`, once, honoring `stop_hook_active` |
    | `SubagentStop` | same as Stop for the subagent consumer (whispers only — no answer-drift state exists for it, `FR-O6`) | same |
-   | `SessionStart` | `D-20` reconciliation by `source` (AD-16); qa-state rebuild trigger per `source` (AD-9); staleness check → detached reindex spawn (for an unresolved `HEAD`, its early-exit form, which resolves `HEAD` through `git` off the path, AD-23; R3-2), also spawned when the schema check finds the store pending or legacy (AD-4, F-3, M-7) or a mining pass unfinished (AD-13); detached `quick_check` integrity child (AD-17) | none (stdout unused in Phase A) |
+   | `SessionStart` | `D-20` reconciliation by `source` (AD-16); qa-state rebuild trigger per `source` (AD-9); staleness check → detached reindex spawn; detached `quick_check` integrity child (AD-17) | none (stdout unused in Phase A) |
    | `SessionEnd` | flush/finalize session diagnostics row; the `whisper_stats` watermarked fold (AD-5 — audit rows + corrections, the project store's two `seq` watermarks and the replace-publish of its totals; bounded: rows since each watermark by primary key, off every deny-capable path) | none; work bounded ≪ 1.5 s budget (V6), fold included |
 
    The wired command entries set `"timeout": 5` (seconds) so the harness never
@@ -2472,10 +1169,7 @@ and nothing here depends on the new channel.
    recognizes zero human turns, and emitted `unrecognized_user_entry` diagnostics,
    it raises `rebuild_recovered_nothing` (surfaced per `OL-10`; L11 owns the
    limit; the same code, with `detail_json.set = "questions"`, also covers
-   AD-16's delivered-set and read-set reseeds as `"delivered"` and `"read"`).
-   The fork rebuild reads every entry of the forked transcript whatever its
-   `sessionId` field — it never filters by `sessionId`, since which id the copied
-   pre-fork entries carry is not observed (V22; G-11, settlements). Catch-up is resumable — the bookmark persists per event, so a
+   AD-16's delivered-set reseed as `"delivered"`). Catch-up is resumable — the bookmark persists per event, so a
    transcript too large for one watchdog pass converges over later events with a
    `catchup_incomplete` diagnostic (questions not yet discovered cannot deny;
    questions already open keep holding). Nothing expires at `SessionEnd`. On
@@ -2614,9 +1308,11 @@ and nothing here depends on the new channel.
 ### AD-12 — Structural indexer: language-agnostic frontends, WASM grammars, generic fallback
 
 1. **Decision.** `ctxoracle index` (and a detached refresh the handler spawns on
-   staleness, holding AD-26's reindex lock and with `CTXORACLE_INTERNAL=1`
-   in its environment) builds: `files` (with zone classification — below),
-   `symbols`, **`import_edges`**
+   staleness, with a lock file in the store directory and `CTXORACLE_INTERNAL=1`
+   in its environment) builds: `files` (with zone classification: marker
+   comments in the head 2 KB, `dist/`/`build/`/lockfile patterns,
+   `vendor/`/`node_modules/`, and a tracked file matching an ignore pattern —
+   below), `symbols`, **`import_edges`**
    (file→file, what import extraction actually yields), **`symbol_refs`**
    (per exported symbol: the count of *other* files whose text references its
    identifier among the files that import its file — a deterministic
@@ -2634,71 +1330,17 @@ and nothing here depends on the new channel.
    index) it walks with `readdir`, with a fixed exclusion of `.git/` and
    `node_modules/` disclosed in `status`. *Why:* the skeleton's git-only walk
    threw `fatal: not a git repository` on a plain directory (review record
-   2026-09-25, G11/N7). **Non-regular entries are skipped, and the skip is
-   disclosed** in `status`: a submodule gitlink (mode 160000, whose path is a
-   directory) and any other listed entry that is not a regular file is not
-   indexed. The `readdir` branch **does not follow symbolic links**, so a link
-   cycle cannot make the walk unbounded (R-18; B3a E-13: the walk listed a
-   gitlink and stated no rule, and the `readdir` branch had no link rule).
+   2026-09-25, G11/N7).
 
-   **Zone classification, in precedence order.** (1) A **marker comment** in the
-   head 2 KB: a comment line, with each mapped language's own comment leader (a
-   per-language table beside `index.ext_to_grammar`, not a fixed leader list),
-   matching Go's published convention `^// Code generated .* DO NOT EDIT\.$`
-   (`pkg.go.dev/cmd/go`) under its position rule — "This line must appear before
-   the first non-comment, non-blank text in the file" → `generated`. No
-   `@generated` tag is matched: no primary source for that convention was found
-   (GitHub Linguist's `generated.rb` has no such rule, B8b E-8), and an unsourced
-   marker does not go in. (2) `vendor/`, `vendors/` and `node_modules/` as a
-   directory segment **at any depth** → `vendored`, and (3) `dist/` at any depth,
-   or `build/` **at the repository root**, or a lockfile → `build_output`. The
-   any-depth rule is GitHub Linguist's `vendor.yml` (`(^|/)dist/`,
-   `(^|/)node_modules/`, `(^|/)vendors?/`, fetched in B8a E-21) and gitignore's
-   reading of a slash-terminated name; no source backs an any-depth `build/`
-   (Linguist has no general `build/` rule), and executed at `HEAD`
-   `src/build/plan.ts` was classed `build_output` and so dropped from
-   Orientation and Reuse — so `build/` is anchored at the root, an unsourced
-   heuristic whose miss class (a nested package's `packages/a/build/` reads as
-   `source`) is stated here. **The lockfiles are those of the named managers
-   below, and no more is claimed:** (i) every lockfile name GitHub Linguist's
-   `generated.rb` detects (fetched 2026-09-28, `main` at `d0921d1`) —
-   `composer.lock`, `Cargo.lock`, `deno.lock`, `flake.lock`, `MODULE.bazel.lock`,
-   `Gopkg.lock`, `glide.lock`, `Package.resolved`, `poetry.lock`, `pdm.lock`,
-   `uv.lock`, `pixi.lock`, `esy.lock`, `npm-shrinkwrap.json`, `package-lock.json`,
-   `pnpm-lock.yaml`, `bun.lock`, `bun.lockb`, `.terraform.lock.hcl`,
-   `Pipfile.lock` and `mise.lock` (with its `mise.<env>.lock` form); and (ii)
-   the lockfiles of managers Linguist does not list, each named by B8a E-24:
-   `yarn.lock` (Yarn), `Gemfile.lock` (Bundler), `go.sum` (Go modules),
-   `mix.lock` (Mix) and `pubspec.lock` (pub). The miss class, stated: a lockfile
-   of a manager in neither list is classed `source`, so its path can be ranked
-   by Orientation and its tokens searched, until its name is added to the list
-   (F-9; the rationale "every package manager whose ecosystem the default
-   grammar table covers" omitted `Pipfile.lock`, `uv.lock` and `bun.lock`, of
-   covered ecosystems, and no source enumerates every manager). (4) Otherwise `source`. The zone evidence is the matched
-   marker line, path rule, or ignore pattern; it is bounded by the 2 KB head read
-   and the path, so it takes no separate length cut (the former 200-character cut
-   had no source). *Why (R-17; B3b E-12, B8 verification item 7, B8a E-9, E-21,
-   E-24, B8b E-8):* the order put the ignore match first and made it a source of
-   `generated` on no source, and `build/` matched at any depth on none.
-
-   **The `.gitignore` signal: a tracked file that matches an ignore
+   **The `.gitignore` zone signal: a tracked file that matches an ignore
    pattern.** At index time (off the event path) the indexer pipes the walked
-   tracked paths through `git check-ignore --no-index -v --stdin -z`, and
-   records a printed path's evidence as what it is — "tracked file matching
-   ignore pattern `<pattern>` (`.gitignore:<line>`)". **It never sets
-   `generated` on its own:** beside a marker or path signal it is added to that
-   signal's evidence as corroboration, and alone it sets the zone to `unknown`
-   with the evidence shown. Ignored untracked files are never walked, and git
-   applies ignore rules only to untracked files ("Files already tracked by Git
-   are not affected", gitignore(5)), so a tracked file that matches is only that:
-   reproduced in B3b E-12, a force-added `.vscode/settings.json` and a
-   `logs/.gitkeep` under ignored directories are both reported and neither is
-   generated, while `generated` feeds decision-impact and the Consequence
-   headline's zone flag, where a false one is FR-D1's checkably false claim.
-   *(Corrected 2026-09-28: this said a printed path "is a `generated` zone
-   signal" because "a committed file the project also ignores is commonly a
-   generated one", which no source supports — R-17; B3b E-12.)*
-   *Why the signal exists (review record 2026-09-26, ER M4):* the first 2026-09-26 pass dropped
+   tracked paths through `git check-ignore --no-index --stdin -z`; a path it
+   prints is a `generated` zone signal, recorded in `zone_evidence`. Ignored
+   untracked files are never walked, and git applies ignore rules only to
+   untracked files ("Files already tracked by Git are not affected",
+   gitignore(5)), but a tracked file still *matches* the patterns, and a
+   committed file the project also ignores is commonly a generated one.
+   *Why (review record 2026-09-26, ER M4):* the first 2026-09-26 pass dropped
    this signal as one that "could never fire as defined", while its own check
    showed `--cached` listing a force-added `dist/a.js` under an ignored `dist/`.
    The reviewer executed `git check-ignore --no-index -z --stdin` over
@@ -2729,14 +1371,7 @@ and nothing here depends on the new channel.
    compiled with the package in their own directory (`go help test`,
    pkg.go.dev/cmd/go, fetched by the reviewer 2026-09-26), and an in-package
    test imports nothing, so import-edge mapping could never map a Go test and
-   Consequence and Verification would be silent for Go by construction. **Each
-   language declares a `test_map` capability, shown in `status`**: whether its
-   test files can produce mappings at all — Go by the same-directory rule, a
-   language whose tests import their subjects by resolvable edges by import
-   mapping, and `none` for any seeded language whose tests produce no edges (for
-   example Python tests that import absolutely, where the resolver yields no
-   edge for a bare module name that is not in the repository), so the exit data
-   do not read structural silence as a low floor (R-18; B3a E-13, B3b E-16). `region_glob` is
+   Consequence and Verification would be silent for Go by construction. `region_glob` is
    the covered file's path: Phase A regions are whole files, and `status` says
    so. Route-registration patterns are **not** an `entry_score` input in Phase
    A. No such pattern was ever listed, and a heuristic nobody wrote down cannot
@@ -2745,240 +1380,46 @@ and nothing here depends on the new channel.
 
    Parsing goes
    through a `LanguageFrontend` interface (`FR-K1`'s language-agnostic seam,
-   C-6): the tree-sitter frontend covers every language whose grammar the
-   pinned runtime can load and that is **usable**, mapped by a **configurable**
-   extension→grammar table with defaults, and the loader takes each grammar's
-   WASM **path from that table** (a `tree-sitter-wasms` file; the path is the C-6
-   seam through which another grammar file can later be added by configuration,
-   M-33). **A grammar is usable when its samples parse error-free on repeated
-   parses in one process, over a stated sample set that includes each grammar's
-   scanner-driven constructs** — a construct producing each token the
-   grammar's `externals` list names, the tokens its external scanner makes (for
-   Swift, B9 E-1's raw string among them) — so a scanner defect that only such a
-   construct reaches is not passed by a sample that lacks one.
-   **Lua and Swift are excluded in Phase A, with their causes recorded and
-   shown** (M-33). The causes, read from the packaged sources: the
-   `tree-sitter-lua` 2.1.3 scanner's `create` returns
-   `malloc(sizeof(struct ScannerState))` and never initialises it (a `malloc`
-   block's value "is indeterminate", C11 §7.22.3), and the `tree-sitter-swift`
-   0.4.3 scanner's `create` returns `calloc(0, sizeof(struct ScannerState))` and
-   then writes a 4-byte state into it (a zero-size allocation "shall not be used
-   to access an object", the same clause); the 0.25.10 runtime creates the
-   scanner at every parse, so every parse reads a state no one set. Executed in
-   isolation (B9 E-1): Lua 19 of 24 parses err as shipped, 0 of 24 with the
-   block zeroed, 20 of 24 with it filled with `0xff`; Swift 15, 0 and 16 of 24;
-   and at `HEAD` the Swift frontend returned `ok: true` with a raw-string file's
-   symbols lost (`[]` instead of `["f","P","g"]`). The scanner reading is kept as
-   the recorded **cause** of each exclusion, not as a test the build runs. *Why
-   excluded rather than vendored (M-33):* C-6 asks for breadth with no
-   invisible language, and the generic frontend covers an excluded grammar's
-   files while `lang_capabilities.exclusion_cause` makes the exclusion visible,
-   which was the defect the finding that drove vendoring named (Lua's exclusion
-   left no trace, R-14); vendoring a replacement WASM and a patched Swift
-   rebuild is a later configuration act through the loader's per-grammar path,
-   taken if the exit data show these languages in the owner's repositories. The
-   other exclusions are the 2026-09-11 execution's
-   (plan §4): `elm` and `ql` are below the runtime's minimum ABI, and `yaml`'s and
-   `bash`'s scanners import symbols the runtime does not export. **A grammar
-   still excluded keeps its table row and takes the generic frontend, and its
-   exclusion and cause are recorded per language in `lang_capabilities`
-   (`exclusion_cause`, AD-4) and shown in `status`** — never recorded as
-   `unknown`. At run time a parse whose tree carries an ERROR node is flagged
-   for that file (a `file_parse` row, `outcome = 'error_tree'`, AD-4) and
-   counted per language in `status`, so a grammar that degrades on real source is visible rather than
-   returning `ok` with symbols missing. *(Corrected 2026-09-28: this recorded
-   the symptom — "`lua` loads but, after its first parse in a process, returns
-   ERROR trees" — excluded Lua as a patch with no visible trace, kept Swift with
-   the same defect class, and defined usability as parsing "correctly on
-   repeated parses", which a sample without a raw string passed — R-14; B9
-   verification item 1, B9 E-1, E-2, E-3, E-18, E-21.)* A **generic frontend**
-   (line-based definition heuristics + path/word tokens into FTS) covers every
-   other *source* file, so no language is invisible. It extracts symbols only
-   from text files that are code: a file with a NUL byte in its first **8000
-   bytes** is binary and gets path tokens only (git's own binary test reads that
-   many: `#define FIRST_FEW_BYTES 8000`, `xdiff-interface.c`; the former "8 KB"
-   had no source), and prose formats get path tokens only. The prose list is
-   the tuning row `index.generic_no_symbol_exts`, **seeded by one rule from
-   GitHub Linguist at a pinned commit** (`main` at `d0921d1`, `languages.yml`
-   and `heuristics.yml`, fetched 2026-09-28): (i) every extension Linguist gives
-   to a language of `type: prose` that no other language claims — 35 of the 42
-   extensions its 18 prose languages carry (counted 2026-09-28 by the generator
-   below, run with Python 3 and PyYAML 6.0.1); and (ii) of the 7 extensions a
-   prose language shares with another language, the ones whose
-   `heuristics.yml` disambiguation ends in a pattern-less rule — the language
-   Linguist itself assigns when no content pattern matches — naming a prose
-   language: `.fr` and `.txt` (Text) and `.md` (Markdown; GCC Machine
-   Description needs `^(;;|\(define_)`). `.asc`, `.ncl` and `.scd` end in a
-   rule with a pattern, and `.nb` has no disambiguation, so they are left off.
-   **38 extensions in all.** Each pattern-less rule the rule meets names one
-   language, so no list-valued fallback arises (the former rule's `.mod` named
-   `[Linux Kernel Module, AMPL]` and made its count 393, not the 392 it stated).
-   *Why prose, and only prose (R2-4; round-2 review):* the row's job is the
-   files that declare no names the oracle should index, and the defect it fixes
-   is the generic frontend's definition regexes (`function f(`, `class C`,
-   `def f`, `fn f`, `f() {` — `src/index/generic_frontend.ts`) matching where no
-   definition is. In prose they match the code a document quotes — 317 of the
-   generic frontend's 424 symbols came from `.md` files (below) — and prose is
-   natural-language text, which declares nothing; Linguist's own example of
-   the type is exactly that format ("defined as `data` (e.g. SQL) or `prose`
-   (e.g. Markdown) languages", `docs/how-linguist-works.md` at `d0921d1`).
-   Linguist's `type` is a statistics category ("By default only languages of
-   type `programming` or `markup` in [`languages.yml`] are included in the
-   language statistics", `docs/overrides.md` at `d0921d1`), so it is used here
-   only as the published, pinned list of which languages are prose, not as a
-   judgement of which formats declare names. `type: data` is **not** listed: it
-   mixes serialisation formats (JSON, YAML, CSV), which declare no names, with
-   schema and query languages that do (SQL, GraphQL and Protocol Buffer are all
-   `type: data`), and no Linguist field separates the two; and the defect does
-   not arise for data files: executed 2026-09-28 over every tracked text file of
-   `Maxcogar/agent-armory` at `f08d7da` (NUL-byte files skipped, as the
-   frontend skips them) with the generic frontend's seven regexes, `.json`
-   (171 files), `.yaml`/`.yml` (15), `.toml` (9), `.jsonl` (7), `.xml` (2),
-   `.lock` (2) and `.sql` (10) yielded **0** definition-shaped lines, against
-   318 from `.md` (893 files). **The cost this rule accepts, stated:** a data
-   file with a line that happens to match a definition regex — a YAML block
-   scalar holding a shell function, say — yields a false symbol until its
-   extension is added to the row; none did on the owner's repository.
-   **Matching, with the exceptions the generator emits:** the row is matched
-   as a case-insensitive file-name suffix, and a file whose name ends in a
-   listed suffix is denied unless its name ends in a listed exception
-   extension or its base name is a listed exception filename. The generator
-   emits, as the row's exceptions, every non-prose Linguist **extension** that
-   ends in a listed suffix — `.coffee.md` (Literate CoffeeScript) and
-   `.8xp.txt` (TI Program) at `d0921d1` — and every non-prose Linguist
-   **filename** that does — 12 at `d0921d1`, all ending in `.txt`: two of
-   programming languages, `CMakeLists.txt` (CMake) and `meson_options.txt`
-   (Meson), and ten of data languages (`requirements.txt` and three other Pip
-   Requirements names, three Checksums names, `hosts.txt`, `robots.txt`,
-   `language-subtag-registry.txt`), kept by the same non-prose rule as the
-   extensions — so a code file ending in a listed suffix keeps its generic
-   symbols (C-6), and the run-time rule needs only the committed seed, not
-   Linguist's whole extension list: for every Linguist extension it gives the
-   answer the earlier "longest Linguist extension the name ends in" rule
-   intended, since the extension exceptions are exactly the non-prose
-   extensions that end in a listed suffix, and it adds Linguist's filename
-   matches, which that rule never consulted. (R3-10, re-derived: the bench's
-   `denylist.py`, `docs/reviews/2026-09-28-architecture-round3-bench/denylist.py`,
-   over `languages.yml` and `heuristics.yml` as fetched from Linguist at
-   `d0921d1` (the files the build is to pin in `ctxoracle/vendor/linguist/`,
-   below, which does not exist yet) → `seed 38`, `extension exceptions` the two
-   above, `filename exceptions 12`. **To reproduce it** (F5-16; R4-11):
-   1. Copy `denylist.py` to a scratch directory.
-   2. Fetch both files into `web/` there from
-      `https://raw.githubusercontent.com/github-linguist/linguist/d0921d1/lib/linguist/`.
-   3. Run `python3 denylist.py` (PyYAML).
-
-   The rebuild evidence's `out/f5-16-bench-rerun.out` records that run on
-   2026-09-29, with the fetched files' sha256 and the same three counts); the earlier text said the exceptions covered extensions
-   only, so `CMakeLists.txt` and `meson_options.txt` lost their generic
-   symbols, contradicting "a code file … keeps its generic symbols".) **The
-   cost `.fr` carries, stated:** `.fr` is listed because Linguist's
-   pattern-less fallback for it is Text, but Forth and Frege files also use
-   it (`.fr` owners at `d0921d1`: Forth, Frege, Text), and Linguist tells them
-   apart only by content patterns this suffix rule does not run, so a Forth or
-   Frege `.fr` file loses its generic symbols (Frege's `class` lines match a
-   generic regex), as a GCC Machine Description `.md` file does (above); both
-   are accepted costs of a suffix rule, and running Linguist's content
-   heuristics for the three shared suffixes (`.fr`, `.md`, `.txt`) is the
-   alternative not built in Phase A. **A suffix added by `tune`** carries no
-   exceptions — the generator's exceptions cover only the seed — so a code
-   file ending in a tuned suffix loses its generic symbols, and `tune` says so
-   when a suffix is added. Under the former prose-and-data list five code or
-   markup extensions (`.coffee.md`, `.nim.cfg`, `.8xp.txt`, `.emacs.desktop`,
-   `.antlers.xml`) matched a listed suffix (R2-4, executed in the round-2
-   review). **Where the source data lives:** the build commits the two pinned
-   Linguist files with Linguist's MIT licence notice, their commit and their
-   sha256 in `ctxoracle/vendor/linguist/`, beside the generator script (not yet
-   at `HEAD`; F5-16); the seed — 38
-   suffixes, 2 extension exceptions and 12 filename exceptions — is a
-   committed source file the generator wrote;
-   a test pins the seed's contents and counts and the pinned files' sha256, and
-   does **not** re-derive the list at test time, because that needs a YAML
-   parser the package does not carry (AD-25: the build is `tsc` only and fetches
-   nothing). Re-deriving is re-running the generator by hand when the pin
-   moves. *(Corrected 2026-09-28, R2-4: the seed was every `prose` and `data`
-   extension, 392 by its own count and 393 by its rule, backed by the
-   statistics category rather than by the job, matched by plain suffix, and
-   pinned by a test that needed files the build did not carry; F-10's former
-   seed was 16 of the 441 from 12 hand-picked languages, with no selection
-   rule.)* **A deny-list,
-   not an allow-list of code extensions**, because C-6 requires that no
-   language be invisible: an unlisted code language (`.ps1`, say) still gets
-   generic symbols, where an allow-list would silently drop every code language
-   nobody listed. The cost runs the other way and is stated here: an unlisted
-   prose format, or a data file of the kind above, still yields false symbols
-   until it is added to the row. *Why (Step 15 build review M3, 2026-09-26, executed on this
-   repository):* 317 of the generic frontend's 424 symbols came from `.md` files
-   and 4 from a binary `.bin` file — false symbols that Reuse and Orientation
-   would present as code (P4). *(Corrected 2026-09-28: the list was "and
-   similar", with no contents and no comparison with an allow-list, and the byte
-   count had no source — R-20; B9 E-38.)* **A file of an `imports: true` language
-   that falls to the generic frontend** (its parse threw) is counted in that
-   language's unresolved-import share as `parse_failed`, beside `resolved` and
-   `unresolved`, and its content hash is marked (a `file_parse` row,
-   `outcome = 'parse_failed'`, AD-4) so the next pass in which its
-   grammar is enabled re-parses it, even if the file has not changed (R-20; B9
-   E-6, E-16: a fallback file was missing from its language's share and never
-   retried; the storage is F-7's). Adding a language is adding a grammar file or a config row, never a
-   redesign (C-6). **Every frontend declares its capabilities**
+   C-6): the tree-sitter frontend covers every language whose
+   `tree-sitter-wasms` grammar the pinned runtime can load **and parse** —
+   by execution 31 of the 36 it ships (`elm` and `ql` are below the runtime's
+   minimum ABI; `yaml`'s and `bash`'s scanners import symbols the runtime does
+   not export — plan §4, 2026-09-11; `lua` loads but, after its first parse in
+   a process, returns ERROR trees for valid source without throwing — found by
+   the Step 15 test writer, 2026-09-26, with repeated parses, which the one
+   parse per grammar of the 2026-09-11 probe could not show), mapped by a **configurable**
+   extension→grammar table with defaults; a **generic frontend** (line-based
+   definition heuristics + path/word tokens into FTS) covers every other
+   *source* file, so no language is invisible. It extracts symbols only from
+   text files that are code: a file with a NUL byte in its first 8 KB is binary
+   and gets path tokens only, and prose and data formats (Markdown,
+   reStructuredText, plain text, JSON, YAML, CSV and similar, listed in the
+   tuning row `index.generic_no_symbol_exts`) get path tokens only. *Why (Step
+   15 build review M3, 2026-09-26, executed on this repository):* 317 of the
+   generic frontend's 424 symbols came from `.md` files and 4 from a binary
+   `.bin` file — false symbols that Reuse and Orientation would present as
+   code (P4). The rule means (C-6: adding a language = adding a grammar file or a
+   config row, never a redesign). **Every frontend declares its capabilities**
    per language — `{ symbols: boolean, imports: boolean }` — recorded per
-   language (`lang_capabilities`, AD-4) and shown in `status`, so coverage is measured, not claimed. A
+   language and shown in `status`, so coverage is measured, not claimed. A
    grammar with no written imports query declares `imports: false`, and so does
    the generic frontend. Queries are written per grammar as build work. A grammar
    with no written query at all takes the generic frontend. **Unresolved
    imports are counted.** A frontend's resolver classifies every captured import
-   specifier as *resolved* (it yields an `import_edges` row), *external*, or
-   *unresolved* (anything else, e.g. a `tsconfig` path alias such as `@/util`).
-   **External** means a platform builtin, or a package the repository declares as
-   a dependency and does not itself contain:
-   - A specifier whose package resolves **inside the repository** — an
-     npm/pnpm/yarn workspace member, or a `workspace:`, `file:` or `link:`
-     dependency — is **never external**: it resolves to its in-repo target or is
-     counted unresolved. npm "symlinked to the node_modules folder" a workspace
-     package, and pnpm links one "if bar has \"foo\": \"^1.0.0\" in its
-     dependencies", so a nearest-`package.json` rule read it as external: no
-     edge, not counted unresolved (B3b E-15).
-   - **Python:** an absolute name is external only when its top-level name is in
-     a vendored, version-stated `sys.stdlib_module_names` list (it holds 303, 305,
-     300 and 290 names in 3.10–3.13, B9 verification item 3) or is a
-     distribution the repository declares (`pyproject.toml`, `requirements*.txt`,
-     `setup.cfg`); otherwise it is unresolved. The directories searched for an
-     in-repository module are a disclosed heuristic (the importer's ancestors),
-     never called Python's `sys.path[0]` rule, which they are not (B9 E-29).
-   - **TypeScript/JavaScript:** for a written `.js`/`.jsx`/`.mjs`/`.cjs`, the
-     implementation (`.ts`/`.tsx`/`.mts`/`.cts`) and declaration
-     (`.d.ts`/`.d.mts`/`.d.cts`) files are tried first, in the TypeScript
-     handbook's order, then the written path (`tsc` 5.9.3 `--traceResolution`,
-     B9 E-7, E-23). For a relative specifier with any other written extension,
-     the **written path is tried first** when the repository holds it (Node's
-     `LOAD_AS_FILE` step 1, "If X is a file, load X as its file extension
-     format"), then the appended extensions, then `/index.*`; so a present
-     `./styles.css`, `./logo.svg` or `./data.json` resolves (Flaw 2; G-9,
-     settlements). For an extensionless relative specifier, and for `/index`,
-     the appended extensions are `.ts`, `.tsx`, `.js`, `.jsx`, with **`.json`
-     last** (Node CommonJS `LOAD_AS_FILE` step 3, "If X.json is a file, load
-     X.json to a JavaScript Object"; Vite's default `resolve.extensions` ends in
-     `.json`), so `./data` with only `data.json` present resolves to it and with
-     `data.ts` beside it resolves to `data.ts`. `tsconfig.json` is not read. This
-     models a CommonJS/bundler resolver, the run-time dependency graph Reuse
-     counts, and is not `tsc`'s NodeNext mode (which rejects an extensionless
-     relative import, TS2835) (G-9 as corrected, settlements).
-   Each resolver's remaining external rule is written with the resolver as build
-   work. The count of unresolved specifiers is stored per file
+   specifier as *resolved* (it yields an `import_edges` row), *external* (a
+   platform builtin, or a package the repository declares as a dependency — for
+   TypeScript/JavaScript, a name in the nearest `package.json`'s dependency
+   fields; each resolver's external rule is written with the resolver as build
+   work), or *unresolved* (anything else, e.g. a `tsconfig` path alias such as
+   `@/util`). The count of unresolved specifiers is stored per file
    (`files.unresolved_imports`, AD-4), and `status` shows the unresolved share
-   per language (unresolved ÷ (resolved + unresolved), with `parse_failed` files
-   shown beside it). AD-15's Reuse treats a
+   per language (unresolved ÷ (resolved + unresolved)). AD-15's Reuse treats a
    language whose share exceeds `reuse.max_unresolved_import_share` (AD-5; seed
    0.05, illustrative) like an `imports: false` language. *Why (review record
    2026-09-26, CH H4):* path aliases resolve to no edge while the language still
    declares `imports: true`, so a helper imported mostly through aliases read as
    observed-zero and could lose the crown to a relative-import rival — the L6
-   failure one level below the capability boolean. *(Corrected 2026-09-28: a
-   workspace package read as external, an undeclared Python name as external
-   unless the repository held the name, TypeScript tried the written `.js` before
-   source with no declaration files, and a present non-code file was never
-   resolved — R-16; B4 verification item 5, B4 p2 E-3, B4 p3 E-22, B3b E-15, B9
-   verification items 3–4, B9 E-29; G-9 and Flaw 2, settlements.)* *Why:* a grammar can have an ext→grammar table entry and
+   failure one level below the capability boolean. *Why:* a grammar can have an ext→grammar table entry and
    still produce 0 `import_edges` by construction (the skeleton ships queries
    for four grammars), so table membership does not tell "observed zero" from
    "never counted" (review record 2026-09-25, G13); AD-15's Reuse
@@ -2991,46 +1432,19 @@ and nothing here depends on the new channel.
    `import_edges`, and FTS rows deleted and `files.in_tree` set to 0, and its
    `files` row is kept while mined history references it (AD-4 — pruning
    deletes evidence, AD-13); files > 1 MB or > 20k lines are
-   indexed path-only with a diagnostic.
-   **Symbol names are stored in full, and R-20's name-length bound stays
-   unset** (settlement (a); F-20). Storage is already bounded by that ingestion
-   cap, and no language standard bounds an identifier (ECMAScript, Java and
-   Python set no maximum). The one primary-source bound on what a name costs
-   downstream is the harness's 10,000-character cap on an `additionalContext`
-   string (AD-16's composer rule), and a per-name bound follows from it only once
-   the rule for whispers that do not fit is decided: a whisper made longer than
-   the cap by a long name is one such case, sent whole under AD-16's interim
-   rule, and whether such whispers are sent whole, withheld or deferred to the
-   next event is pending Max Cogar's decision (`OL-C1`; AD-16; R2-1). The
-   bound is derived from that decision when it is made, not chosen now. **A file's derived rows depend on more
-   than its own bytes, so re-resolution is driven by dependency tracking:** for
-   each importer the indexer stores every resolution query its resolver made
-   (`resolution_probes`, AD-4; F-7) —
-   each candidate path probed and whether it was present; the path and content
-   hash of the `package.json` (or other manifest) the dependency lookup read;
-   each top-level name queried and its answer — as paths, never as specifiers
-   (AD-19), and re-resolves an importer on a later pass when any stored answer
-   would now differ (a probed path appears or disappears, a read manifest's hash
-   changes). The frontend fingerprint is **per language**
-   (`lang_capabilities.frontend_digest`, AD-4), so a changed frontend re-parses only that language's files,
-   and each entry's `version` is a **content digest** of the grammar WASM, the
-   query, and the frontend and resolver code, so a changed file changes the
-   digest whether or not anyone bumped a number. A language with no
-   `lang_capabilities` row and an importer with no `resolution_probes` rows —
-   every store's state on its first pass, a rebuilt one's included (AD-4) — are
-   re-parsed and re-resolved, so the new state is filled by that pass (F-7). *Why (Step 14 build review S1,
-   S2, 2026-09-26, both executed):* indexing
+   indexed path-only with a diagnostic. **A file's derived rows depend on more
+   than its own bytes, so "unchanged" covers every input:** a change in the
+   frontend set (their languages, capabilities, and versions, stored as a
+   fingerprint) makes the pass full, and when a file appears or disappears the
+   pass re-parses every file whose import resolution could change — files with
+   `unresolved_imports > 0` when a file appears, the sources of the dropped
+   edges when one disappears — so an unchanged importer is re-resolved.
+   *Why (Step 14 build review S1, S2, 2026-09-26, both executed):* indexing
    with no frontends and then with real ones wrote nothing (every store would
    have kept its empty symbols and edges at Step 15, observed zero read as
    never counted — the G13 failure); and switching to a branch without a file
    and back lost its import edges, test mapping, and entry score for good,
-   with `index_head` still equal to `HEAD`, so nothing reported it. *(Corrected
-   2026-09-28: this said "unchanged" covers every input with a whole-tree
-   fingerprint and re-parsed only files with `unresolved_imports > 0` when a file
-   appeared, which misses a resolution that changes when a probed path, a
-   manifest, or a resolver input changes, and re-parsed every language when one
-   frontend changed — R-19; B8 verification item 4, B8b E-3, E-4, E-25, B9 E-19.)*
-   `schema_meta.index_head` records the
+   with `index_head` still equal to `HEAD`, so nothing reported it. `schema_meta.index_head` records the
    indexed commit; the handler's staleness check compares it to `HEAD` and
    spawns the refresh when they diverge (`FR-K7`: staleness lowers confidence
    meanwhile, never blocks).
@@ -3042,11 +1456,9 @@ and nothing here depends on the new channel.
 4. **What this is NOT.** Not native per-language grammar packages (C-3's named
    exclusion). Not the TypeScript compiler API (single-language, heavy). Not
    regex-only symbol extraction as the *primary* frontend (false symbols poison
-   pointers — P4; the generic frontend is a fallback: its structural facts take
-   their genre's stated confidence like any other (AD-14), because a
-   per-extraction-path confidence would need measured precision Phase A does
-   not have (G-3, settlements, option 4 rejected), and FTS path/word coverage
-   keeps its languages searchable). Not a fixed language list (C-6 bars it; the 2026-07 record's
+   pointers — P4; the generic frontend is a fallback whose facts carry lower
+   confidence by construction, and FTS path/word coverage keeps its languages
+   searchable). Not a fixed language list (C-6 bars it; the 2026-07 record's
    four-grammar scope is explicitly not cloned). Not a hand-rolled gitignore
    matcher (git's own listing is the reference implementation). Not a list of
    unwritten conventions (`test_map` and `entry_score` use only listed, tunable
@@ -3061,832 +1473,138 @@ and nothing here depends on the new channel.
    `check-ignore` signal, the deleted-but-listed file, and the Go test layout
    executed or fetched in review record
    `docs/reviews/2026-09-26-architecture-pass-expert-review.md` (M3, M4, M5);
-   `FR-K1`, `FR-K7`, C-6 read at spec §11.1/§8; the 2026-09-28 corrections —
-   zones, the walk's non-regular entries, `test_map` capability, grammar
-   usability and its cause (with Lua and Swift excluded, not vendored, M-33),
-   the generic frontend's scope and share, resolver
-   classes, dependency tracking — from the register (R-14, R-16–R-20) and the
-   batch files each cites there (the scanner sources, the isolation runs and the
-   `tsc` traces executed in B9; Linguist's `vendor.yml` and the zone runs in
-   B8a; the Linguist `languages.yml` membership above fetched and counted
-   2026-09-28, and the prose rule's counts, its two suffix exceptions and the
-   zero definition-shaped lines in the owner's data files executed 2026-09-28
-   for R2-4, with `docs/how-linguist-works.md` and `docs/overrides.md` at
-   `d0921d1` fetched with `curl`), and G-9 with Flaw 2 (Node's `modules` page and the `tsc` traces
-   executed in the settlements and their review). Addresses:
+   `FR-K1`, `FR-K7`, C-6 read at spec §11.1/§8. Addresses:
    `FR-K1`, `FR-K7`, C-3, C-6, NF-1, AC-17, AC-20.
 
 ### AD-13 — Co-change miner
 
-1. **Decision.** Mining runs in `ctxoracle index` (and the detached reindex),
-   never on the event path. Every `git` call uses the pinned flags and
-   `--encoding=UTF-8` (Step 13).
-
-   **The pass's inputs are resolved once and validated before any write.**
-   `git rev-parse --verify -q HEAD`: exit 0 → the pass's `HEAD`; exit 1 → an
-   unborn `HEAD`, nothing to mine, recorded in the pass result, nothing written;
-   any other status → `git_failed` (below), and the pass fails visibly (R-23; B2
-   E-1 (a)). The **ref key**: `git symbolic-ref -q HEAD` exit 0 → the ref name;
-   exit 1 → the detached marker; any other status → `git_failed`
-   (`subcommand: 'symbolic-ref'`), no reconcile, nothing written (C-2 as
-   corrected, settlements: executed, exit 0 on a branch, 1 detached, 128 outside
-   a repository). **`refTs`** = the `%ct` of `HEAD`, which must match
-   `/^[0-9]+$/`, be ≤ `Number.MAX_SAFE_INTEGER`, and be no later than the wall
-   clock plus `REF_TS_FUTURE_TOLERANCE_S` = 864,000 s (ten days; a named constant
-   in `src/miner/cochange.ts`, not a tuning row: it guards an input and is not a
-   calibration point of the bar). The miner takes `nowMs` (default `Date.now()`),
-   so tests fix the clock; `refTs` itself stays `%ct`, deterministic, and the
-   wall clock serves only this guard. On any failure the pass records one fault
-   `miner_ref_ts_invalid`
-   (`{commit, ct, reason: 'empty'|'non_decimal'|'unsafe_integer'|'future', nowS, toleranceS}`)
-   and writes **nothing else** — no `commits` row, no mined-with value, no weights, no
-   landmine rebuild, the watermark unchanged — and returns
-   `{refused: 'ref_ts_invalid'}`; the `index` verb still runs the indexer pass,
-   whose data do not depend on `refTs`, and exits non-zero through its error
-   channel either way. *Why (R-24; G-8 as corrected, settlements; B7b E-6):* a
-   tip committed at 40000000000 horizon-excluded every commit and left an empty
-   store with no fault (executed), and git records such a date without complaint
-   (executed, git 2.43.0), so the miner is the only place that can refuse it.
-   The constant's comment states its standing exactly: git's date parser
-   (v2.43.0 `date.c` L536–L541, `set_date`) uses ten days to reject an
-   implausibly future reading of an ambiguous date, and git bounds no stored
-   timestamp; the size is adopted as a plausibility bound, and its cost is
-   derived — a tip ten days ahead moves the horizon's lower edge by
-   10 / 1826.25 = 0.55 % of the window, the 90-day fix-chatter window by
-   10 / 90 = 11.1 %, and leaves commits up to ten days ahead uncapped (a weight
-   factor of at most 2^(10/365) ≈ 1.019 at the seeded half-life), each in the
-   under-firing direction; a larger skew is refused visibly (fail-fast, Shore).
-   Zero tolerance would turn a slightly fast clock into an outage of all
-   mining; a clock-skew figure from authentication practice is a number made for
-   a different threat.
-
-   **Hygiene** as hard filters: merge commits are never streamed
-   (`--no-merges`; `FR-K2`, MSR/HERZIG grounding is the spec's); transactions
-   > 30 entities (`miner.max_transaction_entities`, illustrative, tunable —
-   `FR-K2`) are size-excluded, each recorded in `commits` with its reason;
-   history horizon default 5 years or 10,000 commits, whichever first (tunable,
-   `FR-K2` "configurable recency-weighted horizon"), **enforced on every pass,
-   full or incremental**, by the target set below, and stated by `status`
-   (`N` commits / `Y` years), since a commit beyond it has no row to show
-   (F-14; G-1, settlements); recency weights each
-   commit's contribution to the counts (below), and `last_ts` is recorded per
-   pair for display.
+1. **Decision.** `git log --no-merges --numstat --format=… -M` streamed
+   commit-by-commit (in `ctxoracle index`, never on the event path). Hygiene as
+   hard filters, each exclusion recorded in `commits` with its reason: merge
+   commits excluded (`FR-K2`, MSR/HERZIG grounding is the spec's); transactions
+   > 30 entities excluded (illustrative cap, tunable — `FR-K2`); history horizon
+   default 5 years or 10,000 commits, whichever first (tunable, `FR-K2`
+   "configurable recency-weighted horizon"); recency weights each commit's
+   contribution to the counts (below), and `last_ts` is recorded per pair for
+   display, tunable.
    Aggregation: canonical-ordered file-pair counts, plus a per-file change count
-   stored once on the file (`files.change_count`, AD-4) — the **frequency** of
-   the file in ROSE's sense, "the (occurrence) frequency of a set x in a set of
-   transactions D" — incremented for every *contributing* commit (in the target
-   set and not size-excluded) that touches the file, single-file commits
-   included, so it counts the same population as the pair counts;
-   `confidence(a→b) = pair_weight / change_weight(a)`; `support = pair_count`,
-   ROSE's "support count", "the number of transactions the rule has been derived
-   from" (R-40; B3a E-7: "support" had named both counts).
-   **Hub degree** — the co-change factor of Orientation's rank (AD-15) — is read
-   from these pairs, not stored: a file's hub degree is `1 +` the number of
-   `cochange_pairs` rows naming it as `a` or `b`, its degree (number of
-   neighbours) in the co-change graph, every stored pair counted whatever its
-   count or weight. **A file with `entry_score = 0` is not an entry point**
-   and is not ranked at all: `entry_score` is its import in-degree plus its
-   path markers (AD-12), so zero means nothing imports it and no convention
-   names it, and FR-A2a's "structural entry-point files" would have no
-   structural evidence behind it; the product `match × hub × entry_score`
-   would be 0 for it anyway, and the exclusion says so as a rule rather than
-   leaving it to the arithmetic. Among the files that are entry points, the
-   `1 +` keeps one with no stored pair rankable, so a new or history-less file
-   with entry evidence is ranked by match and `entry_score` alone instead of
-   dropping to 0; counting partners rather than summing weights ranks a
-   file by how many files move with it rather than by how much history it has
-   (a weight sum grows with every co-change of one pair). It is the agents'
-   choice, the one the plan's Orientation step computes — "*hub degree* = 1 +
-   its partner count; score = match × hub × `entry_score`; files with
-   `entry_score = 0` are not entry points" (plan Step 18, full build, L4683–L4686;
-   R2-8: no section of this document defined it) — and like the rank's other
-   factors it is judged on Phase A exit data. *(R3-11, applied in part: the
-   round-3 review called the plan claim false, citing the plan's earlier
-   per-genre bullet at L4586–L4587, which the full-build paragraph at L4636
-   says it supersedes; the full-build text defines hub degree as above, so the
-   claim stands and is now quoted. Its second point holds: the reason given
-   for the `1 +` ignored that a zero `entry_score` zeroes the product, which the
-   exclusion above now states with its reason.)*
-
-   **The target set and the reconcile — one rule for every pass.** `T(H)` = the
-   commits printed by `git log --no-merges --max-count=<miner.horizon_commits>
-   --format=%H%x00%at <H>` whose `min(%at, refTs)` is at least
-   `refTs − miner.horizon_years × 365.25 × 86400`, where `H` is the pass's `HEAD`.
-   It is the set a fresh mine of `H` includes, stated as a function of `H` alone.
-   `S` = the hashes in `commits`. Each pass first compares the store's
-   **mined-with values** with the current ones (below), which can make it a full
-   recompute or a reconcile with `D = S`, then **evicts** `D = S \ T`, then
-   **mines** `A = T \ S`. *(Symbols, F-15: the evicted set was also called `E`, the name
-   of the weight epoch, and the pass's `HEAD` was `h`, the name of the half-life;
-   here `D` is the evicted set, `H` the pass's `HEAD`, `E` the epoch and `h` the
-   half-life, throughout AD-13.)*
-   - *Mined-with values — one rule for every mining-time input* (M-17; F-6,
-     settlement (d)). A stored term `2^((ts − E)/h)` depends on the commit's
-     capped author time and on two quantities of the store, the epoch `E` and
-     the half-life `h`; which commits contribute, and which carry a fix label,
-     depends on `miner.max_transaction_entities` and `lexicon.fix_keywords`. The
-     store records the values it was mined with — `mined_half_life_days`,
-     `weight_epoch`, `mined_max_transaction_entities` and
-     `mined_fix_lexicon_digest` (a digest of the list's members in sorted
-     order) — written in the pass's final transaction, and earlier only where
-     every stored commit is by then computed under them: a first mine's first
-     transaction and the transaction that ends case 2's eviction (below; R9-1,
-     R9-2). After `refTs` is validated (G-8) and before the evict step, the
-     pass compares them with the current values:
-     1. **A changed `h`, or an epoch past its bound (below), is a full
-        recompute** at a new epoch, `E` = this pass's `refTs`: every
-        `commits.weight` is recomputed from `commits.ts`, capped as below, and
-        every file's and pair's sums from `commit_touches` joined to
-        `commits.weight` with the evict step's recompute — a store-side
-        recompute, with no git read. No rescale exists for a changed `h`: a term
-        taken at another `h` is not a common multiple of the old one, since the
-        exponent's slope changes with `h`. *(R9-1: the trigger "a store missing
-        a mined-with value while it holds weighted commits" is removed. Its one
-        reachable cause was a killed first mine, which wrote the values only in
-        its final transaction; a first mine now writes them in its first
-        transaction (below), and a rebuilt store carries no commits (AD-4), so
-        no store holds commits without them.)*
-     2. **A changed `miner.max_transaction_entities` or `lexicon.fix_keywords`
-        makes the pass a reconcile with `D = S`** (M-20): the existing eviction
-        of every stored commit, then the existing mine of `T`, which
-        size-excludes, labels and counts every commit at the current values —
-        no per-commit record of the values and no second git read path. The
-        cost, stated: the history genres are silent under `mining_in_progress`
-        for one full mine after a `tune` of either key, which only the owner
-        causes; `tune` says, when either key is written, that the next pass
-        re-mines the history. **The pass writes both values in the transaction
-        that ends the eviction of `D = S`** (R9-2; round-9 review): from then on
-        every stored commit was classified at the current values, so a crash
-        during the mine resumes as an ordinary reconcile (`D = S \ T`,
-        `A = T \ S`), and a crash during the eviction finds the values still
-        stale and evicts the commits left. That transaction is where the
-        reconcile's target is recorded: at the start of the re-mine, not at the
-        pass's first transaction, because written there a crash during the
-        eviction would leave commits classified at the old values under the new
-        digest, and the next pass would keep them (the mutant that does so
-        fails). Written only in the final transaction (the round-8 text), every
-        pass after a crash took `D = S` again and evicted the commits the
-        crashed pass had re-mined, so under repeated interruption the pass never
-        completed (the review's K2: the re-mined commits alternated between 100
-        and 400 of 400). A `tune` of either key during the eviction or the mine
-        needs no rule of its own: the next pass compares the values as they
-        stand and evicts, or re-mines, what differs. *Executed on the model*
-        (the round-9 evidence's `recompute.mjs`, below; one classifying key
-        stands for both): 400 commits in chunks of 50 (an uninterrupted pass:
-        `C` = 17 transactions), every pass killed after 10 transactions:
-        complete after 2 passes; killed after 1: after 17, every commit
-        classified at the new value and every ratio equal to a fresh mine's. A
-        tune back during the eviction re-mines the 150 evicted commits at the
-        old value; a second tune during the mine evicts and re-mines at the
-        newest. The mutants that write the digest only in the final
-        transaction, or in the first, each fail.
-     Recomputing, never multiplying, is what makes case 1 repeatable: applying
-     it twice writes the same values. *Crash rule* (C-3, settled; R9-1, R9-2):
-     a crash leaves `mining_in_progress` set and the mined-with values as the
-     last committed transaction left them, and every transaction updates rows
-     and sums together (below; M-19), so the next pass continues from the rows
-     the crash left: a crashed first mine has its values and is continued as
-     an ordinary pass (below); a crash during case 2's eviction or mine is
-     continued as above; a crash during a recompute leaves `recompute_pending`,
-     and the next pass resumes it (below). *(The collapse hunt's M-17 said a
-     crashed pass "does the same work again". C-3, settled for every full
-     pass, has it resume; the round-9 review found that the M-17 wording,
-     followed for case 1 and case 2, made neither complete under repeated
-     interruption, so C-3 governs.)*
-     **An epoch past its bound is not stored** (F5-6; round-5 review). That
-     trigger is a function of the pass's own `refTs`. So case 1's first
-     transaction writes `schema_meta.recompute_pending`, the recompute's own
-     inputs (below), and the pass's final transaction deletes it. A pass that
-     finds it set finishes that recompute, or supersedes it, whatever its own
-     compare finds.
-     **One epoch per pass** (R8-7; round-8 review: the text said a mined
-     commit's weight is computed with "the store's `E`", while `weight_epoch`
-     is written only in the final transaction, so a pass that recomputed and
-     then mined read the old epoch by the letter). A pass that starts a full
-     recompute uses its own `refTs` as `E` for all of its work, and a pass that
-     resumes one uses the recompute's stored epoch (R9-1, below):
-     - the recompute weights every stored commit with it and caps `ts` at it,
-       the recompute's own `refTs`, whichever pass computes the row;
-     - the pass's mine weights its new commits with it and caps their `ts` at
-       the pass's own `refTs`, as every mine does (for the pass that starts the
-       recompute the two are one value);
-     - the final transaction writes it as `weight_epoch`, with the
-       recompute's `h` (the current one) as `mined_half_life_days`.
-
-     A pass with no recompute uses the stored `weight_epoch`, and a first mine
-     its own `refTs`. With `E = refTs`
-     every in-horizon exponent lies in `[−365.25·Y/h, 0]`, inside the bound by
-     the floor relation below, so a recompute's own epoch is never past it.
-     **An interrupted recompute resumes under its own inputs** (R9-1;
-     round-9 review; C-3). Its first transaction stores them in
-     `schema_meta.recompute_pending` = `{h, epoch, done}`: the half-life; the
-     epoch, which is also the cap, since a recompute's `E` is its own `refTs`
-     (R8-7, above); and `done`, the last row it finished, as a table and a
-     rowid (`{t, r}`, in the order `commits`, `files`, `pairs`), which every
-     recompute transaction advances together with the rows it names. A pass
-     that finds the key compares the current `h` with the stored one, and its
-     own `refTs` with the stored epoch's bound:
-     - equal, and inside the bound: it **resumes** after `done` with the
-       stored `h` and epoch, and its evict and mine then use that epoch, as an
-       incremental pass uses the stored one. Every row of the recompute is
-       computed from the inputs it started with, wherever it was interrupted;
-     - otherwise (a `tune` of `h` while the recompute is unfinished, or a
-       checkout past the stored epoch's bound): it **starts a new recompute**
-       from the first row at its own inputs, replaces the key, and records
-       `recompute_superseded` (`{from: {h, epoch}, to: {h, epoch}}`) in that
-       transaction. Rows are never computed from two sets of inputs.
-
-     The final transaction writes the stored epoch and `h` as `weight_epoch`
-     and `mined_half_life_days` and deletes the key. *Why* (the round-9 review,
-     R9-1): C-3, settled, has a crashed full pass resume, and pins it with a
-     test that kills every pass after one chunk and asserts completion within
-     `C` passes. Round 7's resume (R7-9) recomputed the rows after its
-     watermark at the current `h` and stored no `h`, so a tune of `h`, an
-     interruption and a tune back mixed two decay rates (R8-2: ratio errors up
-     to 10.11), which is the defect case 1 exists to prevent (M-17: "a ratio
-     never mixes two decay rates after the owner tunes `h`", for FR-K2's
-     recency-weighted horizon). Round 8 answered with a restart, exact but
-     never complete under repeated interruption, and recorded no reason for
-     departing from C-3 (R9-1). Storing the recompute's own inputs keeps both
-     properties: exactness, because no row is computed from inputs other than
-     the recompute's and a changed `h` starts over instead of mixing; and
-     termination, because each committed transaction keeps its rows. *Every
-     transaction carries work* (R9-1, R9-6): a pass's bookkeeping (the
-     markers, the stored inputs, a first mine's values, the records) is
-     written in its first work transaction, never in one of its own, so a
-     pass killed after its first transaction has kept one chunk.
-     *Executed on a model* (the round-9 evidence's `recompute.mjs` and
-     `test-recompute.mjs`: the pass's recompute, case 2's eviction, the mine
-     and the final transaction over `bench-epoch.mjs`'s synthetic store, 40
-     files and 400 commits, one classifying key standing for both, no git
-     read and no horizon eviction; not the miner; R6-11):
-     - The round-8 review's Z1: mined at `h` = 365, tuned to 20, the
-       recompute pass (25 transactions) killed after each of 1 to 24, tuned
-       back to 365, the next pass. The pending recompute is superseded and
-       recorded once, and the largest relative error of a confidence ratio
-       against a fresh mine is 6.1 × 10⁻¹⁶. With no tune back, the next pass
-       resumes at the recompute's own epoch and does only the transactions
-       left: error at most 8.4 × 10⁻¹⁵.
-     - 200 random orders of one to four tunes of `h` (365, 20 or 50), each
-       pass killed after 1 to 30 transactions or not, then one pass: error at
-       most 8.4 × 10⁻¹⁵ (81 supersessions, 210 resumptions recorded).
-     - F5-6's case (`bench-epoch.mjs`'s shape): at `h` = 1.787, a recompute at a
-       tip 30 days older is killed half-way, and the next pass runs on the newer
-       tip, inside the old bound and the recompute's. It resumes because of
-       the marker and keeps the recompute's epoch, and the error is 5.4 × 10⁻¹⁴.
-       Under the rule with no marker that pass recomputes nothing, and the rows
-       mix two epochs: `bench-epoch.mjs` measured an error of 1.000 (ratios
-       read about 10⁻⁵ of their value).
-     - A recompute (`h` 365 to 30) and a mine of 61 new commits in one pass
-       (27 transactions), one of them author-dated past every `refTs`, killed
-       after each of its transactions or not, then a pass one day later: the
-       recompute keeps its epoch; a stored commit authored after the first
-       mine's tip is re-capped at the recompute's own `refTs`; the
-       future-dated commit's term is capped at the `refTs` of the pass that
-       mined it; and the error against a fresh mine with that commit capped
-       there is at most 3.8 × 10⁻¹⁵ (the capped-commit exception, below).
-     - C-3 on a recompute: every pass killed after 1 transaction completes
-       after 25 passes (`C` = 25), after 5 transactions after 5 passes, with
-       `mining_resumed` recorded 24 and 4 times, error 8.2 × 10⁻¹⁵.
-     - The mutants that fail it: the round-8 restart, the resume at the
-       current `h` (round 7's defect), the resume at the resuming pass's
-       `refTs`, the supersession unrecorded, the marker not read, the mine at
-       the stored epoch, the recompute's cap at the stored epoch, and the
-       bookkeeping in a transaction of its own.
-     - Treating any leftover `mining_in_progress` as a full recompute would
-       also mend F5-6's case without a key. But it would turn every killed
-       incremental pass into a whole-horizon recompute.
-
-     *Cost and silence:* a changed `h` or an epoch past its bound recomputes
-     the whole horizon, chunked and yielded per AD-26, with the history genres
-     silent under `mining_in_progress` while it runs. An interruption keeps
-     the work done, and a pass that finds `mining_in_progress` set records
-     `mining_resumed` (`{interrupted}`, the number of passes that started this
-     work and did not finish, which the key holds), so `status` says in plain
-     words that the history recalculation was interrupted and resumed that
-     many times (R9-6; OL-10). What can interrupt a pass is what ends its
-     process (a reboot, a manual kill, the out-of-memory killer) and a chunk
-     that fails `store_busy` (AD-26: none in 1,437 chunk transactions measured
-     under load). *The window, on a model:* the model's recompute of a
-     synthetic store at the seeded `miner.horizon_commits` (10,000 commits,
-     80,607 touches, 2,000 files, 549,213 pairs), chunked at the 50 ms and
-     30 ms seeds, took 25.8 s in 282 transactions (the round-8 evidence's
-     `results/bench.out`; the bench is unchanged in round 9). That is a
-     model's figure, not the miner's; it sizes the silence of one recompute
-     at tens of seconds, not hours. The recompute does not finish while each
-     pass supersedes it, a `tune` of `h` or a checkout past its bound during
-     every recompute: those are the owner's own changes, each recorded (L19).
-     It happens only when the owner tunes `h`, or when a tip lies past the
-     epoch's bound. **How often,
-     derived** (F5-6): a checkout's tip may lie below the epoch's tip by at
-     most the backward margin `1,022·h − 365.25·Y` days before the lower bound
-     forces a recompute. Printed by `bench-epoch.mjs`:
-
-     | `h` | Backward margin |
-     |---|---|
-     | 1.787 days (the floor) | 0.06 days |
-     | 1.8 days | 13.35 days |
-     | 2 days | 217.75 days |
-     | 20 days | 18,613.75 days |
-
-     The forward margin at every `h` is `B = 1,008` half-lives. So at the seeded
-     365 days a recompute follows only a `tune` of `h`, since the bound is never
-     reached in practice (a killed first mine no longer leads to one, R9-1).
-     Near the floor, nearly every checkout of an older tip — a branch switch —
-     is a full recompute that silences the history genres while it runs.
-   - *Evict* (chunked, bounded and yielded per AD-26): per commit, read its
-     `commit_touches` file ids; delete its `commit_touches`, `labelled_touches`
-     and `commits` rows; then **recompute**, from `commit_touches` joined to
-     `commits.weight`, every affected file's `change_count` and `change_weight`
-     and every affected pair's `pair_count`, `pair_weight`, `last_ts` and
-     `last_commit` (AD-4's tie rule: greatest `ts`, then greater hash — the same
-     rule the mine's upsert uses), deleting a pair whose count is 0. Recomputing,
-     not subtracting, leaves no cancellation residue. Each affected `files` row
-     whose `prov_kind = 'commit'` names an evicted commit is re-pointed to its
-     remaining commit with the smallest `ts` (ties: smallest hash) in
-     `commit_touches` or `labelled_touches`; a fresh mine sets `prov_ref` by the
-     same rule.
-   - *Mine* `A`: stream `git log --no-walk=unsorted --stdin` with `A`'s hashes
-     fed oldest first, the pinned flags, `-M -z --numstat` and the settled
-     format; each commit is classified, labelled and counted as below, and a
-     contributing commit also writes its `commit_touches` rows and
-     `commits.weight`, computed with the pass's `E` (the stored
-     `weight_epoch`; the recompute's epoch when the pass starts or resumes a
-     full recompute; this pass's `refTs` for a first mine; R8-7, R9-1, above),
-     `h` and this pass's `refTs`.
-   - The pass's first recompute, evict or mine transaction, together with its
-     work, sets `mining_in_progress`: to 1, or, when a crashed pass left it
-     set, to one more, recording `mining_resumed` (above; R9-6). The **final
-     transaction** writes the watermark, `last_mined_ref` and the four
-     mined-with values, records `history_rewritten` or `branch_changed` if
-     either applies (below), rebuilds the miner landmines, and clears the flag.
-   - A **full mine is this pass with `S = ∅`**. **Its first transaction
-     writes the four mined-with values** with its first chunk (R9-1; round-9
-     review): no earlier row exists for them to mix with, and a later `tune`
-     still differs from them and starts case 1 or case 2. So a killed first
-     mine is continued as an ordinary pass. Written only in the final
-     transaction (the round-8 text), they left a killed first mine's store
-     holding weighted commits and no values, which case 1 made a full
-     recompute that, under round 8's restart, never completed under repeated
-     interruption (the review's K1: 200 of 400 commits after 20 passes each
-     killed after one transaction). *Executed* (the round-9 evidence, K1): a
-     first mine of 400 commits (`C` = 9 transactions) killed after 4 keeps 200
-     commits and its values; every later pass killed after 1 transaction
-     completes after 5 more passes (6 in all), killed after 5 after one more;
-     a first mine killed after each `k` of its transactions is completed by
-     one pass of exactly `C − k` transactions, equal to a fresh mine. The
-     mutant that writes the values only in the final transaction fails.
-   - *Crash:* every recompute, evict or mine transaction updates rows and sums
-     together, so a crash leaves `S` consistent with the sums; the next pass
-     resumes a recompute `recompute_pending` marks, or supersedes it (above;
-     F5-6, R9-1), compares the mined-with values again and recomputes `D` and
-     `A` from `S` and finishes the work, a full pass exactly like an
-     incremental one. The evict and mine need no recorded range. *Why one
-     rule (C-3 as corrected, settlements):* if a pass that needs `C` chunk
-     transactions is interrupted after `j ≥ 1` of them, resuming keeps the `j`
-     and completes within `C` passes, while purging and restarting need never
-     complete under repeated interruption (a reboot, a manual kill, the
-     out-of-memory killer), leaving the history genres silent under
-     `mining_in_progress`. **The claim covers every transaction of the pass**:
-     case 1's recompute (resumed after `done`), case 2's eviction and re-mine,
-     a first mine, and the evict and mine of an incremental pass (R9-1, R9-2;
-     round-9 review: the round-8 text excepted the recompute, and case 2 and a
-     killed first mine did not have the property though the text claimed it).
-     Each transaction carries at least one chunk of work, so `j ≥ 1` holds for
-     any pass killed after its first commit. Executed on the model: C-3's
-     kill-every-pass case completes within `C` passes for a first mine (K1),
-     a recompute (above) and case 2 (K2, above). The bound is for
-     interruptions: a recompute superseded by a `tune` of `h` or a checkout
-     past its bound starts over, recorded (above; L19).
-   - *Equality:* after any completed pass every count equals a fresh mine of `H`
-     exactly — both are functions of `T`, each commit's touched set, and the
-     miner tuning in force, since a change to either classifying key makes the
-     next pass a reconcile with `D = S` (above; R2-6) — and every **confidence
-     ratio** equals a fresh mine's within the relative tolerance below, with
-     one named exception. Raw weights are not compared (M-18): a fresh mine's
-     epoch is its own `refTs`, an incremental store's the one it was first mined
-     or last recomputed at, so each raw weight differs from the fresh one by the
-     common factor `2^((E_fresh − E)/h)`, which cancels in a ratio. *The
-     tolerance, derived:* each term is `2^x` with
-     `x = (min(ts, refTs) − E) / (86,400 · h)`, `ts`, `refTs` and `E` integer
-     seconds, so the subtraction is exact and `x`, with `|x| ≤ 1,022` in the
-     horizon (the half-life floor below), carries two roundings.
-
-     The term's relative error is then at most `2^−53 · (2 ln 2 · 1,022 + 4)`,
-     about 1.6 × 10^−13. The `+ 4` allows V8's `2 ** x` two units in the last
-     place. That is a stated premise, not a guarantee: ECMAScript's
-     exponentiation "returns an implementation-approximated value" (ECMA-262,
-     `Number::exponentiate`, `tc39.es/ecma262`, fetched 2026-09-29). Measured
-     over 100,000 of AD-13's exponents on Node 22.22.2, its worst error was
-     0.95 units (`pow-samples.mjs`/`pow-check.py` in the rebuild evidence;
-     F5-14).
-
-     As a function of the commits `n` in the horizon:
-     - a sum of `n` positive terms adds at most `(n − 1) · 2^−53`;
-     - a ratio of two sums is within twice the per-sum bound of the exact ratio;
-     - a fresh and an incremental ratio agree within
-       `4 · ((n − 1) · 2^−53 + 1.6 × 10^−13)`.
-
-     At the seeded `miner.horizon_commits` = 10,000 that is 5.1 × 10^−12, and the
-     tests, which run at the seeded horizon, use 1 × 10^−11. The horizon is
-     tunable, so a test at another horizon uses the bound at its `n`: at
-     `n` = 100,000 it is 4.5 × 10^−11 (F5-14). **The exception is the capped commits** (M-19; L15): a
-     commit's term is capped at the `refTs` of the pass that mined it and kept
-     until the commit is evicted or the next full recompute, while a fresh mine
-     caps it at its own `refTs`; so a commit whose author time is later than the
-     tip it was mined under can differ from a fresh mine's term after the tip
-     moves, up or down. Such commits are counted by `miner_ts_capped`. The
-     clause covers exactly the tuning keys listed below and no other input; a
-     key added to the miner later needs its own entry there before the clause
-     can claim it. *(Corrected 2026-09-28, R2-6: the clause said "with **no
-     exception**" while the size exclusion and the fix label depended on tuning
-     read at mining time that no rule re-applied to stored commits. Changed
-     2026-09-28, M-18, M-19: the equality was bit for bit on raw weights under a
-     half-life epoch grid, and settlement (d)'s re-weight of the capped terms
-     removed the exception; both are cut, and the exception is stated again, for
-     a tip that moves either way.)*
-   *Why (R-22, R-23; G-1 as corrected, settlements):* both horizons are
-   enforced on incremental passes too (B4 verification item 1), and at `HEAD`
-   the incremental store exceeded a cap of 3 by two commits and differed from a
-   fresh mine (B7a E-10, executed on repository `hz`). `--max-count` gives the
-   same set as the last `N` positions of the reversed stream (executed equal for
-   `N` = 10, 250, 491, 1000 on a clone of this repository, 10,000 on a
-   20,000-commit history, and 1–6 on a date-skewed history with a merge), costs
-   0.2 s at 10,000 commits (executed), and the `--no-walk --stdin` stream is
-   byte-identical to a walk over the same commits (executed, equal `sha1sum`).
-   The rejected alternatives: subtracting aged-out commits by re-deriving their
-   touched sets from git needs git to reproduce months later exactly what a pass
-   computed, and needs objects that a rewrite or branch switch removed; starting
-   a full mine whenever a pass crosses a horizon makes almost every pass on a
-   mature repository a full mine (each new commit moves the oldest in-horizon
-   one out), silencing the history genres each time, the opposite of AC-13's
-   "append refreshes incrementally"; slack past the horizon lets beyond-horizon
-   commits contribute edges, which AC-13 forbids.
-
-   **Mining-time tuning takes effect on the history already mined (R2-6;
-   round-2 review; M-20).** Every tuning key the miner reads, and what a change to it does to
-   stored rows: `miner.horizon_commits` and `miner.horizon_years` define `T`,
-   which every pass recomputes, so a changed horizon is evicted or mined by the
-   reconcile itself; `bar.recency_half_life_days` is the mined-with rule's
-   case 1 (above); `miner.chunk_ms` and `miner.chunk_gap_ms` pace the writes and no
-   stored row depends on them; `miner.corpus_floor_commits` (`FR-A6`) is
-   compared in every pass's final transaction with the count of contributing
-   rows in `commits`, which writes `schema_meta.corpus_floor_met`, and the event
-   path reads that flag in its one `schema_meta` read (plan Step 13 and
-   Step 28; `src/miner/cochange.ts` writes it at `HEAD`), so a tuned floor
-   applies at the next pass and `tune` says so (R3-8: the earlier text said the
-   floor was "never stored as a flag" and compared with a count "where the
-   history genres read it", which silently reversed the plan and the code — the
-   flag was added because "the skeleton computed the floor and stored it
-   nowhere" (N1) — and put a `COUNT` over up to 10,000 rows on the event path
-   with no NF-1 measurement; the flag is kept, and "at the next event" is not
-   claimed, since `tune` writes the global tuning table and cannot rewrite every
-   bound project store's flag in one write);
-   `landmine.fix_chatter_k` and `landmine.fix_chatter_window_days` shape the
-   miner-kind landmines, which every pass's final transaction rebuilds from
-   `labelled_touches` (AD-15), so a tuned value applies at the next pass and
-   `tune` says so — until then the stored rows reflect the old values (the
-   equality clause above is about counts and weights; AD-24 compares landmines
-   with a fresh mine's only after a completed pass) (R3-9:
-   the list omitted both, while the miner reads them, `src/miner/cochange.ts`
-   at `HEAD`). The two keys whose effect is stored per commit,
-   `miner.max_transaction_entities` (which commits are size-excluded) and
-   `lexicon.fix_keywords` (which carry a fix label), are the mined-with rule's
-   case 2 (above): a change to either makes the next pass a reconcile with
-   `D = S`, whose mine applies them to every commit of `T`; **a commit carrying
-   a revert label is never fix-labelled** (AD-15's settled order; the miner's
-   `!revert` at `HEAD`), so a revert that undoes a fix stays a revert, never fix
-   chatter, whatever the new list matches in its subject (R3-9).
-
-   **The watermark** (B5 verification ruling 1, kept for its readers).
-   `schema_meta.last_mined_commit` is the `HEAD` resolved once when the pass
-   starts, merge or not, keyed to `last_mined_ref` (the ref key above), and
-   written **only in the pass's final transaction**, and only when the pass
-   mined every commit of `A` (the stream delivered each fed hash); chunk
-   transactions write nothing to it, and an incomplete pass leaves the previous
-   tip and records the shortfall as `miner_stream_incomplete`
-   (`{head, fed, mined, firstMissing}`; F-8), so an incomplete read is never
-   recorded as a complete one (Step 13 build review M2: a stream the miner could
-   not parse mined nothing and still advanced the watermark). Its readers are the
-   history staleness rule (`historyStale` = mined tip ≠ `HEAD`, AD-14) and the
-   ref and rewrite diagnostics below; **it no longer bounds the work**: the next
-   pass's work is `W`, `D` and `A`, so G-1 replaces ruling 1's range rule
-   (`<tip>..<new HEAD>`, or `HEAD --not <tips>`) and its "a crashed pass re-runs
-   its recorded range and skips hashes already in `commits`" rule, and the
-   merge-at-boundary and skewed-parent cases ruling 1 added stay as equality
-   tests. *Why a pass-start `HEAD` (ruling 1; B5b "The watermark rule"):* the
-   stream excludes merges, so a watermark taken from the stream's last commit
-   can never equal a merge `HEAD` and every history fact would read stale
-   forever on a merge-PR repository; and a clock-skewed side branch's commits
-   can be streamed after a later commit without being its ancestors (the
-   executed merge and clock-skew cases, B5 verification). *(Corrected
-   2026-09-28: this said each chunk advanced the watermark to its own last
-   commit, an incomplete pass kept the last chunk's watermark, and the next pass
-   mined `watermark..HEAD` — R-22; ruling 1, then G-1.)*
-
-   **A ref change or a history rewrite is a diagnostic, never a purge.** If the
-   ref key differs from `last_mined_ref`, the pass records `branch_changed`
-   (`{oldRef, newRef, oldWatermark, newHead, evicted, added}`) in its final
-   transaction. On the same ref: `git cat-file -e <watermark>`; exit 0 →
-   `git merge-base --is-ancestor <watermark> HEAD`; exit 0 → an ordinary pass;
-   `--is-ancestor` exit 1, or `cat-file -e` exit 1 → `history_rewritten`
-   (`{oldWatermark, newHead, evicted, added}`) in the final transaction; any
-   status outside {0, 1} → `git_failed`, nothing written ("Errors are signaled by
-   a non-zero status that is not 1", git-merge-base(1)). In every case the work
-   is the same reconcile against `T(H)`, which evicts the commits the new
-   `HEAD` does not have from their stored touches without needing their objects.
-   *Why (R-23; C-2 and Flaw 3 as corrected, settlements; B4 verification item
-   1):* batch 4 kept the checked-out `HEAD`'s history as the store's meaning and
-   chose a purge only because aggregate storage could not drop a commit
-   (B4 p2 E-1: "under the aggregate storage model … still needs a purge and
-   re-mine"); G-1's stored touches remove that reason. Keeping the union of every
-   mined tip instead counts a rebased change twice (executed: pair `a`–`b`
-   support 3 in the union against 2 on `main`), and mining one fixed ref answers
-   questions about a line the agent is not working on. An ordinary `git commit
-   --amend` is a same-ref rewrite (executed: `--is-ancestor` exit 1, `cat-file`
-   exit 0), so a purge there re-mined the whole history, with the history genres
-   silenced, on every amend, rebase or force-push. What the reconcile costs: a
-   switch between two long divergent lines evicts and mines up to `2N` commits,
-   with the history genres silenced while it runs. *(Corrected 2026-09-28: a
-   rewrite or an unreachable watermark ran "one purge transaction" and a full
-   re-mine, and `merge-base` exit 128 was read as a rewrite — R-23; RC-2.)*
-   **`git_failed`** (C-4 as corrected, settlements) is one fault code for any git
-   subprocess failure on an off-path pass: the git helpers throw a typed
-   `GitFailed` carrying `{writer: 'miner'|'indexer', subcommand, status, signal,
-   stderrTail}` — `stderrTail` the **last 4,096 bytes** of the subprocess's
-   stderr, taken before escaping, because that is the most one git report can
-   be: git writes every `fatal:`/`error:`/`warning:` line through `vreportf`,
-   which formats into `char msg[4096]` and writes at most that many bytes,
-   newline included (`usage.c` at v2.43.0, fetched 2026-09-28), and a git that
-   dies exits right after its `fatal:` report (`die_builtin`: the report, then
-   `exit(128)`), so the tail holds that whole final report (F-13; the former "at most 2 KB" had no source) — for `rev-parse` or
-   `symbolic-ref` statuses other than 0/1, `merge-base`/`cat-file` statuses
-   outside {0, 1}, a non-zero `git log`/`rev-list` exit or a spawn error in the
-   miner, and `ls-files`, `check-ignore` statuses other than 0/1 or `rev-parse`
-   in the indexer's walk — and the `index` verb's catch records it and exits
-   non-zero. A `GitFailed` never purges and never advances a watermark or
-   `index_head`. A throw from the miner's own parser inside the stream is not a
-   `GitFailed`. `history_rewritten` and `branch_changed` stay separate codes:
-   they are outcomes of a git call that worked.
-
-   **Stores that predate `commit_touches` are rebuilt, not reset** (M-6). Every
-   such store is legacy (AD-4), and its rebuild copies no mined row, so its first
-   pass mines with `S = ∅` and `S` is consistent with `commit_touches` from the
-   start: a store carried over with `commits` rows and an empty
-   `commit_touches` could never evict its earlier commits, and the equality
-   above would never hold (G-1 as corrected, review change (b)). So no reset
-   step, no reset marker and no reset chunk exist. *(Changed 2026-09-28, M-6: a
-   separate `003_phase_a_project.sql` added these tables and set a marker for
-   the next pass to delete every mined row in chunks; no store reaches it, since
-   none records checksums, AD-4.)*
-
-   **Recency weights the evidence, never the result.** Each contributing commit
-   at time `ts` adds `2^((ts − E)/h)` to `cochange_pairs.pair_weight` of every
-   pair it touches, to `files.change_weight` of every file it touches, and as its
-   own `commits.weight`, where `E` is the store's weight epoch
-   (`schema_meta.weight_epoch`), `h` is `bar.recency_half_life_days`, and `ts` is
-   the commit's author time capped at `refTs`; the exponent is computed as
-   `(ts − E) / (86,400 · h)` from integer seconds, so `ts − E` is exact.
-   **The epoch is fixed when the store is first mined** — `E` = that pass's
-   `refTs` — and kept by every incremental pass; a full recompute (the
-   mined-with rule's case 1) sets it to the recomputing pass's `refTs` (M-18),
-   which that pass's recompute and mine use as `E` and as the cap, and its
-   final transaction writes as `weight_epoch` (R8-7, above).
-   Every term on one row shares the store's one epoch, and a confidence is a
-   ratio of two sums that share it, so the epoch changes no ratio, and no pass
-   moves it while every term stays a normal double. **When the fixed epoch needs
-   a recompute, derived:** the largest finite power of two in binary64 is
-   `2^1023` and the smallest normal one `2^−1022` (IEEE 754). The newest
-   in-horizon term's exponent is at most `(refTs − E)/h`, which grows as `refTs`
-   advances past the fixed `E`, so the **exponent limit is 1,023 half-lives of
-   `refTs` past `E`**: about 1,022 years at the seeded 365 days, about 56 years
-   at `h` = 20 days (1,023 × 20 / 365.25 = 56.0) and about 5 years at the
-   half-life floor of about 1.79 days (1,023 × 1.787 / 365.25 = 5.0). A sum of
-   up to `miner.horizon_commits` such terms must stay finite too, so a pass
-   recomputes at a new epoch once `(refTs − E)/h` would exceed
-   `B = 1,023 − ⌈log2(miner.horizon_commits)⌉ − 1` (1,008 at the seeded 10,000:
-   about 55 years at `h` = 20 days, 4.9 years at the floor). The oldest
-   in-horizon term's exponent, `(refTs − 365.25 · Y days − E)/h`, stays at or
-   above −1,022 by the floor relation below while `refTs ≥ E`; a pass whose
-   `refTs` lies far enough below `E` to push it under −1,022 — a checkout of a
-   tip older than the one the epoch was fixed at — recomputes the same way. That
-   recompute is the **existing half-life-change recompute** (case 1): a
-   store-side recompute from `commit_touches`, not a re-mine; at the seeded `h`
-   it never occurs in practice.
-   **The only floor is
-   underflow:** an in-horizon term's exponent lies in `[−365.25·Y/h, B]`, and the
-   weights are read as a ratio, so a weight must stay a *normal* double (a
-   subnormal loses relative precision: `2^−1073.5 / 2^−1073` evaluates to 0.5,
-   the true ratio 0.707 — executed, B7b E-6), which holds exactly when
-   `bar.recency_half_life_days ≥ 365.25 × miner.horizon_years / 1022` (about
-   1.79 days at the seeded 5 years); `tune` refuses a write to either key that
-   breaks it. **Read rule:** a zero or non-finite `change_weight` or pair ratio
-   is read as *no recency evidence* — the candidate fails the confidence axis
-   with that reason recorded in its bar outcome — and is never compared as `NaN`
-   (`NaN ≥ x` is false, which would drop the pair silently). `ts` is capped at
-   `refTs` because the author date (`%at`) is settable by anyone; the capped
-   commits are counted in the fault `miner_ts_capped` (`{count, firstHash}`,
-   once per pass that caps any; F-8), and a capped term is kept at the cap of the
-   pass that mined it (the equality's exception above; L15).
-   The miner records the half-life it mined with
-   (`schema_meta.mined_half_life_days`); **when `h` has changed, the next pass
-   recomputes every stored commit from the store** — the mined-with rule's case
-   1 above, recomputing each `commits.weight` from `commits.ts` and the new `h`
-   at the new epoch, then every sum from `commit_touches`, chunked and yielded
-   under `mining_in_progress` — so a ratio never mixes two decay rates; `tune`
-   says so when `h` is written. The miner has no purge: a reconcile with
-   `D = S` removes every stored commit through the ordinary eviction (above).
-   *Why (R-24 / F-6; B5
-   verification ruling 2, B5c E-3, E-4, B7b E-6, B6 verification item 3):* the
-   earlier rule set a full mine's epoch to `refTs − 500·h`, made a commit whose
-   exponent exceeded 1000 a purged full re-mine, and refused `h` below 37 days;
-   37 had no derivation, and the floor is the relation above because `tune`
-   accepted `miner.horizon_years` = 200 at `h` = 37 and an in-horizon commit then
-   stored weight 0 and a 0/0 pair with no fault (executed). **This departs from
-   B5 verification ruling 2's exact rescale, and keeps the properties the ruling
-   states** (M-18; recorded here, where the change is made). Ruling 2 settles
-   "a re-based epoch kept near `refTs`. When the epoch advances, stored sums are
-   rescaled by the exact common factor 2^(−Δ/h)", and states its properties:
-   "It needs no re-mine and no calendar-derived floor on `h`. The only floor is
-   underflow, h above about 1.79 days." The fixed epoch keeps all three: no
-   re-mine (the recompute its bound triggers is store-side, from
-   `commit_touches`), no calendar-derived floor on `h` (the trigger is the
-   exponent bound derived above, and `tune` refuses no `h` for it), and the only
-   floor on `h` is the underflow relation above. What it drops is the rescale's
-   exactness — an incremental store's raw weights equal to a fresh mine's bit
-   for bit — which no spec line requires: a confidence ratio, the only quantity
-   a whisper or a bar term reads, agrees within the tolerance above. The reason:
-   an epoch kept near `refTs` moves once per half-life of `refTs` (about every
-   1.79 days at the floor), and making that frequent move exact took a per-row
-   epoch index on three tables, a resumable rescale in rowid ranges and their
-   measurements (R2-5, R3-1) — mechanism serving a bit-equality nothing reads —
-   while a fixed epoch moves only at its bound. The coordinator's B5 run that
-   "put the epoch 40,000 days from the commits and raised `OverflowError`" is
-   the failure the bound prevents: 40,000 days is 2,000 half-lives at that run's
-   `h` = 20 days, past the 1,023 limit. B6 verification item 3's substance — a
-   ratio never mixes two decay rates ("changing h forces a re-mine") — is kept
-   by the recompute; the re-mine itself was kept only because aggregate sums
-   could not be re-derived without git, and `commits.ts` and `commit_touches`
-   now hold everything the recompute needs, the reason Flaw 3 already applied to
-   rewrites (F-6; the settlements' review named this consequence and left it
-   unapplied). *(Corrected 2026-09-28: a changed `h` was "a purged full
-   re-mine", automatically, which cleared every history table and silenced the
-   history genres for a whole re-mine with git reads.)*
-   ROSE is cited only for weighting the mined changes — FR-K2 asks
-   for a recency-weighted horizon, and ROSE weights and windows the transactions
-   it mines; the exponential half-life form and the ratio-against-floor
-   comparison are the agents' derivation (B5a E-19). *Why weighting at all
-   (review record 2026-09-26, plan-pass collapse-hunt H1):* the earlier rule
-   multiplied the finished confidence by `0.5^(age/h)`; with the 0.9 trust
-   factor, a perfect pairing last changed together more than about 213 days
-   before `HEAD` fell below the 0.6 floor (0.9 × 2^(−213/365) = 0.60), so the
-   oracle went silent on exactly the stable couplings. A pairing that has always
-   held stays at its ratio however old it is; a pairing whose files have since
-   changed apart loses weight to the recent solo changes.
+   stored once on the file (`files.change_count`, AD-4), incremented for every
+   *included* commit that touches the file — single-file commits included, so
+   it counts the same population as the pair counts;
+   `confidence(a→b) = pair_weight / change_weight(a)`; `support = pair_count`.
+   **Recency weights the evidence, never the result.** Each included commit at
+   time `ts` adds `2^((ts − T0)/h)` to `cochange_pairs.pair_weight` of every
+   pair it touches and to `files.change_weight` of every file it touches, where
+   `T0` is the store's weight epoch, `h` is `bar.recency_half_life_days`, `ts`
+   is the commit's author time capped at `refTs` (`HEAD`'s committer time), and
+   `ts − T0` is taken in days, the unit of `h`. **Bound:** a weight must stay a
+   finite, non-zero double. Each full mine sets the epoch to `refTs − 500·h`
+   days (`schema_meta.weight_epoch`), and incremental passes keep it; a commit
+   whose exponent `(ts − T0)/h` would exceed 1000 makes the pass a purged full
+   re-mine, which re-bases. With `ts ≤ refTs` and the horizon bounding `ts`
+   below (AD-13's 5 years ≈ 49 half-lives at the 37-day floor), every exponent
+   of a fresh mine lies in about [450, 500], whatever dates a repository
+   carries; `tune` still refuses `h` below 37 days. *Why (Step 13 build review
+   M3, 2026-09-26):* a fixed 2000 epoch overflowed on one far-future author
+   date — executed: a commit dated 3237 read both files' weights back as NULL
+   at `h` = 365 — and capping `ts` alone cannot help when `HEAD`'s own date is
+   absurd. Re-basing changes no ratio, because every term shares the factor. Because every term carries the same factor
+   relative to any reference time, `pair_weight / change_weight` equals the
+   ratio of weights decayed to `HEAD` — computed with no event-time work, and
+   independent of when it is read. A pairing that has always held stays at its
+   ratio however old it is; a pairing whose files have since changed apart
+   loses weight to the recent solo changes. The miner records the half-life it
+   mined with (`schema_meta.mined_half_life_days`); when `h` has changed, the
+   next pass is a purged full re-mine (AD-13's purge set), automatically, so a
+   ratio never mixes two decay rates. `tune` says so when `h` is written. *Why (review record 2026-09-26, plan-pass collapse-hunt
+   H1):* the earlier rule multiplied the finished confidence by
+   `0.5^(age/h)`; with the 0.9 trust factor, a perfect pairing last changed
+   together more than about 213 days before `HEAD` fell below the 0.6 floor
+   (0.9 × 2^(−213/365) = 0.60), so the oracle went silent on exactly the
+   stable couplings, and a fact read as sure only when under about 62 days old.
+   FR-K2 asks for a recency-weighted horizon (ROSE); ROSE weights and windows
+   the transactions it mines, it does not decay the rule it derives.
    (**Superseded 2026-09-26:** `pair_count / a_count` over a counter kept on the
    pair row, which could not see commits touching `a` alone and so equalled
    `pair_count` — every confidence 1.0, the floor never filtering; review
-   record 2026-09-25, G3.)
-
-   **Renames are not followed in Phase A.** A rename entry contributes both paths,
-   as at `HEAD`. Each pass records, in its result and in `status`, the rename
-   entries in **every** commit of `T` (size-excluded ones included) and, as
-   "history a follower would carry", the contributing commits in `T` on each
-   renamed old path. *Why (G-4 as corrected, settlements):* following at mining
-   time would make a commit's contribution depend on a later rename commit,
-   which breaks the order-independence the reconcile rests on; a read-time rename
-   map would not, and is not built in Phase A because the measured stake is small
-   — four contributing commits of 491 in `Maxcogar/agent-armory` — and the pass
-   now measures it on every repository, so the Phase A exit data decide whether
-   Phase B builds it (L14). git's detector is a 50 % similarity heuristic by
-   default, so following at that setting could also merge two different files.
-
-   **Unreferenced history-only rows.** A `files` row with `in_tree = 0` that no
-   `commit_touches`, `labelled_touches`, `cochange_pairs` or `landmines` row and
-   no row of AD-4's human-entered list references (an `invariant_members` row by
-   id; a `human_facts.target_ref` by path — R4-1 item 14) is deleted by the mining pass whose
-   eviction left it unreferenced, in that eviction's transaction; one the indexer
-   marks `in_tree = 0` when no such row references it is deleted by the indexer
-   in the same pass (R-40; B3a E-7: no rule said who removes such a row, or
-   when).
-   While `mining_in_progress` is set, the history genres —
+   record 2026-09-25, G3.) Refresh:
+   `last_mined_commit` watermark; mine only `watermark..HEAD`, committed in
+   bounded chunks, each chunk advancing the watermark to its own last commit
+   (AD-26). **A commit already in `commits` is skipped, never counted again,**
+   so a resumed pass is idempotent whatever order the history's branches
+   interleave in. **The pass's final transaction sets `last_mined_commit` to
+   the `HEAD` it mined to** — including when `HEAD` is a merge, and only when
+   the stream delivered every commit the range count expected; otherwise it
+   keeps the last chunk's watermark and records the shortfall as a fault, so
+   an incomplete read is never recorded as a complete one (Step 13 build
+   review M2: a stream the miner could not parse mined nothing and still
+   advanced the watermark, losing that history for good). *Why (Step 13
+   test writer, 2026-09-26):* the stream excludes merges (`--no-merges`), so a
+   chunk watermark can never equal a merge `HEAD` — every history fact would
+   read stale forever under AD-14's `last_mined_commit ≠ HEAD` rule on a
+   merge-PR repository — and on a branching history a side branch's commits
+   can be mined before the chunk's last commit without being its ancestors, so
+   resuming from `watermark..HEAD` alone would count them twice. A `files` row
+   whose commit provenance names a commit no longer in `commits` (after a
+   purge) is re-pointed to the commit that names the path in the re-mine; one
+   that no re-mined commit names is swept (`files.sweepUnreferenced`) unless a
+   human-provenance record references it. History rewrite detected (watermark unreachable) → **one purge
+   transaction** that clears every history-derived table — `commits`,
+   `cochange_pairs`, `labelled_touches`, `files.change_count` (reset to 0), and
+   the miner-kind `landmines` rows (`revert_chain`, `fix_chatter`; never
+   `human_stated`) — and sets `schema_meta.mining_in_progress = 1`; then a full
+   re-mine under AD-26's chunking, and a diagnostic. While
+   `mining_in_progress = 1` (every full mine or re-mine), the history genres —
    Coupling, Consequence, Warning (from miner-kind landmines; a `human_stated`
    row is not history-derived and still fires), Completeness — produce no
-   candidates, because their counts are partial; for the same reason
-   Orientation ranks without its co-change hub-degree factor while the flag is
-   set (match strength × `entry_score` only; its headline never states hub
-   degree, so no text changes) — the partial pair counts are not evidence for
-   a rank any more than for a whisper (a reader of `cochange_pairs` the
-   suppression list omitted, found while applying F-3/F-4); the pass's final transaction
-   clears it, and `status` lists it among the active suppressing conditions
-   (AD-17). *Why the flag and the purge set (review record 2026-09-26, CH H1 /
-   ER M1; ER S2 / CH H9):* "full re-mine"
+   candidates, because their counts are partial; the pass's final transaction
+   clears it. *Why
+   (review record 2026-09-26, CH H1 / ER M1; ER S2 / CH H9):* "full re-mine"
    named no purge set, so rows for rewritten-away commits survived in
    `labelled_touches` and every landmine rebuild re-created the `revert_chain`
    citation of a commit that no longer exists (N5 again, through the new table),
    and a re-mine over un-reset counts doubled every `change_count` (halving every
-   confidence); readers seeing a half-finished pass would read partial counts
+   confidence); readers seeing a half-finished re-mine would read partial counts
    as evidence. Corpus floor
    (`FR-A6`): history genres return no candidates until the mined corpus ≥ a
    tunable floor (default: 30 non-excluded commits — evidentiary, feeding
    confidence; no session/adoption window exists anywhere).
 2. **Standard.** `FR-K2` governing (its hygiene items are spec-stated with their
    own sources); `FR-A6` for the floor; Zimmermann et al., IEEE TSE 31(6) 2005
-   for the confidence denominator (the frequency of A, the number of
-   transactions containing A); git-rev-list(1) options (`--max-count`,
-   `--reverse`, `--no-walk`, `--stdin`, v2.43.0) and git-merge-base(1) for the
-   target set and the exit statuses; fail-fast (Shore, IEEE Software 2004) for
-   the input validation and `git_failed`.
-3. **Why here.** Pair counts + per-file change counts is the minimal storage
-   from which every bar term (support, confidence, recency) and every whisper's
-   evidence ratio renders without walking history at event time;
-   `commit_touches` is what lets a pass drop a commit exactly.
-4. **What this is NOT.** Not per-commit transaction lists as the *query* model:
-   the event path reads only the aggregates, and `commit_touches` is bounded by
-   the horizon it enforces (300,000 rows at the seeds), evicted with its
-   commits, and read only off the event path — so the unbounded growth and
-   lookup-time aggregation this rule excludes do not arise. Not
-   association-rule mining at query time (hook-path budget). Not recency
-   *pruning* (the spec chose horizon-cap + recorded recency; pruning deletes
-   evidence). Not a recency multiplier on the finished confidence (it silenced
-   stable couplings by age — H1 above). Not a purge on a rewrite, a branch
-   switch or a changed half-life, not the union of mined tips, and not a fixed
-   mined ref (above). Not an epoch kept near `refTs` and rescaled exactly as it
-   moves (the fixed epoch moves only at its derived bound, M-18), not a
-   re-weight of capped terms when the tip moves (a stated exception, L15;
-   M-19), and not a per-commit record of the classifying tuning (a change is a
-   reconcile with `D = S`, M-20).
+   for the confidence denominator (support(A) = the number of transactions
+   containing A).
+3. **Why here.** Pair counts + per-file change counts is the minimal storage from which every
+   bar term (support, confidence, recency) and every whisper's evidence ratio
+   renders without walking history at event time.
+4. **What this is NOT.** Not per-commit transaction lists as the query model
+   (unbounded growth, aggregation at lookup time). Not association-rule mining
+   at query time (hook-path budget). Not recency *pruning* (the spec chose
+   horizon-cap + recorded recency; pruning deletes evidence). Not a recency
+   multiplier on the finished confidence (it silenced stable couplings by age —
+   H1 above).
 5. **Premise verification.** `git log --no-merges --numstat` exercised on this
    repo this session (V13's commands ran against the same git); `FR-K2`, `FR-A6`
    read at spec §11.1/§5.2; the counter defect executed in the review record
    `docs/reviews/2026-09-25-skeleton-gap-list-review.md` (G3); the purge set
-   and the chunked, flagged pass from review records
+   and the chunked, flagged re-mine from review records
    `docs/reviews/2026-09-26-architecture-pass-collapse-hunt.md` (H1, H9) and
    `docs/reviews/2026-09-26-architecture-pass-expert-review.md` (M1, S2 — S2's
    414 ms single-transaction write phase for 10,000 synthetic commits executed
-   there on Node 22.22.2); the target-set equalities, the stream equality, the
-   rebase union, the amend statuses, the `symbolic-ref` statuses, the far-future
-   `%ct` and git's acceptance of it, and the rename counts executed in the
-   settlements and re-run in their review (git 2.43.0, Node 22.22.2); the weight
-   floor, the 0/0 case and the subnormal ratio executed in B7b E-6; the cap at
-   `refTs` read in `src/miner/cochange.ts` in settlement (d); the store-side
-   half-life recompute from F-6; the collapse hunt's one mined-with rule (M-17),
-   the fixed epoch with its derived bound and the departure from B5 verification
-   ruling 2 (M-18; the binary64 exponent range is IEEE 754's, and the
-   `OverflowError` run is the B5 verification's), the capped commits stated as
-   an exception (M-19), the reconcile with `D = S` for the classifying keys
-   (M-20; the keys read in `src/miner/cochange.ts`, R2-6) and no reset step
-   (M-6); git's 4,096-byte report buffer read in `usage.c`
-   at v2.43.0 (fetched 2026-09-28). Addresses:
-   `FR-K2`, `FR-A6`, AC-1, AC-6, AC-13.
+   there on Node 22.22.2). Addresses: `FR-K2`, `FR-A6`, AC-1, AC-6, AC-13.
 
 ### AD-14 — The relevance bar: a conjunction of floors, no caps, calibrated by the human channel
 
 1. **Decision.** A candidate is spoken iff **all three** axes clear their own
    floor (`FR-A5`'s conjunction — no multiplication, so no axis launders
    another):
-   - **Confidence** `c`: evidence-derived, defined for **three** fact classes.
-     *History* facts: `support` and the recency-weighted `confidence` from
-     `cochange_pairs` (AD-13), dampened by staleness (`FR-K7`) and trust
-     (`FR-X4`: low trust lowers confidence). *Human* facts: high by construction
-     (`FR-L6`). *Structural* facts — Orientation's entry points, Reuse's
-     dominance claim, Verification's covering-test mapping — have an evidence
-     confidence `s_g`, one tuning row per genre (`bar.orientation_confidence`,
-     `bar.reuse_confidence`, `bar.verification_mapping_confidence`), each seeded
-     **0.75**, illustrative and marked so in `tuning_seeds.ts`, refused by `tune`
-     outside (0, 1], then dampened (index staleness, trust) and capped (the
-     heuristic cap for Reuse, the suspect cap) by the composition below. A
-     structural fact has **no `support` and no `ratio`**: the bar reads
-     `statedConfidence`, which the candidate's own generator sets from its
-     genre's row (a discriminated union on `factClass`, so a structural candidate
-     carrying `support`/`ratio` is a type error), and the combinator itself still
-     carries no genre term; each structural genre keeps its own evidence rule
-     (Reuse's k× dominance, Orientation's match, Verification's mapping). The
-     seed is chosen inside the band the bar's own seeds define: a structural fact
-     is always `untrusted_repo` and may be index-stale, so its confidence is
-     `0.9 s` fresh and `0.81 s` stale; clearing the 0.6 floor when stale needs
-     `s ≥ 0.741` and staying below the 0.8 high tier with no dampener needs
-     `s < 0.8`, so the band is [0.741, 0.8) (executed:
-     `0.6/(0.9*0.9)` = 0.7407; `0.75 × 0.9` = 0.675 fresh, `0.75 × 0.81` = 0.6075
-     stale). At the seeds no dampener silences a genre, and every structural
-     whisper is flagged `[confidence: uncertain]` until Phase A data justify
-     tuning a genre up; the stored-set relation
-     `bar.<g>_confidence × bar.untrusted_trust_factor × bar.stale_factor ≥
-     bar.confidence_floor` (and `bar.<g>_confidence ≤ 1`) keeps a tuning write
-     from doing so — `tune` refuses a write to any key it names, naming the genre
-     that would be silenced when stale. *Why (R-26; G-3 as corrected,
-     settlements; B2 E-5 (b)):* AD-14 defined confidence for history and human
-     facts only, and the bar read `c.ratio ?? 0`, so a structural candidate with
-     no ratio failed by construction, and Orientation's `support: 3, ratio: 1`
-     constants were silent certainty. Treating an index fact as certain presents
-     conventions (an import taken as coverage, a ranking taken as "entry point",
-     an identifier match taken as a reference) as sure; a per-extraction-path
-     confidence needs measured precision nobody has. **Staleness is judged per
+   - **Confidence** `c`: evidence-derived. History facts: `support` and the
+     recency-weighted `confidence` from `cochange_pairs` (AD-13), dampened by
+     staleness (`FR-K7`) and trust (`FR-X4`: low trust lowers confidence).
+     Human facts: high by construction (`FR-L6`). **Staleness is judged per
      fact class, against the data the fact came from:** a history fact is
-     stale when the mined tip `schema_meta.last_mined_commit` ≠ `HEAD` (AD-13's
-     watermark, ruling 1); an index-derived (structural) fact when
-     `index_head` ≠ `HEAD`. Either multiplies by `bar.stale_factor` (seed 0.9, an
-     architect's seed, marked so). *Why (plan-pass
+     stale when `schema_meta.last_mined_commit` ≠ `HEAD`; an index-derived fact
+     (Orientation, Reuse, Verification's mapping) when `index_head` ≠ `HEAD`.
+     Either multiplies by `bar.stale_factor` (seed 0.9). *Why (plan-pass
      collapse-hunt H1):* index staleness says nothing about mined history, and
      applying it to history facts flagged every mined whisper uncertain
      whenever the index lagged.
@@ -3916,80 +1634,11 @@ and nothing here depends on the new channel.
      is shown, so no whisper states a number that contradicts its own
      evidence. `tune` (AD-20) rejects any write that breaks
      `bar.confidence_floor` ≤ each cap < `bar.high_confidence_min`, breaks the
-     tier invariant above, puts the trust or stale factor outside (0, 1], breaks
-     AD-13's half-life relation, or breaks the structural relation above. The cap seeds (0.7) are illustrative
+     tier invariant above, or puts the trust or stale factor outside (0, 1]. The cap seeds (0.7) are illustrative
      architect defaults like the floors below, chosen strictly inside
      [0.6, 0.8) so neither sits on a boundary of the interval the ordering
-     requires. **The seeds' status, stated per row:** the 0.9
-     `bar.untrusted_trust_factor` is an architect's illustrative default with
-     **no literature grounding** (spec §9's convention is that tunables are
-     "grounded by the literature above", and nothing grounds this one);
-     `bar.stale_factor` (0.9) and `bar.hazard_full_support` (3, below) are
-     architect's seeds of the same kind; the three structural rows are
-     illustrative (above); all of them are calibrated on Phase A data
-     (`D-6bar`) (R-28; B3b E-13, B5 verification item 13, B5a E-20, E-22).
-     **Every stored set is validated when the tuning reader is built, not only
-     each write.** `tuningReader(...)` validates every row it would serve (global
-     rows and the repository's overrides) with the per-key rules `tune` applies to
-     a write — a finite number for a numeric seed, a list key held as list rows, a
-     known key — and the stored-set relations: the ordering and tier relations
-     above, AD-13's half-life relation, and the structural relation. The
-     validation is bounded by the key registry, not by store size. A failure
-     throws `TuningInvalid` (`{key, value, rule, scope: 'global'|'project'}`),
-     **never a seed substitution**. **Any `TuningInvalid` silences the whole
-     event — no whisper and no deny** (F-2; spec FR-O3, coordinator ruling):
-     the reader is built once per event, before the block check and the
-     candidates (data flow step 3), and a throw there is an error of the kind
-     FR-O3 names, "Any shim/service error, timeout, or missing store yields
-     silence — and, on a block path, **emits no deny, so the agent's action
-     proceeds** — never an error in the agent's flow" (spec L508–L510). The
-     event's handler records `tuning_invalid` (detail as above, with `value`
-     in full after AD-19's redaction and its length; settlement (b), F-11) once
-     per distinct `(key, value)`, keyed by a `schema_meta` marker cleared when
-     the reader next builds cleanly (as `index_stale` is recorded on the
-     transition only), and records any other handler error as
-     `handler_exception` (`{name, message}`; G-6 item 2, settlements; F-8),
-     instead of the former `store_corrupt` catch-all. `status` runs the
-     validator in report mode (it collects every failure and never throws) and
-     lists an active `tuning_invalid` first, in plain language: the key, the
-     stored value, the rule it breaks, that every hook event is silent — the
-     answer-drift deny included — until it is fixed, and the fixing command
-     (`ctxoracle tune <key> <valid value>`). `tune`,
-     `status` and `deinit` never build the validating reader, so
-     the fix and the report always run; `index`, `init` and `import` refuse with
-     the same message and a non-zero exit. The write routes are closed: `tune`
-     refuses an invalid value, `import` validates incoming tuning rows with the
-     same validator before writing (AD-5), and every seed passes it. *Why (R-28 /
-     F-2; G-6, settlements; B3b E-13, B4 p1 E-17, B6 verification item
-     2, B6a E-24):* the ordering was enforced on write only, so a stored set that
-     broke it was served; a stored non-numeric `deny.loop_threshold` was recorded
-     as `store_corrupt` and the deny stopped (executed: `node exit=0`, 0 bytes of
-     output). Serving the seed instead is the failing-slowly pattern Shore names
-     ("return null or a default value … everything will seem fine"); failing at
-     the reader with a named error keeps the owner's stored value from being
-     silently replaced. The whole event is silenced, not only the group of
-     outputs that reads the bad key, because the spec requires it: FR-O3's
-     first clause covers any error, not only one on the block path. Because
-     `tune` refuses an invalid write and `import` validates before writing, a
-     stored invalid value arises only from corruption or from a store written
-     by an older build, and the silence it causes is visible — recorded, and
-     listed first by `status` with the command that ends it. *(Corrected
-     2026-09-28, F-2: the value was contained in two groups — an invalid row in
-     the whisper group silenced the whispers and left the deny running, one in
-     the block group the reverse — and FR-O3 was restated here as asking "for
-     silence on an error on the block path", on the settlements' review's
-     reading that an unrelated bad key leaves the block-path clause
-     unengaged; that reading answers only FR-O3's second clause, and the
-     bulkhead case for containment does not change what the first clause
-     says; `value` was also cut to 200 characters with no source.)*
-     *Why the value is recorded in full (settlement (b)):* the project rule is
-     "Numbers without sources don't go in" (`CLAUDE.md`); AD-17 requires each
-     fault to carry detail sufficient to reproduce the diagnosis; the
-     once-per-distinct-`(key, value)` rule already bounds how often a long value
-     is written, beside the stored row that already holds it; and every string
-     entering a diagnostic is redacted (AD-19).
-     This replaces "on a violating stored set, record a fault and
-     serve the seeds".
+     requires; the trust-factor seed is likewise illustrative, and all of them
+     are calibrated on Phase A data (`D-6bar`).
      *Why:* "can never yield high-confidence" named a tier that nothing defined.
      A cap placed below the 0.6 floor would silence every history genre. A cap
      above the high tier would cap nothing (review record 2026-09-25, G20).
@@ -4004,46 +1653,21 @@ and nothing here depends on the new channel.
      failed it. The suspect cap's position against the floor, the display value,
      and the cap composition were also unstated, and the ordering had no
      enforcement point (review record 2026-09-26, CH C2 / ER M9).
-   - **Decision-impact** `i`: deterministic from per-candidate
-     properties only — edit-context vs read-context, blast-radius band, zone
-     criticality (`generated`/`build_output` touched). **No genre term, no
-     intent term** (`D-18`: intent entered via the trigger). **`i` is the floor
-     only** (M-24): a candidate passes when the event is an edit (`context =
-     'edit'`, set by the handler from the event, never by a genre — plan Step
-     6), or its target's zone is `generated` or `build_output`, or its band is
-     at least `bar.impact_read_min_coupled` — the plan's floor as written
-     ("passes when `candidate.context = 'edit'`, or `candidate.blastRadius ≥
-     bar.impact_read_min_coupled`, or `candidate.zone ∈ {generated,
-     build_output}`", plan Step 16). No order among candidates is defined, since
-     nothing orders whispers (AD-16). **Band has one definition for every
-     candidate, whatever its genre** (R4-7): `blastRadiusOf` of the candidate's
-     target file — the number of the file's partners whose recency-weighted
-     confidence clears `bar.confidence_floor`, plus its covering-test `test_map`
-     rows (plan Step 18's full build) — and, for a candidate that names several
-     files (Orientation's entry points, a Completeness pair), the maximum over
-     the files it names. *Why one definition:* plan Step 18 sets Orientation's
-     band to "the number of files named" and Reuse's to `M_X`, the count of files
-     using the crowned symbol, so the floor's threshold would compare counts of
-     different things by genre — a genre term in decision-impact, which FR-A5
-     (b) and `D-18` exclude ("carrying **no genre** term"); those per-genre
-     values are superseded by this one. *(Changed 2026-09-28, M-24: `i` was a
-     lexicographic triple (context, zone, band), a total order defined for the
-     response rank, which is cut, AD-16; R3-7 had defined it and R4-7 found band
-     counting different things per genre.)*
+   - **Decision-impact** `i`: deterministic ordinal from per-candidate
+     properties only — edit-context vs read-context, blast-radius band (count of
+     coupled files/tests), zone criticality (`generated`/`build_output`
+     touched). **No genre term, no intent term** (`D-18`: intent entered via the
+     trigger).
    - **Marginal value** `m`, defined for **all three** Phase A fact classes
      (no fact class is left undefined):
      *single-file current-state* facts fail — the agent's own tools surface
      them in one call (AC-1's obviousness clause: a same-directory/same-stem
-     pair is suppressed); *history-derived* facts pass. A **single-file** history
-     fact — a Warning's revert or fix history — passes on `FR-A5a`: the hazard
-     path's only floor is the noise floor, and the spec requires a hazard to be
-     spoken with its confidence, which a marginal axis that failed it would
-     forbid; the aggregation argument is not used for it, since a file's revert
-     count is one `git log` call away. A **cross-file** history fact passes
-     because it aggregates over commits the agent has not enumerated (the same
-     aggregation clause that admits a Reuse dominance claim). *(Corrected
-     2026-09-28: single-file counts were admitted by the aggregation clause —
-     R-29; B5a E-6, E-21, B5b H1 E-10.)* Human-stated facts pass too, as facts
+     pair is suppressed); *history-derived* facts, single-file (a Warning's
+     revert or fix history) or cross-file, pass by construction: they
+     aggregate over commits the agent has not enumerated (the same aggregation
+     clause that admits a Reuse dominance claim), and FR-A5a requires a hazard
+     to be spoken with its confidence, which an axis that failed it would
+     forbid — as do human-stated facts
      the agent has no channel to; *cross-file current-state* facts (the Reuse
      class) pass **only when comparative or aggregative over a set the agent
      has not enumerated** — a dominance claim over candidates passes, a bare
@@ -4051,16 +1675,8 @@ and nothing here depends on the new channel.
      separate (AD-16) and is never a cap.
    - **Hazard path (`FR-A5a`):** Warning-genre candidates skip the confidence
      floor; they require only the **noise floor** (real vs coincidental
-     evidence: `support ≥ 2`, counting only the labels AD-15's settled order
-     admits — a revert label from any commit in the target set, size-excluded or
-     not, and a fix label from contributing commits only; merges and commits
-     beyond either horizon never label, since they are never streamed or have no
-     row) and are delivered with confidence stated (`FR-D1`). *(Changed
-     2026-09-28: the clause said "not sourced solely from an excluded-commit
-     class", while the settled order deliberately lets a size-excluded revert
-     source a `revert_chain` — a revert of a large commit is git-generated, not
-     tangled evidence — so the clause is changed to the rule built, not the
-     other way round — R-27; B4 p2 E-4, B2 E-1 (c), E-5 (g), B3 verification.)* A miner
+     evidence: `support ≥ 2` and not sourced solely from an excluded-commit
+     class) and are delivered with confidence stated (`FR-D1`). A miner
      landmine's evidence ratio is `min(1, support / bar.hazard_full_support)`
      (its own tuning row, seed 3, so re-tuning the pair floor `bar.support_min`
      does not re-tier every Warning — plan-pass collapse-hunt H10); a
@@ -4076,14 +1692,10 @@ and nothing here depends on the new channel.
    - **No volume/count/budget term exists in the code path** (`OL-C1`; AC-3).
      Two candidates clearing the bar at one event are both delivered.
    - **Ship-high defaults, all tunable rows in `tuning` (AD-5), all marked
-     illustrative:** non-hazard `c` floor 0.6, with `support ≥ 3` for history
-     facts only (support is a count of co-change transactions; a structural
-     fact has none — above); high tier 0.8; untrusted trust factor 0.9; stale
-     factor 0.9; structural confidences 0.75; suspect and heuristic caps 0.7;
-     `bar.hazard_full_support` 3; impact floor
-     `bar.impact_read_min_coupled = 2` — speak on edit-context always when other
-     axes pass, and on read-context when the target is a critical zone or the
-     band is ≥ 2 (above); noise floor `support ≥ 2`. Sources:
+     illustrative:** non-hazard `c` floor 0.6 with `support ≥ 3`; high tier
+     0.8; untrusted trust factor 0.9; suspect and heuristic caps 0.7; impact floor:
+     speak on edit-context always when other axes pass, on read-context require
+     blast-radius band ≥ 2 coupled files; noise floor `support ≥ 2`. Sources:
      the spec's §9 ROSE note (the TSE-2005 operating point is user-tunable;
      the spec lifts no fixed point — these are architect defaults to be
      calibrated on Phase A data, `D-6bar`). Phase A calibration input is the
@@ -4107,16 +1719,7 @@ and nothing here depends on the new channel.
    dampener; the tier/cap decision from the review record
    `docs/reviews/2026-09-25-skeleton-gap-list-review.md` (G20), revised by
    `docs/reviews/2026-09-26-architecture-pass-collapse-hunt.md` (C2) and
-   `docs/reviews/2026-09-26-architecture-pass-expert-review.md` (M9); the
-   2026-09-28 corrections — structural confidence and its band (derived above,
-   the arithmetic executed in the settlements and re-run in their review), the
-   stored-set validation (Shore's fail-fast paper, as quoted in the settlements)
-   and its whole-event silence (spec FR-O3, L508–L510; F-2), the full recorded
-   value (settlement (b)), the seeds' status,
-   the noise floor and the single-file case — from the register (R-26–R-29) and
-   G-3 and G-6 as corrected; `i` as the floor only (M-24) and band's one
-   definition (R4-7; `blastRadiusOf` read in plan Step 18's full-build
-   paragraph, and its per-genre `blastRadius` values there). No environmental
+   `docs/reviews/2026-09-26-architecture-pass-expert-review.md` (M9). No environmental
    premises — design choice over verified spec content. Addresses: `FR-A5`,
    `FR-A5a`, `FR-A6` (floor feeds `c`), `OL-C1`, AC-3, AC-3a, AC-4.
 
@@ -4127,19 +1730,13 @@ and nothing here depends on the new channel.
    properties: every candidate carries ≥ 1 verifiable pointer (`FR-D1` — a
    candidate whose pointer fails re-resolution at compose time is dropped:
    the rumor rule); **a file pointer is verifiable only when its `files` row has
-   `in_tree = 1`**, and **a masked path (AD-19) is not a verifiable pointer**.
-   A **partner** that is not in the tree or is masked (other than the agent's
-   own tool target, which is never masked) is removed **from the fact itself** —
-   its name, its ratio and its pointer — not only from the pointers, and a
-   candidate left with no partner is dropped; a history fact whose only pointer
-   is a not-in-tree or masked target is not emitted (*why:* a pointer the agent
-   cannot open is unverifiable, and `in_tree` had no reader — review record
-   2026-09-26, ER M2a; a partner is the fact's content, so dropping it only from
-   the pointers still named, on its commit hash, a co-change the agent could not
-   open, while dropping the whole candidate for one bad partner would silence
-   its live, verifiable partners, which FR-D1 does not require — R-30 (b); B3b
-   E-11); a whisper left with no verifiable pointer — no unmasked path and no
-   commit hash — is dropped under the rumor rule; every drop under this rule is counted
+   `in_tree = 1`**: generators exclude any partner or target file with
+   `in_tree = 0` from pointers, and a history fact whose only pointer is a
+   not-in-tree file is not emitted (*why:* a pointer the agent cannot open is
+   unverifiable, and `in_tree` had no reader — review record 2026-09-26, ER
+   M2a); **a masked path (AD-19) is not a verifiable pointer**, so a whisper left
+   with no verifiable pointer after masking — no unmasked path and no commit
+   hash — is dropped under the rumor rule; every drop under this rule is counted
    as `whisper_dropped_unverifiable` (AD-17) with its reason (`stale_pointer`,
    `not_in_tree`, `masked_path`); text is informative, never imperative (`FR-D2`); evidence
    ratios stated for history facts (`FR-D3`); ⚠ subtype declares fallibility and
@@ -4147,66 +1744,27 @@ and nothing here depends on the new channel.
 
    | Genre | Trigger | Query / mechanism | Headline (the non-self-servable fact) |
    |---|---|---|---|
-   | Orientation `FR-A2a` | `UserPromptSubmit` | prompt tokens → FTS5 over symbols/paths; rank by (match strength × co-change hub degree × `entry_score`, all produced — AD-12/AD-13; hub degree = 1 + the file's `cochange_pairs` partner count, AD-13; a file with `entry_score = 0` is not an entry point and is not ranked, AD-13; R3-11), and while `mining_in_progress` is set by (match strength × `entry_score`) alone, since hub degree would multiply partial pair counts (AD-13; R2-8); join `invariant_members` for one binding invariant **where a matching row exists** — in Phase A `invariants` is written only by the human channel (`note`), so on an un-annotated repo Orientation delivers entry points alone (disclosed, L10; invariant count shown in `status`) | 2–4 entry-point files (+ the binding invariant when one is recorded); **no task-shape landmines** (`D-26` — those fire at the edit) |
-   | Coupling `FR-A2b` | `PostToolUse` Read/Grep/Glob | `cochange_pairs` partners of the touched file above bar | partner file(s) with **both** directional ratios — `pair_count / change_count(touched)` and `pair_count / change_count(partner)` ("17 of its last 20 changes; 17 of the partner's last 200") — + commit pointer, so the pair's one canonical key (AD-16) suppresses nothing the agent was not told (R-30 (a); B3b E-17) |
+   | Orientation `FR-A2a` | `UserPromptSubmit` | prompt tokens → FTS5 over symbols/paths; rank by (match strength × co-change hub degree × `entry_score`, all produced — AD-12/AD-13); join `invariant_members` for one binding invariant **where a matching row exists** — in Phase A `invariants` is written only by the human channel (`note`), so on an un-annotated repo Orientation delivers entry points alone (disclosed, L10; invariant count shown in `status`) | 2–4 entry-point files (+ the binding invariant when one is recorded); **no task-shape landmines** (`D-26` — those fire at the edit) |
+   | Coupling `FR-A2b` | `PostToolUse` Read/Grep/Glob | `cochange_pairs` partners of the touched file above bar | partner file(s) with ratio ("17 of its last 20 changes") + commit pointer |
    | Reuse `FR-A2c` | `PostToolUse` Grep/Glob (a functionality search) | searched term → symbols FTS gives the **candidate set**; `symbol_refs` gives each candidate's referencing-file count; X is *canonical* when its count **dominates the runner-up** (≥ k×, tunable, stored) — **and only when every candidate in the set is evidence-comparable**: a candidate whose `symbol_refs` support is structurally absent (a language whose frontend declares `imports: false` — its count sits at 0 by construction, not by observation) marks the set incomparable and **no dominance crown is claimed** (silence — the safe direction, since dominance arithmetic alone cannot separate a structurally-uncountable true convention from a covered rival). **The discriminator is the candidate language's declared `imports` capability (AD-12), not its stored count and not ext→grammar table membership**: a candidate whose language declares `imports: false` (the generic frontend, or a grammar with no written imports query) is structurally uncounted → incomparable; so is a candidate whose language's repo-wide unresolved-import share exceeds `reuse.max_unresolved_import_share` (AD-12; its counts miss the imports that never resolved, e.g. `tsconfig` path aliases — review record 2026-09-26, CH H4); a symbol in an `imports: true` language whose count is 0 is *observed*-0 and stays comparable, so an unimported symbol is never over-silenced. (*Superseded 2026-09-26:* keying on table membership would read a tabled grammar with no imports query — 0 edges by construction — as observed zero and crown a rival, the failure this rule exists to prevent; review record 2026-09-25, G13) | The **comparative** convention fact: "of the N **symbols matching this search**, X is the one M files use; the runner-up has m" — the set is named for what it is (a lexical match set, restricted to same-kind symbols; FTS cannot certify functional substitutability, so the text never claims it), and the identifier-match heuristic's false-positive class (same-named symbols, matches in comments/strings) is stated in the whisper's evidence, as is the mixed-language caveat (`imports: false` languages have no `import_edges`, so dominance systematically favors `imports: true` candidates — L6). A bare reference count is one grep and never ships (P5); dominance over an un-enumerated alternative set is what the agent cannot cheaply self-serve. No dominant candidate → silence |
-   | Consequence `FR-A2d` | `PreToolUse` Edit/Write | coupled **test files** of the target (pairs where partner ∈ `test_map`); zone flag of target | historically-coupled tests + zone flag; never a raw call-site count alone — worded as a fact about **the file this edit targets** ("`x.ts`, the file this edit targets, has historically changed with `x.test.ts` in 7 of its last 9 changes: …"), never "just edited" — the model reads it next to the tool result, on the next model request, whether the call ran, failed or was denied (V20; pending spec sign-off R-1…R-5) |
-   | Warning ⚠ `FR-A2e` | `PreToolUse` Edit/Write | `landmines` rows for target (revert_chain, fix_chatter, human_stated) | the hazard with its evidence and **flagged confidence** (`FR-A5a`), worded as a fact about **the file this edit targets** ("⚠ `x.ts`, the file this edit targets, was reverted in 2 commits: …"), never "just edited", so the move it informs is the next one — revise, proceed, or retry (V20; L12; pending spec sign-off R-1…R-5) |
-   | Completeness `FR-A2f` | `Stop` / `SubagentStop` | the session's edited files, all consumers; trigger set per the event (below) → un-edited partners above ratio floor | "you changed X but not Y, paired in 9 of its last 10 changes"; a trigger file edited only by a subagent is worded as changed "in this session by a subagent", never "you changed" |
-   | Verification `FR-A2g` | `Stop` with done-claim | changed regions (from `outcome='ok'` rows — AD-4's split filter) → `test_map` covering tests, minus test runs observed in `observed_actions` **of either outcome** (a failed run *is* a run — AD-4; a run-and-failed covering test at a done-claim is `FR-A2m`'s Phase B case per `D-27`, and Phase A's duty is only never to assert "not run" over it). The `command_class` classifier is **ternary; classes 1 and 2 are config-enumerated (in `tuning`, AD-5 — tended via `ctxoracle tune`), class 3 is the default complement** (anything outside both lists — a partial classifier would leave everyday commands with no class and an unstated default, whose unsafe direction re-admits the false "not run"): (1) *recognized test runner* → mapped subtraction (unmappable target ⇒ subtract all); (2) *recognized-innocuous* (a conservative allowlist of command heads that cannot run tests: `ls`, `cd`, `cat`, `git status`-class, `grep`/`rg`, …) → no effect on run-state; (3) everything else → run-state unknown, and **the shipped branch is the weaker honest claim** ("no *recognized* test run touched T; recognized runners: …" — it keeps the genre alive and still headlines the mapping, satisfying AC-8's content assertion), never the strong "not run". **Classification is per pipeline segment**: the command line is split on `&&`, `;`, `\|`, `\|\|`, `&` and a newline — every bash list and pipeline separator (executed on GNU bash 5.2.21: a newline and `&` each start a new command; R-31, B2 E-5 (h)) — **quote-aware** (operators inside quotes are not split points; quoting the splitter cannot parse → class 3 wholesale; subshell / `sh -c` wrappers → class 3 wholesale; a heredoc → class 3 wholesale, because its body is input to a command, not a command the splitter can classify); recognized-innocuous requires **every** segment's head on the allowlist; **segments contribute independently** — each runner segment subtracts its run, and any unknown segment still sets run-state unknown (so a runner+unknown compound both subtracts and composes the weak claim); head-matching a compound (`cd pkg && npm test`) as innocuous would re-manufacture the false "not run" | the covering-test **mapping** for the changed region, with the honest run-state clause; run-state never stands alone (AC-8) |
-
-   **Completeness: whose edits count (G-10 as corrected, settlements; R-32).**
-   The **changed set** — a partner in it is never named as unchanged — is every
-   `ok` Edit/Write/NotebookEdit path in `observed_actions` for the event's
-   `session`, any consumer. The **trigger set** — the files whose partners are
-   checked — is, at `Stop` (consumer `(session, 'main')`), every `ok` edit path of
-   the session, any consumer, and at `SubagentStop` (consumer
-   `(session, agent_id)`), that subagent's own `ok` edit paths. Other sessions
-   never count (a different `session_id` is another conversation, B3a E-9's
-   key). The reader gains `sessionOkEdits(): {path, consumer}[]`, read as
-   `SELECT path, consumer FROM observed_actions WHERE session = ? AND outcome =
-   'ok' AND path IS NOT NULL AND tool IN (EDIT_TOOLS) GROUP BY path, consumer
-   ORDER BY min(seq)`, the same first-edit order the per-consumer reader keeps,
-   because the headline order depends on it. Delivery stays per consumer
-   (`FR-O6`). *Why:* read per consumer, the main agent's "but not Y" is false
-   when a subagent of the same session did change Y — a checkably false
-   statement about the tree, "the worst output for a provenance tool" (spec) —
-   and a half-finished pair a subagent left is hidden from the main agent's
-   done-claim, the case `OL-12` wants caught; read per session for both sets, a
-   subagent is told "you changed X" about work it did not do. The main agent
-   owns what it delegated, so its trigger set includes its subagents' edits; a
-   subagent's hook output does not reach the parent (V18), which is why the
-   main agent must be told itself.
+   | Consequence `FR-A2d` | `PreToolUse` Edit/Write | coupled **test files** of the target (pairs where partner ∈ `test_map`); zone flag of target | historically-coupled tests + zone flag; never a raw call-site count alone — worded as a fact about **the file this edit targets** ("`x.ts`, the file this edit targets, has historically changed with `x.test.ts` in 7 of its last 9 changes: …"), never "just edited" — the model reads it next to the tool result, which may be a failure or a denial (V20) |
+   | Warning ⚠ `FR-A2e` | `PreToolUse` Edit/Write | `landmines` rows for target (revert_chain, fix_chatter, human_stated) | the hazard with its evidence and **flagged confidence** (`FR-A5a`), worded as a fact about **the file this edit targets** ("⚠ `x.ts`, the file this edit targets, was reverted in 2 commits: …"), never "just edited", so the move it informs is the next one — revise, proceed, or retry (V20; L12) |
+   | Completeness `FR-A2f` | `Stop` | session's edited files (`observed_actions`) → un-edited partners above ratio floor | "you changed X but not Y, paired in 9 of its last 10 changes" |
+   | Verification `FR-A2g` | `Stop` with done-claim | changed regions (from `outcome='ok'` rows — AD-4's split filter) → `test_map` covering tests, minus test runs observed in `observed_actions` **of either outcome** (a failed run *is* a run — AD-4; a run-and-failed covering test at a done-claim is `FR-A2m`'s Phase B case per `D-27`, and Phase A's duty is only never to assert "not run" over it). The `command_class` classifier is **ternary; classes 1 and 2 are config-enumerated (in `tuning`, AD-5 — tended via `ctxoracle tune`), class 3 is the default complement** (anything outside both lists — a partial classifier would leave everyday commands with no class and an unstated default, whose unsafe direction re-admits the false "not run"): (1) *recognized test runner* → mapped subtraction (unmappable target ⇒ subtract all); (2) *recognized-innocuous* (a conservative allowlist of command heads that cannot run tests: `ls`, `cd`, `cat`, `git status`-class, `grep`/`rg`, …) → no effect on run-state; (3) everything else → run-state unknown, and **the shipped branch is the weaker honest claim** ("no *recognized* test run touched T; recognized runners: …" — it keeps the genre alive and still headlines the mapping, satisfying AC-8's content assertion), never the strong "not run". **Classification is per pipeline segment**: the command line is split on `&&`, `;`, `\|`, `\|\|` **quote-aware** (operators inside quotes are not split points; quoting the splitter cannot parse → class 3 wholesale; subshell / `sh -c` wrappers → class 3 wholesale); recognized-innocuous requires **every** segment's head on the allowlist; **segments contribute independently** — each runner segment subtracts its run, and any unknown segment still sets run-state unknown (so a runner+unknown compound both subtracts and composes the weak claim); head-matching a compound (`cd pkg && npm test`) as innocuous would re-manufacture the false "not run" | the covering-test **mapping** for the changed region, with the honest run-state clause; run-state never stands alone (AC-8) |
 
    **Consequence and Warning: why `PreToolUse`, and why "the file this edit
-   targets".** Both stay on `PreToolUse` Edit/Write, and both headlines name the
-   target file, never an edit that happened. The model reads the text next to
-   the tool result, on the next model request, whether the call ran, failed or
-   was denied, and an `Edit` path deny rule (tested; a `Read` rule not tested —
-   F-18) rejects the call before hooks
-   run, so the oracle is not invoked for it at all (V20; CR§2, DE, PD). *Why
-   (review record 2026-09-26, CH C3 / ER S1; CR§2):* "Permission denials fire
-   `PreToolUse` but not [`PostToolUseFailure`]" (hooks reference, quoted in the
-   collapse-hunt), and the text reaches the model beside a denial (DE case B,
-   PD), so the earlier "`x.ts`, just edited, …" was checkably false whenever Max
-   denied the permission prompt or the Edit failed — FR-D1's worst output. The
-   target wording is true whether or not the edit ran. Once the edit has run,
-   the agent's next decision is whether to keep it, revise it, or run the coupled
-   tests, and the text arrives at that decision (CR§2's check against the
-   mission); delivery before the edit would need a deny, the pre-emptive gate
-   Max Cogar rejected (`OL-R4`), and delivery at read time is FR-A2e / D-26's
-   job. `PreToolUse` is kept over `PostToolUse` because a denied or failed edit
-   is usually retried, and the hazard is exactly as relevant to the retry;
-   `PostToolUse` is success-only (V19) and would stay silent on it. The spec's
-   FR-A2d ("an edit / write about to run"), §5.1 ("the edit it is about to run")
-   and AC-1c ("on an edit about to run") state a timing the harness does not
-   give; their rewording to "delivered with the edit's result", with FR-O2's
-   unsourced "preserved even if the tool call later fails" dropped, is **pending
-   spec sign-off R-1…R-5**; the trigger and the genres do not change. *(Corrected
-   2026-09-28: this rested on "FR-O2 keeps a `PreToolUse` text even if the tool
-   call fails", which no page of the hooks reference says, and claimed the
-   trigger left FR-A2d/FR-A2e unchanged with "no spec change", which R-3 makes
-   false — R-8; B3a E-1, E-2, B3b E-1, CR§2, PD.)*
+   targets".** Both stay on `PreToolUse` Edit/Write (FR-A2d "an edit / write
+   about to run"; FR-A2e unchanged), and both headlines name the target file,
+   never an edit that happened. *Why (review record 2026-09-26, CH C3 / ER
+   S1):* "Permission denials fire `PreToolUse` but not [`PostToolUseFailure`]"
+   (hooks reference, quoted in the collapse-hunt), and FR-O2 keeps a
+   `PreToolUse` text even if the tool call fails, so the earlier "`x.ts`, just
+   edited, …" was checkably false whenever Max denied the permission prompt or
+   the Edit failed — FR-D1's worst output. The target wording is true whether or
+   not the edit ran. `PreToolUse` is kept over `PostToolUse` because a denied or
+   failed edit is usually retried, and the hazard is exactly as relevant to the
+   retry; `PostToolUse` is success-only (V19) and would stay silent on it.
+   Keeping the trigger also leaves FR-A2d/FR-A2e unchanged (no spec change).
 
    **The done-claim recognizer (`D-38`):** deterministic in Phase A, reading
    `last_assistant_message` (Stop input, V1): a completion-claim lexicon
@@ -4230,44 +1788,26 @@ and nothing here depends on the new channel.
    for a message without the trailer (executed 2026-09-26 on git 2.43.0:
    `git revert --no-edit HEAD` wrote subject `Revert "both"` and body
    `This reverts commit <hash>.`; git-revert(1) documents the `Reapply "…"`
-   subject for reverting a revert). git's **reference format** is a revert line
-   too: a body line matching `^This reverts commit [0-9a-f]{4,64} \(.+\)\.$`
-   (multi-line match), which `git revert --reference` writes — and
-   `revert.reference` makes the default — with an abbreviated hash and a subject
-   line the author is told to replace (executed in B7a E-17 on git 2.43.0:
-   subject `# *** SAY WHY WE ARE REVERTING ON THE TITLE LINE ***`, body
-   `This reverts commit f936044 (change a, 2024-01-01).`, which the built
-   predicate did not label; R-25 (a)). The trailer rule is execution-backed:
-   git-revert(1) documents only the `Reapply` subject, not the body line. *Fix-labelled* = a subject containing a
+   subject for reverting a revert). *Fix-labelled* = a subject containing a
    member of the `lexicon.fix_keywords` tuning list (AD-5; seeded `fix, fixes,
    fixed, fixing, bug, bugfix, hotfix`, shown in `status` with every other seed)
    as a **whole token, case-insensitively**: the subject is split on
    non-alphanumeric characters and a token must equal a lexicon member, so
-   `Fix: …` and `bug-fix` match and `fixture`, `prefix`, `suffix` do not. The
-   seven words are **an architect's tunable seed**, calibrated by the human
-   channel on Phase A data; SZZ (Śliwerski, Zimmermann, Zeller, MSR 2005) is
-   credited for the **method** only — matching keywords as words — not for the
-   vocabulary, since its regex is `fix(e[ds])?|bugs?|defects?|patch`, which does
-   not produce this seed (B3b E-14). Neither vocabulary has been measured on
-   the owner's repositories, so the seed is kept, marked unsourced, and Phase
-   A's correction data decide it (R-25 (b)). The miner
+   `Fix: …` and `bug-fix` match and `fixture`, `prefix`, `suffix` do not. Source:
+   the SZZ keyword heuristic (Śliwerski, Zimmermann, Zeller, MSR 2005), which
+   matches keywords as words. The miner
    reads the subject and the revert trailer only and never stores message text.
    The evidence stays commit hashes (AD-19 pointer-only). **Revert detection**
-   runs over every commit of the target set (AD-13) **before** the transaction-size
+   runs over every horizon-included commit **before** the transaction-size
    exclusion: that filter exists to keep refactor sweeps out of *pair* counts
    (AD-13), and a revert of a large commit is still a revert, git-generated
    rather than tangled evidence. **Fix-keyword detection** runs only on
    *included* commits, after the exclusion. *Why (review record 2026-09-26, CH
    C1 / ER M10):* the "still a revert" reason covers reverts only; HERZIG, which
-   FR-K2 and FR-D3 cite, is the evidence that tangled commits inject noise
-   ("such tangled changes will make all changes to all modules appear related,
-   possibly compromising the resulting analyses through noise and bias") and
-   that large commits are mostly perfective, so a 200-file "fix lint" sweep
-   would have labelled 200 files as fix-chatter and inflated Warning false fires
-   in the exit data; and substring matching labelled "fixture", "prefix", and
-   "suffix". *(Corrected 2026-09-28: the HERZIG reason said "large and tangled
-   commits inject noise", attributing to size what the paper says of tangling —
-   R-25 (c); B3b E-14, E-25.)*
+   FR-K2 and FR-D3 cite, is the evidence that large and tangled commits inject
+   noise, so a 200-file "fix lint" sweep would have labelled 200 files as
+   fix-chatter and inflated Warning false fires in the exit data; and substring
+   matching labelled "fixture", "prefix", and "suffix".
 
    **Derivation.** Labelled commits are written to `labelled_touches` (AD-4) in
    the same chunk transaction as the commit's other rows (AD-26). At the end of
@@ -4302,20 +1842,14 @@ and nothing here depends on the new channel.
 5. **Premise verification.** V1 (`last_assistant_message` Stop-only), V19
    (tool events carry `tool_name`/`tool_input`; the success/failure event
    split that `observed_actions.outcome` rests on), V20 (a `PreToolUse` whisper
-   is read next to the tool result, whether the call ran, failed or was denied,
-   fetched 2026-09-26 and 2026-09-28; the denial cases tested in DE and PD on
-   Claude Code 2.1.283); hooks reference line 2103
+   is read after the tool ran, fetched 2026-09-26); hooks reference line 2103
    ("Permission denials fire `PreToolUse` but not this event") as fetched and
    quoted in `docs/reviews/2026-09-26-architecture-pass-collapse-hunt.md` (C3);
    the label, derivation, and
    discriminator decisions from the review record
    `docs/reviews/2026-09-25-skeleton-gap-list-review.md` (G1, G5, G13, and the
    `PreToolUse` item), revised by the 2026-09-26 review records (CH C1, C3, H4;
-   ER S1, M2, M10); the 2026-09-28 corrections — the reference-format revert
-   line, the seed's status and HERZIG's wording, the partner-level drop and the
-   two ratios, the bash separators (executed on GNU bash 5.2.21 in B2 E-5 (h)),
-   the Completeness sets, and the hooks timing — from the register (R-8,
-   R-25, R-30–R-32) and G-10 as corrected; `FR-A2a`–`FR-A2g`, `D-26`,
+   ER S1, M2, M10); `FR-A2a`–`FR-A2g`, `D-26`,
    `D-38` read at spec §4/§12. Addresses: those plus AC-1, AC-1a–AC-1d, AC-8.
 
 ### AD-16 — Delivery, dedup, session-boundary reconciliation, Stop-time injection
@@ -4351,22 +1885,14 @@ and nothing here depends on the new channel.
    stays directional, `completeness:<edited file_id>:<missing file_id>`, because
    that fact is about which file is missing from this change set, and "you
    changed A but not B" and "you changed B but not A" are different facts.
-   *Why (review record 2026-09-26, CH H3; R-30 (a), B3b E-17):* the two
-   directions share the pair and the commit pointer but **not** the ratio — read
-   from A the agent learns "B is in 17 of A's last 20 changes", read from B "A is
-   in 17 of B's last 200", a different conditional, which ROSE defines per
-   antecedent ("the relative amount of the given consequences across all
-   alternatives for a given antecedent") — so the one Coupling whisper renders
-   **both** ratios (AD-15), and the canonical key then suppresses nothing the
-   agent was not told; FR-A4 says never repeat, and nobody had decided the
-   direction. *(Corrected 2026-09-28: the reason said the two directions were
-   "the same co-change claim (only the confidence denominator differs)".)*
-   Pinned by the `coupling-key-symmetry` fixture (AD-24).
+   *Why (review record 2026-09-26, CH H3):* the headline and the commit pointer
+   the agent reads for A→B and B→A are the same co-change claim (only the
+   confidence denominator differs), and FR-A4 says never repeat; nobody had
+   decided the direction. Pinned by the `coupling-key-symmetry` fixture (AD-24).
    **Session boundaries (`D-20`), keyed by `SessionStart.source` (V5), exactly
    as `FR-A4` states them, acting only on the event's own consumer's sets**
-   (never another session's; by code reading, the role-keyed form let one
-   session's `startup` clear every live session's sets — review record
-   2026-09-25, G23, a code-read item, not an executed one — R-39; B3a E-9):
+   (never another session's; the role-keyed form let one session's `startup`
+   clear every live session's sets — review record 2026-09-25, G23):
    `startup`/`clear` → both sets cleaned; `resume`/
    `fork` → both sets reseeded (kept); `compact` → the `read` set is cleared
    (the agent's context lost what it had read) and the `delivered` set is kept.
@@ -4375,9 +1901,7 @@ and nothing here depends on the new channel.
    no parent rows to copy. The `delivered` set is rebuilt from the
    oracle-injected text the transcript carries, since Claude Code saves injected
    text in the transcript (V22): each oracle-injected block in the forked
-   transcript — every entry, whatever its `sessionId` field, since which id the
-   copied pre-fork entries carry is not observed (V22; G-11, settlements) — is
-   matched by **exact text** against `whisper_audit.text` in this
+   transcript is matched by **exact text** against `whisper_audit.text` in this
    project store (the audit row exists before emit, AD-8), and the matched row's
    `subject_key` (AD-4) is admitted. Unmatched text is skipped. The safe
    direction is under-seeding: a fact may repeat, none is withheld. A fork or
@@ -4394,14 +1918,8 @@ and nothing here depends on the new channel.
    requiring `is_error: false` admitted nothing and the reseeded read set was
    always empty — plan-pass collapse-hunt, D-plan-39 collapse). If the layout
    changes, AD-11's `transcript_layout_changed` fires. A result whose outcome
-   the reader cannot establish at all is not admitted: an unpaired `tool_use`
-   (no `tool_result` follows it) and a `tool_result` whose `tool_use_id` matches
-   no `tool_use`. That under-seeds
-   the `read` set, and a fork or resume rebuild that finds file-tool results
-   and admits none writes `rebuild_recovered_nothing` with
-   `detail_json.set = "read"`, so an empty reseed is reported, not silent (R-33;
-   B4 verification item 3, B5 verification item 8, B5a E-17: the fault covered
-   only the delivered set). The cost is that the oracle may speak a fact the agent had
+   the reader cannot establish at all is not admitted. That under-seeds
+   the `read` set. The cost is that the oracle may speak a fact the agent had
    already read for itself. It never withholds a fact about a file the agent did
    not read. Questions
    are rebuilt by AD-9's offset-0 classification. A `resume` whose `session_id` has no rows is reseeded the
@@ -4411,125 +1929,27 @@ and nothing here depends on the new channel.
    when `stop_hook_active` is true the handler emits nothing on that channel
    (V3), making the single-cycle bound structural. The deny path is never
    wired to Stop events (AD-10's caller set).
-   **The response cap and the order of whispers (F-22; settlement (a); R2-1,
-   R2-2, R2-3; round-2 review and coordinator rulings).** The harness caps what
-   one response can deliver: "A hook's additionalContext, systemMessage, and
-   initialUserMessage strings, and its plain stdout, are capped at 10,000
-   characters", measured per string. What Claude Code does with a longer one,
-   in the reference's words: "If a value exceeds 10,000 characters, Claude Code
-   writes the text to a file in the session directory and passes Claude the
-   file path with a preview of up to the first 2,000 characters instead. Claude
-   can read the file, but Claude Code doesn't ask it to." (hooks reference,
-   `code.claude.com/docs/en/hooks.md`, "Add context for Claude", fetched
-   2026-09-28 with `curl`). So over the cap the **whole** string is replaced:
-   the model is handed a file path and the string's first 2,000 characters,
-   and every whisper past those 2,000 characters reaches it only inside a file
-   it is not asked to open.
-   **The composer's rule:** the response's one `additionalContext` string is
-   built from **whole whispers** — never a cut whisper, since a cut pointer or
-   ratio is FR-D1's unverifiable claim — and holds **every whisper that clears
-   the bar at the event**. When they fit within 10,000 characters the model
-   reads all of them. **When they do not, the composer still delivers every one
-   of them, whole, in that one response, and records `response_over_cap`**
-   (`{event, whispers, chars}`, AD-17); Claude Code then substitutes the file
-   and the 2,000-character preview quoted above. This is the interim rule until
-   Max Cogar decides `OL-C1`'s over-cap question (below; coordinator ruling on
-   R2-1), and it is the one the written decisions already fix: AC-3, "Two
-   candidates meeting the bar at one event are both delivered", and `OL-C1`, "a
-   malfunction is surfaced by diagnostics, never by suppressing whispers" —
-   sending everything holds nothing back, and the substitution is recorded rather than
-   hidden (M-27). **Stated limitation (L16; M-25): over the cap, the model's
-   preview may end partway through a whisper**, which it then sees without its
-   pointer or ratio, the rest of that whisper and every later one reaching it
-   only inside the file. The size, derived: at most one whisper per over-cap
-   response is cut in the preview — the one that straddles its 2,000th
-   character — and every whisper wholly past it is in the file only. How often
-   the case arises is measured: `response_over_cap` counts over-cap responses,
-   and every response, over the cap or not, records its composed length in
-   `session_log.detail_json`; no measurement of response length exists yet,
-   and no volume term exists to keep a response under the cap (AD-14). The
-   handling is chosen with `OL-C1`'s over-cap decision, from the exit data.
-   Whether a whisper the model receives only inside that file counts as
-   "delivered" is a question about AC-3's text, so **AC-3's over-cap case goes
-   to Max Cogar with `OL-C1`'s question** (below), and is not a wording
-   correction like R-1…R-5, which are harness facts, "not a design choice put
-   to him" (CR§2, carried by the register's §2.1) (R3-6: the earlier text filed
-   it "beside R-1…R-5" as though it were one). A single whisper longer than the
-   cap (a long name, AD-12) is the same case and is sent whole the same way.
-   **Pending owner decision (`OL-C1`): what the oracle does when the cleared
-   whispers exceed the cap.** Facts for the decision: over 10,000 characters
-   Claude Code replaces the whole string with a file path and a preview of its
-   first 2,000 characters and does not ask the model to read the file, and the
-   hooks reference itself advises "keep anything Claude must always see within
-   the cap" — advice sending everything cannot follow when the cleared whispers
-   exceed it; the preview then ends partway through a whisper (L16). The
-   options are: **send all** (the interim rule above — nothing is held back,
-   and the model sees the preview and the path, with the rest in the file);
-   **withhold** (send the whole whispers that fit within 10,000 characters and
-   hold the rest back, each time recorded); or **defer to the next event** (send
-   the whole whispers that fit now, and the rest at the consumer's next event).
-   Withholding and deferring each make a limit decide whether or when a cleared
-   whisper speaks, which `OL-C1` ("at no point should an arbitrary limit
-   influence how that operates") makes Max Cogar's call, not this document's;
-   the plain-language question goes to him through `docs/STATUS.md`, not from
-   here. R-20's name bound (AD-12) waits on this decision.
-   **The order of whispers in a response is fixed and carries no weight** (M-26):
-   at `Stop` the outstanding-question line (`FR-B4`, AC-8a) comes first — it is
-   not a bar candidate, and it is the delivery of the owner-confirmed block's
-   backstop (`OL-C3`) — then the cleared whispers in the order the pipeline
-   produces them (genre by genre, and within a genre the generator's own order:
-   Orientation's entry-point rank, Completeness's first-edit order, AD-15), so
-   the order is deterministic, which the replay fixtures need. Below the cap
-   the order changes nothing the model reads; over it, it decides which whisper
-   the preview holds, the case whose handling waits on `OL-C1`. A rank of
-   whispers by worth is designed with that decision if the decision needs one.
-   *(Changed 2026-09-28, M-25, M-26: the composer padded the response so the
-   preview ended on a whole whisper and ordered whispers by a rank —
-   decision-impact, then confidence, then generator order, then subject key,
-   with a five-step derivation — both built for the over-cap case before any
-   measurement of how often it arises and before `OL-C1`'s decision on it; the
-   pad's unit rule was R4-6's defect. Added 2026-09-28, F-22, and corrected by
-   R2-1–R2-3: no decision had said how a response that could exceed the cap is
-   handled; the rule then said the response "is kept within 10,000 characters"
-   while saying withholding was pending, and named one option where three
-   exist.)*
 2. **Standard.** `FR-A4`, `FR-D5`, `FR-O6`, `FR-B4`, `D-20` governing; V3/V5 are
    the verified channel facts.
 3. **Why here.** Dedup state is exactly the state that must survive process
    boundaries (AD-1), and the reconciliation table is the difference between
    "never repeat" and "never speak again" across a compaction.
 4. **What this is NOT.** Not a session-wide shared dedup set (starves subagents
-   of facts the main agent heard — `FR-O6`'s per-consumer property). Not a
-   response cut at 10,000 characters mid-whisper, and not a top-k (the bar
-   decides — `OL-C1`). Not a padded preview or a worth rank of whispers built
-   before `OL-C1`'s over-cap decision (M-25, M-26; the cut preview is L16). Not
+   of facts the main agent heard — `FR-O6`'s per-consumer property). Not
    `decision:"block"` at Stop for delivery (surfaced as an error — V3; the
    spec chose `additionalContext`, `FR-B4`). Not re-delivery suppression by
    time window (a cap in disguise; the bar and the sets are the only filters).
-   Not withholding or deferring cleared whispers over the cap (pending
-   `OL-C1`, above).
 5. **Premise verification.** V3, V5, V22 (no parent session in `SessionStart`
    input; injected text saved in the transcript — the documented field list,
    fetched 2026-09-26, not an observed fork payload); the consumer-key,
    incorporation, and fork decisions from the review record
-   `docs/reviews/2026-09-25-skeleton-gap-list-review.md` (G23/G29's
-   cross-session deny and cross-session/cross-subagent silencing executed on
-   the real binary; its byte-offset and `startup`-clearing items reasoned from
-   code, R-39; G25); the unestablishable read-set cases and the `"read"` report
-   from the register (R-33) and B5a E-17; the sessionId-blind fork read from
-   G-11 as corrected; the two-ratio reason from B3b E-17 (ROSE quoted there);
-   the subject-key direction and the delivered-set
+   `docs/reviews/2026-09-25-skeleton-gap-list-review.md` (G23/G29 executed on
+   the real binary, G25); the subject-key direction and the delivered-set
    recovery from `docs/reviews/2026-09-26-architecture-pass-collapse-hunt.md`
    (H2, H3) and `docs/reviews/2026-09-26-architecture-pass-expert-review.md`
-   (M8); the 10,000-character cap and the over-cap substitution read in the
-   hooks reference, fetched 2026-09-28 with `curl` (F-22; R2-1, R2-2: both the
-   "Over the limit" bullet and the "Add context for Claude" sentence quoted
-   above) and the "Reading the file" advice (R3-6; the same reference,
-   re-fetched with `curl` on 2026-09-28, R4-11); the pad and the rank cut and
-   the fixed order and the stated limitation put in their place (M-25, M-26,
-   collapse hunt), with the canonical Coupling key verified at build by the
+   (M8), with the canonical Coupling key verified at build by the
    `coupling-key-symmetry` fixture (AD-24: Read of A, then Read of B, delivers
-   the A–B Coupling fact once, with both ratios); `FR-A4`, `FR-B4`, `D-20` read at spec
+   the A–B Coupling fact once); `FR-A4`, `FR-B4`, `D-20` read at spec
    §5.1/§8/§12. Addresses: `FR-A4`, `FR-D5`, `FR-O6`, `FR-B4`, AC-4, AC-5,
    AC-8, AC-15.
 
@@ -4545,22 +1965,8 @@ and nothing here depends on the new channel.
      part of the home layout, AD-3) takes every fault raised before the
      repository is known (unparseable stdin is the executed case), and is the
      only thing the handler may write after a binding miss (AD-23): the
-     `repo_not_bound` fault, once per `session_id`. The once-per-session bound is
-     kept by a home-level marker file keyed by `session_id`. The same marker
-     bounds AD-4's legacy-store spawn, which takes the fault's place while
-     `projects/` holds a legacy project store (R7-6; round-7 review); the
-     spawned child then writes the same fault on this channel for a derived key
-     whose store is current and this root is not bound to, or that has no
-     store (AD-4's three states; R8-1, R9-3), so the miss is recorded once per
-     session either way. **The
-     marker's lifetime is its session's**: the same session's `SessionEnd` event
-     deletes it, whether or not it now finds the binding (a rebuild child may
-     have bound the repository meanwhile), so the markers do not accumulate one
-     per unbound session for the life of the install. What it costs: a session that ends
-     without delivering `SessionEnd` leaves its marker behind, and a resumed
-     session whose marker was deleted writes the fault once more (R-12 (a); B3b
-     E-5: no rule said the markers were ever removed). `status` reads both
-     channels, and lists home-level faults wherever it is run. *Why:* executed in the
+     `repo_not_bound` fault, once per `session_id`. `status` reads both, and
+     lists home-level faults wherever it is run. *Why:* executed in the
      review of 2026-09-25 (G35), `{not json` on stdin left zero faults
      anywhere. The fallback appended into a directory that did not exist, and the
      handler swallowed the error, so a whole failure class was invisible —
@@ -4580,63 +1986,20 @@ and nothing here depends on the new channel.
      and in a detached child spawned after `SessionStart`; on event-path
      statement failure the handler goes **fully silent** for that event — no
      whisper either, since candidates and the audit write are store operations
-     — with the fault appended to the JSONL channel and `status` flagging it;
-     a busy lock is not corruption: a `StoreBusy` from a write group is recorded
-     as `store_busy`, below, never as `store_corrupt`),
+     — with the fault appended to the JSONL channel and `status` flagging it),
      `index_stale` (`index_head` ≠ `HEAD`), `produced_but_undelivered` (audit
      row exists, emission failed), `deny_after_answer_lag`,
      `deny_despite_answer_text`, `deny_loop`, `deny_bypass_suspect`,
      `catchup_incomplete`, `intake_invalidated`, `rebuild_recovered_nothing`
-     (all AD-9; its `detail_json.set` is `questions` for AD-9's rebuild, and
-     `delivered` and `read` for AD-16's delivered-set and read-set reseeds),
-     `transcript_layout_changed` and
+     (all AD-9; its `detail_json.set` is `questions` for AD-9's rebuild and
+     `delivered` for AD-16's delivered-set reseed), `transcript_layout_changed` and
      `unrecognized_user_entry` (AD-11), `repo_not_bound` (a wired hook fired at
      a root with no `init`-recorded binding; home-level channel, once per
      `session_id` — AD-23), `whisper_dropped_unverifiable` (a candidate dropped
      under the rumor rule — `stale_pointer`, `not_in_tree`, or `masked_path`,
      AD-15/AD-19; a count, not a failure, surfaced so masked or deleted pointers
      silencing a genre are visible), `import_rejected` (an export failed
-     `quick_check` or another of import's checks before touching a live store,
-     or the process survived a failure between its two live writes,
-     `check: 'partial_write'` — AD-5), `store_busy` (a write transaction that
-     still raised `StoreBusy` after its retry: `{writer: 'handler'|'miner'|
-     'indexer', phase}` with the event kind for the handler — AD-26),
-     `history_rewritten` and `branch_changed` (a same-ref rewrite or a ref
-     change, each `{…, evicted, added}`, recorded by the reconciling pass —
-     AD-13), `git_failed` (any git subprocess failure on an off-path pass,
-     `{writer, subcommand, status, signal, stderrTail}` — AD-13),
-     `miner_ref_ts_invalid` (a `refTs` the miner refused — AD-13),
-     `mining_resumed` (a pass that found `mining_in_progress` set,
-     `{interrupted}`: how many passes started the unfinished work — AD-13,
-     R9-6), `recompute_superseded` (an unfinished recompute replaced by one at
-     a changed `h` or past its epoch's bound, `{from: {h, epoch}, to: {h,
-     epoch}}` — AD-13, R9-1),
-     `write_hold_exceeded` (at most one per pass: the longest write-lock hold
-     over 150 ms and the count of such holds — AD-26), `reindex_locked` (a
-     reindex refused while another holds the lock, with the holder's pid and
-     start time — AD-26), `tuning_invalid` (an invalid stored tuning row,
-     recorded once per distinct `(key, value)`, with the value in full; the
-     whole event is silent — AD-14), `handler_exception` (any other error the
-     handler's top-level catch receives, `{name, message}` — AD-14),
-     `store_schema_refused`, `store_migration_pending` and `store_legacy` (the
-     schema check's refusal, a pending store and a legacy store awaiting its
-     rebuild, on the hook path — AD-4), `store_migrated` and `store_rebuilt`
-     (records, not failures: a migration applied; a legacy store rebuilt beside,
-     with its layout, the counts carried, the carried rows' per-table digests and
-     every value not carried by table, rows, key and reason — AD-4; M-3; F5-11,
-     F5-18, R6-2), `store_rebuild_failed` (a rebuild that stopped after its first
-     step, `{legacyPath, error}`; the store stays legacy — AD-4; F5-11, R6-8),
-     `rebuild_locked` (a global rebuild refused while another holds
-     `global/rebuild.lock` — AD-4, AD-26; F5-11), `miner_ts_capped`
-     (commits whose author time the pass capped at `refTs`, `{count, firstHash}`
-     — AD-13), `miner_stream_incomplete` (a pass that did not mine every commit
-     it fed, so the watermark stayed — AD-13), `head_unresolved` (a `HEAD` that
-     resolves through neither a loose ref nor `packed-refs`, recorded on the
-     transition — AD-23), `response_over_cap` (a response whose cleared
-     whispers, all sent whole, exceed the harness's 10,000-character cap, so
-     Claude Code passes the model a file path and a 2,000-character preview
-     instead; `{event, whispers, chars}` — AD-16; R2-1; M-25) (F-8, F-19, F-22),
-     and two reserved codes whose detectors
+     `quick_check` before touching the live store — AD-5), and two reserved codes whose detectors
      belong to later phases — `model_path_down` (Phase B; Phase A has no model
      path and `status` says so) and `missed_skill_block` (Phase C, `FR-C4`) —
      for which `status` reports "not yet measured (Phase B/C)" rather than 0,
@@ -4661,30 +2024,9 @@ and nothing here depends on the new channel.
      done-claims-with-outstanding-question (per AD-9's counter definition,
      displayed **with its Phase A structural-limit label**), deny-loop and
      bypass-suspect signals, active suppressing conditions (store corrupt,
-     layout changed, FTS fallback, an active `tuning_invalid` — every event
-     silent until it is fixed, with the fixing command, AD-14 — a refused store
-     schema, a pending migration with the command that finishes it (AD-4, F-3),
-     a legacy store awaiting its rebuild with the command that runs it, the
-     latest `store_rebuild_failed` with its error, each legacy project
-     directory still present (R6-3), and, after a
-     rebuild, what was carried, the repository root it bound (AD-4, R9-9),
-     where the old file is kept, every value not
-     carried with its reason, and each table whose carried rows the old file
-     changed since (AD-4; M-3; F5-11, F5-18, R6-2), an unresolved `HEAD` while
-     `head_unresolved_since` is set (AD-23; R2-12, R3-2: its facts dampened, the
-     refresh made at each session start by the early-exit child), and `mining_in_progress` — whose
-     suppressed events are counted, with, in plain words, how many times the
-     unfinished history pass was interrupted and resumed (`mining_resumed`)
-     and each recalculation superseded by a changed half-life or a checkout
-     (`recompute_superseded`; AD-13, R9-6)), and correct-silence announcements (`FR-M3`:
+     layout changed, FTS fallback), and correct-silence announcements (`FR-M3`:
      "observed N events, spoke at M — the silence was the bar working", rendered
-     **only** here, never into the agent's context, `D-22`), from which the
-     events suppressed under `mining_in_progress` are excluded, since that
-     silence was the flag, not the bar (R-36 (f); B3b E-7). `status` also shows
-     each pass's longest write-lock hold (AD-26), the reindex lock's state
-     (AD-26), the per-language capabilities, exclusions and `test_map` capability
-     (AD-12), the miner's rename counts (AD-13), and the history horizon in
-     force (`N` commits / `Y` years, AD-13; F-14).
+     **only** here, never into the agent's context, `D-22`).
    - **`ctxoracle log` (`FR-M5`):** the whisper/deny audit trail per session,
      with evidence and pointers.
 2. **Standard.** `OL-10` (the owner cannot catch silent failures) governing;
@@ -4702,18 +2044,7 @@ and nothing here depends on the new channel.
    record `docs/reviews/2026-09-25-skeleton-gap-list-review.md` (G35); the
    `repo_not_bound`, `whisper_dropped_unverifiable`, `import_rejected` codes and
    the widened `rebuild_recovered_nothing` from the 2026-09-26 review records
-   (CH H2, H6, H7; ER M8, M11, M12, M14); the 2026-09-28 additions — the marker
-   lifetime (R-12 (a)), the `read` set (R-33), `mining_in_progress` in `status`
-   (R-36 (f)), and the codes that come with AD-4, AD-13, AD-14 and AD-26's
-   corrections (C-4, G-2, G-5, G-6, G-7, G-8 and Flaw 1 as corrected, and C-2
-   and Flaw 3 for the two reconcile outcomes); the codes F-8 found unnamed or
-   dropped, `head_unresolved` (F-19; RC-27), `response_over_cap` (F-22), the
-   pending-store condition (F-3) and the horizon (F-14) from the correction
-   review; the over-cap delivery `response_over_cap` records (R2-1) from the
-   round-2 review; `store_legacy` and `store_rebuilt` (M-3), and
-   `store_rebuild_failed` and `rebuild_locked` (F5-11, round-5 review), with
-   `reindex_lock_replaced`, `store_migration_failed` and `response_over_cap`'s
-   preview fields cut (M-32, M-4, M-25), from the collapse hunt.
+   (CH H2, H6, H7; ER M8, M11, M12, M14).
    Addresses: `FR-M1`–`FR-M5`, `FR-X6`, AC-9.
 
 ### AD-18 — The Phase A regret proxy and the human channel
@@ -4736,17 +2067,12 @@ and nothing here depends on the new channel.
    verdict on answer-drift may carry the dropped question's text
    (`ctxoracle correct --missed-question "<q>"`); the text is routed **through
    the same question recognizer as every other opener** (minus the `?`
-   requirement — Max may paraphrase), so it opens a question row in one
-   session's main consumer, and the identical deviation is thereafter denied in
-   that session. **Which session:** the one named by `--session`; without it,
-   the CLI reads the open sessions (those with no recorded `SessionEnd`) —
-   exactly one → it arms that one; several → it arms none, lists them in plain
-   language (each one's last activity time and working directory, never a bare
-   id) and asks for `--session`; none → it arms nothing and says so. The CLI
-   always prints the session it armed. *(Corrected 2026-09-28: it armed "the
-   session with the most recent event", which picks one of several live
-   sessions by timing the owner cannot see — R-13; B4 p2 E-19, B5 verification
-   item 7, B5a E-24.)* *(Plan-pass collapse-hunt H5: the newest liveness row is
+   requirement — Max may paraphrase), so it opens a question row in **the
+   session with the most recent event** (the newest `session_log` row by `seq`,
+   or the one named by `--session`), the CLI prints which session it armed, and
+   the identical deviation is thereafter denied in that session. If that session
+   has ended (its `SessionEnd` is recorded), the CLI arms nothing and says so,
+   naming `--session`. *(Plan-pass collapse-hunt H5: the newest liveness row is
    the most recently started session, which may have ended.)* *(Why,
    2026-09-26: the consumer key is per session (AD-4), so "thereafter denied"
    needs a session; arming every session is the executed G23 defect, and a
@@ -4783,9 +2109,7 @@ and nothing here depends on the new channel.
    distinction is visible). Not automated demotion input (Phase C).
 5. **Premise verification.** `FR-L4`, `FR-L6`, `FR-L7`, `D-36`, `D-12` read at
    spec §11.3/§12; the `--genre` attribution from
-   `docs/reviews/2026-09-26-architecture-pass-collapse-hunt.md` (C4); the
-   single-open-session arming rule from the register (R-13; B4 p2 E-19, adopted
-   by B4 p3's adjudication and B5). Addresses:
+   `docs/reviews/2026-09-26-architecture-pass-collapse-hunt.md` (C4). Addresses:
    those, AC-2c (answer-drift under-fire), AC-23, AC-24.
 
 ### AD-19 — Security controls (mapped to the threat model below)
@@ -4796,13 +2120,10 @@ and nothing here depends on the new channel.
      pattern rules for known secret shapes (keys, tokens, PEM blocks,
      `KEY=value` credential forms) plus a high-entropy-token heuristic;
      redactions are replacements with a stable marker, counted in diagnostics.
-     **An identifier is not free text:** a symbol name any frontend (tree-sitter
-     or generic) records as a declaration name gets the pattern rules only, never
-     the entropy heuristic, and the indexer applies the rule for both frontends,
-     with the tuned `security.entropy_*` values wherever the entropy heuristic
-     runs. *(Corrected 2026-09-28: the rule named only a name "the parser
-     captured", and the generic frontend's `T11_DiscoveryWorkflowTests` was still
-     redacted — R-21; B9 verification item 5, B9 E-39.)* *Why (Step 15 build review
+     **An identifier is not free text:** a symbol name the parser captured as a
+     declaration name gets the pattern rules only, never the entropy
+     heuristic, and the entropy heuristic runs with the tuned
+     `security.entropy_*` values wherever it runs. *Why (Step 15 build review
      M4, 2026-09-26, executed on this repository):* the entropy rule stripped
      70 real declaration names (61 of 789 C# symbols, e.g.
      `T11_DiscoveryWorkflowTests`), silencing facts about real code; a
@@ -4887,130 +2208,8 @@ and nothing here depends on the new channel.
    way the handler finds the store (AD-23), shown in `status`, and re-recorded
    by re-running `init` after a checkout moves; hook wiring into `.claude/settings.json` with a
    `"ctxoracle"` marker on each entry; first index; plain-language summary),
-   `deinit` (remove marked entries; **`--purge`: the one rule**, which AD-4 and
-   AD-5 refer to (R6-1; round-6 review). It deletes every file in the project
-   directory except `reindex.lock` (AD-26; M-32) — the project store, a legacy
-   `store.db` and any kept `*.pre-import-*` copy — and the project's
-   `whisper_stats` replica rows (AD-5). It deletes only while holding the
-   reindex lock, and is refused with the holder named when a pass holds it
-   (AD-26). It deletes the legacy file first, then the kept copies, then any
-   other file, and the project store last, each database file before its
-   `-journal`, `-wal` and `-shm` (R7-8; round-7 review). So an interrupted
-   purge never leaves a `store.db` without a `project.db`, which is a legacy
-   store the next claimant would rebuild, and re-running it completes. A
-   journal or WAL a kill leaves beside a deleted database is harmless because
-   every creation of that name deletes the name's `-journal`, `-wal` and
-   `-shm` first (AD-4 step 6; R8-3; round-8 review: this said SQLite deletes
-   them, which `pager.c` does only when the database is empty at open, and a
-   rebuilt file is renamed in populated, so the purged store's WAL was replayed
-   into it, the review's Z6 and Z6b). Executed
-   (the round-7 evidence): killed after each file it deletes, the purge never
-   leaves the store legacy, and a re-run leaves only `reindex.lock`. The mutant
-   that deletes the project store first fails. *Residual, not made safe:* no
-   legacy build takes `reindex.lock` (`HEAD` has only a claim row), so a legacy
-   build can write the legacy file between the refusal's check and its unlink,
-   and such a write is lost with the file (POSIX `unlink`: "the removal of the
-   file contents shall be postponed until all references to the file are
-   closed"). The refusal covers the rows present when it checks. **Without
-   `--discard-human` it refuses while a file it would delete holds rows no
-   other file holds:**
-   - a row of AD-4's human-entered list exists in the project store;
-   - the legacy `store.db` exists and is not fully carried. *Fully carried*
-     means its own rebuild record exists, its layout is known, the record has
-     zero unplaced rows and no table it could not read (R8-4), and the carried
-     rows' digests over the file equal the record's (AD-4; F5-18, R6-2). A file
-     of no known layout, or one that could not be read, then or now, is not
-     carried, whatever it holds (R7-4; round-7 review: the rule read the latest
-     record, and after an import of a legacy export that is the export's; on a
-     file that could not be read it threw). *Its own record* is the latest
-     `store_rebuilt` record in the new store beside it whose `origin` is
-     `local` and whose `legacyRel` is the file's path relative to its home
-     (R8-5; round-8 review: the rule compared `legacyPath` as a string, so a
-     store rebuilt through a symlinked home read as not carried through the
-     realpath, and a copied or moved home as not carried everywhere, a false
-     refusal that left the owner only `--discard-human`). The record of
-     `import`'s rebuild of an export has `origin` `import`, so it is never read
-     as the local file's. Executed (the round-8 evidence; the review's Z5): a
-     store rebuilt through a symlinked home is fully carried through the link,
-     through the realpath and in a copy of the home; after the import of Y3,
-     the local file reads as having no rebuild record. The mutants that match
-     by the path's spelling and that ignore `origin` each fail the test;
-   - a copy `import` kept (`*.pre-import-*`, AD-5) exists in the project
-     directory.
-
-   Each bullet exists because the purge deletes that file. A fully carried
-   legacy file holds no row the rebuild did not carry, apart from derived rows
-   and the drops AD-4's mapping counts, so it is not a reason to refuse (F5-7).
-   With `--discard-human` the purge deletes the same files without refusing: the
-   flag lifts the refusal and changes nothing else. *Why one deletion set* (R6-1):
-   the earlier text gave two. AD-5 deleted every file of a plain purge, and AD-4
-   and AD-20 deleted the legacy file only with the flag. The legacy-file bullet
-   made sense only under AD-5's reading, and it missed a file of no known
-   layout, whose record left the unplaced count at 0 and held no counts to
-   compare. Executed (the round-6 review's X1, re-run in the round-6 evidence):
-   store D's shape keeps 2 owner `human_facts` rows in the legacy file and none in
-   the rebuilt store. The round-8 evidence (revising the round-7 evidence's)
-   prototypes the legacy-file bullet as
-   `legacyNotCarried` and the deletion as `purgeFiles` in its `rebuild.mjs`; the
-   other bullets are not prototyped. On store D's shape the rule returns not
-   carried with the per-table counts, on store E's that the file could not be
-   read, and on a cleanly rebuilt project store of A, B or C that the file is
-   fully carried. After an import of a legacy export (the round-7 review's Y3,
-   the backup modelled by a file copy) it returns no rebuild record, and on a
-   rebuilt file that later cannot be read, not carried. The mutants that count a
-   file of no known layout as carried, that read the latest record, and that
-   throw on an unreadable file each fail the test.
-
-   The message gives the counts per listed table, the legacy file's unplaced
-   rows, each table it could not read with its count (or that it could not be
-   counted), a file of no known layout's per-table counts (or that it could not
-   be read), each table whose carried rows changed since the rebuild with its
-   counts at the rebuild and now, and each kept file's path (M-10;
-   store-recovery item 4, "Its message states how many rows would be lost").
-   For a legacy file with no rebuild record of its own it gives the counts of
-   the rows its layout's rules carry, the rows that would be lost:
-   - not yet rebuilt: those counts, and `ctxoracle index`, which rebuilds it
-     (R7-5; round-7 review);
-   - rebuilt, but the store beside it replaced by an import: those counts and
-     no command, since `project.db` exists and no command rebuilds the file
-     (R8-5; round-8 review: this case gave no counts, and the message named
-     `index`, which would rebuild nothing).
-
-   Derived tables (`symbols`, `commits`, the FTS tables and the rest) are not
-   counted, since the first index recreates them (R8-5); for a file of no known
-   layout every table is counted, since none is known to be derived. The
-   rule's result carries the counts, the layout and the command, and the
-   mutants that count derived tables and that give no counts without a record
-   each fail the test. It suggests `ctxoracle export` (FR-K9) for the live store's
-   rows, and it says plainly that an export does not hold the legacy file or a
-   kept copy, so those rows exist only in the files it names (F5-7: the earlier
-   message advised `export` without saying this).
-
-   *The archive option is not adopted* (F5-7's third part, recorded here
-   because the last revision dropped it without a record: R6-6). F5-7 asked that
-   `--discard-human` move the legacy file and the kept copies to a named archive
-   directory rather than delete them, or that `export` include them. Rejected
-   (R7-7; round-7 review: a first reason, that the refusal shows the files
-   before the flag is passed, is withdrawn, since the flag can be passed on the
-   first run):
-   - the flag is store-recovery item 4's explicit consent ("unless
-     `--discard-human` is passed"), and a purge that kept what it was told to
-     discard would not be the purge AD-5 describes;
-   - an archive is a directory the tool would write and never clean, a new
-     lifecycle the finding does not need;
-   - `export` writes each store to one file by `VACUUM INTO` (AD-5), and a
-     legacy file or a kept copy is not one of the two stores it exports.
-
-   No path of the tool deletes the legacy `global/global.db` (AD-4; F5-13),
-   which the owner may remove by hand once `status` shows its rebuild carried
-   everything. *Why the kept copies count:* each holds rows a live store held
-   before an import replaced it (AD-5, M-11), so deleting it unasked would
-   destroy them, the loss the refusal exists to prevent. *(Changed 2026-09-28,
-   M-10: the refusal compared a named `export-human` file with the store,
-   `--exported <file>`, which existed only because `export-human` did; both are
-   cut, M-9.)*),
-   `index [--full]`, `status` and `log [--session <id>]` (each also in a key- or
-   home-addressed read form for a store with no live binding, AD-5), `correct`, `note`
+   `deinit` (remove marked entries; `--purge` deletes the project store),
+   `index [--full]`, `status`, `log [--session <id>]`, `correct`, `note`
    (`--global` writes a cross-project lesson to the global store; plain `note`
    routes to the project store per `FR-L7`), **`tune <key> <value>`** (the
    plain-language writer for every tunable this document marks: **numbers**
@@ -5024,14 +2223,8 @@ and nothing here depends on the new channel.
    (list keys show their members), and their defaults. `tune` refuses, in plain
    language and changing nothing, a write that breaks AD-14's ordering —
    `bar.confidence_floor` ≤ `bar.suspect_confidence_cap` and
-   `bar.heuristic_confidence_cap` < `bar.high_confidence_min` — or its tier
-   invariant, AD-13's half-life relation (`bar.recency_half_life_days ≥ 365.25 ×
-   miner.horizon_years / 1022`, checked on a write to either key), AD-14's
-   structural relation, sets `bar.untrusted_trust_factor` or
-   `bar.stale_factor` outside (0, 1], or sets `miner.chunk_gap_ms` below its
-   25 ms floor (AD-26; settlement (c)) — the same validator the tuning reader runs
-   over the stored set (AD-14), so a value `tune` accepts is one the reader
-   serves; *why (review record
+   `bar.heuristic_confidence_cap` < `bar.high_confidence_min` — or sets
+   `bar.untrusted_trust_factor` outside (0, 1]; *why (review record
    2026-09-26, ER M9):* the ordering is an invariant, and an invariant needs an
    enforcement point, or `tune` silently breaks the tier), `export <file>`
    / `import <file>`, `hook <event>` (the internal entry; undocumented in
@@ -5047,10 +2240,7 @@ and nothing here depends on the new channel.
 5. **Premise verification.** Spec §10 read; `.claude/settings.json` as the
    project-settings hooks location per the current settings docs (fetched
    2026-08-29); the `tune` ordering check from
-   `docs/reviews/2026-09-26-architecture-pass-expert-review.md` (M9); the
-   2026-09-28 verbs and refusals from the register (R-24, R-34, R-35), CR§1,
-   store-recovery, and G-2, G-3 and G-6 as corrected; the purge refusal
-   simplified and `export-human`/`import-human` cut (M-10, M-9, collapse hunt). Addresses:
+   `docs/reviews/2026-09-26-architecture-pass-expert-review.md` (M9). Addresses:
    spec §10, `D-9`, AC-7.
 
 ### AD-21 — Degraded mode, recursion guard, and the piggyback seam (Phase A posture)
@@ -5068,17 +2258,11 @@ and nothing here depends on the new channel.
    `CLAUDE_CODE_SESSION_ID`, `CLAUDE_CODE_REMOTE_SESSION_ID`,
    `CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_PID`, `CLAUDE_CODE_ENTRYPOINT`,
    executed 2026-09-07, plan §11.4) removed, not every `CLAUDE_*` variable,
-   since host auth must survive; the list is the 2026-09-07 observation on one
-   Claude Code version and is a **first-line scrub, never the guarantee**. The
-   Phase B seam **verifies non-attachment on every invocation**: the returned
-   `session_id` must differ from the parent session's, and on a match the seam
-   enters the visible degraded mode (`FR-J2`/`FR-J3`) instead of using the
-   result. *(Corrected 2026-09-28: this said Phase B re-derives the list by
-   execution against the version it ships on — a one-time check that a later
-   Claude Code version can invalidate silently, while the 2026-09-26 container
-   already exported five further session-related variables whose effect on a
-   child session was not executed (plan-pass collapse-hunt H15) — R-9; B5
-   verification item 6, B5a E-25.)* `--bare` is banned (V10 — it severs
+   since host auth must survive; the list is one Claude Code version's
+   snapshot, and Phase B re-derives it by execution against the version it
+   ships on before relying on it (plan-pass collapse-hunt H15: the 2026-09-26
+   container exported five further session-related variables whose effect on a
+   child session was not executed); `--bare` is banned (V10 — it severs
    host auth). The per-environment probe cache (`env_capabilities` —
    `ok`/`failed`/`untested`, so degraded mode is entered deterministically and
    announced, `FR-J2`/`FR-M4`) is **specified here and created by the Phase B
@@ -5138,45 +2322,9 @@ and nothing here depends on the new channel.
    every blocking call on the event path, with its bound: store statements
    (indexed lookups and single-row writes, bounded by `busy_timeout` 100 ms +
    one retry, AD-26 — a bound that holds only while every writer's lock hold is
-   short and the lock is released between them, so the handler's write
-   transactions span only its writes, every off-path pass commits in chunks of
-   about `miner.chunk_ms` (seed 50 ms) of writing, with elapsed time checked
-   before each write, and **releases the write lock between write
-   transactions** for `miner.chunk_gap_ms` (floor 25 ms, seed 30 ms, AD-26;
-   settlement (c)), and every other writer's
-   transaction targets a hold below 150 ms, AD-26 — a recorded target, not a
-   guarantee, since **any `COMMIT` may run a WAL checkpoint**: "By default, the
-   checkpoint will be run automatically by the same thread that does the COMMIT
-   that pushes the WAL over its size limit" (`sqlite.org/wal.html`), which
-   makes it any connection's commit, the handler's own included. SQLite runs
-   that checkpoint from the WAL hook, which "is invoked by SQLite after the
-   commit has taken place and the associated write-lock on the database
-   released" (`sqlite.org/c3ref/wal_hook.html`, fetched 2026-09-29; the
-   automatic checkpoint "is a wrapper around sqlite3_wal_hook()",
-   `sqlite.org/c3ref/wal_autocheckpoint.html`).
-
-   So a checkpoint lengthens the `COMMIT` call of the connection that runs it,
-   and holds no write lock another connection waits on (F5-10; round-5 review).
-   It still delays another connection's writes: in AD-26's third bench
-   configuration, the pass's lock hold was at most 100.0 ms, while a
-   handler write took up to 246.8 ms (R6-5; round-6 review). A handler write's
-   time counts the checkpoint whenever its commit is the one that runs it, and
-   is recorded in the event's latency like any statement. A pass's measure
-   counts it too (AD-26).
-
-   Measured for the chunk shape AD-26 keeps (`bench-checkpoint.mjs` in the
-   rebuild evidence: 50 ms chunks of the mine's writes, 30 ms gaps, the
-   seed-sized store, a handler-like writer every 20 ms through `HEAD`'s adapter,
-   five runs of 300 chunks):
-   - the pass's `BEGIN IMMEDIATE` → `COMMIT`-return reached 203.2–240.2 ms per
-     run;
-   - the handler's longest write, its whole transaction timed, own `COMMIT`
-     included (not only its wait for the lock; R6-5), was 80.1–158.9 ms;
-   - no handler write failed busy.
-
-   This replaces the round-4 review's 144.8 and 201.4 ms, which were measured
-   on statement shapes this document has cut (R4-11);
-   **no O(store) statement is permitted on the event path**
+   short, so the handler's write transactions span only its writes and every
+   off-path pass commits in chunks of about `miner.chunk_ms` (seed 50 ms) of
+   writing, AD-26; **no O(store) statement is permitted on the event path**
    — integrity scans run off-path, AD-17); transcript reads (bounded slices,
    resumable bookmark, AD-9); stdin (bounded by the hook payload);
    **compose-time pointer re-resolution** (AD-15's rumor-rule check — span
@@ -5197,154 +2345,17 @@ and nothing here depends on the new channel.
    index describes the main checkout at `index_head`, so for an event from a
    worktree: span pointers re-resolve against the event's own worktree root (a
    span that does not hold there is dropped by the rumor rule, AD-15); the
-   staleness check compares `index_head` with the worktree's own `HEAD`, and a
-   mismatch marks that
+   staleness check compares `index_head` with the worktree's own `HEAD` (its git
+   directory's `HEAD` file, one more bounded read), and a mismatch marks that
    event index-stale (`FR-K7`: confidence lowered); and a worktree event never
-   spawns a reindex on its own staleness, because indexing a different tree
-   would overwrite the main checkout's index. The one spawn a worktree
-   `SessionStart` makes is AD-4's pending- or legacy-store child, run at the
-   main repository's root, so it migrates or rebuilds the shared store and
-   indexes the main checkout, never the worktree's tree (F-3; M-3). *Why (the 2026-09-26 applier pass, raised on the
+   spawns the reindex, because indexing a different tree would overwrite the
+   main checkout's index. *Why (the 2026-09-26 applier pass, raised on the
    worktree fix above):* binding a worktree to the main store would otherwise
    point the agent at spans from a tree it is not editing.
-   **Resolving a `HEAD`.** A worktree's `HEAD` file (in its git directory) holds
-   a symbolic ref (`ref: refs/heads/wt`, reproduced on git 2.43.0 in B3b E-6),
-   so the comparison reads it and resolves the ref through the **common**
-   directory's refs: the loose ref file under `refs/heads/`, else its line in
-   `packed-refs` — a bounded set of file reads, no `git` subprocess. The main
-   checkout's `SessionStart` staleness read is the same resolution through its
-   own `.git` (R-12 (b); B3b E-6: "one more bounded read" understated it, the
-   bound holds). **When neither exists** — no loose ref file and no
-   `packed-refs` line for it, as in a reftable repository — the `HEAD` is
-   unresolved: both staleness flags are set true (the index-stale and the
-   history-stale dampening of AD-14, with an unresolved-`HEAD` reason in the bar
-   outcome), never read as fresh, and the fault `head_unresolved` is recorded on
-   the transition only (`schema_meta.head_unresolved_since`, cleared when a later
-   resolution succeeds; not `index_stale`) (F-19; RC-27: B5 verification item
-   10, B8b E-14). **An unresolved `HEAD` is resolved off the event path
-   instead** (R3-2): on `SessionStart` the handler spawns the detached reindex
-   child as it does for a stale `HEAD` (fire-and-forget, the same once-per-
-   `SessionStart` trigger, never from a worktree event), in its **early-exit
-   form**: the child resolves `HEAD` and the ref key through `git`
-   (`rev-parse --verify -q HEAD`, `symbolic-ref -q HEAD`, as AD-13's pass
-   does), compares them with `index_head`, `last_mined_commit` and
-   `last_mined_ref`, and when all three already match and no pass marker is
-   set it exits **writing nothing** — no row, no fault, no lock taken; only
-   when something differs does it take the reindex lock and run the ordinary
-   pass, which refreshes the index and mines incrementally. So a reftable
-   repository is refreshed on the same trigger and at the same granularity as
-   any other — at the next session start after `HEAD` moves — and AC-13's
-   "append refreshes incrementally" holds there too. The dampening stays on
-   every event, even just after a refresh, because the event path still cannot
-   read the ref and so cannot know the index is fresh — a cost in confidence,
-   never a block (`FR-K7`), stated rather than removed; and `head_unresolved`
-   stays among `status`'s active conditions, saying that the event path cannot
-   read this repository's refs, that its facts are dampened for that reason,
-   and that the refresh runs at each session start.
-   *What it costs:* one detached spawn per `SessionStart` on the event path
-   (measured with the bench's `spawn_probe.mjs`,
-   `docs/reviews/2026-09-28-architecture-round3-bench/spawn_probe.mjs`: 200
-   detached, `unref`'d spawns 20 ms apart, p50 4.314, p95 11.567, max 16.374 ms,
-   against NF-1's 1.5 s; the round-4 review's re-run, p95 8.0 to 12.4 ms, R4-14
-   E-14; the script names the repository path it probes, `/home/user/agent-armory`.
-   To reproduce it on another checkout (F5-16; R4-11):
-   1. Copy `spawn_probe.mjs` and `child_probe.mjs` to a scratch directory,
-      replacing that path in the first with `process.argv[2]`.
-   2. Run `node spawn_probe.mjs <repository root>` there.
-
-   The rebuild evidence's `out/f5-16-bench-rerun.out`, run on 2026-09-29, gives
-   p50 2.823, p95 9.557, max 15.838 ms), and off the path one short process that exits when nothing moved (the
-   bench's `child_probe.mjs`: the two `git` calls 9.6 to 12.7 ms, the whole
-   process 75 to 119 ms wall, five runs, on this repository).
-   *Alternatives weighed:* (a) **no spawn on that ground** (the previous rule,
-   R2-12) leaves the repository's index and history as the last `ctxoracle
-   index` or `init` left them however far `HEAD` moves, so AC-13 fails for a
-   growing class — git has announced reftable as the default for new
-   repositories (B8b E-14, citing git's BreakingChanges) — and its only remedy
-   is a command the owner, a non-programmer (`OL-11`), would have to know to
-   run; recording that as a Limitation would leave an acceptance criterion
-   unmet by choice, which needs Max Cogar's sign-off, where a design that meets
-   it exists. (b) **Reading the reftable stack on the event path** (the bounded
-   read B8b E-14 describes: `tables.list`, then block reads) meets AC-13 with
-   no subprocess, but puts a parser for a binary format on the event path that
-   this environment cannot test against a real repository — its git, 2.43.0,
-   has no `--ref-format` (B8b E-14, executed) — while (c), the early-exit child,
-   uses git's own resolution off the path, where a subprocess is allowed, and
-   is testable with a stub. (c) is chosen. *Why the storm reason no longer
-   applies:* batch 5 and B8b E-14 kept an unreadable layout from spawning
-   because a reindex on every `SessionStart` that could never clear its
-   condition is a storm (B5b, D-plan-30); the early-exit child clears it — it
-   compares against `git`'s answer, not the unreadable file — and does no work
-   when nothing moved, so the spawn per `SessionStart` is the same one every
-   repository already makes when stale. *(Changed 2026-09-28, R3-2: this
-   departs from B8b E-14's correction, "an unreadable layout never spawns", and
-   from the register's R-77 (a) test, "a reftable `HEAD` spawns no reindex on
-   `SessionStart`", which become the early-exit child above and its test
-   (AD-24). **It also departs from both options B8b E-14's correction gives**
-   (R4-14): record, in the spec sections B8b names, "that a reftable
-   repository's index is never refreshed by events, only by an explicit `index`
-   or `init`; that its confidence is dampened on every event; git's announced
-   default change", or
-   "build the bounded reftable read of `HEAD`'s target, and record which was
-   chosen and why" (B8b adjudication; B8 verification item 10 settles the same
-   two). The early-exit child is a third option, chosen for the reason given
-   above: option one leaves AC-13 unmet for a growing class, and option two puts
-   an untestable binary parser on the event path, while the child uses git's
-   own resolution off the path. The first option's dampening clause is kept —
-   every fact of such a repository is dampened on every event — and recorded as
-   a Limitation (L17). The earlier text of this record said "B8b E-14 left the
-   choice between recording the gap and closing it to the correction pass as an
-   engineering call", which overstated what B8b allowed. The earlier text of this paragraph said
-   "An unresolved `HEAD` is no ground for a spawn" and that `ctxoracle index`
-   "refreshes the index and the history when run by hand".)*
    Then one indexed `global_meta` lookup of that
-   root's `init`-recorded binding (AD-20), in the global store **opened
-   read-only**: `node:sqlite` opened read-write creates a missing file, and its
-   `readOnly` option is documented to fail instead ("If the database does not
-   exist, opening it will fail"), so on a machine where `init` never ran a hook
-   event creates no `global-store.db` and reads the missing store as a miss (R-12 (c);
-   B3a E-6, executed on Node 22.22.2); when the walk finds no `.git` (a
+   root's `init`-recorded binding (AD-20); when the walk finds no `.git` (a
    path-keyed repository, AD-3 rule 3), one indexed lookup per visited
-   ancestor, nearest first, bounded by the same component count.
-
-   **A legacy global store is tested before the miss rule** (F5-5; round-5
-   review). With no `global-store.db` and `global/global.db` present, the global
-   store is legacy. The handler records `store_legacy` on the home-level channel
-   and, on `SessionStart` and `UserPromptSubmit`, spawns AD-4's rebuild child at
-   the root the walk found, once per `session_id` (AD-4; R6-8). It records no
-   `repo_not_bound`. The earlier text read the missing store as a miss, which
-   would have silenced every hook on an upgraded machine with a false
-   `repo_not_bound` until the owner ran a verb.
-
-   **A binding miss while `projects/` holds a legacy project store** (F5-5,
-   R6-3; round-6 review). No legacy build recorded a binding, so after the global
-   rebuild each legacy project store is bound only by its own rebuild (AD-4,
-   step 6). On a miss while the session's marker (AD-17) is absent, the handler
-   lists `projects/`. When a directory there holds a `store.db` and no
-   `project.db`, it records no `repo_not_bound`; on `SessionStart` and
-   `UserPromptSubmit` it writes the marker and spawns AD-4's rebuild child at the
-   root the walk found (on any other event it waits for one of those). The child
-   acts on the state of the store of the key it derives (AD-4; R8-1, R9-3):
-   legacy, it rebuilds and binds, recording the binding before the rename;
-   current, it binds nothing and records `repo_not_bound` for a root not
-   already bound; none, it records `repo_not_bound`. In the legacy state the
-   first root to fire is the one bound, a second clone included, and the
-   root `init` ran at then misses visibly until `init` is re-run there
-   (AD-4's stated departure, R9-9). A binding lookup that finds the root
-   bound to a store that is still legacy (a rebuild killed between its
-   binding and its rename) is AD-4's legacy-store spawn, not a miss. So a second clone or a moved checkout of a repository
-   whose store is current misses visibly, as below, whether or not an
-   unrelated legacy store exists (R7-6; round-7 review: recording the fault
-   here told the owner to re-run `init` where the child then bound the
-   repository; R8-1; round-8 review: the current state had no rule).
-   Otherwise the miss is recorded as below. The list is one directory read and
-   two existence tests per project directory, made only until the session's
-   marker is written. It grows with the
-   repositories initialized on the machine, not with any store. This replaces
-   the `legacy_pending:` rows and their range lookup, which had no end of life
-   (AD-4).
-
-   Otherwise a miss means
+   ancestor, nearest first, bounded by the same component count. A miss means
    not initialized: the handler fails open silent and creates nothing — no store
    layout, no project directory — except the fault `repo_not_bound` on the
    home-level channel (AD-17), written once per `session_id` (deduplicated by a
@@ -5364,46 +2375,27 @@ and nothing here depends on the new channel.
    the bounded read (it stops at 20k lines and stores NULL, the path-only
    outcome) — a line count cannot be known without reading (review record
    2026-09-26, ER m1); and the `SessionStart`-only items
-   (the staleness check's `HEAD` read — the bounded file reads above, not a
+   (the staleness check's `HEAD` read — a bounded `.git` file read, not a
    subprocess — and the detached reindex/`quick_check` spawns,
-   fire-and-forget, never awaited; the reindex is spawned when `index_head` or
-   the mined tip differs from a resolved `HEAD`, in its early-exit form when
-   `HEAD` is unresolved (above; R3-2), when `mining_in_progress` is set, and
-   when the schema check finds the store pending or legacy (AD-4), so an
-   unfinished pass or an upgrade never waits for the owner's own CLI use — F-3,
-   M-7; the pending- or legacy-store spawn is also made on `UserPromptSubmit`
-   (M-8), the one spawn outside `SessionStart`,
-   fire-and-forget in the same way, and a legacy-store spawn, the miss path's
-   included, is made at most once per `session_id` (AD-4; R6-3, R6-8); a pass that cannot finish,
-   such as a refused `refTs`, records its fault again on each such pass, so the
-   condition stays visible); and the `SessionEnd`-only fold (AD-5's
+   fire-and-forget, never awaited); and the `SessionEnd`-only fold (AD-5's
    `whisper_stats` aggregation — indexed rows since each of the project's two
    watermarks,
    never on a deny-capable event). Under that
    inventory the deadline fires between slices well inside the wired
    `"timeout": 5`, so a slow event records its `latency_breach` before the
-   harness's timeout discards its output (V6: a timed-out `PreToolUse` hook lets
-   the tool continue, and its output — a deny it would have emitted included —
-   is discarded, so nothing it emitted survives; whether the harness shows a
-   notice for it the reference does not state) — **for the enumerated
+   harness's timeout silently discards its output (V6: a timed-out
+   `PreToolUse` hook lets the tool continue, and a deny it would have emitted
+   is lost without a trace) — **for the enumerated
    paths** — not declared "unreachable" in the abstract; an unenumerated
    blocking call is exactly what AC-10's large-store fixture exists to catch.
    A deadline fire writes `latency_breach` to the JSONL channel.
 2. **Standard.** NF-1 (`D-31` numbers) and `FR-O3` governing; V6 the verified
    hazard.
-3. **Why here.** The hook timeout is fail-open on `PreToolUse`, so the hazard
-   the watchdog exists for is not an accidental block: it is losing the
-   `latency_breach` record and any deny the handler would have emitted, which a
-   harness timeout discards. The watchdog ends a slow event inside its own
-   deadline, so the event records what happened.
-4. **What this is NOT.** Not harness-timeout reliance (that path is fail-open
-   on `PreToolUse` and discards the handler's output, V6, so relying on it loses
-   the record). Not a lower wired timeout (1–2 s) — the harness kill
-   racing the watchdog reintroduces the hazard the margin removes. *(Corrected
-   2026-09-28: item 3 said the timeout could make the oracle "block by
-   accident" and item 4 that the path was "fail-closed", while item 1 and V6
-   already said a timed-out `PreToolUse` hook lets the tool continue — R-7; B5
-   verification item 5, B5a E-1.)*
+3. **Why here.** The one contract behaviour that could make the oracle *block by
+   accident* is the hook timeout; the watchdog converts it to silence.
+4. **What this is NOT.** Not harness-timeout reliance (that path is fail-closed
+   on PreToolUse, V6). Not a lower wired timeout (1–2 s) — the harness kill
+   racing the watchdog reintroduces the hazard the margin removes.
    **Why repository resolution is a lookup (review record 2026-09-25,
    G30/N15).** The skeleton derived the repo key per event with `git rev-parse
    --is-inside-work-tree`, `rev-parse --is-shallow-repository`, and `rev-list
@@ -5427,16 +2419,7 @@ and nothing here depends on the new channel.
    the worktree layout executed here 2026-09-26 on git 2.43.0 (`git worktree
    add` wrote a `.git` file `gitdir: <main>/.git/worktrees/wt`, whose `commondir`
    file read `../..`, a path relative to that directory, so the resolver joins a
-   relative `commondir` to the worktree's git directory); the 2026-09-28
-   corrections — the timeout wording (R-7, B5a E-1, the hooks reference fetched
-   2026-09-28), the `HEAD` resolution and the read-only global open (R-12, B3a
-   E-6, B3b E-6, both executed there), and the yield and writer bounds in the
-   inventory (R-36, B3b E-7; G-5 and G-7 as corrected); the unresolved-`HEAD`
-   early-exit child (R3-2), its event-path spawn cost and its off-path cost
-   measured with the bench's `spawn_probe.mjs` and `child_probe.mjs` and the
-   spawn re-run by the round-4 review (E-14), the reftable facts and B8b's two
-   options from B8b E-14 (R4-14); the checkpoint any `COMMIT` may run, from
-   `sqlite.org/wal.html` and the round-4 review's measurements (R4-3). Addresses: NF-1, `FR-O3`, AC-10, AC-13.
+   relative `commondir` to the worktree's git directory). Addresses: NF-1, `FR-O3`, AC-10.
 
 ### AD-24 — Test and fixture architecture (the Phase A acceptance criteria made mechanical)
 
@@ -5472,8 +2455,8 @@ and nothing here depends on the new channel.
      grep), AC-2a and AC-2a-i's allow-half (deny plumbing with
      fixture-controlled state), AC-3/3a/4/5/6 (bar, hazard, dedup — including
      the **`coupling-key-symmetry`** fixture: a Read of A that delivers the A–B
-     Coupling fact, with both ratios, then a Read of B, delivers it once,
-     pinning AD-16's canonical key — boundaries, corpus floor), AC-7 (init/deinit tree diff), AC-8, AC-8a (including the
+     Coupling fact, then a Read of B, delivers it once, pinning AD-16's
+     canonical key — boundaries, corpus floor), AC-7 (init/deinit tree diff), AC-8, AC-8a (including the
      **verbose-done documented non-fire** — the clear-all-prior lean means a
      narrating finisher does not trip the line; the counter's
      `generic_text_all_prior` clause is asserted instead), AC-9 (each fault
@@ -5529,225 +2512,7 @@ and nothing here depends on the new channel.
      independently); AC-23's efficacy clause is pinned to a
      **post-session** correction reaching the global store (the project-store
      fold and its replace-publish, AD-5) and to an import of an older export
-     leaving the global counts equal to the imported store's own totals;
-     **store, recompute and delivery cases** (the correction review's fixes,
-     F-1–F-6, F-16, F-22, the round-2 and round-3 reviews' that stand, and the
-     collapse hunt's and round-4 review's): a `'fallback'` store opens clean on
-     the hook path and on a CLI open; a pending or legacy store's `SessionStart`
-     spawns the index child, and so does its `UserPromptSubmit` in a session
-     already running when the build is upgraded, a second child exiting
-     `reindex_locked` (R2-8; M-7, M-8); a one-byte edit to an applied migration
-     is refused on every open path, with the store file byte-identical before
-     and after, while a store whose checksums were recorded from CRLF migration
-     text opens clean on a build whose files are LF (R7-2); a legacy-store
-     spawn is made once per `session_id`, so a second
-     `UserPromptSubmit` of the session spawns none (R6-3, R6-8); **a legacy store
-     is rebuilt beside** (M-3; F5-1–F5-4, F5-8, F5-11, F5-12; R6-1–R6-4,
-     R6-7–R6-9; R7-1–R7-5, R7-8; R8-1, R8-3–R8-6; R9-3–R9-5, R9-7, R9-9).
-     This case is the round-9 evidence's test, run on the rebuild evidence's real
-     stores:
-     - the stores are A and B (the `b229c04` layout) and C (the
-       `4dd0f00`/`4e070ce` layout), each written by the historical builds'
-       `init`, `tune`, `correct`, `note` and hook events, with the rows no verb
-       reaches written through those builds' own DAOs;
-     - the test is the round-9 evidence's `test-rebuild.mjs`, run with the
-       build's own tuning validator (the test's build argument). Its one
-       outcome-pinning check expects `bar.recency_half_life_days 10` carried and
-       served and `bar.no_such_key 1` refused (R6-4, R7-1). The round-9 evidence
-       runs it with a stand-in for that validator (AD-4). `HEAD`'s own validator
-       fails that check; that run is `HEAD`-only evidence, not part of this
-       case;
-     - **what the implementation substitutes** (R8-6; round-8 review: "must
-       pass unchanged" could not be followed, since the test spawns the
-       prototype and imports its functions). The test is bound to the
-       prototype at exactly these points, named in its header:
-       - the rebuild entry point: the command it spawns, with `--home`,
-         `--repo`, `--head`, `--origin` and `--session`, and its JSON result
-         on stdout;
-       - the purge's deletion: `--purge-files <project directory>`;
-       - the exports it imports: the mapping (`RULES`), the legacy-file rule
-         (`legacyNotCarried`), the file test (`legacyProjects`), the checksum
-         (`migrationChecksum`), the layout test (`detectLayout`), the rename
-         onto a new name (`publishStore`), the handler's miss rule
-         (`handlerMiss`) and the hook path's order before it (`handlerEvent`);
-       - the test hooks `REBUILD_KILL_AT` and `REBUILD_FAULT`;
-       - the build argument's modules (R9-7; round-9 review: the list omitted
-         them), at these paths under
-         `<build>/middleware/context-oracle/ctxoracle/dist/src/` with these
-         exports: `stores/dao/tuning.js` (`tuningReader`, `checkTuningWrite`,
-         and `seedDefaults`, which the prototype calls), `stores/dao/tuning_seeds.js`
-         (`SCALAR_SEEDS`, `LIST_SEEDS`), `stores/dao/files.js` (`filesDao`),
-         `identity/repo_key.js` (`resolveRepoKey`) and, called by the prototype,
-         `stores/adapter.js` (`probeFts5`). The build must provide them at those
-         paths, or the implementation rebinds them with the rest.
-
-       The implementation rebinds only these, to its own entry points, and
-       every `check` stays as it is.
-
-     It asserts:
-     - every carried table arrives row for row, and every file reference
-       names its original path although the ids differ (R4-2);
-     - the tuning reader serves each owner value, or names a refused one with
-       the validator's reason and serves the seed; one row per scalar key; a
-       key the owner never tuned serves this build's seed (F5-2, F5-3);
-     - `whisper_audit.subject_key` is carried NULL (F5-1);
-     - `fts_state`, `repo_key`, `keying_mode`, the checksums and the binding
-       are written (F5-4, F5-5);
-     - the open questions, bookmarks and read keys of a live session arrive
-       (F5-8);
-     - the record is inside the rebuilt file (F5-11);
-     - a SIGKILL at each of 14 steps leaves every legacy database file
-       byte-identical and the next run completes (F5-12);
-     - a re-run is a no-op;
-     - a store of another layout, and a file that is not a database, are
-       rebuilt from the repository unread, and the legacy-file rule finds each
-       not carried, with the first's per-table counts (R6-1; the round-6
-       review's X1);
-     - a cleanly rebuilt project store's legacy file is fully carried, and the
-       global file is not carried by exactly its refused tunings (R6-1);
-     - two repositories on one home with mixed layouts, and an orphan legacy
-       store, each rebuild and bind; no `legacy_pending:` row exists, and the
-       file test names what is still legacy (R6-3; X2);
-     - a legacy-build `tune` after the rebuild leaves the row count equal and
-       changes the `tuning` digest (R6-2; X3); an old build's `note` on either
-       layout and an in-place `questions` update are named with their counts at
-       the rebuild and now, and a file not yet rebuilt is not carried with its
-       per-table counts (R7-5; the round-7 review's Y1, Y2);
-     - after an import of a legacy export, the local legacy file is judged by
-       its own record, and a rebuilt legacy file that later cannot be read is
-       not carried (R7-4; Y3);
-     - a legacy file of a known layout with one table that fails to read, on
-       either layout, is carried table by table: every owner row that reads
-       arrives, the table is one unplaced whole-table entry with its count or
-       null, the file is kept and not carried, and a second run is a no-op; a
-       corrupt `files` page unplaces each row needing a file id; a content
-       error of the new store fails the rebuild (R7-3, R8-4; Y5, Z4); a table
-       whose copy fails after its digest was taken has a null digest and count
-       (R9-5);
-     - a table whose primary-key index alone is damaged, while a scan reads
-       every row, is carried by its rule, on either layout and for a no-writer
-       table (R9-5; the round-9 review's V4 and round 8's Y5c);
-     - a lock held on the legacy file while the rebuild reads its schema fails
-       the rebuild (`store_rebuild_failed`) and leaves the store legacy, and the
-       run after the lock is released carries every owner row (R9-4; V1);
-     - after a kill at each of the 14 steps, the hook path at the root (the
-       binding lookup, the legacy-store spawn, the miss rule) binds and serves
-       it with no `repo_not_bound`, with an unrelated orphan legacy store
-       present and with none, the same either way (R9-3; V2);
-     - a second clone that fires first while the store is legacy is bound and
-       recorded as the rebuild's root, and the root `init` ran at then misses
-       visibly (R9-9's stated departure; V3);
-     - a stale WAL beside the new name is not replayed into the rebuilt store,
-       including after a purge killed with a hot WAL and a rebuild from either
-       layout (R8-3; Z2, Z6, Z6b);
-     - a second clone of a rebuilt repository, with an orphan legacy store
-       present and with none, records one `repo_not_bound` per session and is
-       not bound; a derived key with no store records it too; the rebuilt root
-       finds its own binding (R8-1; Z3);
-     - a store rebuilt through a symlinked home is fully carried through
-       either spelling and in a copy of the home; a legacy file with no record
-       of its own gives its carried rows' counts, with `ctxoracle index` only
-       when it is not yet rebuilt (R8-5; Z5);
-     - each migration's checksum is equal over its LF and CRLF text (R7-2; Y6);
-     - the purge's deletion, killed after each file it deletes, never leaves
-       the store legacy, and a re-run leaves only `reindex.lock` (R7-8);
-     - a row the new layout refuses, and one whose file id has no legacy row,
-       are unplaced while the rest arrive (R6-8);
-     - a store whose DDL has CRLF line endings is identified and carried (R6-9);
-     - the rebuilt stores hold no `legacy_unplaced`, `index_stale` or
-       `schema_version` key, and every unplaced entry counts rows (R6-7).
-
-     Two cases join it:
-     - A Coupling whisper is delivered, the store is rebuilt with a changed
-       file set, and the session is resumed. The reseed admits no key from the
-       carried row, and a Coupling whisper for the pair that now holds the old
-       ids is still delivered (F5-1).
-     - A full recompute at a new epoch is killed mid-way and the next pass runs
-       at a `refTs` inside the old bound. It finishes the recompute because
-       `recompute_pending` is set, and every ratio equals a fresh mine's within
-       the tolerance (F5-6). The owner tunes `h`, the recompute is killed after
-       each of its transactions in turn, the owner tunes `h` back, and the next
-       pass supersedes the pending recompute, records it, and leaves every
-       ratio equal to a fresh mine's at the restored `h`; with no tune back it
-       resumes at the recompute's own inputs (R8-2, R9-1; the round-8 review's
-       Z1); the same holds for random orders of tunes and kills. A pass that
-       recomputes and mines, killed in either phase, uses one epoch and the
-       recompute's cap (R8-7). C-3's kill-every-pass case completes within `C`
-       passes for a first mine, a recompute and case 2's reconcile, and each
-       resumption is recorded (R9-1, R9-2, R9-6; the round-9 review's K1, K2).
-       The round-9 evidence's `test-recompute.mjs` is the executed shape, a
-       model of the pass over a small synthetic store, not the miner (R6-11).
-
-     Two rebuilders of one global store started together publish exactly one
-     store (the lock), and the loser records `rebuild_locked`; **the human-entered
-     list's enforcement test** (AD-4): each listed verb run against a fixture
-     store pair changes only tables the list names, and a verb made to write an
-     unlisted table fails it, while the run records it leaves out (`faults`, the
-     JSONL channel, meta keys other than the fold watermarks) do not (R4-1,
-     F5-15); `deinit --purge` refuses while a listed row, a legacy file that is
-     not fully carried or a `*.pre-import-*` copy exists, naming each count and
-     saying that an export holds neither file, refuses on store D's shape and
-     on store E's with the legacy file left in place (R6-1), does not refuse
-     for a fully carried legacy file and then deletes it, and deletes them all
-     with `--discard-human`, leaving `reindex.lock` and `global/global.db`
-     (M-10, M-32; F5-7, F5-13); a legacy-layout export is refused without the
-     override, with a message naming its layout and saying its repository
-     cannot be verified, and, with the override, imported through AD-4's
-     mapping, its rebuilt global copy holding no pending row (F5-9, R6-10); an owner `note` or `correct` on a legacy
-     store returns after the rename, before any index (F5-17); a row the legacy
-     file gains or changes after its rebuild is named by `status` (F5-18,
-     R6-2); `import` over a live store keeps it as a
-     `*.pre-import-*` file beside it and reports the path (M-11); an
-     unresolved `HEAD` spawns the early-exit reindex child on `SessionStart`,
-     which, with a stub `git` reporting the stored `index_head`, mined tip and
-     ref, exits leaving the store byte-identical and takes no lock, and, with a
-     `HEAD` one commit ahead, refreshes the index and mines that commit (R3-2;
-     it replaces R2-12's "spawns no reindex" case and the register's R-77 (a)
-     test); an invalid
-     stored tuning row makes a `PreToolUse` with an open question emit neither a
-     deny nor a whisper and records `tuning_invalid` (AC-10); after a pass that
-     changed `h`, and after a pass whose `refTs` passed the epoch bound (a stub
-     `refTs` more than `B` half-lives past `E`, and one far enough below it),
-     every confidence ratio equals a fresh mine's within 1 × 10^−11, including
-     when the recompute was killed part-way and the retry ran at another
-     `refTs` (M-17, M-18); a recompute killed after `k` of its transactions is
-     resumed by the next pass, which does only the transactions left at the
-     recompute's own `h` and epoch, and with every pass killed after one
-     transaction it completes within `C` passes, each resumption recorded as
-     `mining_resumed`, while a `tune` of `h` during it supersedes it, recorded
-     as `recompute_superseded` (C-3; R9-1, R9-6); a first mine killed after `k`
-     chunks is completed by the next pass mining only `T \ S`, and with every
-     pass killed after one chunk it completes within `C` passes (C-3; R9-1;
-     the round-9 review's K1); a commit whose author time is later than the tip it
-     was mined under keeps its capped term after the tip moves, is counted by
-     `miner_ts_capped`, and is the only commit whose term differs from a fresh
-     mine's (M-19, L15); after `miner.max_transaction_entities` is lowered and
-     then raised, and after `lexicon.fix_keywords` gains a word, the next pass
-     is a reconcile with `D = S` and every count, label and landmine equals a
-     fresh mine's (R2-6; M-20), and with every pass after the `tune` killed
-     after one transaction, and after ten, it completes within `C` passes with
-     every commit classified at the new values (C-3; R9-2; the round-9
-     review's K2), a revert whose subject gains a listed fix
-     keyword stays revert-labelled with no fix row, and after
-     `landmine.fix_chatter_k` or `landmine.fix_chatter_window_days` is tuned the
-     next completed pass's landmines equal a fresh mine's (R3-9); a tuned
-     `miner.corpus_floor_commits` takes effect at the next pass, through
-     `corpus_floor_met` (R3-8); `CMakeLists.txt` and `meson_options.txt` keep
-     their generic symbols while `notes.txt` gets path tokens only (R3-10); a
-     Lua and a Swift file take the generic frontend with each exclusion's cause
-     in `status` (M-33); a file with `entry_score = 0` is never named by
-     Orientation, and a file with entry evidence and no stored pair is ranked
-     with hub degree 1 (R3-11); a response whose cleared whispers fit is at most
-     10,000 characters, and one whose cleared whispers exceed it holds every one
-     of them, whole, in the fixed order (the `Stop` outstanding-question line
-     first, then the order the pipeline produced), and records
-     `response_over_cap` with its length (the interim rule pending `OL-C1`,
-     AD-16; R2-1; M-25, M-26); the impact floor passes a candidate exactly when
-     the event is an edit, or its target's zone is `generated`/`build_output`,
-     or its band is at least 2, and an Orientation candidate's band is the
-     maximum `blastRadiusOf` over the files it names while a Coupling and a Reuse
-     candidate at one event each take their target file's `blastRadiusOf`
-     (M-24; R4-7); AC-1a's fixture covers **both entry-point shapes**
+     leaving the global counts equal to the imported store's own totals; AC-1a's fixture covers **both entry-point shapes**
      (a low-in-degree `main`/`cli` file carried by path markers, and a
      high-in-degree hub). Two **build-time verifications** are named here
      because fixtures cannot settle them from inside this container: marker
@@ -5784,33 +2549,17 @@ and nothing here depends on the new channel.
    no native code, no prebuilt-binary downloads** (C-3; V14 confirms both deps
    comply). Install paths: `npm install -g <path/tarball>` or `npx` from the
    repo — both work in a cold container over the harness's own network access.
-   Build: `tsc` only. Migrations are forward-only and fixed once applied, each
-   recorded by checksum and checked on every open (AD-4's schema check); the
-   generic frontend's prose seed is a committed source file generated once by a
-   script and pinned by a test, its two pinned Linguist source files committed
-   beside its generator with their MIT notice and sha256, so the build reads no
-   `git log` and fetches nothing (AD-4, AD-12; F-17, F-10, R2-4).
-   **No grammar WASM is vendored in Phase A** (M-33): the two unusable shipped
-   grammars, Lua and Swift, are excluded with their causes recorded (AD-12),
-   and the loader takes each grammar's WASM path from the extension→grammar
-   table, so a vendored grammar is a later configuration act under the
-   provenance and checked-digest rule below, not a redesign (C-6). *(Changed
-   2026-09-28, M-33: Lua's replacement WASM and a patched Swift rebuild were
-   vendored with their sha256 checked at load, because the replacement Lua
-   package brings an `install` script, native-build dependencies and prebuilt
-   `.node` binaries this decision forbids, B9 E-1; R-15.)*
+   Build: `tsc` only. Versioned `schema_version` with forward-only migrations
+   applied at open.
 2. **Standard.** C-3 governing; ASVS 5.0 V15 (Secure Coding and Architecture)
-   dependency hygiene (the no-postinstall rule; provenance and a checked
-   digest for every vendored binary).
+   dependency hygiene (the no-postinstall rule).
 3. **Why here.** Install ceremony is the first thing a sandbox breaks; the
    dependency surface is the supply-chain surface (T4-adjacent).
 4. **What this is NOT.** Not a published registry package in Phase A (nothing
    external consumes it; publishing is a later owner-visible step). Not a
    bundler pipeline (tsc output is sufficient; fewer moving parts).
 5. **Premise verification.** V14 (registry metadata: no install scripts, no
-   deps); C-3 read at spec §8; the Lua package's install script, native
-   dependencies and prebuilt binaries, executed in B9 E-1; no vendoring in
-   Phase A (M-33). Addresses: C-1, C-3, AC-20.
+   deps); C-3 read at spec §8. Addresses: C-1, C-3, AC-20.
 
 ### AD-26 — Concurrency
 
@@ -5818,177 +2567,24 @@ and nothing here depends on the new channel.
    events), so multiple handler processes may touch one store concurrently:
    WAL + `busy_timeout=100ms` + short write transactions (below) + retry-once
    on `SQLITE_BUSY`; on second failure the event completes whisper-less
-   (fail-open) with a `store_busy` diagnostic (`{writer: 'handler', phase}` with
-   the event kind) — never recorded as `store_corrupt`, which a busy lock is not
-   (Flaw 1, settlements' review).
-   **Every connection waits the same way, the off-path writers included.** The
-   miner, the indexer and every CLI verb open both stores with the adapter
-   default — `busy_timeout` 100 ms and one retry, about 200 ms in all.
-   *Derivation (G-7 as corrected, settlements):* SQLite's default busy handler
-   sleeps and retries with no queue; under a 100 ms `busy_timeout` its lock
-   attempts fall at 0, 1, 3, 8, 18, 33, 53, 78 and 100 ms (SQLite 3.51.2,
-   `src/main.c`, `delays[]`/`totals[]` with the clip at the timeout — the version
-   Node 22.22.2 bundles), and a waiter using `Store.transaction` gets two such
-   tries. With every other writer's transaction bounded below that window (the
-   rule below) and the lock released between them, an off-path waiter fails
-   only if every attempt lands inside a hold; measured, an off-path writer at the
-   default did not fail once in 1,437 chunk transactions against 8 and then 16
-   agents firing hook events back to back on four cores, several times any one
-   session's load (one agent measured 5.4 events/s, each handler write about
-   1 ms). A chunk transaction that still raises `StoreBusy` fails the pass
-   visibly: the verb's error channel records `store_busy`
-   (`{writer: 'miner'|'indexer', phase}`) and exits non-zero, and the next pass
-   resumes (AD-13): the recompute, case 2's reconcile and a first mine included (C-3; R9-1, R9-2). *(Corrected 2026-09-28: off-path writers used
-   `busy_timeout` 5,000 ms "because … a background pass that gave up after
-   200 ms would abort whenever a live session's handler held the lock for one
-   short write group". That reason is false — one short write group cannot
-   outlast a 100 ms waiter with its retry; a 5,000 ms wait outlasts a burst and
-   does not answer starvation (a 2,000 ms waiter against a 4 s no-gap burst was
-   starved for its full wait, B7b E-21); the value was never derived, it is
-   about 10 s in effect under the retry, a stuck holder went unreported that
-   long, and its last remaining reason, a purge on an aborted pass, is gone now
-   that a stopped pass is resumed — R-36 (c), (d); B7b E-21, B7c E-5.)*
-   **Every writer that can run beside a pass is bounded** — the requirement the
-   derivation rests on: every write transaction of every such writer — each
-   handler write group (the `SessionStart` reseed and rebuild and the
-   `SessionEnd` fold included), every CLI verb, `import`, and every migration
-   (whichever CLI open applies it; AD-4's migration bound keeps its transaction
-   to row-count-independent steps, F-4) — **targets a hold below 150 ms** by
-   the before-write rule below, chunking with the settled yield where its size
-   can grow, and each records its longest hold as the passes do (G-7 as
-   corrected: the measurement covered the skeleton handler's single-statement
-   writes only, so the bound on the rest is stated as a requirement, not
-   assumed). It is a recorded target, measured as `BEGIN IMMEDIATE` returning to
-   `COMMIT` returning. That measure also counts an automatic checkpoint the
-   `COMMIT` runs after it has released the lock (AD-23's inventory), so it errs
-   toward reporting: a hold past the line is recorded as `write_hold_exceeded`.
-   A rebuild's copy writes only its own temporary file (AD-4) and is outside
-   this rule.
-
-   **Automatic checkpointing stays on for the pass connections** (F5-10: the
-   round-4 review's first option, weighed). That option sets
-   `PRAGMA wal_autocheckpoint = 0` on the pass connections and runs
-   `PRAGMA wal_checkpoint(PASSIVE)` at the start of each yield gap. It was
-   measured beside the default, with the same bench and runs as AD-23's figures.
-   The bench's handler figure times each handler write's whole transaction, its
-   own `COMMIT` included, not only its wait for the lock (R6-5; round-6 review):
-
-   | Configuration | Pass measure | Gap checkpoint | Handler's longest write |
-   |---|---|---|---|
-   | Default (checkpoint on) | 203.2–240.2 ms | — | 80.1–158.9 ms |
-   | Pass off, PASSIVE in the gap | 78.4–134.5 ms | up to 195.2–321.7 ms | 253.9–334.2 ms |
-   | Pass and handler both off | 85.6–100.0 ms | up to 287.5–380.9 ms | 121.0–246.8 ms |
-
-   No handler write failed busy in any configuration. The option round 4 named
-   is the third row: checkpointing off on the handler connections too, the pass
-   checkpointing in its gap. Against the default it lengthens the handler's
-   longest write from 80.1–158.9 ms to 121.0–246.8 ms, and it shortens only a
-   measure whose checkpoint part holds no lock (AD-23). It serves no
-   requirement, so it is not adopted. The second row is not the option: there
-   only the handler keeps automatic checkpointing, so by `wal.html` it is the
-   handler's own commits that run the checkpoint once the WAL passes 1,000
-   pages, and its handler figures include those checkpoints; the bench does not
-   time them apart (R6-5: the earlier text attributed those figures to the gap's
-   checkpoint). The residual that stays with the default has two parts, both
-   event latency recorded as such (AD-23) and neither a lost write: the
-   handler's own `COMMIT` running a checkpoint, and a checkpoint on the pass's
-   connection delaying a concurrent handler write, as the third row shows.
-   **What the handler waits on.** Every handler write waits on the write lock up
-   to the busy bound above (100 ms + one retry); it never waits on the reindex
-   claim, so a pass in progress delays an event by no more than that bound, and
-   staleness merely lowers confidence meanwhile (`FR-K7`). *(Corrected
-   2026-09-28: this said "The handler never waits on it", which the busy bound
-   contradicts — R-36 (e); B5 verification ruling 4.)*
-   **The reindex claim is a lock the operating system releases.**
-   `reindex.lock` is a SQLite database in the project directory
-   (`projects/<repo-key>/`, AD-3), left in the default rollback-journal mode,
-   because `EXCLUSIVE` excludes other connections' reads only outside WAL
-   ("EXCLUSIVE and IMMEDIATE are the same in WAL mode", `sqlite.org`). Its
-   holders are `runIndex`, the miner run by the `index` verb, the detached
-   reindex spawned from `SessionStart`, the pending- or legacy-store child
-   spawned from `SessionStart` or `UserPromptSubmit` (AD-4; R2-8), and any CLI
-   open that migrates or rebuilds the project store (AD-4), each taking it once
-   per process and keeping it across the migration or rebuild and, for
-   `index`, the pass that follows. `global/rebuild.lock` is a lock database of
-   the same kind, taken the same way by a rebuild or a creation of the global
-   store (AD-4), a refusal of it recorded as `rebuild_locked` (AD-17; F5-11). Each claimant opens the path through `node:sqlite`, which
-   creates the file on the first open after `init`; if the project directory
-   itself is gone, that open fails and the claimant refuses (R2-9; executed on
-   Node 22.22.2, 2026-09-28: an open under a missing directory threw `unable to
-   open database file`) — then it opens it with the stores' `busy_timeout` 100 ms, runs `BEGIN EXCLUSIVE`, and
-   keeps that transaction open, writing nothing, until the pass ends; a
-   `finally` runs `ROLLBACK` and closes it, and `SQLITE_BUSY` from `BEGIN
-   EXCLUSIVE` is the refusal. *Why 100 ms (F-12):* the only hold a claimant
-   should outlast is `status`'s probe, which runs `BEGIN EXCLUSIVE` and
-   `ROLLBACK` and writes nothing, so it holds the lock only between two
-   consecutive statements, while the default busy handler's schedule makes nine
-   lock attempts inside 100 ms (0, 1, 3, 8, 18, 33, 53, 78 and 100 ms, above);
-   every other hold is a pass or a purge, which a claimant is meant to be
-   refused by, not to wait out. The former 1,000 ms had no derivation and
-   contradicted item 4 ("Not a long `busy_timeout` anywhere").
-   **`reindex.lock` is never unlinked** (M-32): `deinit --purge` deletes every
-   file of the project directory except it (AD-20), and nothing renames it, so
-   the path always names one file, and a claimant that waited in `BEGIN
-   EXCLUSIVE` while a purge ran acquires the lock on that same file, never on a
-   deleted one beside a later claimant's new one — the case "talking to
-   different database files with the same name" (`sqlite.org/howtocorrupt.html`)
-   cannot arise. Right after acquiring, every claimant but `init`'s first
-   creation opens the project store — for a rebuild, the legacy file it reads —
-   with `mustExist`, so a claimant that waited out a purge exits non-zero,
-   naming the purged store, instead of creating one. What it costs: one small file per
-   repository ever initialised stays after a purge. *(Changed 2026-09-28, M-32:
-   the lock was deleted with the directory, and a `(dev, ino)` identity check
-   with its own fault, `reindex_lock_replaced`, answered the waiting claimant
-   (F-23, R2-9, R2-13) while leaving a stated double-writer residual; a lock
-   file that is never unlinked removes the case, the identity check and the
-   residual together.)*
-   Then the holder commits
-   `schema_meta.reindex_owner_pid` and `reindex_started_at` in the project store
-   (one transaction; a rebuild, which never writes the legacy file, does so once
-   the rebuilt store is renamed into place) and deletes both in its `finally` before releasing the
-   lock; these rows are information for `status` and the refusal message only,
-   and nothing reads them to decide who holds the claim. A refusal is
-   `{refused: 'reindex_locked', ownerPid, startedAt}`, both read from the project
-   store in **one read transaction** right after the refused `BEGIN EXCLUSIVE`
-   (null when the holder has not recorded itself yet, and the message says so),
-   and the `reindex_locked` fault carries the same values. `status` probes the
-   lock with `busy_timeout` 0: `SQLITE_BUSY` → "reindex running since
-   `<startedAt>` (pid `<ownerPid>`)"; acquired → an immediate `ROLLBACK`, and if
-   the rows are present the holder died without its `finally`: "last reindex
-   (pid, started) did not finish". The probe holds the lock for one
-   `BEGIN`/`ROLLBACK`, between two of a claimant's nine attempts (above), so it
-   does not cause a refusal. **No code opens `reindex.lock` except through `node:sqlite`** (a
-   non-SQLite `open`/`close` of the file in the holder's process releases the
-   lock — executed, while a second SQLite connection there does not), and **no
-   code unlinks or renames it while a pass may hold it**: `deinit --purge` first
-   takes the lock with `BEGIN EXCLUSIVE` (`busy_timeout` 100 ms; refused →
-   `deinit` refuses, naming the holder) and deletes the directory's other files
-   while holding it, never `reindex.lock` itself (above),
-   because a process that unlinks and recreates a database file another process
-   still holds leaves the two "talking to different database files with the same
-   name" (`sqlite.org/howtocorrupt.html`). The pid-liveness takeover (`alive()`,
-   and `EPERM` counted as alive) is removed. *Why (R-37; G-2 as corrected,
-   settlements; B5 verification ruling 4, B8 verification item 11):* the lock's
-   lifetime is the holder process's own — "All process-owned locks associated
-   with a file for a given process shall be removed when any file descriptor for
-   that file is closed by that process" (POSIX `fcntl`), process exit closes
-   every descriptor, and a fatal signal terminates "as if by a call to
-   `_exit()`" — and executed, a `SIGKILL`ed holder's lock was acquired at once by
-   the next claimant; so there is no stale state to judge. `kill(pid, 0)`
-   answers "does some process have this pid", not "is the holder alive": with a
-   stored pid of 1 standing for a dead holder whose pid now belongs to an
-   unrelated live process, the claim was refused for as long as that process
-   lived (executed), and `EPERM` reads another user's process as the holder;
-   both fail toward stopping reindexing indefinitely. A lease needs the holder
-   to renew inside long synchronous work and an expiry with no source, and a
-   merely slow holder loses its claim to a second pass — the double writer the
-   claim exists to prevent. Acquisition stays one atomic step under SQLite's
-   single writer, as the claim row made it (D-plan-32: a lock file with liveness
-   reclaim let two reclaimers of a stale lock both win in 29 of 200 races; the
-   single writer, 200 of 200 with exactly one winner). What it costs: one extra
-   file per project and one open connection during a pass; advisory locks on a
-   network file system are only as reliable as its lock support.
-   Audit-before-emit ordering (AD-8) holds per
+   (fail-open) with a `store_busy` diagnostic. **Off the event path the wait is
+   long:** the miner, the indexer, and the CLI verbs open the store with
+   `busy_timeout` 5,000 ms, because nothing there has a latency budget to
+   protect, and a background pass that gave up after 200 ms would abort
+   whenever a live session's handler held the lock for one short write group.
+   *Why (CI on 821c835, T-13-5b):* the miner, opened with the event path's
+   100 ms, raised `StoreBusy` against a second process's single-row appends
+   and the pass aborted. The handler's short writes (above) keep each wait
+   well under that bound. The detached reindex takes a
+   **claim row** in `schema_meta`, inside one `BEGIN IMMEDIATE` transaction,
+   released in a `finally`, and a second reindex is refused with
+   `reindex_locked` (a plan-level diagnostic code); `status` shows a held claim
+   with its start time. *(Corrected 2026-09-26: this said "a directory lock".
+   Executed in the plan (D-plan-32), a lock file with liveness reclaim let two
+   reclaimers of a stale lock both win in 29 of 200 races; the store's single
+   writer makes check and claim one step, 200 of 200 races with exactly one
+   winner.)* The handler never waits on it (staleness merely lowers
+   confidence meanwhile, `FR-K7`). Audit-before-emit ordering (AD-8) holds per
    process; ids are ULIDs so concurrent writers never collide. The
    `whisper_stats` fold (AD-5) reads its project store's two watermarks,
    aggregates the rows newer than each, appends the `stats_folds` rows, and
@@ -6007,64 +2603,30 @@ and nothing here depends on the new channel.
    same call, so a DAO used alone is still atomic, and a caller can make a
    multi-DAO write atomic.
    **The write lock is held only while writing.** SQLite has one writer, and
-   every waiter waits about 200 ms for it (100 ms `busy_timeout` + one retry,
+   the event path waits about 200 ms for it (100 ms `busy_timeout` + one retry,
    above), so every unit of work is bounded:
-   - *The handler's event.* Its write transactions span only its writes, and
-     **each write group is one `Store.transaction` call**: the intake's question
-     rows (`UserPromptSubmit`) in one, the catch-up's question and bookmark
-     updates in one, the `observed_actions` append in one, and each
-     audit-then-emit write (the `whisper_audit` row with its `delivered`-set
-     insert, committed before the text is emitted, or the deny row) in one, so a
-     failure between the audit insert and the delivered insert leaves neither
-     row. The transcript read, candidate generation, the bar, dedup reads, and
-     compose run outside any write transaction. The ~200 ms window above holds
-     only for a write group inside `Store.transaction`: a bare autocommit
-     statement gets one 100 ms try and no retry (executed: a single autocommit
-     insert failed once the other writer's hold passed about 100 ms, where a
-     `Store.transaction` write group held until about 200 ms), and the skeleton
-     handler's writes are such statements, so the plan's Step 28 puts each group
-     in `Store.transaction` as written here (Flaw 1, settlements' review).
+   - *The handler's event.* Its write transactions span only its writes: the
+     intake's question rows (`UserPromptSubmit`) in one, the catch-up's
+     question and bookmark updates in one, the `observed_actions`
+     append in one, and each audit-then-emit write (the `whisper_audit` row
+     with its `delivered`-set insert, or the deny row) in one. The transcript
+     read, candidate generation, the bar, dedup reads, and compose run outside
+     any write transaction.
    - *A mining or index pass.* It commits in bounded chunks. `git log` is
      streamed and aggregated outside any transaction; each chunk is one
-     transaction that writes its rows — for the miner, its recomputed commits
-     with their sums, its evictions or its commits with
-     their `commit_touches` and weights, `change_count` increments, pairs, and
-     `labelled_touches` (AD-13) — and nothing to the
-     watermark, which only the final transaction writes. **Elapsed time is
-     checked before each write**, and a chunk commits once it has spent
-     `miner.chunk_ms` (tuning, AD-5; seed 50 ms, illustrative) writing, so a
-     chunk's writing time stays within `miner.chunk_ms` plus one write, and so
-     does every other write transaction of a pass, chunked or not — a
-     **recorded target** below the waiter's roughly 100 ms first-try window, not
-     a bound, because the `COMMIT` that ends the transaction may also run the
-     automatic WAL checkpoint, after it releases the lock (AD-23's inventory;
-     R4-3, F5-10), which the measure counts; `write_hold_exceeded` (below) is
-     its measure. *(Changed 2026-09-28, M-30: statements whose cost
-     grew with the rows they covered — an epoch rescale, a history reset and a
-     forward migration's row move — each ran one rowid range per transaction of
-     at most 20,000, 500 and 1,000 rows; all three statements are cut, M-18,
-     M-6, M-5.)* **Between two write transactions the
-     pass releases the write lock for `miner.chunk_gap_ms`** (tuning, AD-5;
-     floor 25 ms, which `tune` refuses to go below; **seed 30 ms**, the floor
-     plus a 5 ms margin derived from measurement below — settlement (c), F-21);
-     the index pass does the same. The miner's and the indexer's pass
-     connections run `PRAGMA synchronous = NORMAL` (an `openStore` option,
-     off-path only), so a commit holds the write lock without a WAL fsync; every
-     other connection keeps SQLite's WAL default, `FULL`. Each pass records its
-     **longest write-lock hold** — the adapter's time from `BEGIN IMMEDIATE`
-     returning to `COMMIT` returning — in its result and in `status`, and at most
-     one `write_hold_exceeded` fault per pass carrying the longest hold and the
-     count of holds over 150 ms (`{writer, holdMs, phase, count}`). The landmine
-     rebuild (AD-15) is one short final transaction. An index pass writes
+     transaction that writes its rows — for the miner, its commits,
+     `change_count` increments, pairs, and `labelled_touches` — **and** advances
+     the watermark to the last commit it contains, so a crash never leaves a
+     watermark ahead of its data. A chunk commits once it has spent
+     `miner.chunk_ms` (tuning, AD-5; seed 50 ms, illustrative, half the
+     `busy_timeout`) writing. The landmine rebuild (AD-15) is one short final
+     transaction. An index pass chunks its per-file rows the same way and writes
      `schema_meta.index_head` only in its final transaction, so a crashed pass
      leaves the old `index_head` and the staleness check re-triggers it.
-   - *A mining pass whose recompute, evictions and additions take more than
-     one write transaction* runs with `schema_meta.mining_in_progress` set in
-     its first transaction, together with that transaction's first chunk of
-     work (AD-13, R9-6; its value counts the passes that started the work),
-     and cleared in its final one; the history genres produce no candidates while
-     it is set (AD-13), so no reader sees partial counts, and `status` lists the
-     condition (AD-17).
+   - *A full (re-)mine* runs with `schema_meta.mining_in_progress = 1`, set in
+     its first transaction (for a re-mine, the purge transaction, AD-13) and
+     cleared in its last; the history genres produce no candidates while it is
+     set (AD-13), so no reader sees partial counts.
 
    *Why the lock bound (review record 2026-09-26, ER S2 / CH H9):* the first
    2026-09-26 pass made the whole mining or index pass, and the handler's whole
@@ -6074,95 +2636,27 @@ and nothing here depends on the new channel.
    the lock that long while the session's first events run, their audit writes
    fail, and a failed audit means no deny (AD-8) — `OL-C3`'s block silently off
    for the refresh, with only `store_busy` as a trace.
-   *Why the yield (R-36 (a), (c); B3b E-7, B8a E-17):* chunk length does not
-   bound a waiter's wait — the gap between chunks does. SQLite's handler sleeps
-   and retries with no queue ("The presence of a busy handler does not guarantee
-   that it will be invoked when there is lock contention"), so a writer that
-   takes the lock back within microseconds of releasing it can make every
-   attempt miss, while one short write group cannot. The longest nominal
-   interval between attempts within 100 ms is 25 ms (78 − 53), so a free window
-   of at least 25 ms contains one **on the nominal schedule only**: the interval
-   is 25 ms plus the overshoot of the handler's own 25 ms sleep, which SQLite's
-   unix VFS takes with `nanosleep` (`os_unix.c` at version 3.51.2, `unixSleep`),
-   so the scheduler decides it. Measured in settlement (c) (Node 22.22.2, 4
-   cores): the 25 ms sleep's overshoot, untraced in C, had p99 1.833, 2.599 and
-   3.711 ms under 0, 3 and 8 CPU spinners, and a maximum of 34.313 ms once in
-   2,000 idle sleeps, so no finite margin guarantees capture; the margin is set
-   to cover the 99th percentile under every measured load — max(1.833, 2.599,
-   3.711) = 3.711 ms, so at least 4 ms — and 5 ms is the smallest margin
-   measured directly. Against a writer holding 60 ms per transaction, a one-try
-   waiter (`busy_timeout` 100, no retry) through the adapter missed 15 of 2,613
-   times at a 25 ms gap and 0 of 2,729 at 30 ms under 3 spinners (180 s runs),
-   and 13 of 1,653 against 1 of 1,802 under 8 spinners on 4 cores (120 s runs).
-   **The measured residual is stated: even 30 ms is not a guarantee** (1 miss in
-   1,802 one-try attempts under 8 spinners), and what bounds a miss is the
-   handler's retry — its two tries span about 200 ms, which contains a full gap
-   whenever each hold stays within `miner.chunk_ms` plus one write — with any
-   miss past both recorded as `store_busy` and every long hold as
-   `write_hold_exceeded` (F-21). Executed earlier: a conforming pass of 50 ms
-   chunks with no gap let the handler's audit write succeed in 1 of 15 runs,
-   and with a 25 ms gap in 15 of 15. The rule is pinned by a concurrency
-   fixture in which a handler audit write made during a synthetic pass must
-   succeed, with 0 `StoreBusy` and the pass's longest hold printed (M-30: its
-   first-try cases over the cut row-range statements go with them). It costs pass time, from the recorded benchmark (B8 verification
-   item 6): the 25 ms yield took a pass from 98.2 s to 148.4 s, 50.2 s for about
-   2,008 gaps; 5 ms more per gap adds about 10.0 s, so at the 30 ms seed the pass
-   takes about 158.4 s, **+61 %** over no yield against +51 % at 25 ms
-   (settlement (c)). Step 12 writes the seed and cites this derivation; it has no
-   further information to set it from. *(Corrected 2026-09-28: the chunk seed's rationale
-   was "half the `busy_timeout`", which bears on nothing the waiter sees, and no
-   gap was stated — R-36 (a), (g).)*
-   *Why the before-write bound, `synchronous = NORMAL`, and the hold record
-   (R-36 (b), R-68; G-5 as corrected, settlements):* with the yield in place a
-   waiter with one retry fails only when a single hold outlasts its two tries,
-   about 200 ms (executed sweep: 0 failures at a 190 ms hold, failures from
-   about 205–210 ms), and a pass's holds were not bounded by `chunk_ms`, because
-   the chunk loop checked time after each write and the commit's WAL fsync
-   under `synchronous = FULL` came on top — holds reached 180–188 ms under disk
-   contention, against 149.8 ms with `NORMAL` (executed). "Transactions are
-   consistent with or without the extra syncs provided by synchronous=FULL"
-   (`sqlite.org/pragma.html`); what a power loss can take is the pass's last
-   commits, which the next pass re-mines or re-indexes (AD-13's reconcile;
-   `index_head`), and the faults and the reindex holder rows the pass connection
-   wrote since the last checkpoint — the faults are also in the diagnostics
-   JSONL, and the holder rows are informational. No handler or CLI row goes
-   through a `NORMAL` connection. The residual 3 `StoreBusy` of 2,310 recorded in
-   batch 8 did not recur (0 of 21,011 appends in ten runs, B8a's own build
-   included), and that run logged no hold timeline, so their cause cannot be
-   re-attributed; one hold past about 200 ms is the only mechanism consistent
-   with the measurements, and the hold record turns any future residual into a
-   recorded hold size instead of an unexplained count. The contention test keeps
-   its criterion, 0 `StoreBusy`, and prints the longest hold.
    *Why nesting:* executed in the review of 2026-09-25 (G9),
    `ps.transaction(() => ps.transaction(() => 1))` threw `cannot start a
    transaction within a transaction`, and ten DAO methods open their own
    transaction. No caller could make a multi-DAO write atomic, so the miner
    committed its watermark before its landmines, and a crash between the two
-   left the watermark advanced without them. (The watermark now commits only in
-   the pass's final transaction, together with the landmine rebuild, AD-13, so a
-   crash before it leaves the previous tip and the next pass's reconcile
-   finishes the work.)
+   left the watermark advanced without them. (The chunk rule keeps that
+   invariant: a chunk's watermark commits with its own rows; the landmine
+   rebuild is derived and idempotent, so a crash before it is repaired by the
+   next pass's rebuild.)
 2. **Standard.** SQLite WAL semantics (readers don't block the writer; one
    writer at a time) — engine-documented behaviour exercised by the V8 probe;
-   SQLite's default busy handler (`src/main.c`, `sqliteDefaultBusyCallback`, and
-   `sqlite.org/c3ref/busy_timeout.html`: "The handler will sleep multiple times
-   until at least "ms" milliseconds of sleeping have accumulated") for the wait
-   and the yield; SQLite `PRAGMA synchronous` for the pass connections; SQLite
-   `SAVEPOINT` documentation (savepoints "are named and may be nested",
-   and work inside a `BEGIN…COMMIT`); POSIX `fcntl`, `_Exit` and signal
-   termination for the reindex lock; Fowler, *Patterns of Enterprise
+   SQLite `SAVEPOINT` documentation (savepoints "are named and may be nested",
+   and work inside a `BEGIN…COMMIT`); Fowler, *Patterns of Enterprise
    Application Architecture*, Unit of Work; `FR-O3` for the give-up path.
 3. **Why here.** The no-daemon model (AD-1) moves contention to the store; WAL
    is the mechanism that makes that safe, and the give-up path keeps NF-1.
-4. **What this is NOT.** Not a global write queue (a daemon in disguise). Not a
-   long `busy_timeout` anywhere: on the event path it spends NF-1, and off it it
-   outlasts bursts without answering starvation and hides a stuck holder
-   (above). Not DAO-owned
+4. **What this is NOT.** Not a global write queue (a daemon in disguise). Not
+   long `busy_timeout` on the event path (blocks it — NF-1); off-path writers
+   use one (above). Not DAO-owned
    transactions, which cannot compose into one atomic unit of work. Not one
-   transaction per pass or per event (the lock-hold bound above). Not a larger
-   yield for a long hold (a yield does nothing for one hold past the window) and
-   not a longer event-path wait to cover the pass's durability I/O (G-5). Not
-   pid-liveness reclaim, and not a lease (above).
+   transaction per pass or per event (the lock-hold bound above).
 5. **Premise verification.** WAL enabled and exercised in V8; `FR-K7`, `FR-O3`
    read at spec §11.1/§8; nesting executed here 2026-09-26 on Node 22.22.2
    `node:sqlite` (`BEGIN IMMEDIATE` → `SAVEPOINT a` → insert → `SAVEPOINT b` →
@@ -6171,18 +2665,8 @@ and nothing here depends on the new channel.
    non-nesting defect executed in the review record
    `docs/reviews/2026-09-25-skeleton-gap-list-review.md` (G9); the lock-hold
    benchmark executed in `docs/reviews/2026-09-26-architecture-pass-expert-review.md`
-   (S2; synthetic shape, cited for its order of magnitude); the busy schedule,
-   the gap runs and the pass-time cost executed in B3b E-7 and B8a E-17; the
-   25 ms sleep's overshoot and the one-try sweeps at 20–35 ms gaps executed in
-   settlement (c) (Node 22.22.2, 4 cores; F-21); the never-unlinked lock (M-32)
-   and the hold stated as a target with the checkpoint any `COMMIT` may run
-   (R4-3; the round-4 review's E-3); the hold
-   sweep, the `synchronous` runs and the per-connection setting, the load runs
-   at the default timeout, the autocommit window, the reindex lock's `SIGKILL`
-   release, the pid-1 refusal and the non-SQLite close executed in the
-   settlements and re-run in their review (Node 22.22.2, its SQLite 3.51.2).
-   Addresses: NF-1, `FR-O3`, `FR-K7`, `OL-C3` (the deny stays live during a
-   refresh).
+   (S2; synthetic shape, cited for its order of magnitude). Addresses: NF-1,
+   `FR-O3`, `FR-K7`, `OL-C3` (the deny stays live during a refresh).
 
 ### Numbered reasoning chain — the decisions that met the Phase 8 trigger
 
@@ -6403,7 +2887,7 @@ criterion is pinned there and its mechanism lives in the named decisions.)
 | C-1 | AD-2, AD-25 |
 | C-2 | AD-2 (premise superseded per V7; requirement met by stock engine) |
 | C-3 | AD-2, AD-12, AD-25 |
-| C-4 | AD-6, AD-7, AD-16 (verified facts V1–V6, V15/V16, V18/V19, V20–V22, V24 at the boundary) |
+| C-4 | AD-6, AD-7 (verified facts V1–V6, V15/V16, V18/V19, V20–V22 at the boundary) |
 | C-5 | No MCP sampling anywhere in the design (nothing to map; stated for completeness) |
 | C-6 | AD-12 |
 | NF-1 | AD-1, AD-23, AD-26 |
@@ -6476,19 +2960,12 @@ criterion is pinned there and its mechanism lives in the named decisions.)
   checked at build (`npm pack --dry-run` + a loaded-grammar smoke test), with
   the generic frontend as the floor for anything missing. *(Executed
   2026-09-11: every grammar the pinned runtime loads and parses — 32 of 36;
-  the other four (`elm`, `ql`, `yaml`, `bash`) fall to the generic frontend.
-  Plan §4. Corrected 2026-09-28: the cause-level rule of AD-12 replaces the
-  2026-09-26 "parses correctly on repeated parses" rule and its 31-of-36
-  figure — the packaged `tree-sitter-lua` 2.1.3 scanner reads a `malloc` block
-  it never initialised and the packaged `tree-sitter-swift` 0.4.3 scanner
-  writes into a zero-byte `calloc`, the 0.25.10 runtime creating the scanner at
-  every parse; both are excluded in Phase A and take the generic frontend, and
-  every excluded grammar is recorded per language with its cause — R-14; B9
-  E-1; M-33.)* If coverage proves
-  materially narrower than expected — the exit data showing Lua or Swift in the
-  owner's repositories, say — the loader takes a per-grammar WASM path from the
-  ext→grammar table, so a vendored grammar WASM is added under AD-25's
-  provenance and checked-digest rule without redesign (C-6). Two consequences
+  the other four fall to the generic frontend. Plan §4. Corrected 2026-09-26:
+  31 of 36 — `lua` parses once and then silently returns ERROR trees, so it
+  falls to the generic frontend too; a usable grammar is one that parses
+  valid source correctly on repeated parses, not once.)* If coverage proves
+  materially narrower than expected, the ext→grammar config absorbs
+  individually-shipped grammar WASMs without redesign (C-6). Two consequences
   for the Reuse genre: `symbol_refs` is an **identifier-match heuristic**
   whose false-positive class (same-named symbols, matches in comments and
   strings) is stated in every whisper's evidence and capped in confidence
@@ -6507,14 +2984,7 @@ criterion is pinned there and its mechanism lives in the named decisions.)
   as incomparable too (AD-12, AD-15; review record 2026-09-26, CH H4). What
   counts as *external* rather than unresolved is each resolver's written rule;
   a resolver whose rule is narrow over-counts unresolved and silences Reuse for
-  its language — the safe direction, visible in `status`'s per-language share.
-  A resolver whose external rule is **over-broad** fails the other way: a
-  specifier it calls external yields no edge and is not counted unresolved, so
-  the language under-counts **silently** — the unsafe direction, since Reuse can
-  then crown a rival over an uncounted true convention — and the unresolved
-  share does not detect it; this is why a workspace or `file:`/`link:` package
-  is never external and Python's external class is bounded by a stated standard
-  library list and the declared distributions (AD-12; R-16 (d); B3b E-15). Both are stated in the whisper's evidence;
+  its language — the safe direction, visible in `status`'s per-language share. Both are stated in the whisper's evidence;
   AC-1b's fixture pins the mixed-language case as **asserted silence** (no
   false crown), the unimported-grammar case as **still comparable** (a
   symbol in an `imports: true` language whose observed count is 0 is not
@@ -6576,11 +3046,7 @@ criterion is pinned there and its mechanism lives in the named decisions.)
   tool runs.** A `PreToolUse` whisper is read next to the tool result, on the
   next model request (V20), so a Warning or Consequence on an Edit/Write reaches
   the agent right after the tool call — which may have run, failed, or been
-  denied at the permission prompt or by another hook, the text then arriving
-  next to the denial — never before it; and when an `Edit` path deny rule (tested; a `Read` rule not tested — F-18)
-  rejects the call, the hook does not run at all and nothing is delivered, which
-  loses nothing, since the edit did not happen (DE, PD; Claude Code 2.1.283,
-  tested; pending spec sign-off R-1…R-5). AD-15 therefore words them
+  denied at the permission prompt — never before it. AD-15 therefore words them
   about the file the edit targets, never as an edit that happened, and the
   decision they inform is the next move: revise, proceed, or retry. The trigger
   stays `PreToolUse` because the retry of a denied or failed edit needs the
@@ -6606,10 +3072,7 @@ criterion is pinned there and its mechanism lives in the named decisions.)
   pre-edit channel exists instead of rejecting the one that does with a reason.
   Owner-visible, in plain language: warnings about an edit reach the agent right
   after it tries the edit, not before (review record 2026-09-25, "Unverified
-  item — whispers on `PreToolUse`"). *(2026-09-28: the row stays scoped to the Edit
-  event, and the Read-time alternative's rejection above is also the coordinator
-  ruling's — "Delivery at read time is FR-A2e / D-26's job", CR§2 — R-8; B3a
-  E-2.)*
+  item — whispers on `PreToolUse`").
 - **L13 — A landmine's confidence has no base rate.** A Warning's evidence
   ratio is its support against a fixed full-support count (AD-14), so three
   reverts among a file's 500 changes read as strong as three among four. Phase A
@@ -6618,97 +3081,6 @@ criterion is pinned there and its mechanism lives in the named decisions.)
   whether Phase B adds a base-rate term. Owner-visible, in plain language: a
   warning about a file that changes constantly may overstate how risky it is
   (plan-pass collapse-hunt, D-plan-34).
-- **L14 — Renamed files start with no history under their new name.** Phase A
-  does not follow renames (AD-13): a rename entry contributes both paths, so a
-  renamed file's earlier coupling and landmines stay on the old path and the
-  new name is silent until it gathers its own history — under-firing, the safe
-  direction. Each pass counts the rename entries in its target set and the
-  history a follower would carry, and the Phase A exit data decide whether Phase
-  B builds following, then designed as a read-time rename map so each commit's
-  contribution stays independent of later commits (G-4 as corrected,
-  settlements). Owner-visible, in plain language: after a file is renamed, the
-  oracle forgets what it knew about it until the file has changed a few more
-  times; `status` shows how often that happens.
-- **L15 — A capped commit keeps the weight of the tip it was mined under.** A
-  commit whose author time is later than the committer time of the tip it was
-  mined under has its term capped at that tip's time (`refTs`, AD-13), and keeps
-  that capped weight until it is evicted or the next full recompute, whether
-  the tip later moves up or down, while a fresh mine caps it at its own tip's
-  time (M-19). Size, derived: a stored term is compared relative to the other
-  terms of its own store, since every raw term of a store differs from a fresh
-  mine's by the common epoch factor, which cancels in a ratio (AD-13; F5-14).
-  So compared, it differs from the fresh mine's term by a factor of at most
-  `2^(|refTs_now − refTs_mined| / h)` — at most 2 when the tip has moved one
-  half-life — and a confidence ratio it enters changes only through that one
-  commit's term in its two sums. The direction is not fixed: a term
-  lower than a fresh mine's lowers the ratio of a pair it touches and raises
-  that of a file it touches alone, and a higher one the reverse. Such commits
-  are counted by `miner_ts_capped`, so the exit data show how often it arises.
-  *(The collapse hunt's wording called the effect "under-confidence on those
-  commits only"; that holds only for a pair commit whose tip later rose, so the
-  row states both directions.)* Owner-visible, in plain language: a commit
-  dated in the future carries slightly the wrong weight until it ages out.
-- **L16 — Over the harness's cap, the model's preview may end partway through a
-  whisper.** When the cleared whispers of one response exceed 10,000
-  characters, every one is sent whole (AD-16), and Claude Code shows the model
-  a file path and the first 2,000 characters, which can end inside a whisper,
-  seen then without its pointer or ratio (M-25). Size, derived: at most one
-  whisper per over-cap response is cut in the preview, and every whisper wholly
-  past character 2,000 reaches the model only inside the file. How often is
-  measured: `response_over_cap` counts over-cap responses and every response's
-  length is recorded. The handling is chosen with `OL-C1`'s over-cap decision,
-  from the exit data. Owner-visible, in plain language: when the oracle has a
-  lot to say at once, Claude may see the last warning of the batch cut short.
-- **L17 — In a repository whose refs the event path cannot read (a reftable
-  repository), every fact is dampened on every event.** The event path resolves
-  `HEAD` only through loose refs and `packed-refs`, so in a reftable repository
-  it treats every fact as both index-stale and history-stale on every event,
-  even just after a refresh (AD-23): each fact's confidence is multiplied by
-  `bar.stale_factor` (seed 0.9) on top of the trust factor — a structural
-  fact's `0.9 s` becomes `0.81 s` (AD-14) — so more whispers carry the uncertain flag and a fact
-  near its floor can fall below it. The index and the history are refreshed at
-  each session start by the early-exit child (AD-23), not by events. The class
-  grows as git moves toward reftable as the default for new repositories (B8b
-  E-14, citing git's BreakingChanges). `status` lists `head_unresolved` among
-  the active conditions (R4-14). Owner-visible, in plain language: in such a
-  repository the oracle sounds less sure of itself than it is.
-- **L18 — Rows an earlier build writes after the rebuild are not carried.**
-  Hooks run the build that wired them (AD-20). So until `init` is re-run from
-  this build, an earlier build can keep writing the legacy `store.db` or
-  `global.db` after its rebuild: another checkout's build, or a process still
-  running. Those rows — a `note`, a `tune`, the session history — stay in the
-  kept legacy file, and nothing merges them into the rebuilt store (AD-4;
-  F5-18). Size: exactly the rows written between the rebuild and the re-run of
-  `init`. `status` names each table whose carried rows changed, from the
-  rebuild record's per-table digests, and `deinit --purge` refuses while a
-  project's legacy file has changed (AD-20). A digest names the table, and the
-  carried row counts at the rebuild and now, kept beside it, bound how many rows
-  changed (R6-2: a count alone missed a `tune`, which replaces a row and leaves
-  the count equal; R7-5).
-  Owner-visible, in plain language: after an upgrade, run `ctxoracle init`
-  again in each repository, or notes typed through the old version stay in the
-  old file.
-- **L19 — A full recompute is silent while it runs, and starts over when its
-  inputs change.** A recompute of the co-change weights (AD-13's case 1:
-  after a `tune` of the half-life, or a checkout of a tip past the epoch's
-  bound) keeps the history genres silent under `mining_in_progress` until it
-  finishes. An interruption does not cost its work: the next pass resumes it
-  under the inputs it started with, so under repeated interruption it
-  completes within `C` passes, C-3's bound (R9-1; round 8's L19, "a full
-  recompute that keeps being interrupted never finishes", is withdrawn with
-  the restart that caused it). What still restarts it is a change of those
-  inputs before it finishes, a further `tune` of `h` or a checkout past its
-  epoch's bound, because finishing under the old inputs would mix two decay
-  rates or epochs (M-17, R8-2); each is recorded as `recompute_superseded`,
-  and each resumption as `mining_resumed`, which `status` shows (R9-6). Size:
-  one recompute's run time (AD-13 gives a model's figure, tens of seconds at
-  the seeded horizon); at the seeded half-life a recompute follows only a
-  `tune` of it, and near the half-life floor nearly every branch switch to an
-  older tip starts one. Owner-visible, in plain language: after changing how
-  fast history fades, the history-based hints stay off until the
-  recalculation has finished; shutting the machine down or killing the
-  process only pauses it, while changing the setting again before it
-  finishes starts it over.
 
 ## Standards governing this architecture
 
@@ -6722,24 +3094,14 @@ criterion is pinned there and its mechanism lives in the named decisions.)
 | OWASP LLM Top-10 2025 (LLM01, LLM02), Prompt-Injection Cheat Sheet, ASI06, Secrets Cheat Sheet (verification inherited from spec §9, 2026-08-25) | spec §9 | AD-19's controls; threat model |
 | OWASP ASVS 5.0 (applicable subset) | mapping table | input validation, error handling, data protection, dependency hygiene areas |
 | ISO/IEC 25010:2023 | quality table | the characteristic mapping and the analysability arguments (AD-2, AD-10) |
-| Claude Code hooks reference (`code.claude.com/docs/en/hooks.md`), fetched 2026-09-26 and re-fetched 2026-09-28 (CR§2; and for the 10,000-character cap, V24), with the Agent SDK TypeScript reference and the permissions page; the denial cases executed on Claude Code 2.1.283 (DE, PD) | V6, V20–V22, V24 | when a `PreToolUse` whisper is read, that permission denials fire `PreToolUse` and path deny rules run before hooks, the timeout's scope, exit-0 stderr, `SessionStart` fork input; AD-6, AD-7, AD-9, AD-15, AD-16, AD-23, L12 |
-| Zimmermann et al., IEEE TSE 31(6) 2005 (ROSE) — via spec §9 | AD-4, AD-13, AD-14, AD-16 | mining shape and the confidence computation's grounding (operating point architect-tunable per the spec's note); the frequency of A as the per-file denominator and the support count as `pair_count`; confidence defined per antecedent (the two Coupling ratios) |
-| Śliwerski, Zimmermann, Zeller, MSR 2005 (SZZ keyword heuristic) | AD-15 | the method of the fix label — keywords matched as whole words; not the seed vocabulary, which is the architect's (SZZ's regex is `fix(e[ds])?\|bugs?\|defects?\|patch`) — R-38 |
+| Claude Code hooks reference (`code.claude.com/docs/en/hooks.md`), fetched 2026-09-26 | V20–V22 | when a `PreToolUse` whisper is read, that permission denials fire `PreToolUse`, exit-0 stderr, `SessionStart` fork input; AD-7, AD-9, AD-15, AD-16, L12 |
+| Zimmermann et al., IEEE TSE 31(6) 2005 (ROSE) — via spec §9 | AD-4, AD-13, AD-14 | mining shape and the confidence computation's grounding (operating point architect-tunable per the spec's note); support(A) as the per-file denominator |
+| Śliwerski, Zimmermann, Zeller, MSR 2005 (SZZ keyword heuristic) | AD-15 | the fix-label keyword class, matched as whole words |
 | `go help test` (`pkg.go.dev/cmd/go`, "Test packages"; fetched 2026-09-26 in the expert review) | AD-12 | same-directory `test_map` mapping for Go |
-| git-revert(1), gitignore(5) (`git-scm.com/docs`, read 2026-09-26) + execution on git 2.43.0; git-merge-base(1), git-rev-list(1) options, `date.c`, `xdiff-interface.c` and `usage.c` at v2.43.0 | AD-12, AD-13, AD-15, AD-23 | the revert label — the body trailer and the reference-format line are **execution-backed** (git-revert(1) documents only the `Reapply` subject), the manual's `--reference`/`revert.reference` naming the second — R-38; the file walk and the `.gitignore` signal (a tracked file matching an ignore pattern, never `generated` alone); the worktree resolution; the target set and exit statuses; the ten-day plausibility size; the 8000-byte binary test; the 4,096-byte `stderrTail` (`vreportf`'s buffer) |
-| SQLite WAL documentation (engine behaviour, exercised V8; `sqlite.org/wal.html` re-fetched 2026-09-28 for the automatic checkpoint, which "the same thread that does the COMMIT" runs, PASSIVE, "without interfering with other database connections"); SQLite 3.51.2 `src/main.c` default busy handler and `src/os_unix.c` `unixSleep`, `busy_timeout`, `PRAGMA synchronous`, `BEGIN EXCLUSIVE` (`sqlite.org`) | AD-4, AD-13, AD-26 | concurrency model; the shared wait, the yield (floor 25 ms, seed 30 ms from settlement (c)'s measured sleep overshoot), the pass connections' `NORMAL`, the reindex lock and its 100 ms wait; that any `COMMIT` — the handler's included — may run the automatic checkpoint (R4-3), which the WAL hook runs after the write lock is released (`sqlite.org/c3ref/wal_hook.html` and `c3ref/wal_autocheckpoint.html`, fetched 2026-09-29), so it lengthens that `COMMIT` and the adapter's measure but not another connection's lock wait (F5-10) |
-| SQLite `ALTER TABLE` (`sqlite.org/lang_altertable.html`, fetched 2026-09-28) | AD-4 | the migration bound: which schema steps run in time independent of the stored rows |
-| SQLite `SAVEPOINT`, `VACUUM`, Online Backup API, and "How To Corrupt An SQLite Database File" (`sqlite.org`, read 2026-09-26) | AD-4, AD-5, AD-26 | nested transactions; the explicit `seq` watermark key; import by backup, never by file copy; a legacy store never renamed and a lock file never unlinked (M-3, M-32) |
+| git-revert(1), gitignore(5) (`git-scm.com/docs`, read 2026-09-26) + execution on git 2.43.0 | AD-12, AD-15, AD-23 | the revert label; the file walk and the `.gitignore` zone signal (a tracked file matching an ignore pattern); the worktree resolution |
+| SQLite WAL documentation (engine behaviour, exercised V8) | AD-26 | concurrency model |
+| SQLite `SAVEPOINT`, `VACUUM`, Online Backup API, and "How To Corrupt An SQLite Database File" (`sqlite.org`, read 2026-09-26) | AD-4, AD-5, AD-26 | nested transactions; the explicit `seq` watermark key; import by backup, never by file copy |
 | Fowler, *Patterns of Enterprise Application Architecture* (Unit of Work) | AD-26 | caller-owned transaction demarcation |
-| POSIX.1-2024 `fcntl`, `_Exit` and signal termination (`pubs.opengroup.org`) | AD-26 | the reindex lock released with its holder process |
-| Flyway `validate` (`documentation/command/validate.md`) and `ChecksumCalculator.java` (fetched 2026-09-29) | AD-4, AD-5 | per-migration checksums checked on every open, line-ending independent (R7-2) |
-| git `gitattributes` (`git-scm.com/docs/gitattributes`, fetched 2026-09-29) | AD-4 | CRLF read as LF in the layout test and the checksums (R6-9, R7-2) |
-| SQLite `src/pager.c` (`hasHotJournal`, `pagerOpenWalIfPresent`; fetched 2026-09-29) and POSIX `unlink` (`pubs.opengroup.org`) | AD-4, AD-20 | the purge's deletion order and its concurrent-writer residual (R7-8); the new name's `-journal`/`-wal`/`-shm` deleted before the rebuild's rename, since `pager.c` drops them only beside an empty database (R8-3) |
-| Shore, "Fail Fast", IEEE Software 2004 | AD-4, AD-13, AD-14 | refusal without data loss (a legacy store rebuilt beside, never purged); input validation before any write; no seed substitution for an invalid stored value |
-| GitHub Linguist `vendor.yml`, `languages.yml`, `heuristics.yml` and `generated.rb` (fetched 2026-09-28, `main` at `d0921d1`, and in B8a) | AD-12 | any-depth `dist/`/`vendor(s)/`/`node_modules/`; which languages are `prose` (the deny-list seed, its rule for shared extensions and its exceptions — the non-prose extensions and filenames that end in a listed suffix, R3-10 — the type used as a published list, not as a judgement of what declares names; `docs/how-linguist-works.md` and `docs/overrides.md` for what the type is, R2-4); the lockfile names |
-| Node.js v22 `modules` (CommonJS `LOAD_AS_FILE`) and Vite `resolve.extensions`; TypeScript 5.9.3 `--traceResolution` | AD-12 | the TS/JS resolver's written-path-first rule, `.json` last, source before the written `.js` |
-| C11 (N1570) §7.22.3 and the tree-sitter external-scanner contract | AD-12 | the recorded cause of the Lua and Swift exclusions (M-33) |
-| IEEE 754 binary64 (largest finite power of two `2^1023`, smallest normal `2^−1022`) | AD-13 | the fixed epoch's recompute bound and the half-life floor (M-18) |
 
 Every standard above drives at least one named decision; none is decorative.
 

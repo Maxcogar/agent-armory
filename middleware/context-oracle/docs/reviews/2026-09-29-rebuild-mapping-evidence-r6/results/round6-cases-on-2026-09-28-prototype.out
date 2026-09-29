@@ -1,6 +1,0 @@
-X1 exit 0 layout null unread true legacy_unplaced 0 legacyCounts absent legacy human_facts rows 2 new human_facts rows 0
-X2 after repoC: 0 global:rebuilt:4dd0f00-4e070ce project:rebuilt:4dd0f00-4e070ce pending ["legacy_pending:2b9215453e99","legacy_pending:deadbeef0000"]
-X2 after repoX: 0 global:current: project:rebuilt:b229c04 pending ["legacy_pending:deadbeef0000"] bindings 2
-X2 B: human_facts legacy 2 new 2; corrections legacy 4 new 4; questions legacy 3 new 3
-X2 C: human_facts legacy 3 new 3; corrections legacy 4 new 4; questions legacy 4 new 4
-X2 lessons legacy 2 new 2

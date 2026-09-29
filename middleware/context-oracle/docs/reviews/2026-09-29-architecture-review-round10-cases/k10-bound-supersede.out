@@ -1,1 +1,0 @@
-killed true; pending epoch T0; the older tip past the pending epoch's bound true; next pass at the older tip completed; recompute_superseded [{"from":"T0","to":"OLDER"}]; weight_epoch OLDER; max relative ratio error 3.405e-16 (exact)
