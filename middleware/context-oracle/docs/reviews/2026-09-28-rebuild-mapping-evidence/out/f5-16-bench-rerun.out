@@ -1,0 +1,12 @@
+# F5-16: the round-3 bench's denylist.py and spawn_probe.mjs re-run as the architecture's procedure states (2026-09-29)
+$ mkdir web && curl -sS -o web/languages.yml https://raw.githubusercontent.com/github-linguist/linguist/d0921d1/lib/linguist/languages.yml && curl -sS -o web/heuristics.yml https://raw.githubusercontent.com/github-linguist/linguist/d0921d1/lib/linguist/heuristics.yml
+183243e30496ba53f5f8743b0e39c9f0e0bccc5a32639f7b541cc2285db0e043  languages.yml
+5da2916d5a034be079fa49fbd37c5ce76db73f42b606284b425d3c0ef8211939  heuristics.yml
+$ python3 denylist.py | grep -E "^seed|exceptions"   (PyYAML 6.0.1)
+seed 38 shared ['.asc', '.fr', '.md', '.nb', '.ncl', '.scd', '.txt'] fallback-prose ['.fr', '.md', '.txt']
+extension exceptions [('.coffee.md', 'Literate CoffeeScript', 'programming'), ('.8xp.txt', 'TI Program', 'programming')]
+filename exceptions 12
+$ sed "s#'/home/user/agent-armory'#process.argv[2]#" <bench>/spawn_probe.mjs > spawn_probe.mjs && cp <bench>/child_probe.mjs . && node spawn_probe.mjs <repository root>
+n=200 p50=2.823 p95=9.557 max=15.838 ms
+$ node child_probe.mjs <repository root>
+{"head":"c9a185bede7f","ref":"refs/heads/claude/context-oracle-vkho4p","gitMs":10.3}

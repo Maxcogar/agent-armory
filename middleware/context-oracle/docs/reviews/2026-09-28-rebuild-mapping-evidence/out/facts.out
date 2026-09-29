@@ -1,0 +1,56 @@
+$ git log --format="%h %ad %s" --date=iso -- middleware/context-oracle/ctxoracle/src/cli/dispatch.ts
+59cc05c 2026-09-25 23:56:40 +0000 context-oracle: walking skeleton complete through Step 39 (thin); gap list G1-G36; STATUS next steps
+c45e0db 2026-09-25 23:53:03 +0000 context-oracle: walking skeleton Steps 21-28 + thin init; end-to-end hook stream passes; gaps G26-G31
+98bbfc7 2026-09-19 15:44:38 +0000 context-oracle: build Phase A Step 1 — package skeleton, toolchain, runner, fixtures, CI
+
+$ git log --format="%h %ad %s" --date=iso -- middleware/context-oracle/ctxoracle/src/stores/migrations
+b229c04 2026-09-26 03:27:22 +0000 context-oracle: build the reopened Steps 1-12 deltas and Checkpoint 1R (unreviewed)
+4e070ce 2026-09-19 16:39:30 +0000 context-oracle: Step 8 — SQL migrations for the Phase A global store
+4dd0f00 2026-09-19 16:38:07 +0000 context-oracle: Step 7 — SQL migrations for the Phase A project store
+
+$ git show c45e0db:middleware/context-oracle/ctxoracle/src/cli/dispatch.ts | grep -nE "case '(tune|correct|note)'"
+[c45e0db]
+$ git show 59cc05c:middleware/context-oracle/ctxoracle/src/cli/dispatch.ts | grep -nE "case '(tune|correct|note)'"
+24:    case 'tune':
+26:    case 'correct':
+28:    case 'note':
+[59cc05c]
+$ git show b229c04:middleware/context-oracle/ctxoracle/src/cli/dispatch.ts | grep -nE "case '(tune|correct|note)'"
+24:    case 'tune':
+26:    case 'correct':
+28:    case 'note':
+[b229c04]
+$ git show HEAD:middleware/context-oracle/ctxoracle/src/cli/dispatch.ts | grep -nE "case '(tune|correct|note)'"
+24:    case 'tune':
+26:    case 'correct':
+28:    case 'note':
+[HEAD]
+
+$ git diff --quiet 4e070ce 59cc05c -- middleware/context-oracle/ctxoracle/src/stores/migrations && echo same
+same
+$ git diff --quiet b229c04 HEAD -- middleware/context-oracle/ctxoracle/src/stores/migrations && echo same
+same
+
+$ git grep -c 'return \[\];' b229c04 -- middleware/context-oracle/ctxoracle/src/genres
+b229c04:middleware/context-oracle/ctxoracle/src/genres/completeness.ts:1
+b229c04:middleware/context-oracle/ctxoracle/src/genres/consequence.ts:1
+b229c04:middleware/context-oracle/ctxoracle/src/genres/coupling.ts:1
+b229c04:middleware/context-oracle/ctxoracle/src/genres/generator.ts:1
+b229c04:middleware/context-oracle/ctxoracle/src/genres/orientation.ts:1
+b229c04:middleware/context-oracle/ctxoracle/src/genres/reuse.ts:1
+b229c04:middleware/context-oracle/ctxoracle/src/genres/verification.ts:1
+b229c04:middleware/context-oracle/ctxoracle/src/genres/warning.ts:1
+$ git log --format=%h b229c04^..HEAD -- middleware/context-oracle/ctxoracle/src/genres middleware/context-oracle/ctxoracle/src/hook/handler.ts
+b229c04
+$ git grep -n subject_key HEAD -- middleware/context-oracle/ctxoracle/src/hook/handler.ts   (no output: the handler writes no subject_key)
+$ git grep -n 'repo_path' HEAD -- middleware/context-oracle/ctxoracle/src ':!middleware/context-oracle/ctxoracle/src/stores/migrations'
+HEAD:middleware/context-oracle/ctxoracle/src/stores/dao/global_meta.ts:2:// version and the repository bindings (`repo_path:<realpath>` -> repo key,
+$ git grep -n 'regret proxy is not built' HEAD -- middleware/context-oracle/ctxoracle/src/hook/handler.ts
+HEAD:middleware/context-oracle/ctxoracle/src/hook/handler.ts:260:    // SKELETON: G32 — the regret proxy is not built: it needs a post-write
+$ git grep -n 'stands in for the fold' b229c04 -- middleware/context-oracle/ctxoracle/src/diag/whisper_stats_fold.ts
+b229c04:middleware/context-oracle/ctxoracle/src/diag/whisper_stats_fold.ts:8:  // SKELETON: 1R — stands in for the fold; the skeleton body wrote the removed
+$ git diff --stat b229c04 HEAD -- middleware/context-oracle/ctxoracle/src/cli/verbs_skeleton.ts   (no output: unchanged)
+$ git show HEAD:middleware/context-oracle/ctxoracle/src/cli/verbs_skeleton.ts | grep -n "tuning.set(r.global, key, value, 'owner')"
+92:    tuning.set(r.global, key, value, 'owner');
+$ git show HEAD:middleware/context-oracle/ctxoracle/src/stores/dao/tuning.ts | grep -n "DELETE FROM tuning WHERE key = ? AND project_key IS NULL'"
+33:      store.prepare('DELETE FROM tuning WHERE key = ? AND project_key IS NULL').run(key);
