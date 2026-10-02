@@ -68,7 +68,7 @@ as Max Cogar asked.
 
 ## What to do next
 
-1. **Wait for Max Cogar's answers** to the two questions below. Nothing
+1. **Wait for Max Cogar's answer** to the question below. Nothing
    moves until then.
 2. **Correct the spec**, with his sign-off on every changed line:
    - the spec audit's 106 replacements and 2 removals, as the adjudications and
@@ -85,14 +85,16 @@ as Max Cogar asked.
 
 ## Max Cogar's answers of 2026-10-02
 
-Recorded verbatim in `OWNER-LEDGER.md` under CONFIRMED (OL-C9 … OL-C14):
+Recorded verbatim in `OWNER-LEDGER.md` under CONFIRMED (OL-C9 … OL-C15):
 - the skill-step checker stays;
 - the "steering isn't working" block trigger is restored;
 - "sandbox" includes Claude Code cloud sessions, with no no-internet
   requirement;
 - both stores, project and global, must survive the end of a cloud session;
 - tests run on his real projects;
-- the repo-root `CLAUDE.md` is left alone.
+- the repo-root `CLAUDE.md` is left alone;
+- the edit-warning timing is corrected everywhere it applies (FR-A2d, §5.1,
+  AC-1c, FR-O2): the warning reaches the agent with the edit's result.
 
 **Settled without him**, because his rules or answers already decide them:
 - **Who checks the oracle's warnings:** the agents. OL-11 makes verification
@@ -107,34 +109,27 @@ Recorded verbatim in `OWNER-LEDGER.md` under CONFIRMED (OL-C9 … OL-C14):
 
 ## Questions for Max Cogar (plain language)
 
-1. **Skill steps that happen only in the agent's thinking.**
-   - Some steps in your skills leave no trace the oracle can see. Example: Step
-     5 of `expert-implement` is "Apply the Expert Standard to your own work".
-     That happens inside the agent's reasoning, with no file read, command or
-     message the oracle could observe.
-   - Steps that do leave a trace can be checked: Step 0 loads the
-     expert-standard skill, Step 2 reads files, and the final step dispatches a
-     review.
-   - The choice:
-     - (a) The oracle checks every step that leaves a trace, and `status` names
-       the steps it can't see.
-     - (b) Your skills are changed so those steps leave a trace (for example,
-       the agent writes one line saying what it checked).
-2. **One wording change in the spec, about when an edit warning arrives.**
-   - Now (wrong): FR-A2d says the warning fires on "An edit / write about to
-     run".
-   - What Claude Code actually does: a warning from the oracle reaches the
-     agent together with the edit's result, right after the edit runs, and it
-     still arrives if the edit fails. That is the moment the agent decides
-     whether to keep the edit, fix it, or run the related tests.
-   - Proposed: "An edit / write", with "reaching the agent with the edit's
-     result, at its next decision (keep, revise, run the coupled tests)".
-   - Evidence: the Claude Code hooks reference, and changelog 2.1.110: "Fixed
-     `PreToolUse` hook `additionalContext` being dropped when the tool call
-     fails".
-   - The same correction applies to three more spec sentences that say "about
-     to run" (§5.1, AC-1c, FR-O2).
-   - Approve?
+1. **Skill steps that seem to happen only in the agent's head** — reopened
+   2026-10-02 with a third option (in chat). He rejected both earlier options:
+   - (a) the oracle cannot know which steps it can't see, except from a hand
+     list, which is the rule pile OL-C2 rejects;
+   - (b) a one-line statement from the agent of everything it does will not
+     work.
+
+   The proposed design: the oracle checks every step by the evidence that step
+   itself requires.
+   - Example: `expert-implement` Step 5 requires, before a todo is marked
+     `completed`, a verification command that actually ran, with its output
+     cited, and claims checked against current source.
+   - So the oracle checks:
+     - at each `TodoWrite` that marks a todo `completed`, that a verification
+       command ran for it;
+     - that the final report's cited commands and outputs match what actually
+       ran;
+     - that files were read before claims about them.
+   - A step that requires no evidence at all is a flaw in that skill, raised to
+     Max Cogar for that one step when the skill's structure is encoded.
+   - Only `expert-implement` has been read so far.
 
 ## Open items
 

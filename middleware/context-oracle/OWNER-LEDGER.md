@@ -84,13 +84,14 @@ escalation** (OL-C2) — the OL-3 row and spec §8 state both.)
 | OL-C12 | Both stores (OL-6: per-project and global) must survive the end of a cloud session (b E-77, E-78). His words: *"No, it's not acceptable. Why would that be acceptable? Apart from the global context Oracle memory, there's supposed to be project memory as well for specifics to that specific project. That was already clearly stated."* | Max, in chat, 2026-10-02, answering the spec audit's questions |
 | OL-C13 | The test runs happen on his real projects, using his real sessions (c E-10). His words: *"I don't see how else you could actually do a test on it. and get results that actually have any value. So, yeah, that's where the tests need to happen."* | Max, in chat, 2026-10-02, answering the spec audit's questions |
 | OL-C14 | The repo-root `CLAUDE.md` is not this project's and is not changed. His words: *"Why are you trying to change a Claude.md file that doesn't apply to this project? This project has its own. This project has its own definitions. Why are you trying to change other ones? You can't do that."* | Max, in chat, 2026-10-02, answering the spec audit's questions |
+| OL-C15 | The edit-warning timing is corrected everywhere it applies: a whisper on an edit / write reaches the agent with the edit's result, at its next decision (FR-A2d, §5.1, AC-1c), and it is preserved when the tool call fails (FR-O2). His condition, "if the current docs state that to be the truth", was checked 2026-10-02 against `code.claude.com/docs/en/hooks.md`, PreToolUse decision control: `additionalContext` is the "String added to Claude's context alongside the tool result"; and changelog 2.1.110: "Fixed `PreToolUse` hook `additionalContext` being dropped when the tool call fails". His words: *"Yes, if the current docs state that to be the truth, then that change needs to be made everywhere that it applies."* | Max, in chat, 2026-10-02 |
 
 *(CONFIRMED: the RETHINK §12 decisions (OL-1…OL-12, OL-5 superseded) plus OL-C1,
 OL-C2, OL-C3, OL-C4, **OL-C5** (the answer-drift definition, 2026-08-25), **OL-C6**
 (spec sign-off, 2026-08-28), **OL-C7** (project-writing discipline: no
 overgeneralizing a specific statement into a broad rule, no context-free
 entries anywhere in the project, 2026-09-08), and **OL-C8** (the hook disable
-was for the judge only, 2026-09-25), and **OL-C9 … OL-C14** (his answers to the
+was for the judge only, 2026-09-25), and **OL-C9 … OL-C15** (his answers to the
 spec audit's questions, 2026-10-02). Nothing is pending.
 Separately, when Max was asked which languages the oracle should cover he answered that he does not know and
 it is not his to decide ("i dont know what it should cover. but probably more than just lik 3 of
