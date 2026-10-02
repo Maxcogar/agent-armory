@@ -68,8 +68,8 @@ as Max Cogar asked.
 
 ## What to do next
 
-1. **Wait for Max Cogar's answers** to the questions below. Nothing moves until
-   then.
+1. **Wait for Max Cogar's answers** to the three questions below. Nothing
+   moves until then.
 2. **Correct the spec**, with his sign-off on every changed line:
    - the spec audit's 106 replacements and 2 removals, as the adjudications and
      the verification's reconciliation write them;
@@ -83,33 +83,61 @@ as Max Cogar asked.
      says to.
 4. **Then rebuild the code.**
 
+## Max Cogar's answers of 2026-10-02
+
+Recorded verbatim in `OWNER-LEDGER.md` under PENDING (P-1 … P-6), until he
+confirms them:
+- the skill-step checker stays;
+- the "steering isn't working" block trigger is restored;
+- "sandbox" includes Claude Code cloud sessions, with no no-internet
+  requirement;
+- both stores, project and global, must survive the end of a cloud session;
+- tests run on his real projects;
+- the repo-root `CLAUDE.md` is left alone.
+
+**Settled without him**, because his rules or answers already decide them:
+- **Who checks the oracle's warnings:** the agents. OL-11 makes verification
+  theirs, and his corrections, when he makes them, outrank theirs.
+- **"A more deterministic trigger" for skills:** built from the skill's declared
+  structure (when the skill is active, its steps, what the agent should be
+  doing), as his own OL-C2 words describe. That is more deterministic than the
+  gate-and-test attempts he contrasted it with, and no hand-written rule piles.
+- **The spec sentence calling the skill feature "the recurring failure this
+  project exists to prevent":** replaced with his own recorded words. P-1 says
+  the feature must never be made the tool's main purpose.
+
 ## Questions for Max Cogar (plain language)
 
-The spec audit's questions, with their evidence, are in
-`docs/reviews/2026-09-29-spec-audit-verification.md`.
-
-1. Will you check the oracle's warnings yourself (for example, with
-   `ctxoracle correct`), or should agents do all the checking?
-2. The automatic check for skipped skill steps: is that what you meant by
-   "JUST A SMALL FEATURE", or should it be smaller?
-3. Should the skill block also fire when "STEERING ISNT WORKING", as you said?
-   The spec dropped that.
-4. "A more deterministic trigger" for spotting a skill: decided only from what
-   the agent does, or also allowed to use a model limited to the skill's steps?
-5. "Sandbox compatibility is required": your own computer, Claude Code cloud
-   sessions, a computer with no internet — which of these?
-6. The oracle's memory is lost when a cloud session ends. Is that acceptable, or
-   should it be kept somewhere that survives?
-7. Should the oracle's test run use your own projects and your Claude Code
-   conversation records?
-8. Skill steps done only "in the agent's head" can't be checked. Accept that, or
-   change your skills so those steps leave a trace?
-9. One spec line puts an agent's words in your name. May it be replaced with
-   your own recorded words?
-10. The repo-wide `CLAUDE.md`, outside this project, still says to apply *all*
-    review findings. Change it to match what you decided?
-11. Sign-off on the edit-warning wording: the warning arrives with the edit's
-    result, and it survives a failed tool call (Claude Code changelog 2.1.110).
+1. **Confirm your answers.** `OWNER-LEDGER.md` P-1 … P-6 are your exact words
+   with what each settles. Reply "confirmed", or say which one is wrong.
+2. **Skill steps that happen only in the agent's thinking.**
+   - Some steps in your skills leave no trace the oracle can see. Example: Step
+     5 of `expert-implement` is "Apply the Expert Standard to your own work".
+     That happens inside the agent's reasoning, with no file read, command or
+     message the oracle could observe.
+   - Steps that do leave a trace can be checked: Step 0 loads the
+     expert-standard skill, Step 2 reads files, and the final step dispatches a
+     review.
+   - The choice:
+     - (a) The oracle checks every step that leaves a trace, and `status` names
+       the steps it can't see.
+     - (b) Your skills are changed so those steps leave a trace (for example,
+       the agent writes one line saying what it checked).
+3. **One wording change in the spec, about when an edit warning arrives.**
+   - Now (wrong): FR-A2d says the warning fires on "An edit / write about to
+     run".
+   - What Claude Code actually does: a warning from the oracle reaches the
+     agent together with the edit's result, right after the edit runs, and it
+     still arrives if the edit fails. That is the moment the agent decides
+     whether to keep the edit, fix it, or run the related tests.
+   - Proposed: "An edit / write", with "reaching the agent with the edit's
+     result, at its next decision (keep, revise, run the coupled tests)".
+   - Evidence: the Claude Code hooks reference, and changelog 2.1.110: "Fixed
+     `PreToolUse` hook `additionalContext` being dropped when the tool call
+     fails".
+   - The same correction applies to three more spec sentences that say "about
+     to run" (§5.1, AC-1c, FR-O2).
+   - Approve?
 
 ## Open items
 

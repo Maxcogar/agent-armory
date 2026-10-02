@@ -49,6 +49,21 @@ escalation** (OL-C2) — the OL-3 row and spec §8 state both.)
 | OL-11 | The project is agent-led; you start/end sessions, suggest features, speed up testing; design/build/verification/docs/roadmap are the agents'. You are a non-programmer by design. | RETHINK §12.11 |
 | OL-12 | The oracle speaking when an agent claims it's done is a must-have — **to catch a completion claim the work doesn't back**: an agent reporting "done" without having actually finished or verified. (*"having the oracle speak when an agent claims it's done is a must-have feature in my mind"*; concrete need = agents that *"did not finish their work but still stopped anyway."*) *What the oracle does to catch it is design, not owner wording.* Reworded & approved by Max 2026-08-13; the earlier "not ranked above the others" clause dropped — the no-primary-feature principle is held by the mission and OL-C2. | RETHINK §12.12; Max 2026-08-13 |
 
+## ⏳ PENDING — Max Cogar's answers of 2026-10-02, awaiting his "confirmed"
+
+Recorded verbatim from his reply to the spec audit's questions
+(`docs/reviews/2026-09-29-spec-audit-verification.md`). Not built on until he
+confirms.
+
+| ID | His words | What it settles |
+|---|---|---|
+| P-1 | *"Yes, I did want skill steps to be checked. What I didn't want, and what my comment was referring to, was the fact that when I state something that I would like to have in it, they then rearrange everything to make that the one single purpose of the entire tool. That is why I said just a small feature, because in comparison to this as a whole, it is just a small feature. So yes, no changes need to be made there."* | The skill-step checker stays as specified (spec audit a E-58). "JUST A SMALL FEATURE" (OL-C2) means the skill feature must never be made the tool's single or primary purpose, so the spec line calling it "the recurring failure this project exists to prevent" is wrong (a E-43). |
+| P-2 | *"Dropped, then it needs to be put back."* | OL-C2's "OR STEERING ISNT WORKING" block trigger is restored to the spec (b E-24, E-27). |
+| P-3 | *"Cloud sessions are a sandbox. I said nothing about no internet."* | OL-4's "Sandbox compatibility is required" includes Claude Code cloud sessions; there is no no-internet (air-gapped) requirement (b E-38). |
+| P-4 | *"No, it's not acceptable. Why would that be acceptable? Apart from the global context Oracle memory, there's supposed to be project memory as well for specifics to that specific project. That was already clearly stated."* | Both stores (OL-6: per-project and global) must survive the end of a cloud session (b E-77, E-78). |
+| P-5 | *"I don't see how else you could actually do a test on it. and get results that actually have any value. So, yeah, that's where the tests need to happen."* | The test runs happen on his real projects, using his real sessions (c E-10). |
+| P-6 | *"Why are you trying to change a Claude.md file that doesn't apply to this project? This project has its own. This project has its own definitions. Why are you trying to change other ones? You can't do that."* | The repo-root `CLAUDE.md` is not this project's and is not changed. |
+
 ## ❌ REJECTED — attributed to Max in this project but NOT his; never reintroduce
 
 | ID | The false attribution | What's actually true | Caught |
