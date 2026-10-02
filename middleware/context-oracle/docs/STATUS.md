@@ -68,7 +68,7 @@ as Max Cogar asked.
 
 ## What to do next
 
-1. **Wait for Max Cogar's answers** to the three questions below. Nothing
+1. **Wait for Max Cogar's answers** to the two questions below. Nothing
    moves until then.
 2. **Correct the spec**, with his sign-off on every changed line:
    - the spec audit's 106 replacements and 2 removals, as the adjudications and
@@ -85,8 +85,7 @@ as Max Cogar asked.
 
 ## Max Cogar's answers of 2026-10-02
 
-Recorded verbatim in `OWNER-LEDGER.md` under PENDING (P-1 … P-6), until he
-confirms them:
+Recorded verbatim in `OWNER-LEDGER.md` under CONFIRMED (OL-C9 … OL-C14):
 - the skill-step checker stays;
 - the "steering isn't working" block trigger is restored;
 - "sandbox" includes Claude Code cloud sessions, with no no-internet
@@ -103,14 +102,12 @@ confirms them:
   doing), as his own OL-C2 words describe. That is more deterministic than the
   gate-and-test attempts he contrasted it with, and no hand-written rule piles.
 - **The spec sentence calling the skill feature "the recurring failure this
-  project exists to prevent":** replaced with his own recorded words. P-1 says
+  project exists to prevent":** replaced with his own recorded words. OL-C9 says
   the feature must never be made the tool's main purpose.
 
 ## Questions for Max Cogar (plain language)
 
-1. **Confirm your answers.** `OWNER-LEDGER.md` P-1 … P-6 are your exact words
-   with what each settles. Reply "confirmed", or say which one is wrong.
-2. **Skill steps that happen only in the agent's thinking.**
+1. **Skill steps that happen only in the agent's thinking.**
    - Some steps in your skills leave no trace the oracle can see. Example: Step
      5 of `expert-implement` is "Apply the Expert Standard to your own work".
      That happens inside the agent's reasoning, with no file read, command or
@@ -123,7 +120,7 @@ confirms them:
        the steps it can't see.
      - (b) Your skills are changed so those steps leave a trace (for example,
        the agent writes one line saying what it checked).
-3. **One wording change in the spec, about when an edit warning arrives.**
+2. **One wording change in the spec, about when an edit warning arrives.**
    - Now (wrong): FR-A2d says the warning fires on "An edit / write about to
      run".
    - What Claude Code actually does: a warning from the oracle reaches the
