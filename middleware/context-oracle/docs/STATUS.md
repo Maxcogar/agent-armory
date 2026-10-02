@@ -68,20 +68,19 @@ as Max Cogar asked.
 
 ## What to do next
 
-1. **Wait for Max Cogar's answer** to the question below. Nothing
-   moves until then.
-2. **Correct the spec**, with his sign-off on every changed line:
+1. **Correct the spec** (in progress 2026-10-02: a draft is being written
+   outside the spec file, then independently reviewed), with his sign-off on every changed line:
    - the spec audit's 106 replacements and 2 removals, as the adjudications and
      the verification's reconciliation write them;
    - the lines his answers settle.
-3. **Then correct the architecture, then the plan, once each**, from the branch
+2. **Then correct the architecture, then the plan, once each**, from the branch
    audit verifications and the corrected spec:
    - fix each defect at its root cause with a correct design;
    - never answer a requirement with a narrowed claim, a stated limitation, a
      fallback or an exclusion;
    - judge every review finding on its merits, never apply one because a rule
      says to.
-4. **Then rebuild the code.**
+3. **Then rebuild the code.**
 
 ## Max Cogar's answers of 2026-10-02
 
@@ -107,16 +106,16 @@ Recorded verbatim in `OWNER-LEDGER.md` under CONFIRMED (OL-C9 … OL-C15):
   project exists to prevent":** replaced with his own recorded words. OL-C9 says
   the feature must never be made the tool's main purpose.
 
-## Questions for Max Cogar (plain language)
+## Design decisions settled 2026-10-02
 
-1. **Skill steps that seem to happen only in the agent's head** — reopened
-   2026-10-02 with a third option (in chat). He rejected both earlier options:
+**Skill steps that seem to happen only in the agent's head — decided 2026-10-02
+(design, OL-11).** Max Cogar rejected both earlier options:
    - (a) the oracle cannot know which steps it can't see, except from a hand
      list, which is the rule pile OL-C2 rejects;
    - (b) a one-line statement from the agent of everything it does will not
      work.
 
-   The proposed design: the oracle checks every step by the evidence that step
+   The design: the oracle checks every step by the evidence that step
    itself requires.
    - Example: `expert-implement` Step 5 requires, before a todo is marked
      `completed`, a verification command that actually ran, with its output
@@ -130,6 +129,10 @@ Recorded verbatim in `OWNER-LEDGER.md` under CONFIRMED (OL-C9 … OL-C15):
    - A step that requires no evidence at all is a flaw in that skill, raised to
      Max Cogar for that one step when the skill's structure is encoded.
    - Only `expert-implement` has been read so far.
+
+## Questions for Max Cogar (plain language)
+
+None open. The next thing he receives is the spec changes, for sign-off.
 
 ## Open items
 
