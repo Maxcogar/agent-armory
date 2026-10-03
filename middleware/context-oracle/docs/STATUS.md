@@ -109,11 +109,13 @@ Recorded verbatim in `OWNER-LEDGER.md` under CONFIRMED (OL-C9 … OL-C15):
 ## Design decisions settled 2026-10-02
 
 **Skill steps that seem to happen only in the agent's head — decided 2026-10-02
-(design, OL-11).** Max Cogar rejected both earlier options:
-   - (a) the oracle cannot know which steps it can't see, except from a hand
-     list, which is the rule pile OL-C2 rejects;
-   - (b) a one-line statement from the agent of everything it does will not
-     work.
+(design, OL-11; Max Cogar agreed 2026-10-03: "Sounds good to me.").** He
+rejected both earlier options:
+   - (a) asked how the oracle would know which steps it can't see: it cannot,
+     except from someone marking them by hand, and each step so marked simply
+     goes unchecked;
+   - (b) a one-line statement from the agent of everything it does is
+     unrealistic and will not work.
 
    The design: the oracle checks every step by the evidence that step
    itself requires.
