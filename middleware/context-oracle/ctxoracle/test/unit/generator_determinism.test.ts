@@ -15,26 +15,40 @@ import { generateFixture, FIXTURE_NAMES } from '../fixtures/generate.js';
 // to one but not the other — fails here instead of passing vacuously by
 // iterating the generator's own keys (m2, first-round review). Kept sorted to
 // match FIXTURE_NAMES (Object.keys(generators).sort()).
+//
+// Reopened 2026-09-26 (Step 1 build delta (b)): the literal grows by the names
+// §5.1 now lists — coupling-key-symmetry, miner-denominator, miner-labels,
+// miner-large, indexer-walk, indexer-nongit, reuse-alias-unresolved (the delta's
+// seven), and recency-weighting (in §5.1 and Step 1's `create:` list, "added
+// 2026-09-26"). T-1-3's Data field is the §5.1 list, so all eight are here.
 const PLAN_FIXTURE_NAMES: readonly string[] = [
   'answer-drift-clearly-off',
   'bar-two-candidates',
   'completeness-paired-change',
   'consequence-coupled-tests',
   'corpus-floor-29',
+  'coupling-key-symmetry',
   'coupling-nonobvious',
   'dedup-read-set',
+  'indexer-nongit',
   'indexer-small',
+  'indexer-walk',
   'language-config-added',
+  'miner-denominator',
   'miner-hygiene',
+  'miner-labels',
+  'miner-large',
   'orientation-mixed-shape',
   'over-threshold-file',
   'pristine-tree',
+  'recency-weighting',
   'regret-no-inflate',
   'regret-true-positive',
   'repo-key-full',
   'repo-key-nongit',
   'repo-key-shallow',
   'repo-key-shallow-no-origin',
+  'reuse-alias-unresolved',
   'reuse-mixed-language',
   'reuse-observed-zero',
   'reuse-same-name-collision',

@@ -21,6 +21,7 @@
 import {
   execFileSync,
   spawn,
+  spawnSync,
   type ChildProcess,
   type SpawnOptions,
 } from 'node:child_process';
@@ -44,6 +45,19 @@ export interface OracleSpawnOptions {
   env?: NodeJS.ProcessEnv;
   detached?: boolean;
   scrub?: boolean;
+  /**
+   * `'pipe'`: stdout piped (the caller consumes `child.stdout` as `Buffer`
+   * chunks, never `setEncoding`). Setting either this or `stderr` makes stdin
+   * ignored. The default stays `'inherit'`. Added by Step 13 for the miner's
+   * `git log` stream: an inherited stdout has no pipe (`child.stdout` is `null`).
+   */
+  stdout?: 'inherit' | 'pipe';
+  /**
+   * `'pipe'`: stderr piped; the caller must drain it (an undrained pipe stalls
+   * the child once its buffer fills). The default stays `'inherit'` (Step 13
+   * build review m2: the miner keeps git's stderr tail for its errors).
+   */
+  stderr?: 'inherit' | 'pipe';
 }
 
 export interface OracleExecOptions {
@@ -70,7 +84,12 @@ export function oracleSpawn(cmd: string, args: string[], opts: OracleSpawnOption
     cwd: opts.cwd,
     env: childEnv(opts),
     detached: opts.detached === true,
-    stdio: opts.detached === true ? 'ignore' : 'inherit',
+    stdio:
+      opts.detached === true
+        ? 'ignore'
+        : opts.stdout === 'pipe' || opts.stderr === 'pipe'
+          ? ['ignore', opts.stdout ?? 'inherit', opts.stderr ?? 'inherit']
+          : 'inherit',
   };
   return spawn(cmd, args, spawnOpts);
 }
@@ -89,4 +108,39 @@ export function oracleExecFileSync(cmd: string, args: string[], opts: OracleExec
     stdio: ['ignore', 'pipe', 'pipe'],
     maxBuffer: opts.maxBuffer ?? 64 * 1024 * 1024,
   });
+}
+
+export interface OracleRunOptions {
+  cwd: string;
+  env?: NodeJS.ProcessEnv;
+  scrub?: boolean;
+  maxBuffer?: number;
+  input?: Buffer;
+}
+
+/**
+ * Run a child synchronously through the guarded seam and return its raw bytes
+ * (Step 5 build delta, G7): `spawnSync` with no `encoding`, so `stdout` and
+ * `stderr` are the child's bytes exactly, and a non-zero exit is the returned
+ * `status` (null when a signal ended it), never a throw — `git merge-base
+ * --is-ancestor` answers with exit 0/1/128 and `git check-ignore` exits 1 when
+ * no path is ignored. Every machine output that carries paths goes through this
+ * byte form and `src/util/path_bytes.ts`; `oracleExecFileSync` keeps its string
+ * form for human-text output. A failure to run the child at all (the command
+ * is missing, `maxBuffer` is exceeded) is not an exit status and is thrown.
+ */
+export function oracleRunSync(
+  cmd: string,
+  args: string[],
+  opts: OracleRunOptions
+): { status: number | null; stdout: Buffer; stderr: Buffer } {
+  const r = spawnSync(cmd, args, {
+    cwd: opts.cwd,
+    env: childEnv(opts),
+    input: opts.input,
+    stdio: ['pipe', 'pipe', 'pipe'],
+    maxBuffer: opts.maxBuffer ?? 64 * 1024 * 1024,
+  });
+  if (r.error !== undefined) throw r.error;
+  return { status: r.status, stdout: r.stdout, stderr: r.stderr };
 }

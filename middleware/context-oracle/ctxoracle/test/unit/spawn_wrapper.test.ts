@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { oracleExecFileSync, SCRUBBED_ENV } from '../../src/util/spawn.js';
+import { oracleExecFileSync, oracleRunSync, SCRUBBED_ENV } from '../../src/util/spawn.js';
 
 const PRINT_ENV = 'process.stdout.write(JSON.stringify(process.env))';
 
@@ -45,4 +45,62 @@ test('T-5-2: guard is always set; scrub removes exactly SCRUBBED_ENV, keeps the 
   } finally {
     rmSync(cwd, { recursive: true, force: true });
   }
+});
+
+// T-5-5 — `oracleRunSync` returns raw bytes and a non-zero status (reopened
+// Step 5 build delta, G7). Real `node -e` children; no doubles. NOT asserted:
+// timing.
+test('T-5-5a: a child writing 0xff 0x00 0x41 and exiting 1 returns those bytes and status 1 without throwing', () => {
+  const cwd = mkdtempSync(path.join(tmpdir(), 'ctxoracle-runsync-'));
+  try {
+    const r = oracleRunSync(
+      process.execPath,
+      ['-e', 'process.stdout.write(Buffer.from([0xff, 0x00, 0x41])); process.exitCode = 1;'],
+      { cwd }
+    );
+    assert.equal(r.status, 1);
+    assert.ok(Buffer.isBuffer(r.stdout), 'stdout is raw bytes');
+    assert.deepEqual([...r.stdout], [0xff, 0x00, 0x41]);
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+test('T-5-5b: a child echoing its stdin returns exactly the input bytes', () => {
+  const cwd = mkdtempSync(path.join(tmpdir(), 'ctxoracle-runsync-'));
+  try {
+    const input = Buffer.from('a\0b', 'binary');
+    const r = oracleRunSync(process.execPath, ['-e', 'process.stdin.pipe(process.stdout)'], { cwd, input });
+    assert.equal(r.status, 0);
+    assert.ok(Buffer.isBuffer(r.stdout));
+    assert.deepEqual([...r.stdout], [...input]);
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+test('T-5-5c: a child started by oracleRunSync carries CTXORACLE_INTERNAL=1', () => {
+  const cwd = mkdtempSync(path.join(tmpdir(), 'ctxoracle-runsync-'));
+  try {
+    const r = oracleRunSync(
+      process.execPath,
+      ['-e', "process.stdout.write(process.env.CTXORACLE_INTERNAL ?? '<unset>')"],
+      { cwd }
+    );
+    assert.equal(r.stdout.toString('utf8'), '1');
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+// ---- Added by the 2026-09-26 independent build review. Step 5's build delta
+// types `oracleRunSync` as returning `{status: number | null; stdout: Buffer;
+// stderr: Buffer}` and makes only a non-zero *exit* a returned status. A child
+// that never started has no exit and no output bytes, so it cannot be returned
+// under that type (`status: null` already means "ended by a signal"); the
+// builder throws it (implementation log, finding 4's neighbour in spawn.ts).
+test('T-5-5d (review): oracleRunSync on a command that cannot be started throws rather than returning a status', () => {
+  assert.throws(() => oracleRunSync('ctxoracle-no-such-command-xyz', [], { cwd: process.cwd() }), (e: unknown) => {
+    return (e as NodeJS.ErrnoException).code === 'ENOENT';
+  });
 });

@@ -7,23 +7,30 @@ export interface CochangePairRecord {
   a: number;
   b: number;
   pair_count: number;
-  a_count: number;
-  b_count: number;
+  pair_weight: number;
   last_ts: number;
+  last_commit: string;
 }
 
 export interface CochangePartner {
-  partner: number;
+  partnerId: number;
   pairCount: number;
-  aCount: number;
-  bCount: number;
+  pairWeight: number;
   lastTs: number;
+  lastCommit: string;
 }
 
 export interface CochangePairsDao {
-  bump(a: number, b: number, ts: number): void;
+  /**
+   * Count one commit for the pair: `pair_count + 1`, `pair_weight + weight`
+   * (AD-13's recency weight of that commit), and, when `ts >= last_ts`,
+   * `last_ts = ts` and `last_commit = hash` (no per-file counters — G3).
+   */
+  bump(a: number, b: number, ts: number, hash: string, weight: number): void;
+  /** The pairs containing `fileId`, read from both `a = x` and `b = x`. */
   partnersOf(fileId: number): CochangePartner[];
   pair(a: number, b: number): CochangePairRecord | undefined;
+  deleteAll(): void;
 }
 
 /** Normalize a file-id pair to the (low, high) order the CHECK(a < b) requires. */
@@ -33,38 +40,43 @@ function order(a: number, b: number): [number, number] {
 
 export function cochangePairsDao(store: Store): CochangePairsDao {
   return {
-    bump(a, b, ts) {
+    bump(a, b, ts, hash, weight) {
       const [lo, hi] = order(a, b);
       store
         .prepare(
-          `INSERT INTO cochange_pairs(a, b, pair_count, a_count, b_count, last_ts)
-           VALUES(?, ?, 1, 1, 1, ?)
+          `INSERT INTO cochange_pairs(a, b, pair_count, pair_weight, last_ts, last_commit)
+           VALUES(?, ?, 1, ?, ?, ?)
            ON CONFLICT(a, b) DO UPDATE SET
-             pair_count = pair_count + 1, a_count = a_count + 1, b_count = b_count + 1,
+             pair_count = pair_count + 1,
+             pair_weight = pair_weight + excluded.pair_weight,
+             last_commit = CASE WHEN excluded.last_ts >= last_ts THEN excluded.last_commit ELSE last_commit END,
              last_ts = max(last_ts, excluded.last_ts)`
         )
-        .run(lo, hi, ts);
+        .run(lo, hi, weight, ts, hash);
     },
     partnersOf(fileId) {
       const rows = store
         .prepare(
-          `SELECT a, b, pair_count, a_count, b_count, last_ts FROM cochange_pairs
-           WHERE a = ? OR b = ? ORDER BY pair_count DESC, last_ts DESC`
+          `SELECT a, b, pair_count, pair_weight, last_ts, last_commit FROM cochange_pairs
+           WHERE a = ? OR b = ? ORDER BY pair_count DESC, last_ts DESC, a, b`
         )
         .all(fileId, fileId) as CochangePairRecord[];
       return rows.map((r) => ({
-        partner: r.a === fileId ? r.b : r.a,
+        partnerId: r.a === fileId ? r.b : r.a,
         pairCount: r.pair_count,
-        aCount: r.a_count,
-        bCount: r.b_count,
+        pairWeight: r.pair_weight,
         lastTs: r.last_ts,
+        lastCommit: r.last_commit,
       }));
     },
     pair(a, b) {
       const [lo, hi] = order(a, b);
-      return store.prepare('SELECT a, b, pair_count, a_count, b_count, last_ts FROM cochange_pairs WHERE a = ? AND b = ?').get(lo, hi) as
-        | CochangePairRecord
-        | undefined;
+      return store
+        .prepare('SELECT a, b, pair_count, pair_weight, last_ts, last_commit FROM cochange_pairs WHERE a = ? AND b = ?')
+        .get(lo, hi) as CochangePairRecord | undefined;
+    },
+    deleteAll() {
+      store.prepare('DELETE FROM cochange_pairs').run();
     },
   };
 }

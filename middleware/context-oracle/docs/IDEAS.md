@@ -180,3 +180,26 @@ and tell it to do any parts they missed. If an agent says they are going to star
 skill says to do whatever it is, then the oracle would correct them and inject the actual starting step into the agents context.
 Or maybe the agent can do it. if the agent wants to make a task list then it would be easier and more reliable for the list to get 
 generated from a tool call than to write that out manually. 
+
+Added 2026-09-26 (architecture fix pass):
+
+16. **Read-time Warning — speak a landmine before the edit, at the Read that
+    precedes it.** **Unvalidated.** A `PreToolUse` whisper on Edit/Write is read
+    next to the tool result, after the call (architecture V20), so Phase A's
+    Warning reaches the agent after it tries the edit, never before
+    (architecture L12). The Read that usually precedes an edit is a pre-edit
+    channel: the tools reference requires the read before an edit for "Claude
+    Opus 4.6, Claude Haiku 4.5, and older models" and lets newer models skip it
+    only "when reading it wouldn't need a permission prompt" (quoted in
+    `docs/reviews/2026-09-26-architecture-pass-collapse-hunt.md`, D14), and
+    Coupling already fires there. A Warning on the Read of a landmine file would
+    put the hazard in front of the edit decision — the mission's "at the moment
+    of that decision" — without any gate. Why it is not in Phase A: FR-A2e and
+    `D-26` bind Warning to an edit in a landmine zone, and a Read is not an
+    intent to edit, so it would speak the hazard on every Read of a landmine
+    file, including the many where no edit follows; Phase A measures its floor
+    at the spec-defined trigger. What would ground it: Phase A exit data on how
+    often a Read of a landmine file is followed by an edit of it in the same
+    turn (the false-speak cost) and how often a Warning read after a failed or
+    denied edit changed the retry (the value of the current trigger). Adopting
+    it is a spec revision to FR-A2e/`D-26`, through the normal promotion path.

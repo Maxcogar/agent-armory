@@ -1,5 +1,17 @@
 // T-12-1 — the tuning DAO seeds with provenance, round-trips scalar/list values,
 // and re-seeding is idempotent (Step 12). Real node:sqlite via migration 002.
+//
+// Reopened 2026-09-26 (Step 12 build delta; T-12-1 Data revised): the literal
+// pins grow by every new key — bar.high_confidence_min 0.8,
+// bar.untrusted_trust_factor 0.9, bar.suspect_confidence_cap 0.7,
+// bar.heuristic_confidence_cap 0.7, bar.stale_factor 0.9,
+// bar.hazard_full_support 3, reuse.max_unresolved_import_share 0.05,
+// miner.chunk_ms 50 (architecture_default); index.entry_marker_points 1
+// (plan_seed); the four new lists with Step 12's members — and the former
+// `bar.stale_index_factor` 0.8 pin is replaced by the assertion that no
+// `bar.stale_index_factor` or `bar.untrusted_confidence_cap` row exists (the
+// delta: stale_index_factor is superseded by bar.stale_factor, and the gap-list
+// review's untrusted cap "is not seeded").
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -45,7 +57,7 @@ test('T-12-1: seedDefaults seeds every key with its value and source', () => {
     // asserted against the plan, NOT against the SCALAR_SEEDS module the seeder
     // reads, so a silent drift between that module and the plan (a quietly
     // changed default) is caught here, which the module-vs-store loop above
-    // cannot see. This is the full §10 scalar set (all 20); the completeness
+    // cannot see. This is the full scalar seed set (28 as of 2026-09-26); the completeness
     // assertion below fails if a seed is ever added to the module without a
     // matching plan literal here (m2 + collapse-hunt Finding 2).
     const PLAN_SCALARS: Array<[string, string, string]> = [
@@ -69,8 +81,17 @@ test('T-12-1: seedDefaults seeds every key with its value and source', () => {
       ['security.entropy_min_token_length', '20', 'plan_seed'],
       ['qa.done_claim_trailing_turns_k', '3', 'plan_seed'],
       ['bar.recency_half_life_days', '365', 'plan_seed'],
-      ['bar.stale_index_factor', '0.8', 'plan_seed'],
       ['diag.hooks_not_firing_gap_s', '600', 'plan_seed'],
+      // 2026-09-26 (Step 12 build delta)
+      ['bar.high_confidence_min', '0.8', 'architecture_default'],
+      ['bar.untrusted_trust_factor', '0.9', 'architecture_default'],
+      ['bar.suspect_confidence_cap', '0.7', 'architecture_default'],
+      ['bar.heuristic_confidence_cap', '0.7', 'architecture_default'],
+      ['bar.stale_factor', '0.9', 'architecture_default'],
+      ['bar.hazard_full_support', '3', 'architecture_default'],
+      ['reuse.max_unresolved_import_share', '0.05', 'architecture_default'],
+      ['miner.chunk_ms', '50', 'architecture_default'],
+      ['index.entry_marker_points', '1', 'plan_seed'],
     ];
     for (const [key, value, source] of PLAN_SCALARS) {
       assert.equal(tuning.get(store, key), value, `${key} literal value (plan §10)`);
@@ -83,6 +104,29 @@ test('T-12-1: seedDefaults seeds every key with its value and source', () => {
       SCALAR_SEEDS.map((s) => s.key).sort(),
       'every SCALAR_SEEDS key must have a plan-§10 literal pin here (and vice versa)'
     );
+
+    // 2026-09-26: the superseded / never-seeded keys have no row at any level.
+    for (const absent of ['bar.stale_index_factor', 'bar.untrusted_confidence_cap']) {
+      const n = store.prepare('SELECT count(*) AS n FROM tuning WHERE key = ?').get(absent) as { n: number };
+      assert.equal(n.n, 0, `${absent} must not be seeded`);
+    }
+
+    // 2026-09-26: the four new list keys, pinned to Step 12's literal members and
+    // source (compared as sets — member order is not a stated property).
+    const PLAN_LISTS: Array<[string, string[], string]> = [
+      ['lexicon.fix_keywords', ['fix', 'fixes', 'fixed', 'fixing', 'bug', 'bugfix', 'hotfix'], 'architecture_default'],
+      [
+        'lexicon.test_path_patterns',
+        ['**/*.test.*', '**/*.spec.*', '**/test_*.py', '**/*_test.go', '**/__tests__/**', 'test/**', 'tests/**'],
+        'architecture_default',
+      ],
+      ['lexicon.test_same_dir_languages', ['go'], 'architecture_default'],
+      ['lexicon.entry_marker_stems', ['main', 'index', 'cli', 'app'], 'architecture_default'],
+    ];
+    for (const [key, members, source] of PLAN_LISTS) {
+      assert.deepEqual([...tuning.list(store, key)].sort(), [...members].sort(), `${key} members (plan Step 12)`);
+      assert.equal(sourceOf(store, key), source, `${key} source (plan Step 12)`);
+    }
 
     // A scalar set (owner) round-trips.
     tuning.set(store, 'bar.confidence_floor', '0.7', 'owner');

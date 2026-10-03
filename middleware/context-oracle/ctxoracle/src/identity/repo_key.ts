@@ -23,6 +23,7 @@
 import { realpathSync } from 'node:fs';
 import { sha256Hex } from '../util/hash.js';
 import { oracleExecFileSync } from '../util/spawn.js';
+import { gitChildEnv } from './git_layout.js';
 
 export type RepoKeyMode = 'commit' | 'url' | 'path';
 
@@ -45,7 +46,9 @@ type GitResult = { ok: true; stdout: string } | { ok: false; code: number | null
 
 function gitProbe(cwd: string, args: string[]): GitResult {
   try {
-    return { ok: true, stdout: oracleExecFileSync('git', args, { cwd }) };
+    // env: the repository-selecting variables removed, so an inherited GIT_DIR
+    // cannot bind the wrong store (Step 14 build review m1, plan Step 14).
+    return { ok: true, stdout: oracleExecFileSync('git', args, { cwd, env: gitChildEnv() }) };
   } catch (e) {
     const err = e as { status?: number | null; stderr?: string | Buffer };
     const stderr =
