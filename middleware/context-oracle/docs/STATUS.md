@@ -19,7 +19,7 @@ honest capability plus honest measurement, with clean seams the later phases plu
 into — **never fake completeness dressed to look like a working product.** Judge
 every Phase A decision against this goal (`CLAUDE.md` dominating rule 3).
 
-## Where the project stands (2026-09-29)
+## Where the project stands (2026-10-03)
 
 **Nothing built on this branch is trusted yet.** Max Cogar set the method:
 1. audit every change on the branch since its base `de66831`, along the
@@ -49,6 +49,21 @@ every Phase A decision against this goal (`CLAUDE.md` dominating rule 3).
 
 **Step 2, the corrections, has not started.** The spec, architecture, plan and
 code are as they stood when the branch audit finished (`c00819e`).
+- All of Max Cogar's questions are answered: `OWNER-LEDGER.md` OL-C9 … OL-C15,
+  plus the decisions below.
+- A first spec-correction draft (2026-10-02) was thrown out unused. Its agent
+  was briefed without the correction procedure.
+- **The correction procedure is `expert-correct`**, at
+  `claude-plugins/expert-dev-tools/skills/expert-correct/SKILL.md`. Its
+  description covers correcting "an existing artifact — a spec, an
+  architecture, or a plan ... against a review finding set". It calls itself
+  "the whole of that discipline", and sends writing a new artifact to
+  `expert-spec`. It is not installed in Max Cogar's account and sits outside
+  this project. Read it there; do not edit it.
+- This project's out-of-date `/expert-spec` and `/expert-review` commands were
+  deleted on Max Cogar's instruction (`0c78075`). The installed versions apply.
+- How this session's coordinator failed Max Cogar: `docs/collapse-log.md`,
+  2026-10-02 / 2026-10-03. Read it before doing anything.
 
 **A post-audit correction attempt was removed.**
 - Commits `630d4b5` … `2c201a0` held a correction register, gap settlements, an
@@ -68,11 +83,17 @@ as Max Cogar asked.
 
 ## What to do next
 
-1. **Correct the spec** (in progress 2026-10-02: a draft is being written
-   outside the spec file, then independently reviewed), with his sign-off on every changed line:
+1. **Correct the spec under `expert-correct`**, against the finding set:
    - the spec audit's 106 replacements and 2 removals, as the adjudications and
-     the verification's reconciliation write them;
-   - the lines his answers settle.
+     the verification's reconciliation write them
+     (`docs/reviews/2026-09-29-spec-audit-*`);
+   - the lines Max Cogar's answers and the decisions below settle.
+
+   Then:
+   - write the corrected spec outside `docs/specs/` first;
+   - have it independently reviewed;
+   - show Max Cogar every change for sign-off before the spec file changes
+     (M38: he signed it).
 2. **Then correct the architecture, then the plan, once each**, from the branch
    audit verifications and the corrected spec:
    - fix each defect at its root cause with a correct design;

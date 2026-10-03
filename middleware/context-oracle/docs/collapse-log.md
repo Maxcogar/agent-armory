@@ -19,6 +19,85 @@ goes hollow is itself data.
 
 ---
 
+## 2026-10-02 / 2026-10-03 — caught by Max Cogar, logged as a process failure: the coordinator stated what documents and tools said without reading them, and nearly made a stale tool the project's standard
+
+**Caught by Max Cogar, not by any safeguard.** The coordinating session of
+2026-10-02 and 2026-10-03 (branch audit and spec audit complete, spec
+correction next) made each of the following claims or actions before reading
+the thing it was about. Max Cogar caught every one.
+
+1. **His direct answers were filed as PENDING.** He answered six of the spec
+   audit's questions directly. The coordinator recorded them in
+   `OWNER-LEDGER.md` under PENDING and asked him to confirm his own words. It
+   had read the ledger rule (rule 2), which is about claims agents attribute to
+   him from elsewhere, and applied it to his own answers. His words: *"Why are
+   they pending? Why ask the question if they hold no value? ... I answer the
+   questions. What more do you want?"* Fixed: OL-C9 … OL-C14, and ledger rule 3
+   now says a direct answer is its own sign-off.
+2. **A spec-correction agent was dispatched without the correction
+   procedure.** The brief told it to apply the audit's corrected lines. It named
+   no correction skill, and the coordinator had not looked for one. Asked "you
+   correctly told it to follow the proper procedure ... right?", the coordinator
+   had to answer no. The draft was thrown out.
+3. **"No skill for this exists" was asserted from a name search.** The
+   coordinator searched skill names for "spec" and "revise" in one directory and
+   told Max Cogar that no spec-correction skill existed. Reading every
+   description afterwards found `expert-correct`
+   (`claude-plugins/expert-dev-tools/skills/expert-correct/SKILL.md`), whose
+   description is exactly this job. It also found this project's own
+   `.claude/commands/`, which the search had never looked at.
+4. **Skill content was described from memory, then "corrected" wrongly.** The
+   coordinator said `expert-spec` has three gates (Frame, Premise,
+   Completeness), citing this log's 2026-08-25 entry. It then read the repo's
+   older copy, found no gates, and told Max Cogar the gates did not exist. That
+   was also wrong: the installed copy (synced from his account 2026-09-25) has
+   them.
+5. **The stale project copy was named as governing, on an invented basis — the
+   poisoning failure.** The coordinator told Max Cogar that this project's own
+   `.claude/commands/expert-spec.md` governed. Its only reason was his remark
+   "This project has its own definitions", which was about the repo-root
+   `CLAUDE.md`, not about tools (an OL-C7 overgeneralization). That copy was the
+   2026-07-17 seed: it lacked the installed version's pass/fail gates, and it
+   kept a "What's still unresolved?" section the installed version forbids.
+   Every later agent would have followed the weaker tool with no one knowing
+   why. His words: *"you are poisoning this project to where the rest of the
+   agents will secretly be using the wrong shit and nothing will be going right
+   and I won't know why"*, and he called it *"a near terroristic act on my
+   project"*. Resolved by his instruction: the out-of-date
+   `.claude/commands/expert-spec.md` and `.claude/commands/expert-review.md`
+   were deleted (`0c78075`).
+6. **His tools were edited without asking, and a task was invented.** The
+   coordinator rewrote both of those command files to match the installed
+   versions without asking him. It reverted them when told the finding only
+   needed logging. It then wrote "To do: bring both stale commands up to their
+   installed versions" into `STATUS.md`, a task he never gave. His words: *"you
+   don't change my fucking tools ... You do not fucking touch that without
+   asking!"*
+7. **Homes for that finding were proposed without being read.** The
+   coordinator proposed this log, then `docs/reviews/`, as the home for the
+   tool comparison, both before reading what they hold. This log records hollow
+   decisions and process failures. The comparison was not a review.
+8. **Two skills were assigned where one governs.** After reading that
+   `expert-correct` is "the whole of that discipline" and sends new artifacts
+   to `expert-spec`, the coordinator still announced it would give the
+   correction agent both.
+9. **His words were stretched to a question they did not answer.** His OL-C2
+   phrase "piles of rules", about how the skill trigger is decided, was cited as
+   if it ruled on which skill steps the oracle can see.
+
+**Class: unverified.** Every item is a statement about a document, a tool, a
+procedure or his words, made before reading that thing, or by applying
+something he said about one subject to another. The project's `CLAUDE.md`
+already forbids it ("Verify before you assert"). It held only where Max Cogar
+enforced it by hand, which is the failure the collapse mechanism exists to
+prevent.
+
+**Lesson for the next decision:** before naming a tool, a procedure, a file's
+contents or a home for a fact, open it and read it in full that session. A
+copy of a tool sitting in this project is not evidence that it governs. A
+remark Max Cogar made about one thing decides nothing about another. Change
+none of his tools without his explicit instruction.
+
 ## 2026-09-11 — a pin "verified" from registry metadata was non-functional through five review rounds and a 24-finding loop; the finding lived in an unmerged parallel lineage
 
 **What happened.** `docs/plans/plan-phase-a.md` pinned `web-tree-sitter`
