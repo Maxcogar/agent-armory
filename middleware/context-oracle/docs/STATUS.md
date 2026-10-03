@@ -142,3 +142,21 @@ None open. The next thing he receives is the spec changes, for sign-off.
   Actions runner image.
 - **L11(a) and L11(b):** the two transcript and hook-contract premises the plan
   resolves in the exit run.
+- **Two of this project's expert tools are stale copies (found 2026-10-03).**
+  Each was compared line by line with the version installed from Max Cogar's
+  account (synced 2026-09-25):
+  - `.claude/commands/expert-spec.md` is the 2026-07-17 seed plus this
+    branch's flaw-raising edits (`16ec3b2`). It lacks the installed version's
+    output contract and its Frame / Premise / Completeness pass/fail gates. It
+    still has a "What's still unresolved?" section, which the installed
+    version forbids.
+  - `.claude/commands/expert-review.md` is the 2026-07-17 seed: 136 non-blank
+    lines against the installed R1.2's 190. It lacks R1.2's output contract
+    and compliance gates A–C.
+  - Current: `expert-plan`, `expert-standard`, `testing-setup` (identical);
+    `expert-architecture-portable` and the greenfield command (they differ
+    only by the branch's flaw-raising edits). `expert-implement` has no
+    installed counterpart.
+  - **To do:** bring both stale commands up to their installed versions,
+    keeping the flaw-raising edits. Until then, an agent running
+    `/expert-spec` or `/expert-review` in this project gets the older text.
