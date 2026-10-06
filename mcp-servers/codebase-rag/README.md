@@ -43,7 +43,9 @@ the tools are available.
 
 The in-process watcher already keeps the index live while the server is
 running. The Stop hook below is a belt-and-suspenders safety net for
-files modified between sessions. Add to `~/.claude/settings.json`:
+files modified between sessions. While a server owns the project's index
+the hook exits without doing anything (see "One writer per index" below).
+Add to `~/.claude/settings.json`:
 
 ```json
 {
@@ -64,6 +66,7 @@ files modified between sessions. Add to `~/.claude/settings.json`:
 | `RAG_PROJECT_ROOT` | Skip auto-detection; treat this path as the project root. |
 | `RAG_WATCHER_DEBOUNCE_MS` | Watcher debounce window (default `500`; min `50`). Increase on high-latency network FS. |
 | `RAG_MAX_FILE_BYTES` | Skip files larger than this (default `1048576` = 1 MB). |
+| `RAG_MAX_MEMORY_GB` | Hard memory cap per server/reindex process (default `4`; `0` disables). Enforced on Windows (Job Object, committed memory) and Linux (`RLIMIT_DATA`); not enforced on macOS. |
 | `RAG_LOG_LEVEL` | `DEBUG` / `INFO` / `WARNING` / `ERROR` (default `INFO`). |
 | `XDG_CACHE_HOME` | Override the Linux cache base. macOS uses `~/Library/Caches`; Windows uses `%LOCALAPPDATA%`. |
 
@@ -85,6 +88,26 @@ python -c "import hashlib, os; print(hashlib.sha1(os.path.abspath('PATH/TO/PROJE
 Delete that one subdirectory; the next query rebuilds. Nuking the whole
 `codebase-rag/` directory is also safe — every project rebuilds on
 demand — it's just heavier.
+
+**Corrupt index**: every persisted index is checked before it is opened —
+each HNSW segment's `header.bin` against the invariants of the on-disk
+format, then a probe query on every collection. A corrupt index is deleted
+and rebuilt from the project tree automatically; the log says
+`discarding and rebuilding index for ...: <reason>`. Corruption comes from
+a process being killed (or the machine crashing) while ChromaDB is writing
+segment files, which it does in place. Unchecked, a corrupt header makes
+chroma-hnswlib allocate memory sized from garbage fields — tens of GB from
+a few-MB index. `RAG_MAX_MEMORY_GB` is the backstop: an allocation past the
+cap fails inside the process instead of exhausting the machine.
+
+**One writer per index**: ChromaDB does not support several processes
+writing one index directory. The first server (or Stop-hook reindex) to
+start on a project takes `writer.lock` in the project's cache dir and is
+the only process that builds, rebuilds, or watches. Other servers on the
+same project answer queries read-only from what has been persisted (they
+do not see the owner's later updates until they restart or take over) and
+take ownership when the owner exits. The OS releases the lock when the
+owning process exits for any reason, including a crash.
 
 **First query in a project is slow**: expected. The first call builds
 the index. Subsequent queries are instant.
@@ -124,6 +147,7 @@ rm -rf /path/to/each/project/.rag
 ```
 ~/.cache/codebase-rag/<sha1[:16]>/
 ├── config.json        # project settings (paths, filters, custom sources)
+├── writer.lock        # held by the process that owns this index
 └── collections/       # ChromaDB persistent collections
 ```
 

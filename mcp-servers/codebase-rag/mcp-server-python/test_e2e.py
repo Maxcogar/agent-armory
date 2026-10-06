@@ -610,6 +610,223 @@ else:
         results["robustness"] = FAIL
 
 # ============================================================
+# Shared fixture for the corruption tests: a collection large enough
+# (2500 > chroma's 1000-record sync threshold) that its HNSW segment is
+# persisted to disk and reloaded from header.bin on open.
+# ============================================================
+
+import atexit
+import struct
+import subprocess
+import tempfile
+
+_TEMP_DIRS = []
+
+
+def _temp_dir(prefix: str) -> str:
+    path = tempfile.mkdtemp(prefix=prefix)
+    _TEMP_DIRS.append(path)
+    return path
+
+
+atexit.register(lambda: [shutil.rmtree(d, ignore_errors=True) for d in _TEMP_DIRS])
+
+_FIXTURE_DIR = _temp_dir("rag-hnsw-fixture-")
+_HEADER_OFFSETS = {"cur_element_count": 20, "size_data_per_element": 28}
+
+
+def _build_persisted_fixture(path: str) -> None:
+    import random
+    import chromadb
+    from chromadb.config import Settings
+    client = chromadb.PersistentClient(path=path, settings=Settings(anonymized_telemetry=False))
+    col = client.get_or_create_collection("fixture", metadata={"hnsw:space": "cosine"})
+    rng = random.Random(7)
+    for i in range(0, 2500, 100):
+        col.add(
+            ids=[str(j) for j in range(i, i + 100)],
+            embeddings=[[rng.random() for _ in range(384)] for _ in range(100)],
+        )
+
+
+def _corrupt_copy(field: str, value: int) -> str:
+    """Copy the fixture and overwrite one u64 header field. Returns the copy's path."""
+    dst = _temp_dir("rag-hnsw-corrupt-")
+    shutil.copytree(_FIXTURE_DIR, dst, dirs_exist_ok=True)
+    seg = next(d for d in os.listdir(dst) if os.path.isfile(os.path.join(dst, d, "header.bin")))
+    header = os.path.join(dst, seg, "header.bin")
+    raw = bytearray(open(header, "rb").read())
+    struct.pack_into("<Q", raw, _HEADER_OFFSETS[field], value)
+    with open(header, "wb") as f:
+        f.write(raw)
+    return dst
+
+
+_build_persisted_fixture(_FIXTURE_DIR)
+
+
+# ============================================================
+# 12. HNSW segment structural check
+# ============================================================
+
+section("12. HNSW segment structural check")
+try:
+    from utils.hnsw_check import find_corrupt_segments
+
+    clean = find_corrupt_segments(_FIXTURE_DIR)
+    bad_size = find_corrupt_segments(_corrupt_copy("size_data_per_element", 2_500_000))
+    bad_count = find_corrupt_segments(_corrupt_copy("cur_element_count", 1_000_000))
+
+    truncated_dir = _corrupt_copy("size_data_per_element", 1676)
+    seg = next(d for d in os.listdir(truncated_dir) if os.path.isdir(os.path.join(truncated_dir, d)))
+    with open(os.path.join(truncated_dir, seg, "header.bin"), "r+b") as f:
+        f.truncate(60)
+    bad_trunc = find_corrupt_segments(truncated_dir)
+
+    t12 = all([
+        check("persisted fixture segment exists",
+              any(os.path.isfile(os.path.join(_FIXTURE_DIR, d, "header.bin")) for d in os.listdir(_FIXTURE_DIR))),
+        check("sound segment passes", clean == [], str(clean)),
+        check("corrupt size_data_per_element flagged", len(bad_size) == 1, str(bad_size)),
+        check("corrupt cur_element_count flagged", len(bad_count) == 1, str(bad_count)),
+        check("truncated header flagged", len(bad_trunc) == 1, str(bad_trunc)),
+    ])
+    results["hnsw_check"] = PASS if t12 else FAIL
+except Exception as e:
+    print(f"  [FAIL] Exception: {e}")
+    traceback.print_exc()
+    results["hnsw_check"] = FAIL
+
+
+# ============================================================
+# 13. Memory cap turns a runaway allocation into an in-process error
+#
+# Loads a corrupt segment directly (bypassing the structural check) in a
+# child process: size_data_per_element = 2.5 MB makes hnswlib request
+# ~5 GB. Under a 2 GB cap the load must fail with an exception.
+# ============================================================
+
+section("13. memory cap contains a corrupt-index allocation")
+if not sys.platform.startswith("linux") and sys.platform != "win32":
+    print(f"  [SKIP] memory cap not enforced on {sys.platform}")
+    results["memory_cap"] = PASS
+else:
+    try:
+        corrupt = _corrupt_copy("size_data_per_element", 2_500_000)
+        child = (
+            "import sys; sys.path.insert(0, %r)\n"
+            "from utils.memlimit import apply_memory_limit\n"
+            "assert apply_memory_limit(2 * 2**30)\n"
+            "import chromadb\n"
+            "from chromadb.config import Settings\n"
+            "c = chromadb.PersistentClient(path=%r, settings=Settings(anonymized_telemetry=False))\n"
+            "try:\n"
+            "    c.get_collection('fixture').query(query_embeddings=[[0.1] * 384], n_results=1)\n"
+            "    print('LOADED')\n"
+            "except Exception as e:\n"
+            "    print('CONTAINED', type(e).__name__, e)\n"
+        ) % (SERVER_DIR, corrupt)
+        proc = subprocess.run([sys.executable, "-c", child], capture_output=True, text=True, timeout=120)
+        out = proc.stdout.strip().splitlines()
+        last = out[-1] if out else proc.stderr.strip()[-300:]
+        t13 = all([
+            check("child exited normally", proc.returncode == 0, f"rc={proc.returncode}"),
+            check("allocation failed inside the process", last.startswith("CONTAINED"), last),
+        ])
+        results["memory_cap"] = PASS if t13 else FAIL
+    except Exception as e:
+        print(f"  [FAIL] Exception: {e}")
+        traceback.print_exc()
+        results["memory_cap"] = FAIL
+
+
+# ============================================================
+# 14. Corrupt persisted index is discarded and rebuilt
+# ============================================================
+
+section("14. corrupt index is discarded and rebuilt")
+try:
+    from index_store import IndexUnavailable, open_index, open_or_rebuild
+
+    collections_dir = os.path.join(cache_dir, "collections")
+    corrupt = _corrupt_copy("size_data_per_element", 2_500_000)
+    bad_seg = next(d for d in os.listdir(corrupt) if os.path.isfile(os.path.join(corrupt, d, "header.bin")))
+    shutil.copytree(os.path.join(corrupt, bad_seg), os.path.join(collections_dir, bad_seg))
+
+    try:
+        open_index(TEST_PROJECT)
+        refused = False
+    except IndexUnavailable as e:
+        refused = "corrupt HNSW segment" in str(e)
+
+    rebuilt_ctx, rebuilt = open_or_rebuild(TEST_PROJECT)
+    after = find_corrupt_segments(collections_dir)
+    hits = check_constraints(rebuilt_ctx, "API endpoint route handler", 3, "all")
+    reopened_ctx, reopened_rebuilt = open_or_rebuild(TEST_PROJECT)
+
+    t14 = all([
+        check("open_index refuses the corrupt index", refused),
+        check("open_or_rebuild rebuilt it", rebuilt is True),
+        check("corrupt segment removed", not os.path.isdir(os.path.join(collections_dir, bad_seg))),
+        check("rebuilt index is sound", after == [], str(after)),
+        check("search works after rebuild", len(hits.get("examples", [])) > 0),
+        check("sound index reopens without rebuild", reopened_rebuilt is False),
+    ])
+    results["corrupt_recovery"] = PASS if t14 else FAIL
+except Exception as e:
+    print(f"  [FAIL] Exception: {e}")
+    traceback.print_exc()
+    results["corrupt_recovery"] = FAIL
+
+
+# ============================================================
+# 15. Single-writer lock: one owner per index, across processes
+# ============================================================
+
+section("15. single-writer lock")
+try:
+    from utils.writer_lock import WriterLock
+
+    owner = WriterLock(cache_dir)
+    other = WriterLock(cache_dir)
+    got_owner = owner.try_acquire()
+    got_other = other.try_acquire()
+
+    probe = (
+        "import sys; sys.path.insert(0, %r)\n"
+        "from utils.writer_lock import WriterLock\n"
+        "print('ACQUIRED' if WriterLock(%r).try_acquire() else 'REFUSED')\n"
+    ) % (SERVER_DIR, cache_dir)
+    child_view = subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True, timeout=60).stdout.strip()
+
+    sqlite_path = os.path.join(cache_dir, "collections", "chroma.sqlite3")
+    mtime_before = os.path.getmtime(sqlite_path)
+    reindex = subprocess.run(
+        [sys.executable, os.path.join(SERVER_DIR, "scripts", "reindex.py"), "--project-root", TEST_PROJECT],
+        capture_output=True, text=True, timeout=120,
+    )
+    mtime_after = os.path.getmtime(sqlite_path)
+
+    owner.release()
+    got_after_release = other.try_acquire()
+    other.release()
+
+    t15 = all([
+        check("first lock acquired", got_owner),
+        check("second in-process lock refused", not got_other),
+        check("other process refused", child_view == "REFUSED", child_view),
+        check("reindex.py exits 0 while the index is owned", reindex.returncode == 0, f"rc={reindex.returncode}"),
+        check("reindex.py left the owned index untouched", mtime_before == mtime_after),
+        check("lock is available after release", got_after_release),
+    ])
+    results["writer_lock"] = PASS if t15 else FAIL
+except Exception as e:
+    print(f"  [FAIL] Exception: {e}")
+    traceback.print_exc()
+    results["writer_lock"] = FAIL
+
+
+# ============================================================
 # Summary
 # ============================================================
 
