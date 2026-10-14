@@ -178,3 +178,11 @@ None open. The next thing he receives is the spec changes, for sign-off.
   Actions runner image.
 - **L11(a) and L11(b):** the two transcript and hook-contract premises the plan
   resolves in the exit run.
+- **Plan probe 13 drifted (found 2026-10-14):** the CI `check-plan` job fails
+  on `13_hooks_reference.optional`. The live hooks page
+  (`code.claude.com/docs/en/hooks.md`, fetched 2026-10-14) no longer contains
+  "When you submit a prompt" (under 'Hook lifecycle') or "On PreToolUse , by
+  contrast" (under 'PreModelSwitch decision control'). The plan correction
+  re-checks the plan's hooks premises against the current page before the
+  probe's expected output changes. Locally, probe `15_claude_p_scrub.optional`
+  also fails; CI skips it because the `claude` CLI is not on the runner.
