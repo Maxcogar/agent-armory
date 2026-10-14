@@ -30,6 +30,10 @@ import { homedir } from 'node:os';
 import { join, dirname, isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// This script's own plugin root — used to read the defect queue of the copy that is
+// RUNNING, so the count reported is the one that belongs to the code being used.
+const SCRIPT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
 // Every tree whose contents decide what the installed plugin DOES. Anything outside
 // this set plus COMPARED_FILES is documentation or test scaffolding, whose staleness
 // does not falsify a behavioral claim.
@@ -158,6 +162,22 @@ export function preflightDeployment(pluginName, worktreePath, cfgDir = configDir
   const registryPath = join(cfgDir, 'plugins', 'installed_plugins.json');
   const registry = readJson(registryPath, 'installed-plugins registry', problems);
 
+  // Open defects recorded against this plugin, read from the copy that is RUNNING.
+  // commands/expert.md step 1 makes this report the sole admissible ground for any claim
+  // about the running plugin, and requires it quoted — so this is the one surface every
+  // run already has to read. A defect list nobody meets is the invisible-store failure
+  // this queue exists to end.
+  const openDefects = (() => {
+    try {
+      const dir = join(SCRIPT_ROOT, 'docs', 'defects');
+      if (!existsSync(dir)) return null;
+      return readdirSync(dir)
+        .filter((f) => f.endsWith('.md') && f !== 'README.md')
+        .map((f) => /^state:\s*(\S+)/m.exec(readFileSync(join(dir, f), 'utf8').replace(/\r\n/g, '\n')))
+        .filter((m) => m && m[1] !== 'corrected').length;
+    } catch { return null; }
+  })();
+
   const report = {
     plugin: pluginName,
     config_dir: cfgDir,
@@ -179,6 +199,8 @@ export function preflightDeployment(pluginName, worktreePath, cfgDir = configDir
     stale: null,
     diffs: [],
     installs: [],
+    open_defects: openDefects,
+    open_defects_index: 'docs/defects/README.md',
     problems,
   };
 

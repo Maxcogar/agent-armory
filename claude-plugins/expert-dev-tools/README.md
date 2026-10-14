@@ -82,3 +82,12 @@ supplied at the command always wins on a fresh run, because the ledger's
 `artifact_index` is empty then — which is how every review dispatch in one full
 run came to cite a path that did not exist. If a phase returns no path, it
 escalates rather than proceeding on a guess.
+
+## Known defects
+
+Defects in this plugin are recorded in [`docs/defects/`](docs/defects/) — one file each,
+with a generated index at [`docs/defects/README.md`](docs/defects/README.md). Read it
+before concluding the plugin is misbehaving in a new way, and file there rather than
+patching the plugin to get past a problem. `scripts/preflight-deployment.mjs` reports the
+open count on every run, so a lifecycle cannot start without the number being in front of
+whoever started it.
