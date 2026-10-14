@@ -59,6 +59,19 @@ every Phase A decision against this goal (`CLAUDE.md` dominating rule 3).
 - Final verdicts, computed from the audit files, match the verification's
   totals: part a 28 replace; part b 39 replace and 6 undetermined; part c 39
   replace, 2 remove and 2 undetermined.
+- **Part a is done (2026-10-14):** its 28 findings re-derived, Max Cogar's
+  answers applied where they land, record in `record-a.md`; the independent
+  re-run of its sweep patterns passed (`sweep-check.md`).
+- **Part b was stopped at 21:01 before making any edit** (a session
+  interruption by Max Cogar). The working copy is as part a left it. Part b
+  is restarted on Max Cogar's go-ahead.
+- Part c, the independent review and the change list for Max Cogar have not
+  started.
+- Why not `/expert`: the expert-dev-tools lifecycle workflow corrects only
+  against its own reviewer's findings for a spec registered in its ledger
+  (`claude-plugins/expert-dev-tools/workflows/expert-lifecycle.js`, spec phase
+  and its `remediateFn`); it has no input for an existing finding set such as
+  the 2026-09-29 audit, so the correction runs `expert-correct` directly.
 - The spec of record (`docs/specs/spec-context-oracle.md`), the architecture,
   the plan and the code are unchanged.
 - All of Max Cogar's questions are answered: `OWNER-LEDGER.md` OL-C9 … OL-C15,
