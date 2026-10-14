@@ -19,7 +19,7 @@ honest capability plus honest measurement, with clean seams the later phases plu
 into — **never fake completeness dressed to look like a working product.** Judge
 every Phase A decision against this goal (`CLAUDE.md` dominating rule 3).
 
-## Where the project stands (2026-10-03)
+## Where the project stands (2026-10-14)
 
 **Nothing built on this branch is trusted yet.** Max Cogar set the method:
 1. audit every change on the branch since its base `de66831`, along the
@@ -47,8 +47,20 @@ every Phase A decision against this goal (`CLAUDE.md` dominating rule 3).
 - Record: `docs/reviews/2026-09-29-spec-audit-verification.md`, which also
   records two errors (one the coordinator's own) and reconciles the three parts.
 
-**Step 2, the corrections, has not started.** The spec, architecture, plan and
-code are as they stood when the branch audit finished (`c00819e`).
+**Step 2, the corrections: the spec correction is under way (2026-10-14).**
+- The corrected spec is being written to
+  `docs/spec-correction/spec-context-oracle.corrected.md`, a working copy of the
+  spec. All 752 line-numbered spec quotes in the nine spec-audit files were
+  checked against `docs/specs/spec-context-oracle.md` and match, so the copy
+  started as exactly the audited text.
+- The correction brief every correction agent works from is
+  `docs/spec-correction/BRIEF.md`. Each agent writes its per-finding record to
+  `docs/spec-correction/record-{a,b,c}.md`.
+- Final verdicts, computed from the audit files, match the verification's
+  totals: part a 28 replace; part b 39 replace and 6 undetermined; part c 39
+  replace, 2 remove and 2 undetermined.
+- The spec of record (`docs/specs/spec-context-oracle.md`), the architecture,
+  the plan and the code are unchanged.
 - All of Max Cogar's questions are answered: `OWNER-LEDGER.md` OL-C9 … OL-C15,
   plus the decisions below.
 - A first spec-correction draft (2026-10-02) was thrown out unused. Its agent
@@ -83,15 +95,18 @@ as Max Cogar asked.
 
 ## What to do next
 
-1. **Correct the spec under `expert-correct`**, against the finding set:
+1. **Finish correcting the spec under `expert-correct`** in
+   `docs/spec-correction/` (parts a, b, c, one after another, each reading the
+   earlier parts' records), against the finding set:
    - the spec audit's 106 replacements and 2 removals, as the adjudications and
      the verification's reconciliation write them
      (`docs/reviews/2026-09-29-spec-audit-*`);
    - the lines Max Cogar's answers and the decisions below settle.
 
    Then:
-   - write the corrected spec outside `docs/specs/` first;
-   - have it independently reviewed;
+   - re-execute every correction record's sweep pattern through an agent that
+     did not do the correction, and compare with what the record reports;
+   - have the corrected spec independently reviewed;
    - show Max Cogar every change for sign-off before the spec file changes
      (M38: he signed it).
 2. **Then correct the architecture, then the plan, once each**, from the branch
