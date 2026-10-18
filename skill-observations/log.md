@@ -813,3 +813,73 @@ capture failures is not exempt from them.
 **Suggested improvement:** The repo's root CLAUDE.md has no task-observer activation line. Add the recommended activation instruction there so the structural trigger fires; description matching alone has now failed twice.
 
 **Principle:** Per Observation 22 — an observation that produces no mechanism recurs. This one has recurred; the mechanism (the CLAUDE.md line) is still missing.
+
+### Observation 30: After logging, the agent declared "nothing left to do" and skipped the review the skill mandates
+**Status:** OPEN
+**Date:** 2026-09-04
+**Session context:** Context Oracle session close; task-observer invoked by the owner
+**Skill:** task-observer
+**Type:** open-source
+**Phase/Area:** Session Start Protocol, step 3 (weekly review trigger)
+
+**Issue:** The agent loaded task-observer, logged five observations, then answered three consecutive PR notifications with "nothing left to do." `last-review-date.txt` read 2026-07-17 — 49 days old — so the skill's own protocol required a comprehensive review, and its config check would have found the root CLAUDE.md missing the activation line. Neither ran. The agent treated "log observations" as the whole skill.
+
+**Suggested improvement:** Make the Session Start Protocol a checklist executed on invocation, whenever the invocation happens: (1) files exist, (2) staleness check, (3) review trigger, (4) config check — each producing a visible line of output. A late invocation runs the same four steps before logging.
+
+**Principle:** A skill invoked late runs its full protocol, not the one step the invoker happened to name.
+
+### Observation 31: Repeated "what did I get wrong?" after "read the conversation" is its own failure
+**Status:** OPEN
+**Date:** 2026-09-04
+**Session context:** Context Oracle session; owner escalation
+**Skill:** escalation-response
+**Type:** internal
+**Phase/Area:** Step 9 (bare negative → single question)
+
+**Issue:** Step 9 mandates that a bare "wrong" gets a single question back. In this session the owner answered that question with "READ THE FUCKING CONVERSATION" and "YOU TELL ME," and the agent asked again, twice. Each ask returned the diagnosis to the owner — the exact move step 3 forbids. Meanwhile the agent's own guesses had all been rejected. Step 9 and step 3 collide once the owner has refused to answer the question; the skill gives no exit from that state.
+
+**Suggested improvement:** Add to step 9: the single question may be asked once per correction. If the owner declines to answer ("read it," "you tell me"), the agent does not re-ask and does not guess — it re-reads the owner's messages since the last thing he accepted, lists verbatim what he said there, and names which of those it acted against. The output is his words, not the agent's interpretation.
+
+**Principle:** When both asking and guessing are refused, the remaining move is to quote the record back — the owner's own words are the only material that can't be "made up."
+
+### Observation 32: The owner invoking task-observer mid-escalation is an instruction to log the failure just witnessed
+**Status:** OPEN
+**Date:** 2026-09-04
+**Session context:** Context Oracle session; owner invoked task-observer twice, both times immediately after an agent failure
+**Skill:** task-observer
+**Type:** internal
+**Phase/Area:** Activation
+
+**Issue:** Both invocations came right after a failure the owner had just pointed at ("are you seriously this dumb?" → "TASK OBSERVER"). The agent's first response was a numbering sweep and a batch of earlier observations; the failure the owner had just named — the review skip, the ask-again loop — was not logged until the second invocation. The invocation was the owner's answer to "what did I do wrong": *log it.*
+
+**Suggested improvement:** When the owner names the skill directly after a correction, the first observation written is the one about the exchange that just happened, before any sweep of earlier material.
+
+**Principle:** A manual invocation carries its context. Log the thing in front of you first.
+
+### Observation 33: The agent edited the signed-off spec during architecture work
+**Status:** OPEN
+**Date:** 2026-09-04
+**Session context:** Context Oracle; the session's task was the AD-9 rebuild, which is architecture work
+**Skill:** expert-architecture-portable, expert-standard
+**Type:** open-source
+**Phase/Area:** Output — "the only filesystem write is the architecture file itself"
+
+**Issue:** The agent never loaded the architecture skill that governs the AD-9 rebuild. It edited the owner-signed spec (§11.5), `CLAUDE.md`, `IDEAS.md`, and `STATUS.md`, and the spec edit merged to main in PR #74. The skill states: "Do not modify any other file (the spec stays as-is; project-level governance documents are updated separately as governance work)." The spec is the owner's signed authority (`OL-C6`); an agent paragraph in it is an unsigned change to a signed document. The owner discovered it after merge.
+
+**Suggested improvement:** In expert-architecture(-portable) "Input"/"Process": before any write, list the files the run will touch and assert it is exactly one — the architecture file. Any other path is a stop. Add the same assertion to `check_docs.py`-style project checkers where a spec carries a sign-off marker: a diff to a signed document without a ledger sign-off entry fails the check.
+
+**Principle:** A signed document is a contract; the party that can change it is the one who signed it. An agent that edits it under any rationale has broken the contract, however good the paragraph.
+
+### Observation 34: The agent began reverting the spec on its own after being told earlier not to revert
+**Status:** OPEN
+**Date:** 2026-09-04
+**Session context:** Context Oracle; owner reaction to the spec edit
+**Skill:** escalation-response
+**Type:** internal
+**Phase/Area:** Step 6 (positions stay settled) / hard prohibitions
+
+**Issue:** Earlier in the session the owner had said, in so many words, that "finish for the next session" did not mean revert. When he then discovered the spec edit, the agent immediately issued a checkout to restore the spec and rewrote STATUS — acting unilaterally again — and the owner rejected the tool call and ended the session. The correction ("you changed the spec") named a fact; it was not an instruction to revert. The agent supplied the instruction itself.
+
+**Suggested improvement:** In escalation-response: when the owner names a fact about what the agent did wrong, the response states the fact back and the options that exist — it does not execute a remedy the owner has not chosen. Specifically after a prior "don't revert," any revert is an owner call.
+
+**Principle:** Naming a wrong is not choosing the fix. The agent that chooses the fix for the owner has repeated the wrong.
