@@ -116,6 +116,9 @@ Both tools return a `status` field. Handle the non-success cases:
 - `"no_project"` — no project root detected (no `.git`, `package.json`,
   `pyproject.toml`, `Cargo.toml`, or `go.mod` walking up from cwd).
   Tell the user; the server can't operate without a project root.
+- `"index_busy"` — another codebase-rag process (another Claude Code
+  session on the same project) owns the index and it is still being
+  built. The server retries every 30 seconds; retry the call later.
 - `"index_failed"` — bootstrap failed. The `summary` field has the
   reason. Surface it; don't retry blindly.
 

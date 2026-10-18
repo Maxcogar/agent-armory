@@ -12,6 +12,11 @@ Project root resolution:
 
 Exits 0 silently when no project is detected — hooks shouldn't fail just
 because they fired in a directory that isn't a project.
+
+Exits 0 without touching the index when another process (a running MCP
+server, or an earlier invocation of this script) holds the project's writer
+lock: that process is already keeping the index current, and ChromaDB does
+not support two processes writing one index.
 """
 
 import argparse
@@ -39,10 +44,16 @@ def _setup_logging() -> None:
 _setup_logging()
 
 
-from config import restore_context  # noqa: E402
+from utils.memlimit import apply_memory_limit  # noqa: E402
+
+apply_memory_limit()
+
+
+from config import rag_dir  # noqa: E402
+from index_store import open_or_rebuild  # noqa: E402
 from indexer import index_project, index_file  # noqa: E402
-from bootstrap import setup_project  # noqa: E402
-from utils.paths import find_project_root, index_exists_for  # noqa: E402
+from utils.paths import find_project_root  # noqa: E402
+from utils.writer_lock import WriterLock  # noqa: E402
 
 
 log = logging.getLogger(__name__)
@@ -57,13 +68,12 @@ def _resolve_root(explicit: Optional[str]) -> Optional[str]:
     return find_project_root()
 
 
-def _load_or_build(root: str):
-    if index_exists_for(root):
-        return restore_context(root)
-    output = setup_project(root, force=False, generate_files=False)
-    project = output["context"]
-    index_project(project)
-    return project
+def _run(root: str, target: Optional[str]) -> None:
+    project, rebuilt = open_or_rebuild(root)
+    if target is not None:
+        index_file(project, target)
+    elif not rebuilt:
+        index_project(project)
 
 
 def main() -> int:
@@ -72,38 +82,23 @@ def main() -> int:
     parser.add_argument("--file", default=None, help="Single file to re-index.")
     args = parser.parse_args()
 
-    if args.file:
-        target = os.path.abspath(args.file)
-        root = _resolve_root(args.project_root) or find_project_root(os.path.dirname(target))
-        if not root:
-            return 0
-        try:
-            project = _load_or_build(root)
-        except Exception as e:
-            log.warning("load failed: %s", e)
-            return 0
-        if project is None:
-            return 0
-        try:
-            index_file(project, target)
-        except Exception as e:
-            log.warning("index_file failed: %s", e)
-        return 0
-
+    target = os.path.abspath(args.file) if args.file else None
     root = _resolve_root(args.project_root)
+    if not root and target is not None:
+        root = find_project_root(os.path.dirname(target))
     if not root:
         return 0
-    try:
-        project = _load_or_build(root)
-    except Exception as e:
-        log.warning("load failed: %s", e)
-        return 0
-    if project is None:
+
+    lock = WriterLock(rag_dir(root))
+    if not lock.try_acquire():
+        log.info("another process owns the index for %s; skipping", root)
         return 0
     try:
-        index_project(project)
+        _run(root, target)
     except Exception as e:
-        log.warning("index_project failed: %s", e)
+        log.warning("reindex failed: %s", e)
+    finally:
+        lock.release()
     return 0
 
 
