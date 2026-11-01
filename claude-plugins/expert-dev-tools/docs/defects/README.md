@@ -6,7 +6,7 @@
 Standing queue of defects in **this plugin**. One file per defect; this index is
 generated from their frontmatter.
 
-**17 open** — 2 critical, 5 serious, 8 moderate, 2 minor.
+**23 open** — 2 critical, 9 serious, 9 moderate, 3 minor.
 0 being investigated, 0 corrected.
 
 ## How a defect gets here
@@ -52,6 +52,10 @@ re-run the generator.
 | [EDT-0005](EDT-0005-spec-scope-guidance-permits-reducing-below-the-capability.md) | serious | open | Spec scope guidance permits reducing below the capability envelope the owner stated | `skills/expert-spec/SKILL.md scope guidance` |
 | [EDT-0006](EDT-0006-a-determinable-correction-failure-escalates-to-the-owner-i.md) | serious | open | A determinable correction failure escalates to the owner instead of re-dispatching the correction | `workflows/expert-lifecycle.js correction gate` |
 | [EDT-0007](EDT-0007-most-owner-gates-ask-permission-to-retry-or-decline-to-sta.md) | serious | open | Most owner gates ask permission to retry or decline to state a recommendation | `workflows/expert-lifecycle.js owner-gate policy` |
+| [EDT-0018](EDT-0018-the-feedback-sweeps-read-position-never-advances-so-every-s.md) | serious | open | The feedback sweep's read position never advances, so every sweep re-reads the whole transcript history | `workflows/expert-lifecycle.js feedbackSweep return path + commands/expert.md step 4` |
+| [EDT-0019](EDT-0019-the-feedback-sweep-is-never-given-the-pluginwide-defect-sto.md) | serious | open | The feedback sweep is never given the plugin-wide defect store | `workflows/expert-lifecycle.js feedbackSweep + agents/expert-diagnostician.md` |
+| [EDT-0020](EDT-0020-sweep-returns-carry-no-project-session-or-plugin-version-so.md) | serious | open | Sweep returns carry no project, session or plugin version, so recurrence and version verdicts have no inputs | `workflows/expert-lifecycle.js FEEDBACK_SCHEMA + feedbackSweep + commands/expert.md step 4` |
+| [EDT-0021](EDT-0021-machineapplicable-diagnoses-are-never-applied-automatically.md) | serious | open | Machine-applicable diagnoses are never applied automatically; every diagnosis stops for the owner | `workflows/expert-lifecycle.js failure routing (F-13 router)` |
 | [EDT-0008](EDT-0008-content-written-into-the-first-plausible-file-without-read.md) | moderate | open | Content written into the first plausible file without reading the target or the structure | `write-destination selection during correction application` |
 | [EDT-0009](EDT-0009-claims-about-the-plugins-own-behavior-asserted-without-rea.md) | moderate | open | Claims about the plugin's own behavior asserted without reading its source or manifest | `expert-standard verification discipline, applied to tooling` |
 | [EDT-0010](EDT-0010-ownerfacing-output-written-in-internal-lifecycle-vocabular.md) | moderate | open | Owner-facing output written in internal lifecycle vocabulary | `orchestrator owner-gate presentation` |
@@ -60,5 +64,7 @@ re-run the generator.
 | [EDT-0013](EDT-0013-owner-decisions-derived-from-repo-documents-instead-of-ask.md) | moderate | open | Owner decisions derived from repo documents instead of asked, without disclosing the inference | `expert-spec owner-decision attribution / intake owner gate` |
 | [EDT-0014](EDT-0014-draft-deliverables-surfaced-to-the-owner-ahead-of-their-re.md) | moderate | open | Draft deliverables surfaced to the owner ahead of their review loop | `spec drafting and review-gate sequencing` |
 | [EDT-0017](EDT-0017-no-usage-guidance-exists-and-without-it-an-agent-under-pre.md) | moderate | open | No usage guidance exists, and without it an agent under pressure patches the plugin | `plugin documentation surface` |
+| [EDT-0022](EDT-0022-readme-and-expertusage-give-contradictory-instructions-on-w.md) | moderate | open | README and expert-usage give contradictory instructions on where to file a plugin defect | `README.md + skills/expert-usage defect-filing guidance` |
 | [EDT-0015](EDT-0015-an-action-is-repeatedly-named-as-required-without-being-pe.md) | minor | open | An action is repeatedly named as required without being performed | `orchestrator follow-through` |
 | [EDT-0016](EDT-0016-a-topic-the-owner-scoped-out-is-reintroduced.md) | minor | open | A topic the owner scoped out is reintroduced | `orchestrator scope retention` |
+| [EDT-0023](EDT-0023-the-defectreport-record-format-in-expertusage-does-not-matc.md) | minor | open | The defect-report record format in expert-usage does not match the schema it claims to reuse | `skills/expert-usage/references/defect-reporting.md` |
