@@ -81,6 +81,18 @@ code are as they stood when the branch audit finished (`c00819e`).
   plan content would break one-fact-one-home.
 - The view reflects the plan as audited, not corrected. The plan correction
   (What to do next, item 2) has not started.
+- **Decided 2026-11-06 (process, OL-11): the corrected plan takes the lean
+  shape.** The plan file holds goal, scope, each step's step-decl, What
+  changes, Creates, Dependencies and Verification, open gaps and the
+  post-completion check. Each step's Source, Why this approach and Impact if
+  wrong, the Verification of factual claims and the Question register move,
+  whole, to a companion record file beside the plan. Reason: Max Cogar asked
+  for the plan made "far more manageable" without "toss[ing] it all out or
+  blindly prun[ing] it"; the split satisfies both (nothing is deleted, the
+  plan a builder reads drops from 15,301 to about 5,700 lines). This departs
+  from `.claude/skills/expert-plan/references/output-contract.md` items 7, 11
+  and 14, which require those parts inside the plan; the plan correction
+  states that departure and this reason where it applies it.
 
 **A post-audit correction attempt was removed.**
 - Commits `630d4b5` … `2c201a0` held a correction register, gap settlements, an
@@ -172,16 +184,7 @@ rejected both earlier options:
 
 ## Questions for Max Cogar (plain language)
 
-- **Open since 2026-11-06:** Max Cogar wants the Phase A plan made manageable;
-  the lean view (`tools/extract_plan_core.py`) cuts it from 15,301 to 5,674
-  lines. The project's `.claude/skills/expert-plan/references/output-contract.md`
-  requires in every step a Source, Why this approach and Impact if wrong (item
-  7), and requires the plan to have a Verification of factual claims section
-  (item 11) and a Question register (item 14) — parts the view drops. Should the
-  plan correction produce a plan in the lean shape (planning records kept
-  outside the plan), or keep the full shape that output contract requires?
-
-Otherwise the next thing he receives is the spec changes, for sign-off.
+None open. The next thing he receives is the spec changes, for sign-off.
 
 ## Open items
 
