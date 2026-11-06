@@ -192,3 +192,9 @@ None open. The next thing he receives is the spec changes, for sign-off.
   Actions runner image.
 - **L11(a) and L11(b):** the two transcript and hook-contract premises the plan
   resolves in the exit run.
+- **Hooks-documentation drift (found 2026-11-06, CI `check-plan`):** probe
+  `13_hooks_reference` now reports two phrases ABSENT from the live Claude Code
+  hooks reference: "When you submit a prompt" (Hook lifecycle) and "On
+  PreToolUse , by contrast" (PreModelSwitch decision control). The plan's
+  premises that cite them need re-verification in the plan correction; the
+  probe's expected file is not edited to turn CI green.
