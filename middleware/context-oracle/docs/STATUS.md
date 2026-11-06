@@ -69,11 +69,11 @@ code are as they stood when the branch audit finished (`c00819e`).
 (2026-11-06).** Max Cogar found the plan unmanageable at that size.
 - `tools/extract_plan_core.py OUT_DIR` writes two derived views and never
   modifies the plan. `plan-phase-a-core.md` (5,674 lines) holds goal, scope
-  (§2.1–2.2), the 40 steps with their step-decl, What changes, Creates,
-  Dependencies, Verification and build-delta parts, open gaps (§15) and the
-  post-completion check (§16). `plan-phase-a-tests.md` (3,605 lines) holds
-  the §12 test specifications.
-- Dropped from the views, still in the plan: §3–6, §8–11, §13–14 (planning
+  (plan sections 2.1–2.2), the 40 steps with their step-decl, What changes, Creates,
+  Dependencies, Verification and build-delta parts, open gaps (plan section 15) and
+  the post-completion check (plan section 16). `plan-phase-a-tests.md` (3,605 lines) holds
+  the plan's section 12 test specifications.
+- Dropped from the views, still in the plan: plan sections 3–6, 8–11, 13–14 (planning
   records: claim verification, collapse tests, decisions, question register,
   coverage and file tables) and each step's Source / Impact if wrong / Why
   paragraphs (1,281 lines).
