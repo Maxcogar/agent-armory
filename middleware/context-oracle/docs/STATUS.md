@@ -81,13 +81,6 @@ code are as they stood when the branch audit finished (`c00819e`).
   plan content would break one-fact-one-home.
 - The view reflects the plan as audited, not corrected. The plan correction
   (What to do next, item 2) has not started.
-- **Decided 2026-11-06 (process, OL-11): the plan correction works on the full
-  plan; the lean view is a reading aid only.** Reason: the project's
-  `.claude/skills/expert-plan/references/output-contract.md` requires per step
-  a Source, Why this approach and Impact if wrong (item 7), plus Verification of
-  factual claims (item 11) and a Question register (item 14) — the exact parts
-  the view drops — so a corrected plan must keep them, and the branch audit's
-  findings are written against them.
 
 **A post-audit correction attempt was removed.**
 - Commits `630d4b5` … `2c201a0` held a correction register, gap settlements, an
@@ -179,7 +172,16 @@ rejected both earlier options:
 
 ## Questions for Max Cogar (plain language)
 
-None open. The next thing he receives is the spec changes, for sign-off.
+- **Open since 2026-11-06:** Max Cogar wants the Phase A plan made manageable;
+  the lean view (`tools/extract_plan_core.py`) cuts it from 15,301 to 5,674
+  lines. The project's `.claude/skills/expert-plan/references/output-contract.md`
+  requires in every step a Source, Why this approach and Impact if wrong (item
+  7), and requires the plan to have a Verification of factual claims section
+  (item 11) and a Question register (item 14) — parts the view drops. Should the
+  plan correction produce a plan in the lean shape (planning records kept
+  outside the plan), or keep the full shape that output contract requires?
+
+Otherwise the next thing he receives is the spec changes, for sign-off.
 
 ## Open items
 
