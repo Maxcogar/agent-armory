@@ -19,7 +19,7 @@ honest capability plus honest measurement, with clean seams the later phases plu
 into — **never fake completeness dressed to look like a working product.** Judge
 every Phase A decision against this goal (`CLAUDE.md` dominating rule 3).
 
-## Where the project stands (2026-10-03)
+## Where the project stands (2026-11-06)
 
 **Nothing built on this branch is trusted yet.** Max Cogar set the method:
 1. audit every change on the branch since its base `de66831`, along the
@@ -64,6 +64,23 @@ code are as they stood when the branch audit finished (`c00819e`).
   deleted on Max Cogar's instruction (`0c78075`). The installed versions apply.
 - How this session's coordinator failed Max Cogar: `docs/collapse-log.md`,
   2026-10-02 / 2026-10-03. Read it before doing anything.
+
+**The Phase A plan is 15,301 lines; a lean read-only view of it exists
+(2026-11-06).** Max Cogar found the plan unmanageable at that size.
+- `tools/extract_plan_core.py OUT_DIR` writes two derived views and never
+  modifies the plan. `plan-phase-a-core.md` (5,674 lines) holds goal, scope
+  (§2.1–2.2), the 40 steps with their step-decl, What changes, Creates,
+  Dependencies, Verification and build-delta parts, open gaps (§15) and the
+  post-completion check (§16). `plan-phase-a-tests.md` (3,605 lines) holds
+  the §12 test specifications.
+- Dropped from the views, still in the plan: §3–6, §8–11, §13–14 (planning
+  records: claim verification, collapse tests, decisions, question register,
+  coverage and file tables) and each step's Source / Impact if wrong / Why
+  paragraphs (1,281 lines).
+- The views are generated outside `docs/` and not committed: a second copy of
+  plan content would break one-fact-one-home.
+- The view reflects the plan as audited, not corrected. The plan correction
+  (What to do next, item 2) has not started.
 
 **A post-audit correction attempt was removed.**
 - Commits `630d4b5` … `2c201a0` held a correction register, gap settlements, an
@@ -155,7 +172,12 @@ rejected both earlier options:
 
 ## Questions for Max Cogar (plain language)
 
-None open. The next thing he receives is the spec changes, for sign-off.
+- **Open since 2026-11-06:** should the lean plan view
+  (`tools/extract_plan_core.py`) replace the full plan as the document the
+  plan correction works on, with the dropped planning records left as
+  history? Or does the correction keep working on the full 15,301-line plan?
+
+Otherwise the next thing he receives is the spec changes, for sign-off.
 
 ## Open items
 
