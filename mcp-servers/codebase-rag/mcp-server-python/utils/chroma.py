@@ -54,6 +54,29 @@ def invalidate(persist_path: str) -> None:
         _clients.pop(persist_path, None)
 
 
+def close(persist_path: str) -> None:
+    """Drop the cached client for `persist_path` and stop its chroma System.
+
+    Stopping releases the SQLite and segment file handles, which Windows
+    requires before the directory can be deleted. Chroma keeps Systems in a
+    process-wide registry keyed by client identifier; there is no public
+    per-path close in chromadb 0.6, hence the private attributes (the
+    version is pinned in requirements.txt).
+    """
+    persist_path = os.path.abspath(persist_path)
+    with _lock:
+        client = _clients.pop(persist_path, None)
+    if client is None:
+        return
+    try:
+        from chromadb.api.shared_system_client import SharedSystemClient
+        system = SharedSystemClient._identifier_to_system.pop(client._identifier, None)
+        if system is not None:
+            system.stop()
+    except Exception as e:
+        log.warning("could not stop chroma client for %s: %s", persist_path, e)
+
+
 def warmup_embedding_model() -> Optional[str]:
     """Force the default embedding model to download/load.
 

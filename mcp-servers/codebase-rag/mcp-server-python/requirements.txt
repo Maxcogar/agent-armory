@@ -1,5 +1,7 @@
 mcp>=1.0,<2
-chromadb~=0.5
+# Pinned: utils/hnsw_check.py validates the chroma-hnswlib 0.7.6 on-disk format
+# (chromadb 0.6.3 requires exactly that), and utils/chroma.close uses 0.6 internals.
+chromadb==0.6.3
 pyyaml~=6.0
 pydantic~=2.0
 watchdog~=4.0
