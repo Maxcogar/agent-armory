@@ -42,8 +42,12 @@ every Phase A decision against this goal (`CLAUDE.md` dominating rule 3).
 - What: all 1,142 lines, split into 269 units.
 - How: each part had a first audit, a second opinion and an adjudication,
   verified by the coordinator.
-- Result: 146 lines stand, 106 need changing, 2 are removed and 8 cannot be
-  settled until Max Cogar answers or a measurement is made.
+- Result: 146 lines stand, 106 need changing, 2 are removed and 8 were left
+  undetermined. The two owner decisions among them, b E-38 and b E-77, are
+  answered by Max Cogar's 2026-10-02 answers (`OWNER-LEDGER.md` OL-C11,
+  OL-C12). b E-36, c E-35 and b E-78 are engineering lines that were waiting
+  on those answers. b E-90 needs an engineering comparison. b E-41 and c E-33
+  need a measurement or a cited source.
 - Record: `docs/reviews/2026-09-29-spec-audit-verification.md`, which also
   records two errors (one the coordinator's own) and reconciles the three parts.
 
