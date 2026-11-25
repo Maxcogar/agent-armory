@@ -19,7 +19,7 @@ honest capability plus honest measurement, with clean seams the later phases plu
 into — **never fake completeness dressed to look like a working product.** Judge
 every Phase A decision against this goal (`CLAUDE.md` dominating rule 3).
 
-## Where the project stands (2026-10-03)
+## Where the project stands (2026-11-06)
 
 **Nothing built on this branch is trusted yet.** Max Cogar set the method:
 1. audit every change on the branch since its base `de66831`, along the
@@ -64,6 +64,35 @@ code are as they stood when the branch audit finished (`c00819e`).
   deleted on Max Cogar's instruction (`0c78075`). The installed versions apply.
 - How this session's coordinator failed Max Cogar: `docs/collapse-log.md`,
   2026-10-02 / 2026-10-03. Read it before doing anything.
+
+**The Phase A plan is 15,301 lines; a lean read-only view of it exists
+(2026-11-06).** Max Cogar found the plan unmanageable at that size.
+- `tools/extract_plan_core.py OUT_DIR` writes two derived views and never
+  modifies the plan. `plan-phase-a-core.md` (5,674 lines) holds goal, scope
+  (plan sections 2.1–2.2), the 40 steps with their step-decl, What changes, Creates,
+  Dependencies, Verification and build-delta parts, open gaps (plan section 15) and
+  the post-completion check (plan section 16). `plan-phase-a-tests.md` (3,605 lines) holds
+  the plan's section 12 test specifications.
+- Dropped from the views, still in the plan: plan sections 3–6, 8–11, 13–14 (planning
+  records: claim verification, collapse tests, decisions, question register,
+  coverage and file tables) and each step's Source / Impact if wrong / Why
+  paragraphs (1,281 lines).
+- The views are generated outside `docs/` and not committed: a second copy of
+  plan content would break one-fact-one-home.
+- The view reflects the plan as audited, not corrected. The plan correction
+  (What to do next, item 2) has not started.
+- **Decided 2026-11-06 (process, OL-11): the corrected plan takes the lean
+  shape.** The plan file holds goal, scope, each step's step-decl, What
+  changes, Creates, Dependencies and Verification, open gaps and the
+  post-completion check. Each step's Source, Why this approach and Impact if
+  wrong, the Verification of factual claims and the Question register move,
+  whole, to a companion record file beside the plan. Reason: Max Cogar asked
+  for the plan made "far more manageable" without "toss[ing] it all out or
+  blindly prun[ing] it"; the split satisfies both (nothing is deleted, the
+  plan a builder reads drops from 15,301 to about 5,700 lines). This departs
+  from `.claude/skills/expert-plan/references/output-contract.md` items 7, 11
+  and 14, which require those parts inside the plan; the plan correction
+  states that departure and this reason where it applies it.
 
 **A post-audit correction attempt was removed.**
 - Commits `630d4b5` … `2c201a0` held a correction register, gap settlements, an
@@ -163,3 +192,9 @@ None open. The next thing he receives is the spec changes, for sign-off.
   Actions runner image.
 - **L11(a) and L11(b):** the two transcript and hook-contract premises the plan
   resolves in the exit run.
+- **Hooks-documentation drift (found 2026-11-06, CI `check-plan`):** probe
+  `13_hooks_reference` now reports two phrases ABSENT from the live Claude Code
+  hooks reference: "When you submit a prompt" (Hook lifecycle) and "On
+  PreToolUse , by contrast" (PreModelSwitch decision control). The plan's
+  premises that cite them need re-verification in the plan correction; the
+  probe's expected file is not edited to turn CI green.
